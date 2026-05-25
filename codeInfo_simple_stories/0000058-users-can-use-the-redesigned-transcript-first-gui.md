@@ -4,111 +4,177 @@
 
 1. Users can work in `Chat`, `Agents`, and `Flows` through one shared desktop workspace shell and one shared mobile workspace model.
 2. Users can read longer conversations with more vertical transcript space and a bottom-anchored composer.
-3. Users can scroll up to older transcript content without being snapped back to the newest message when new activity arrives.
-4. Users can use message `Copy` actions that copy only the visible message content and not footer metadata such as status, timing, or provider details.
-5. Users can keep the current `Chat`, `Agents`, and `Flows` behavior they already know, including resumed-conversation rules, selector resets, and fresh-run versus resume distinctions.
+3. Users can open an existing conversation at the newest visible content and keep their place when they scroll up to older messages.
+4. Users can use message `Copy` actions that copy only the visible message content and not footer metadata.
+5. Users can keep the current supported `Chat`, `Agents`, and `Flows` behavior they already know, including resumed-conversation rules, selector resets, and fresh-run versus resume distinctions.
 6. Users can use `Home` as the main system-status page for provider state, auth entry points, and LM Studio controls.
 7. Users can still open old `/lmstudio` bookmarks and land in `Home` with the LM Studio section visible.
 8. Users can use `Ingest` and `Logs` through the new utility-page layout without changing the existing ingest or logging behavior.
 9. Users can rely on the supported runtime to pick up host-backed Codex auth state again in the main and e2e stacks.
-10. Users cannot accidentally submit duplicate fresh flow runs from a rapid double-click before the disabled state appears.
-11. Users cannot start a second logical fresh flow run when they retry after an ambiguous lost response from an already accepted launch.
-12. Users can retry a fresh flow launch after an early startup failure without inheriting stale remembered ownership from a launch that never became durable.
-13. Users and operators can rely on the documented host Codex-home launcher contract instead of being silently forced onto a checked-in fallback path.
-14. Support and engineering reviewers can trust the rollout because the story closes with wrapper-first build, test, compose, browser, and final review revalidation for both the main redesign and the review-created follow-up fixes.
+10. Users cannot accidentally submit duplicate fresh flow runs from rapid retries, ambiguous replays, or stale retry ownership.
+11. Users and operators can rely on the documented host Codex-home launcher contract instead of a silent fallback runtime path.
+12. Users get the final desktop and mobile shell, conversation-row, transcript, and composer polish promised by the Story 58 design contract.
+13. Users cannot select arbitrary mounted working folders unless the application can still prove the folder belongs to an ingested repository under the intended contract.
+14. Users do not lose a newer saved working-folder choice because an older restore or cleanup path clears stale state.
+15. Users cannot let a contradictory fresh-run replay or weaker resumed child-provider history silently overwrite the accepted parent flow identity.
+16. Users keep an accepted flow or agent launch visible even if the follow-up conversation refresh fails.
+17. Users do not see a stale aborted conversation request clear loading state for a newer in-flight request.
+18. Support and reviewers can rely on refreshed retained visual proof and one final regression pass that covers the redesign plus the later review-created fixes.
 
 # Description
 
-This story redesigns CodeInfo2 around a transcript-first interface so the main workspaces feel like one coherent product instead of separate admin-style pages. It gives users more room to read and work in conversations, moves global runtime setup into `Home`, keeps old LM Studio links working, and preserves the current supported chat, agent, flow, ingest, and log behavior. The final tasked version of the story also includes the follow-up runtime and flow-safety fixes needed to keep Codex auth seeding reliable, prevent duplicate fresh flow launches from rapid replays, release stale retry ownership after a failed pre-launch start, and restore the documented host launcher contract before the story closes.
+This story reshapes CodeInfo2 into a transcript-first product with more usable workspace space, shared desktop and mobile shells, and a clearer split between day-to-day conversation work and global runtime setup. It moves global status into `Home`, modernizes the workspace shells, transcript surfaces, conversation panes, and composers, and preserves the existing chat, agent, flow, ingest, and logging behaviors people already depend on. The final tasked version of the story also includes the later runtime, flow-safety, state-management, working-folder, and retained-proof fixes that were required by review before the redesign can close safely.
 
 # Tasks
 
 1. [codeInfo2] - Restyle shared transcript rows and isolate copy payloads
-
-- Update the shared transcript row components so all workspace pages use one transcript presentation.
-- Add proof that copy actions include only visible message content and keep the scroll behavior contract honest.
+- Update the shared transcript components under `client/src/components/chat`.
+- Extend transcript proof so copy output and scroll behavior stay honest.
 
 2. [codeInfo2] - Repair the shared client lint baseline and React compiler policy
-
-- Fix the shared client lint and compiler baseline so the redesign can land on a stable frontend foundation.
-- Keep the repo-wide client quality rules aligned before later layout tasks build on them.
+- Fix the shared client lint and compiler baseline before larger UI work builds on it.
+- Keep the repo-wide frontend quality rules stable for later redesign tasks.
 
 3. [codeInfo2] - Build the shared workspace shell and conversation pane chrome
-
-- Create the reusable desktop and mobile workspace shell, app rail, and conversation-pane structure.
-- Prove shell layout, space reclaim, and state retention before page-specific adapters plug into it.
+- Create the reusable desktop and mobile workspace shell, rail, and conversation-pane structure.
+- Prove shared layout and state retention before page-specific adapters plug in.
 
 4. [codeInfo2] - Adapt Chat to the shared workspace shell and bottom composer
-
-- Move `Chat` into the shared shell and bottom composer without changing the conversation model.
-- Preserve resumed-chat identity, provider and model rules, and working-folder behavior through focused proof.
+- Move `Chat` into the shared shell and bottom-composer family.
+- Preserve resumed-chat identity, provider rules, and working-folder behavior.
 
 5. [codeInfo2] - Adapt Agents to the shared workspace shell while preserving selector resets
-
 - Move `Agents` into the shared shell and composer pattern.
-- Keep agent, command, and step reset behavior plus prompt-discovery rules explicit in proof.
+- Keep agent, command, and step reset behavior explicit in proof.
 
 6. [codeInfo2] - Adapt Flows to the shared workspace shell while preserving resume semantics
-
-- Move `Flows` into the shared shell and composer pattern while keeping fresh-run and resume behavior separate.
-- Preserve custom-title and resume payload rules through targeted client proof.
+- Move `Flows` into the shared shell and composer pattern.
+- Preserve fresh-run, resume, and custom-title semantics through focused proof.
 
 7. [codeInfo2] - Build the utility status shell and move LM Studio into Home
-
-- Create the shared utility-page shell and migrate provider status, auth entry points, and LM Studio controls into `Home`.
-- Preserve the committed-versus-draft LM Studio base-URL lifecycle and prove the new status-page ownership model.
+- Rework `Home` into the shared status page for runtime, auth, and LM Studio controls.
+- Preserve the committed-versus-draft LM Studio base URL lifecycle.
 
 8. [codeInfo2] - Apply the utility shell to Ingest and Logs
-
-- Move `Ingest` and `Logs` into the shared utility-page layout without changing backend behavior.
-- Keep the current alerts, filters, and operational controls intact through layout-level proof.
+- Move `Ingest` and `Logs` into the shared utility-page layout.
+- Keep the current ingest and log behavior unchanged while updating the shell.
 
 9. [codeInfo2] - Replace top tabs with the shared navigation model and `/lmstudio` compatibility redirect
-
-- Remove the old top-tab navigation and switch the visible route chrome to the shared navigation model.
-- Redirect `/lmstudio` into `Home` and prove direct navigation, refresh, and bookmarks still work.
+- Remove the old top-tab navigation and switch to the shared navigation model.
+- Redirect `/lmstudio` into `Home` without breaking bookmarks or refresh behavior.
 
 10. [codeInfo2] - Final Story 58 validation and close-out
-
-- Re-run the full redesign validation path and refresh the reviewer-facing closeout summary.
-- Keep traceability, wrapper evidence, and final proof ownership honest for the base redesign rollout.
+- Re-run the base redesign validation path once the first shell and route work lands.
+- Refresh the closeout summary so wrapper evidence and proof ownership stay clear.
 
 11. [codeInfo2] - Restore host-backed Codex auth seeding for main and e2e stacks
-
-- Repair the compose and startup bootstrap contract so `/host/codex` is a real host-backed seed source again.
-- Add targeted server, runtime, and guidance proof so the supported auth-seeding path is trustworthy.
+- Repair the compose and startup bootstrap contract for host-backed Codex auth seeding.
+- Add targeted server and runtime proof for the supported auth-seeding path.
 
 12. [codeInfo2] - Add a real replay barrier for fresh flow runs
-
-- Patch the fresh flow launch seam so one logical new-run intent cannot submit twice before the disabled state commits.
-- Prove the replay barrier without breaking resume behavior, payload shaping, or retry-ready reset behavior.
+- Patch the fresh flow launch seam so one logical new-run intent cannot submit twice.
+- Prove the replay barrier without breaking resume behavior or payload shaping.
 
 13. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260520T055359Z-8bffd025`
-
-- Re-run the full current-repository regression pass after the Codex auth and replay-barrier fixes are complete.
-- Refresh the final review-cycle summary so the serious findings and inline minor fixes from this review pass close with one final proof owner.
+- Re-run broad regression after the Codex auth and replay-barrier fixes land.
+- Keep one final proof owner for that review cycle and its inline minor fix.
 
 14. [codeInfo2] - Add fresh-run retry idempotency ownership after review pass `0000058-20260520T175414Z-385d67b3`
-
-- Patch the client and server flow-run seam so one fresh-run retry intent keeps one launch identity even after an ambiguous lost response.
-- Add focused client, server, Cucumber, and e2e proof that the retry returns the existing accepted launch instead of creating a second logical run.
+- Patch the client and server flow-run seam so one retry intent keeps one launch identity.
+- Add focused client, server, Cucumber, and e2e proof for retry ownership.
 
 15. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260520T175414Z-385d67b3`
-
-- Re-run the broad current-repository regression proof after the retry-ownership repair is complete.
-- Refresh the final review-cycle summary so the remaining task-required finding and the inline-resolved minor fixes close under one final revalidation owner.
+- Re-run broad regression after the retry-ownership repair is complete.
+- Refresh the review-cycle summary so the open finding and inline fixes close under one owner.
 
 16. [codeInfo2] - Release fresh-run retry ownership on pre-launch persistence failure after review pass `0000058-20260521T010700Z-65288aea`
-
-- Patch the server flow-launch lifecycle so remembered retry ownership is not left behind when the durable start never completes.
-- Keep the accepted replay path working for real in-flight launches while proving the cleaned-up fresh-run retry boundary.
+- Patch the server launch lifecycle so failed pre-launch starts do not leave stale retry ownership behind.
+- Keep accepted replay behavior working for real in-flight launches.
 
 17. [codeInfo2] - Restore the host Codex launcher contract after review pass `0000058-20260521T010700Z-65288aea`
-
-- Repair the checked-in env, compose, and README contract so the supported launcher path uses the documented host Codex-home fallback again.
-- Prove the repaired runtime contract through targeted contract tests plus main-stack compose smoke.
+- Repair the checked-in env, compose, and README contract for the host Codex-home launcher path.
+- Prove the launcher contract through targeted contract tests and compose smoke.
 
 18. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260521T010700Z-65288aea`
+- Re-run the broad current-repository regression pass after the latest review fixes land.
+- Refresh the review-cycle summary and final proof ownership for that pass.
 
-- Re-run the broad current-repository regression proof after the latest review-created repairs land.
-- Refresh the final review-cycle summary so the open task-required findings and the inline-resolved minor fix close under one final revalidation owner.
+19. [codeInfo2] - Re-validate Story 58 after inline minor review fixes
+- Re-run final automation for the inline fix that hides fake Home runtime-selection state.
+- Keep one broad proof owner for that clean minor-fix review cycle.
+
+20. [codeInfo2] - Re-validate Story 58 after inline minor review fixes
+- Re-run final automation for the inline fixes covering transcript debug logging and archive-delete safety.
+- Keep the proof-owner notes aligned with the resolved minor findings.
+
+21. [codeInfo2] - Make the desktop app rail match the final workspace navigation design without changing the mobile app menu
+- Refine the desktop app rail to match the approved Story 58 workspace design.
+- Keep mobile navigation behavior out of scope for this task.
+
+22. [codeInfo2] - Redesign shared conversation rows to match the final desktop and mobile metadata model
+- Rework shared conversation rows in `client/src/components/chat/ConversationList.tsx`.
+- Preserve filters, archive actions, and conversation selection while changing the row presentation.
+
+23. [codeInfo2] - Make the shared conversation controls and mobile conversations overlay match the final design contract
+- Tighten the shared conversation controls and the mobile conversations overlay chrome.
+- Keep the overlay behavior and row-level actions consistent with the final contract.
+
+24. [codeInfo2] - Make the mobile app menu match the final full-screen navigation design without changing the desktop rail
+- Rebuild the mobile app menu into the full-screen navigation model.
+- Leave the desktop rail behavior unchanged while proving the mobile path.
+
+25. [codeInfo2] - Rebuild the shared assistant and user transcript surfaces to match the final desktop and mobile reading design
+- Restyle the shared transcript bubbles, footer surfaces, and reading layout.
+- Preserve the shared transcript data path while updating the visual contract.
+
+26. [codeInfo2] - Polish the Chat transcript chrome and conversations pane to match the final desktop and mobile contract
+- Apply the final Chat-specific transcript, footer, and conversation-pane polish.
+- Refresh focused client and browser proof for the accepted Chat contract.
+
+27. [codeInfo2] - Build the shared composer shell and migrate the Chat composer to the final desktop and mobile design
+- Create the shared composer shell and move `Chat` onto it.
+- Prove the final desktop and mobile composer behavior through shared and Chat-focused proof.
+
+28. [codeInfo2] - Migrate the Agents composer onto the shared composer shell and match the final Agents footer contract
+- Move the `Agents` composer onto the shared shell and final footer layout.
+- Preserve selector resets, prompts, and current agent-specific footer behavior.
+
+29. [codeInfo2] - Migrate the Flows composer onto the shared composer shell and match the final Flows footer contract
+- Move the `Flows` composer onto the shared shell and final footer layout.
+- Keep the shared arrow action meaning explicit for fresh runs versus resumes.
+
+30. [codeInfo2] - Unify the mobile top bar and remove bulky mobile shell padding across workspace and utility pages
+- Tighten the mobile shell spacing and top-bar behavior across the redesign surfaces.
+- Keep the mobile shell family visually consistent across workspace and utility pages.
+
+31. [codeInfo2] - Reverse the shared transcript reading order and open existing conversations at the latest content while preserving Story 49 virtualization
+- Switch the shared transcript to chronological top-to-bottom reading order.
+- Preserve virtualization, pinned-bottom logic, and scroll-away stability while landing existing conversations at the newest content.
+
+32. [codeInfo2] - Repair server unit summary wrapper environment inheritance for final Story 58 proof
+- Fix the server unit summary wrapper environment inheritance before final proof depends on it.
+- Keep the final proof path aligned with the repo-supported wrapper contract.
+
+33. [codeInfo2] - Run final automated validation and manual Story 58 proof for the full story 58 redesign
+- Re-run the broad automated validation path for the full redesign.
+- Refresh the retained manual proof and closeout notes for the main Story 58 rollout.
+
+34. [codeInfo2] - Restore shared working-folder validation and stale-clear ownership after review pass `0000058-20260525T060243Z-e4ce8252`
+- Repair the shared working-folder validator and stale-clear ownership in the server working-folder seam.
+- Add focused unit and integration proof for repository membership and stale cleanup ordering.
+
+35. [codeInfo2] - Repair flow run request identity and resume provider precedence after review pass `0000058-20260525T060243Z-e4ce8252`
+- Repair fresh-run replay ownership and resume provider precedence in the server flow-run seam.
+- Add focused integration proof for contradictory replay rejection and parent-versus-child provider precedence.
+
+36. [codeInfo2] - Stabilize accepted-launch UI state and shared conversation loading after review pass `0000058-20260525T060243Z-e4ce8252`
+- Repair accepted-launch refresh-failure behavior and stale-abort loading races in the shared client lifecycle.
+- Add focused client proof for both workspace launch surfaces and the shared conversations hook.
+
+37. [codeInfo2] - Refresh retained Story 58 visual proof after review pass `0000058-20260525T060243Z-e4ce8252`
+- Refresh the retained desktop and mobile Story 58 proof bundle and its supporting notes.
+- Keep the proof tied to the checked-in main stack and durable retained artifact locations.
+
+38. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260525T060243Z-e4ce8252`
+- Re-run the broad server, client, browser, compose, lint, and format proof for the final review-created findings block.
+- Close the cycle with one final revalidation owner that also rechecks the inline minor fixes and retained proof chain.

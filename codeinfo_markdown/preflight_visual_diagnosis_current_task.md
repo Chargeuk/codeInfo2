@@ -17,7 +17,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 - Treat the stored `plan_path` and `additional_repositories` as the primary scope for this step.
 - Expand beyond that primary scope only when needed to inspect a supporting repository for honest visual diagnosis, and report any such scope expansion in the response.
 - Re-open the exact relative `plan_path` from disk before deciding what to inspect or edit.
-- Read the bound task's full task block from the plan, including:
+- If `current-task.json` clearly resolves a trustworthy bound task, read that task's full task block from the plan, including:
   - `Overview`
   - `Non-Goals`
   - `Task Exit Criteria`
@@ -25,7 +25,7 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `Task Design Packet`
   - `Subtasks`
   - `Manual Testing Guidance`
-- Treat every listed subtask as in scope for this refinement pass.
+- If a trustworthy bound task was resolved, treat every listed subtask as in scope for this refinement pass.
 - Do not rewrite task ownership.
 - Do not create a different candidate task.
 - Do not narrow task scope.
@@ -41,7 +41,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 - If `current-task.json` does not clearly resolve a bound task, or if `check_current_task_handoff.py` shows the persisted handoff is no longer valid, stop further investigation, but still return the full `output_contract`.
 - For that stale-handoff case:
   - state `current-task handoff is stale and must be regenerated`
-  - set `Applicability` to `visual refinement not applicable`
+  - set `Applicability` to `current-task handoff stale`
   - in `Task`, state explicitly that no trustworthy bound task was available because the current-task handoff was stale
   - fill every remaining required output-contract section with `not run` or `n/a` as appropriate
 - If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop further visual refinement work, but still return the full `output_contract`.
@@ -149,7 +149,10 @@ Return a concise report with these exact sections:
    - or an explicit statement that no trustworthy bound task was available because the current-task handoff was stale
 
 2. `Applicability`
-   - either `visual refinement applied` or `visual refinement not applicable`
+   - one of:
+     - `visual refinement applied`
+     - `visual refinement not applicable`
+     - `current-task handoff stale`
 
 3. `Runtime`
    - whether you restarted the main stack
@@ -192,7 +195,7 @@ Return a concise report with these exact sections:
 - Confirm you ran `check_current_task_handoff.py`.
 - Confirm you used the persisted task from `current-task.json` as the bound task when it clearly resolved one.
 - Confirm you re-opened the plan from disk.
-- Confirm you treated every existing subtask as in scope.
+- Confirm you treated every existing subtask as in scope when a trustworthy bound task was resolved.
 - Confirm you returned the full `output_contract` even when an early-exit condition applied.
 - Confirm you exited early without plan edits if the task had no visual surface.
 - Confirm you used Chrome DevTools first for diagnosis and Playwright for retained screenshots when useful.

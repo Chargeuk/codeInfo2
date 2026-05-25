@@ -12,12 +12,13 @@ Before implementation starts on the current task, inspect the live supported UI 
 - When selector stdout JSON is available, treat the `current-task.json` disk read as a persistence check and stop if the two disagree.
 - Determine the meaning of `current-task.json` from what it contains rather than depending on an exact JSON shape.
 - Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its JSON output to validate whether the persisted handoff is currently valid.
+- In this step, a `validator-cleared bound task` means a task that `current-task.json` clearly resolves and that `check_current_task_handoff.py` does not invalidate.
 - If `current-task.json` clearly resolves a task and `check_current_task_handoff.py` does not invalidate the persisted handoff, use that persisted task as the authoritative bound task for this step.
 - If `check_current_task_handoff.py` reports an `active_selected_task`, you may mention it as freshness or diagnostic context, but do not let it override a clearly resolved persisted task from `current-task.json`.
 - Treat the stored `plan_path` and `additional_repositories` as the primary scope for this step.
 - Expand beyond that primary scope only when needed to inspect a supporting repository for honest visual diagnosis, and report any such scope expansion in the response.
 - Re-open the exact relative `plan_path` from disk before deciding what to inspect or edit.
-- If `current-task.json` clearly resolves a trustworthy bound task, read that task's full task block from the plan, including:
+- If a `validator-cleared bound task` was resolved, read that task's full task block from the plan, including:
   - `Overview`
   - `Non-Goals`
   - `Task Exit Criteria`
@@ -25,7 +26,7 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `Task Design Packet`
   - `Subtasks`
   - `Manual Testing Guidance`
-- If a trustworthy bound task was resolved, treat every listed subtask as in scope for this refinement pass.
+- If a `validator-cleared bound task` was resolved, treat every listed subtask as in scope for this refinement pass.
 - Do not rewrite task ownership.
 - Do not create a different candidate task.
 - Do not narrow task scope.
@@ -48,7 +49,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 - For that stale-handoff case:
   - state `current-task handoff is stale and must be regenerated`
   - set `Applicability` to `current-task handoff stale`
-  - in `Task`, state explicitly that no trustworthy bound task was available because the current-task handoff was stale
+  - in `Task`, state explicitly that no `validator-cleared bound task` was available because the current-task handoff was stale
   - fill every remaining required output-contract section with `not run` or `n/a` as appropriate
 - If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop further visual refinement work, but still return the full `output_contract`.
 - For that visual-not-applicable case:
@@ -153,7 +154,7 @@ Return a concise report with these exact sections:
 1. `Task`
    - task number and title
    - or an explicit statement that no bound task was available because the story is complete
-   - or an explicit statement that no trustworthy bound task was available because the current-task handoff was stale
+   - or an explicit statement that no `validator-cleared bound task` was available because the current-task handoff was stale
    - when `Applicability` is `visual refinement not applicable`, include the one-sentence reason tied to the current task's own exit criteria here
 
 2. `Applicability`
@@ -204,7 +205,7 @@ Return a concise report with these exact sections:
 - Confirm you ran `check_current_task_handoff.py`.
 - Confirm you used the persisted task from `current-task.json` as the bound task only when it clearly resolved one and the validator did not invalidate the persisted handoff.
 - Confirm you re-opened the plan from disk.
-- Confirm you treated every existing subtask as in scope when a trustworthy bound task was resolved.
+- Confirm you treated every existing subtask as in scope when a `validator-cleared bound task` was resolved.
 - Confirm you returned the full `output_contract` even when an early-exit condition applied.
 - Confirm you reported `story complete` separately from `current-task handoff stale` when `current-task.json` indicated that no task was available because the story was complete.
 - Confirm you exited early without plan edits if the task had no visual surface.

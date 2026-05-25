@@ -4864,8 +4864,16 @@ Capture the retained desktop and mobile Chat proof only from a fresh browser con
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 34, Task 35, Task 36, Task 37`
 - Task Status: `__to_do__`
-- Addresses Findings:
-  - `finding-1`, `finding-2`, `finding-3`, `finding-6`, `finding-7`, `finding-9`, and `finding-12` from review pass `0000058-20260525T060243Z-e4ce8252`
+
+#### Affected Repositories
+
+- `Current Repository`: owns the full broad regression proof for review-created findings `finding-1`, `finding-2`, `finding-3`, `finding-6`, `finding-7`, `finding-9`, and `finding-12`, plus inline-resolved minor findings `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13` from review cycle `0000058-rc-20260525T082128Z-2279fe86`.
+
+No additional repositories are in scope for this review cycle. Validation scope for this task is driven by `Affected Repositories`, not by `Repository Name` alone.
+
+#### Addresses Findings
+
+- `finding-1`, `finding-2`, `finding-3`, `finding-6`, `finding-7`, `finding-9`, and `finding-12` from review pass `0000058-20260525T060243Z-e4ce8252`
 - Also Revalidates Inline Minor Findings For Review Cycle `0000058-rc-20260525T082128Z-2279fe86`:
   - `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13` already recorded in `## Minor Review Fixes`
 
@@ -4886,13 +4894,16 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 - The final revalidation pass explicitly rechecks the current review-created findings block for review pass `0000058-20260525T060243Z-e4ce8252`, including exact-match replay versus contradictory replay reuse, parent-present versus parent-missing resume provider precedence, accepted launch from a previously selected conversation surviving refresh failure on both workspace surfaces, and request-A/request-B stale-abort loading behavior, as well as the six inline minor fixes already recorded for review cycle `0000058-rc-20260525T082128Z-2279fe86`.
 - Story 58 retained manual proof, including the refreshed visual-proof chain, is honest and current after the review-created repairs land.
 - Only repository-owned retained artifacts and supporting notes count as final close-out proof for this cycle; scratch screenshot staging and wrapper stdout summaries alone do not satisfy final revalidation.
+- The final pass records explicitly that no additional repository was in scope for this review-created findings block and that the full broad proof remained current-repository owned even though it spans server validation, server lifecycle, client mixed-state, retained-proof, and browser-path regression surfaces.
+- `codeInfoStatus/flow-state/review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title`, keeps `final_revalidation_owned_by_task_up_path: true`, and leaves `needs_final_minor_fix_revalidation_task: false`, so this review cycle cannot accidentally create a second final revalidation owner.
 
 #### Proof Mapping
 
-- `P1.` Review-created server repair regression proof: proof homes are the server build, unit, and cucumber wrappers rerun by this task.
-- `P2.` Review-created client repair regression proof: proof homes are the client build, client test, and e2e wrappers rerun by this task.
-- `P3.` Supported-stack retained-proof and manual-validation proof: proof homes are the compose wrappers plus the refreshed Story 58 retained proof and support notes kept by this review cycle.
-- `P4.` Review-cycle routing and inline-minor coverage proof: proof homes are this task, the current review-created findings block, `## Minor Review Fixes`, and `codeInfoStatus/flow-state/review-disposition-state.json`.
+- `P1.` current-repository server build proof for the review-created findings block: proof home is `logs/test-summaries/build-server-latest.log`.
+- `P2.` current-repository server unit and integration proof for the review-created findings block: proof homes are the latest `test-results/server-unit-tests-*.log` and the latest `test-results/server-cucumber-tests-*.log`.
+- `P3.` current-repository client build, client regression, and browser-path proof for the review-created findings block: proof homes are `logs/test-summaries/build-client-latest.log`, the latest `test-results/client-tests-*.log`, the latest `test-results/client-tests-*.json`, and `logs/test-summaries/e2e-tests-latest.log`.
+- `P4.` supported-stack retained-proof and runtime-handoff proof: proof homes are `logs/test-summaries/compose-build-latest.log`, the terminal output from `npm run compose:up` and `npm run compose:down`, plus the refreshed Story 58 retained proof and support notes kept under `codeInfoStatus/manual-proof/0000058/`.
+- `P5.` review-cycle routing, no-additional-repository applicability, and inline-minor coverage proof: proof homes are this task, the current review-created findings block, `## Minor Review Fixes`, and `codeInfoStatus/flow-state/review-disposition-state.json`.
 
 #### Visual Proof Map
 
@@ -4916,10 +4927,9 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 #### Subtasks
 
 1. [ ] Current Repository: Re-read this review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and the current `## Minor Review Fixes` entries for `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`; check off this subtask only after `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Current Repository: Update the final proof-summary text in `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md` so it names the current review pass, review cycle, review-created Tasks 34 through 38, the inline minor-fix coverage, and this one final revalidation owner before broad regression proof closes the loop.
-3. [ ] Current Repository: Update any directly related retained-proof notes under `codeInfoStatus/manual-proof/0000058/` so the final proof chain points at the repository-owned desktop/mobile retained artifacts and makes the scratch-staging-versus-kept-artifact distinction explicit for this review cycle.
-4. [ ] Current Repository: Add or update the explicit retained-proof acceptance wording in the plan-side proof summary and retained-proof notes so they say only repository-owned desktop/mobile artifacts and supporting notes count as final Story 58 proof, and scratch-only staging output never does.
-5. [ ] Current Repository: Add or update the supported-stack runtime handoff note in the plan-side proof summary or retained-proof notes so it names the wrapper-owned startup path, the checked-in compose env files (`server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`), the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs (`manual_testing/codeinfo_agents -> /app/codeinfo_agents`, `manual_testing/codex_agents -> /app/codex_agents`), the read-only ingest namespace (`${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data`), and the retained artifact destination that must receive the kept proof.
+2. [ ] Current Repository: Update the final proof-summary text in `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md` so it names the current review pass, review cycle, review-created Tasks 34 through 38, the inline minor-fix coverage, this one final revalidation owner, and the explicit no-additional-repositories applicability decision before broad regression proof closes the loop.
+3. [ ] Current Repository: Update the directly related retained-proof notes under `codeInfoStatus/manual-proof/0000058/` so the final proof chain points at the repository-owned desktop/mobile retained artifacts, states that scratch-staging output never counts as final Story 58 proof by itself, and records the supported-stack runtime handoff details needed for later closeout: wrapper-owned startup path, checked-in compose env files (`server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`), expected `http://localhost:5010/health` readiness check, user-facing `http://localhost:5001` surface, mounted manual agent catalogs (`manual_testing/codeinfo_agents -> /app/codeinfo_agents`, `manual_testing/codex_agents -> /app/codex_agents`), read-only ingest namespace (`${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data`), and the retained artifact destination that must receive the kept proof.
+4. [ ] Current Repository: Re-open this task, the refreshed plan-side proof summary, the retained-proof notes, and `codeInfoStatus/flow-state/review-disposition-state.json`, then compare them against Tasks 34 through 37 so the broad proof story still agrees on the current review pass id, the active review cycle id, the current-repository-only applicability decision, the review-created findings block, the inline minor fixes already covered by this cycle, and the exact final-task ownership keys before wrapper execution begins.
 
 #### Testing
 

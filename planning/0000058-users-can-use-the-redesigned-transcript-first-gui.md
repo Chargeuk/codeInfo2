@@ -4634,11 +4634,11 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `finding-2` and `finding-3`, then inspect the shared working-folder helpers plus the chat, agents, and flows callers to restate the intended repository-membership boundary and the stale-clear ownership contract before editing code.
-2. [ ] Current Repository: Update `server/src/workingFolders/state.ts` and any directly affected callers so the shared validator rejects mounted execution-root subdirectories that were never proven as ingested repositories, while preserving the existing intentional degraded-path handling for missing mounts and saved-folder restoration.
-3. [ ] Current Repository: Update the persisted clear path in the shared helper and Mongo seam so the restore branch only unsets the same saved working-folder value it inspected, or an equivalent compare-and-swap write makes that ownership check durable at write time.
-4. [ ] Current Repository: Re-check the chat, agents, and flows callers after the shared-helper edits so they still map degraded restore outcomes, validation errors, and repository-owned acceptance paths onto the intended route/service behavior instead of reviving the old broad fallback through a caller-specific shortcut.
-5. [ ] Current Repository: Add or update focused proof for both seams: unit proof that a non-ingested mounted path stays rejected across the shared validator surfaces, and integration proof that a stale restore branch cannot wipe a newer persisted working-folder value on the flow-owned restore path.
+1. [ ] Current Repository: Re-read `finding-2` and `finding-3`, then trace the shared contract across `server/src/workingFolders/state.ts`, `server/src/mongo/repo.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` so the repair keeps one repository-membership rule and one stale-clear owner.
+2. [ ] Current Repository: Patch `server/src/workingFolders/state.ts` plus the directly affected chat and agents call sites so a mounted execution-root child path stays rejected until an ingested-repository lookup proves ownership, while the existing missing-mount and degraded-restore allowances still behave exactly as intended.
+3. [ ] Current Repository: Patch the stale-clear persistence seam in `server/src/workingFolders/state.ts` and `server/src/mongo/repo.ts` so restore cleanup only unsets the exact saved working-folder value that was inspected, or an equivalent compare-and-swap write makes that ownership check durable at write time.
+4. [ ] Current Repository: Re-check `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` after the shared-helper edits so degraded restore outcomes, validation failures, and accepted repository-owned paths still map onto the intended route/service responses without reintroducing a caller-specific `/data` fallback.
+5. [ ] Current Repository: Add or update proof in `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-working-folder.test.ts`, and `server/src/test/integration/flows.run.working-folder.test.ts` so the kept assertions cover both seams: mounted-but-not-ingested rejection across the shared validator surfaces, and the stale-read then newer-save interleaving that previously let restore cleanup wipe a fresher saved folder.
 
 #### Testing
 
@@ -4696,11 +4696,11 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `finding-1` and `finding-12`, then inspect the fresh-run replay ownership path, resume hydration path, and persistence round-trip to restate which request-intent fields must remain authoritative for fresh runs and resumes.
-2. [ ] Current Repository: Update the fresh-run replay seam in `server/src/flows/service.ts` so the replay key either proves the full launch-defining payload still matches the original accepted request or rejects the contradictory second request before returning an accepted replay result.
-3. [ ] Current Repository: Update the resume hydration and persistence round-trip so the parent flow’s persisted requested-provider field remains the canonical source when parent and child history disagree, while the existing backfill path still fills a truly missing parent value from child history.
-4. [ ] Current Repository: Re-check the flow runtime-selection and persistence writers after the repair so the same authoritative provider field is used for both in-memory pinned selection and the later persisted resume state.
-5. [ ] Current Repository: Add or update focused integration proof for both seams: contradictory replay payload reuse and mixed parent-versus-child provider precedence through the persisted resume round-trip.
+1. [ ] Current Repository: Re-read `finding-1` and `finding-12`, then trace the authoritative request-intent fields across `server/src/routes/flowsRun.ts`, `server/src/flows/service.ts`, and the persisted resume state so the replay and resume fixes keep one source of truth for accepted launch identity.
+2. [ ] Current Repository: Patch the fresh-run replay seam in `server/src/flows/service.ts` so reusing a `retryOwnershipId` either proves every launch-defining field still matches the original accepted request or rejects the contradictory second payload before returning a replayed result.
+3. [ ] Current Repository: Patch the resume hydration and persistence round-trip in `server/src/flows/service.ts` so the parent flow’s persisted `requestedProviderId` stays canonical when parent and child history disagree, while the existing backfill path still fills a truly missing parent value from child history.
+4. [ ] Current Repository: Re-check the route-owned launch admission path and the flow runtime-selection/persistence writers so the same authoritative provider field and replay identity are used for both accepted runtime state and the later persisted resume state.
+5. [ ] Current Repository: Add or update integration proof in `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts` so the kept assertions cover the contradictory second-request replay case and the mixed parent-versus-child provider-precedence round-trip.
 
 #### Testing
 
@@ -4761,11 +4761,11 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `finding-6` and `finding-7`, then inspect `useConversations`, `FlowsPage`, and `AgentsPage` to restate the accepted-launch ownership boundary and the active-request loading-state boundary before changing code.
-2. [ ] Current Repository: Update the flow and agent launch handlers so the accepted run result, adopted conversation id, and conflict handling remain authoritative even when the later conversations refresh rejects; surface any refresh problem as a bounded follow-up state instead of a false failed-launch state.
-3. [ ] Current Repository: Update `useConversations` so the hook clears `isLoading` only for the active request/controller lifecycle, and stale aborted requests cannot flip loading state or related affordance gates for the replacement request.
-4. [ ] Current Repository: Re-check the shared conversations consumers after the hook change so the repaired loading-state contract still supports the existing list refresh, websocket upsert, and workspace navigation behavior instead of reviving a second stale-state path through a caller-specific shortcut.
-5. [ ] Current Repository: Add or update focused client proof for both seams: accepted-launch refresh failures on the flow and agent surfaces, and the stale-abort loading-state race in the shared conversations hook.
+1. [ ] Current Repository: Re-read `finding-6` and `finding-7`, then trace the accepted-launch and active-request boundaries across `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useConversations.ts`, and any directly involved conversations API helpers before changing code.
+2. [ ] Current Repository: Patch the flow and agent launch handlers in `client/src/pages/FlowsPage.tsx` and `client/src/pages/AgentsPage.tsx` so an accepted run result, adopted conversation id, and existing `RUN_IN_PROGRESS` conflict handling remain authoritative even when the later conversations refresh rejects; surface the refresh problem as bounded follow-up state instead of a false failed-launch state.
+3. [ ] Current Repository: Patch `client/src/hooks/useConversations.ts` so only the active request/controller lifecycle can clear `isLoading`, and a stale aborted request cannot flip loading state or related affordance gates for the replacement request.
+4. [ ] Current Repository: Re-check the shared conversations consumers and any touched API helpers after the hook change so list refresh, websocket upserts, and workspace navigation still follow the repaired active-request contract instead of reviving a second stale-state path through a caller-specific shortcut.
+5. [ ] Current Repository: Add or update focused client proof in `client/src/test/flowsPage.run.test.tsx`, `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`, and `client/src/test/useConversations.loadingState.test.ts` so the kept assertions cover accepted-then-refresh-fails ordering on both launch surfaces and the request-A/request-B stale-abort loading race in the shared hook.
 
 #### Testing
 
@@ -4822,11 +4822,11 @@ Repair the retained Story 58 visual-proof chain so the durable manual-proof arti
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `finding-9`, the retained Story 58 proof currently treated as durable evidence, and the named final design references so the exact stale-versus-current mismatches are recorded before new captures are kept.
-2. [ ] Current Repository: Prepare the retained proof destination and filename convention for this pass in the repository-owned Story 58 manual-proof home so desktop and mobile Chat captures, supporting notes, and any superseded-proof marker can be stored without depending on scratch-only paths.
+1. [ ] Current Repository: Re-read `finding-9`, the currently retained Story 58 desktop/mobile proof, and the named final design references so the exact stale-versus-current mismatches are captured before any new screenshot becomes durable evidence.
+2. [ ] Current Repository: Prepare the repository-owned retained-proof home under `codeInfoStatus/manual-proof/0000058/` with deterministic desktop/mobile Chat filenames plus any needed superseded-proof note so the kept artifacts and their explanation do not depend on scratch-only paths.
 3. [ ] Current Repository: Reconfirm the supported-stack runtime handoff for this proof path before capture by naming the wrapper-owned startup route, the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs, and the scratch screenshot staging path that will be used only for temporary transfer.
-4. [ ] Current Repository: Capture replacement retained desktop and mobile Chat proof against the checked-in main stack, using scratch staging only as a temporary transfer step and promoting only the kept files into the repository-owned retained-proof destination.
-5. [ ] Current Repository: Update any plan or retained-proof references that still point at stale Story 58 visual evidence so the durable proof chain now names the refreshed retained artifacts honestly and makes the older retained proof clearly superseded.
+4. [ ] Current Repository: Capture replacement retained desktop and mobile Chat proof against the checked-in main stack, compare the live surface against the named final design references during capture, and promote only the kept desktop/mobile artifacts from scratch staging into the repository-owned retained-proof destination.
+5. [ ] Current Repository: Update the plan references and any retained-proof notes that still point at stale Story 58 visual evidence so the durable proof chain names the refreshed retained artifacts and clearly marks any older retained proof as superseded.
 
 #### Testing
 
@@ -4891,8 +4891,8 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 #### Subtasks
 
 1. [ ] Current Repository: Re-read this review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and the current `## Minor Review Fixes` entries for `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`; check off this subtask only after `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Current Repository: Refresh any retained proof-home notes or summary surfaces touched by this review cycle so the final proof chain still names the current review pass, review cycle, review-created tasks, inline minor-fix coverage, and the one final revalidation owner honestly before broad regression proof closes the loop.
-3. [ ] Current Repository: Re-check the refreshed retained Story 58 proof destination after Task 37 so this task’s broad regression proof can rely on repository-owned retained artifacts rather than scratch-only staging output.
+2. [ ] Current Repository: Refresh the proof-summary surfaces touched by this cycle so the final proof chain still names the current review pass, review cycle, review-created Tasks 34 through 38, the inline minor-fix coverage, and this one final revalidation owner before broad regression proof closes the loop.
+3. [ ] Current Repository: Re-check the retained Story 58 proof destination after Task 37 so this task’s broad regression proof depends on repository-owned desktop/mobile artifacts and supporting notes rather than scratch-only staging output.
 4. [ ] Current Repository: Reconfirm the supported-stack runtime handoff before broad manual validation begins by naming the wrapper-owned startup path, the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs, and the retained artifact destination that must receive the kept proof.
 
 #### Testing

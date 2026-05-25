@@ -171,10 +171,6 @@ This story reshapes CodeInfo2 into a transcript-first product with more usable w
 - Repair accepted-launch refresh-failure behavior and stale-abort loading races in the shared client lifecycle.
 - Add focused client proof for both workspace launch surfaces and the shared conversations hook.
 
-37. [codeInfo2] - Refresh retained Story 58 visual proof after review pass `0000058-20260525T060243Z-e4ce8252`
-- Refresh the retained desktop and mobile Story 58 proof bundle and its supporting notes.
-- Keep the proof tied to the checked-in main stack and durable retained artifact locations.
-
-38. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260525T060243Z-e4ce8252`
+37. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260525T060243Z-e4ce8252`
 - Re-run the broad server, client, browser, compose, lint, and format proof for the final review-created findings block.
-- Close the cycle with one final revalidation owner that also rechecks the inline minor fixes and retained proof chain.
+- Refresh the retained proof notes and close the cycle with one final revalidation owner that also rechecks the inline minor fixes and retained proof chain.

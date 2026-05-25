@@ -273,8 +273,11 @@ ensure_repo_bind_mount_dirs_for_profile() {
 }
 
 resolve_host_codex_home_dir() {
-  if [ -n "${CODEINFO_HOST_CODEX_HOME:-}" ]; then
-    printf '%s\n' "${CODEINFO_HOST_CODEX_HOME}"
+  local override_host_codex_home
+  override_host_codex_home="${CODEINFO_HOST_CODEX_HOME:-}"
+
+  if [ -n "${override_host_codex_home//[[:space:]]/}" ]; then
+    printf '%s\n' "${override_host_codex_home}"
     return 0
   fi
 

@@ -268,6 +268,14 @@ test('compose wrapper normalizes host Codex-home mounts when HOME resolves to a 
   assert.match(composeWrapper, /resolve_host_codex_home_dir\(\)/u);
   assert.match(
     composeWrapper,
+    /override_host_codex_home="\$\{CODEINFO_HOST_CODEX_HOME:-\}"/u,
+  );
+  assert.match(
+    composeWrapper,
+    /\$\{override_host_codex_home\/\/\[\[:space:\]\]\/\}/u,
+  );
+  assert.match(
+    composeWrapper,
     /default_host_codex_home="\$\{HOME:-\}\/\.codex"/u,
   );
   assert.match(

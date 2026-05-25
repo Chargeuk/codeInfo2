@@ -4479,7 +4479,7 @@ This task must not silently narrow proof scope. If a story-level acceptance item
 7. [x] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because final story closeout must prove the checked-in stack build path.
 8. [x] Current Repository: Run `npm run compose:up`. Use the supported wrapper because final story manual proof must run on the checked-in supported stack.
 9. [x] Current Repository: Run `npm run compose:down`. Use the supported wrapper because final story proof must leave the supported main stack shut down cleanly after proof completes.
-10. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this is the final story-level repository hygiene proof.
+10. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this is the final story-level repository hygiene proof.
 11. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this is the final story-level repository formatting proof.
 
 #### Manual Testing Guidance

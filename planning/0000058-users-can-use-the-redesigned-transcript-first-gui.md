@@ -4587,7 +4587,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 33`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-2`: the shared working-folder validator currently accepts any mounted path under the execution root before ingested-repository membership is proven.
   - `finding-3`: the stale restore-and-clear path can unset a newer persisted working folder because the clear step does not guard on the value that was actually inspected.
@@ -4651,6 +4651,7 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 - Re-read the review findings and traced the shared working-folder contract across state, repo, and the chat/agents/flows callers before patching the boundary.
 - Tightened `validateKnownRepository` so mounted execution-root child paths no longer pass before repository membership proof, then threaded expected-value stale-clear ownership through the shared restore and persistence helpers.
 - Reworked the chat, agents, flows, conversations, and Codebase Question restore call sites to preserve a newer saved working folder when a stale clear no-ops, then proved the repair with the focused server-unit wrappers.
+- Audit closeout confirmed Task 34 had no remaining unchecked subtasks, no remaining unchecked automated testing, no live blocker, and matching focused proof in `test-results/server-unit-tests-2026-05-25T18-50-22-049Z.log` plus `test-results/server-unit-tests-2026-05-25T18-50-36-972Z.log`, so the task could honestly move to `__done__` before later manual-testing guidance or broader Task 37 revalidation.
 
 ### Task 35. Repair Flow Run Request Identity And Resume Provider Precedence After Review Pass `0000058-20260525T060243Z-e4ce8252`
 

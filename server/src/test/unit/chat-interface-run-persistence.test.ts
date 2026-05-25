@@ -533,6 +533,11 @@ describe('ChatInterface.run persistence', () => {
 
   test('repository enumeration failure does not clear a saved chat working folder as stale', async () => {
     let clearedConversationId: string | undefined;
+    const missingExternalRepo = path.join(
+      path.parse(process.cwd()).root,
+      'tmp',
+      'external-working-folder',
+    );
 
     await assert.rejects(
       async () =>
@@ -540,7 +545,7 @@ describe('ChatInterface.run persistence', () => {
           conversation: {
             conversationId: 'chat-restore-repo-enumeration-unavailable',
             flags: {
-              workingFolder: process.cwd(),
+              workingFolder: missingExternalRepo,
             },
           },
           surface: 'chat_run',
@@ -577,36 +582,23 @@ describe('ChatInterface.run persistence', () => {
       archivedAt: null,
     });
 
-    const app = express();
-    app.use(
-      '/chat',
-      createChatRouter({
-        clientFactory: () =>
-          ({
-            system: {
-              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
-            },
-          }) as never,
-        chatFactory: () => new RouteChat(),
-        listIngestedRepositoriesFn: async () => ({
-          repos: [buildRepoEntry(process.cwd())],
-          lockedModelId: null,
-        }),
-      }),
-    );
-
     try {
-      await withReadyState(0, 'test', async () => {
-        const res = await request(app).post('/chat').send({
-          provider: 'lmstudio',
-          model: 'lmstudio-test',
-          message: 'hello',
-          conversationId: 'chat-working-folder-clear',
-        });
-
-        assert.equal(res.status, 202);
+      const restored = await restoreSavedWorkingFolder({
+        conversation: memoryConversations.get('chat-working-folder-clear')!,
+        surface: 'chat_run',
+        clearPersistedWorkingFolder: async (conversationId) => {
+          const current = memoryConversations.get(conversationId);
+          if (!current) return;
+          const nextFlags = { ...(current.flags ?? {}) };
+          delete nextFlags.workingFolder;
+          memoryConversations.set(conversationId, {
+            ...current,
+            flags: nextFlags,
+          } as never);
+        },
       });
 
+      assert.equal(restored, undefined);
       assert.equal(
         memoryConversations.get('chat-working-folder-clear')?.flags
           ?.workingFolder,

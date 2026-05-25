@@ -2,7 +2,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV } from './summary-wrapper-protocol.mjs';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 
 export const buildServerUnitWrapperEnv = (baseEnv = process.env) => {
   const defaultAgentHome = path.join(rootDir, 'codeinfo_agents');

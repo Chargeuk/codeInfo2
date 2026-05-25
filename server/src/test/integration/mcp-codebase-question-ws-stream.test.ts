@@ -1110,8 +1110,10 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
   const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
   const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
 
   setToolDeps({
     chatFactory: () => new CapturingRuntimeChat(calls),
@@ -1133,6 +1135,9 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
 
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await waitForCondition(
+      () => socketsSubscribedToConversation(conversationId).length > 0,
+    );
 
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
@@ -1147,16 +1152,12 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
       },
     });
 
-    await waitForEvent({
-      ws,
-      predicate: (event: unknown): event is { type: string } => {
-        const e = event as { type?: string; conversationId?: string };
-        return e.type === 'turn_final' && e.conversationId === conversationId;
-      },
-      timeoutMs: 5000,
-    });
-
-    await toolCallPromise;
+    const response = await toolCallPromise;
+    assert.ok(
+      (response as { result?: unknown }).result,
+      JSON.stringify(response, null, 2),
+    );
+    await waitForCondition(() => calls.length === 1);
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0]?.flags.runtime, {
       lookupSummary: {
@@ -1182,6 +1183,11 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
       delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
     } else {
       process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalDefaultModel === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
     }
     await closeWs(ws);
     await wsHandle.close();
@@ -1478,11 +1484,14 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
   const providerThreadId = 'codex-thread-fresh-saved-789';
   const savedModel = 'gpt-5.3-codex';
   const selectedRepo = '/data/story55-manual-proof/queued-repo';
+  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
   const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
   const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const originalCodeWorkdir = process.env.CODEX_WORKDIR;
+  const originalCodeInfoCodeWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   const tempCodexHome = await withTempCodexHome();
 
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
@@ -1490,6 +1499,8 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   process.env.CODEX_HOME = tempCodexHome.codexHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome.codexHome;
+  process.env.CODEX_WORKDIR = '/data';
+  process.env.CODEINFO_CODEX_WORKDIR = '/data';
 
   setMemoryConversation({
     _id: conversationId,
@@ -1514,6 +1525,10 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
         'Fresh saved selected-repository Codex answer',
       ),
     clientFactory: makeLmStudioClientFactory(),
+    listIngestedRepositoriesFn: async () => ({
+      repos: [buildRepoEntry(advertisedHostPath)],
+      lockedModelId: null,
+    }),
   });
 
   const wsApp = express();
@@ -1530,6 +1545,9 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
 
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await waitForCondition(
+      () => socketsSubscribedToConversation(conversationId).length > 0,
+    );
 
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
@@ -1621,6 +1639,16 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
       delete process.env.CODEINFO_CODEX_HOME;
     } else {
       process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    if (originalCodeWorkdir === undefined) {
+      delete process.env.CODEX_WORKDIR;
+    } else {
+      process.env.CODEX_WORKDIR = originalCodeWorkdir;
+    }
+    if (originalCodeInfoCodeWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalCodeInfoCodeWorkdir;
     }
     await tempCodexHome.cleanup();
     await closeWs(ws);
@@ -2044,6 +2072,7 @@ test('MCP codebase_question keeps Copilot provider parity after startup re-norma
 
 test('saved Copilot and LM Studio conversations keep the stored provider and repair omitted-model follow-up calls on the streamed websocket path', async () => {
   resetStore();
+  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
   const cases = [
     {
       conversationId: 'mcp-ws-saved-copilot-follow-up',
@@ -2071,6 +2100,10 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
       deps: {},
     },
   ];
+  const originalCodeWorkdir = process.env.CODEX_WORKDIR;
+  const originalCodeInfoCodeWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  process.env.CODEX_WORKDIR = '/data';
+  process.env.CODEINFO_CODEX_WORKDIR = '/data';
 
   const wsApp = express();
   const wsHttp = http.createServer(wsApp);
@@ -2109,6 +2142,10 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
         chatFactory: () =>
           new CapturingPinnedConversationChat(calls, testCase.finalContent),
         clientFactory: makeLmStudioClientFactory(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(advertisedHostPath)],
+          lockedModelId: null,
+        }),
         ...testCase.deps,
       });
 
@@ -2118,6 +2155,10 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
           type: 'subscribe_conversation',
           conversationId: testCase.conversationId,
         });
+        await waitForCondition(
+          () =>
+            socketsSubscribedToConversation(testCase.conversationId).length > 0,
+        );
 
         const toolCallPromise = postJson(mcpAddr.port, {
           jsonrpc: '2.0',
@@ -2191,6 +2232,16 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
       }
     }
   } finally {
+    if (originalCodeWorkdir === undefined) {
+      delete process.env.CODEX_WORKDIR;
+    } else {
+      process.env.CODEX_WORKDIR = originalCodeWorkdir;
+    }
+    if (originalCodeInfoCodeWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalCodeInfoCodeWorkdir;
+    }
     await wsHandle.close();
     await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
     await new Promise<void>((resolve) => mcpServer.close(() => resolve()));

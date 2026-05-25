@@ -125,6 +125,7 @@ const lmstudioAvailableClientFactory = () =>
 
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
 
@@ -156,6 +157,7 @@ beforeEach(async () => {
     '{}',
     'utf8',
   );
+  process.env.CODEX_HOME = tempCodexHomeForTest;
   process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
   memoryConversations.clear();
   memoryTurns.clear();
@@ -181,6 +183,12 @@ afterEach(async () => {
     delete process.env.CODEINFO_CODEX_WORKDIR;
   } else {
     process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
+
+  if (ORIGINAL_CODEX_HOME === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = ORIGINAL_CODEX_HOME;
   }
 
   if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {

@@ -14,7 +14,8 @@ Before implementation starts on the current task, inspect the live supported UI 
 - Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its JSON output to validate whether the persisted handoff is currently valid.
 - If `current-task.json` clearly resolves a task, use that persisted task as the authoritative bound task for this step.
 - If `check_current_task_handoff.py` reports an `active_selected_task`, you may mention it as freshness or diagnostic context, but do not let it override a clearly resolved persisted task from `current-task.json`.
-- Use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- Treat the stored `plan_path` and `additional_repositories` as the primary scope for this step.
+- Expand beyond that primary scope only when needed to inspect a supporting repository for honest visual diagnosis, and report any such scope expansion in the response.
 - Re-open the exact relative `plan_path` from disk before deciding what to inspect or edit.
 - Read the bound task's full task block from the plan, including:
   - `Overview`
@@ -37,10 +38,17 @@ Before implementation starts on the current task, inspect the live supported UI 
 
 <early_exit_rules>
 
-- If `current-task.json` does not clearly resolve a bound task, or if `check_current_task_handoff.py` shows the persisted handoff is no longer valid, stop and report `current-task handoff is stale and must be regenerated`.
-- If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop early and report:
-  - `visual refinement not applicable`
-  - a one-sentence reason tied to the current task's own exit criteria
+- If `current-task.json` does not clearly resolve a bound task, or if `check_current_task_handoff.py` shows the persisted handoff is no longer valid, stop further investigation, but still return the full `output_contract`.
+- For that stale-handoff case:
+  - state `current-task handoff is stale and must be regenerated`
+  - set `Applicability` to `visual refinement not applicable`
+  - in `Task`, state explicitly that no trustworthy bound task was available because the current-task handoff was stale
+  - fill every remaining required output-contract section with `not run` or `n/a` as appropriate
+- If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop further visual refinement work, but still return the full `output_contract`.
+- For that visual-not-applicable case:
+  - set `Applicability` to `visual refinement not applicable`
+  - include a one-sentence reason tied to the current task's own exit criteria
+  - fill the remaining required output-contract sections honestly, using `not run` or `n/a` where appropriate
 - Only use this early exit when the task truly has no visual or interaction-facing surface to inspect.
 - Do not use the early exit just because the task is difficult, broad, or shared.
 
@@ -138,6 +146,7 @@ Return a concise report with these exact sections:
 
 1. `Task`
    - task number and title
+   - or an explicit statement that no trustworthy bound task was available because the current-task handoff was stale
 
 2. `Applicability`
    - either `visual refinement applied` or `visual refinement not applicable`
@@ -151,6 +160,7 @@ Return a concise report with these exact sections:
    - desktop
    - mobile
    - any supporting repository surface if one was needed
+   - note any scope expansion beyond the stored `plan_path` and `additional_repositories`
 
 5. `Plan Changes`
    - list exactly what changed in the current task
@@ -183,8 +193,10 @@ Return a concise report with these exact sections:
 - Confirm you used the persisted task from `current-task.json` as the bound task when it clearly resolved one.
 - Confirm you re-opened the plan from disk.
 - Confirm you treated every existing subtask as in scope.
+- Confirm you returned the full `output_contract` even when an early-exit condition applied.
 - Confirm you exited early without plan edits if the task had no visual surface.
 - Confirm you used Chrome DevTools first for diagnosis and Playwright for retained screenshots when useful.
+- Confirm you treated stored `plan_path` and `additional_repositories` as primary scope and disclosed any scope expansion beyond them.
 - Confirm you treated artifact paths as relative to the target repository that owns `plan_path`, not to `CODEINFO_ROOT`.
 - Confirm you edited only the current task.
 - Confirm you did not change task ownership or scope.

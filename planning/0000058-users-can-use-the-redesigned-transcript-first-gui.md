@@ -4727,7 +4727,7 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 33`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-6`: accepted flow and agent launches currently collapse into a failed-launch UI state when the later sidebar refresh rejects.
   - `finding-7`: an aborted stale conversations request can clear loading state for a newer in-flight request.
@@ -4797,6 +4797,7 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 - Updated `FlowsPage` accepted-launch flow to keep the returned conversation authoritative when the later refresh rejects, and hardened the flow selection test helper so the selection change settles before `flow-new` is clicked.
 - Updated `AgentsPage` accepted-launch flow to keep the returned conversation authoritative when the later refresh rejects, fixed the command-run mock ordering so the run response reaches the parser, and recorded the accepted-launch refresh-failure proof in the page test.
 - Hardened `useConversations` overlap handling so stale abort cleanup cannot clear newer loading state, then adjusted the hook proof for the real mount-time double-fetch behavior and verified the focused client wrapper passes.
+- Automated-proof audit confirmed Task 36 is complete: `test-results/client-tests-2026-05-25T21-21-38-717Z.log` covers the accepted-launch refresh-failure behavior on `FlowsPage` and `AgentsPage`, and `test-results/client-tests-2026-05-25T21-22-37-743Z.log` covers the `useConversations` stale-abort loading-state race without leaving any open checklist or blocker state.
 
 ### Task 37. Re-Validate Story 58 After Review Pass `0000058-20260525T060243Z-e4ce8252`
 

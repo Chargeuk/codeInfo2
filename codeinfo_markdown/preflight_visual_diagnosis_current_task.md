@@ -38,7 +38,13 @@ Before implementation starts on the current task, inspect the live supported UI 
 
 <early_exit_rules>
 
-- If `current-task.json` does not clearly resolve a bound task, or if `check_current_task_handoff.py` shows the persisted handoff is no longer valid, stop further investigation, but still return the full `output_contract`.
+- If `current-task.json` says the story is complete, stop further investigation, but still return the full `output_contract`.
+- For that story-complete case:
+  - state `no task is available for this step because the story is complete`
+  - set `Applicability` to `story complete`
+  - in `Task`, state explicitly that no bound task was available because the story is complete
+  - fill every remaining required output-contract section with `not run` or `n/a` as appropriate
+- If `current-task.json` does not clearly resolve a bound task for any reason other than story complete, or if `check_current_task_handoff.py` shows the persisted handoff is no longer valid, stop further investigation, but still return the full `output_contract`.
 - For that stale-handoff case:
   - state `current-task handoff is stale and must be regenerated`
   - set `Applicability` to `current-task handoff stale`
@@ -146,6 +152,7 @@ Return a concise report with these exact sections:
 
 1. `Task`
    - task number and title
+   - or an explicit statement that no bound task was available because the story is complete
    - or an explicit statement that no trustworthy bound task was available because the current-task handoff was stale
    - when `Applicability` is `visual refinement not applicable`, include the one-sentence reason tied to the current task's own exit criteria here
 
@@ -153,6 +160,7 @@ Return a concise report with these exact sections:
    - one of:
      - `visual refinement applied`
      - `visual refinement not applicable`
+     - `story complete`
      - `current-task handoff stale`
 
 3. `Runtime`
@@ -198,6 +206,7 @@ Return a concise report with these exact sections:
 - Confirm you re-opened the plan from disk.
 - Confirm you treated every existing subtask as in scope when a trustworthy bound task was resolved.
 - Confirm you returned the full `output_contract` even when an early-exit condition applied.
+- Confirm you reported `story complete` separately from `current-task handoff stale` when `current-task.json` indicated that no task was available because the story was complete.
 - Confirm you exited early without plan edits if the task had no visual surface.
 - Confirm you used Chrome DevTools first for diagnosis and Playwright for retained screenshots when useful.
 - Confirm you treated stored `plan_path` and `additional_repositories` as primary scope and disclosed any scope expansion beyond them.

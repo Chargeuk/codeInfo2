@@ -176,6 +176,7 @@ When browser proof may use Playwright MCP, also record the artifact-transfer pat
 - how that target artifact repository root was resolved, such as the active working repository path or `git rev-parse --show-toplevel` from the directory containing `plan_path`
 - the intended target artifact destination relative to that target repository
 - for this codeInfo2 harness workflow, treat the manual-testing agent's Playwright MCP runtime as the local agent stack unless current repository evidence explicitly proves a different runtime is active
+- for this codeInfo2 harness workflow, record that any Playwright MCP artifact saved under `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime will appear at `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host
 - for this codeInfo2 harness workflow, record `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` as the normal first place the manual-testing agent should look for captured Playwright MCP screenshots
 - do not infer the screenshot source from the app-under-test compose stack alone; record the Playwright MCP runtime separately from the runtime being proved whenever those differ
 - the Playwright MCP output root inside the Playwright runtime, normally `/tmp/playwright-output`
@@ -299,7 +300,7 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
             "harness_playwright_output_bind": "$CODEINFO_ROOT/playwright-output-local",
             "primary_transfer_path": "$CODEINFO_ROOT/playwright-output-local/<staging-filename>",
             "fallback_container_name": "codeinfo2-playwright-mcp-local",
-            "copy_out": "Capture with a relative Playwright MCP filename, then copy from $CODEINFO_ROOT/playwright-output-local when present; only fall back to docker copy-out from codeinfo2-playwright-mcp-local when current runtime evidence proves the bind path is unavailable."
+            "copy_out": "For the codeInfo2 local harness workflow, any Playwright MCP artifact written under /tmp/playwright-output/<relative-path> in the local Playwright MCP runtime appears at $CODEINFO_ROOT/playwright-output-local/<relative-path> on the host. Use that host-visible path first, then fall back to docker copy-out from codeinfo2-playwright-mcp-local only when current runtime evidence proves the bind path is unavailable."
           }
         }
       ]

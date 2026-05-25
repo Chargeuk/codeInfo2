@@ -106,6 +106,13 @@
                   "breakOn": "yes"
                 },
                 {
+                  "type": "llm",
+                  "label": "Preflight visual diagnosis for current task",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "preflight_visual_diagnosis_current_task.md"
+                },
+                {
                   "type": "startLoop",
                   "label": "Implementation Loop",
                   "steps": [

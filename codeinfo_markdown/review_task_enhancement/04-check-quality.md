@@ -39,6 +39,10 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Do not allow a selected task to add manual testing checklist items or subtasks that depend on future automated or manual proof output.
 - Do not allow a selected task to route automated screenshots or browser artifacts into tracked repository paths; keep them in ignored artifact storage.
 - Do not allow selected-task Manual Testing Guidance to imply that Playwright MCP saves screenshots directly into the target repository or that `$CODEINFO_ROOT/playwright-output-local` is the final target artifact destination.
+- Do not allow selected-task Manual Testing Guidance to leave the screenshot source ambiguous for this codeInfo2 harness workflow; repair it so the later manual tester is told to normally look first in `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` when the active Playwright runtime exposes that bind.
+- Do not allow selected-task Manual Testing Guidance to imply that the app-under-test stack automatically owns the screenshot files when the screenshot-producing Playwright runtime may differ.
+- Do not allow selected-task Manual Testing Guidance to depend on exact runtime-handoff JSON property names for artifact source, fallback runtime, or destination details; repair the wording so the later manual tester is told to inspect the available JSON for the needed information by meaning.
+- Do not allow selected-task Manual Testing Guidance to treat blocked screenshot transfer as a reason to halt the proof pass; repair the wording so the later manual tester records the limitation honestly and continues with the best available evidence.
 - Do not allow the latest `Code Review Findings` section or its review-created tasks to remain inserted into older parts of the plan; they must be normalized into one contiguous appended end-of-file block.
 - Do not merge, delete, absorb, or otherwise identity-shift the selected review-created tasks during this scoped quality pass.
 - Do not absorb selected work into older pre-existing story tasks.

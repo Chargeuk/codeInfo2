@@ -43,6 +43,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Do not allow selected-task Manual Testing Guidance to imply that the app-under-test stack automatically owns the screenshot files when the screenshot-producing Playwright runtime may differ.
 - Do not allow selected-task Manual Testing Guidance to depend on exact runtime-handoff JSON property names for artifact source, fallback runtime, or destination details; repair the wording so the later manual tester is told to inspect the available JSON for the needed information by meaning.
 - Do not allow selected-task Manual Testing Guidance to treat blocked screenshot transfer as a reason to halt the proof pass; repair the wording so the later manual tester records the limitation honestly and continues with the best available evidence.
+- Do not allow selected-task Manual Testing Guidance to imply that all screenshots from all tasks should remain part of durable final proof by default; repair it so final-task screenshots are the primary closeout proof for re-covered visual surfaces and earlier screenshots remain durable only when uniquely necessary.
 - Do not allow the latest `Code Review Findings` section or its review-created tasks to remain inserted into older parts of the plan; they must be normalized into one contiguous appended end-of-file block.
 - Do not merge, delete, absorb, or otherwise identity-shift the selected review-created tasks during this scoped quality pass.
 - Do not absorb selected work into older pre-existing story tasks.
@@ -68,6 +69,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Check that no selected task still contains manual testing checklist items or subtasks gated on future proof output.
 - Check that no selected task still contains absolute filesystem paths or production-owned test bypasses.
 - Check that any selected-task Manual Testing Guidance mentioning Playwright MCP screenshots explains capture to Playwright output followed by transfer into the target repository artifact destination.
+- Check that any selected final visual-validation task makes it clear which story-owned surfaces its latest screenshots are expected to cover as the primary closeout proof and whether any earlier screenshots remain uniquely necessary.
 - Check that any automated screenshot or browser-artifact path points only to ignored artifact storage.
 - Check that the selected review-created task identities remain the same ones chosen by the scoped review-task-up command.
 - Check that each selected task still carries clear `Addresses Findings` coverage, and that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`.

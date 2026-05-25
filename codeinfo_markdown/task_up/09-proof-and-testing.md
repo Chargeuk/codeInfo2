@@ -59,6 +59,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - that screenshot capture alone is not sufficient and comparison notes are part of the proof;
   - that paired design markdown is canonical only relative to the supporting visual asset when paired markdown and visual design assets such as `*.png` or `*.svg` both exist for the same surface.
 - If `Design Contract Present` is true and the task is the final task in the story, its `Manual Testing Guidance` must request screenshots for all implemented frontend surfaces across the whole story that can honestly be observed, along with the design assets those screenshots should later be compared against.
+- When the final task re-covers the relevant visual surfaces in their current final state, its Manual Testing Guidance should treat those screenshots as the primary closeout screenshots for durable story proof. Earlier task screenshots should be retained in durable proof only when they remain uniquely necessary.
 - End each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
   - a prettier or format-check step that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
@@ -133,6 +134,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether any task that writes manual-testing proof artifacts into `codeInfoTmp/` also includes the required `.gitignore` update when that scratch path was not already ignored.
 - Check whether any task-level manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and states that those artifacts must not be committed.
 - Check whether any Manual Testing Guidance that mentions Playwright MCP screenshots distinguishes the Playwright output staging path from the final target repository artifact destination.
+- Check whether any final-task screenshot guidance makes it clear which story-owned surfaces its latest screenshots are expected to supersede for durable closeout proof, while still leaving room to retain earlier screenshots that remain uniquely necessary.
 - If `Design Contract Present` is true, check whether each design-driven task's manual-proof guidance requires screenshot-to-design comparison rather than screenshot capture alone.
 - If `Design Contract Present` is true, check whether the final task's `Manual Testing Guidance` asks for story-wide screenshots that cover the whole implemented frontend surface area governed by the named design assets.
 - Check whether manual-testing guidance prefers the normal human Docker stack whenever repository evidence supports it.

@@ -242,6 +242,9 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.
 - When the candidate task is the final task in the story, extend that manual proof into the smallest honest full-story validation that still proves the story's end-to-end observable outcomes.
 - When the candidate task is the final task in the story, prefer capturing scratch proof that later closeout can curate honestly into `codeInfoStatus/manual-proof/<story-number>/`, including screenshots, console or network captures, and runtime log evidence that map back to the story acceptance criteria.
+- When the candidate task is the final task in the story and it re-covers a visual surface already shown by earlier scratch screenshots, treat the goal as capturing the latest honest proof for that surface rather than preserving every earlier screenshot by default.
+- When the candidate task is the final task in the story, record in the implementation notes whether this pass re-covered the relevant story-owned visual surfaces in their current final state and whether the latest screenshots should supersede earlier screenshots for those same surfaces.
+- If some earlier screenshots still remain uniquely necessary because this pass did not honestly re-prove a required surface, record that limitation briefly by surface or reason in the implementation notes instead of guessing.
 - If one proof path contaminates later runtime state and a smaller supported proof path already demonstrated the candidate task's required behavior, stop at the smaller successful proof and record the later-task limitation as a concise implementation note rather than escalating it into a blocker.
 
 </execution_rules>
@@ -365,7 +368,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 - If manual testing succeeds without finding further work:
   - set the candidate task's `Task Status` to `__done__`;
-  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured or honestly attempted, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, and that no additional subtasks were needed.
+  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured or honestly attempted, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, whether final-task screenshots superseded earlier screenshots for any re-covered surfaces or earlier screenshots remained uniquely necessary, and that no additional subtasks were needed.
 
 - If the non-run reason is `recoverable_runtime_trouble`:
   - prefer continuing manual testing if possible instead of blocking immediately;
@@ -424,6 +427,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Confirm manual-proof artifacts were routed to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` for the bound task rather than split between separate non-final and final-task destinations.
 - Confirm Playwright MCP screenshots were not expected to save directly into the target repository; confirm they were transferred from the Playwright output directory or its harness-visible bind into the target repository destination.
 - Confirm missing screenshots alone did not create duplicate subtasks, blockers, or task reopen work when the agent honestly attempted capture and recorded any limitation.
+- Confirm the final-task implementation note, when applicable, recorded whether latest screenshots superseded earlier screenshots for re-covered surfaces or why earlier screenshots remained uniquely necessary.
 - Confirm any visual-discrepancy follow-up work was de-duplicated against later open tasks before new subtasks were added.
 - Confirm any task-overrides-story decision was recorded honestly.
 - Confirm any conflict between story-level or bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.

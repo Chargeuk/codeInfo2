@@ -44,6 +44,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - If `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines repository-specific conditions that allow manual proof to be narrowed or skipped for certain surfaces, verify that the relevant task-level `Manual Testing Guidance` carries those conditions forward whenever that task could realistically hit them.
 - Verify that the final task's manual-testing proof guidance still writes task-scoped artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and that the story closeout path points durable curated proof at `codeInfoStatus/manual-proof/<story-number>/`.
 - Check that any Playwright MCP screenshot guidance explains the staging-and-transfer flow instead of treating `$CODEINFO_ROOT/playwright-output-local` or the Playwright output directory as the final target repository artifact destination.
+- Verify that the final task's manual-testing guidance treats its story-wide screenshots as the primary durable closeout proof for the re-covered visual surfaces, while leaving earlier screenshots in durable scope only when they remain uniquely necessary.
 - Verify that manual-testing guidance prefers the unmodified human Docker stack whenever repository evidence shows it is runnable, and only falls back to minimal test-only enablement when the normal stack is not enough.
 - Check that any planned screenshot or browser-artifact output path points only to ignored artifact storage rather than tracked repository files.
 - If `Design Contract Present` is true, verify that:
@@ -52,7 +53,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
   - later manual proof includes screenshot-to-design comparison guidance rather than screenshot capture alone;
   - any intentional task-level override of paired design markdown is stated explicitly in the task wording or `Visual Invariants` rather than left implicit;
   - any task that references paired design markdown plus visual design assets such as `*.png` or `*.svg` treats the markdown as canonical only relative to the supporting visual asset;
-  - the final task's `Manual Testing Guidance` requests full-story screenshots for every implemented frontend surface that the design assets govern.
+  - the final task's `Manual Testing Guidance` requests full-story screenshots for every implemented frontend surface that the design assets govern and makes it clear when those latest screenshots are expected to supersede earlier screenshots for the same surfaces.
 - Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>
 

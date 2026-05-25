@@ -47,7 +47,16 @@ Do not commit or push in this step.
 - If `codeInfoTmp/manual-testing/<story-number>/` does not exist, or it exists but contains no numeric task folders with eligible files, do not modify any existing `codeInfoStatus/manual-proof/<story-number>/` bundle. Report that no new curated manual-proof bundle was produced in this pass and that any existing durable bundle was left unchanged, then stop.
 - Identify the numeric task folders that contain promotable files in this pass as candidate task folders.
 - Do not clear or rebuild `codeInfoStatus/manual-proof/<story-number>/` as a whole. Preserve any durable task folders whose task numbers are not selected for replacement in the current promotion run.
-- Copy all eligible screenshot proof files for each candidate task folder, preserving basenames.
+- Prefer the latest screenshot proof that represents the story's current final state instead of preserving every earlier screenshot by default.
+- Determine which candidate task folders contain eligible screenshot proof files.
+- If no candidate task folder contains eligible screenshot proof files, do not select any screenshot proof files in this pass; continue evaluating support files separately under the rules below.
+- Identify the highest-numbered candidate task folder that contains eligible screenshot proof files as the default latest screenshot-proof source.
+- If that highest-numbered screenshot-owning task folder does not belong to the story's final real task, treat it as the default screenshot-proof source for this pass and retain earlier screenshots only when they still appear uniquely necessary.
+- If that highest-numbered screenshot-owning task folder belongs to the story's final real task, inspect the active plan plus the latest task-level manual-proof notes semantically to determine whether that final task's manual proof re-covered the relevant story-owned visual surfaces in their current final state.
+- If the available plan and manual-proof context indicates that the final task re-covered those visual surfaces, select screenshot proof from that final task folder only by default and treat earlier screenshots for the same surfaces as superseded scratch proof.
+- Retain earlier-task screenshots only when repository-visible evidence shows they still provide uniquely necessary proof for a required visual surface that the final task did not honestly re-prove.
+- When the available evidence is ambiguous, preserve plausibly unique earlier screenshot proof rather than discarding it aggressively.
+- Preserve screenshot basenames when copying selected screenshot proof files.
 - Copy at most two support files total across the whole story.
 - To choose support files, process numeric task folders in descending numeric order.
 - Within each task folder, evaluate support files in this order:
@@ -87,7 +96,7 @@ Do not commit or push in this step.
 - If a temporary or durable per-task destination cannot be created safely, stop and report the exact path and failure.
 - If copying a selected file for a selected task fails, stop and report the exact source path, intended temporary destination path, and task number.
 - If staging a selected task fails, leave any existing durable `task-<task-number>/` folder unchanged and report that the task-level promotion did not replace prior durable proof for that task.
-- If a candidate task has zero selected files after the support-file cap is applied, treat that as a preserve-unchanged outcome rather than a failure.
+- If a candidate task has zero selected files after the support-file cap is applied, or because its screenshots were superseded by later final-state proof and it contributed no selected support files, treat that as a preserve-unchanged outcome rather than a failure.
 - Do not silently skip copy failures.
 
 </failure_modes>
@@ -98,8 +107,12 @@ Do not commit or push in this step.
 - Report whether the curated manual-proof bundle was created, refreshed, or skipped because no eligible artifacts existed.
 - When no eligible scratch artifacts existed, report whether an existing durable bundle was preserved unchanged or no durable bundle existed yet.
 - Report which task numbers were candidate task folders in the current promotion run.
+- Report which candidate task folders owned eligible screenshot proof files.
 - Report which task numbers were selected task folders in the current promotion run.
 - Report which durable task folders were replaced, newly created, or preserved unchanged.
+- Report whether latest-final-state screenshot preference was applied.
+- Report which earlier screenshot task folders were skipped as superseded by later final-state proof, if any.
+- Report which earlier screenshot task folders were retained because they still appeared uniquely necessary or because the available evidence was ambiguous.
 - Report which candidate task folders were preserved unchanged because they ended up with zero selected files.
 - Report the exact repository-relative destination root.
 - Report the exact repository-relative files copied, grouped by task folder.
@@ -116,7 +129,8 @@ Do not commit or push in this step.
 - Confirm you used only the active story's `codeInfoTmp/manual-testing/<story-number>/` root as the candidate source.
 - Confirm you treated only numeric child directories as task folders.
 - Confirm you copied only approved filename patterns.
-- Confirm you copied all eligible screenshot proof files from every candidate task folder.
+- Confirm you applied the latest-final-state screenshot preference rules instead of copying every earlier screenshot by default.
+- Confirm you kept earlier screenshots only when they still appeared uniquely necessary or when the available evidence was ambiguous.
 - Confirm you copied no more than two support files total.
 - Confirm support files were selected by descending task number, then by the defined per-folder priority order.
 - Confirm only task folders with at least one selected file were treated as selected task folders and staged for replacement.

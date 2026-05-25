@@ -4894,7 +4894,6 @@ Use the checked-in supported main stack at `http://localhost:5001` and `http://l
 
 #### Implementation Notes
 
-- Pending.
 - Re-read the Task 37 review-created findings block, the active review-disposition state, and the six inline minor-fix entries from `## Minor Review Fixes`, then confirmed that Tasks 34 through 36 are all `__done__` with no unchecked subtasks, no unchecked testing, and no live blockers before updating the proof-summary and retained-proof notes.
 - Refreshed the Task 37 proof-summary language so the plan now names review pass `0000058-20260525T060243Z-e4ce8252`, review cycle `0000058-rc-20260525T082128Z-2279fe86`, review-created Tasks 34 through 37, the inline minor-fix coverage, the single final revalidation owner, and the current-repository-only applicability decision.
 - Added durable retained-proof notes under `codeInfoStatus/manual-proof/0000058/task-37/retained-proof-notes.md` to point at the repository-owned desktop/mobile proof tree, spell out the scratch-versus-durable proof boundary, and record the checked-in compose env files, supported health and browser surfaces, mounted manual agent catalogs, and read-only ingest namespace needed for the later closeout bundle.

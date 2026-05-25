@@ -4378,7 +4378,7 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 21, Task 22, Task 23, Task 24, Task 25, Task 26, Task 27, Task 28, Task 29, Task 30, Task 31, Task 32`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -4553,3 +4553,4 @@ Final story-level items to verify manually:
 - `npm run build:summary:client` passed with warnings (1); log: `logs/test-summaries/build-client-latest.log`.
 - `npm run lint --workspace client` passed without requiring any fixes.
 - `npm run format:check --workspace client` passed without requiring any fixes.
+- Automated-proof audit closed Task 33 after the final wrapper-backed proof set was already fully checked on disk: `test:summary:server:unit` passed `2123/2123`, the latest cucumber wrapper passed `122/122` scenarios, the latest client wrapper reported `837/837` passing tests, `e2e-tests-latest.log` ended with `unexpected: 0`, and no live blocker remained in parser output.

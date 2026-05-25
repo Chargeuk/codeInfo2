@@ -4371,6 +4371,17 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 - `npm run format:check` passed after the wrapper and proof-test changes.
 - Implementation-only audit normalized the duplicated lint and format subtasks to complete because the same repo-root passes were already evidenced by the checked Testing entries and the immediately preceding task notes; only the remaining server-unit wrapper test runs are still open.
 
+- **BLOCKER** Automated proof stopped at Testing item 1: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts` (the focused flows working-folder integration tests). What was tried:
+  1. Ran the supported wrapper as-is (observed 4 failing subtests related to working_folder/CODEINFO_ROOT forwarding).
+  2. Re-ran the wrapper with CODEINFO_ROOT and common CODEINFO_* env vars exported in the shell.
+  3. Updated `scripts/test-summary-server-unit-env.mjs` to provide sensible defaults for CODEINFO agent-home envs (committed change) and re-ran the focused wrapper.
+
+  Each run produced the same failing tests (TAP failing items 11-14) where requests expecting `202 Accepted` returned `400 Bad Request`. The test logs show `validateKnownRepository` reporting empty known-repository sets in the failing cases, indicating the failure likely stems from the working-folder validation path or the `listIngestedRepositories` wiring rather than the wrapper env alone.
+
+  Why blocked: after three credible, bounded repair attempts the focused tests still fail with consistent evidence that requires deeper cross-module debugging (flows/service, workingFolders/state, and lmstudio/toolService interactions) or specific harness/environment setup not safely changeable in this task. No further in-scope quick fix is apparent.
+
+  Recommendation: split out a new investigation task owned by a backend engineer to trace the working_folder validation path, verify `listIngestedRepositories` is invoked with the test-provided override in all code paths, and add targeted instrumentation to the failing assertions. After that investigation the current wrapper-repair task can resume executing the focused wrapper proof. Leaving this task `__in_progress__` until the blocker is addressed.
+
 ### Task 33. Run Final Automated Validation And Manual Story Proof For The Full Story 58 Redesign
 
 - Repository Name: `Current Repository`

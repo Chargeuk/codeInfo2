@@ -4727,7 +4727,7 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 33`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-6`: accepted flow and agent launches currently collapse into a failed-launch UI state when the later sidebar refresh rejects.
   - `finding-7`: an aborted stale conversations request can clear loading state for a newer in-flight request.

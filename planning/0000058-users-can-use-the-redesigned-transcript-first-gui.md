@@ -4643,8 +4643,8 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/unit/agents-working-folder.test.ts`. Use the supported wrapper because these focused unit proofs own the shared repository-membership contract across chat and agents; leave the broader server regression sweep to `Task 38`.
-2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the clearest existing flow-owned restore and working-folder proof surface for the stale-clear and degraded-path repair; leave the broader server regression sweep to `Task 38`.
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/unit/agents-working-folder.test.ts`. Use the supported wrapper because these focused unit proofs own the shared repository-membership contract across chat and agents; leave the broader server regression sweep to `Task 37`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the clearest existing flow-owned restore and working-folder proof surface for the stale-clear and degraded-path repair; leave the broader server regression sweep to `Task 37`.
 
 #### Implementation Notes
 
@@ -4706,8 +4706,8 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`. Use the supported wrapper because these integration proofs own the fresh-run replay and launch-admission boundary; leave the broader server regression sweep to `Task 38`.
-2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts`. Use the supported wrapper because this integration proof owns the resumed-flow provider-precedence and persistence round-trip boundary; leave the broader server regression sweep to `Task 38`.
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`. Use the supported wrapper because these integration proofs own the fresh-run replay and launch-admission boundary; leave the broader server regression sweep to `Task 37`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts`. Use the supported wrapper because this integration proof owns the resumed-flow provider-precedence and persistence round-trip boundary; leave the broader server regression sweep to `Task 37`.
 
 #### Implementation Notes
 
@@ -4778,91 +4778,17 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`. Use the supported wrapper because these focused client proofs own the accepted-launch and refresh-follow-up behavior on the two affected workspace surfaces; leave the broader client regression sweep to `Task 38`.
-2. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/useConversations.loadingState.test.ts`. Use the supported wrapper because this focused client proof owns the stale-abort loading-state race in the shared conversations hook; leave the broader client regression sweep to `Task 38`.
+1. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`. Use the supported wrapper because these focused client proofs own the accepted-launch and refresh-follow-up behavior on the two affected workspace surfaces; leave the broader client regression sweep to `Task 37`.
+2. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/useConversations.loadingState.test.ts`. Use the supported wrapper because this focused client proof owns the stale-abort loading-state race in the shared conversations hook; leave the broader client regression sweep to `Task 37`.
 
 #### Implementation Notes
 
 - Pending.
 
-### Task 37. Refresh Retained Story 58 Visual Proof After Review Pass `0000058-20260525T060243Z-e4ce8252`
+### Task 37. Re-Validate Story 58 After Review Pass `0000058-20260525T060243Z-e4ce8252`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 33`
-- Task Status: `__to_do__`
-- Addresses Findings:
-  - `finding-9`: the retained Story 58 desktop and mobile Chat proof currently contradicts the named final design contract and cannot remain the durable visual-conformance proof chain.
-
-#### Overview
-
-Repair the retained Story 58 visual-proof chain so the durable manual-proof artifacts promoted in the repository actually match the current final design contract and the accepted task-level refinements. This task owns the current-repository retained proof homes, any plan references that promote those artifacts as durable proof, and the bounded compose-backed manual capture work needed to replace the stale screenshots honestly.
-
-#### Non-Goals
-
-- Do not treat scratch `codeInfoTmp` screenshots as the final retained proof for this task.
-- Do not broaden the task into a fresh redesign pass; it owns retained-proof honesty, not new product behavior.
-- Do not keep stale retained proof around without clearly superseding or relabeling it.
-
-#### Task Exit Criteria
-
-- The retained Story 58 desktop and mobile Chat proof promoted in the repository matches the named final design contract and the later accepted Story 58 task refinements instead of showing stale pre-redesign UI.
-- The refreshed retained proof lives in a durable repository-owned proof location rather than only in scratch `codeInfoTmp` captures, using deterministic filenames that make the desktop/mobile pairing obvious.
-- Any stale retained proof references that were previously treated as final evidence are removed, superseded, or clearly labeled so the repository no longer overstates visual conformance.
-- The replacement desktop/mobile captures are produced only through the task's bounded manual guidance and then transferred from scratch staging into the repository-owned retained-proof destination; scratch staging alone does not satisfy this task.
-- The retained proof-refresh task leaves the supported main stack shut down cleanly after capture.
-
-#### Proof Mapping
-
-- `P1.` Supported-stack retained desktop/mobile Chat capture proof: proof home is the repository-owned Story 58 manual-proof directory refreshed by this task.
-- `P2.` Durable proof-chain honesty proof: proof homes are the updated retained artifacts plus the plan references that name them.
-- `P3.` Broad story regression for the refreshed retained proof chain: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
-
-#### Visual Proof Map
-
-- `V1.` Source priority: current task requirements plus `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`, `planning/layout-ideas/plan/final-designs/chat-composer-final.md`, and `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`. Owned invariant: the retained desktop Chat surface matches the final workspace-shell, transcript, and composer contract now owned by Story 58. Implementation surface: the already-shipped Story 58 frontend shell and chat UI represented by the retained proof chain. Proof owner: repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: desktop chat workspace shell, transcript region, and composer state.
-- `V2.` Source priority: current task requirements plus `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`, supported by the paired retained Story 58 proof chain. Owned invariant: the retained mobile Chat surface matches the final mobile shell and conversations overlay contract now owned by Story 58. Implementation surface: the already-shipped Story 58 mobile shell and conversation overlay represented by the retained proof chain. Proof owner: repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: mobile chat workspace shell, transcript state, and conversations overlay state.
-
-#### Risk Ownership
-
-- Highest-risk invariant: the durable retained proof promoted in the repository must match the live supported-stack UI that manual proof actually inspected, rather than stale screenshots or scratch-only staging output.
-- Likely blocker family: `manual or runtime environment seam` until the supported-stack readiness check, retained artifact destination, and screenshot transfer path are all explicit and reproducible.
-- If `compose:build:summary` or `compose:up` fails before the checked-in stack reaches its server and client healthchecks, treat that as a shared wrapper or baseline blocker to diagnose explicitly rather than as proof that the retained visual contract itself regressed.
-
-#### Documentation Locations
-
-- `codeInfoStatus/manual-proof/0000058/`
-- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-- `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
-
-#### Subtasks
-
-1. [ ] Current Repository: Re-read `finding-9`, the currently retained Story 58 desktop/mobile proof, and the named final design references so the exact stale-versus-current mismatches are captured before any new screenshot becomes durable evidence.
-2. [ ] Current Repository: Prepare the repository-owned retained-proof home under `codeInfoStatus/manual-proof/0000058/` with deterministic desktop/mobile Chat filenames plus any needed superseded-proof note so the kept artifacts and their explanation do not depend on scratch-only paths.
-3. [ ] Current Repository: Reconfirm the supported-stack runtime handoff for this proof path before capture by naming the wrapper-owned startup route, the checked-in compose env files (`server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`), the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs (`manual_testing/codeinfo_agents -> /app/codeinfo_agents`, `manual_testing/codex_agents -> /app/codex_agents`), the read-only ingest namespace (`${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data`), and the scratch screenshot staging convention that will be used only for temporary transfer.
-4. [ ] Current Repository: Prepare the desktop retained-proof surface under `codeInfoStatus/manual-proof/0000058/` so the later manual guidance can produce and compare the desktop chat workspace-shell, transcript, and composer captures against the named design sources without guessing filenames, transfer steps, or comparison views.
-5. [ ] Current Repository: Prepare the mobile retained-proof surface under `codeInfoStatus/manual-proof/0000058/` so the later manual guidance can produce and compare the mobile chat shell and conversations-overlay captures against the named design sources without guessing filenames, transfer steps, or comparison views.
-6. [ ] Current Repository: Update the specific Story 58 proof references in `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md` and any directly related retained-proof note files under `codeInfoStatus/manual-proof/0000058/` so they point at the deterministic desktop/mobile retained-proof filenames and clearly mark any older retained proof as superseded once the kept artifacts are transferred into place.
-
-#### Testing
-
-1. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because this task changes the supported-stack retained-proof handoff itself, and the refreshed retained proof cannot be prepared honestly from stale or ad hoc local-stack image state even though `Task 38` still owns the full broad regression rerun.
-2. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because this task changes the supported-stack retained-proof handoff itself; confirm the checked-in main stack reaches the normal retained-proof readiness path at `http://localhost:5010/health` and serves the user-facing `http://localhost:5001` surface before later manual capture, so the task proves the previously working supported runtime path rather than only env interpolation or health-shape output. Leave the broader server, client, and browser regression sweep to `Task 38`.
-3. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because this retained-proof task must leave the supported main stack shut down cleanly after the readiness and capture-preparation proof path is complete, even though `Task 38` later repeats the supported-stack cycle as the one broad final revalidation owner.
-
-#### Manual Testing Guidance
-
-Capture the retained desktop and mobile Chat proof only from a fresh browser context opened after the checked-in main stack is restarted through the repository wrappers, which load `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local` for the supported compose path. Wait for the supported stack readiness check at `http://localhost:5010/health` before keeping captures from the user-facing `http://localhost:5001` surface, preserve the mounted manual agent catalogs from `manual_testing/codeinfo_agents -> /app/codeinfo_agents` and `manual_testing/codex_agents -> /app/codex_agents`, and keep the read-only ingest namespace at `${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data` unchanged instead of improvising container edits. Compare the kept proof directly against the named final design references plus the accepted Story 58 task refinements, especially the shared workspace shell, conversation-pane controls, transcript surface, and mobile conversations overlay behavior that the stale retained proof currently contradicts. Keep task-scoped scratch artifacts for this pass under `codeInfoTmp/manual-testing/0000058/37/`, then promote only the chosen durable desktop/mobile captures into `codeInfoStatus/manual-proof/0000058/`. If Playwright MCP screenshots are used, capture them first with relative staging filenames in the Playwright output directory, then transfer the chosen files into `codeInfoTmp/manual-testing/0000058/37/` before any later promotion; do not rely on Playwright MCP to write directly into the repository.
-
-#### Implementation Notes
-
-- Pending.
-
-### Task 38. Re-Validate Story 58 After Review Pass `0000058-20260525T060243Z-e4ce8252`
-
-- Repository Name: `Current Repository`
-- Task Dependencies: `Task 34, Task 35, Task 36, Task 37`
+- Task Dependencies: `Task 34, Task 35, Task 36`
 - Task Status: `__to_do__`
 
 #### Affected Repositories
@@ -4889,7 +4815,7 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 
 #### Task Exit Criteria
 
-- `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker in `Implementation Notes`.
+- `Task 34` through `Task 36` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker in `Implementation Notes`.
 - Full relevant wrapper-first regression proof passes for the current repository after the review-created repairs land.
 - The final revalidation pass explicitly rechecks the current review-created findings block for review pass `0000058-20260525T060243Z-e4ce8252`, including exact-match replay versus contradictory replay reuse, parent-present versus parent-missing resume provider precedence, accepted launch from a previously selected conversation surviving refresh failure on both workspace surfaces, and request-A/request-B stale-abort loading behavior, as well as the six inline minor fixes already recorded for review cycle `0000058-rc-20260525T082128Z-2279fe86`.
 - Story 58 retained manual proof, including the refreshed visual-proof chain, is honest and current after the review-created repairs land.
@@ -4907,14 +4833,14 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 
 #### Visual Proof Map
 
-- `V1.` Source priority: the current review-created tasks, then Story 58 plan requirements, then `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`, `planning/layout-ideas/plan/final-designs/chat-composer-final.md`, and `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`. Owned invariant: final revalidation must prove the full Story 58 desktop frontend surfaces still match the accepted workspace-shell, transcript, composer, and launch-state contract after Tasks 34 through 37 land. Implementation surfaces: the Story 58 desktop chat, flow launch, and agent launch UI represented by the current repository frontend. Proof owner: this task’s wrapper-first regression plus repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: desktop chat shell, accepted flow launch state, accepted agent launch state, and refreshed desktop retained chat proof.
-- `V2.` Source priority: the current review-created tasks, then Story 58 plan requirements, then `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`, supported by the paired retained visual proof. Owned invariant: final revalidation must prove the full Story 58 mobile frontend surfaces still match the accepted mobile shell and conversations overlay contract after Tasks 34 through 37 land. Implementation surfaces: the Story 58 mobile chat and conversations overlay represented by the current repository frontend. Proof owner: this task’s manual guidance plus repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: mobile chat shell, mobile conversations overlay, and refreshed mobile retained chat proof.
+- `V1.` Source priority: the current review-created tasks, then Story 58 plan requirements, then `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`, `planning/layout-ideas/plan/final-designs/chat-composer-final.md`, and `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`. Owned invariant: final revalidation must prove the full Story 58 desktop frontend surfaces still match the accepted workspace-shell, transcript, composer, and launch-state contract after Tasks 34 through 36 land. Implementation surfaces: the Story 58 desktop chat, flow launch, and agent launch UI represented by the current repository frontend. Proof owner: this task’s wrapper-first regression plus repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: desktop chat shell, accepted flow launch state, accepted agent launch state, and refreshed desktop retained chat proof.
+- `V2.` Source priority: the current review-created tasks, then Story 58 plan requirements, then `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`, supported by the paired retained visual proof. Owned invariant: final revalidation must prove the full Story 58 mobile frontend surfaces still match the accepted mobile shell and conversations overlay contract after Tasks 34 through 36 land. Implementation surfaces: the Story 58 mobile chat and conversations overlay represented by the current repository frontend. Proof owner: this task’s manual guidance plus repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: mobile chat shell, mobile conversations overlay, and refreshed mobile retained chat proof.
 
 #### Risk Ownership
 
 - Highest-risk invariant: this one final revalidation owner must prove the repaired server, client, runtime, and retained-proof seams through the default wrapper-backed path without letting an older baseline failure, runtime handoff gap, or scratch-only artifact path masquerade as completed cycle proof.
 - Likely blocker family: `manual or runtime environment seam` for supported-stack readiness and retained-proof transfer, with shared baseline exposure carried only when the broad wrappers themselves fail before any review-created repair is exercised.
-- Broad-wrapper failures that happen before the checked-in stack reaches server or client health should be treated as shared baseline or wrapper blockers, not as evidence that Tasks 34 through 37 were fully revalidated.
+- Broad-wrapper failures that happen before the checked-in stack reaches server or client health should be treated as shared baseline or wrapper blockers, not as evidence that Tasks 34 through 6 were fully revalidated.
 
 #### Documentation Locations
 
@@ -4926,14 +4852,14 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read this review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and the current `## Minor Review Fixes` entries for `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`; check off this subtask only after `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Current Repository: Update the final proof-summary text in `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md` so it names the current review pass, review cycle, review-created Tasks 34 through 38, the inline minor-fix coverage, this one final revalidation owner, and the explicit no-additional-repositories applicability decision before broad regression proof closes the loop.
+1. [ ] Current Repository: Re-read this review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and the current `## Minor Review Fixes` entries for `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`; check off this subtask only after `Task 34` through `Task 36` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+2. [ ] Current Repository: Update the final proof-summary text in `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md` so it names the current review pass, review cycle, review-created Tasks 34 through 37, the inline minor-fix coverage, this one final revalidation owner, and the explicit no-additional-repositories applicability decision before broad regression proof closes the loop.
 3. [ ] Current Repository: Update the directly related retained-proof notes under `codeInfoStatus/manual-proof/0000058/` so the final proof chain points at the repository-owned desktop/mobile retained artifacts, states that scratch-staging output never counts as final Story 58 proof by itself, and records the supported-stack runtime handoff details needed for later closeout: wrapper-owned startup path, checked-in compose env files (`server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`), expected `http://localhost:5010/health` readiness check, user-facing `http://localhost:5001` surface, mounted manual agent catalogs (`manual_testing/codeinfo_agents -> /app/codeinfo_agents`, `manual_testing/codex_agents -> /app/codex_agents`), read-only ingest namespace (`${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data`), and the retained artifact destination that must receive the kept proof.
-4. [ ] Current Repository: Re-open this task, the refreshed plan-side proof summary, the retained-proof notes, and `codeInfoStatus/flow-state/review-disposition-state.json`, then compare them against Tasks 34 through 37 so the broad proof story still agrees on the current review pass id, the active review cycle id, the current-repository-only applicability decision, the review-created findings block, the inline minor fixes already covered by this cycle, and the exact final-task ownership keys before wrapper execution begins.
+4. [ ] Current Repository: Re-open this task, the refreshed plan-side proof summary, the retained-proof notes, and `codeInfoStatus/flow-state/review-disposition-state.json`, then compare them against Tasks 34 through 36 so the broad proof story still agrees on the current review pass id, the active review cycle id, the current-repository-only applicability decision, the review-created findings block, the inline minor fixes already covered by this cycle, and the exact final-task ownership keys before wrapper execution begins.
 
 #### Testing
 
-This task is the one broad automated revalidation owner for the current repository in review cycle `0000058-rc-20260525T082128Z-2279fe86`: it owns the full server build and test regression, the full client build and test regression, the browser-level e2e rerun, the supported-stack compose build/up/down cycle, and the repository lint/format gates for the whole review-created findings block after Tasks 34 through 37 are complete.
+This task is the one broad automated revalidation owner for the current repository in review cycle `0000058-rc-20260525T082128Z-2279fe86`: it owns the full server build and test regression, the full client build and test regression, the browser-level e2e rerun, the supported-stack compose build/up/down cycle, and the repository lint/format gates for the whole review-created findings block after Tasks 34 through 36 are complete.
 
 1. [ ] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this final review-cycle proof must reconfirm the server build after the repair tasks land.
 2. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this final review-cycle proof must reconfirm the client build after the repair tasks land.
@@ -4949,7 +4875,7 @@ This task is the one broad automated revalidation owner for the current reposito
 
 #### Manual Testing Guidance
 
-Use the checked-in supported main stack at `http://localhost:5001` and `http://localhost:5010`, not `codeinfo:local`, and rerun the broad Story 58 desktop/mobile proof only after the review-created repairs land and the stack is freshly restarted through the repository wrappers so `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local` load on the supported compose path. Wait for the `http://localhost:5010/health` readiness check before keeping browser proof from `http://localhost:5001`, preserve the mounted manual agent catalogs from `manual_testing/codeinfo_agents -> /app/codeinfo_agents` and `manual_testing/codex_agents -> /app/codex_agents`, leave the read-only ingest namespace at `${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data`, and keep task-scoped final-pass scratch artifacts under `codeInfoTmp/manual-testing/0000058/38/` before any durable closeout bundle is curated into `codeInfoStatus/manual-proof/0000058/`. This final revalidation pass must explicitly cover the repaired working-folder, exact-match replay versus contradictory replay reuse, parent-present versus parent-missing resume provider precedence, accepted launch from a previously selected conversation surviving refresh failure on both flow and agent surfaces, request-A/request-B shared loading overlap, and retained visual-proof surfaces, while also rechecking the six inline minor fixes already recorded in `## Minor Review Fixes` for this same review cycle. If Playwright MCP screenshots are useful during this final pass, stage them first with relative filenames in the Playwright output directory and then transfer the chosen artifacts into `codeInfoTmp/manual-testing/0000058/38/` before any later durable promotion.
+Use the checked-in supported main stack at `http://localhost:5001` and `http://localhost:5010`, not `codeinfo:local`, and rerun the broad Story 58 desktop/mobile proof only after the review-created repairs land and the stack is freshly restarted through the repository wrappers so `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local` load on the supported compose path. Wait for the `http://localhost:5010/health` readiness check before keeping browser proof from `http://localhost:5001`, preserve the mounted manual agent catalogs from `manual_testing/codeinfo_agents -> /app/codeinfo_agents` and `manual_testing/codex_agents -> /app/codex_agents`, leave the read-only ingest namespace at `${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data`, and keep task-scoped final-pass scratch artifacts under `codeInfoTmp/manual-testing/0000058/37/` before any durable closeout bundle is curated into `codeInfoStatus/manual-proof/0000058/`. This final revalidation pass must explicitly cover the repaired working-folder, exact-match replay versus contradictory replay reuse, parent-present versus parent-missing resume provider precedence, accepted launch from a previously selected conversation surviving refresh failure on both flow and agent surfaces, request-A/request-B shared loading overlap, and retained visual-proof surfaces, while also rechecking the six inline minor fixes already recorded in `## Minor Review Fixes` for this same review cycle. If Playwright MCP screenshots are useful during this final pass, stage them first with relative filenames in the Playwright output directory and then transfer the chosen artifacts into `codeInfoTmp/manual-testing/0000058/37/` before any later durable promotion.
 
 #### Implementation Notes
 

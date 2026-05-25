@@ -175,8 +175,8 @@ When browser proof may use Playwright MCP, also record the artifact-transfer pat
 - the target artifact repository root that owns the active `plan_path`
 - how that target artifact repository root was resolved, such as the active working repository path or `git rev-parse --show-toplevel` from the directory containing `plan_path`
 - the intended target artifact destination relative to that target repository
-- for this repository, treat the manual-testing agent's Playwright MCP runtime as the local agent stack unless current repository evidence explicitly proves a different runtime is active
-- for this repository, record `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` as the normal first place the manual-testing agent should look for captured Playwright MCP screenshots
+- for this codeInfo2 harness workflow, treat the manual-testing agent's Playwright MCP runtime as the local agent stack unless current repository evidence explicitly proves a different runtime is active
+- for this codeInfo2 harness workflow, record `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` as the normal first place the manual-testing agent should look for captured Playwright MCP screenshots
 - do not infer the screenshot source from the app-under-test compose stack alone; record the Playwright MCP runtime separately from the runtime being proved whenever those differ
 - the Playwright MCP output root inside the Playwright runtime, normally `/tmp/playwright-output`
 - whether the harness repo exposes that output as `$CODEINFO_ROOT/playwright-output-local`
@@ -293,7 +293,7 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
             "target_repository_root": "/abs/path/to/repo-that-owns-plan",
             "target_destination": "codeInfoTmp/manual-testing/0000059/7/",
             "curated_story_destination": "codeInfoStatus/manual-proof/0000059/",
-            "playwright_mcp_runtime": "local agent stack",
+            "playwright_mcp_runtime": "codeInfo2 local agent stack",
             "playwright_mcp_compose_profile": "local",
             "playwright_mcp_output_root": "/tmp/playwright-output",
             "harness_playwright_output_bind": "$CODEINFO_ROOT/playwright-output-local",

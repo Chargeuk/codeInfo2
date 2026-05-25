@@ -53,7 +53,7 @@ When validation succeeds, return a concise response that includes:
 6. Whether `Design Contract Present` is true.
 7. If `Design Contract Present` is true, the named design assets or plan sections the manual tester must use as the visual comparison source.
 8. If `Design Contract Present` is true and the final story task expects story-wide screenshots, say that explicitly so the later manual-testing pass knows it must try to capture the whole implemented frontend surface, not only the current task-local seam.
-9. The expected Playwright screenshot transfer path for this repository, including that the manual-testing agent should normally look first in `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` unless fresher runtime evidence explicitly proves otherwise.
+9. The expected Playwright screenshot transfer path for this codeInfo2 harness workflow, including that the manual-testing agent should normally look first in `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` unless fresher runtime evidence explicitly proves otherwise.
 10. What is still remaining to be done.
 11. Any additional supporting repositories that later manual proof may need beyond the declared story repositories, when that is already evident.
 

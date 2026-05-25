@@ -127,17 +127,20 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 <playwright_mcp_artifact_transfer_rules>
 
-- Playwright MCP screenshot filenames are resolved inside the Playwright runtime output directory, normally `/tmp/playwright-output`; they are not resolved relative to the target repository.
+- Playwright MCP screenshot paths are resolved inside the Playwright runtime output directory, normally `/tmp/playwright-output`; they are not resolved relative to the target repository.
 - Do not pass an absolute target-repository path to Playwright MCP screenshot tools. Playwright MCP rejects paths outside its output directory.
-- Capture screenshots with a deterministic relative staging filename, such as `manual-testing/<story-number>/<task-number>/proof-01-home.png`.
+- Capture screenshots with a deterministic relative staging path, such as `manual-testing/<story-number>/<task-number>/proof-01-home.png`.
 - After capture, transfer the screenshot into `codeInfoTmp/manual-testing/<story-number>/<task-number>/` as a direct child file of that task folder, for example `codeInfoTmp/manual-testing/<story-number>/<task-number>/proof-01-home.png`.
 - Do not recreate the Playwright staging subdirectories such as `manual-testing/<story-number>/<task-number>/` inside the repository destination folder.
 - After capture, transfer the image into the target repository artifact destination from `<manual_proof_artifact_rules>`.
-- When the Playwright output is host-visible through the harness repository, copy or move from `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` into the target repository destination.
-- When `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` does not exist because the active Playwright MCP uses a Docker-managed output volume, copy the file out of the supported `playwright-mcp` container for the runtime recorded in `manual-testing-runtime.json`, for example by resolving the container with the relevant Compose file under `CODEINFO_ROOT` and copying `/tmp/playwright-output/<staging-filename>` into the target repository destination.
+- For the codeInfo2 local harness workflow, any Playwright MCP artifact saved under `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime will appear at `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host. When the manual-testing agent is using its normal Playwright MCP runtime, look there first for captured screenshots or other Playwright MCP-written artifacts. This is a staging source, not the final target repository artifact destination.
+- Do not assume the app-under-test compose stack is also the source of Playwright MCP screenshots; the tested runtime and the screenshot-producing Playwright runtime may differ.
+- Only skip the `$CODEINFO_ROOT/playwright-output-local/<relative-path>` check when current runtime evidence explicitly proves the active Playwright MCP runtime does not expose that bind path.
+- When the bind path is unavailable, copy the file out of the exact Playwright MCP runtime recorded in `codeInfoStatus/flow-state/manual-testing-runtime.json`; do not guess a container from the app-under-test stack.
+- For this codeInfo2 harness workflow, prefer the recorded local Playwright MCP container such as `codeinfo2-playwright-mcp-local` when a container copy-out fallback is genuinely needed.
 - Create the target destination directory in the target repository before copying artifacts into it.
 - Verify the target repository file exists after transfer and inspect the saved image before relying on it as proof.
-- Record both the Playwright staging filename and the final target repository-relative artifact path in the implementation notes.
+- Record both the Playwright staging relative path and the final target repository-relative artifact path in the implementation notes.
 - If neither the harness bind path nor the container copy-out path is available, classify the issue under the outcome rules instead of claiming the screenshot was saved.
 
 </playwright_mcp_artifact_transfer_rules>
@@ -234,11 +237,14 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If the completed task has a browser-visible or connected frontend surface, manual testing must try to capture the relevant screenshots whenever honest tooling and runtime access allow it.
 - If screenshot capture is blocked or incomplete, record that limitation explicitly in the implementation notes instead of silently skipping screenshots, but do not treat missing screenshots by themselves as a reason to reopen the task or add follow-up work.
 - Save any captured manual-proof artifacts to the correct repository-relative scratch destination for this task: `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
-- For Playwright MCP screenshots, first capture to the Playwright MCP output directory with a relative staging filename, then transfer the file to the repository-relative destination above using the `playwright_mcp_artifact_transfer_rules`.
+- For Playwright MCP screenshots, first capture to the Playwright MCP output directory with a relative staging path, then transfer the file to the repository-relative destination above using the `playwright_mcp_artifact_transfer_rules`.
 - If `Design Contract Present` is true, keep the screenshot basenames and comparison notes specific enough that a later reviewer can tell which retained screenshot corresponds to which design asset.
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.
 - When the candidate task is the final task in the story, extend that manual proof into the smallest honest full-story validation that still proves the story's end-to-end observable outcomes.
 - When the candidate task is the final task in the story, prefer capturing scratch proof that later closeout can curate honestly into `codeInfoStatus/manual-proof/<story-number>/`, including screenshots, console or network captures, and runtime log evidence that map back to the story acceptance criteria.
+- When the candidate task is the final task in the story and it re-covers a visual surface already shown by earlier scratch screenshots, treat the goal as capturing the latest honest proof for that surface rather than preserving every earlier screenshot by default.
+- When the candidate task is the final task in the story, record in the implementation notes whether this pass re-covered the relevant story-owned visual surfaces in their current final state and whether the latest screenshots should supersede earlier screenshots for those same surfaces.
+- If some earlier screenshots still remain uniquely necessary because this pass did not honestly re-prove a required surface, record that limitation briefly by surface or reason in the implementation notes instead of guessing.
 - If one proof path contaminates later runtime state and a smaller supported proof path already demonstrated the candidate task's required behavior, stop at the smaller successful proof and record the later-task limitation as a concise implementation note rather than escalating it into a blocker.
 
 </execution_rules>
@@ -362,7 +368,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 - If manual testing succeeds without finding further work:
   - set the candidate task's `Task Status` to `__done__`;
-  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured or honestly attempted, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, and that no additional subtasks were needed.
+  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured or honestly attempted, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, whether final-task screenshots superseded earlier screenshots for any re-covered surfaces or earlier screenshots remained uniquely necessary, and that no additional subtasks were needed.
 
 - If the non-run reason is `recoverable_runtime_trouble`:
   - prefer continuing manual testing if possible instead of blocking immediately;
@@ -421,6 +427,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Confirm manual-proof artifacts were routed to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` for the bound task rather than split between separate non-final and final-task destinations.
 - Confirm Playwright MCP screenshots were not expected to save directly into the target repository; confirm they were transferred from the Playwright output directory or its harness-visible bind into the target repository destination.
 - Confirm missing screenshots alone did not create duplicate subtasks, blockers, or task reopen work when the agent honestly attempted capture and recorded any limitation.
+- Confirm the final-task implementation note, when applicable, recorded whether latest screenshots superseded earlier screenshots for re-covered surfaces or why earlier screenshots remained uniquely necessary.
 - Confirm any visual-discrepancy follow-up work was de-duplicated against later open tasks before new subtasks were added.
 - Confirm any task-overrides-story decision was recorded honestly.
 - Confirm any conflict between story-level or bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.

@@ -4,13 +4,21 @@ Before implementation starts on the current task, inspect the live supported UI 
 
 <critical_rules>
 
+- Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
+- If the immediately preceding step just ran `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"`, treat that selector's stdout JSON as the primary just-written task result before reading the file back from disk.
 - Read `codeInfoStatus/flow-state/current-task.json` after `current-plan.json`.
-- Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its `active_selected_task` as the authoritative bound task.
-- Use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- When selector stdout JSON is available, treat the `current-task.json` disk read as a persistence check and stop if the two disagree.
+- Determine the meaning of `current-task.json` from what it contains rather than depending on an exact JSON shape.
+- Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its JSON output to validate whether the persisted handoff is currently valid.
+- In this step, a `validator-cleared bound task` means a task that `current-task.json` clearly resolves and that `check_current_task_handoff.py` does not invalidate.
+- If `current-task.json` clearly resolves a task and `check_current_task_handoff.py` does not invalidate the persisted handoff, use that persisted task as the authoritative bound task for this step.
+- If `check_current_task_handoff.py` reports an `active_selected_task`, you may mention it as freshness or diagnostic context, but do not let it override a clearly resolved persisted task from `current-task.json`.
+- Treat the stored `plan_path` and `additional_repositories` as the primary scope for this step.
+- Expand beyond that primary scope only when needed to inspect a supporting repository for honest visual diagnosis, and report any such scope expansion in the response.
 - Re-open the exact relative `plan_path` from disk before deciding what to inspect or edit.
-- Read the bound task's full task block from the plan, including:
+- If a `validator-cleared bound task` was resolved, read that task's full task block from the plan, including:
   - `Overview`
   - `Non-Goals`
   - `Task Exit Criteria`
@@ -18,7 +26,7 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `Task Design Packet`
   - `Subtasks`
   - `Manual Testing Guidance`
-- Treat every listed subtask as in scope for this refinement pass.
+- If a `validator-cleared bound task` was resolved, treat every listed subtask as in scope for this refinement pass.
 - Do not rewrite task ownership.
 - Do not create a different candidate task.
 - Do not narrow task scope.
@@ -31,10 +39,23 @@ Before implementation starts on the current task, inspect the live supported UI 
 
 <early_exit_rules>
 
-- If `check_current_task_handoff.py` does not clearly resolve an active task, stop and report `current-task handoff is stale and must be regenerated`.
-- If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop early and report:
-  - `visual refinement not applicable`
-  - a one-sentence reason tied to the current task's own exit criteria
+- If `current-task.json` says the story is complete, stop further investigation, but still return the full `output_contract`.
+- For that story-complete case:
+  - state `no task is available for this step because the story is complete`
+  - set `Applicability` to `story complete`
+  - in `Task`, state explicitly that no bound task was available because the story is complete
+  - fill every remaining required output-contract section with `not run` or `n/a` as appropriate
+- If `current-task.json` does not clearly resolve a bound task for any reason other than story complete, or if `check_current_task_handoff.py` shows the persisted handoff is no longer valid, stop further investigation, but still return the full `output_contract`.
+- For that stale-handoff case:
+  - state `current-task handoff is stale and must be regenerated`
+  - set `Applicability` to `current-task handoff stale`
+  - in `Task`, state explicitly that no `validator-cleared bound task` was available because the current-task handoff was stale
+  - fill every remaining required output-contract section with `not run` or `n/a` as appropriate
+- If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop further visual refinement work, but still return the full `output_contract`.
+- For that visual-not-applicable case:
+  - set `Applicability` to `visual refinement not applicable`
+  - include in `Task` a one-sentence reason tied to the current task's own exit criteria
+  - fill the remaining required output-contract sections honestly, using `not run` or `n/a` where appropriate
 - Only use this early exit when the task truly has no visual or interaction-facing surface to inspect.
 - Do not use the early exit just because the task is difficult, broad, or shared.
 
@@ -46,10 +67,12 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `AGENTS.md`
   - `README.md`
   - `codeinfo_markdown/repository_information.md` if it exists
-- When the task has a visual surface, use the supported main stack for this refinement:
+- When the task has a visual surface, determine the supported startup path and proof surfaces from those files plus the active plan first.
+- Unless those sources or fresher current repository evidence explicitly define a different supported path, use the supported main stack for this refinement:
   - `npm run compose:build`
   - `npm run compose:up`
-- Verify the supported surfaces before diagnosis:
+- Verify the supported surfaces named by the active repository guidance before diagnosis.
+- For this repository's default supported path, verify:
   - `http://localhost:5010/health`
   - `http://localhost:5001`
 - If the stack was already running, treat it as stale unless freshness is explicitly proven from current repository evidence.
@@ -74,7 +97,8 @@ Before implementation starts on the current task, inspect the live supported UI 
   - clean desktop and mobile viewport confirmation
   - retained screenshots only when they materially help the refinement
 - Prefer Playwright screenshots as kept artifacts for this step when screenshots are useful.
-- Save any kept artifacts under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
+- Save any kept artifacts under `codeInfoTmp/manual-testing/<story-number>/<task-number>/` relative to the target repository that owns `plan_path`.
+- Do not treat that artifact path as relative to `CODEINFO_ROOT`; use `CODEINFO_ROOT` only for harness-owned assets unless repository guidance explicitly tells you otherwise.
 - If screenshot export is not honestly available, do not invent a saved path.
 
 </browser_tool_rules>
@@ -129,9 +153,16 @@ Return a concise report with these exact sections:
 
 1. `Task`
    - task number and title
+   - or an explicit statement that no bound task was available because the story is complete
+   - or an explicit statement that no `validator-cleared bound task` was available because the current-task handoff was stale
+   - when `Applicability` is `visual refinement not applicable`, include the one-sentence reason tied to the current task's own exit criteria here
 
 2. `Applicability`
-   - either `visual refinement applied` or `visual refinement not applicable`
+   - one of:
+     - `visual refinement applied`
+     - `visual refinement not applicable`
+     - `story complete`
+     - `current-task handoff stale`
 
 3. `Runtime`
    - whether you restarted the main stack
@@ -142,6 +173,7 @@ Return a concise report with these exact sections:
    - desktop
    - mobile
    - any supporting repository surface if one was needed
+   - note any scope expansion beyond the stored `plan_path` and `additional_repositories`
 
 5. `Plan Changes`
    - list exactly what changed in the current task
@@ -156,7 +188,7 @@ Return a concise report with these exact sections:
      - the likely owning file(s) or component seam reflected in the updated task text
 
 7. `Artifacts`
-   - list any kept screenshots or support artifacts saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`
+   - list any kept screenshots or support artifacts saved under the target repository's `codeInfoTmp/manual-testing/<story-number>/<task-number>/`
    - if none were kept, say so
 
 8. `No-Code-Change Confirmation`
@@ -168,12 +200,18 @@ Return a concise report with these exact sections:
 
 <verification_loop>
 
+- Confirm you read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` first.
 - Confirm you used the stored current-plan and current-task handoff.
 - Confirm you ran `check_current_task_handoff.py`.
+- Confirm you used the persisted task from `current-task.json` as the bound task only when it clearly resolved one and the validator did not invalidate the persisted handoff.
 - Confirm you re-opened the plan from disk.
-- Confirm you treated every existing subtask as in scope.
+- Confirm you treated every existing subtask as in scope when a `validator-cleared bound task` was resolved.
+- Confirm you returned the full `output_contract` even when an early-exit condition applied.
+- Confirm you reported `story complete` separately from `current-task handoff stale` when `current-task.json` indicated that no task was available because the story was complete.
 - Confirm you exited early without plan edits if the task had no visual surface.
 - Confirm you used Chrome DevTools first for diagnosis and Playwright for retained screenshots when useful.
+- Confirm you treated stored `plan_path` and `additional_repositories` as primary scope and disclosed any scope expansion beyond them.
+- Confirm you treated artifact paths as relative to the target repository that owns `plan_path`, not to `CODEINFO_ROOT`.
 - Confirm you edited only the current task.
 - Confirm you did not change task ownership or scope.
 - Confirm you did not mark any checklist item complete.

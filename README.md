@@ -525,6 +525,8 @@ Evidence locations:
 
 - summary-wrapper logs: `logs/test-summaries/`
 - client/server test logs: `test-results/`
+- In the local harness workflow, `/tmp/playwright-output` inside the local Playwright MCP container is bind-mounted to the repo-root `playwright-output-local/` directory, so any Playwright MCP artifact written there becomes visible on the host under `playwright-output-local/`.
+- Manual proof may capture temporary screenshots across multiple tasks, but durable story-proof closeout prefers the latest final-state screenshots, usually from the final story task, unless earlier screenshots remain uniquely necessary for a surface the final task did not honestly re-prove.
 - manual Playwright screenshots: `playwright-output-local/0000050-14-chat-ready.png` and `playwright-output-local/0000050-14-logs-proof.png`
 - final validation marker helper: `scripts/emit-task14-validation-marker.mjs`
 - current canonical reviewer summaries: `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`

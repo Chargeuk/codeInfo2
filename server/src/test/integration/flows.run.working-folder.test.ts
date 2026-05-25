@@ -107,6 +107,14 @@ const fixturesDir = path.resolve(
   '../fixtures/flows',
 );
 
+const restoreEnvVar = (key: string, value: string | undefined) => {
+  if (typeof value === 'string') {
+    process.env[key] = value;
+    return;
+  }
+  delete process.env[key];
+};
+
 test('POST /flows/:flowName/run validates working_folder', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -560,11 +568,11 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
   } finally {
     memoryConversations.delete('flow-host-working-folder-map');
     memoryTurns.delete('flow-host-working-folder-map');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    process.env.FLOWS_DIR = prevFlowsDir;
-    process.env.CODEINFO_HOST_INGEST_DIR = prevHostIngestDir;
-    process.env.CODEINFO_CODEX_WORKDIR = prevCodexWorkdir;
-    process.env.CODEX_WORKDIR = prevCodeWorkdir;
+    restoreEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
+    restoreEnvVar('FLOWS_DIR', prevFlowsDir);
+    restoreEnvVar('CODEINFO_HOST_INGEST_DIR', prevHostIngestDir);
+    restoreEnvVar('CODEINFO_CODEX_WORKDIR', prevCodexWorkdir);
+    restoreEnvVar('CODEX_WORKDIR', prevCodeWorkdir);
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1007,11 +1015,11 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
     __resetAgentServiceDepsForTests();
     memoryConversations.delete('flow-copilot-env-forwarding');
     memoryTurns.delete('flow-copilot-env-forwarding');
-    process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevLegacyAgentHome;
-    process.env.FLOWS_DIR = prevFlowsDir;
-    process.env.CODEINFO_CODEX_HOME = prevCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = prevCopilotHome;
+    restoreEnvVar('CODEINFO_AGENT_HOME', prevAgentHome);
+    restoreEnvVar('CODEINFO_CODEX_AGENT_HOME', prevLegacyAgentHome);
+    restoreEnvVar('FLOWS_DIR', prevFlowsDir);
+    restoreEnvVar('CODEINFO_CODEX_HOME', prevCodexHome);
+    restoreEnvVar('CODEINFO_COPILOT_HOME', prevCopilotHome);
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

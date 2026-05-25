@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 
-test('server unit summary wrapper preserves inherited CODEINFO and CODEX env while applying only documented overrides', () => {
+test('server unit summary wrapper uses repo-local agent roots while preserving the other inherited CODEINFO and CODEX env', () => {
   const inheritedKeys = [
     'CODEINFO_ROOT',
-    'CODEINFO_CODEX_AGENT_HOME',
     'CODEINFO_HOST_INGEST_DIR',
     'CODEINFO_COPILOT_HOME',
     'CODEINFO_CODEX_HOME',
@@ -19,6 +19,14 @@ test('server unit summary wrapper preserves inherited CODEINFO and CODEX env whi
     );
   }
 
+  assert.equal(
+    process.env.CODEINFO_AGENT_HOME,
+    path.resolve(process.cwd(), '../codeinfo_agents'),
+  );
+  assert.equal(
+    process.env.CODEINFO_CODEX_AGENT_HOME,
+    path.resolve(process.cwd(), '../codex_agents'),
+  );
   assert.equal(process.env.CODEINFO_LOG_FILE_PATH, '../logs/server-test.log');
   assert.equal(process.env.CODEINFO_CHROMA_URL, '');
   assert.equal(process.env.CODEINFO_MONGO_URI, '');

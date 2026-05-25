@@ -4356,7 +4356,7 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the exact clustered working-folder and runtime-env surface that currently fails under the stripped-env launcher.
+1. [x] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the exact clustered working-folder and runtime-env surface that currently fails under the stripped-env launcher.
 2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts --test-name "chat forwards CODEINFO_ROOT into the Copilot runtime environment"`. Use the supported wrapper because this is the clearest focused proof that the repaired launcher still preserves `CODEINFO_ROOT` through the Copilot path.
 3. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this task owns restoring the full server-unit summary wrapper contract, not only the narrowed reproductions.
 4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this wrapper task touches shared repo-owned script and proof surfaces.
@@ -4370,17 +4370,7 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 - `npm run lint` passed after the wrapper and proof-test changes.
 - `npm run format:check` passed after the wrapper and proof-test changes.
 - Implementation-only audit normalized the duplicated lint and format subtasks to complete because the same repo-root passes were already evidenced by the checked Testing entries and the immediately preceding task notes; only the remaining server-unit wrapper test runs are still open.
-
-- **BLOCKER** Automated proof stopped at Testing item 1: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts` (the focused flows working-folder integration tests). What was tried:
-  1. Ran the supported wrapper as-is (observed 4 failing subtests related to working_folder/CODEINFO_ROOT forwarding).
-  2. Re-ran the wrapper with CODEINFO_ROOT and common CODEINFO_* env vars exported in the shell.
-  3. Updated `scripts/test-summary-server-unit-env.mjs` to provide sensible defaults for CODEINFO agent-home envs (committed change) and re-ran the focused wrapper.
-
-  Each run produced the same failing tests (TAP failing items 11-14) where requests expecting `202 Accepted` returned `400 Bad Request`. The test logs show `validateKnownRepository` reporting empty known-repository sets in the failing cases, indicating the failure likely stems from the working-folder validation path or the `listIngestedRepositories` wiring rather than the wrapper env alone.
-
-  Why blocked: after three credible, bounded repair attempts the focused tests still fail with consistent evidence that requires deeper cross-module debugging (flows/service, workingFolders/state, and lmstudio/toolService interactions) or specific harness/environment setup not safely changeable in this task. No further in-scope quick fix is apparent.
-
-  Recommendation: split out a new investigation task owned by a backend engineer to trace the working_folder validation path, verify `listIngestedRepositories` is invoked with the test-provided override in all code paths, and add targeted instrumentation to the failing assertions. After that investigation the current wrapper-repair task can resume executing the focused wrapper proof. Leaving this task `__in_progress__` until the blocker is addressed.
+- **RESOLVED ISSUE** Focused Testing item 1 initially kept failing in the full file even after the wrapper env repair because two seams were still wrong: the server-unit launcher was letting the outer harness agent-home env resolve `CODEINFO_ROOT` to `/app` instead of this checkout, and the focused test file leaked `FLOWS_DIR` / working-folder env vars by restoring `undefined` values back into `process.env`. Pinning the unit-test agent roots to the repository checkout in `scripts/test-summary-server-unit-env.mjs` and `server/package.json`, then fixing the leaking `finally` cleanup in `server/src/test/integration/flows.run.working-folder.test.ts`, restored the focused wrapper proof. `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts` now passes `14/14`.
 
 ### Task 33. Run Final Automated Validation And Manual Story Proof For The Full Story 58 Redesign
 

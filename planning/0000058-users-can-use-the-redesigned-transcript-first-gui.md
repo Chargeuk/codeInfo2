@@ -4561,3 +4561,262 @@ Final story-level items to verify manually:
 - `npm run format:check --workspace client` passed without requiring any fixes.
 - Automated-proof audit closed Task 33 after the final wrapper-backed proof set was already fully checked on disk: `test:summary:server:unit` passed `2123/2123`, the latest cucumber wrapper passed `122/122` scenarios, the latest client wrapper reported `837/837` passing tests, `e2e-tests-latest.log` ended with `unexpected: 0`, and no live blocker remained in parser output.
 - Manual proof completed on 2026-05-25 as full-story final proof. Because no repository-supported freshness marker could prove the already-running main stack was current, the pass restarted the checked-in compose stack, verified `http://localhost:5010/health` and `http://localhost:5001`, and shut the stack back down with `npm run compose:down` after proof. Desktop `/chat`, `/agents`, `/flows`, `/`, `/ingest`, and `/logs` rendered the final shared shell family cleanly, `/lmstudio` redirected to `Home`, the `Home` surface correctly absorbed LM Studio status plus provider logon concerns, and mobile `Home`, the mobile app menu, the mobile conversations overlay, mobile `Chat`, and mobile `Flows` all matched the shared top-bar and bottom-composer model. Selecting the existing mobile `Chat` conversation `Manual story proof row check.` and the existing mobile `Flows` conversation `MT19 Copy Proof mt19-1779370180455` proved chronological top-to-bottom transcript order, older-content-above/newer-content-below rendering, existing-conversation landing at the newest visible bottom content, page-specific composer shells, copy-only message actions, and stable shared virtualized transcript markers across `Chat` and `Flows`; no additional subtasks were needed. Scratch proof artifacts were saved under `codeInfoTmp/manual-testing/0000058/33/` as `support-proof-context.txt`, `support-console.txt`, `support-network.txt`, and `support-screenshot-attempts.txt`; Playwright staging filenames `proof-01` through `proof-15` were captured but could not be transferred into the repository because neither the host `/tmp/playwright-output` path nor the documented `codeinfo2-playwright-mcp-1` volume copy-out exposed the staged files after capture.
+
+## Code Review Findings - Review Pass `0000058-20260525T060243Z-e4ce8252`
+
+Review pass `0000058-20260525T060243Z-e4ce8252` reviewed local `HEAD` `e4ce8252bb74467801b7d0e66cb637c9eb9b4b76` against remote base `origin/main` commit `9044803f07ee22f627b99e82511432e6792f173f` using comparison rule `local_head_vs_resolved_base`. The current repository was the only repository in scope; `additional_repositories` was empty, the stored handoff recorded `remote_fetch_status: success`, and no local-fallback base inference was needed.
+
+Durable review artifacts for this pass:
+
+- Review handoff: `codeInfoTmp/reviews/0000058-current-review.json`
+- Evidence: `codeInfoTmp/reviews/0000058-20260525T060243Z-e4ce8252-evidence.md`
+- Findings: `codeInfoTmp/reviews/0000058-20260525T060243Z-e4ce8252-findings.md`
+- Saturation: `codeInfoTmp/reviews/0000058-20260525T060243Z-e4ce8252-findings-saturation.md`
+- Blind-spot challenge: `codeInfoTmp/reviews/0000058-20260525T060243Z-e4ce8252-blind-spot-challenge.md`
+
+The active `codeInfoStatus/flow-state/review-disposition-state.json` for review cycle `0000058-rc-20260525T082128Z-2279fe86` is the authoritative routing source for this repair. It currently records seven unresolved task-required findings (`finding-1`, `finding-2`, `finding-3`, `finding-6`, `finding-7`, `finding-9`, and `finding-12`), zero unresolved minor-batchable findings, six inline-resolved minor findings already documented in `## Minor Review Fixes` (`finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`), and no incomplete-review blockers. Since `needs_task_up_path` remains true, this appended block is the serious-issue task-up owner for the current review cycle, and the fresh final revalidation task below must cover both these new repair tasks and the already-resolved inline minor fixes from the same cycle.
+
+Endorsed findings requiring plan follow-up:
+
+- `finding-2` and `finding-3`: the shared server working-folder seam now both accepts arbitrary mounted subdirectories beneath the execution root without ingested-repository proof and can clear a newer saved working folder after reading a stale snapshot.
+- `finding-1` and `finding-12`: the server flow-run identity seam can treat a contradictory retry replay as authoritative without revalidation and can let weaker child-conversation provider history overwrite the parent flow’s canonical requested-provider field on resume.
+- `finding-6` and `finding-7`: the shared client launch and conversations lifecycle can report an accepted run as failed after a post-launch refresh error and can let an aborted stale conversations request clear loading state for a newer in-flight request.
+- `finding-9`: the retained Story 58 visual proof chain is stale against the named final design contract and needs fresh durable proof, not only scratch screenshots.
+
+### Task 34. Restore Shared Working-Folder Validation And Stale-Clear Ownership After Review Pass `0000058-20260525T060243Z-e4ce8252`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 33`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-2`: the shared working-folder validator currently accepts any mounted path under the execution root before ingested-repository membership is proven.
+  - `finding-3`: the stale restore-and-clear path can unset a newer persisted working folder because the clear step does not guard on the value that was actually inspected.
+
+#### Overview
+
+Repair the shared server working-folder seam so chat, agents, flows, and restore paths all keep the intended repository-membership boundary and no stale restore branch can erase a fresher saved working folder. This task owns the shared validation and persistence boundary in the current repository and must keep the fix cohesive across the shared state helper, the Mongo clear path, and the owner-specific callers that depend on it.
+
+#### Task Exit Criteria
+
+- A requested working folder under the execution root is not accepted solely because it is mounted; the shared validator still requires honest ingested-repository proof unless the existing degraded-path contract explicitly allows otherwise.
+- The restore-and-clear path only unsets the same persisted working-folder value it inspected, or an equivalent compare-and-swap guard prevents a stale clear from wiping a newer saved selection.
+- The repaired shared seam still supports the current missing-mount and degraded restore behavior that `allowMissingWorkingFolder` and related runtime paths legitimately need.
+- Focused server proof covers both the repository-membership boundary and the stale-clear ownership boundary.
+
+#### Documentation Locations
+
+- `server/src/workingFolders/state.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/routes/chat.ts`
+- `server/src/agents/service.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/agents-working-folder.test.ts`
+- `server/src/test/integration/flows.run.working-folder.test.ts`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `finding-2` and `finding-3`, then inspect the shared working-folder helpers plus the chat, agents, and flows callers to restate the intended repository-membership boundary and the stale-clear ownership contract before editing code.
+2. [ ] Current Repository: Update the shared working-folder validator and any owner-specific callers so mounted subdirectories beneath the execution root do not bypass ingested-repository proof while the legitimate degraded restore paths still behave intentionally.
+3. [ ] Current Repository: Update the persisted working-folder clear path so a stale restore branch can only unset the exact working-folder value it inspected, or an equivalent compare-and-swap guard prevents a newer saved folder from being erased.
+4. [ ] Current Repository: Add or update focused proof for the shared repository-membership boundary and the stale-clear ownership boundary across the shared helper plus at least one flow-owned restore surface.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/unit/agents-working-folder.test.ts`. Use the supported wrapper because these focused unit proofs own the shared repository-membership contract across chat and agents.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the clearest existing flow-owned restore and working-folder proof surface for the stale-clear and degraded-path repair.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 35. Repair Flow Run Request Identity And Resume Provider Precedence After Review Pass `0000058-20260525T060243Z-e4ce8252`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 33`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-1`: a contradictory second fresh-run request can reuse the same `retryOwnershipId` and skip the authoritative launch validation path.
+  - `finding-12`: a weaker child-conversation `requestedProviderId` can overwrite the parent flow’s canonical persisted requested-provider field on resume.
+
+#### Overview
+
+Repair the server flow-run identity seam so fresh-run replay ownership and resume provider ownership both preserve the intended authoritative request-intent contract. This task owns the current-repository flow-service repair, the related persistence round-trip behavior, and the focused integration proof that must show contradictory replay input and mixed parent-versus-child provider history no longer drift into the accepted runtime state.
+
+#### Task Exit Criteria
+
+- Reusing a `retryOwnershipId` with contradictory launch-defining fields does not silently return the first accepted run as if the second payload had been validated.
+- Resume hydration keeps the parent flow’s persisted requested-provider value authoritative when parent and child history disagree, while still allowing honest backfill when the parent value is truly missing.
+- The repaired runtime and persistence round-trip no longer let weaker child history rewrite the parent flow’s canonical requested-provider metadata.
+- Focused server proof covers contradictory replay reuse and mixed parent-versus-child provider precedence.
+
+#### Documentation Locations
+
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/integration/flows.run.resume.identity.test.ts`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `finding-1` and `finding-12`, then inspect the fresh-run replay ownership path, resume hydration path, and persistence round-trip to restate which request-intent fields must remain authoritative for fresh runs and resumes.
+2. [ ] Current Repository: Update the fresh-run replay path so contradictory second requests that reuse the same `retryOwnershipId` are revalidated or rejected instead of inheriting the first accepted launch result.
+3. [ ] Current Repository: Update the resume provider-precedence path so the parent flow’s canonical persisted requested-provider field stays authoritative over weaker child-conversation history unless the parent value is genuinely absent.
+4. [ ] Current Repository: Add or update focused integration proof for contradictory replay reuse and mixed parent-versus-child provider precedence so future changes fail fast at the flow-service boundary.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`. Use the supported wrapper because these integration proofs own the fresh-run replay and launch-admission boundary.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts`. Use the supported wrapper because this integration proof owns the resumed-flow provider-precedence and persistence round-trip boundary.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 36. Stabilize Accepted-Launch UI State And Shared Conversation Loading After Review Pass `0000058-20260525T060243Z-e4ce8252`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 33`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-6`: accepted flow and agent launches currently collapse into a failed-launch UI state when the later sidebar refresh rejects.
+  - `finding-7`: an aborted stale conversations request can clear loading state for a newer in-flight request.
+
+#### Overview
+
+Repair the shared client launch and conversations lifecycle so accepted runs stay visibly accepted even when the later sidebar refresh fails, and so superseded conversations requests cannot clear loading state for the newer active request. This task owns the current-repository client seam across `FlowsPage`, `AgentsPage`, `useConversations`, and the focused client proof that must show both launch surfaces and the shared loading-state helper behave honestly under overlap and refresh-failure conditions.
+
+#### Task Exit Criteria
+
+- An accepted flow or agent launch keeps its accepted state and adopted conversation when the follow-up conversations refresh fails; the UI degrades honestly without reporting the accepted run as failed.
+- The shared conversations loading flag only clears for the active request lifecycle, so an aborted stale request cannot drop the spinner or re-enable affordances while the newer request is still in flight.
+- The repaired client seam still preserves the existing `RUN_IN_PROGRESS` conflict handling and the accepted-launch navigation/selection behavior on both workspace surfaces.
+- Focused client proof covers both accepted-launch refresh failures and the stale-abort loading-state race.
+
+#### Documentation Locations
+
+- `client/src/hooks/useConversations.ts`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+- `client/src/test/useConversations.loadingState.test.ts`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `finding-6` and `finding-7`, then inspect `useConversations`, `FlowsPage`, and `AgentsPage` to restate the accepted-launch ownership boundary and the active-request loading-state boundary before changing code.
+2. [ ] Current Repository: Update the flow and agent launch handlers so a post-acceptance conversations refresh failure degrades as a bounded refresh problem instead of collapsing the already accepted run into a failed-launch UI state.
+3. [ ] Current Repository: Update the shared conversations hook so only the active request lifecycle clears `isLoading`, and a stale aborted request cannot clear loading state for a newer in-flight request.
+4. [ ] Current Repository: Add or update focused client proof for accepted-launch refresh failures and the stale-abort loading-state race across the shared hook plus the flow and agent launch surfaces.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`. Use the supported wrapper because these focused client proofs own the accepted-launch and refresh-follow-up behavior on the two affected workspace surfaces.
+2. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/useConversations.loadingState.test.ts`. Use the supported wrapper because this focused client proof owns the stale-abort loading-state race in the shared conversations hook.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 37. Refresh Retained Story 58 Visual Proof After Review Pass `0000058-20260525T060243Z-e4ce8252`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 33`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-9`: the retained Story 58 desktop and mobile Chat proof currently contradicts the named final design contract and cannot remain the durable visual-conformance proof chain.
+
+#### Overview
+
+Repair the retained Story 58 visual-proof chain so the durable manual-proof artifacts promoted in the repository actually match the current final design contract and the accepted task-level refinements. This task owns the current-repository retained proof homes, any plan references that promote those artifacts as durable proof, and the bounded compose-backed manual capture work needed to replace the stale screenshots honestly.
+
+#### Task Exit Criteria
+
+- The retained Story 58 desktop and mobile Chat proof promoted in the repository matches the named final design contract and the later accepted Story 58 task refinements instead of showing stale pre-redesign UI.
+- The refreshed retained proof lives in a durable repository-owned proof location rather than only in scratch `codeInfoTmp` captures.
+- Any stale retained proof references that were previously treated as final evidence are removed, superseded, or clearly labeled so the repository no longer overstates visual conformance.
+- The retained proof-refresh task leaves the supported main stack shut down cleanly after capture.
+
+#### Documentation Locations
+
+- `codeInfoStatus/manual-proof/0000058/`
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+- `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `finding-9`, the retained Story 58 proof currently treated as durable evidence, and the named final design references so the exact stale-versus-current mismatches are recorded before new captures are kept.
+2. [ ] Current Repository: Capture replacement retained desktop and mobile Chat proof in the repository-owned Story 58 manual-proof location with deterministic filenames, keeping scratch staging artifacts under scratch roots only.
+3. [ ] Current Repository: Update any plan or retained-proof references that still point at stale Story 58 visual evidence so the durable proof chain now names the refreshed retained artifacts honestly.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because the refreshed retained proof must come from the checked-in main stack, not from ad hoc local-stack state.
+2. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because this retained-proof task must leave the supported main stack shut down cleanly after capture.
+
+#### Manual Testing Guidance
+
+Capture the retained desktop and mobile Chat proof only from a fresh browser context opened after the checked-in main stack is restarted. Compare the kept proof directly against the named final design references plus the accepted Story 58 task refinements, especially the shared workspace shell, conversation-pane controls, transcript surface, and mobile conversations overlay behavior that the stale retained proof currently contradicts.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 38. Re-Validate Story 58 After Review Pass `0000058-20260525T060243Z-e4ce8252`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 34, Task 35, Task 36, Task 37`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-1`, `finding-2`, `finding-3`, `finding-6`, `finding-7`, `finding-9`, and `finding-12` from review pass `0000058-20260525T060243Z-e4ce8252`
+- Also Revalidates Inline Minor Findings For Review Cycle `0000058-rc-20260525T082128Z-2279fe86`:
+  - `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13` already recorded in `## Minor Review Fixes`
+
+#### Overview
+
+This is the one final revalidation owner for review cycle `0000058-rc-20260525T082128Z-2279fe86`. Its job is to prove that the current review-created repair block for review pass `0000058-20260525T060243Z-e4ce8252` is complete, that the six inline minor fixes already recorded in `## Minor Review Fixes` still hold on the repaired branch, and that the full Story 58 regression surface remains healthy after the serious-issue task-up work lands.
+
+#### Task Exit Criteria
+
+- `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker in `Implementation Notes`.
+- Full relevant wrapper-first regression proof passes for the current repository after the review-created repairs land.
+- The final revalidation pass explicitly rechecks the current review-created findings block for review pass `0000058-20260525T060243Z-e4ce8252` and the six inline minor fixes already recorded for review cycle `0000058-rc-20260525T082128Z-2279fe86`.
+- Story 58 retained manual proof, including the refreshed visual-proof chain, is honest and current after the review-created repairs land.
+
+#### Documentation Locations
+
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- `codeInfoTmp/reviews/0000058-current-review.json`
+- `codeInfoTmp/reviews/0000058-20260525T060243Z-e4ce8252-findings.md`
+- `codeInfoStatus/manual-proof/0000058/`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read this review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and the current `## Minor Review Fixes` entries for `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`; check off this subtask only after `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+2. [ ] Current Repository: Refresh any retained proof-home notes or summary surfaces touched by this review cycle so the final proof chain still names the current review pass, review cycle, review-created tasks, and inline minor-fix coverage honestly before broad regression proof closes the loop.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this final review-cycle proof must reconfirm the server build after the repair tasks land.
+2. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this final review-cycle proof must reconfirm the client build after the repair tasks land.
+3. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this review-created block repairs server shared-state and flow-service seams that must pass again on the full server-unit surface.
+4. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use the supported wrapper because this review-created block still touches runtime launch, resume, and startup-adjacent behavior that needs acceptance-style regression proof.
+5. [ ] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this review-created block repairs shared client launch, loading, and proof-owned UI surfaces that must pass the full client regression suite again.
+6. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported wrapper because the repaired Story 58 shell, launch, and retained-proof surfaces still need browser-level regression proof after the review-created repairs land.
+7. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because the review-created proof chain still depends on the supported checked-in stack build path.
+8. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because final retained proof and manual review-cycle validation must run on the checked-in supported stack.
+9. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because the review-cycle final proof must leave the supported main stack shut down cleanly after validation.
+10. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this review-created block touches shared server, client, script, proof, and plan-owned surfaces.
+11. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this review-created block touches shared server, client, script, proof, and plan-owned surfaces.
+
+#### Manual Testing Guidance
+
+Use the checked-in supported main stack at `http://localhost:5001` and `http://localhost:5010`, not `codeinfo:local`, and rerun the broad Story 58 desktop/mobile proof only after the review-created repairs land and the stack is freshly restarted. This final revalidation pass must explicitly cover the repaired working-folder, flow-run identity, shared conversations loading, and retained visual-proof surfaces, while also rechecking the six inline minor fixes already recorded in `## Minor Review Fixes` for this same review cycle.
+
+#### Implementation Notes
+
+- Pending.

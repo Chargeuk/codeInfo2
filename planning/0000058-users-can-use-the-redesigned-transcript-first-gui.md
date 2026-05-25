@@ -4596,12 +4596,24 @@ Endorsed findings requiring plan follow-up:
 
 Repair the shared server working-folder seam so chat, agents, flows, and restore paths all keep the intended repository-membership boundary and no stale restore branch can erase a fresher saved working folder. This task owns the shared validation and persistence boundary in the current repository and must keep the fix cohesive across the shared state helper, the Mongo clear path, and the owner-specific callers that depend on it.
 
+#### Non-Goals
+
+- Do not loosen the repository-membership contract again just to preserve a broad `/data`-root fallback.
+- Do not patch only one caller while leaving the shared helper or another owner path on the old contract.
+- Do not hide the stale-clear bug behind retry loops, broad exception swallowing, or test-only environment shims.
+
 #### Task Exit Criteria
 
 - A requested working folder under the execution root is not accepted solely because it is mounted; the shared validator still requires honest ingested-repository proof unless the existing degraded-path contract explicitly allows otherwise.
 - The restore-and-clear path only unsets the same persisted working-folder value it inspected, or an equivalent compare-and-swap guard prevents a stale clear from wiping a newer saved selection.
 - The repaired shared seam still supports the current missing-mount and degraded restore behavior that `allowMissingWorkingFolder` and related runtime paths legitimately need.
 - Focused server proof covers both the repository-membership boundary and the stale-clear ownership boundary.
+
+#### Proof Mapping
+
+- `P1.` Shared repository-membership proof for the chat and agents callers: proof homes are `server/src/test/unit/chatValidators.test.ts` and `server/src/test/unit/agents-working-folder.test.ts`.
+- `P2.` Flow-owned restore and stale-clear proof: proof home is `server/src/test/integration/flows.run.working-folder.test.ts`.
+- `P3.` Broad server regression for the repaired shared seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
 
 #### Documentation Locations
 
@@ -4618,9 +4630,10 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 #### Subtasks
 
 1. [ ] Current Repository: Re-read `finding-2` and `finding-3`, then inspect the shared working-folder helpers plus the chat, agents, and flows callers to restate the intended repository-membership boundary and the stale-clear ownership contract before editing code.
-2. [ ] Current Repository: Update the shared working-folder validator and any owner-specific callers so mounted subdirectories beneath the execution root do not bypass ingested-repository proof while the legitimate degraded restore paths still behave intentionally.
-3. [ ] Current Repository: Update the persisted working-folder clear path so a stale restore branch can only unset the exact working-folder value it inspected, or an equivalent compare-and-swap guard prevents a newer saved folder from being erased.
-4. [ ] Current Repository: Add or update focused proof for the shared repository-membership boundary and the stale-clear ownership boundary across the shared helper plus at least one flow-owned restore surface.
+2. [ ] Current Repository: Update `server/src/workingFolders/state.ts` and any directly affected callers so the shared validator rejects mounted execution-root subdirectories that were never proven as ingested repositories, while preserving the existing intentional degraded-path handling for missing mounts and saved-folder restoration.
+3. [ ] Current Repository: Update the persisted clear path in the shared helper and Mongo seam so the restore branch only unsets the same saved working-folder value it inspected, or an equivalent compare-and-swap write makes that ownership check durable at write time.
+4. [ ] Current Repository: Re-check the chat, agents, and flows callers after the shared-helper edits so they still map degraded restore outcomes, validation errors, and repository-owned acceptance paths onto the intended route/service behavior instead of reviving the old broad fallback through a caller-specific shortcut.
+5. [ ] Current Repository: Add or update focused proof for both seams: unit proof that a non-ingested mounted path stays rejected across the shared validator surfaces, and integration proof that a stale restore branch cannot wipe a newer persisted working-folder value on the flow-owned restore path.
 
 #### Testing
 
@@ -4644,12 +4657,24 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 
 Repair the server flow-run identity seam so fresh-run replay ownership and resume provider ownership both preserve the intended authoritative request-intent contract. This task owns the current-repository flow-service repair, the related persistence round-trip behavior, and the focused integration proof that must show contradictory replay input and mixed parent-versus-child provider history no longer drift into the accepted runtime state.
 
+#### Non-Goals
+
+- Do not solve the replay contradiction by dropping replay support entirely.
+- Do not “fix” provider precedence by deleting child-conversation history that other runtime surfaces still legitimately read.
+- Do not move the authority boundary into client payload shaping when the flow-service seam is the confirmed owner.
+
 #### Task Exit Criteria
 
 - Reusing a `retryOwnershipId` with contradictory launch-defining fields does not silently return the first accepted run as if the second payload had been validated.
 - Resume hydration keeps the parent flow’s persisted requested-provider value authoritative when parent and child history disagree, while still allowing honest backfill when the parent value is truly missing.
 - The repaired runtime and persistence round-trip no longer let weaker child history rewrite the parent flow’s canonical requested-provider metadata.
 - Focused server proof covers contradictory replay reuse and mixed parent-versus-child provider precedence.
+
+#### Proof Mapping
+
+- `P1.` Fresh-run replay contradiction proof: proof homes are `server/src/test/integration/flows.run.basic.test.ts` and `server/src/test/integration/flows.run.errors.test.ts`.
+- `P2.` Resume provider-precedence and persistence-round-trip proof: proof home is `server/src/test/integration/flows.run.resume.identity.test.ts`.
+- `P3.` Broad server regression for the repaired flow identity seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
 
 #### Documentation Locations
 
@@ -4661,9 +4686,10 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 #### Subtasks
 
 1. [ ] Current Repository: Re-read `finding-1` and `finding-12`, then inspect the fresh-run replay ownership path, resume hydration path, and persistence round-trip to restate which request-intent fields must remain authoritative for fresh runs and resumes.
-2. [ ] Current Repository: Update the fresh-run replay path so contradictory second requests that reuse the same `retryOwnershipId` are revalidated or rejected instead of inheriting the first accepted launch result.
-3. [ ] Current Repository: Update the resume provider-precedence path so the parent flow’s canonical persisted requested-provider field stays authoritative over weaker child-conversation history unless the parent value is genuinely absent.
-4. [ ] Current Repository: Add or update focused integration proof for contradictory replay reuse and mixed parent-versus-child provider precedence so future changes fail fast at the flow-service boundary.
+2. [ ] Current Repository: Update the fresh-run replay seam in `server/src/flows/service.ts` so the replay key either proves the full launch-defining payload still matches the original accepted request or rejects the contradictory second request before returning an accepted replay result.
+3. [ ] Current Repository: Update the resume hydration and persistence round-trip so the parent flow’s persisted requested-provider field remains the canonical source when parent and child history disagree, while the existing backfill path still fills a truly missing parent value from child history.
+4. [ ] Current Repository: Re-check the flow runtime-selection and persistence writers after the repair so the same authoritative provider field is used for both in-memory pinned selection and the later persisted resume state.
+5. [ ] Current Repository: Add or update focused integration proof for both seams: contradictory replay payload reuse and mixed parent-versus-child provider precedence through the persisted resume round-trip.
 
 #### Testing
 
@@ -4687,6 +4713,12 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 
 Repair the shared client launch and conversations lifecycle so accepted runs stay visibly accepted even when the later sidebar refresh fails, and so superseded conversations requests cannot clear loading state for the newer active request. This task owns the current-repository client seam across `FlowsPage`, `AgentsPage`, `useConversations`, and the focused client proof that must show both launch surfaces and the shared loading-state helper behave honestly under overlap and refresh-failure conditions.
 
+#### Non-Goals
+
+- Do not hide the issue by suppressing all refresh failures or by dropping accepted-run feedback.
+- Do not weaken the existing `RUN_IN_PROGRESS` conflict handling in order to make the accepted-launch path simpler.
+- Do not fix only one launch surface if the shared helper or the sibling workspace still carries the same stale state pattern.
+
 #### Task Exit Criteria
 
 - An accepted flow or agent launch keeps its accepted state and adopted conversation when the follow-up conversations refresh fails; the UI degrades honestly without reporting the accepted run as failed.
@@ -4694,11 +4726,19 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 - The repaired client seam still preserves the existing `RUN_IN_PROGRESS` conflict handling and the accepted-launch navigation/selection behavior on both workspace surfaces.
 - Focused client proof covers both accepted-launch refresh failures and the stale-abort loading-state race.
 
+#### Proof Mapping
+
+- `P1.` Flow accepted-launch refresh-failure proof: proof home is `client/src/test/flowsPage.run.test.tsx`.
+- `P2.` Agent accepted-launch refresh-failure proof: proof home is `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`.
+- `P3.` Shared stale-abort loading-state proof: proof home is `client/src/test/useConversations.loadingState.test.ts`.
+- `P4.` Broad client regression for the repaired lifecycle seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
+
 #### Documentation Locations
 
 - `client/src/hooks/useConversations.ts`
 - `client/src/pages/FlowsPage.tsx`
 - `client/src/pages/AgentsPage.tsx`
+- `client/src/api/conversations.ts`
 - `client/src/test/flowsPage.run.test.tsx`
 - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
 - `client/src/test/useConversations.loadingState.test.ts`
@@ -4706,9 +4746,10 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 #### Subtasks
 
 1. [ ] Current Repository: Re-read `finding-6` and `finding-7`, then inspect `useConversations`, `FlowsPage`, and `AgentsPage` to restate the accepted-launch ownership boundary and the active-request loading-state boundary before changing code.
-2. [ ] Current Repository: Update the flow and agent launch handlers so a post-acceptance conversations refresh failure degrades as a bounded refresh problem instead of collapsing the already accepted run into a failed-launch UI state.
-3. [ ] Current Repository: Update the shared conversations hook so only the active request lifecycle clears `isLoading`, and a stale aborted request cannot clear loading state for a newer in-flight request.
-4. [ ] Current Repository: Add or update focused client proof for accepted-launch refresh failures and the stale-abort loading-state race across the shared hook plus the flow and agent launch surfaces.
+2. [ ] Current Repository: Update the flow and agent launch handlers so the accepted run result, adopted conversation id, and conflict handling remain authoritative even when the later conversations refresh rejects; surface any refresh problem as a bounded follow-up state instead of a false failed-launch state.
+3. [ ] Current Repository: Update `useConversations` so the hook clears `isLoading` only for the active request/controller lifecycle, and stale aborted requests cannot flip loading state or related affordance gates for the replacement request.
+4. [ ] Current Repository: Re-check the shared conversations consumers after the hook change so the repaired loading-state contract still supports the existing list refresh, websocket upsert, and workspace navigation behavior instead of reviving a second stale-state path through a caller-specific shortcut.
+5. [ ] Current Repository: Add or update focused client proof for both seams: accepted-launch refresh failures on the flow and agent surfaces, and the stale-abort loading-state race in the shared conversations hook.
 
 #### Testing
 
@@ -4731,12 +4772,24 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 
 Repair the retained Story 58 visual-proof chain so the durable manual-proof artifacts promoted in the repository actually match the current final design contract and the accepted task-level refinements. This task owns the current-repository retained proof homes, any plan references that promote those artifacts as durable proof, and the bounded compose-backed manual capture work needed to replace the stale screenshots honestly.
 
+#### Non-Goals
+
+- Do not treat scratch `codeInfoTmp` screenshots as the final retained proof for this task.
+- Do not broaden the task into a fresh redesign pass; it owns retained-proof honesty, not new product behavior.
+- Do not keep stale retained proof around without clearly superseding or relabeling it.
+
 #### Task Exit Criteria
 
 - The retained Story 58 desktop and mobile Chat proof promoted in the repository matches the named final design contract and the later accepted Story 58 task refinements instead of showing stale pre-redesign UI.
-- The refreshed retained proof lives in a durable repository-owned proof location rather than only in scratch `codeInfoTmp` captures.
+- The refreshed retained proof lives in a durable repository-owned proof location rather than only in scratch `codeInfoTmp` captures, using deterministic filenames that make the desktop/mobile pairing obvious.
 - Any stale retained proof references that were previously treated as final evidence are removed, superseded, or clearly labeled so the repository no longer overstates visual conformance.
 - The retained proof-refresh task leaves the supported main stack shut down cleanly after capture.
+
+#### Proof Mapping
+
+- `P1.` Supported-stack retained desktop/mobile Chat capture proof: proof home is the repository-owned Story 58 manual-proof directory refreshed by this task.
+- `P2.` Durable proof-chain honesty proof: proof homes are the updated retained artifacts plus the plan references that name them.
+- `P3.` Broad story regression for the refreshed retained proof chain: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
 
 #### Documentation Locations
 
@@ -4749,8 +4802,9 @@ Repair the retained Story 58 visual-proof chain so the durable manual-proof arti
 #### Subtasks
 
 1. [ ] Current Repository: Re-read `finding-9`, the retained Story 58 proof currently treated as durable evidence, and the named final design references so the exact stale-versus-current mismatches are recorded before new captures are kept.
-2. [ ] Current Repository: Capture replacement retained desktop and mobile Chat proof in the repository-owned Story 58 manual-proof location with deterministic filenames, keeping scratch staging artifacts under scratch roots only.
-3. [ ] Current Repository: Update any plan or retained-proof references that still point at stale Story 58 visual evidence so the durable proof chain now names the refreshed retained artifacts honestly.
+2. [ ] Current Repository: Prepare the retained proof destination and filename convention for this pass in the repository-owned Story 58 manual-proof home so desktop and mobile Chat captures, supporting notes, and any superseded-proof marker can be stored without depending on scratch-only paths.
+3. [ ] Current Repository: Capture replacement retained desktop and mobile Chat proof against the checked-in main stack, using scratch staging only as a temporary transfer step and promoting only the kept files into the repository-owned retained-proof destination.
+4. [ ] Current Repository: Update any plan or retained-proof references that still point at stale Story 58 visual evidence so the durable proof chain now names the refreshed retained artifacts honestly and makes the older retained proof clearly superseded.
 
 #### Testing
 
@@ -4759,7 +4813,7 @@ Repair the retained Story 58 visual-proof chain so the durable manual-proof arti
 
 #### Manual Testing Guidance
 
-Capture the retained desktop and mobile Chat proof only from a fresh browser context opened after the checked-in main stack is restarted. Compare the kept proof directly against the named final design references plus the accepted Story 58 task refinements, especially the shared workspace shell, conversation-pane controls, transcript surface, and mobile conversations overlay behavior that the stale retained proof currently contradicts.
+Capture the retained desktop and mobile Chat proof only from a fresh browser context opened after the checked-in main stack is restarted. Compare the kept proof directly against the named final design references plus the accepted Story 58 task refinements, especially the shared workspace shell, conversation-pane controls, transcript surface, and mobile conversations overlay behavior that the stale retained proof currently contradicts. If Playwright MCP screenshots are used, capture them first with relative staging filenames in the Playwright output directory, then transfer only the kept files into the repository-owned `codeInfoStatus/manual-proof/0000058/` destination; do not rely on Playwright MCP to write directly into the repository.
 
 #### Implementation Notes
 
@@ -4779,12 +4833,25 @@ Capture the retained desktop and mobile Chat proof only from a fresh browser con
 
 This is the one final revalidation owner for review cycle `0000058-rc-20260525T082128Z-2279fe86`. Its job is to prove that the current review-created repair block for review pass `0000058-20260525T060243Z-e4ce8252` is complete, that the six inline minor fixes already recorded in `## Minor Review Fixes` still hold on the repaired branch, and that the full Story 58 regression surface remains healthy after the serious-issue task-up work lands.
 
+#### Non-Goals
+
+- Do not create a second final revalidation owner for this same review cycle.
+- Do not silently narrow proof scope to only the newly added server or client seams; this task must also revalidate the inline minor fixes already recorded for the same cycle.
+- Do not treat scratch screenshot staging alone as retained proof closeout.
+
 #### Task Exit Criteria
 
 - `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker in `Implementation Notes`.
 - Full relevant wrapper-first regression proof passes for the current repository after the review-created repairs land.
 - The final revalidation pass explicitly rechecks the current review-created findings block for review pass `0000058-20260525T060243Z-e4ce8252` and the six inline minor fixes already recorded for review cycle `0000058-rc-20260525T082128Z-2279fe86`.
 - Story 58 retained manual proof, including the refreshed visual-proof chain, is honest and current after the review-created repairs land.
+
+#### Proof Mapping
+
+- `P1.` Review-created server repair regression proof: proof homes are the server build, unit, and cucumber wrappers rerun by this task.
+- `P2.` Review-created client repair regression proof: proof homes are the client build, client test, and e2e wrappers rerun by this task.
+- `P3.` Supported-stack retained-proof and manual-validation proof: proof homes are the compose wrappers plus the refreshed Story 58 retained proof and support notes kept by this review cycle.
+- `P4.` Review-cycle routing and inline-minor coverage proof: proof homes are this task, the current review-created findings block, `## Minor Review Fixes`, and `codeInfoStatus/flow-state/review-disposition-state.json`.
 
 #### Documentation Locations
 
@@ -4797,7 +4864,8 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 #### Subtasks
 
 1. [ ] Current Repository: Re-read this review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and the current `## Minor Review Fixes` entries for `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`; check off this subtask only after `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Current Repository: Refresh any retained proof-home notes or summary surfaces touched by this review cycle so the final proof chain still names the current review pass, review cycle, review-created tasks, and inline minor-fix coverage honestly before broad regression proof closes the loop.
+2. [ ] Current Repository: Refresh any retained proof-home notes or summary surfaces touched by this review cycle so the final proof chain still names the current review pass, review cycle, review-created tasks, inline minor-fix coverage, and the one final revalidation owner honestly before broad regression proof closes the loop.
+3. [ ] Current Repository: Re-check the refreshed retained Story 58 proof destination after Task 37 so this task’s broad regression proof can rely on repository-owned retained artifacts rather than scratch-only staging output.
 
 #### Testing
 
@@ -4815,7 +4883,7 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 
 #### Manual Testing Guidance
 
-Use the checked-in supported main stack at `http://localhost:5001` and `http://localhost:5010`, not `codeinfo:local`, and rerun the broad Story 58 desktop/mobile proof only after the review-created repairs land and the stack is freshly restarted. This final revalidation pass must explicitly cover the repaired working-folder, flow-run identity, shared conversations loading, and retained visual-proof surfaces, while also rechecking the six inline minor fixes already recorded in `## Minor Review Fixes` for this same review cycle.
+Use the checked-in supported main stack at `http://localhost:5001` and `http://localhost:5010`, not `codeinfo:local`, and rerun the broad Story 58 desktop/mobile proof only after the review-created repairs land and the stack is freshly restarted. This final revalidation pass must explicitly cover the repaired working-folder, flow-run identity, shared conversations loading, and retained visual-proof surfaces, while also rechecking the six inline minor fixes already recorded in `## Minor Review Fixes` for this same review cycle. If Playwright MCP screenshots are useful during this final pass, stage them first with relative filenames in the Playwright output directory and then transfer only the kept artifacts into the repository-owned proof destination.
 
 #### Implementation Notes
 

@@ -4587,7 +4587,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 33`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-2`: the shared working-folder validator currently accepts any mounted path under the execution root before ingested-repository membership is proven.
   - `finding-3`: the stale restore-and-clear path can unset a newer persisted working folder because the clear step does not guard on the value that was actually inspected.

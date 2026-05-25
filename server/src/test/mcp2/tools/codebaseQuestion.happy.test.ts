@@ -856,6 +856,11 @@ test('codebase_question uses the configured repository root for omitted-provider
   process.env.CODEINFO_AGENT_HOME = agentHome;
   await fs.mkdir(agentHome, { recursive: true });
   await fs.writeFile(path.join(repoRoot, 'AGENTS.md'), '# temp repo\n', 'utf8');
+  const originalError = console.error;
+  const errorLogs: string[] = [];
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(' '));
+  };
 
   try {
     const result = await runCodebaseQuestion(
@@ -883,7 +888,13 @@ test('codebase_question uses the configured repository root for omitted-provider
       fallbackUsed: true,
       workingRepositoryAvailable: false,
     });
+    assert.equal(
+      errorLogs.length,
+      0,
+      'did not expect raw stderr debug logging on successful codebase_question repository resolution',
+    );
   } finally {
+    console.error = originalError;
     if (originalDefaultProvider === undefined) {
       delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
     } else {

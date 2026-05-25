@@ -979,12 +979,6 @@ async function executeCodebaseQuestion(
         ),
       ),
   );
-  // Debug: trace known repository paths when running integration tests
-  try {
-    console.error('knownRepositoryPathsState', JSON.stringify(knownRepositoryPathsState));
-  } catch (e) {
-    console.error('knownRepositoryPathsState_error', String(e));
-  }
   const persistWorkingFolder = async (workingFolder?: string | null) => {
     if (!conversationId) return;
     if (shouldUseCodebaseQuestionMemoryPersistence()) {
@@ -1044,12 +1038,6 @@ async function executeCodebaseQuestion(
       });
     }
     throw error;
-  }
-
-  try {
-    console.error('effectiveWorkingFolder', String(effectiveWorkingFolder));
-  } catch (e) {
-    console.error('effectiveWorkingFolder_error', String(e));
   }
 
   const replayAfterWorkingFolderRestore = await getReplayResult({

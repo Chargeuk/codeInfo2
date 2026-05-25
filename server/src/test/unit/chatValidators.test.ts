@@ -444,21 +444,37 @@ test('chat validation accepts a valid working_folder', async () => {
     path.join(os.tmpdir(), 'chat-working-folder-valid-'),
   );
   tempDirs.push(workingFolder);
+  const originalError = console.error;
+  const errorLogs: string[] = [];
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(' '));
+  };
 
-  const result = await validateChatRequest(
-    {
-      model: 'gpt-5.2-codex',
-      message: 'hello',
-      conversationId: 'chat-working-folder-valid',
-      provider: 'codex',
-      working_folder: workingFolder,
-    },
-    {
-      knownRepositoryPathsState: knownRepositoryPathsAvailable([workingFolder]),
-    },
-  );
+  try {
+    const result = await validateChatRequest(
+      {
+        model: 'gpt-5.2-codex',
+        message: 'hello',
+        conversationId: 'chat-working-folder-valid',
+        provider: 'codex',
+        working_folder: workingFolder,
+      },
+      {
+        knownRepositoryPathsState: knownRepositoryPathsAvailable([
+          workingFolder,
+        ]),
+      },
+    );
 
-  assert.equal(result.working_folder, workingFolder);
+    assert.equal(result.working_folder, workingFolder);
+    assert.equal(
+      errorLogs.length,
+      0,
+      'did not expect raw stderr debug logging on valid working_folder validation',
+    );
+  } finally {
+    console.error = originalError;
+  }
 });
 
 test('chat validation rejects existing absolute working_folder when it is not ingested', async () => {

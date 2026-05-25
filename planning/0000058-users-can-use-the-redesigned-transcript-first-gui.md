@@ -4658,7 +4658,7 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 33`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-1`: a contradictory second fresh-run request can reuse the same `retryOwnershipId` and skip the authoritative launch validation path.
   - `finding-12`: a weaker child-conversation `requestedProviderId` can overwrite the parent flow’s canonical persisted requested-provider field on resume.

@@ -4658,7 +4658,7 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 33`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-1`: a contradictory second fresh-run request can reuse the same `retryOwnershipId` and skip the authoritative launch validation path.
   - `finding-12`: a weaker child-conversation `requestedProviderId` can overwrite the parent flow’s canonical persisted requested-provider field on resume.
@@ -4719,6 +4719,7 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 - Added a normalized fresh-run launch signature to the retry-ownership cache so exact-match replay reuse still succeeds while a contradictory fresh-run payload now fails fast with `INVALID_REQUEST`.
 - Reworked resume-state backfill so parent `requestedProviderId` remains canonical when present, while child history only backfills when the parent field is missing.
 - Proved the repair with the focused server-unit wrappers for the basic, errors, and resume-identity integration proofs, including the new contradictory replay rejection and parent-versus-child precedence assertions.
+- Audit closeout confirmed Task 35 had no remaining unchecked subtasks, no remaining unchecked automated testing, no live blocker, and matching focused proof in `test-results/server-unit-tests-2026-05-25T20-08-01-086Z.log`, so the task could honestly move to `__done__` before later optional manual follow-up and broader Task 37 revalidation.
 
 ### Task 36. Stabilize Accepted-Launch UI State And Shared Conversation Loading After Review Pass `0000058-20260525T060243Z-e4ce8252`
 

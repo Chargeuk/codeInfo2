@@ -136,7 +136,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - For the codeInfo2 local harness workflow, any Playwright MCP artifact saved under `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime will appear at `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host. When the manual-testing agent is using its normal Playwright MCP runtime, look there first for captured screenshots or other Playwright MCP-written artifacts. This is a staging source, not the final target repository artifact destination.
 - Do not assume the app-under-test compose stack is also the source of Playwright MCP screenshots; the tested runtime and the screenshot-producing Playwright runtime may differ.
 - Only skip the `$CODEINFO_ROOT/playwright-output-local/<relative-path>` check when current runtime evidence explicitly proves the active Playwright MCP runtime does not expose that bind path.
-- When the bind path is unavailable, copy the file out of the exact Playwright MCP runtime recorded in `manual-testing-runtime.json`; do not guess a container from the app-under-test stack.
+- When the bind path is unavailable, copy the file out of the exact Playwright MCP runtime recorded in `codeInfoStatus/flow-state/manual-testing-runtime.json`; do not guess a container from the app-under-test stack.
 - For this codeInfo2 harness workflow, prefer the recorded local Playwright MCP container such as `codeinfo2-playwright-mcp-local` when a container copy-out fallback is genuinely needed.
 - Create the target destination directory in the target repository before copying artifacts into it.
 - Verify the target repository file exists after transfer and inspect the saved image before relying on it as proof.

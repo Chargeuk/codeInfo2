@@ -50,9 +50,10 @@ Do not commit or push in this step.
 - Prefer the latest screenshot proof that represents the story's current final state instead of preserving every earlier screenshot by default.
 - Determine which candidate task folders contain eligible screenshot proof files.
 - If no candidate task folder contains eligible screenshot proof files, do not select any screenshot proof files in this pass; continue evaluating support files separately under the rules below.
+- Define the `final story task` for this step as the highest-numbered task in the active plan that owns story implementation or story proof, rather than a separate flow/meta step outside the task list.
 - Identify the highest-numbered candidate task folder that contains eligible screenshot proof files as the default latest screenshot-proof source.
-- If that highest-numbered screenshot-owning task folder does not belong to the story's final real task, treat it as the default screenshot-proof source for this pass and retain earlier screenshots only when they still appear uniquely necessary.
-- If that highest-numbered screenshot-owning task folder belongs to the story's final real task, inspect the active plan plus the latest task-level manual-proof notes semantically to determine whether that final task's manual proof re-covered the relevant story-owned visual surfaces in their current final state.
+- If that highest-numbered screenshot-owning task folder does not belong to the final story task, treat it as the default screenshot-proof source for this pass and retain earlier screenshots only when they still appear uniquely necessary.
+- If that highest-numbered screenshot-owning task folder belongs to the final story task, inspect the active plan plus the latest task-level manual-proof notes semantically to determine whether that final task's manual proof re-covered the relevant story-owned visual surfaces in their current final state.
 - If the available plan and manual-proof context indicates that the final task re-covered those visual surfaces, select screenshot proof from that final task folder only by default and treat earlier screenshots for the same surfaces as superseded scratch proof.
 - Retain earlier-task screenshots only when repository-visible evidence shows they still provide uniquely necessary proof for a required visual surface that the final task did not honestly re-prove.
 - When the available evidence is ambiguous, preserve plausibly unique earlier screenshot proof rather than discarding it aggressively.
@@ -64,6 +65,7 @@ Do not commit or push in this step.
   4. the older task has no selected support files in the current run
   5. the available evidence is not ambiguous
 - When the available evidence is ambiguous, or when the older durable folder may still own uniquely necessary proof, do not prune that durable folder; preserve it unchanged unless it is being actively replaced by selected files for the same task in the current run.
+- After a screenshot-owning task folder has been selected to own screenshot proof for this run, copy every eligible `proof-*` image file from that folder by default as selected screenshot proof unless another rule above explicitly treats that screenshot set as superseded or preserves only uniquely necessary earlier screenshot proof for a required surface.
 - Preserve screenshot basenames when copying selected screenshot proof files.
 - Copy at most two support files total across the whole story.
 - To choose support files, process numeric task folders in descending numeric order.

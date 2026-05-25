@@ -4,10 +4,16 @@ Before implementation starts on the current task, inspect the live supported UI 
 
 <critical_rules>
 
+- Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
+- If the immediately preceding step just ran `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"`, treat that selector's stdout JSON as the primary just-written task result before reading the file back from disk.
 - Read `codeInfoStatus/flow-state/current-task.json` after `current-plan.json`.
-- Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its `active_selected_task` as the authoritative bound task.
+- When selector stdout JSON is available, treat the `current-task.json` disk read as a persistence check and stop if the two disagree.
+- Determine the meaning of `current-task.json` from what it contains rather than depending on an exact JSON shape.
+- Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its JSON output to validate whether the persisted handoff is currently valid.
+- If `current-task.json` clearly resolves a task, use that persisted task as the authoritative bound task for this step.
+- If `check_current_task_handoff.py` reports an `active_selected_task`, you may mention it as freshness or diagnostic context, but do not let it override a clearly resolved persisted task from `current-task.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Re-open the exact relative `plan_path` from disk before deciding what to inspect or edit.
 - Read the bound task's full task block from the plan, including:
@@ -31,7 +37,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 
 <early_exit_rules>
 
-- If `check_current_task_handoff.py` does not clearly resolve an active task, stop and report `current-task handoff is stale and must be regenerated`.
+- If `current-task.json` does not clearly resolve a bound task, or if `check_current_task_handoff.py` shows the persisted handoff is no longer valid, stop and report `current-task handoff is stale and must be regenerated`.
 - If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop early and report:
   - `visual refinement not applicable`
   - a one-sentence reason tied to the current task's own exit criteria
@@ -46,10 +52,12 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `AGENTS.md`
   - `README.md`
   - `codeinfo_markdown/repository_information.md` if it exists
-- When the task has a visual surface, use the supported main stack for this refinement:
+- When the task has a visual surface, determine the supported startup path and proof surfaces from those files plus the active plan first.
+- Unless those sources or fresher current repository evidence explicitly define a different supported path, use the supported main stack for this refinement:
   - `npm run compose:build`
   - `npm run compose:up`
-- Verify the supported surfaces before diagnosis:
+- Verify the supported surfaces named by the active repository guidance before diagnosis.
+- For this repository's default supported path, verify:
   - `http://localhost:5010/health`
   - `http://localhost:5001`
 - If the stack was already running, treat it as stale unless freshness is explicitly proven from current repository evidence.
@@ -74,7 +82,8 @@ Before implementation starts on the current task, inspect the live supported UI 
   - clean desktop and mobile viewport confirmation
   - retained screenshots only when they materially help the refinement
 - Prefer Playwright screenshots as kept artifacts for this step when screenshots are useful.
-- Save any kept artifacts under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
+- Save any kept artifacts under `codeInfoTmp/manual-testing/<story-number>/<task-number>/` relative to the target repository that owns `plan_path`.
+- Do not treat that artifact path as relative to `CODEINFO_ROOT`; use `CODEINFO_ROOT` only for harness-owned assets unless repository guidance explicitly tells you otherwise.
 - If screenshot export is not honestly available, do not invent a saved path.
 
 </browser_tool_rules>
@@ -156,7 +165,7 @@ Return a concise report with these exact sections:
      - the likely owning file(s) or component seam reflected in the updated task text
 
 7. `Artifacts`
-   - list any kept screenshots or support artifacts saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`
+   - list any kept screenshots or support artifacts saved under the target repository's `codeInfoTmp/manual-testing/<story-number>/<task-number>/`
    - if none were kept, say so
 
 8. `No-Code-Change Confirmation`
@@ -168,12 +177,15 @@ Return a concise report with these exact sections:
 
 <verification_loop>
 
+- Confirm you read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` first.
 - Confirm you used the stored current-plan and current-task handoff.
 - Confirm you ran `check_current_task_handoff.py`.
+- Confirm you used the persisted task from `current-task.json` as the bound task when it clearly resolved one.
 - Confirm you re-opened the plan from disk.
 - Confirm you treated every existing subtask as in scope.
 - Confirm you exited early without plan edits if the task had no visual surface.
 - Confirm you used Chrome DevTools first for diagnosis and Playwright for retained screenshots when useful.
+- Confirm you treated artifact paths as relative to the target repository that owns `plan_path`, not to `CODEINFO_ROOT`.
 - Confirm you edited only the current task.
 - Confirm you did not change task ownership or scope.
 - Confirm you did not mark any checklist item complete.

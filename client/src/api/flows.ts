@@ -160,12 +160,13 @@ export async function getFlowDetails(params: {
   flowName: string;
   sourceId?: string;
 }): Promise<{ flow: FlowDetails }> {
+  const normalizedSourceId = params.sourceId?.trim() || undefined;
   const url = new URL(
     `/flows/${encodeURIComponent(params.flowName)}`,
     serverBase,
   );
-  if (params.sourceId?.trim()) {
-    url.searchParams.set('sourceId', params.sourceId.trim());
+  if (normalizedSourceId) {
+    url.searchParams.set('sourceId', normalizedSourceId);
   }
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -177,14 +178,15 @@ export async function getFlowDetails(params: {
   if (data.flow && typeof data.flow === 'object') {
     record = data.flow as Record<string, unknown>;
   } else if (Array.isArray(data.flows)) {
-    const found = data.flows.find(
-      (f: unknown) =>
-        f &&
-        typeof f === 'object' &&
-        (f as Record<string, unknown>).name === params.flowName,
-    );
-    if (found && typeof found === 'object') {
-      record = found as Record<string, unknown>;
+    const matches = data.flows.filter((f: unknown) => {
+      if (!f || typeof f !== 'object') return false;
+      const candidate = f as Record<string, unknown>;
+      if (candidate.name !== params.flowName) return false;
+      if (!normalizedSourceId) return true;
+      return candidate.sourceId === normalizedSourceId;
+    });
+    if (matches.length === 1 && typeof matches[0] === 'object') {
+      record = matches[0] as Record<string, unknown>;
     }
   }
   if (!record) {

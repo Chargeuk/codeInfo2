@@ -4643,8 +4643,8 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/unit/agents-working-folder.test.ts`. Use the supported wrapper because these focused unit proofs own the shared repository-membership contract across chat and agents.
-2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the clearest existing flow-owned restore and working-folder proof surface for the stale-clear and degraded-path repair.
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/unit/agents-working-folder.test.ts`. Use the supported wrapper because these focused unit proofs own the shared repository-membership contract across chat and agents; leave the broader server regression sweep to `Task 38`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the clearest existing flow-owned restore and working-folder proof surface for the stale-clear and degraded-path repair; leave the broader server regression sweep to `Task 38`.
 
 #### Implementation Notes
 
@@ -4706,8 +4706,8 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`. Use the supported wrapper because these integration proofs own the fresh-run replay and launch-admission boundary.
-2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts`. Use the supported wrapper because this integration proof owns the resumed-flow provider-precedence and persistence round-trip boundary.
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`. Use the supported wrapper because these integration proofs own the fresh-run replay and launch-admission boundary; leave the broader server regression sweep to `Task 38`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts`. Use the supported wrapper because this integration proof owns the resumed-flow provider-precedence and persistence round-trip boundary; leave the broader server regression sweep to `Task 38`.
 
 #### Implementation Notes
 
@@ -4778,8 +4778,8 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`. Use the supported wrapper because these focused client proofs own the accepted-launch and refresh-follow-up behavior on the two affected workspace surfaces.
-2. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/useConversations.loadingState.test.ts`. Use the supported wrapper because this focused client proof owns the stale-abort loading-state race in the shared conversations hook.
+1. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`. Use the supported wrapper because these focused client proofs own the accepted-launch and refresh-follow-up behavior on the two affected workspace surfaces; leave the broader client regression sweep to `Task 38`.
+2. [ ] Current Repository: Run `npm run test:summary:client -- --file client/src/test/useConversations.loadingState.test.ts`. Use the supported wrapper because this focused client proof owns the stale-abort loading-state race in the shared conversations hook; leave the broader client regression sweep to `Task 38`.
 
 #### Implementation Notes
 
@@ -4847,9 +4847,9 @@ Repair the retained Story 58 visual-proof chain so the durable manual-proof arti
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because the refreshed retained proof must come from the checked-in supported stack build path, not from stale or ad hoc local-stack image state.
-2. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because the refreshed retained proof must come from the checked-in main stack, not from ad hoc local-stack state.
-3. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because this retained-proof task must leave the supported main stack shut down cleanly after capture.
+1. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because this task changes the supported-stack retained-proof handoff itself, and the refreshed retained proof cannot be prepared honestly from stale or ad hoc local-stack image state even though `Task 38` still owns the full broad regression rerun.
+2. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because this task changes the supported-stack retained-proof handoff itself, and the refreshed retained proof must come from the checked-in main stack rather than ad hoc local-stack state even though `Task 38` still owns the full broad regression rerun.
+3. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because this retained-proof task must leave the supported main stack shut down cleanly after capture, even though `Task 38` later repeats the supported-stack cycle as the one broad final revalidation owner.
 
 #### Manual Testing Guidance
 
@@ -4922,6 +4922,8 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 5. [ ] Current Repository: Reconfirm the supported-stack runtime handoff before broad manual validation begins by naming the wrapper-owned startup path, the checked-in compose env files (`server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`), the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs (`manual_testing/codeinfo_agents -> /app/codeinfo_agents`, `manual_testing/codex_agents -> /app/codex_agents`), the read-only ingest namespace (`${CODEINFO_HOST_INGEST_DIR:-/tmp} -> /data`), and the retained artifact destination that must receive the kept proof.
 
 #### Testing
+
+This task is the one broad automated revalidation owner for the current repository in review cycle `0000058-rc-20260525T082128Z-2279fe86`: it owns the full server build and test regression, the full client build and test regression, the browser-level e2e rerun, the supported-stack compose build/up/down cycle, and the repository lint/format gates for the whole review-created findings block after Tasks 34 through 37 are complete.
 
 1. [ ] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this final review-cycle proof must reconfirm the server build after the repair tasks land.
 2. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this final review-cycle proof must reconfirm the client build after the repair tasks land.

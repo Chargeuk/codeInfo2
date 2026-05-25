@@ -4357,7 +4357,7 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 #### Testing
 
 1. [x] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`. Use the supported wrapper because this is the exact clustered working-folder and runtime-env surface that currently fails under the stripped-env launcher.
-2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts --test-name "chat forwards CODEINFO_ROOT into the Copilot runtime environment"`. Use the supported wrapper because this is the clearest focused proof that the repaired launcher still preserves `CODEINFO_ROOT` through the Copilot path.
+2. [x] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts --test-name "chat forwards CODEINFO_ROOT into the Copilot runtime environment"`. Use the supported wrapper because this is the clearest focused proof that the repaired launcher still preserves `CODEINFO_ROOT` through the Copilot path.
 3. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this task owns restoring the full server-unit summary wrapper contract, not only the narrowed reproductions.
 4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this wrapper task touches shared repo-owned script and proof surfaces.
 5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this wrapper task touches shared repo-owned script and proof surfaces.

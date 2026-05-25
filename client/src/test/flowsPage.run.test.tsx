@@ -627,6 +627,210 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
+  it('still starts a fresh run when flow details fail to load but the summary stays enabled', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-fresh-1',
+            inflightId: 'i1',
+            providerId: 'codex',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      if (target.includes('/flows/daily')) {
+        return mockJsonResponse(
+          { error: 'flow_details_failed' },
+          { status: 500 },
+        );
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (
+        target.includes('/conversations/') &&
+        target.includes('/working-folder') &&
+        init?.method === 'POST'
+      ) {
+        return mockJsonResponse({
+          status: 'ok',
+          conversation: {
+            conversationId: 'flow-fresh-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            archived: false,
+            flowName: 'daily',
+            flags: {},
+          },
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCall).toBeTruthy();
+    });
+    expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
+  });
+
+  it('still resumes when flow details fail to load but the summary stays enabled', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            providerId: 'codex',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      if (target.includes('/flows/daily')) {
+        return mockJsonResponse(
+          { error: 'flow_details_failed' },
+          { status: 500 },
+        );
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: { flow: { stepPath: [1] } },
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (
+        target.includes('/conversations/') &&
+        target.includes('/working-folder') &&
+        init?.method === 'POST'
+      ) {
+        return mockJsonResponse({
+          status: 'ok',
+          conversation: {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            archived: false,
+            flowName: 'daily',
+            flags: { flow: { stepPath: [1] } },
+          },
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    const resumeButton = await screen.findByTestId('flow-resume');
+    await waitFor(() => expect(resumeButton).toBeEnabled());
+    await user.click(resumeButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCall).toBeTruthy();
+    });
+    expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
+  });
+
   it('clears stale launch state during a fresh pending run and repopulates providerId and warnings from the first response', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();

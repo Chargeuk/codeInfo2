@@ -4799,6 +4799,7 @@ Repair the retained Story 58 visual-proof chain so the durable manual-proof arti
 - The retained Story 58 desktop and mobile Chat proof promoted in the repository matches the named final design contract and the later accepted Story 58 task refinements instead of showing stale pre-redesign UI.
 - The refreshed retained proof lives in a durable repository-owned proof location rather than only in scratch `codeInfoTmp` captures, using deterministic filenames that make the desktop/mobile pairing obvious.
 - Any stale retained proof references that were previously treated as final evidence are removed, superseded, or clearly labeled so the repository no longer overstates visual conformance.
+- The replacement desktop/mobile captures are produced only through the task's bounded manual guidance and then transferred from scratch staging into the repository-owned retained-proof destination; scratch staging alone does not satisfy this task.
 - The retained proof-refresh task leaves the supported main stack shut down cleanly after capture.
 
 #### Proof Mapping
@@ -4824,14 +4825,15 @@ Repair the retained Story 58 visual-proof chain so the durable manual-proof arti
 
 1. [ ] Current Repository: Re-read `finding-9`, the currently retained Story 58 desktop/mobile proof, and the named final design references so the exact stale-versus-current mismatches are captured before any new screenshot becomes durable evidence.
 2. [ ] Current Repository: Prepare the repository-owned retained-proof home under `codeInfoStatus/manual-proof/0000058/` with deterministic desktop/mobile Chat filenames plus any needed superseded-proof note so the kept artifacts and their explanation do not depend on scratch-only paths.
-3. [ ] Current Repository: Reconfirm the supported-stack runtime handoff for this proof path before capture by naming the wrapper-owned startup route, the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs, and the scratch screenshot staging path that will be used only for temporary transfer.
-4. [ ] Current Repository: Capture replacement retained desktop and mobile Chat proof against the checked-in main stack, compare the live surface against the named final design references during capture, and promote only the kept desktop/mobile artifacts from scratch staging into the repository-owned retained-proof destination.
-5. [ ] Current Repository: Update the plan references and any retained-proof notes that still point at stale Story 58 visual evidence so the durable proof chain names the refreshed retained artifacts and clearly marks any older retained proof as superseded.
+3. [ ] Current Repository: Reconfirm the supported-stack runtime handoff for this proof path before capture by naming the wrapper-owned startup route, the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs, and the scratch screenshot staging convention that will be used only for temporary transfer.
+4. [ ] Current Repository: Prepare the bounded capture checklist for this pass so the later manual guidance can produce the kept desktop/mobile artifacts against the checked-in main stack without guessing routes, filenames, comparison surfaces, or transfer steps.
+5. [ ] Current Repository: Update the plan references and retained-proof note locations that name final Story 58 visual evidence so they point at the deterministic retained-proof filenames and clearly mark any older retained proof as superseded once the kept artifacts are transferred into place.
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because the refreshed retained proof must come from the checked-in main stack, not from ad hoc local-stack state.
-2. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because this retained-proof task must leave the supported main stack shut down cleanly after capture.
+1. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because the refreshed retained proof must come from the checked-in supported stack build path, not from stale or ad hoc local-stack image state.
+2. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because the refreshed retained proof must come from the checked-in main stack, not from ad hoc local-stack state.
+3. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because this retained-proof task must leave the supported main stack shut down cleanly after capture.
 
 #### Manual Testing Guidance
 
@@ -4867,6 +4869,7 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 - Full relevant wrapper-first regression proof passes for the current repository after the review-created repairs land.
 - The final revalidation pass explicitly rechecks the current review-created findings block for review pass `0000058-20260525T060243Z-e4ce8252` and the six inline minor fixes already recorded for review cycle `0000058-rc-20260525T082128Z-2279fe86`.
 - Story 58 retained manual proof, including the refreshed visual-proof chain, is honest and current after the review-created repairs land.
+- Only repository-owned retained artifacts and supporting notes count as final close-out proof for this cycle; scratch screenshot staging and wrapper stdout summaries alone do not satisfy final revalidation.
 
 #### Proof Mapping
 
@@ -4891,8 +4894,8 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 #### Subtasks
 
 1. [ ] Current Repository: Re-read this review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and the current `## Minor Review Fixes` entries for `finding-4`, `finding-5`, `finding-8`, `finding-10`, `finding-11`, and `finding-13`; check off this subtask only after `Task 34` through `Task 37` are all `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Current Repository: Refresh the proof-summary surfaces touched by this cycle so the final proof chain still names the current review pass, review cycle, review-created Tasks 34 through 38, the inline minor-fix coverage, and this one final revalidation owner before broad regression proof closes the loop.
-3. [ ] Current Repository: Re-check the retained Story 58 proof destination after Task 37 so this task’s broad regression proof depends on repository-owned desktop/mobile artifacts and supporting notes rather than scratch-only staging output.
+2. [ ] Current Repository: Refresh the proof-summary surfaces in `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md` and any directly related retained-proof notes so the final proof chain still names the current review pass, review cycle, review-created Tasks 34 through 38, the inline minor-fix coverage, and this one final revalidation owner before broad regression proof closes the loop.
+3. [ ] Current Repository: Reconfirm the retained-proof acceptance rule this task will enforce after Task 37: only repository-owned desktop/mobile artifacts and supporting notes count as final Story 58 proof, and scratch-only staging output never does.
 4. [ ] Current Repository: Reconfirm the supported-stack runtime handoff before broad manual validation begins by naming the wrapper-owned startup path, the expected `http://localhost:5010/health` readiness check, the user-facing `http://localhost:5001` surface, the mounted manual agent catalogs, and the retained artifact destination that must receive the kept proof.
 
 #### Testing

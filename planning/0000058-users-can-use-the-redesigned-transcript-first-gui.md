@@ -4876,7 +4876,7 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 
 This task is the one broad automated revalidation owner for the current repository in review cycle `0000058-rc-20260525T082128Z-2279fe86`: it closes the loop on review-created Tasks 34 through 37, preserves the current-repository-only applicability decision, and owns the full server build and test regression, the full client build and test regression, the browser-level e2e rerun, the supported-stack compose build/up/down cycle, and the repository lint/format gates for the whole review-created findings block after Tasks 34 through 36 are complete.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this final review-cycle proof must reconfirm the server build after the repair tasks land.
+1. [x] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this final review-cycle proof must reconfirm the server build after the repair tasks land.
 2. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this final review-cycle proof must reconfirm the client build after the repair tasks land.
 3. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this review-created block repairs server shared-state and flow-service seams that must pass again on the full server-unit surface.
 4. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use the supported wrapper because this review-created block still touches runtime launch, resume, and startup-adjacent behavior that needs acceptance-style regression proof.

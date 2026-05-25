@@ -211,6 +211,15 @@ const flowServiceDeps: FlowServiceDeps = {
 type FreshRunRetryOwnershipRecord = {
   runToken: string;
   result: FlowRunStartResult;
+  launchSignature: string;
+};
+
+type FreshRunRetryOwnershipLaunch = {
+  flowName: string;
+  source: 'REST' | 'MCP';
+  sourceId?: string;
+  workingFolder?: string;
+  customTitle?: string;
 };
 
 const freshRunRetryOwnershipByKey = new Map<
@@ -220,10 +229,27 @@ const freshRunRetryOwnershipByKey = new Map<
 
 const makeFreshRunRetryOwnershipKey = (params: {
   flowName: string;
-  sourceId?: string;
   retryOwnershipId: string;
 }) =>
-  `${params.flowName}::${params.sourceId?.trim() ?? ''}::${params.retryOwnershipId.trim()}`;
+  `${params.flowName}::${params.retryOwnershipId.trim()}`;
+
+const normalizeFreshRunRetryOwnershipLaunch = (params: {
+  flowName: string;
+  source: 'REST' | 'MCP';
+  sourceId?: string;
+  working_folder?: string;
+  customTitle?: string;
+}): FreshRunRetryOwnershipLaunch => ({
+  flowName: params.flowName.trim(),
+  source: params.source,
+  sourceId: params.sourceId?.trim() || undefined,
+  workingFolder: params.working_folder?.trim() || undefined,
+  customTitle: params.customTitle?.trim() || undefined,
+});
+
+const makeFreshRunRetryOwnershipLaunchSignature = (
+  launch: FreshRunRetryOwnershipLaunch,
+) => JSON.stringify(launch);
 
 const cloneFlowRunStartResult = (
   result: FlowRunStartResult,
@@ -238,10 +264,12 @@ const rememberFreshRunRetryOwnership = (params: {
   retryOwnershipId: string;
   runToken: string;
   result: FlowRunStartResult;
+  launch: FreshRunRetryOwnershipLaunch;
 }) => {
   freshRunRetryOwnershipByKey.set(makeFreshRunRetryOwnershipKey(params), {
     runToken: params.runToken,
     result: cloneFlowRunStartResult(params.result),
+    launchSignature: makeFreshRunRetryOwnershipLaunchSignature(params.launch),
   });
 };
 
@@ -249,14 +277,25 @@ const getFreshRunRetryOwnership = (params: {
   flowName: string;
   sourceId?: string;
   retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
 }): FreshRunRetryOwnershipRecord | null => {
   const record = freshRunRetryOwnershipByKey.get(
     makeFreshRunRetryOwnershipKey(params),
   );
   if (!record) return null;
+  if (
+    record.launchSignature !==
+    makeFreshRunRetryOwnershipLaunchSignature(params.launch)
+  ) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      'retryOwnershipId already belongs to a different fresh-run launch',
+    );
+  }
   return {
     runToken: record.runToken,
     result: cloneFlowRunStartResult(record.result),
+    launchSignature: record.launchSignature,
   };
 };
 
@@ -4414,6 +4453,13 @@ export async function startFlowRun(
   const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
+  const retryOwnershipLaunch = normalizeFreshRunRetryOwnershipLaunch({
+    flowName,
+    source: params.source,
+    sourceId,
+    working_folder: params.working_folder,
+    customTitle: params.customTitle,
+  });
   if (resumeStepPath && !requestedConversationId) {
     throw toFlowRunError(
       'INVALID_REQUEST',
@@ -4425,6 +4471,7 @@ export async function startFlowRun(
       flowName,
       sourceId,
       retryOwnershipId,
+      launch: retryOwnershipLaunch,
     });
     if (existingRetry) {
       return existingRetry.result;
@@ -4646,10 +4693,16 @@ export async function startFlowRun(
       }
     }
     // Build runtimeState from the persisted resumeState and backfill requestedProviderId
-    // from any existing child conversations so the persisted flow state includes
-    // agentRequestedProviders when the child conversation already saved a request.
+    // from the parent flow's canonical requested provider first, then fall back to
+    // any existing child conversations only when the parent has no saved request.
     const runtimeStateForPersist = hydrateFlowAgentState(resumeState);
+    const savedRequestedProviderId =
+      getSavedRequestedProviderId(existingConversation);
     for (const [, state] of runtimeStateForPersist) {
+      if (savedRequestedProviderId) {
+        state.requestedProviderId = savedRequestedProviderId;
+        continue;
+      }
       if (!state.requestedProviderId) {
         const maybeConv = await getConversation(state.conversationId);
         const savedRequested = getSavedRequestedProviderId(maybeConv);
@@ -4682,6 +4735,7 @@ export async function startFlowRun(
         sourceId,
         retryOwnershipId,
         runToken,
+        launch: retryOwnershipLaunch,
         result: {
           flowName,
           conversationId,

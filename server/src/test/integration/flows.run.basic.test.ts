@@ -1116,6 +1116,7 @@ test('fresh-run retryOwnershipId reuses the accepted launch while the original r
 
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  const customTitle = 'Accepted Retry Launch';
 
   try {
     const firstResult = await startFlowRun({
@@ -1123,6 +1124,7 @@ test('fresh-run retryOwnershipId reuses the accepted launch while the original r
       conversationId: 'flow-retry-ownership-a',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
+      customTitle,
       chatFactory: () => new DelayedInstantChat(75),
     });
     const secondResult = await startFlowRun({
@@ -1130,6 +1132,7 @@ test('fresh-run retryOwnershipId reuses the accepted launch while the original r
       conversationId: 'flow-retry-ownership-b',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
+      customTitle,
       chatFactory: () => new DelayedInstantChat(75),
     });
 
@@ -1142,12 +1145,17 @@ test('fresh-run retryOwnershipId reuses the accepted launch while the original r
       getFlowExecutionId(firstResult.conversationId),
       getFlowExecutionId(secondResult.conversationId),
     );
+    assert.equal(
+      memoryConversations.get(firstResult.conversationId)?.title,
+      customTitle,
+    );
     await delay(50);
     const thirdResult = await startFlowRun({
       flowName: 'llm-basic',
       conversationId: 'flow-retry-ownership-c',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
+      customTitle,
       chatFactory: () => new DelayedInstantChat(75),
     });
     await waitForTurns(thirdResult.conversationId, (turns) =>

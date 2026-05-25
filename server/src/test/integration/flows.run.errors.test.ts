@@ -81,6 +81,27 @@ class MinimalChat extends ChatInterface {
   }
 }
 
+class DelayedMinimalChat extends ChatInterface {
+  constructor(private readonly delayMs: number) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _flags;
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    await delay(this.delayMs);
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
@@ -1825,6 +1846,53 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
     );
     assert.equal(turns.length, 2);
     assert.notEqual(retryResult.conversationId, failedConversationId);
+  });
+});
+
+test('contradictory retryOwnershipId fresh-run payload is rejected before mutating accepted launch state', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-ownership-contradiction',
+      steps: [makeLlmStep()],
+    });
+
+    const acceptedTitle = 'Accepted Replay Launch';
+    const firstResult = await startFlowRun({
+      flowName: 'retry-ownership-contradiction',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle: acceptedTitle,
+      chatFactory: () => new DelayedMinimalChat(100),
+    });
+    const secondResult = await startFlowRun({
+      flowName: 'retry-ownership-contradiction',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle: acceptedTitle,
+      chatFactory: () => new DelayedMinimalChat(100),
+    });
+
+    assert.deepEqual(secondResult, firstResult);
+    assert.equal(
+      memoryConversations.get(firstResult.conversationId)?.title,
+      acceptedTitle,
+    );
+
+    const conflictingResponse = await supertest(baseUrl)
+      .post('/flows/retry-ownership-contradiction/run')
+      .send({
+        retryOwnershipId: 'fresh-run-retry-1',
+        customTitle: 'Contradictory Replay Launch',
+      });
+
+    assert.equal(conflictingResponse.status, 400);
+    assert.equal(conflictingResponse.body.error, 'invalid_request');
+    assert.equal(conflictingResponse.body.code, 'INVALID_REQUEST');
+    assert.equal(
+      memoryConversations.get(firstResult.conversationId)?.title,
+      acceptedTitle,
+    );
   });
 });
 

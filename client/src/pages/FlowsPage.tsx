@@ -1400,14 +1400,24 @@ export default function FlowsPage() {
         console.info('[flows-ui] refreshConversations (before)', {
           selectedFlowName,
         });
-        await refreshConversations();
-        console.info('[flows-ui] refreshConversations (after)');
-        if (shouldGuardFreshRun) {
-          // Allow the UI to paint and then refresh once more to ensure the
-          // latest server-side run appears in conversation lists in environments
-          // where async routing or rapid replays can cause timing races.
-          await waitForNextPaint();
+        try {
           await refreshConversations();
+          console.info('[flows-ui] refreshConversations (after)');
+          if (shouldGuardFreshRun) {
+            // Allow the UI to paint and then refresh once more to ensure the
+            // latest server-side run appears in conversation lists in environments
+            // where async routing or rapid replays can cause timing races.
+            await waitForNextPaint();
+            await refreshConversations();
+          }
+        } catch (refreshError) {
+          log('warn', 'flows.ui.accepted_launch_refresh_failed', {
+            conversationId: result.conversationId,
+            message:
+              refreshError instanceof Error
+                ? refreshError.message
+                : String(refreshError),
+          });
         }
       } catch (err) {
         if (

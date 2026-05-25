@@ -202,6 +202,17 @@ async function openFlowInfoSurface() {
   return screen.findByTestId('flow-info-popover');
 }
 
+async function selectDailyFlow() {
+  const flowTrigger = await screen.findByTestId('flow-select-trigger');
+  await waitFor(() => expect(flowTrigger).toBeEnabled());
+  await userEvent.click(flowTrigger);
+  const flowPopover = await screen.findByTestId('flow-select-popover');
+  await userEvent.click(
+    within(flowPopover).getByTestId('flow-option-daily::local'),
+  );
+  await waitFor(() => expect(flowTrigger).toHaveTextContent('daily'));
+}
+
 function setupFlowsRunHarness(options?: {
   conversations?: unknown;
   turns?: unknown;
@@ -1040,6 +1051,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
+    await selectDailyFlow();
     await selectFirstConversation();
     await user.type(
       await screen.findByTestId('flow-custom-title'),
@@ -1060,6 +1072,159 @@ describe('Flows page run/resume controls', () => {
       expect(body.conversationId).not.toBe('flow-1');
       expect(body.customTitle).toBe('Daily recap');
     });
+  });
+
+  it('keeps the accepted flow conversation selected when the follow-up refresh fails', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+    const acceptedConversationId = 'flow-accepted-1';
+    let conversationsFetchCount = 0;
+
+    mockFetch.mockImplementation(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        const target =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : 'url' in url && typeof url.url === 'string'
+                ? url.url
+                : url.toString();
+        const method =
+          init?.method ??
+          (typeof url === 'object' &&
+          url !== null &&
+          'method' in url &&
+          typeof url.method === 'string'
+            ? url.method
+            : undefined);
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
+        }
+
+        if (target.includes('/conversations/flow-1/turns')) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'flow-1',
+                role: 'assistant',
+                content: 'Original flow answer',
+                model: 'gpt-5',
+                provider: 'codex',
+                status: 'ok',
+                createdAt: now,
+              },
+            ],
+          });
+        }
+
+        if (target.includes(`/conversations/${acceptedConversationId}/turns`)) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: acceptedConversationId,
+                role: 'assistant',
+                content: 'Accepted flow answer',
+                model: 'gpt-5',
+                provider: 'codex',
+                status: 'ok',
+                createdAt: now,
+              },
+            ],
+          });
+        }
+
+        if (
+          target.includes('/conversations/') &&
+          target.includes('/working-folder') &&
+          method === 'POST'
+        ) {
+          return mockJsonResponse({
+            status: 'ok',
+            conversation: {
+              conversationId: 'flow-1',
+              title: 'Flow: echo',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              archived: false,
+              flowName: 'echo',
+              flags: {},
+            },
+          });
+        }
+
+        if (target.includes('/conversations') && !target.includes('/turns')) {
+          conversationsFetchCount += 1;
+          if (conversationsFetchCount >= 2) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  error: 'conversation refresh failed',
+                }),
+                {
+                  status: 500,
+                  headers: { 'content-type': 'application/json' },
+                },
+              ),
+            );
+          }
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'flow-1',
+                title: 'Flow: echo',
+                provider: 'codex',
+                model: 'gpt-5',
+                source: 'REST',
+                lastMessageAt: now,
+                archived: false,
+                flowName: 'echo',
+                flags: {},
+              },
+            ],
+          });
+        }
+
+        if (target.includes('/flows/daily/run')) {
+          return mockJsonResponse(
+            {
+              status: 'started',
+              flowName: 'daily',
+              conversationId: acceptedConversationId,
+              inflightId: 'flow-inflight-accepted',
+              providerId: 'codex',
+              modelId: 'gpt-5',
+            },
+            { status: 202 },
+          );
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectDailyFlow();
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByText('Accepted flow answer')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('conversation-error')).toBeInTheDocument(),
+    );
   });
 
   it('omits stale customTitle when Run starts fresh from a resumable selected conversation', async () => {
@@ -1131,6 +1296,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
+    await selectDailyFlow();
     const titleInput = await screen.findByTestId('flow-custom-title');
     await user.click(screen.getByTestId('flow-new'));
     await waitFor(() => expect(titleInput).toBeEnabled());

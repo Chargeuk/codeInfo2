@@ -210,6 +210,7 @@ export function useConversations(params?: {
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const controllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef(0);
   const log = useMemo(() => createLogger('client-flows'), []);
 
   const normalizedAgentName =
@@ -265,8 +266,11 @@ export function useConversations(params?: {
     async (mode: 'replace' | 'append' = 'replace') => {
       controllerRef.current?.abort();
       const controller = new AbortController();
+      const requestId = activeRequestIdRef.current + 1;
+      activeRequestIdRef.current = requestId;
       controllerRef.current = controller;
       setIsLoading(true);
+      const isCurrentRequest = () => activeRequestIdRef.current === requestId;
       try {
         console.info('[conversations] fetch start', {
           mode,
@@ -297,6 +301,7 @@ export function useConversations(params?: {
           (item) =>
             normalizeConversationSummary(parseConversationSummary(item)),
         );
+        if (!isCurrentRequest()) return;
         setHasMore(Boolean(data.nextCursor));
         cursorRef.current = data.nextCursor;
         setConversations((prev) => {
@@ -308,17 +313,21 @@ export function useConversations(params?: {
           received: items.length,
           hasMore: Boolean(data.nextCursor),
         });
+        if (!isCurrentRequest()) return;
         setIsError(false);
         setError(undefined);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
+        if (!isCurrentRequest()) return;
         setIsError(true);
         setError((err as Error).message);
       } finally {
         if (controllerRef.current === controller) {
           controllerRef.current = null;
         }
-        setIsLoading(false);
+        if (isCurrentRequest()) {
+          setIsLoading(false);
+        }
       }
     },
     [

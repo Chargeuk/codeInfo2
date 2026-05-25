@@ -1711,9 +1711,19 @@ export default function AgentsPage() {
         setAgentModelId(result.modelId);
       }
 
-      await refreshConversations();
       setActiveConversationId(result.conversationId);
       lastHydratedRef.current = null;
+      try {
+        await refreshConversations();
+      } catch (refreshError) {
+        log('warn', 'agents.ui.accepted_launch_refresh_failed', {
+          conversationId: result.conversationId,
+          message:
+            refreshError instanceof Error
+              ? refreshError.message
+              : String(refreshError),
+        });
+      }
     } catch (err) {
       if (
         err instanceof AgentApiError &&

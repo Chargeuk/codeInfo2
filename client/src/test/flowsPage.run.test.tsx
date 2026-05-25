@@ -207,6 +207,7 @@ function setupFlowsRunHarness(options?: {
   turns?: unknown;
   flows?: unknown;
   runResponse?: unknown;
+  health?: unknown;
 }) {
   const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
   const conversations = (options?.conversations ?? {
@@ -225,9 +226,14 @@ function setupFlowsRunHarness(options?: {
     ],
     nextCursor: null,
   }) as Record<string, unknown>;
+  const workingFolderBodies: Array<Record<string, unknown>> = [];
 
-  return setupChatWsHarness({
+  const harness = setupChatWsHarness({
     mockFetch,
+    health: (options?.health ?? { mongoConnected: true }) as Record<
+      string,
+      unknown
+    >,
     conversations,
     turns: (options?.turns ?? { items: [], nextCursor: null }) as Record<
       string,
@@ -289,6 +295,7 @@ function setupFlowsRunHarness(options?: {
           typeof init?.body === 'string'
             ? (JSON.parse(init.body) as Record<string, unknown>)
             : {};
+        workingFolderBodies.push(body);
         const workingFolder =
           typeof body.workingFolder === 'string'
             ? body.workingFolder
@@ -311,6 +318,11 @@ function setupFlowsRunHarness(options?: {
       return mockJsonResponse({});
     },
   });
+
+  return {
+    ...harness,
+    workingFolderBodies,
+  };
 }
 
 describe('Flows page run/resume controls', () => {
@@ -2531,6 +2543,49 @@ describe('Flows page run/resume controls', () => {
     await waitFor(() =>
       expect(screen.getByTestId('flow-working-folder')).toBeDisabled(),
     );
+  });
+
+  it('disables working-folder persistence affordances when persistence is unavailable', async () => {
+    const harness = setupFlowsRunHarness({
+      health: { mongoConnected: false },
+      conversations: {
+        items: [
+          {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flowName: 'daily',
+            flags: { workingFolder: '/repos/flow' },
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-working-folder')).toHaveValue(
+        '/repos/flow',
+      ),
+    );
+
+    expect(screen.getByTestId('flow-run')).toBeDisabled();
+    expect(screen.getByTestId('flow-working-folder-trigger')).toBeDisabled();
+    expect(screen.getByTestId('flow-working-folder')).toBeDisabled();
+    expect(screen.getByTestId('flow-working-folder-picker')).toBeDisabled();
+
+    fireEvent.blur(screen.getByTestId('flow-working-folder'));
+
+    await waitFor(() => {
+      expect(harness.workingFolderBodies).toHaveLength(0);
+    });
   });
 
   it('returns to the empty state after the server clears an invalid saved path', async () => {

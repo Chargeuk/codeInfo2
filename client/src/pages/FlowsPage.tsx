@@ -395,7 +395,10 @@ export default function FlowsPage() {
     Boolean(inflightSnapshot?.inflightId) ||
     Boolean(serverVisibleInflightIdRef.current);
   const isWorkingFolderDisabled =
-    flowsLoading || !!flowsError || flowWorkingFolderLocked;
+    persistenceUnavailable ||
+    flowsLoading ||
+    !!flowsError ||
+    flowWorkingFolderLocked;
 
   const refreshSnapshots = useCallback(async () => {
     if (persistenceUnavailable) return;
@@ -621,6 +624,7 @@ export default function FlowsPage() {
       const trimmedWorkingFolder = (nextValue ?? workingFolder).trim();
       setWorkingFolder(trimmedWorkingFolder);
       if (
+        persistenceUnavailable ||
         !selectedConversationIdRef.current ||
         workingFolderDisabledRef.current
       ) {
@@ -643,7 +647,7 @@ export default function FlowsPage() {
         console.error('flow working-folder persistence failed', error);
       }
     },
-    [updateWorkingFolder, workingFolder],
+    [persistenceUnavailable, updateWorkingFolder, workingFolder],
   );
 
   const handleOpenDirPicker = () => {

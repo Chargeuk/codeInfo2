@@ -4804,7 +4804,7 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 34, Task 35, Task 36`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Affected Repositories
 
@@ -4907,3 +4907,4 @@ Use the checked-in supported main stack at `http://localhost:5001` and `http://l
 - Testing 9 complete: ran `npm run compose:down`; wrapper reported success and removed started compose services.
 - Testing 10 complete: ran `npm run lint`; wrapper reported success. Lint errors fixed (`mockLmStudioSdk.ts` unused helper removed).
 - Testing 11 complete: ran `npm run format:check`; Prettier --write applied formatting fixes to client/src/pages/FlowsPage.tsx and client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx. Format check now passes.
+- Automated-proof audit confirmed Task 37 is complete: all four subtasks and all eleven broad wrapper proof items are checked, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-05-26T00-47-13-665Z.log`, `test-results/server-cucumber-tests-2026-05-26T01-12-41-727Z.log`, `test-results/client-tests-2026-05-26T01-25-53-375Z.log`, `logs/test-summaries/e2e-tests-latest.log`, and `logs/test-summaries/compose-build-latest.log` all match the checked proof claims, and `codeInfoStatus/flow-state/review-disposition-state.json` plus `codeInfoStatus/manual-proof/0000058/task-37/retained-proof-notes.md` still preserve the single-owner review-cycle routing and retained-proof handoff for this final revalidation task.

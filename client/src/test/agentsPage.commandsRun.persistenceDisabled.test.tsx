@@ -29,7 +29,7 @@ const routes = [
 ];
 
 describe('Agents page - command execute disabled when persistence unavailable', () => {
-  it('disables Send and shows the persistence banner when mongoConnected === false', async () => {
+  it('disables Send plus working-folder persistence affordances and shows the persistence banner when mongoConnected === false', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -86,6 +86,8 @@ describe('Agents page - command execute disabled when persistence unavailable', 
 
     const execute = await screen.findByTestId('agent-send');
     await waitFor(() => expect(execute).toBeDisabled());
+    expect(await screen.findByTestId('agent-working-folder')).toBeDisabled();
+    expect(screen.getByTestId('agent-working-folder-picker')).toBeDisabled();
     expect(
       await screen.findByTestId('agents-persistence-banner'),
     ).toHaveTextContent('Conversation persistence is currently unavailable');

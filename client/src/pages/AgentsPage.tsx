@@ -343,6 +343,7 @@ export default function AgentsPage() {
       lastCommittedWorkingFolderRef.current = committed;
       setCommittedWorkingFolder(committed);
       if (
+        persistenceUnavailable ||
         !selectedConversationIdRef.current ||
         workingFolderDisabledRef.current
       ) {
@@ -358,7 +359,7 @@ export default function AgentsPage() {
         console.error('agent working-folder persistence failed', error);
       }
     },
-    [invalidatePromptDiscoveryState, workingFolder],
+    [invalidatePromptDiscoveryState, persistenceUnavailable, workingFolder],
   );
 
   const handlePickDir = (path: string) => {
@@ -1827,6 +1828,7 @@ export default function AgentsPage() {
   const inputEditableDuringRun = true;
   const sidebarSelectableDuringRun = true;
   const isWorkingFolderDisabled =
+    persistenceUnavailable ||
     controlsDisabled ||
     agentWorkingFolderLocked ||
     !wsTranscriptReady ||

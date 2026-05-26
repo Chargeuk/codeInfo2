@@ -1,0 +1,74 @@
+{
+  "candidateTask": 35,
+  "scope": "task_scoped",
+  "runtime": {
+    "restartedMainStack": true,
+    "startupPath": [
+      "npm run compose:build",
+      "npm run compose:up"
+    ],
+    "shutdownPath": [
+      "npm run compose:down"
+    ]
+  },
+  "replayProof": {
+    "flowName": "smoke",
+    "exactMatchRequestA": {
+      "retryOwnershipId": "task35-retry-seq-1",
+      "customTitle": "Task 35 Accepted Replay Launch Seq"
+    },
+    "exactMatchResponseA": {
+      "status": 202,
+      "conversationId": "09e6c745-f305-4f03-859b-43209760c408",
+      "inflightId": "b7e51b50-4e08-45e9-bc72-01ca6abad45a",
+      "providerId": "codex",
+      "modelId": "gpt-5.4"
+    },
+    "exactMatchRequestB": {
+      "retryOwnershipId": "task35-retry-seq-1",
+      "customTitle": "Task 35 Accepted Replay Launch Seq"
+    },
+    "exactMatchResponseB": {
+      "status": 202,
+      "conversationId": "09e6c745-f305-4f03-859b-43209760c408",
+      "inflightId": "b7e51b50-4e08-45e9-bc72-01ca6abad45a",
+      "providerId": "codex",
+      "modelId": "gpt-5.4"
+    },
+    "contradictoryRequest": {
+      "retryOwnershipId": "task35-retry-seq-1",
+      "customTitle": "Task 35 Contradictory Replay Launch Seq"
+    },
+    "contradictoryResponse": {
+      "status": 400,
+      "error": "invalid_request",
+      "code": "INVALID_REQUEST",
+      "message": "retryOwnershipId already belongs to a different fresh-run launch"
+    }
+  },
+  "resumeProof": {
+    "flowName": "smoke",
+    "parentConversationId": "09e6c745-f305-4f03-859b-43209760c408",
+    "childConversationId": "f46535ca-d6ce-4c74-8972-f813a62134ed",
+    "seededParentRequestedProviderId": "codex",
+    "seededChildRequestedProviderId": "copilot",
+    "resumeRequest": {
+      "conversationId": "09e6c745-f305-4f03-859b-43209760c408",
+      "resumeStepPath": [
+        0
+      ]
+    },
+    "resumeResponse": {
+      "status": 202,
+      "conversationId": "09e6c745-f305-4f03-859b-43209760c408",
+      "inflightId": "2b1fded7-4b30-4995-b896-a6adcae3beeb",
+      "providerId": "codex",
+      "modelId": "gpt-5.4"
+    },
+    "observedAfterResume": {
+      "parentRequestedProviderId": "codex",
+      "parentAgentRequestedProvider": "codex",
+      "childRequestedProviderId": "copilot"
+    }
+  }
+}

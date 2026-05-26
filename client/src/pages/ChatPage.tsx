@@ -623,6 +623,8 @@ export default function ChatPage() {
     isStopping ||
     Boolean(inflightSnapshot?.inflightId) ||
     Boolean(serverVisibleInflightId);
+  const isWorkingFolderDisabled =
+    chatWorkingFolderLocked || persistenceUnavailable;
   const combinedError =
     providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
   const retryFetch = useCallback(() => {
@@ -888,7 +890,7 @@ export default function ChatPage() {
     async (nextValue?: string) => {
       const trimmedWorkingFolder = (nextValue ?? workingFolder).trim();
       setWorkingFolder(trimmedWorkingFolder);
-      if (!selectedConversationId || chatWorkingFolderLocked) {
+      if (!selectedConversationId || isWorkingFolderDisabled) {
         return;
       }
       try {
@@ -902,7 +904,7 @@ export default function ChatPage() {
       }
     },
     [
-      chatWorkingFolderLocked,
+      isWorkingFolderDisabled,
       selectedConversationId,
       updateWorkingFolder,
       workingFolder,
@@ -930,7 +932,7 @@ export default function ChatPage() {
   };
 
   const handleOpenDirPicker = () => {
-    if (chatWorkingFolderLocked) return;
+    if (isWorkingFolderDisabled) return;
     setDirPickerOpen(true);
   };
 
@@ -1318,7 +1320,7 @@ export default function ChatPage() {
   }, [emitWorkingFolderPickerSync, readWorkingFolder, selectedConversation]);
 
   useEffect(() => {
-    if (!chatWorkingFolderLocked) {
+    if (!isWorkingFolderDisabled) {
       workingFolderLockKeyRef.current = null;
       return;
     }
@@ -1335,7 +1337,7 @@ export default function ChatPage() {
     });
   }, [
     activeConversationId,
-    chatWorkingFolderLocked,
+    isWorkingFolderDisabled,
     conversationId,
     emitWorkingFolderPickerSync,
     workingFolder,
@@ -1806,7 +1808,7 @@ export default function ChatPage() {
             (event.currentTarget as HTMLInputElement).value,
           );
         }}
-        disabled={chatWorkingFolderLocked}
+        disabled={isWorkingFolderDisabled}
       />
       <Stack direction="row" spacing={1.5} justifyContent="space-between">
         <Button
@@ -1814,7 +1816,7 @@ export default function ChatPage() {
           variant="outlined"
           size="small"
           onClick={handleOpenDirPicker}
-          disabled={chatWorkingFolderLocked}
+          disabled={isWorkingFolderDisabled}
           data-testid="chat-working-folder-picker"
         >
           Choose folder…
@@ -1824,7 +1826,7 @@ export default function ChatPage() {
           variant="text"
           size="small"
           onClick={() => void persistWorkingFolder('')}
-          disabled={chatWorkingFolderLocked}
+          disabled={isWorkingFolderDisabled}
         >
           Clear
         </Button>
@@ -2137,7 +2139,7 @@ export default function ChatPage() {
             selected={Boolean(composerWorkingFolderAnchorEl)}
             onClick={handleComposerWorkingFolderOpen}
             data-testid="chat-working-folder-trigger"
-            disabled={chatWorkingFolderLocked}
+            disabled={isWorkingFolderDisabled}
           />
           <ComposerFooterButton
             icon={composerProviderPresentation.icon}
@@ -2204,7 +2206,7 @@ export default function ChatPage() {
         onBlur={(event: FocusEvent<HTMLInputElement>) => {
           void persistWorkingFolder(event.target.value);
         }}
-        disabled={chatWorkingFolderLocked}
+        disabled={isWorkingFolderDisabled}
         data-testid="chat-working-folder"
         aria-label="Working folder"
         sx={{

@@ -73,12 +73,12 @@ When the result has `status: "out_of_scope_current_story"`:
 
 When the result has `status: "blocked"`:
 
-1. Do not move the finding into `unresolved_task_required_findings` solely because the inline pass was operationally or safely blocked.
-2. If `blocker_scope` is `finding_only`, leave the matching finding in `unresolved_minor_batchable_findings` and record that the inline path was blocked for that finding only in this pass.
-3. If `blocker_scope` is `global`, leave the matching finding and every remaining `unresolved_minor_batchable_findings` entry in place and record that a global blocker made further inline attempts unsafe in this pass.
-4. If `blocker_scope` is missing or ambiguous, treat it as `global` rather than leaving the blocked state unclear.
+1. A blocked result means the inline minor path could not proceed safely in this pass and must not be retried indefinitely from the same minor queue.
+2. If `blocker_scope` is `finding_only`, move the matching finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings` and record that deeper or planner-owned repair is needed because the inline path was blocked for that finding only.
+3. If `blocker_scope` is `global`, move the matching finding and every remaining `unresolved_minor_batchable_findings` entry into `unresolved_task_required_findings`, recording that a global blocker made further inline minor attempts unsafe in this pass.
+4. If `blocker_scope` is missing or ambiguous, treat it as `global` rather than leaving any blocked minor finding stranded in the retry queue.
 5. Add a concise `classification_notes` entry naming the blocker and whether it was treated as finding-only or global.
-6. Recompute counts and booleans so `needs_minor_fix_path` continues to reflect the still-unresolved minor findings, while `needs_task_up_path` reflects only actual unresolved task-required work or incomplete-review blockers.
+6. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true only if unresolved minor findings still remain after the move.
 7. Keep `review_created_tasks_added_or_updated` false in this step.
 8. Set `safe_to_exit_review_loop_without_tasking` false.
 9. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.

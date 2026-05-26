@@ -28,7 +28,8 @@
 - Treat the drift as story-caused when the current story changed the same surface, contract, or files and there is no honest evidence that the same behavior already existed before those story-owned edits.
 - Treat the drift as merely discovered when repository evidence shows the same behavior already existed before the current story's edits, or when the affected surface is unrelated to the story-owned changes.
 - If the step cannot honestly show that the drift predated the current story, do not mark the task complete on that uncertainty alone; keep the task aligned to restoring the approved behavior.
-- In steps that own machine-readable review state, represent that outcome in `rejected_or_non_actionable_findings` with a concise scope reason.
+- In steps that own machine-readable review state, represent merely discovered out-of-scope behavior drift in `rejected_or_non_actionable_findings` with a concise scope reason.
+- Do not use that non-actionable bucket for story-caused preserved-behavior regressions; those remain in-scope restoration work.
 - In audit or planning steps that repair task truth, record story-caused preserved-behavior regressions by adding explicit unchecked remaining work and documenting the reason in the task's note or audit note.
 - In those same audit or planning steps, merely discovered out-of-scope behavior drift may be documented in the audit note when that context is needed to explain why the task stayed aligned to current approved behavior without widening scope.
 - In other steps that do not own machine-readable review state, report the scope boundary only in step output and do not invent an ad hoc durable storage location for it.

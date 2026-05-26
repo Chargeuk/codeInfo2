@@ -19,6 +19,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.
 - Do not run broad final validation in this step. Run only bounded local automated proof that is directly needed for the selected minor fix. This may include a small test update or one or two new focused tests in the owning repository.
 - If tracked files are changed, commit them before finishing this step.
+- If the step is going to exit with any status other than `fixed`, revert any tracked edits made during this minor-fix attempt before writing the terminal result so the next loop pass does not inherit this attempt's partial tracked changes.
 - When `status` is `fixed`, `commit_sha` MUST be the exact full 40-character git commit SHA for the newly created fix commit. Do not write a guessed expansion of a short SHA, and do not copy a short SHA into this field.
 - Resolve that exact SHA from git after the fix commit is created, for example with `git rev-parse HEAD` or `git rev-parse <new-short-sha>`.
 - Do not push.
@@ -50,6 +51,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Minor review fixes may repair code within approved story scope, but they must not introduce new user-facing behavior changes unless that behavior change is explicitly approved by the story or explicitly approved later by the user.
 - If the selected minor finding would require changing established user-facing behavior outside approved scope, do not fix it inline in this story. Do not reclassify it into current-story task-up. Write an `out_of_scope_current_story` result instead so the current behavior is preserved and the finding can be recorded as non-actionable for this story.
 - Reserve `blocked` for temporary operational, handoff, repository-safety, or proof-safety failures that prevent honest work in this pass. Do not use `blocked` merely because a finding would require an out-of-scope user-facing behavior change, and do not use it when the finding itself now clearly needs deeper current-story repair instead of the inline minor path.
+- Before returning any non-`fixed` terminal result, restore the repository to the pre-attempt tracked state for this step so a failed inline attempt does not create overlapping local tracked edits for the next loop pass.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
 - Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.
 - This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.
@@ -104,6 +106,7 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 - If the selected finding no longer satisfies every minor-batchable rule after source inspection, write a `reclassify_task_required` result and stop.
 - If the selected finding would require an out-of-scope user-facing behavior change, do not write `reclassify_task_required` or `blocked`. Write an `out_of_scope_current_story` result instead.
 - If targeted proof fails and the repair is not clearly minor after one bounded inspection, prefer `reclassify_task_required` when the finding itself now clearly needs deeper current-story repair. Use `blocked` only when the failure is a temporary operational or safety interruption that prevents honest work in this pass. When `blocked` is still the honest result, use `blocker_scope: "finding_only"` when the interruption is local to the selected finding and `blocker_scope: "global"` when the interruption means later inline attempts are unsafe too.
+- If you wrote tracked edits during the attempt and the terminal result is not `fixed`, revert those tracked edits before writing `minor-review-fix-result.json`.
 - If no tracked files changed after the attempted fix, write a `skipped` result explaining why no commit was made.
 - If `status` is `fixed` and the exact `commit_sha` written to `minor-review-fix-result.json` cannot be re-verified as a commit object with git, stop and rewrite the result before finishing this step.
 
@@ -137,6 +140,7 @@ Then write that exact `full_commit_sha` value into `minor-review-fix-result.json
 - Confirm no manual testing was performed.
 - Confirm no broad final validation was run.
 - Confirm `minor-review-fix-result.json` exists and is valid JSON.
+- Confirm any non-`fixed` terminal result left no tracked edits behind from this failed or abandoned inline attempt.
 - Confirm tracked changes were committed if `status` is `fixed`.
 - Confirm the stored `commit_sha` is the exact full 40-character value returned by git for the fix commit when `status` is `fixed`.
 - Confirm `git cat-file -t "$commit_sha"` returns `commit` when `status` is `fixed`.

@@ -4886,7 +4886,7 @@ This task is the one broad automated revalidation owner for the current reposito
 8. [x] Current Repository: Run `npm run compose:up`. Use the supported wrapper because final retained proof and manual review-cycle validation must run on the checked-in supported main stack; confirm the stack reaches `http://localhost:5010/health` and serves `http://localhost:5001` so this step proves the supported env-loading, mounted-path, and startup path still preserve the previously working user-visible runtime behavior rather than only a container health shape.
 9. [x] Current Repository: Run `npm run compose:down`. Use the supported wrapper because the review-cycle final proof must leave the supported main stack shut down cleanly after the normal-system smoke and retained-proof validation path completes.
 10. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this review-created block touches shared server, client, script, proof, and plan-owned surfaces.
-11. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this review-created block touches shared server, client, script, proof, and plan-owned surfaces.
+11. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this review-created block touches shared server, client, script, proof, and plan-owned surfaces.
 
 #### Manual Testing Guidance
 
@@ -4906,3 +4906,4 @@ Use the checked-in supported main stack at `http://localhost:5001` and `http://l
 - Testing 8 complete: ran `npm run compose:up`; wrapper reported services started and health checks passed (http://localhost:5010/health and http://localhost:5001 served).
 - Testing 9 complete: ran `npm run compose:down`; wrapper reported success and removed started compose services.
 - Testing 10 complete: ran `npm run lint`; wrapper reported success. Lint errors fixed (`mockLmStudioSdk.ts` unused helper removed).
+- Testing 11 complete: ran `npm run format:check`; Prettier --write applied formatting fixes to client/src/pages/FlowsPage.tsx and client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx. Format check now passes.

@@ -463,7 +463,9 @@ describe('Agents page - command execute refresh + turns hydration', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('agents-run-error')).not.toBeInTheDocument(),
     );
-    expect(await screen.findByText('Accepted agent answer')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Accepted agent answer'),
+    ).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId('conversation-error')).toBeInTheDocument(),
     );

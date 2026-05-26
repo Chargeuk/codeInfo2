@@ -1295,8 +1295,13 @@ export default function FlowsPage() {
           // surface that error and block the run. For other transient or generic
           // failures, allow a conservative fallback (proceed without details)
           // when the summary still indicates the flow is enabled.
-          if (error instanceof FlowApiError && error.code === 'DETAILS_UNAVAILABLE') {
-            setRunError((error as Error).message ?? 'Failed to load flow details.');
+          if (
+            error instanceof FlowApiError &&
+            error.code === 'DETAILS_UNAVAILABLE'
+          ) {
+            setRunError(
+              (error as Error).message ?? 'Failed to load flow details.',
+            );
             releaseFreshRunReplayGuard();
             return;
           }

@@ -5,6 +5,7 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 <instruction_priority>
 
 - Follow `AGENTS.md` for the current repository and any participating additional repository.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Treat this command as an autonomous plan-improvement pass that keeps the selected story in scope.
 - Do not create tasks in this command.
 - Do not ask the user follow-up questions unless you are blocked by information that cannot be retrieved from repository files, git state, MCP tools, or official documentation.
@@ -17,7 +18,20 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 - Keep using tools until the pass is complete and verified. If a lookup returns empty, partial, or suspiciously narrow results, retry with at least one better-targeted fallback before concluding there is no evidence.
 - Prefer repository evidence first, then official documentation, then broader web research when needed.
 - Preserve the current plan's functionality, structure, and scope unless evidence shows a concrete improvement is required.
+- Planning is the step that locks the story's allowed user-facing behavior changes for all later phases.
   </workflow_contract>
+
+<story_behavior_lock_requirements>
+
+- Every story plan must make the allowed user-facing behavior changes clear from its existing requirements, acceptance criteria, description, and out-of-scope sections, or from an explicit behavior-lock section when those existing sections are not sufficient.
+- Every story plan must make clear which established behaviors are intended to be preserved, preferably by tightening existing requirements and out-of-scope wording before introducing a new section.
+- If the story does not ask for a user-facing behavior change in an area, the default rule is that the existing behavior in that area must be preserved.
+- Do not leave behavior scope implicit when later tasking or review might reinterpret it.
+- If the story is a testing-additions, proof-authoring, refactor, infrastructure, or review-fix story, the plan should normally state that no user-facing behavior changes are intended beyond any explicitly listed exceptions.
+- By default, clarify the plan's existing requirements and out-of-scope sections so they already define the approved user-facing changes and the established behaviors that must be preserved.
+- Add a separate `## Story Behavior Lock` section only when the story is unusually ambiguous, high-risk for later scope reinterpretation, or otherwise needs an explicit extra boundary that the existing sections cannot state cleanly.
+
+</story_behavior_lock_requirements>
 
 <portability_and_safety_contract>
 

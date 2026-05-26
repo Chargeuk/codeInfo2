@@ -74,15 +74,16 @@ When the result has `status: "out_of_scope_current_story"`:
 When the result has `status: "blocked"`:
 
 1. A blocked result means the inline minor path could not proceed safely in this pass and must not be retried indefinitely from the same minor queue.
-2. If `blocker_scope` is `finding_only`, move the matching finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings` and record that deeper or planner-owned repair is needed because the inline path was blocked for that finding only.
-3. If `blocker_scope` is `global`, move the matching finding and every remaining `unresolved_minor_batchable_findings` entry into `unresolved_task_required_findings`, recording that a global blocker made further inline minor attempts unsafe in this pass.
-4. If `blocker_scope` is missing or ambiguous, treat it as `global` rather than leaving any blocked minor finding stranded in the retry queue.
-5. Add a concise `classification_notes` entry naming the blocker and whether it was treated as finding-only or global.
-6. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true only if unresolved minor findings still remain after the move.
-7. Keep `review_created_tasks_added_or_updated` false in this step.
-8. Set `safe_to_exit_review_loop_without_tasking` false.
-9. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
-10. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
+2. Remove the blocked finding from `unresolved_minor_batchable_findings` so the loop does not keep selecting the same temporarily blocked item as minor work.
+3. Add or update the matching entry in `rejected_or_non_actionable_findings` with a concise reason such as `Operationally blocked in this review pass; not converted into current-story product work.`
+4. If `blocker_scope` is `global`, also remove every remaining `unresolved_minor_batchable_findings` entry and add or update matching `rejected_or_non_actionable_findings` entries explaining that a global operational blocker made further inline minor attempts unsafe in this pass.
+5. If `blocker_scope` is missing or ambiguous, treat it as `global` rather than leaving any blocked minor finding stranded in the retry queue.
+6. Add a concise `classification_notes` entry naming the blocker and whether it was treated as finding-only or global.
+7. Recompute counts and booleans so `needs_minor_fix_path` reflects only remaining unresolved minor findings, and `needs_task_up_path` reflects only actual unresolved task-required work or incomplete-review blockers.
+8. Keep `review_created_tasks_added_or_updated` false in this step.
+9. Recompute `safe_to_exit_review_loop_without_tasking` from the current state arrays and existing closeout flags rather than forcing task-up for an operational interruption.
+10. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+11. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 When the result has `status: "skipped"`:
 

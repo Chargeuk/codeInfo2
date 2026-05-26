@@ -46,14 +46,17 @@ export const buildConversationPreviewText = (
   return cleanConversationText(params.fallback) ?? 'No preview available';
 };
 
-export const formatConversationRowTimestamp = (value?: string | null) => {
+export const formatConversationRowTimestamp = (
+  value?: string | null,
+  nowMs = Date.now(),
+) => {
   const cleaned = cleanConversationText(value);
   if (!cleaned) return '—';
 
   const date = new Date(cleaned);
   if (Number.isNaN(date.getTime())) return '—';
 
-  const diffMs = Date.now() - date.getTime();
+  const diffMs = nowMs - date.getTime();
   const absDiffMs = Math.abs(diffMs);
   const hourMs = 60 * 60 * 1000;
   const dayMs = 24 * hourMs;

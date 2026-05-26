@@ -61,6 +61,7 @@ type SharedTranscriptProps = {
     toggleKey: string,
     message: ChatMessage,
   ) => ReactNode;
+  renderHeaderContent?: (message: ChatMessage) => ReactNode;
   renderMetadataContent?: (message: ChatMessage) => ReactNode;
   sharedRenderLogConfig?: SharedTranscriptLogConfig;
   contentSx?: SxProps<Theme>;
@@ -99,6 +100,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       userMarkdownTestId,
       resolveStreamStatus,
       renderToolExtraContent,
+      renderHeaderContent,
       renderMetadataContent,
       sharedRenderLogConfig,
       contentSx,
@@ -445,6 +447,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             resolveStreamStatus?.(message) ?? message.streamStatus
           }
           renderToolExtraContent={renderToolExtraContent}
+          renderHeaderContent={renderHeaderContent}
           renderMetadataContent={renderMetadataContent}
           userMarkdownTestId={userMarkdownTestId}
           log={sharedTranscriptLog}
@@ -461,6 +464,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         onToggleThink,
         onToggleTool,
         onToggleToolError,
+        renderHeaderContent,
         renderMetadataContent,
         renderToolExtraContent,
         resolveStreamStatus,

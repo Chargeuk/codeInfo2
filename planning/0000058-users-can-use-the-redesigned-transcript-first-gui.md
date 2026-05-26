@@ -5236,6 +5236,88 @@ Repair the remaining composer inconsistencies across `Chat`, `Agents`, and `Flow
 - `npm run build:summary:client` passed earlier in the composer-repair cycle from the same feature worktree; `npm run lint`, `npm run format`, and `npm run format:check` all passed after the final import-order and Prettier cleanup.
 - A first post-format `npm run test:summary:client` pass surfaced a one-off timeout in `client/src/test/agentsPage.authDialog.test.tsx`; the focused rerun for the unavailable-Codex case passed immediately, and the subsequent clean full-wrapper rerun passed `856/856` in `test-results/client-tests-2026-05-26T21-01-49-629Z.log`, so the final pushed tree still has a green full-frontend proof run.
 
+### Task 43. Polish Mobile Composer Pickers, Flow Step Chips, And Relative Time Refresh
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 42`
+- Task Status: `__done__`
+
+#### Overview
+
+Repair the next set of shared workspace polish issues confirmed on the user’s running `compose:local` stack without relying on that stack for implementation proof. This task owns the shared directory-picker responsiveness seam, the shared mobile top-bar new-action affordance, the flow-only assistant step header, the shared relative-time refresh path for visible bubbles and conversation rows, and the mobile app-menu header chrome so the final workspace shell feels consistent on both desktop and mobile.
+
+#### Non-Goals
+
+- Do not change the supported `compose:local` stack or use it as the app-under-test runtime for implementation proof.
+- Do not add the inline step-name header to `Chat` or `Agents`; this step metadata should remain flow-only in the transcript and stay available in the agent info popover.
+- Do not alter transcript virtualization, accepted-launch ownership, or other earlier transcript-lifecycle seams beyond the timestamp refresh wiring needed to keep visible relative times current.
+
+#### Task Exit Criteria
+
+- The shared `Choose folder…` dialog wraps long filesystem paths cleanly on mobile and desktop, and the desktop dialog is wide enough that common working-directory paths are readable without horizontal clipping.
+- The mobile top bar on `Chat`, `Agents`, and `Flows` exposes an additional direct “new” icon action without removing the existing creation controls elsewhere.
+- Flow assistant bubbles show a compact single-row step header with the flow step name and index only on the `Flows` surface, while the agents transcript keeps that metadata inside the info popover rather than inline.
+- Relative “x time ago” labels on visible transcript bubbles and conversation rows refresh automatically on a shared interval, defaulting to 30 seconds and overridable with an environment variable.
+- The mobile app-menu overlay header matches the conversations/top-bar size and tone closely enough that it no longer reads like a separate oversized hero bar.
+- Focused proof plus the full client wrapper cover the responsive directory picker, mobile new-action affordance, flow-only step header, live relative-time refresh, and mobile app-menu chrome so these shared surfaces do not silently regress.
+
+#### Documentation Locations
+
+- `client/src/components/chat/AssistantTranscriptSlice.tsx`
+- `client/src/components/chat/ConversationList.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+- `client/src/components/chat/UserTranscriptBubble.tsx`
+- `client/src/components/chat/conversationRowFormatting.tsx`
+- `client/src/components/chat/transcriptSurfaceFormatting.ts`
+- `client/src/components/chat/useRelativeTimeTick.ts`
+- `client/src/components/ingest/DirectoryPickerDialog.tsx`
+- `client/src/components/ingest/DirectoryPickerDialog.test.tsx`
+- `client/src/components/workspace/MobileTopBar.test.tsx`
+- `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`
+- `client/src/components/workspace/WorkspaceMobileTopBar.tsx`
+- `client/src/components/chat/UserTranscriptBubble.test.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/conversationList.rowParity.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `client/src/test/mobileShell.parity.test.tsx`
+- `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx`
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+
+#### Subtasks
+
+1. [x] Current Repository: Update `client/src/components/ingest/DirectoryPickerDialog.tsx` so the shared folder picker uses a wider desktop dialog and wraps current/child path text cleanly on both desktop and mobile instead of clipping long filesystem paths.
+2. [x] Current Repository: Extend `client/src/components/workspace/WorkspaceMobileTopBar.tsx` plus the `Chat`, `Agents`, and `Flows` page adapters so the mobile top bar exposes an additional direct “new” icon action while preserving the existing conversations/menu buttons and existing create/reset affordances elsewhere.
+3. [x] Current Repository: Update the shared transcript seam in `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/SharedTranscriptMessageRow.tsx`, and `client/src/components/chat/AssistantTranscriptSlice.tsx`, then adapt `client/src/pages/FlowsPage.tsx`, so only the flow transcript renders a compact inline assistant step header with the flow step name and index while agent step metadata stays info-popover-only.
+4. [x] Current Repository: Add a shared relative-time ticker in `client/src/components/chat/useRelativeTimeTick.ts`, wire it into the visible conversation-row and transcript timestamp formatters, and honor an overridable `VITE_CODEINFO_RELATIVE_TIME_REFRESH_MS` interval while defaulting to 30 seconds.
+5. [x] Current Repository: Restyle `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the mobile menu header matches the shared top-bar and conversations-overlay tone instead of keeping the oversized hero-style header.
+6. [x] Current Repository: Add or update focused client proof in `client/src/components/workspace/MobileTopBar.test.tsx`, `client/src/components/ingest/DirectoryPickerDialog.test.tsx`, `client/src/components/chat/UserTranscriptBubble.test.tsx`, `client/src/test/conversationList.rowParity.test.tsx`, `client/src/test/flowsPage.test.tsx`, `client/src/test/mobileShell.parity.test.tsx`, and `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` so the new mobile action button, responsive folder picker, flow-only inline step chip, live relative-time refresh, and mobile menu header contract are explicit.
+7. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task touches shared workspace components, shared transcript code, and page-level proof surfaces.
+8. [x] Current Repository: Run `npm run format`. Use the repository-root formatter because this task touches shared workspace components, transcript code, route adapters, and proof files.
+
+#### Testing
+
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared client workspace, transcript, and picker components.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this task updates shared workspace chrome, shared transcript presentation, and focused relative-time proof surfaces.
+3. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task touches shared workspace components, transcript code, and page-level proof surfaces.
+4. [x] Current Repository: Run `npm run format`. Use the repository-root formatter because this task touches shared workspace components, transcript code, route adapters, and proof files.
+5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate to confirm the final polish tree stays Prettier-clean before push.
+
+#### Implementation Notes
+
+- Follow-up task created after live review on the user’s running `compose:local` stack confirmed five remaining polish issues: the direct `Working path` picker still clipped long paths, the shared mobile top bar lacked a direct new-action button, the flow transcript had lost its inline step context, relative “time ago” labels never refreshed after first render, and the mobile app-menu header still looked much heavier than the rest of the mobile shell. No code changed while shaping this task.
+- Reworked `DirectoryPickerDialog.tsx` so the shared folder chooser now opens wider on desktop and wraps base/current/child path text instead of clipping long filesystem paths; the new focused `DirectoryPickerDialog.test.tsx` locks the wrap contract in place.
+- Extended the shared mobile top bar with a direct pencil-style new-action button, wired it into the `Chat`, `Agents`, and `Flows` mobile adapters, and restyled the mobile app-menu header down to the same compact conversations-overlay scale so the mobile shell no longer mixes a small top bar with an oversized menu hero.
+- Added a shared `useRelativeTimeTick.ts` external-store ticker, threaded its timestamp pulse through visible conversation rows and transcript footers, and kept the refresh cadence overrideable through `VITE_CODEINFO_RELATIVE_TIME_REFRESH_MS` while defaulting to 30 seconds.
+- Added a flow-only inline assistant step header through the shared transcript seam so `Flows` bubbles now show the step label plus index on one compact row while `Agents` continues to keep step details inside the info popover instead of inline.
+- Focused client proof now covers the new mobile top-bar action, app-menu header sizing, responsive folder picker path wrapping, flow-only inline step header, and live relative-time refresh across both the conversation list and user bubble footer; `npm run test:summary:client -- --file client/src/components/workspace/MobileTopBar.test.tsx --file client/src/components/ingest/DirectoryPickerDialog.test.tsx --file client/src/components/chat/UserTranscriptBubble.test.tsx --file client/src/test/conversationList.rowParity.test.tsx --file client/src/test/flowsPage.test.tsx --file client/src/test/mobileShell.parity.test.tsx --file client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` passed with 33/33 tests in `test-results/client-tests-2026-05-26T21-59-30-195Z.log`.
+- `npm run build:summary:client` passed after the shared workspace and timestamp changes; the only wrapper output beyond success remained the existing Vite chunk-size warning in `logs/test-summaries/build-client-latest.log`.
+- The first full client rerun exposed two brittle transcript popover tests under the new shared relative-time/timer mix, so I hardened `AssistantTranscriptSlice.test.tsx` and `sharedTranscript.copy.test.tsx` to use real button interactions plus a more stable UI-outcome assertion, reran the targeted transcript proof, and then cleared the full client wrapper at 859/859 in `test-results/client-tests-2026-05-26T22-18-51-800Z.log`.
+- Manual proof on the rebuilt normal compose stack confirmed in both Chrome DevTools MCP and Playwright MCP that the folder picker now wraps long paths on desktop and mobile, the mobile `Chat`/`Agents`/`Flows` top bars each expose the direct new-action button, `Flows` alone shows the inline step header, visible relative timestamps refresh without interaction, and the mobile app-menu header now matches the smaller shared shell tone.
+- Final hygiene passed cleanly with `npm run format`, `npm run lint`, and `npm run format:check`, so the polished workspace changes are now ready to push without touching the user’s running `compose:local` stack.
+
 ## Final Summary
 
 1. What has been changed.

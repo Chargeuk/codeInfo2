@@ -2208,6 +2208,8 @@ export default function AgentsPage() {
         title="Agents"
         showConversationsButton
         onConversationsClick={() => setMobileConversationsOpen(true)}
+        onNewClick={resetConversation}
+        newButtonLabel="New conversation"
         onMenuClick={() => setMobileAppMenuOpen(true)}
       />
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>

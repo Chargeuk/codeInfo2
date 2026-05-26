@@ -58,6 +58,7 @@ import {
   getTranscriptStatusLabel,
 } from './transcriptSurfaceFormatting';
 import { transcriptSurfaceTokens } from './transcriptSurfaceTokens';
+import { useRelativeTimeTick } from './useRelativeTimeTick';
 
 type AssistantTranscriptSliceProps = {
   message: ChatMessage;
@@ -78,6 +79,7 @@ type AssistantTranscriptSliceProps = {
     toggleKey: string,
     message: ChatMessage,
   ) => ReactNode;
+  renderHeaderContent?: (message: ChatMessage) => ReactNode;
   renderMetadataContent?: (message: ChatMessage) => ReactNode;
   log: (
     level: 'error' | 'warn' | 'info' | 'debug',
@@ -101,6 +103,7 @@ function AssistantTranscriptSlice({
   onToggleTool,
   onToggleToolError,
   renderToolExtraContent,
+  renderHeaderContent,
   renderMetadataContent,
   log,
 }: AssistantTranscriptSliceProps) {
@@ -153,9 +156,13 @@ function AssistantTranscriptSlice({
     () => formatTranscriptResponseTime(message.timing),
     [message.timing],
   );
+  const relativeTimeNowMs = useRelativeTimeTick();
   const completionLabel = useMemo(
-    () => formatTranscriptTimestamp(message.createdAt),
-    [message.createdAt],
+    () =>
+      formatTranscriptTimestamp(message.createdAt, {
+        nowMs: relativeTimeNowMs,
+      }),
+    [message.createdAt, relativeTimeNowMs],
   );
   const status = visibleStreamStatus ?? message.streamStatus;
   const statusLabel = getTranscriptStatusLabel(status);
@@ -179,6 +186,7 @@ function AssistantTranscriptSlice({
   const hasCitations =
     citationsEnabled && activeToolsAvailable && !!message.citations?.length;
   const metadataContent = renderMetadataContent?.(message) ?? null;
+  const headerContent = renderHeaderContent?.(message) ?? null;
   const metadataPopoverOpen = Boolean(infoAnchorEl);
 
   const buildInfoAvatarSx = (variant: 'accent' | 'muted' = 'accent') => ({
@@ -413,6 +421,9 @@ function AssistantTranscriptSlice({
           }}
         >
           <Stack spacing={1}>
+            {headerContent ? (
+              <Box data-testid="assistant-inline-header">{headerContent}</Box>
+            ) : null}
             {segments.map((segment) => {
               if (segment.kind === 'text') {
                 return (

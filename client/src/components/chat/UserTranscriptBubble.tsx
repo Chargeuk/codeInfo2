@@ -16,6 +16,7 @@ import Markdown from '../Markdown';
 import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 import { formatTranscriptTimestamp } from './transcriptSurfaceFormatting';
 import { transcriptSurfaceTokens } from './transcriptSurfaceTokens';
+import { useRelativeTimeTick } from './useRelativeTimeTick';
 
 type UserTranscriptBubbleProps = {
   message: ChatMessage;
@@ -71,12 +72,14 @@ function UserTranscriptBubble({
       }),
     [message.content, segments],
   );
+  const relativeTimeNowMs = useRelativeTimeTick();
   const completionLabel = useMemo(
     () =>
       formatTranscriptTimestamp(message.createdAt, {
         compact: footerLayoutMode === 'inline',
+        nowMs: relativeTimeNowMs,
       }),
-    [footerLayoutMode, message.createdAt],
+    [footerLayoutMode, message.createdAt, relativeTimeNowMs],
   );
   const acknowledged = message.optimistic !== true;
   const layoutContentKey = useMemo(

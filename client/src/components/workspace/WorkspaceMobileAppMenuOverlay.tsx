@@ -4,7 +4,7 @@ import {
   Box,
   Divider,
   Drawer,
-  Button,
+  IconButton,
   List,
   ListItemButton,
   ListItemIcon,
@@ -64,44 +64,34 @@ export default function WorkspaceMobileAppMenuOverlay({
           alignItems="center"
           justifyContent="space-between"
           sx={{
-            px: 2.5,
-            py: 2,
-            minHeight: 88,
+            px: 2,
+            py: 1,
+            minHeight: 56,
             bgcolor: '#DCE7F2',
           }}
+          data-testid="workspace-mobile-app-menu-header"
         >
           <Typography
-            variant="h4"
+            variant="h6"
             component="h2"
-            sx={{ fontWeight: 700, color: '#1F2933', lineHeight: 1.1 }}
+            sx={{ fontWeight: 700, color: '#1F2933', lineHeight: 1.2 }}
           >
             Menu
           </Typography>
-          <Button
+          <IconButton
             onClick={onClose}
             aria-label="Close menu"
-            startIcon={<CloseIcon fontSize="small" />}
             sx={{
               color: '#1F2933',
-              fontWeight: 500,
-              textTransform: 'none',
-              fontSize: '1rem',
-              minWidth: 0,
-              px: 0.5,
-              py: 0.25,
-              alignSelf: 'center',
-              '& .MuiButton-startIcon': {
-                marginRight: 0.75,
-              },
             }}
           >
-            Close
-          </Button>
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </Stack>
         <Divider sx={{ borderColor: '#D9E2EC' }} />
-        <Box sx={{ px: 2.5, pt: 2.5, pb: 1.25 }}>
+        <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
           <Typography
-            variant="body1"
+            variant="body2"
             sx={{ color: '#52606D', lineHeight: 1.5 }}
           >
             Navigate to key areas of CodeInfo.
@@ -109,7 +99,7 @@ export default function WorkspaceMobileAppMenuOverlay({
         </Box>
         <List
           sx={{
-            px: 2.5,
+            px: 2,
             pb: 2,
             pt: 0,
             flex: 1,

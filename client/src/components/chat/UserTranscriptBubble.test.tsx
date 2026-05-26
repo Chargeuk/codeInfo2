@@ -1,10 +1,20 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { jest } from '@jest/globals';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { installTranscriptMeasurementHarness } from '../../test/support/transcriptMeasurementHarness';
 import UserTranscriptBubble from './UserTranscriptBubble';
 
 const log = () => undefined;
 
 describe('UserTranscriptBubble', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-23T10:22:00.000Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('renders a dark right-aligned user bubble with the required footer controls', () => {
     render(
       <UserTranscriptBubble
@@ -34,8 +44,37 @@ describe('UserTranscriptBubble', () => {
     expect(within(bubble).queryByTestId('bubble-info')).toBeNull();
     expect(window.getComputedStyle(footer).flexWrap).toBe('nowrap');
     expect(within(footer).getAllByRole('img').length).toBeGreaterThan(0);
-    expect(completionTime).toHaveTextContent(/\d+h ago|10:21 AM|May 23, 2026/i);
+    expect(completionTime).toHaveTextContent(
+      /\d+h ago|1m ago|10:21 AM|May 23, 2026/i,
+    );
     expect(copyButton).toHaveTextContent('Copy');
+  });
+
+  it('refreshes visible relative footer timestamps on the shared interval', async () => {
+    render(
+      <UserTranscriptBubble
+        message={{
+          id: 'user-refresh',
+          role: 'user',
+          content: 'Recently sent.',
+          optimistic: false,
+          createdAt: '2026-05-23T10:21:01.000Z',
+        }}
+        log={log}
+      />,
+    );
+
+    expect(screen.getByTestId('bubble-completion-time')).toHaveTextContent(
+      '59s ago',
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(30_000);
+    });
+
+    expect(screen.getByTestId('bubble-completion-time')).toHaveTextContent(
+      '1m ago',
+    );
   });
 
   it('switches to an inline footer when the rendered user message fits on one line', async () => {

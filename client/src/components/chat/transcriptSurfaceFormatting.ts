@@ -13,15 +13,16 @@ const isNonNegativeFiniteNumber = (value: unknown): value is number =>
 
 export const formatTranscriptTimestamp = (
   value?: string,
-  options?: { compact?: boolean },
+  options?: { compact?: boolean; nowMs?: number },
 ) => {
   const compact = options?.compact ?? false;
+  const nowMs = options?.nowMs ?? Date.now();
   const candidate = value ? new Date(value) : new Date();
   if (Number.isNaN(candidate.getTime())) {
     return dateTimeFormatter.format(new Date());
   }
 
-  const diffMs = Date.now() - candidate.getTime();
+  const diffMs = nowMs - candidate.getTime();
   const absDiffMs = Math.abs(diffMs);
   if (absDiffMs >= 24 * 60 * 60 * 1000) {
     return dateTimeFormatter.format(candidate);

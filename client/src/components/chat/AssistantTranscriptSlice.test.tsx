@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { jest } from '@jest/globals';
+import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import AssistantTranscriptSlice from './AssistantTranscriptSlice';
 
 const log = () => undefined;
@@ -9,8 +11,33 @@ function isBefore(a: Element, b: Element) {
   );
 }
 
+function usingMockTimers() {
+  try {
+    jest.getTimerCount();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function flushUiTimersIfNeeded() {
+  if (!usingMockTimers()) {
+    return;
+  }
+  if (typeof jest.runOnlyPendingTimersAsync === 'function') {
+    await act(async () => {
+      await jest.runOnlyPendingTimersAsync();
+    });
+    return;
+  }
+  act(() => {
+    jest.runOnlyPendingTimers();
+  });
+}
+
 describe('AssistantTranscriptSlice', () => {
   it('renders a full-width assistant slice with the required footer contract', async () => {
+    const user = userEvent.setup();
     render(
       <AssistantTranscriptSlice
         message={{
@@ -78,7 +105,8 @@ describe('AssistantTranscriptSlice', () => {
       'Working',
     );
 
-    fireEvent.click(infoButton);
+    await user.click(infoButton);
+    await flushUiTimersIfNeeded();
 
     const popover = await screen.findByTestId('bubble-info-popover');
     expect(within(popover).getByText('Message details')).toBeInTheDocument();

@@ -1,12 +1,5 @@
 import LayersRoundedIcon from '@mui/icons-material/LayersRounded';
-import {
-  Avatar,
-  Box,
-  Chip,
-  Divider,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Avatar, Box, Chip, Divider, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 
@@ -210,7 +203,8 @@ export default function ComposerInfoPanel({
                   <LayersRoundedIcon fontSize="small" />
                 </Avatar>
                 <Typography variant="body2" color="text.secondary">
-                  {section.emptyMessage ?? 'No additional details are available.'}
+                  {section.emptyMessage ??
+                    'No additional details are available.'}
                 </Typography>
               </Stack>
             )}

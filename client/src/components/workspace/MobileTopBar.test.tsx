@@ -30,6 +30,7 @@ describe('WorkspaceMobileTopBar', () => {
   it('renders the workspace-page variant with compact icon actions', async () => {
     const user = userEvent.setup();
     const onConversationsClick = jest.fn();
+    const onNewClick = jest.fn();
     const onMenuClick = jest.fn();
 
     render(
@@ -37,6 +38,8 @@ describe('WorkspaceMobileTopBar', () => {
         title="Chat"
         showConversationsButton
         onConversationsClick={onConversationsClick}
+        onNewClick={onNewClick}
+        newButtonLabel="New chat"
         onMenuClick={onMenuClick}
       />,
     );
@@ -44,6 +47,7 @@ describe('WorkspaceMobileTopBar', () => {
     expect(
       screen.getByRole('button', { name: /^Open conversations$/i }),
     ).toBeVisible();
+    expect(screen.getByRole('button', { name: /^New chat$/i })).toBeVisible();
     expect(screen.getByRole('button', { name: /^Open menu$/i })).toBeVisible();
     expect(
       screen.queryByRole('button', { name: /^Conversations$/i }),
@@ -55,9 +59,11 @@ describe('WorkspaceMobileTopBar', () => {
     await user.click(
       screen.getByRole('button', { name: /^Open conversations$/i }),
     );
+    await user.click(screen.getByRole('button', { name: /^New chat$/i }));
     await user.click(screen.getByRole('button', { name: /^Open menu$/i }));
 
     expect(onConversationsClick).toHaveBeenCalledTimes(1);
+    expect(onNewClick).toHaveBeenCalledTimes(1);
     expect(onMenuClick).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('heading', { name: 'Chat' })).toBeVisible();
   });

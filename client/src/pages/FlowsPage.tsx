@@ -92,6 +92,23 @@ const buildFlowMetaLine = (command: ChatMessage['command']) => {
   return agentSuffix ? `${label} · ${agentSuffix}` : label;
 };
 
+const buildFlowStepHeaderLine = (command: ChatMessage['command']) => {
+  if (
+    !command ||
+    command.name !== 'flow' ||
+    !Number.isFinite(command.stepIndex) ||
+    !Number.isFinite(command.totalSteps)
+  ) {
+    return null;
+  }
+
+  const label =
+    typeof command.label === 'string' && command.label.trim().length > 0
+      ? command.label.trim()
+      : 'Flow step';
+  return `${label} · ${command.stepIndex} of ${command.totalSteps}`;
+};
+
 const buildFlowLabel = (flow: FlowSummary) => {
   const sourceLabel = flow.sourceLabel?.trim();
   return sourceLabel ? `${flow.name} - [${sourceLabel}]` : flow.name;
@@ -1615,6 +1632,30 @@ export default function FlowsPage() {
         onToggleThink={toggleThink}
         onToggleTool={toggleTool}
         onToggleToolError={toggleToolError}
+        renderHeaderContent={(message) => {
+          if (message.role !== 'assistant') {
+            return null;
+          }
+          const headerLine = buildFlowStepHeaderLine(message.command);
+          if (!headerLine) {
+            return null;
+          }
+          return (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              data-testid="bubble-flow-step-header"
+              sx={{
+                display: 'block',
+                fontWeight: 600,
+                letterSpacing: '0.01em',
+                lineHeight: 1.35,
+              }}
+            >
+              {headerLine}
+            </Typography>
+          );
+        }}
         renderMetadataContent={(message) => {
           const flowLine =
             message.role === 'assistant'
@@ -2195,6 +2236,8 @@ export default function FlowsPage() {
         title="Flows"
         showConversationsButton
         onConversationsClick={() => setMobileConversationsOpen(true)}
+        onNewClick={handleNewFlowReset}
+        newButtonLabel="New flow"
         onMenuClick={() => setMobileAppMenuOpen(true)}
       />
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>

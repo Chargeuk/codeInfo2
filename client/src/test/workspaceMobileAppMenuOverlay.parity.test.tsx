@@ -48,6 +48,10 @@ describe('workspace mobile app menu parity', () => {
     expect(
       within(overlay).getByText('Navigate to key areas of CodeInfo.'),
     ).toBeInTheDocument();
+    const header = within(overlay).getByTestId(
+      'workspace-mobile-app-menu-header',
+    );
+    expect(header).toHaveStyle({ minHeight: '56px' });
     expect(links).toHaveLength(6);
 
     WORKSPACE_DESTINATIONS.forEach(({ label, description }, index) => {

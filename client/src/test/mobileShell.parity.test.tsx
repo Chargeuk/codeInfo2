@@ -210,9 +210,13 @@ describe('mobile shell parity', () => {
       expect(
         screen.getByRole('button', { name: 'Open conversations' }),
       ).toBeVisible();
+      expect(screen.getByTestId('workspace-mobile-new-action')).toBeVisible();
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeVisible();
       expect(
         screen.queryByRole('button', { name: /^Conversations$/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^New$/i }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole('button', { name: /^Menu$/i }),

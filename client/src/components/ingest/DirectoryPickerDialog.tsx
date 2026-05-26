@@ -122,7 +122,18 @@ export default function DirectoryPickerDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth={false}
+      PaperProps={{
+        sx: {
+          width: { xs: 'calc(100vw - 32px)', sm: 'min(720px, 100vw - 48px)' },
+          maxWidth: 'calc(100vw - 32px)',
+        },
+      }}
+    >
       <DialogTitle>Choose folder…</DialogTitle>
 
       <DialogContent dividers>
@@ -130,13 +141,31 @@ export default function DirectoryPickerDialog({
           <Stack spacing={0.25}>
             <Typography variant="body2" color="text.secondary">
               Base:{' '}
-              <Box component="span" sx={{ fontFamily: 'monospace' }}>
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: 'monospace',
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                }}
+                data-testid="directory-picker-base-path"
+              >
                 {basePath ?? '—'}
               </Box>
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Path:{' '}
-              <Box component="span" sx={{ fontFamily: 'monospace' }}>
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: 'monospace',
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                }}
+                data-testid="directory-picker-current-path"
+              >
                 {currentPath ?? startPath ?? '—'}
               </Box>
             </Typography>
@@ -180,9 +209,22 @@ export default function DirectoryPickerDialog({
                   >
                     <ListItemText
                       primary={dir}
-                      secondary={joinPath(payload.path, dir)}
+                      secondary={
+                        <Box
+                          component="span"
+                          data-testid="directory-picker-child-path"
+                          sx={{
+                            fontFamily: 'monospace',
+                            whiteSpace: 'normal',
+                            overflowWrap: 'anywhere',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {joinPath(payload.path, dir)}
+                        </Box>
+                      }
                       secondaryTypographyProps={{
-                        sx: { fontFamily: 'monospace' },
+                        component: 'div',
                       }}
                     />
                   </ListItemButton>

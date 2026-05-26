@@ -38,6 +38,7 @@ import {
   formatConversationRowTimestamp,
   getConversationProviderPresentation,
 } from './conversationRowFormatting';
+import { useRelativeTimeTick } from './useRelativeTimeTick';
 
 export type ConversationListItem = {
   conversationId: string;
@@ -164,6 +165,7 @@ export function ConversationList({
   onNewConversation,
   showHeaderTitle = true,
 }: Props) {
+  const relativeTimeNowMs = useRelativeTimeTick();
   const log = useMemo(() => createLogger('client'), []);
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
   const showBulkUi = enableBulkUi;
@@ -654,6 +656,7 @@ export function ConversationList({
                 });
                 const timestamp = formatConversationRowTimestamp(
                   conversation.lastMessageAt,
+                  relativeTimeNowMs,
                 );
                 const sourceLabel = conversation.source ?? 'REST';
                 return (

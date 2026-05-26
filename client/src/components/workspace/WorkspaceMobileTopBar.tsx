@@ -1,12 +1,15 @@
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
-import { Box, IconButton, Typography } from '@mui/material';
+import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 
 type WorkspaceMobileTopBarProps = {
   title: string;
   showConversationsButton: boolean;
   onConversationsClick: () => void;
+  onNewClick?: () => void;
+  newButtonLabel?: string;
   onMenuClick: () => void;
 };
 
@@ -14,6 +17,8 @@ export default function WorkspaceMobileTopBar({
   title,
   showConversationsButton,
   onConversationsClick,
+  onNewClick,
+  newButtonLabel = 'New conversation',
   onMenuClick,
 }: WorkspaceMobileTopBarProps) {
   const [conversationsExpanded, setConversationsExpanded] = useState(false);
@@ -92,15 +97,28 @@ export default function WorkspaceMobileTopBar({
       >
         {title}
       </Typography>
-      <IconButton
-        aria-label="Open menu"
-        onClick={onMenuClick}
-        size="small"
-        edge="end"
-        sx={{ flexShrink: 0 }}
-      >
-        <MenuIcon fontSize="small" />
-      </IconButton>
+      <Stack direction="row" spacing={0.25} alignItems="center">
+        {onNewClick ? (
+          <IconButton
+            aria-label={newButtonLabel}
+            onClick={onNewClick}
+            size="small"
+            data-testid="workspace-mobile-new-action"
+            sx={{ flexShrink: 0 }}
+          >
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+        ) : null}
+        <IconButton
+          aria-label="Open menu"
+          onClick={onMenuClick}
+          size="small"
+          edge="end"
+          sx={{ flexShrink: 0 }}
+        >
+          <MenuIcon fontSize="small" />
+        </IconButton>
+      </Stack>
     </Box>
   );
 }

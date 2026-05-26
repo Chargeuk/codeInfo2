@@ -2442,6 +2442,8 @@ export default function ChatPage() {
         title="Chat"
         showConversationsButton
         onConversationsClick={() => setMobileConversationsOpen(true)}
+        onNewClick={() => handleNewConversation()}
+        newButtonLabel="New conversation"
         onMenuClick={() => setMobileAppMenuOpen(true)}
       />
       <Box

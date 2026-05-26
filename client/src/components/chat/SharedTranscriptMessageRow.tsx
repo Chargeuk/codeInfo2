@@ -22,6 +22,7 @@ type SharedTranscriptMessageRowProps = {
     toggleKey: string,
     message: ChatMessage,
   ) => ReactNode;
+  renderHeaderContent?: (message: ChatMessage) => ReactNode;
   renderMetadataContent?: (message: ChatMessage) => ReactNode;
   userMarkdownTestId?: string;
   log: (
@@ -47,6 +48,7 @@ function SharedTranscriptMessageRow({
   onToggleTool,
   onToggleToolError,
   renderToolExtraContent,
+  renderHeaderContent,
   renderMetadataContent,
   userMarkdownTestId = 'user-markdown',
   log,
@@ -79,6 +81,7 @@ function SharedTranscriptMessageRow({
       onToggleTool={onToggleTool}
       onToggleToolError={onToggleToolError}
       renderToolExtraContent={renderToolExtraContent}
+      renderHeaderContent={renderHeaderContent}
       renderMetadataContent={renderMetadataContent}
       log={log}
       markdownLogSource={markdownLogSource}

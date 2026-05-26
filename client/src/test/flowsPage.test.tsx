@@ -107,6 +107,14 @@ describe('Flows page basics', () => {
           activeToolsAvailable={false}
           citationsEnabled={false}
           emptyMessage="No flow transcript yet."
+          renderHeaderContent={(message) =>
+            message.command?.label ? (
+              <span data-testid="bubble-flow-step-header">
+                {message.command.label} · {message.command.stepIndex} of{' '}
+                {message.command.totalSteps}
+              </span>
+            ) : null
+          }
           renderMetadataContent={(message) => (
             <span data-testid="bubble-flow-meta">
               {message.command?.label} · {message.command?.agentType}/
@@ -148,6 +156,9 @@ describe('Flows page basics', () => {
     expect(
       within(infoPopover).getByTestId('bubble-flow-meta'),
     ).toHaveTextContent('Step 8 · coding_agent/coder');
+    expect(
+      within(bubble!).getByTestId('bubble-flow-step-header'),
+    ).toHaveTextContent('Step 8 · 8 of 14');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
 
     const measuredRow = transcript.querySelector(
@@ -178,6 +189,9 @@ describe('Flows page basics', () => {
     expect(
       within(rerenderedInfoPopover).getByTestId('bubble-flow-meta'),
     ).toHaveTextContent('Step 8 · coding_agent/coder');
+    expect(
+      within(rerenderedBubble!).getByTestId('bubble-flow-step-header'),
+    ).toHaveTextContent('Step 8 · 8 of 14');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
 
     harness.restore();
@@ -277,6 +291,9 @@ describe('Flows page basics', () => {
     const bubbles = await screen.findAllByTestId('chat-bubble');
     const bubble = bubbles[0] as HTMLElement | undefined;
     expect(bubble).toBeDefined();
+    expect(
+      within(bubble!).getByTestId('bubble-flow-step-header'),
+    ).toHaveTextContent('Plan · 1 of 3');
     await openBubbleInfoPopover(bubble!);
     expect(await screen.findByTestId('bubble-info-step')).toHaveTextContent(
       'Step: Step 1 of 3',

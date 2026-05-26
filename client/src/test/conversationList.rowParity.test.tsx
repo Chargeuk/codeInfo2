@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 
 const noopLogger = jest.fn();
 
@@ -164,6 +164,48 @@ describe('Conversation row parity', () => {
         dateStyle: 'medium',
         timeStyle: 'short',
       }).format(new Date('2026-03-21T08:00:00.000Z')),
+    );
+  });
+
+  it('refreshes visible relative timestamps on the shared interval', async () => {
+    render(
+      <ConversationList
+        conversations={[
+          {
+            conversationId: 'row-refresh',
+            title: 'Fresh timestamp',
+            provider: 'codex',
+            model: 'gpt-4.1',
+            source: 'REST',
+            lastMessageAt: '2026-03-23T11:59:01.000Z',
+            archived: false,
+          },
+        ]}
+        selectedId="row-refresh"
+        isLoading={false}
+        isError={false}
+        hasMore={false}
+        filterState={{ active: true, archived: false }}
+        onSelect={() => {}}
+        onFilterChange={() => {}}
+        onArchive={() => {}}
+        onRestore={() => {}}
+        onLoadMore={() => {}}
+        onRefresh={() => {}}
+        onRetry={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('conversation-updated')).toHaveTextContent(
+      'just now',
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(30_000);
+    });
+
+    expect(screen.getByTestId('conversation-updated')).toHaveTextContent(
+      '1 minute ago',
     );
   });
 });

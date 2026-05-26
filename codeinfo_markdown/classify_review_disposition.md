@@ -69,6 +69,15 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - When the normalized `Scope Impact` is `unknown_scope_impact`, do not suppress, defer, or discard the finding on that basis alone. Continue using severity, repository ownership, boundedness, and evidence quality to decide whether it is actionable.
 - Treat incomplete-review outcomes, missing required artifacts, unreadable artifacts, stale scope, or ambiguous review basis as `incomplete_review_blockers`.
 - When the findings artifact and handoff counts disagree, trust the findings artifact and record the mismatch in `classification_notes`.
+- Do not classify a finding as current-story actionable solely because a user-facing behavior change would make the code, contract, proof, or automation cleaner.
+- If a finding identifies a pre-existing bug, awkward workflow, inconsistency, limitation, or surprising product behavior that is not explicitly part of the story's approved behavior changes, do not treat that alone as current-story implementation scope.
+- When a finding proposes or implies a user-facing behavior change, first check whether the finding is actually describing an unapproved behavior drift introduced by the current story away from previously approved or preserved behavior.
+- If the current story introduced that drift, classify the finding as actionable restoration work for the current story, routing it to `unresolved_minor_batchable_findings` or `unresolved_task_required_findings` according to the normal severity, boundedness, and evidence rules, even when fixing it would visibly restore prior behavior.
+- Otherwise, check whether the proposed user-facing behavior change is explicitly approved by the story or explicitly approved later by the user.
+- If not, do not route that finding into current-story implementation merely to improve the product contract or redesign current behavior.
+- Instead, classify it as `rejected_or_non_actionable_findings` with a concise reason that the change would require a user-facing behavior change outside approved story scope; use this rejection path for cleaner redesigns and pre-existing or otherwise out-of-scope product changes, not for regressions introduced by the current story.
+- Do not classify a finding as `incomplete_review_blockers` solely because honest proof would otherwise need a separate product decision about user-facing behavior. Reserve `incomplete_review_blockers` for incomplete review basis, unreadable required artifacts, stale scope, or other conditions that prevent honest review from being completed at all.
+- For testing-additions and proof-authoring stories, prefer `document current behavior` over `change behavior to make proof easier`.
 
 </classification_rules>
 
@@ -156,6 +165,16 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "reason": "<why this is safe for inline minor fixing>"
     }
   ],
+  "operationally_blocked_minor_findings": [
+    {
+      "id": "<finding id or null when the interruption was pass-global before one finding could be isolated>",
+      "repository": "<repository owner or null>",
+      "summary": "<short summary or pass-level description>",
+      "reason": "<why the finding remains unresolved but inline minor fixing was unsafe in this pass>",
+      "blocker": "<operational interruption summary>",
+      "blocker_scope": "<finding_only|global>"
+    }
+  ],
   "resolved_minor_findings": [
     {
       "id": "<finding id>",
@@ -182,6 +201,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "counts": {
     "unresolved_task_required": 0,
     "unresolved_minor_batchable": 0,
+    "operationally_blocked_minor": 0,
     "resolved_minor": 0,
     "rejected_or_non_actionable": 0,
     "incomplete_review_blockers": 0
@@ -219,10 +239,11 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `review_cycle_id` must stay stable for one active review loop. Preserve it only when the previous state clearly belongs to the same still-active review loop for the same story and same canonical `plan_path`. Otherwise mint a fresh cycle id when writing new classifier state.
 - `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize them as empty, null, or false.
 - Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
-- `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD.
+- `operationally_blocked_minor_findings` is not part of the initial endorsed-finding classification from the findings artifact. It is a later review-loop state bucket populated only after an inline minor-fix attempt ends with `status: "blocked"`.
+- `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD, or when `operationally_blocked_minor_findings` is non-empty and the cycle still needs a fresh rerun after that operational interruption is repaired.
 - `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
-- `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
+- `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no operationally blocked minor findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
 
 </state_field_rules>
 
@@ -255,6 +276,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm the review handoff and referenced findings artifact were read.
 - Confirm every endorsed finding was classified into exactly one state bucket.
 - Confirm uncertain findings were classified as task-required rather than minor.
+- Confirm no finding was treated as current-story actionable solely because a user-facing behavior change would make the contract cleaner, more consistent, or easier to prove.
+- Confirm any finding that would change established user-facing behavior was kept out of current-story action unless that behavior change was explicitly approved by the story or explicitly approved later by the user, or the finding was a story-caused preserved-behavior regression being routed as actionable restoration work.
 - Confirm any carry-forward state you preserved came from the same still-active review loop rather than an earlier completed review cycle.
 - Confirm `review_cycle_id` is present and belongs to the active review loop you just classified.
 - Confirm you did not treat an older completed final revalidation task in the canonical plan as proof that a fresh new review cycle was already closed.

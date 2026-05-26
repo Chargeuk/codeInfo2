@@ -26,6 +26,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 - If any of these remain true, make no plan change and report that the review is not ready for clean closeout:
   - `unresolved_task_required_findings` is non-empty;
   - `unresolved_minor_batchable_findings` is non-empty;
+  - `operationally_blocked_minor_findings` is non-empty;
   - `incomplete_review_blockers` is non-empty;
   - `needs_task_up_path` is true;
   - `needs_minor_fix_path` is true;

@@ -5,6 +5,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 <critical_rules>
 
 - Follow `AGENTS.md` for the current repository and any participating additional repository.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this command.
 - Re-open the exact relative `plan_path` from disk before editing.
@@ -14,6 +15,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - If no eligible new review-created `__to_do__` tasks exist, make no plan changes and say so.
 - If task ownership or scope is ambiguous, inspect the current working-tree diff for the selected plan file. If eligibility is still ambiguous, stop and report that blocker instead of broadening scope.
 - When later reused `task_up` guidance refers to the broader shared contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`, use this scoped review-task-enhancement contract instead.
+- Review-created task enhancement must preserve the story's locked behavior scope and must not normalize scope creep into higher-quality task text.
 
 </critical_rules>
 

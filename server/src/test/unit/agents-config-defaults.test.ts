@@ -11,12 +11,12 @@ import {
   readAgentRequestedProviderMetadata,
   resolveAgentRuntimeExecutionConfig,
 } from '../../agents/config.js';
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
   startAgentInstruction,
 } from '../../agents/service.js';
-import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import {

@@ -40,6 +40,14 @@ Do not treat this step as automated-proof completion.
 <audit_rules>
 
 - Audit the coding agent's implementation-only work on the current task honestly.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
+- Audit for story-caused preserved-behavior regressions and other out-of-scope user-facing behavior drift, not just checklist completion.
+- If the implementation changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, first decide whether that drift was introduced by the current story or merely discovered during this story.
+- Make that provenance decision from repository evidence. Treat the drift as story-caused when the current story changed the same surface, contract, or files and there is no honest evidence that the same behavior already existed before those story-owned edits. Treat it as merely discovered only when repository evidence shows the same behavior already existed before the story's edits or the affected surface is unrelated to the story-owned changes.
+- If you cannot honestly show that the drift predated the current story, do not mark the task complete on that uncertainty alone; keep the task aligned to restoring the approved behavior and record the evidence basis in the audit note.
+- Do not excuse a behavior change merely because it made the code cleaner, the proof easier, the automation simpler, or the contract more internally consistent.
+- If the current story introduced that drift, treat it as unfinished in-scope regression work against a preserved behavior: add at least one explicit unchecked subtask or testing item that restores the approved behavior, record the reason in the audit note, and keep the task aligned to the approved behavior target.
+- If the drift was merely discovered and fixing it would require a new product decision outside story scope, record it explicitly as out-of-scope behavior drift in the audit note and do not add a blocker solely because a new product decision would be needed to legitimize that drift.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
 - Mark completed subtasks complete when the repository evidence shows they were honestly completed but left unchecked.
 - Mark `Testing` items complete when the repository evidence shows they were honestly completed earlier or were honestly completed during the immediately preceding implementation pass.
@@ -59,6 +67,11 @@ Do not treat this step as automated-proof completion.
 <stall_detection_rules>
 
 - Compare the current task's checklist state and implementation notes against the repository evidence from the latest implementation pass.
+- Treat story-caused preserved-behavior regressions as an invalid implementation state even if all current subtasks appear complete, because the checklist must be reopened to reflect the missing restoration work.
+- Treat merely discovered out-of-scope user-facing behavior drift as non-completing context, not as a reason to widen story scope.
+- A passing test suite does not legitimize a behavior change that the story did not ask for.
+- If the only invalid state is a story-caused preserved-behavior regression, add explicit unchecked remaining work and preserve the task as `__in_progress__` without adding a blocker solely for that regression.
+- If the only invalid state is merely discovered out-of-scope user-facing behavior drift, record that drift honestly and do not add a blocker solely for that drift.
 - If unchecked subtasks still remain after normalization and there is no live `**BLOCKER**` note, treat that as an invalid unresolved implementation state.
 - Open `Testing` items alone are not an invalid implementation state in this audit when all subtasks are complete and automated proof has not yet been completed.
 - If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as an invalid task-shape state too.
@@ -75,6 +88,8 @@ Do not treat this step as automated-proof completion.
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - After this audit, the task just worked in this loop must remain `__in_progress__`, because automated proof has not yet been completed in this loop.
+- If the current story introduced an unapproved behavior change, keep the task `__in_progress__` by adding explicit unchecked remaining work that restores the approved behavior.
+- If the only remaining concern is merely discovered out-of-scope user-facing behavior drift that this story did not introduce, record that drift honestly without adding a blocker solely because the story would otherwise need a new product decision.
 - If all subtasks are complete after normalization, do not create a blocker merely because `Testing` items remain for later proof.
 - If unchecked subtasks remain after normalization, the task must not continue without a live `**BLOCKER**`.
 - If this audit detects that invalid unresolved implementation state, preserve the task as `__in_progress__` and make the blocker visible so the planner or deeper repair loop can take over.
@@ -106,6 +121,8 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you audited implementation-only work rather than treating the task as fully proved;
+- confirm any unapproved change to established user-facing behavior was either identified as merely discovered out-of-scope drift or, when introduced by the current story, converted into explicit unchecked restoration work that kept the task honestly `__in_progress__`;
+- confirm no pre-existing bug, awkward workflow, inconsistency, or product limitation was silently fixed in the current story without explicit story-level authorization;
 - confirm you normalized checklist state from repository evidence before deciding whether a blocker was needed;
 - confirm no `Testing` section items were newly marked complete unless the evidence honestly showed they were already completed or were honestly completed during the immediately preceding implementation pass;
 - confirm the just-worked task was left `__in_progress__`;

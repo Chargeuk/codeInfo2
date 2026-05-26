@@ -162,8 +162,9 @@ export default function IngestPage() {
     <UtilityPageShell
       title="Ingest"
       subtitle="Start ingests, monitor progress, and manage embedded roots."
+      desktopLayout="data"
     >
-      <Stack spacing={3} sx={{ width: '100%', maxWidth: 1360, mx: 'auto' }}>
+      <Stack spacing={3} sx={{ width: '100%' }}>
         <Box sx={{ display: { xs: 'block', md: 'none' } }}>
           <Typography variant="body1" color="text.secondary">
             Start ingests, monitor progress, and manage embedded roots.
@@ -205,8 +206,21 @@ export default function IngestPage() {
           ) : null}
         </Stack>
 
-        <Stack spacing={3} direction={{ xs: 'column', md: 'row' }}>
-          <Paper variant="outlined" sx={{ flex: 1, p: 3 }}>
+        <Box
+          data-testid="ingest-workspace-grid"
+          sx={{
+            display: 'grid',
+            gap: 3,
+            gridTemplateColumns: {
+              xs: '1fr',
+              lg: active
+                ? 'minmax(0, 1.3fr) minmax(320px, 0.9fr)'
+                : 'minmax(0, 1fr)',
+            },
+            alignItems: 'start',
+          }}
+        >
+          <Paper variant="outlined" sx={{ minWidth: 0, p: { xs: 2.5, md: 3 } }}>
             <Stack
               direction="row"
               alignItems="center"
@@ -243,7 +257,10 @@ export default function IngestPage() {
           </Paper>
 
           {active ? (
-            <Paper variant="outlined" sx={{ flex: 1, p: 3 }}>
+            <Paper
+              variant="outlined"
+              sx={{ minWidth: 0, p: { xs: 2.5, md: 3 } }}
+            >
               <ActiveRunCard
                 runId={active.runId}
                 status={active.state}
@@ -263,9 +280,9 @@ export default function IngestPage() {
               />
             </Paper>
           ) : null}
-        </Stack>
+        </Box>
 
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ minWidth: 0, p: { xs: 2, md: 2.5 } }}>
           <RootsTable
             roots={roots}
             activeRunId={active?.runId}

@@ -719,8 +719,11 @@ export default function RootsTable({
       {warning ? <Alert severity="warning">{warning}</Alert> : null}
       {bulkControls}
 
-      <TableContainer>
-        <Table size="small">
+      <TableContainer
+        data-testid="roots-table-scroll-region"
+        sx={{ width: '100%', overflowX: 'auto' }}
+      >
+        <Table size="small" sx={{ minWidth: 1180 }}>
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox">

@@ -80,8 +80,12 @@ describe('Ingest page layout', () => {
       jest.runOnlyPendingTimers();
     });
 
-    expect(await screen.findByTestId('utility-page-shell')).toBeInTheDocument();
+    const shell = await screen.findByTestId('utility-page-shell');
+
+    expect(shell).toBeInTheDocument();
+    expect(shell).toHaveAttribute('data-utility-shell-layout', 'data');
     expect(document.querySelector('.MuiContainer-maxWidthLg')).toBeNull();
+    expect(screen.getByTestId('ingest-workspace-grid')).toBeInTheDocument();
   });
 
   it('renders a degraded queue-read warning while keeping visible roots on the page', async () => {
@@ -143,6 +147,7 @@ describe('Ingest page layout', () => {
     });
 
     expect(await screen.findByText('repo')).toBeInTheDocument();
+    expect(screen.getByTestId('roots-table-scroll-region')).toBeInTheDocument();
     expect(
       screen.getByText(
         'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',

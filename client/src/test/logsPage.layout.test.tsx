@@ -58,7 +58,10 @@ describe('LogsPage layout', () => {
   it('renders the shared utility shell and keeps the log controls visible', async () => {
     render(<LogsPage />);
 
-    expect(await screen.findByTestId('utility-page-shell')).toBeInTheDocument();
+    const shell = await screen.findByTestId('utility-page-shell');
+
+    expect(shell).toBeInTheDocument();
+    expect(shell).toHaveAttribute('data-utility-shell-layout', 'data');
     expect(screen.getByLabelText('Search text')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refresh now' })).toBeVisible();
     expect(
@@ -66,5 +69,6 @@ describe('LogsPage layout', () => {
     ).toBeVisible();
     expect(screen.getByText('Live')).toBeVisible();
     expect(screen.getByRole('table', { name: 'Logs table' })).toBeVisible();
+    expect(screen.getByTestId('logs-table-scroll-region')).toBeInTheDocument();
   });
 });

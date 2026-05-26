@@ -15,16 +15,19 @@ type UtilityPageShellProps = {
   title: string;
   subtitle?: ReactNode;
   children: ReactNode;
+  desktopLayout?: 'standard' | 'data';
 };
 
 export default function UtilityPageShell({
   title,
   subtitle,
   children,
+  desktopLayout = 'standard',
 }: UtilityPageShellProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isDataDesktopLayout = desktopLayout === 'data';
 
   return (
     <Box
@@ -37,6 +40,7 @@ export default function UtilityPageShell({
         bgcolor: 'background.default',
       }}
       data-testid="utility-page-shell"
+      data-utility-shell-layout={desktopLayout}
     >
       {!isMobile ? <WorkspaceAppRail /> : null}
       <Box
@@ -63,7 +67,13 @@ export default function UtilityPageShell({
           </>
         ) : (
           <Box sx={{ px: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 } }}>
-            <Stack spacing={0.5} sx={{ maxWidth: 920 }}>
+            <Stack
+              spacing={0.5}
+              sx={{
+                width: '100%',
+                maxWidth: isDataDesktopLayout ? 'none' : 920,
+              }}
+            >
               <Typography variant="h4" component="h1">
                 {title}
               </Typography>
@@ -86,7 +96,10 @@ export default function UtilityPageShell({
             pt: { xs: 1.25, md: 2.5 },
             pb: { xs: 1.5, md: 4 },
             overflowY: 'auto',
-            overflowX: 'hidden',
+            overflowX: {
+              xs: 'hidden',
+              md: isDataDesktopLayout ? 'visible' : 'hidden',
+            },
           }}
         >
           {children}

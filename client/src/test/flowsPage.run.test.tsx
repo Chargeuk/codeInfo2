@@ -1221,7 +1221,11 @@ describe('Flows page run/resume controls', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
     );
-    expect(await screen.findByText('Accepted flow answer')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('flows-transcript')).toHaveTextContent(
+        'Accepted flow answer',
+      ),
+    );
     await waitFor(() =>
       expect(screen.getByTestId('conversation-error')).toBeInTheDocument(),
     );

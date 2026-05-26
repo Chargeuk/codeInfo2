@@ -125,7 +125,7 @@ describe('Agents page auth dialog', () => {
     expect(
       screen.queryByRole('button', { name: /re-authenticate/i }),
     ).not.toBeInTheDocument();
-  });
+  }, 30_000);
 
   it('keeps the info summary free of re-authenticate actions when Codex is available', async () => {
     const user = userEvent.setup();
@@ -219,5 +219,5 @@ describe('Agents page auth dialog', () => {
     expect(
       screen.queryByRole('button', { name: /re-authenticate/i }),
     ).not.toBeInTheDocument();
-  });
+  }, 30_000);
 });

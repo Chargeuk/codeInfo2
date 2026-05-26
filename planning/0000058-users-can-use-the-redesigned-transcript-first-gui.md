@@ -5056,6 +5056,63 @@ Repair the shared transcript conversation-switch lifecycle so selecting a differ
 - `npm run build:summary:client` passed in `logs/test-summaries/build-client-latest.log`; the only remaining wrapper output was the existing Vite chunk-size warning.
 - Manual proof on a rebuilt normal compose stack (`npm run compose:down`, `npm run compose:build`, `npm run compose:up`) confirmed in both Playwright MCP and Chrome DevTools that selecting Bravo from an empty transcript lands near the newest turns and that a forced scroll-away followed by Alpha selection re-pins to turns 14-18 instead of reopening around the middle.
 
+### Task 40. Widen Utility Data Layouts For Logs And Ingest
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 39`
+- Task Status: `__done__`
+
+#### Overview
+
+Repair the remaining desktop density regressions on `Logs` and `Ingest` without breaking their mobile layouts. This task owns the shared utility-shell desktop seam plus the page-specific data-region contracts that were still squeezing the logs table and the ingest roots workspace into centered utility-page widths.
+
+#### Non-Goals
+
+- Do not change transcript, chat, agents, or flows layout in this task.
+- Do not add new ingest or logging behavior beyond the layout and container ownership needed to make the existing surfaces usable.
+- Do not replace the existing mobile `Logs` or `Ingest` presentation paths when the issue is desktop shell width and data-region composition.
+
+#### Task Exit Criteria
+
+- `Logs` desktop no longer squashes the table into a centered narrow column; it uses the shared utility shell in a wider data mode and provides an explicit horizontal scroll region when the table is wider than the viewport.
+- `Ingest` desktop no longer forces the top workspace and embedded-roots surface through the old centered utility-page width; the shared utility shell and page-level composition give the form and roots region more room.
+- `Logs` mobile and `Ingest` mobile continue to render through their intended stacked/card-friendly paths after the desktop layout repair.
+- Focused automated proof and the full client test wrapper cover the shared utility-shell mode plus the page-level logs/ingest layout seams so the regression does not silently return.
+
+#### Documentation Locations
+
+- `client/src/components/utility/UtilityPageShell.tsx`
+- `client/src/pages/LogsPage.tsx`
+- `client/src/pages/IngestPage.tsx`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/test/logsPage.layout.test.tsx`
+- `client/src/test/ingestPage.layout.test.tsx`
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+
+#### Subtasks
+
+1. [x] Current Repository: Extend `client/src/components/utility/UtilityPageShell.tsx` with a shared desktop data-layout mode that keeps the existing mobile behavior but relaxes the centered desktop width and horizontal-clipping contract for dense operational pages like `Logs` and `Ingest`.
+2. [x] Current Repository: Update `client/src/pages/LogsPage.tsx` so desktop `Logs` uses the shared utility-shell data mode, removes the narrow centered page clamp, and mounts the logs table inside an explicit horizontal scroll region that preserves the current filters, live toggle, refresh action, sample emitter, and message results contract.
+3. [x] Current Repository: Update `client/src/pages/IngestPage.tsx` and `client/src/components/ingest/RootsTable.tsx` so desktop `Ingest` uses the shared utility-shell data mode, widens the main workspace composition, and gives the embedded-roots results an honest wide-table container while preserving the current mobile stacked/card path and ingest actions.
+4. [x] Current Repository: Update `client/src/test/logsPage.layout.test.tsx` and `client/src/test/ingestPage.layout.test.tsx` so the focused page proofs explicitly cover the shared utility-shell data mode and the new logs/roots scroll-region ownership.
+
+#### Testing
+
+1. [x] Current Repository: Run `npm run test:summary:client -- --file client/src/test/logsPage.layout.test.tsx --file client/src/test/ingestPage.layout.test.tsx --file client/src/test/mobileShell.parity.test.tsx --file client/src/test/ingestRoots.test.tsx`. Use the supported wrapper because these focused client proofs own the repaired utility-shell data mode and the page-level desktop/mobile layout seams on `Logs` and `Ingest`.
+2. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared utility-page shell plus two client route surfaces.
+3. [x] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because the user requested a full frontend regression pass after the layout repair, and this task touched shared client shell/test harness behavior as well as the `Logs` and `Ingest` pages.
+
+#### Implementation Notes
+
+- Follow-up task created after live review on the local-stack UI confirmed two remaining page-level issues: `Logs` still squeezed the desktop table into a centered middle column, and `Ingest` still felt horizontally and vertically cramped because its operational surfaces were inheriting the same utility-shell width contract. No code changed while shaping the task.
+- Added a `desktopLayout=\"data\"` variant to `UtilityPageShell` so dense utility pages can keep the current mobile shell while relaxing the desktop heading clamp and horizontal clipping that were appropriate for simpler utility content but wrong for `Logs` and `Ingest`.
+- Reworked `LogsPage` onto that shared data mode, removed the extra desktop max-width clamp, widened the message/context columns, and mounted the desktop table inside `data-testid=\"logs-table-scroll-region\"` with real horizontal overflow so wide log content stays readable instead of being crushed.
+- Reworked `IngestPage` and `RootsTable` onto the same shared data mode, widened the desktop workspace composition with `data-testid=\"ingest-workspace-grid\"`, and mounted the wide roots table inside `data-testid=\"roots-table-scroll-region\"` so the operational surface has room without disturbing the existing mobile card path.
+- Focused proof for the repaired utility-shell seams passed in the supported client wrapper, and the existing mobile-shell proof still held after the desktop widening work.
+- `npm run build:summary:client` passed after the shared shell change; the only remaining build output was the existing Vite chunk-size warning in `logs/test-summaries/build-client-latest.log`.
+- Final frontend regression proof passed in the full client wrapper after tightening shared transcript harness cleanup, a few slow client-test timeouts, and the persisted-agents status-chip test so it waits on the conversation row contract instead of a more timing-sensitive free-text paint during the long post-story follow-up cycle.
+- Manual proof on a fresh normal compose stack confirmed through both Playwright MCP and Chrome DevTools that desktop `Logs` now uses the wider data-shell contract plus a real horizontal table scroll region, desktop `Ingest` now uses the widened operational layout and wide roots surface, and both pages still render clean mobile stacked/card paths with no browser console errors on the checked routes.
+
 ## Final Summary
 
 1. What has been changed.

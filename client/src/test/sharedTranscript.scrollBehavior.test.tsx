@@ -462,6 +462,33 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
       <SharedTranscript
         surface="chat"
         conversationId="conversation-b"
+        messages={[]}
+        activeToolsAvailable={false}
+        turnsLoading
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 320,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
         messages={conversationBMessages}
         activeToolsAvailable={false}
         turnsLoading={false}
@@ -484,9 +511,10 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
       scrollHeight: 1960,
       scrollTop: 0,
     });
-    harness.triggerResize(transcript);
-
-    await waitFor(() => expect(transcript.scrollTop).toBe(1640));
+    await waitFor(() => {
+      harness.triggerResize(transcript);
+      expect(transcript.scrollTop).toBe(1640);
+    });
     harness.restore();
   });
 
@@ -660,6 +688,82 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     harness.triggerResize(transcript);
 
     await waitFor(() => expect(transcript.scrollTop).toBe(1880));
+    harness.restore();
+  });
+
+  it('lets a reader scroll away after a first direct conversation selection without re-pinning on later resize', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const conversationMessages = buildMessages(20).map((message) => ({
+      ...message,
+      id: `direct-load-scroll-${message.id}`,
+      content: `Direct load scroll ${message.content}`,
+    }));
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId={null}
+        messages={[]}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 320,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-direct-scroll"
+        messages={conversationMessages}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 2200,
+      scrollTop: 0,
+    });
+    harness.triggerResize(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(1880));
+
+    transcript.scrollTop = 420;
+    fireEvent.scroll(transcript);
+
+    harness.setScrollMetrics(transcript, {
+      scrollHeight: 2320,
+      scrollTop: 420,
+    });
+    harness.triggerResize(transcript);
+
+    expect(transcript.scrollTop).toBe(420);
     harness.restore();
   });
 

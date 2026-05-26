@@ -198,8 +198,12 @@ describe('Agents status chip rendering', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Stopped conversation');
-    await user.click(screen.getByText('Stopped conversation'));
+    const stoppedConversationRow =
+      await screen.findByTestId('conversation-row');
+    await waitFor(() =>
+      expect(stoppedConversationRow).toHaveTextContent('Stopped conversation'),
+    );
+    await user.click(stoppedConversationRow);
 
     expect(await screen.findByText('Stopped reply')).toBeInTheDocument();
     const statusChip = await screen.findByTestId('status-chip');

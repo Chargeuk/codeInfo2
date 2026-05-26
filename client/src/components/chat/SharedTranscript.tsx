@@ -248,18 +248,22 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       UIEventHandler<HTMLDivElement>
     >(
       (event) => {
+        const nearBottom = isNearBottom(event.currentTarget);
         if (pendingConversationRepinRef.current) {
+          if (!turnsLoading || !nearBottom) {
+            pendingConversationRepinRef.current = false;
+          }
+          setScrollMode(nearBottom ? 'pinned-bottom' : 'scrolled-away');
+          syncScrollMetrics();
           onScroll?.(event);
           return;
         }
-        const nextMode = isNearBottom(event.currentTarget)
-          ? 'pinned-bottom'
-          : 'scrolled-away';
+        const nextMode = nearBottom ? 'pinned-bottom' : 'scrolled-away';
         setScrollMode(nextMode);
         syncScrollMetrics();
         onScroll?.(event);
       },
-      [isNearBottom, onScroll, setScrollMode, syncScrollMetrics],
+      [isNearBottom, onScroll, setScrollMode, syncScrollMetrics, turnsLoading],
     );
 
     useEffect(() => {

@@ -27,12 +27,12 @@ const DEFAULT_RECT: ElementRect = {
   left: 0,
 };
 
-const rectMap = new WeakMap<Element, ElementRect>();
-const scrollMetricsMap = new WeakMap<
+let rectMap = new WeakMap<Element, ElementRect>();
+let scrollMetricsMap = new WeakMap<
   HTMLElement,
   Required<Pick<ScrollMetrics, 'clientHeight' | 'scrollHeight' | 'scrollTop'>>
 >();
-const observedInstances = new Set<HarnessResizeObserverInstance>();
+let observedInstances = new Set<HarnessResizeObserverInstance>();
 
 export class TranscriptMeasurementHarnessError extends Error {
   constructor(message: string) {
@@ -213,6 +213,14 @@ export function installTranscriptMeasurementHarness() {
     },
     restore() {
       observedInstances.clear();
+      rectMap = new WeakMap<Element, ElementRect>();
+      scrollMetricsMap = new WeakMap<
+        HTMLElement,
+        Required<
+          Pick<ScrollMetrics, 'clientHeight' | 'scrollHeight' | 'scrollTop'>
+        >
+      >();
+      observedInstances = new Set<HarnessResizeObserverInstance>();
       if (originalResizeObserver) {
         globalThis.ResizeObserver = originalResizeObserver;
       } else {

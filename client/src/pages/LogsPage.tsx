@@ -48,6 +48,11 @@ function LevelChip({ level }: { level: LogEntry['level'] }) {
   return <Chip size="small" color={color} label={level.toUpperCase()} />;
 }
 
+const desktopContextCellWidth = {
+  minWidth: 320,
+  maxWidth: 640,
+};
+
 export default function LogsPage() {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
@@ -141,7 +146,11 @@ export default function LogsPage() {
       <Typography
         component="div"
         variant="body2"
-        sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}
+        sx={{
+          fontFamily: 'monospace',
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'anywhere',
+        }}
       >
         {JSON.stringify(Object.fromEntries(filtered))}
       </Typography>
@@ -166,11 +175,15 @@ export default function LogsPage() {
         <Chip label={log.source} size="small" variant="outlined" />
       </Box>
       <Box component="td" sx={{ py: 1, pr: 2 }}>
-        <Typography variant="body2" noWrap title={log.message}>
+        <Typography
+          variant="body2"
+          title={log.message}
+          sx={{ minWidth: 260, overflowWrap: 'anywhere' }}
+        >
           {log.message}
         </Typography>
       </Box>
-      <Box component="td" sx={{ py: 1 }}>
+      <Box component="td" sx={{ py: 1, ...desktopContextCellWidth }}>
         {renderContext(log)}
       </Box>
     </Box>
@@ -201,8 +214,9 @@ export default function LogsPage() {
     <UtilityPageShell
       title="Logs"
       subtitle="Live feed of client and server events with filters, manual refresh, and a sample emitter to verify end-to-end logging."
+      desktopLayout="data"
     >
-      <Stack spacing={3} sx={{ width: '100%', maxWidth: 1120, mx: 'auto' }}>
+      <Stack spacing={3} sx={{ width: '100%' }}>
         <Box sx={{ display: { xs: 'block', md: 'none' } }}>
           <Typography variant="body1" color="text.secondary">
             Live feed of client and server events with filters, manual refresh,
@@ -278,7 +292,7 @@ export default function LogsPage() {
           </Stack>
         </Paper>
 
-        <Paper variant="outlined" sx={{ p: 2.5 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, minWidth: 0 }}>
           <Stack spacing={2}>
             {error && (
               <Alert severity="error" role="alert">
@@ -304,31 +318,48 @@ export default function LogsPage() {
                 <Stack spacing={1}>{cards}</Stack>
               ) : (
                 <Box
-                  component="table"
-                  sx={{ width: '100%', borderCollapse: 'collapse' }}
-                  aria-label="Logs table"
+                  data-testid="logs-table-scroll-region"
+                  sx={{
+                    width: '100%',
+                    overflowX: 'auto',
+                  }}
                 >
-                  <Box component="thead">
-                    <Box
-                      component="tr"
-                      sx={{
-                        '& th': {
-                          textAlign: 'left',
-                          borderBottom: '1px solid',
-                          borderColor: 'divider',
-                          py: 1,
-                          pr: 2,
-                        },
-                      }}
-                    >
-                      <Box component="th">Time</Box>
-                      <Box component="th">Level</Box>
-                      <Box component="th">Source</Box>
-                      <Box component="th">Message</Box>
-                      <Box component="th">Context</Box>
+                  <Box
+                    component="table"
+                    sx={{
+                      width: 'max-content',
+                      minWidth: '100%',
+                      borderCollapse: 'collapse',
+                    }}
+                    aria-label="Logs table"
+                  >
+                    <Box component="thead">
+                      <Box
+                        component="tr"
+                        sx={{
+                          '& th': {
+                            textAlign: 'left',
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            py: 1,
+                            pr: 2,
+                            verticalAlign: 'top',
+                          },
+                        }}
+                      >
+                        <Box component="th">Time</Box>
+                        <Box component="th">Level</Box>
+                        <Box component="th">Source</Box>
+                        <Box component="th" sx={{ minWidth: 260 }}>
+                          Message
+                        </Box>
+                        <Box component="th" sx={desktopContextCellWidth}>
+                          Context
+                        </Box>
+                      </Box>
                     </Box>
+                    <Box component="tbody">{tableRows}</Box>
                   </Box>
-                  <Box component="tbody">{tableRows}</Box>
                 </Box>
               ))}
           </Stack>

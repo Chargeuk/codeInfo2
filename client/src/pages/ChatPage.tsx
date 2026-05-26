@@ -94,6 +94,7 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
 import { isDevEnv } from '../utils/isDevEnv';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -1254,8 +1255,9 @@ export default function ChatPage() {
   };
 
   const handleComposerWorkingFolderOpen = (event: MouseEvent<HTMLElement>) => {
+    void event;
     closeComposerSurfaces();
-    setComposerWorkingFolderAnchorEl(event.currentTarget);
+    handleOpenDirPicker();
   };
 
   const handleComposerWorkingFolderClose = () => {
@@ -1423,9 +1425,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!activeConversationId) return;
-    const oldest = turns?.[0]?.createdAt ?? 'none';
-    const newest = turns?.[turns.length - 1]?.createdAt ?? 'none';
-    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}`;
+    const key = buildStoredTurnHydrationKey(activeConversationId, turns);
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
     console.info('[chat-history] hydrating turns', {
@@ -2128,10 +2128,12 @@ export default function ChatPage() {
             icon={<FolderOutlinedIcon fontSize="small" />}
             label="Working path"
             value={composerWorkingFolderName}
-            selected={Boolean(composerWorkingFolderAnchorEl)}
+            selected={dirPickerOpen}
             onClick={handleComposerWorkingFolderOpen}
             data-testid="chat-working-folder-trigger"
             disabled={isWorkingFolderDisabled}
+            ariaHaspopup="dialog"
+            ariaExpanded={dirPickerOpen}
           />
           <ComposerFooterButton
             icon={composerProviderPresentation.icon}
@@ -2393,6 +2395,11 @@ export default function ChatPage() {
         path={workingFolder}
         onClose={handleCloseDirPicker}
         onPick={handlePickDir}
+        onClear={() => {
+          setWorkingFolder('');
+          setDirPickerOpen(false);
+          void persistWorkingFolder('');
+        }}
       />
     </CommonComposerShell>
   );

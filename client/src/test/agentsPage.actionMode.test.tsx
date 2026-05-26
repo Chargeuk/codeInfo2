@@ -225,8 +225,8 @@ describe('Agents page - action mode', () => {
       ),
     );
     expect(screen.getByTestId('agent-step-trigger')).toBeDisabled();
-    expect(screen.getByTestId('agent-step-trigger')).toHaveTextContent(
-      'Not used',
+    expect(screen.getByTestId('agent-step-trigger')).not.toHaveTextContent(
+      /Not used/i,
     );
     expect(screen.getByTestId('agent-input')).toBeEnabled();
   });
@@ -275,8 +275,8 @@ describe('Agents page - action mode', () => {
     );
     expect(screen.getByTestId('agent-input')).toBeDisabled();
     expect(screen.getByTestId('agent-step-trigger')).toBeDisabled();
-    expect(screen.getByTestId('agent-step-trigger')).toHaveTextContent(
-      'Not used',
+    expect(screen.getByTestId('agent-step-trigger')).not.toHaveTextContent(
+      /Not used/i,
     );
   });
 });

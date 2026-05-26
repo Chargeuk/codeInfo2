@@ -159,6 +159,18 @@ describe('Chat page working folder', () => {
     expect(await screen.findByTestId('chat-working-folder')).toHaveValue('');
   });
 
+  it('opens the directory picker dialog directly from the footer trigger', async () => {
+    const user = userEvent.setup();
+    renderChatWorkingFolderPage({ conversations: [makeConversation()] });
+
+    await selectFirstConversation();
+
+    await user.click(screen.getByTestId('chat-working-folder-trigger'));
+    expect(
+      await screen.findByRole('dialog', { name: /choose folder…/i }),
+    ).toBeInTheDocument();
+  });
+
   it('locks the picker while a local run is active', async () => {
     const user = userEvent.setup();
     renderChatWorkingFolderPage({

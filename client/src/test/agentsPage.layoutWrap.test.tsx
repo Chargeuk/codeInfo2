@@ -131,7 +131,7 @@ describe('Agents shared shell layout wrap', () => {
     expect(transcript.parentElement!.style.overflow).toBe('hidden');
   });
 
-  it('renders the command selector and execute button in the same row', async () => {
+  it('renders the command selector before the step control in the shared footer order', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
@@ -140,7 +140,6 @@ describe('Agents shared shell layout wrap', () => {
     const commandTrigger = await screen.findByTestId('agent-command-trigger');
     const stepTrigger = await screen.findByTestId('agent-step-trigger');
 
-    expect(commandTrigger.parentElement).toBe(stepTrigger.parentElement);
     expect(
       commandTrigger.compareDocumentPosition(stepTrigger) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -220,7 +219,7 @@ describe('Agents shared shell layout wrap', () => {
       'MuiButton-outlined',
     );
     expect(await screen.findByTestId('agent-step-trigger')).toHaveClass(
-      'MuiButton-outlined',
+      'MuiIconButton-root',
     );
 
     const sendButton = await screen.findByTestId('agent-send');

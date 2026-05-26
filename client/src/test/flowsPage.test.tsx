@@ -628,7 +628,11 @@ describe('Flows page basics', () => {
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
-    await screen.findByText('Flow: daily');
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent(
+        'Flow: daily',
+      ),
+    );
 
     emitWsEvent({
       protocolVersion: 'v1',
@@ -732,8 +736,12 @@ describe('Flows page basics', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily one');
-    await user.click(screen.getByText('Flow: daily one'));
+    const flowRows = await screen.findAllByTestId('conversation-row');
+    const firstRow = flowRows.find((row) =>
+      within(row).queryByText('Flow: daily one'),
+    );
+    expect(firstRow).toBeTruthy();
+    await user.click(firstRow!);
 
     emitWsEvent({
       protocolVersion: 'v1',
@@ -753,7 +761,12 @@ describe('Flows page basics', () => {
     expect(await screen.findByTestId('think-content')).toBeVisible();
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
 
-    await user.click(await screen.findByText('Flow: daily two'));
+    const secondConversation = await screen.findByText('Flow: daily two');
+    const secondRow = secondConversation.closest(
+      '[data-testid="conversation-row"]',
+    );
+    expect(secondRow).toBeTruthy();
+    await user.click(secondRow!);
 
     emitWsEvent({
       protocolVersion: 'v1',

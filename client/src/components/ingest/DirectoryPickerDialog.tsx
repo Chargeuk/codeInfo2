@@ -27,6 +27,7 @@ export type DirectoryPickerDialogProps = {
   path?: string;
   onClose: () => void;
   onPick: (path: string) => void;
+  onClear?: () => void;
 };
 
 function joinPath(parent: string, child: string) {
@@ -46,6 +47,7 @@ export default function DirectoryPickerDialog({
   path,
   onClose,
   onPick,
+  onClear,
 }: DirectoryPickerDialogProps) {
   const [payload, setPayload] = useState<IngestDirsSuccess | undefined>();
   const [error, setError] = useState<IngestDirsError | undefined>();
@@ -198,6 +200,11 @@ export default function DirectoryPickerDialog({
             disabled={loading}
           >
             Up
+          </Button>
+        ) : null}
+        {onClear ? (
+          <Button onClick={onClear} disabled={loading}>
+            Clear
           </Button>
         ) : null}
         <Box sx={{ flex: 1 }} />

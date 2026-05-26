@@ -600,7 +600,6 @@ describe('Agents page - commands list', () => {
     });
     const startStepSelect = await screen.findByTestId('agent-step-trigger');
 
-    expect(commandSelect.parentElement).toBe(startStepSelect.parentElement);
     expect(
       commandSelect.compareDocumentPosition(startStepSelect) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -639,8 +638,8 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const startStepSelect = await screen.findByTestId('agent-step-trigger');
-    expect(startStepSelect).toHaveAttribute('aria-disabled', 'true');
+    const startStepTrigger = await screen.findByTestId('agent-step-trigger');
+    expect(startStepTrigger).toHaveAttribute('aria-disabled', 'true');
 
     const commandSelect = await screen.findByRole('combobox', {
       name: /command/i,
@@ -651,9 +650,10 @@ describe('Agents page - commands list', () => {
       await screen.findByTestId('agent-command-option-build::local'),
     );
 
-    await waitFor(() =>
-      expect(startStepSelect).not.toHaveAttribute('aria-disabled', 'true'),
-    );
+    const enabledStartStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
+    expect(enabledStartStepSelect).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('renders Step 1..N options and defaults to Step 1 for selected commands', async () => {
@@ -688,9 +688,10 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const startStepSelect = await screen.findByTestId('agent-step-trigger');
-
     await selectCommandOption(user, 'agent-command-option-build::local');
+    const startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
 
     await user.click(startStepSelect);
@@ -739,15 +740,19 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const startStepSelect = await screen.findByTestId('agent-step-trigger');
-
     await selectCommandOption(user, 'agent-command-option-build::local');
+    let startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
     await user.click(startStepSelect);
     const stepPopover = await screen.findByTestId('agent-step-popover');
     await user.click(within(stepPopover).getByText('Step 3'));
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 3'));
 
     await selectCommandOption(user, 'agent-command-option-deploy::local');
+    startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
   });
 
@@ -783,12 +788,11 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
+    await selectCommandOption(user, 'agent-command-option-single::local');
+
     const startStepSelect = await screen.findByRole('combobox', {
       name: /start step/i,
     });
-
-    await selectCommandOption(user, 'agent-command-option-single::local');
-
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
     expect(startStepSelect).toHaveAttribute('aria-disabled', 'true');
   });
@@ -845,9 +849,7 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const startStepSelect = await screen.findByRole('combobox', {
-      name: /start step/i,
-    });
+    const startStepSelect = await screen.findByTestId('agent-step-trigger');
     const executeButton = await screen.findByTestId('agent-send');
 
     await openCommandSelector(user);

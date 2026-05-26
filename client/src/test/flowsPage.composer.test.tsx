@@ -98,6 +98,26 @@ function installFlowsComposerMocks() {
   });
 }
 
+function makeFlowConversation(overrides?: {
+  title?: string;
+  flowName?: string;
+  stepPath?: number[];
+}) {
+  return {
+    conversationId: 'flow-conversation-1',
+    title: overrides?.title ?? 'MT19 Copy Proof mt19-1779370180455',
+    provider: 'codex',
+    model: 'gpt-5.4',
+    source: 'REST',
+    lastMessageAt: '2026-05-21T13:29:00.000Z',
+    archived: false,
+    flags: {
+      flowName: overrides?.flowName ?? 'daily',
+      flow: overrides?.stepPath ? { stepPath: overrides.stepPath } : {},
+    },
+  };
+}
+
 describe('Flows page composer parity', () => {
   it('keeps the footer trigger order and compact working path/title states on the shared composer shell', async () => {
     const user = userEvent.setup();
@@ -134,40 +154,104 @@ describe('Flows page composer parity', () => {
 
     await waitFor(() => expect(flowButton).toHaveTextContent('daily'));
     expect(titleButton).toBeEnabled();
-    expect(titleButton).toHaveTextContent('Set title');
+    expect(titleButton).toHaveTextContent('daily');
+    expect(screen.queryByTestId('flow-note')).not.toBeInTheDocument();
 
     await user.click(workingPathButton);
-    const workingPathPopover = await screen.findByTestId(
-      'flow-working-folder-popover',
-    );
-    const workingFolderInput = within(workingPathPopover).getByTestId(
-      'flow-working-folder-input',
-    );
-    await user.clear(workingFolderInput);
-    await user.type(workingFolderInput, '/Users/daniel/repos/codeinfo2');
-
-    expect(workingPathButton).toHaveTextContent('codeinfo2');
-    expect(workingPathButton).not.toHaveTextContent(
-      '/Users/daniel/repos/codeinfo2',
-    );
-
+    const workingPathDialog = await screen.findByRole('dialog', {
+      name: /choose folder…/i,
+    });
+    expect(workingPathDialog).toBeInTheDocument();
     await user.click(
-      within(workingPathPopover).getByRole('button', { name: 'Close' }),
+      within(workingPathDialog).getByRole('button', { name: 'Close' }),
     );
     await waitFor(() =>
       expect(
-        screen.queryByTestId('flow-working-folder-popover'),
+        screen.queryByRole('dialog', { name: /choose folder…/i }),
       ).not.toBeInTheDocument(),
     );
 
     await user.click(titleButton);
     const titlePopover = await screen.findByTestId('flow-title-popover');
     const titleInput = within(titlePopover).getByTestId('flow-title-input');
+    expect(titleInput).toHaveValue('daily');
     await user.clear(titleInput);
     await user.type(titleInput, 'Daily recap');
     await user.tab();
 
     expect(titleButton).toBeEnabled();
     expect(titleButton).toHaveTextContent('Daily recap');
+  });
+
+  it('keeps the title trigger editable for resumed flow conversations and seeds it from the active title', async () => {
+    const user = userEvent.setup();
+
+    installFlowsComposerMocks();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: false,
+            warnings: [],
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [], nextCursor: null });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            makeFlowConversation({
+              title: 'Resume nightly sync',
+              stepPath: [0],
+            }),
+          ],
+          nextCursor: null,
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const titleButton = await screen.findByTestId('flow-title-trigger');
+    await waitFor(() =>
+      expect(titleButton).toHaveTextContent('Resume nightly sync'),
+    );
+    expect(titleButton).toBeEnabled();
+
+    await user.click(titleButton);
+    const titlePopover = await screen.findByTestId('flow-title-popover');
+    expect(within(titlePopover).getByTestId('flow-title-input')).toHaveValue(
+      'Resume nightly sync',
+    );
   });
 });

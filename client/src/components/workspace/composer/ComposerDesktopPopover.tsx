@@ -33,13 +33,23 @@ export default function ComposerDesktopPopover({
           sx: {
             width,
             maxWidth: 'calc(100vw - 32px)',
+            maxHeight: 'calc(100vh - 32px)',
             overflow: 'hidden',
           },
         },
       }}
       data-testid={dataTestId}
     >
-      <Box sx={{ p: 2 }}>{children}</Box>
+      <Box
+        sx={{
+          p: 2,
+          maxHeight: 'calc(100vh - 64px)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      >
+        {children}
+      </Box>
     </Popover>
   );
 }

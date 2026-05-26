@@ -20,6 +20,7 @@ import {
   ListItemText,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -40,6 +41,9 @@ import CommonComposerMainInputRow from '../workspace/composer/CommonComposerMain
 import CommonComposerShell from '../workspace/composer/CommonComposerShell';
 import ComposerDesktopPopover from '../workspace/composer/ComposerDesktopPopover';
 import ComposerFooterButton from '../workspace/composer/ComposerFooterButton';
+import ComposerInfoPanel, {
+  type ComposerInfoSection,
+} from '../workspace/composer/ComposerInfoPanel';
 import ComposerMobileDialog from '../workspace/composer/ComposerMobileDialog';
 import ComposerSendButton from '../workspace/composer/ComposerSendButton';
 import { getWorkingFolderName } from '../workspace/composer/composerFormatting';
@@ -254,8 +258,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
     null,
   );
   const [stepAnchorEl, setStepAnchorEl] = useState<HTMLElement | null>(null);
-  const [workingPathAnchorEl, setWorkingPathAnchorEl] =
-    useState<HTMLElement | null>(null);
   const [infoAnchorEl, setInfoAnchorEl] = useState<HTMLElement | null>(null);
 
   const workingFolderName = useMemo(
@@ -318,101 +320,112 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
     [agentDisabledReason, agentWarnings],
   );
 
-  const infoContent = (
-    <Stack spacing={1.75} data-testid="agent-composer-info-content">
-      <Box
-        sx={{
-          p: 1.5,
-          borderRadius: 3,
-          border: `1px solid ${theme.palette.divider}`,
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Stack spacing={0.5}>
-          <Typography variant="overline" color="text.secondary">
-            Current mode
-          </Typography>
-          <Typography variant="subtitle2" fontWeight={700}>
-            {selectedActionMode === 'instruction'
-              ? 'Instruction mode'
-              : selectedActionMode.startsWith('command:')
-                ? 'Command mode'
-                : 'Saved prompt mode'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {modeLabel}
-          </Typography>
-        </Stack>
-      </Box>
-
-      <Stack
-        spacing={1}
-        sx={{
-          p: 1.5,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 3,
-        }}
-      >
-        <Stack>
-          <Typography variant="caption" color="text.secondary">
-            Agent
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {selectedAgentName || 'Select agent'}
-          </Typography>
-        </Stack>
-        <Stack>
-          <Typography variant="caption" color="text.secondary">
-            Action
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {modeLabel}
-          </Typography>
-        </Stack>
-        {selectedCommandOption ? (
-          <Stack data-testid="agent-command-info-section">
-            <Typography variant="caption" color="text.secondary">
-              Command details
-            </Typography>
-            <Typography
-              variant="body2"
-              fontWeight={600}
-              data-testid="command-info-text"
-            >
-              {selectedCommandOption.description || 'No description provided.'}
-            </Typography>
-          </Stack>
-        ) : null}
-        <Stack>
-          <Typography variant="caption" color="text.secondary">
-            Step
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {selectedActionMode.startsWith('command:')
+  const infoSections = useMemo<ComposerInfoSection[]>(
+    () => [
+      {
+        key: 'selection',
+        title: 'Current selections',
+        eyebrow: 'What the next agent run will use',
+        summaryChipLabel:
+          selectedActionMode === 'instruction'
+            ? 'Instruction'
+            : selectedActionMode.startsWith('command:')
+              ? 'Command'
+              : 'Prompt',
+        entries: [
+          {
+            key: 'agent',
+            label: 'Agent',
+            value: selectedAgentName || 'Select agent',
+            icon: <PersonOutlineOutlinedIcon fontSize="small" />,
+          },
+          {
+            key: 'action',
+            label: 'Action',
+            value: modeLabel,
+            icon: selectedActionMode.startsWith('command:') ? (
+              <TerminalRoundedIcon fontSize="small" />
+            ) : selectedActionMode.startsWith('prompt:') ? (
+              <PlayArrowRoundedIcon fontSize="small" />
+            ) : (
+              <AutoAwesomeRoundedIcon fontSize="small" />
+            ),
+          },
+          {
+            key: 'step',
+            label: 'Step',
+            value: selectedActionMode.startsWith('command:')
               ? buildStepLabel(selectedStep)
-              : 'Not applicable'}
-          </Typography>
-        </Stack>
-        <Stack>
-          <Typography variant="caption" color="text.secondary">
-            Working path
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {workingFolderName}
-          </Typography>
-        </Stack>
-        <Stack>
-          <Typography variant="caption" color="text.secondary">
-            Model
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {agentModelId && agentModelId !== 'unknown'
-              ? agentModelId
-              : 'Unknown'}
-          </Typography>
-        </Stack>
-      </Stack>
+              : 'Only used for command mode',
+            icon: <TuneRoundedIcon fontSize="small" />,
+          },
+          {
+            key: 'working-path',
+            label: 'Working path',
+            value: workingFolderName,
+            icon: <FolderOutlinedIcon fontSize="small" />,
+          },
+          {
+            key: 'model',
+            label: 'Model',
+            value:
+              agentModelId && agentModelId !== 'unknown'
+                ? agentModelId
+                : 'Unknown',
+            icon: <InfoOutlinedIcon fontSize="small" />,
+          },
+        ],
+      },
+      {
+        key: 'details',
+        title: 'Action details',
+        eyebrow: 'Context for the selected mode',
+        tone: 'default',
+        emptyMessage: 'No additional action details are available yet.',
+        entries: selectedCommandOption
+          ? [
+              {
+                key: 'command-details',
+                label: 'Command details',
+                value:
+                  selectedCommandOption.description ||
+                  'No description provided.',
+                icon: <TerminalRoundedIcon fontSize="small" />,
+                valueTestId: 'command-info-text',
+              },
+            ]
+          : selectedPromptEntry
+            ? [
+                {
+                  key: 'prompt-path',
+                  label: 'Saved prompt',
+                  value: selectedPromptEntry.relativePath,
+                  icon: <PlayArrowRoundedIcon fontSize="small" />,
+                },
+                {
+                  key: 'prompt-source',
+                  label: 'Prompt source',
+                  value: selectedPromptEntry.fullPath,
+                  icon: <FolderOutlinedIcon fontSize="small" />,
+                },
+              ]
+            : [],
+      },
+    ],
+    [
+      agentModelId,
+      modeLabel,
+      selectedActionMode,
+      selectedAgentName,
+      selectedCommandOption,
+      selectedPromptEntry,
+      selectedStep,
+      workingFolderName,
+    ],
+  );
 
+  const infoFooterContent = (
+    <>
       {warningMessages.length > 0 ? (
         <Stack spacing={0.5}>
           <Typography variant="subtitle2" color="warning.main">
@@ -450,55 +463,18 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           {agentInfoEmptyMessage}
         </Typography>
       ) : null}
-    </Stack>
+    </>
   );
 
-  const workingPathContent = (
-    <Stack spacing={2} data-testid="agent-working-path-content">
-      <TextField
-        fullWidth
-        size="small"
-        label="Working folder"
-        placeholder="Absolute host path (optional)"
-        value={selectedWorkingFolder}
-        onChange={(event) => onWorkingFolderChange(event.target.value)}
-        onBlur={(event) =>
-          void onCommitWorkingFolder('blur', event.target.value)
-        }
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') return;
-          event.preventDefault();
-          event.stopPropagation();
-          void onCommitWorkingFolder(
-            'enter',
-            (event.currentTarget as HTMLInputElement).value,
-          );
-        }}
-        disabled={isWorkingFolderDisabled}
-        inputProps={{ 'aria-label': 'working_folder', name: 'working_folder' }}
-      />
-      <Stack direction="row" spacing={1.25} justifyContent="space-between">
-        <Button
-          type="button"
-          variant="outlined"
-          size="small"
-          onClick={onOpenDirPicker}
-          disabled={isWorkingFolderDisabled}
-          data-testid="agent-working-folder-picker"
-        >
-          Choose folder…
-        </Button>
-        <Button
-          type="button"
-          variant="text"
-          size="small"
-          onClick={() => void onCommitWorkingFolder('picker', '')}
-          disabled={isWorkingFolderDisabled}
-        >
-          Clear
-        </Button>
-      </Stack>
-    </Stack>
+  const infoContent = (
+    <ComposerInfoPanel
+      heroTitle="Current agent send context"
+      heroDescription="These values describe exactly what the next agent run will use."
+      heroIcon={<InfoOutlinedIcon fontSize="small" />}
+      sections={infoSections}
+      footerContent={infoFooterContent}
+      data-testid="agent-composer-info-content"
+    />
   );
 
   const agentListContent = (
@@ -676,7 +652,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         inputRef={inputRef}
         fullWidth
         multiline
-        minRows={2}
+        minRows={1}
         maxRows={6}
         size="small"
         placeholder={
@@ -736,10 +712,12 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         icon={<FolderOutlinedIcon fontSize="small" />}
         label="Working path"
         value={workingFolderName}
-        selected={Boolean(workingPathAnchorEl)}
-        onClick={(event) => setWorkingPathAnchorEl(event.currentTarget)}
+        selected={dirPickerOpen}
+        onClick={() => onOpenDirPicker()}
         data-testid="agent-working-path-trigger"
         disabled={isWorkingFolderDisabled}
+        ariaHaspopup="dialog"
+        ariaExpanded={dirPickerOpen}
       />
 
       {process.env.NODE_ENV === 'test' ? (
@@ -780,23 +758,34 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         ariaExpanded={Boolean(actionAnchorEl)}
         role="combobox"
       />
-      <ComposerFooterButton
-        icon={<TuneRoundedIcon fontSize="small" />}
-        label="Step"
-        value={
-          selectedActionMode.startsWith('command:')
-            ? buildStepLabel(selectedStep)
-            : 'Not used'
-        }
-        selected={Boolean(stepAnchorEl)}
-        onClick={(event) => setStepAnchorEl(event.currentTarget)}
-        data-testid="agent-step-trigger"
-        ariaLabel="Start step"
-        disabled={startStepDisabled}
-        ariaHaspopup="listbox"
-        ariaExpanded={Boolean(stepAnchorEl)}
-        role="combobox"
-      />
+      {selectedActionMode.startsWith('command:') ? (
+        <ComposerFooterButton
+          icon={<TuneRoundedIcon fontSize="small" />}
+          label="Step"
+          value={buildStepLabel(selectedStep)}
+          selected={Boolean(stepAnchorEl)}
+          onClick={(event) => setStepAnchorEl(event.currentTarget)}
+          data-testid="agent-step-trigger"
+          ariaLabel="Start step"
+          disabled={startStepDisabled}
+          ariaHaspopup="listbox"
+          ariaExpanded={Boolean(stepAnchorEl)}
+          role="combobox"
+        />
+      ) : (
+        <Tooltip title="Step selection is only available for command mode.">
+          <span>
+            <ComposerFooterButton
+              icon={<TuneRoundedIcon fontSize="small" />}
+              label="Step"
+              iconOnly
+              ariaLabel="Start step"
+              data-testid="agent-step-trigger"
+              disabled
+            />
+          </span>
+        </Tooltip>
+      )}
     </CommonComposerFooter>
   );
 
@@ -892,41 +881,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           >
             Close
           </Button>
-        </DialogActions>
-      </ComposerMobileDialog>
-
-      <ComposerDesktopPopover
-        open={!isMobile && Boolean(workingPathAnchorEl)}
-        anchorEl={workingPathAnchorEl}
-        onClose={() => setWorkingPathAnchorEl(null)}
-        width={420}
-        data-testid="agent-working-path-popover"
-      >
-        {workingPathContent}
-      </ComposerDesktopPopover>
-      <ComposerMobileDialog
-        open={isMobile && Boolean(workingPathAnchorEl)}
-        onClose={() => setWorkingPathAnchorEl(null)}
-        data-testid="agent-working-path-dialog"
-      >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Typography variant="h6">Working path</Typography>
-            <IconButton
-              onClick={() => setWorkingPathAnchorEl(null)}
-              aria-label="Close"
-            >
-              ×
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent dividers>{workingPathContent}</DialogContent>
-        <DialogActions>
-          <Button onClick={() => setWorkingPathAnchorEl(null)}>Close</Button>
         </DialogActions>
       </ComposerMobileDialog>
 
@@ -1045,6 +999,10 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         path={selectedWorkingFolder}
         onClose={onCloseDirPicker}
         onPick={onPickDir}
+        onClear={() => {
+          void onCommitWorkingFolder('picker', '');
+          onCloseDirPicker();
+        }}
       />
       <CodexDeviceAuthDialog
         open={deviceAuthOpen}

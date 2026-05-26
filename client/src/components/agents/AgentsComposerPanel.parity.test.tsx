@@ -131,6 +131,10 @@ describe('AgentsComposerPanel parity', () => {
     expect(
       within(shell).getByTestId('agent-command-trigger'),
     ).toHaveTextContent('Write instruction');
+    expect(screen.getByTestId('agent-step-trigger')).toBeDisabled();
+    expect(screen.getByTestId('agent-step-trigger')).not.toHaveTextContent(
+      /Not used/i,
+    );
   });
 
   it('presents the unified action selector and mode-specific input behavior', async () => {

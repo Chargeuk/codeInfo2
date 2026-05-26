@@ -51,6 +51,7 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
 import {
   isExecutePromptEnabled,
   reconcileAgentDetailsCache,
@@ -1387,9 +1388,7 @@ export default function AgentsPage() {
   const lastInflightHydratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeConversationId) return;
-    const oldest = turns?.[0]?.createdAt ?? 'none';
-    const newest = turns?.[turns.length - 1]?.createdAt ?? 'none';
-    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}`;
+    const key = buildStoredTurnHydrationKey(activeConversationId, turns);
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
 

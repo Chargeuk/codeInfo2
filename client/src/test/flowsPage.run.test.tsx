@@ -215,6 +215,12 @@ async function selectDailyFlow() {
   await waitFor(() => expect(flowTrigger).toHaveTextContent('daily'));
 }
 
+async function waitForFlowTitle(title: string) {
+  await waitFor(() =>
+    expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent(title),
+  );
+}
+
 function setupFlowsRunHarness(options?: {
   conversations?: unknown;
   turns?: unknown;
@@ -928,8 +934,11 @@ describe('Flows page run/resume controls', () => {
     expect(await screen.findByTestId('flow-info')).toBeEnabled();
     const infoPopover = await openFlowInfoSurface();
     expect(
-      within(await infoPopover).getByTestId('flow-launch-identity'),
-    ).toHaveTextContent('Launch provider: codex · Model: gpt-5');
+      within(await infoPopover).getByTestId('composer-info-section-runtime'),
+    ).toHaveTextContent('Providercodex');
+    expect(
+      within(await infoPopover).getByTestId('composer-info-section-runtime'),
+    ).toHaveTextContent('Modelgpt-5');
 
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
@@ -979,10 +988,15 @@ describe('Flows page run/resume controls', () => {
     await waitFor(() =>
       expect(
         within(screen.getByTestId('flow-info-popover')).getByTestId(
-          'flow-launch-identity',
+          'composer-info-section-runtime',
         ),
-      ).toHaveTextContent('Launch provider: lmstudio · Model: model-1'),
+      ).toHaveTextContent('Providerlmstudio'),
     );
+    expect(
+      within(screen.getByTestId('flow-info-popover')).getByTestId(
+        'composer-info-section-runtime',
+      ),
+    ).toHaveTextContent('Modelmodel-1');
     expect(screen.getByTestId('flows-launch-warnings')).toHaveTextContent(
       'fell back to provider "lmstudio"',
     );
@@ -1796,7 +1810,7 @@ describe('Flows page run/resume controls', () => {
       const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
       render(<RouterProvider router={router} />);
 
-      await screen.findByText('Flow: daily');
+      await waitForFlowTitle('Flow: daily');
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
@@ -1894,7 +1908,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await waitFor(() =>
       expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
     );
@@ -2061,9 +2075,9 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    const firstConversation = await screen.findByText('Flow: daily');
-    const firstRow = firstConversation.closest(
-      '[data-testid="conversation-row"]',
+    const flowRows = await screen.findAllByTestId('conversation-row');
+    const firstRow = flowRows.find((row) =>
+      within(row).queryByText('Flow: daily'),
     );
     expect(firstRow).toBeTruthy();
     await user.click(firstRow!);
@@ -2222,7 +2236,7 @@ describe('Flows page run/resume controls', () => {
       const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
       render(<RouterProvider router={router} />);
 
-      await screen.findByText('Flow: daily');
+      await waitForFlowTitle('Flow: daily');
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
@@ -2309,7 +2323,7 @@ describe('Flows page run/resume controls', () => {
       const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
       render(<RouterProvider router={router} />);
 
-      await screen.findByText('Flow: daily');
+      await waitForFlowTitle('Flow: daily');
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
@@ -2502,12 +2516,12 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
 
     const newFlowButton = await screen.findByTestId('flow-new');
     await user.click(newFlowButton);
 
-    expect(screen.getByText('Flow: daily')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent('daily');
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
   });
 
@@ -2582,7 +2596,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
 
     await act(async () => {
       await user.click(screen.getByTestId('flow-working-folder-picker'));
@@ -2608,7 +2622,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
 
     const workingFolder = await screen.findByTestId('flow-working-folder');
     await user.type(workingFolder, '/existing/path');
@@ -2646,7 +2660,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
 
     expect(await screen.findByTestId('flow-working-folder')).toHaveValue(
@@ -2662,7 +2676,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
 
     expect(await screen.findByTestId('flow-working-folder')).toHaveValue('');
@@ -2675,7 +2689,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
 
     const workingFolder = await screen.findByTestId('flow-working-folder');
@@ -2706,7 +2720,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
 
     act(() => {
@@ -2745,7 +2759,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await waitFor(() =>
       expect(screen.getByTestId('flow-working-folder')).toHaveValue(
         '/repos/flow',
@@ -2787,7 +2801,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
     expect(await screen.findByTestId('flow-working-folder')).toHaveValue(
       '/repos/flow',
@@ -2836,7 +2850,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
 
     const workingFolder = await screen.findByTestId('flow-working-folder');
@@ -2977,7 +2991,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily');
+    await waitForFlowTitle('Flow: daily');
 
     emitWsEvent({
       protocolVersion: 'v1',

@@ -5163,10 +5163,83 @@ Repair the remaining shared transcript long-thread bug where selecting a very la
 - `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`, `npm run build:summary:client`, and `npm run test:summary:client` all passed from the repaired worktree. The final full client wrapper passed `852/852` in `test-results/client-tests-2026-05-26T18-44-46-391Z.log`.
 - Manual proof on a fresh normal compose stack (`npm run compose:build` then `npm run compose:up`) confirmed the seeded giant `manual_testing_agent` transcript opens pinned to the newest turns on first selection and after switching away to another conversation and back again. Playwright measured `distanceFromBottom: 0` with `scrollTop: 1119528`, and Chrome DevTools measured `distanceFromBottom: 0` with `scrollTop: 87624`; the stack was left up for any immediate follow-up proof.
 
+### Task 42. Streamline Composer Controls Across Chat, Agents, And Flows
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 41`
+- Task Status: `__done__`
+
+#### Overview
+
+Repair the remaining composer inconsistencies across `Chat`, `Agents`, and `Flows` without regressing mobile layout. This task owns the shared composer footer/popover information seam, the direct working-folder chooser affordance, the disabled step affordance for non-command agent sends, the dead `Flows` note input, and the flow-title defaulting behavior that should follow the selected flow or active flow conversation.
+
+#### Non-Goals
+
+- Do not change transcript virtualization, conversation loading, or the long-thread repin lifecycle in this task.
+- Do not alter the supported `compose:local` stack or rely on it for implementation proof.
+- Do not add new flow or agent execution behavior beyond the composer controls and metadata presentation needed to make the existing launch surfaces clearer and more consistent.
+
+#### Task Exit Criteria
+
+- `Agents` starts from the same one-row composer input height as `Chat`, and the non-command step affordance is reduced to a disabled icon-only button with explanatory hover text instead of a misleading `Not used` label.
+- `Flows` no longer renders the unused text composer field, and the footer still exposes the send, info, working-path, flow, and title controls cleanly on desktop and mobile.
+- The composer info surfaces on `Agents` and `Flows` use the same richer structure as `Chat`, and `Working path` on `Chat`, `Agents`, and `Flows` opens the folder chooser directly instead of a two-step intermediary popover.
+- Flow selection and resumed flow conversations now populate the visible title trigger from the effective title, and opening the title editor seeds it from that current value rather than leaving it blank or stuck on `Set title`.
+- The shared desktop command popover provides a real scroll region for long option lists instead of clipping overflow.
+- Focused proof plus the full client wrapper cover the repaired composer surfaces so the footer order, direct folder picker path, title seeding, disabled step affordance, and shared popup presentation do not silently regress.
+
+#### Documentation Locations
+
+- `client/src/components/agents/AgentsComposerPanel.tsx`
+- `client/src/components/ingest/DirectoryPickerDialog.tsx`
+- `client/src/components/workspace/composer/ComposerDesktopPopover.tsx`
+- `client/src/components/workspace/composer/ComposerDesktopPopover.test.tsx`
+- `client/src/components/workspace/composer/ComposerInfoPanel.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/agentsPage.actionMode.test.tsx`
+- `client/src/test/agentsPage.commandsList.test.tsx`
+- `client/src/test/agentsPage.layoutWrap.test.tsx`
+- `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+- `client/src/test/chatPage.workingFolder.test.tsx`
+- `client/src/test/flowsPage.composer.test.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/flowsPage.runGuard.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+
+#### Subtasks
+
+1. [x] Current Repository: Update `client/src/components/agents/AgentsComposerPanel.tsx` so the message input starts at one row like `Chat`, the non-command step control becomes a disabled icon-only footer affordance with tooltip guidance, the composer info path uses the shared richer info presenter, and the footer `Working path` button opens `DirectoryPickerDialog` directly instead of routing through an intermediate popover.
+2. [x] Current Repository: Introduce shared composer popup primitives in `client/src/components/workspace/composer/ComposerInfoPanel.tsx` and `client/src/components/workspace/composer/ComposerDesktopPopover.tsx` so the richer info-card structure and long-list scroll contract can be reused across `Agents` and `Flows` while preserving existing mobile dialog behavior.
+3. [x] Current Repository: Update `client/src/pages/ChatPage.tsx` and `client/src/components/ingest/DirectoryPickerDialog.tsx` so the `Chat` footer `Working path` trigger opens the directory picker directly and still supports clearing the persisted working folder without the removed intermediate chooser step.
+4. [x] Current Repository: Update `client/src/pages/FlowsPage.tsx` so `Flows` removes the dead text note input, shows a read-only launch summary instead, opens the directory picker directly from `Working path`, uses the shared richer info presenter, and derives the visible/editable title from the selected flow or active flow conversation before the user customizes it.
+5. [x] Current Repository: Add or update focused client proof in `client/src/components/workspace/composer/ComposerDesktopPopover.test.tsx`, `client/src/test/agentsPage.actionMode.test.tsx`, `client/src/test/agentsPage.commandsList.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, `client/src/test/agentsPage.workingFolderPicker.test.tsx`, `client/src/test/chatPage.workingFolder.test.tsx`, `client/src/test/flowsPage.composer.test.tsx`, `client/src/test/flowsPage.run.test.tsx`, `client/src/test/flowsPage.runGuard.test.tsx`, and `client/src/test/flowsPage.test.tsx` so the shared composer scroll region, direct folder picker flow, flow title seeding, and disabled step affordance are all explicit.
+
+#### Testing
+
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared client composer surfaces plus the `Chat`, `Agents`, and `Flows` route adapters.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this task updates shared composer primitives, route-specific composer behavior, and multiple focused client proofs.
+3. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task touches shared client components and route-level proof surfaces.
+4. [x] Current Repository: Run `npm run format`. Use the repository-root formatter because this task touches shared client components, route code, and proof files.
+5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate to confirm the final composer follow-up tree stays Prettier-clean before push.
+
+#### Implementation Notes
+
+- Follow-up task created after live review on the user’s running `compose:local` stack confirmed a final composer pass was still needed: `Agents` started two rows taller than `Chat`, `Flows` still showed a dead note input, the agent/flow info popovers lagged behind the chat design, `Working path` still required a second click, the command popup could clip long lists, the non-command step affordance still read like broken functionality, and the flow title trigger still fell back to `Set title` even with an active flow selection. No code changed while shaping the task.
+- Reworked the shared composer seam so `Agents` now starts with the same one-line input height as `Chat`, uses the new shared `ComposerInfoPanel`, opens `DirectoryPickerDialog` directly from `Working path`, and renders the non-command step state as a disabled icon-only affordance with an explanatory tooltip instead of `Not used`.
+- Added `ComposerInfoPanel.tsx`, updated `ComposerDesktopPopover.tsx` with a real bounded scroll body, and wired the shared info-card layout into `Flows` as well so both agent and flow metadata popups now match the richer chat presentation and long command lists get an honest scroll region.
+- Reworked `FlowsPage.tsx` so the dead note textbox is gone, the footer now shows a read-only flow launch summary, the title trigger defaults to the selected flow or resumed conversation title, and opening the title editor seeds it from that active title so renaming starts from the user’s current context instead of a blank field.
+- Updated `ChatPage.tsx` plus `DirectoryPickerDialog.tsx` so all three composer `Working path` triggers now open the folder chooser directly and still support clearing the current working-folder selection from the picker itself.
+- Focused client proof was extended across the shared composer popover, agent footer/action mode, chat working-folder flow, and the flow composer/run surfaces so the direct folder chooser path, title seeding, disabled step affordance, and shared info-panel contract are all locked in by automated tests.
+- Manual proof on the supported normal compose stack (`npm run compose:build`, `npm run compose:up`) used both Chrome DevTools MCP and Playwright MCP on `http://localhost:5001/chat`, `/agents`, and `/flows` to confirm the repaired composer interactions on desktop and mobile-sized viewports: `Agents` now reports a one-line `Message` textbox (`clientHeight=22`), `Chat`/`Agents`/`Flows` all open `Choose folder…` directly from `Working path`, `Flows` no longer renders a textarea, the flow title dialog preloads the current title, and the agent/flow info popups expose the richer shared headings instead of the older flat label/value stacks.
+- `npm run build:summary:client` passed earlier in the composer-repair cycle from the same feature worktree; `npm run lint`, `npm run format`, and `npm run format:check` all passed after the final import-order and Prettier cleanup.
+- A first post-format `npm run test:summary:client` pass surfaced a one-off timeout in `client/src/test/agentsPage.authDialog.test.tsx`; the focused rerun for the unavailable-Codex case passed immediately, and the subsequent clean full-wrapper rerun passed `856/856` in `test-results/client-tests-2026-05-26T21-01-49-629Z.log`, so the final pushed tree still has a green full-frontend proof run.
+
 ## Final Summary
 
 1. What has been changed.
-   Story 58 now ships the transcript-first workspace redesign across `Chat`, `Agents`, `Flows`, `Home`, `Ingest`, and `Logs`, plus the later review-driven repairs for shared working-folder validation, flow replay and resume identity ownership, accepted-launch refresh-failure handling, and shared conversation loading state. The plan also records inline minor-fix resolutions and the curated durable manual-proof bundle under `codeInfoStatus/manual-proof/0000058/`.
+   Story 58 now ships the transcript-first workspace redesign across `Chat`, `Agents`, `Flows`, `Home`, `Ingest`, and `Logs`, plus the later review-driven repairs for shared working-folder validation, flow replay and resume identity ownership, accepted-launch refresh-failure handling, shared conversation loading state, and the final shared composer-control consistency pass across `Chat`, `Agents`, and `Flows`. The plan also records inline minor-fix resolutions and the curated durable manual-proof bundle under `codeInfoStatus/manual-proof/0000058/`.
 2. Why it changed.
    The redesign was meant to reclaim vertical space for transcript work, unify desktop and mobile shell behavior, and keep existing product contracts intact while making the UI feel like one coherent workspace family. The follow-up review repairs were needed to close correctness gaps where stale persistence, weaker replay inputs, or stale client refresh paths could otherwise override the intended authoritative state.
 3. A simple explanation of any complex logic that needed to be added.

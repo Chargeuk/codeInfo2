@@ -591,12 +591,9 @@ describe('Flows page run guards', () => {
     const titleInput = await screen.findByTestId('flow-custom-title');
     await user.type(titleInput, 'Should not leak');
 
-    const firstConversation = await screen.findByText('Flow: daily');
-    const firstRow = firstConversation.closest(
-      '[data-testid="conversation-row"]',
-    );
+    const [firstRow] = await screen.findAllByTestId('conversation-row');
     expect(firstRow).toBeTruthy();
-    await user.click(firstRow!);
+    await user.click(firstRow);
     await waitFor(() => expect(titleInput).toBeDisabled());
     await user.click(screen.getByTestId('flow-new'));
 
@@ -841,7 +838,11 @@ describe('Flows page run guards', () => {
 
       await waitFor(() => expect(requestBodies).toHaveLength(1));
       expect(requestBodies[0]).toHaveProperty('conversationId');
-      await screen.findByText('Flow: echo');
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent(
+          'Flow: echo',
+        ),
+      );
       await waitFor(() => {
         const stopButton = screen.queryByTestId('flow-stop');
         if (stopButton) {

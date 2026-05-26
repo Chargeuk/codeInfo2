@@ -1291,18 +1291,11 @@ export default function FlowsPage() {
         try {
           details = await loadSelectedFlowDetails();
         } catch (error) {
-          const malformedDetailsPayload =
-            error instanceof Error &&
-            error.message === 'Invalid flow details response';
-          if (!malformedDetailsPayload && selectedFlow?.disabled !== true) {
-            details = undefined;
-          } else {
-            setRunError(
-              (error as Error).message ?? 'Failed to load flow details.',
-            );
-            releaseFreshRunReplayGuard();
-            return;
-          }
+          setRunError(
+            (error as Error).message ?? 'Failed to load flow details.',
+          );
+          releaseFreshRunReplayGuard();
+          return;
         }
       }
 

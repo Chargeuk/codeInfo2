@@ -25,7 +25,7 @@
 - If the current story itself introduced an unapproved user-facing behavior change, treat that as unfinished in-scope regression work against a preserved behavior rather than as acceptable completion or as out-of-scope product redesign.
 - In steps that own machine-readable review state, represent that outcome in `rejected_or_non_actionable_findings` with a concise scope reason.
 - In audit or planning steps that repair task truth, record story-caused preserved-behavior regressions by adding explicit unchecked remaining work and documenting the reason in the task's note or audit note.
-- In other steps that do not own machine-readable review state, report the scope boundary only in step output.
+- In other steps that do not own machine-readable review state, report the scope boundary only in step output and do not invent an ad hoc durable storage location for it.
 - Do not create a numbered task or blocker for an out-of-scope behavior change unless the user explicitly expands scope.
 - For testing-additions and proof-authoring stories, tests must document current behavior unless the story explicitly asks for that behavior to change.
 

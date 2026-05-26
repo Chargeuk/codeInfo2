@@ -41,10 +41,11 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 - Audit the coding agent's implementation and automated-proof work on the current task honestly.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
-- Audit for out-of-scope user-facing behavior drift even when automated proof is green.
-- If the implementation-plus-proof pass changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, treat that as invalid task completion rather than as successful proof.
+- Audit for story-caused preserved-behavior regressions and other out-of-scope user-facing behavior drift even when automated proof is green.
+- If the implementation-plus-proof pass changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, first decide whether that drift was introduced by the current story or merely discovered during this story.
 - Do not let passing automated proof convert an unauthorized behavior change into an accepted story outcome.
-- If such drift is found, record it explicitly as out-of-scope behavior drift, keep the task aligned to the approved behavior target, and do not add a blocker solely because a new product decision would be needed to legitimize that drift.
+- If the current story introduced that drift, treat it as unfinished in-scope regression work against a preserved behavior: add at least one explicit unchecked subtask or testing item that restores the approved behavior, record the reason in the audit note, and keep the task aligned to the approved behavior target.
+- If the drift was merely discovered and fixing it would require a new product decision outside story scope, record it explicitly as out-of-scope behavior drift and do not add a blocker solely because a new product decision would be needed to legitimize that drift.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
 - Mark completed subtasks and completed `Testing` items complete when the repository evidence shows they were honestly completed but left unchecked.
 - A bookkeeping omission is not a blocker by itself.
@@ -52,8 +53,9 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
-- Treat real unchecked subtasks, real unchecked testing steps, and a live standalone `**BLOCKER**` note as the only valid reasons for the task to remain `__in_progress__` after normalization.
-- If the only remaining reason the task is not acceptable is out-of-scope user-facing behavior drift, preserve the task as `__in_progress__` and record the drift honestly instead of adding a blocker solely for that drift.
+- Treat real unchecked subtasks, real unchecked testing steps, a live standalone `**BLOCKER**` note, or newly added remaining work that restores a story-caused preserved behavior as the only valid reasons for the task to remain `__in_progress__` after normalization.
+- If the only remaining reason the task is not acceptable is a story-caused preserved-behavior regression, add explicit unchecked remaining work and preserve the task as `__in_progress__` without adding a blocker solely for that regression.
+- If the only remaining concern is merely discovered out-of-scope user-facing behavior drift, record that drift honestly without adding a blocker solely for that drift.
 - If real unchecked checklist items still remain after normalization and no live standalone `**BLOCKER**` exists, treat that as an invalid end state for the just-worked proof pass and add a blocker rather than preserving it as ordinary `__in_progress__`.
 - If prose notes, exit-criteria text, or other non-checklist text still claim remaining work after all subtasks and testing are checked and no live standalone `**BLOCKER**` remains, treat that as invalid task shape rather than as a reason to keep the task open.
 - In that invalid task-shape case, either:
@@ -77,7 +79,8 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - A task must not be marked `__done__` when its apparent completion depends on an established user-facing behavior change that the story did not explicitly approve and the user did not explicitly approve later.
-- If the only reason the task cannot be marked `__done__` is out-of-scope user-facing behavior drift, keep the task `__in_progress__` and record that drift honestly rather than adding a blocker solely because the story would otherwise need a new product decision.
+- If the current story introduced an unapproved behavior change, keep the task `__in_progress__` by adding explicit unchecked remaining work that restores the approved behavior.
+- If the only remaining concern is merely discovered out-of-scope user-facing behavior drift that this story did not introduce, record that drift honestly without adding a blocker solely because the story would otherwise need a new product decision.
 - If its subtasks and testing are honestly complete and no blocker remains, ensure its `Task Status` is `__done__`.
 - This audit is the step that should flip the task to `__done__` when planner repair or earlier proof work has already made the task honestly complete.
 - Do not require a new automated-proof execution in this pass if the task's testing section is already honestly complete from earlier work.

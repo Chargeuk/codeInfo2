@@ -22,8 +22,10 @@
 
 - If proof needs a seam, prefer read-only observability, test-only harness work, fixture or setup work, or helper improvements over a production behavior change.
 - If honest proof cannot proceed without a product decision, preserve current behavior and treat the issue as out-of-scope for the current story instead of silently changing behavior in the current story.
+- If the current story itself introduced an unapproved user-facing behavior change, treat that as unfinished in-scope regression work against a preserved behavior rather than as acceptable completion or as out-of-scope product redesign.
 - In steps that own machine-readable review state, represent that outcome in `rejected_or_non_actionable_findings` with a concise scope reason.
-- In steps that do not own machine-readable review state, report the scope boundary only in step output.
+- In audit or planning steps that repair task truth, record story-caused preserved-behavior regressions by adding explicit unchecked remaining work and documenting the reason in the task's note or audit note.
+- In other steps that do not own machine-readable review state, report the scope boundary only in step output.
 - Do not create a numbered task or blocker for an out-of-scope behavior change unless the user explicitly expands scope.
 - For testing-additions and proof-authoring stories, tests must document current behavior unless the story explicitly asks for that behavior to change.
 

@@ -10,6 +10,10 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Treat over-fragmented subtasks, micro-subtasks, and duplicated broad testing inside selected review-created tasks as defects to repair now.
 - If the selected review-created task set itself is over-fragmented across multiple task identities, do not merge, delete, absorb, renumber, or identity-shift those tasks in this pass. Stop and report an upstream packaging defect so review disposition or stored-review repair can regroup the tasks before scoped enhancement continues.
 - If any selected review-created task is over-grouped across unrelated repair seams, root causes, contract or lifecycle surfaces, prerequisite chains, or proof stories, do not split, delete, renumber, or identity-shift that task in this pass. Stop and report an upstream packaging defect so review disposition or stored-review repair can split the task before scoped enhancement continues.
+- If a selected review-created task changes or implies changing established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, treat that as a task-quality defect and repair it now.
+- Do not preserve a scope-expanded review-created task merely because it is already present in the plan.
+- If a selected review-created task exists only because a cleaner, more consistent, more provable, or easier-to-implement behavior was preferred over the current product contract, rewrite that task so it preserves current behavior and instead uses read-only observability, test-harness work, a blocker, or explicit follow-up-story wording.
+- If a selected review-created task attempts to fix a pre-existing bug or awkward workflow that the story does not explicitly require, remove that behavior change from the task unless the user explicitly approved the expansion.
 
 </instruction_priority>
 
@@ -58,6 +62,8 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 
 - Check that the selected review-created tasks now look comparable in detail and proof quality to the story's earlier strong tasks.
 - Check that the selected review-created tasks are compact enough to avoid unnecessary token, task, subtask, and testing duplication.
+- Check that none of the selected review-created tasks changes established user-facing behavior unless that behavior change is explicitly approved by the story or explicitly approved later by the user.
+- Check that no selected review-created task exists only to make a behavior cleaner, easier to prove, easier to automate, or easier to implement at the cost of widening story scope.
 - Check whether task-level over-fragmentation exists across selected review-created task identities. If it does, stop and report an upstream packaging defect instead of compacting around it.
 - Check whether task-level over-grouping exists inside any selected review-created task. If it does, stop and report an upstream packaging defect instead of compacting around it.
 - Check that no selected task still relies on vague verbs such as “fix,” “handle,” or “update tests” without explicit file targets and intended outcomes.

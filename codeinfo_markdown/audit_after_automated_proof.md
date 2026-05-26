@@ -40,6 +40,11 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 <audit_rules>
 
 - Audit the coding agent's implementation and automated-proof work on the current task honestly.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
+- Audit for out-of-scope user-facing behavior drift even when automated proof is green.
+- If the implementation-plus-proof pass changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, treat that as invalid task completion rather than as successful proof.
+- Do not let passing automated proof convert an unauthorized behavior change into an accepted story outcome.
+- If such drift is found, reopen the task or add a visible blocker unless the change is reverted in this pass.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
 - Mark completed subtasks and completed `Testing` items complete when the repository evidence shows they were honestly completed but left unchecked.
 - A bookkeeping omission is not a blocker by itself.
@@ -70,6 +75,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 <task_status_rules>
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
+- A task must not be marked `__done__` when its apparent completion depends on an established user-facing behavior change that the story did not explicitly approve and the user did not explicitly approve later.
 - If its subtasks and testing are honestly complete and no blocker remains, ensure its `Task Status` is `__done__`.
 - This audit is the step that should flip the task to `__done__` when planner repair or earlier proof work has already made the task honestly complete.
 - Do not require a new automated-proof execution in this pass if the task's testing section is already honestly complete from earlier work.
@@ -104,6 +110,8 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you audited both implementation and automated proof honestly;
+- confirm the task was not left `__done__` on the strength of tests alone when the implementation changed established user-facing behavior outside approved story scope;
+- confirm no pre-existing bug or product inconsistency was silently accepted as current-story work merely because automated proof passed after the change;
 - confirm you normalized task, subtask, and testing status from evidence before deciding whether a blocker was needed;
 - confirm the task was set to `__done__` only when both subtasks and testing were honestly complete and no blocker remained;
 - confirm you did not treat a bookkeeping omission by itself as a blocker;

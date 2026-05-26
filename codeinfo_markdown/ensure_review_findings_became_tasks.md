@@ -47,6 +47,17 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 </review_disposition_state_rules>
 
+<story_behavior_lock_rules>
+
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
+- Do not convert a review finding into a numbered task when the proposed fix would change established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user.
+- Do not create a review-created task merely because a behavior change would make the product contract cleaner, more consistent, easier to prove, easier to automate, or easier to implement.
+- Do not create a review-created task merely to fix a pre-existing bug, awkward workflow, inconsistency, limitation, or surprise unless the story explicitly requires that fix.
+- If honest proof cannot proceed without a separate behavior decision, record that as a blocker or explicit follow-up story candidate instead of silently tasking the behavior change into the current story.
+- Review-task-up may decompose approved scope, but it must not widen approved scope.
+
+</story_behavior_lock_rules>
+
 <decision_rules>
 
 1. Determine the task-up outcome primarily from `review-disposition-state.json` when it is present and valid; otherwise determine the review outcome from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the chosen source of truth, trust the chosen source and record the mismatch in the repair notes.
@@ -153,6 +164,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm that no review-created tasks remain split only because their shared repair uses multiple proof files or assertions.
 - Confirm that no review-created task was grouped only because findings share a repository or likely implementation owner.
 - Confirm that no work was improperly absorbed into older pre-existing story tasks.
+- Confirm no review-created task changes established user-facing behavior unless that behavior change is explicitly approved by the story or explicitly approved later by the user.
+- Confirm no pre-existing bug or product inconsistency was silently absorbed into current-story scope merely because it was discovered during review.
 - Confirm that no needless trail of tiny cleanup-only tasks remains when they could have been absorbed or grouped honestly.
 - Confirm that no merged review-created task has become an unfocused catch-all or vague cleanup bucket.
 - Confirm that no collapsed cleanup task hides materially different ownership or proof.

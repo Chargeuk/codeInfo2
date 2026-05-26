@@ -8,6 +8,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
 - Re-open the exact canonical plan from disk before touching files, using explicit shell reads such as `sed`, `cat`, or `rg`.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
@@ -46,6 +47,8 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - A bounded dead-branch cleanup in a queue, lifecycle, or concurrency-sensitive helper may remain minor when source inspection confirms the branch is unreachable under the current live-state or query contract.
 - When the classifier has already placed the selected finding in the minor path and fresh source inspection still shows one bounded same-repository seam, prefer attempting the repair first rather than immediately reclassifying it back to task-required.
 - For cross-surface error-classification findings, proceed in the minor path only when the classifier has already determined that the intended same-repository contract is clearly settled and the selected finding is just one bounded outlier alignment.
+- Minor review fixes may repair code within approved story scope, but they must not introduce new user-facing behavior changes unless that behavior change is explicitly approved by the story or explicitly approved later by the user.
+- If the selected minor finding would require changing established user-facing behavior outside approved scope, do not fix it inline in this story. Write a `reclassify_task_required` or `blocked` result instead so the behavior question can follow a blocker or follow-up path.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
 - Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.
 - This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.

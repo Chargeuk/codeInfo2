@@ -40,6 +40,11 @@ Do not treat this step as automated-proof completion.
 <audit_rules>
 
 - Audit the coding agent's implementation-only work on the current task honestly.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
+- Audit for out-of-scope user-facing behavior drift, not just checklist completion.
+- If the implementation changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, treat that as invalid implementation scope even when tests pass.
+- Do not excuse a behavior change merely because it made the code cleaner, the proof easier, the automation simpler, or the contract more internally consistent.
+- If invalid behavior drift is found, either reopen the affected work explicitly as out-of-scope behavior drift that must be reverted or re-tasked under approved requirements, or add a live blocker stating that the implementation changed behavior outside story scope.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
 - Mark completed subtasks complete when the repository evidence shows they were honestly completed but left unchecked.
 - Mark `Testing` items complete when the repository evidence shows they were honestly completed earlier or were honestly completed during the immediately preceding implementation pass.
@@ -59,6 +64,8 @@ Do not treat this step as automated-proof completion.
 <stall_detection_rules>
 
 - Compare the current task's checklist state and implementation notes against the repository evidence from the latest implementation pass.
+- Treat out-of-scope user-facing behavior drift as an invalid implementation state even if all subtasks appear complete.
+- A passing test suite does not legitimize a behavior change that the story did not ask for.
 - If unchecked subtasks still remain after normalization and there is no live `**BLOCKER**` note, treat that as an invalid unresolved implementation state.
 - Open `Testing` items alone are not an invalid implementation state in this audit when all subtasks are complete and automated proof has not yet been completed.
 - If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as an invalid task-shape state too.
@@ -106,6 +113,8 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you audited implementation-only work rather than treating the task as fully proved;
+- confirm the implementation did not change established user-facing behavior unless that behavior change was explicitly approved by the story or explicitly approved later by the user;
+- confirm no pre-existing bug, awkward workflow, inconsistency, or product limitation was silently fixed in the current story without explicit story-level authorization;
 - confirm you normalized checklist state from repository evidence before deciding whether a blocker was needed;
 - confirm no `Testing` section items were newly marked complete unless the evidence honestly showed they were already completed or were honestly completed during the immediately preceding implementation pass;
 - confirm the just-worked task was left `__in_progress__`;

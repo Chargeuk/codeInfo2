@@ -69,6 +69,14 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - When the normalized `Scope Impact` is `unknown_scope_impact`, do not suppress, defer, or discard the finding on that basis alone. Continue using severity, repository ownership, boundedness, and evidence quality to decide whether it is actionable.
 - Treat incomplete-review outcomes, missing required artifacts, unreadable artifacts, stale scope, or ambiguous review basis as `incomplete_review_blockers`.
 - When the findings artifact and handoff counts disagree, trust the findings artifact and record the mismatch in `classification_notes`.
+- Do not classify a finding as current-story actionable solely because a user-facing behavior change would make the code, contract, proof, or automation cleaner.
+- If a finding identifies a pre-existing bug, awkward workflow, inconsistency, limitation, or surprising product behavior that is not explicitly part of the story's approved behavior changes, do not treat that alone as current-story implementation scope.
+- When a finding proposes or implies a user-facing behavior change, first check whether that change is explicitly approved by the story or explicitly approved later by the user.
+- If not, do not route that finding into current-story implementation merely to improve the product contract.
+- Instead:
+  - classify it as `rejected_or_non_actionable_findings` when the story can still be completed honestly without changing that behavior; or
+  - classify it as `incomplete_review_blockers` when honest proof cannot proceed without a separate product decision.
+- For testing-additions and proof-authoring stories, prefer `document current behavior` over `change behavior to make proof easier`.
 
 </classification_rules>
 
@@ -255,6 +263,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm the review handoff and referenced findings artifact were read.
 - Confirm every endorsed finding was classified into exactly one state bucket.
 - Confirm uncertain findings were classified as task-required rather than minor.
+- Confirm no finding was treated as current-story actionable solely because a user-facing behavior change would make the contract cleaner, more consistent, or easier to prove.
+- Confirm any finding that would change established user-facing behavior was kept out of current-story action unless that behavior change was explicitly approved by the story or explicitly approved later by the user.
 - Confirm any carry-forward state you preserved came from the same still-active review loop rather than an earlier completed review cycle.
 - Confirm `review_cycle_id` is present and belongs to the active review loop you just classified.
 - Confirm you did not treat an older completed final revalidation task in the canonical plan as proof that a fresh new review cycle was already closed.

@@ -5,6 +5,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 <instruction_priority>
 
 - Follow `AGENTS.md` for the current repository and any participating additional repository.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Treat this command as an autonomous tasking pass.
 - Do not ask the user follow-up questions unless blocked by information that cannot be retrieved from repository files, git state, MCP tools, or official documentation.
 - Keep the selected story in scope and aligned to the KISS principle.
@@ -17,6 +18,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Keep using tools until the pass is complete and verified. If a lookup returns empty, partial, or suspiciously narrow results, retry with at least one better-targeted fallback before concluding there is no evidence.
 - Prefer repository evidence first, then official documentation, then broader web research when needed.
 - Preserve existing valid task structure and detail when rewriting; improve it rather than flattening it.
+- Treat the story's planned user-facing behavior changes as locked scope, not as suggestions that tasking may reinterpret.
   </workflow_contract>
 
 <portability_and_test_boundary_contract>
@@ -46,6 +48,16 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - These manual-testing guidance sections help the later `manual_testing_agent`, but they do not strictly limit which supporting repositories the manual tester may investigate when honest proof requires more context.
 
 </section_ownership_contract>
+
+<behavior_scope_rules>
+
+- Tasking must decompose the already-approved story behavior scope, not expand it.
+- Do not create a task, subtask, testing step, or manual-testing expectation that changes established user-facing behavior unless that change is explicitly listed in the story's approved behavior changes or explicitly approved later by the user.
+- If a pre-existing bug, awkward workflow, inconsistency, limitation, or surprise is discovered during tasking, do not convert it into current-story implementation work unless the story explicitly requires that fix.
+- If proof seems to require a behavior change, prefer read-only observability, test-only harness work, or a blocker or follow-up story candidate instead of tasking the behavior change into the current story.
+- Do not treat cleaner contracts, simpler automation, easier proofs, or internal consistency as valid reasons to widen story scope.
+
+</behavior_scope_rules>
 
 <design_contract_rules>
 

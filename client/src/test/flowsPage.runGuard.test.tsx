@@ -698,6 +698,7 @@ describe('Flows page run guards', () => {
               flowName: 'daily',
               conversationId: 'flow-1',
               inflightId: 'i1',
+              providerId: 'provider-1',
               modelId: 'gpt-5',
             },
             { status: 202 },

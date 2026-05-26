@@ -166,7 +166,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm that no review-created tasks remain split only because their shared repair uses multiple proof files or assertions.
 - Confirm that no review-created task was grouped only because findings share a repository or likely implementation owner.
 - Confirm that no work was improperly absorbed into older pre-existing story tasks.
-- Confirm no review-created task changes established user-facing behavior unless that behavior change is explicitly approved by the story or explicitly approved later by the user.
+- Confirm no review-created task changes established user-facing behavior unless that behavior change is explicitly approved by the story or explicitly approved later by the user, or the task is restoring previously approved or preserved behavior that the current story itself regressed.
 - Confirm no pre-existing bug or product inconsistency was silently absorbed into current-story scope merely because it was discovered during review.
 - Confirm that no needless trail of tiny cleanup-only tasks remains when they could have been absorbed or grouped honestly.
 - Confirm that no merged review-created task has become an unfocused catch-all or vague cleanup bucket.

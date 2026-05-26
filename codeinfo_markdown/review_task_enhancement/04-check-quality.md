@@ -65,7 +65,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 
 - Check that the selected review-created tasks now look comparable in detail and proof quality to the story's earlier strong tasks.
 - Check that the selected review-created tasks are compact enough to avoid unnecessary token, task, subtask, and testing duplication.
-- Check that none of the selected review-created tasks changes established user-facing behavior unless that behavior change is explicitly approved by the story or explicitly approved later by the user.
+- Check that none of the selected review-created tasks changes established user-facing behavior unless that behavior change is explicitly approved by the story or explicitly approved later by the user, or the task is restoring previously approved or preserved behavior that the current story itself regressed.
 - Check that no selected review-created task exists only to make a behavior cleaner, easier to prove, easier to automate, or easier to implement at the cost of widening story scope.
 - Check whether task-level over-fragmentation exists across selected review-created task identities. If it does, stop and report an upstream packaging defect instead of compacting around it.
 - Check whether task-level over-grouping exists inside any selected review-created task. If it does, stop and report an upstream packaging defect instead of compacting around it.

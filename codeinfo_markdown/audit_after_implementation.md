@@ -121,7 +121,7 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you audited implementation-only work rather than treating the task as fully proved;
-- confirm the implementation did not change established user-facing behavior unless that behavior change was explicitly approved by the story or explicitly approved later by the user;
+- confirm any unapproved change to established user-facing behavior was either identified as merely discovered out-of-scope drift or, when introduced by the current story, converted into explicit unchecked restoration work that kept the task honestly `__in_progress__`;
 - confirm no pre-existing bug, awkward workflow, inconsistency, or product limitation was silently fixed in the current story without explicit story-level authorization;
 - confirm you normalized checklist state from repository evidence before deciding whether a blocker was needed;
 - confirm no `Testing` section items were newly marked complete unless the evidence honestly showed they were already completed or were honestly completed during the immediately preceding implementation pass;

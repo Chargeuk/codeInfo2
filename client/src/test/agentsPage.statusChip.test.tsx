@@ -64,16 +64,18 @@ describe('Agents status chip rendering', () => {
       }
 
       if (target.includes('/agents') && !target.includes('/commands')) {
-        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+        return mockJsonResponse({
+          agents: [{ name: 'automated_testing_agent' }],
+        });
       }
 
-      if (target.includes('/agents/a1/commands')) {
+      if (target.includes('/agents/automated_testing_agent/commands')) {
         return mockJsonResponse({ commands: [] });
       }
 
       if (
         target.includes('/conversations') &&
-        target.includes('agentName=a1')
+        target.includes('agentName=automated_testing_agent')
       ) {
         return mockJsonResponse({
           items: [
@@ -149,16 +151,18 @@ describe('Agents status chip rendering', () => {
       }
 
       if (target.includes('/agents') && !target.includes('/commands')) {
-        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+        return mockJsonResponse({
+          agents: [{ name: 'automated_testing_agent' }],
+        });
       }
 
-      if (target.includes('/agents/a1/commands')) {
+      if (target.includes('/agents/automated_testing_agent/commands')) {
         return mockJsonResponse({ commands: [] });
       }
 
       if (
         target.includes('/conversations') &&
-        target.includes('agentName=a1')
+        target.includes('agentName=automated_testing_agent')
       ) {
         return mockJsonResponse({
           items: [

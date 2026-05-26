@@ -24,6 +24,7 @@ type VirtualizedTranscriptProps = {
     scrollHeight: number;
     clientHeight: number;
   } | null;
+  pendingConversationRepin: boolean;
 };
 
 const virtualizedTranscriptLog = createLogger('client');
@@ -31,8 +32,6 @@ const VIRTUALIZED_TRANSCRIPT_OVERSCAN = 6;
 const VIRTUALIZED_TRANSCRIPT_ESTIMATE_SIZE_PX = 240;
 const VIRTUALIZED_TRANSCRIPT_ROW_GAP_PX = 8;
 const VIRTUALIZED_TRANSCRIPT_INITIAL_RECT = { width: 0, height: 400 };
-const VIRTUALIZED_TRANSCRIPT_NEAR_BOTTOM_THRESHOLD_PX = 64;
-
 export default function VirtualizedTranscript({
   surface,
   conversationId,
@@ -42,9 +41,9 @@ export default function VirtualizedTranscript({
   renderMessageRow,
   measurementKeyByMessageId,
   getScrollSnapshot,
+  pendingConversationRepin,
 }: VirtualizedTranscriptProps) {
   const lastWindowKeyRef = useRef<string | null>(null);
-  const pendingConversationRepinRef = useRef(true);
   const rowElementsRef = useRef(new Map<string, HTMLDivElement>());
   const rowHeightsRef = useRef(new Map<string, number>());
   const rowMeasurementKeysRef = useRef(new Map<string, string>());
@@ -116,9 +115,7 @@ export default function VirtualizedTranscript({
   }, [getScrollSnapshot, virtualizer]);
 
   const virtualItems = virtualizer.getVirtualItems();
-  const lastVirtualIndex = virtualItems[virtualItems.length - 1]?.index ?? -1;
   const totalVirtualSize = virtualizer.getTotalSize();
-  const conversationKey = `${surface}:${conversationId ?? 'none'}`;
   const windowKey = useMemo(() => {
     if (virtualItems.length === 0 || messages.length === 0) {
       return null;
@@ -149,15 +146,7 @@ export default function VirtualizedTranscript({
   }, [conversationId, messages.length, surface, virtualItems, windowKey]);
 
   useLayoutEffect(() => {
-    pendingConversationRepinRef.current = true;
-  }, [conversationKey]);
-
-  useLayoutEffect(() => {
-    if (
-      !pendingConversationRepinRef.current ||
-      turnsLoading ||
-      messages.length === 0
-    ) {
+    if (!pendingConversationRepin || turnsLoading || messages.length === 0) {
       return;
     }
     const scrollElement = transcriptContainerRef.current;
@@ -169,20 +158,9 @@ export default function VirtualizedTranscript({
       scrollElement.scrollTop,
       scrollElement.scrollHeight - scrollElement.clientHeight,
     );
-    const distanceFromBottom =
-      scrollElement.scrollHeight -
-      scrollElement.clientHeight -
-      scrollElement.scrollTop;
-    if (
-      lastVirtualIndex === messages.length - 1 &&
-      distanceFromBottom <= VIRTUALIZED_TRANSCRIPT_NEAR_BOTTOM_THRESHOLD_PX
-    ) {
-      pendingConversationRepinRef.current = false;
-    }
   }, [
-    conversationKey,
-    lastVirtualIndex,
     messages.length,
+    pendingConversationRepin,
     totalVirtualSize,
     transcriptContainerRef,
     turnsLoading,

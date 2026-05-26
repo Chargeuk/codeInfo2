@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
   type UIEventHandler,
 } from 'react';
@@ -111,6 +112,9 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     const missingRowLoggedRef = useRef(new Set<string>());
     const scrollModeRef = useRef<SharedTranscriptScrollMode>('pinned-bottom');
     const pendingConversationRepinRef = useRef(false);
+    const pendingRepinUserScrollIntentRef = useRef(false);
+    const [pendingConversationRepin, setPendingConversationRepinState] =
+      useState(false);
     const scrollMetricsRef = useRef<{
       conversationKey: string;
       scrollHeight: number;
@@ -188,6 +192,18 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       };
     }, [conversationKey]);
 
+    const setPendingConversationRepin = useCallback(
+      (nextPending: boolean) => {
+        pendingConversationRepinRef.current = nextPending;
+        setPendingConversationRepinState(nextPending);
+        pendingRepinUserScrollIntentRef.current = false;
+        if (nextPending) {
+          setScrollMode('pinned-bottom');
+        }
+      },
+      [setScrollMode],
+    );
+
     const getScrollSnapshot =
       useCallback((): TranscriptScrollSnapshot | null => {
         const transcriptElement = transcriptContainerRef.current;
@@ -207,13 +223,16 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       if (!transcriptElement) {
         return;
       }
+      const shouldRepinToBottom =
+        scrollModeRef.current === 'pinned-bottom' ||
+        pendingConversationRepinRef.current;
 
       const previousMetrics = scrollMetricsRef.current;
       if (
         !previousMetrics ||
         previousMetrics.conversationKey !== conversationKey
       ) {
-        if (scrollModeRef.current === 'pinned-bottom') {
+        if (shouldRepinToBottom) {
           transcriptElement.scrollTop = Math.max(
             0,
             transcriptElement.scrollHeight - transcriptElement.clientHeight,
@@ -226,23 +245,25 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       const deltaScrollHeight =
         transcriptElement.scrollHeight - previousMetrics.scrollHeight;
       if (deltaScrollHeight === 0) {
+        if (shouldRepinToBottom && !isNearBottom(transcriptElement)) {
+          transcriptElement.scrollTop = Math.max(
+            0,
+            transcriptElement.scrollHeight - transcriptElement.clientHeight,
+          );
+        }
         syncScrollMetrics();
         return;
       }
 
-      if (
-        scrollModeRef.current === 'pinned-bottom' ||
-        pendingConversationRepinRef.current
-      ) {
+      if (shouldRepinToBottom) {
         transcriptElement.scrollTop = Math.max(
           0,
           transcriptElement.scrollHeight - transcriptElement.clientHeight,
         );
       }
 
-      pendingConversationRepinRef.current = turnsLoading;
       syncScrollMetrics();
-    }, [conversationKey, syncScrollMetrics, turnsLoading]);
+    }, [conversationKey, isNearBottom, syncScrollMetrics]);
 
     const handleSharedTranscriptScroll = useCallback<
       UIEventHandler<HTMLDivElement>
@@ -250,10 +271,20 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       (event) => {
         const nearBottom = isNearBottom(event.currentTarget);
         if (pendingConversationRepinRef.current) {
-          if (!turnsLoading || !nearBottom) {
-            pendingConversationRepinRef.current = false;
+          if (nearBottom) {
+            setScrollMode('pinned-bottom');
+            syncScrollMetrics();
+            onScroll?.(event);
+            return;
           }
-          setScrollMode(nearBottom ? 'pinned-bottom' : 'scrolled-away');
+          if (pendingRepinUserScrollIntentRef.current) {
+            setPendingConversationRepin(false);
+            setScrollMode('scrolled-away');
+            syncScrollMetrics();
+            onScroll?.(event);
+            return;
+          }
+          setScrollMode('pinned-bottom');
           syncScrollMetrics();
           onScroll?.(event);
           return;
@@ -263,7 +294,13 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         syncScrollMetrics();
         onScroll?.(event);
       },
-      [isNearBottom, onScroll, setScrollMode, syncScrollMetrics, turnsLoading],
+      [
+        isNearBottom,
+        onScroll,
+        setPendingConversationRepin,
+        setScrollMode,
+        syncScrollMetrics,
+      ],
     );
 
     useEffect(() => {
@@ -368,11 +405,12 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       lastConversationKeyRef.current = conversationKey;
       scrollModeRef.current = 'pinned-bottom';
       scrollMetricsRef.current = null;
-      pendingConversationRepinRef.current =
+      setPendingConversationRepin(
         conversationId != null &&
-        previousConversationKey != null &&
-        previousConversationKey !== conversationKey;
-    }, [conversationId, conversationKey]);
+          previousConversationKey != null &&
+          previousConversationKey !== conversationKey,
+      );
+    }, [conversationId, conversationKey, setPendingConversationRepin]);
 
     useLayoutEffect(() => {
       reconcileScrollPosition();
@@ -485,6 +523,21 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       <Box
         ref={setContainerRef}
         onScroll={handleSharedTranscriptScroll}
+        onPointerDownCapture={() => {
+          if (pendingConversationRepinRef.current) {
+            pendingRepinUserScrollIntentRef.current = true;
+          }
+        }}
+        onTouchMoveCapture={() => {
+          if (pendingConversationRepinRef.current) {
+            pendingRepinUserScrollIntentRef.current = true;
+          }
+        }}
+        onWheelCapture={() => {
+          if (pendingConversationRepinRef.current) {
+            pendingRepinUserScrollIntentRef.current = true;
+          }
+        }}
         data-testid={transcriptTestId}
         style={{
           flexGrow: 1,
@@ -550,6 +603,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             renderMessageRow={renderMessageRow}
             measurementKeyByMessageId={measurementKeyByMessageId}
             getScrollSnapshot={getScrollSnapshot}
+            pendingConversationRepin={pendingConversationRepin}
           />
         </Stack>
       </Box>

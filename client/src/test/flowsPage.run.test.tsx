@@ -23,6 +23,8 @@ beforeEach(() => {
   (
     globalThis as unknown as { __wsMock?: { reset: () => void } }
   ).__wsMock?.reset();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 const { default: App } = await import('../App');
@@ -1221,10 +1223,10 @@ describe('Flows page run/resume controls', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
     );
-    await waitFor(() =>
-      expect(screen.getByTestId('flows-transcript')).toHaveTextContent(
-        'Accepted flow answer',
-      ),
+    const transcript = await screen.findByTestId('flows-transcript');
+    await waitFor(
+      () => expect(transcript).toHaveTextContent('Accepted flow answer'),
+      { timeout: 5000 },
     );
     await waitFor(() =>
       expect(screen.getByTestId('conversation-error')).toBeInTheDocument(),

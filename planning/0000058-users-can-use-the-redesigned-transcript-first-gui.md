@@ -5113,6 +5113,56 @@ Repair the remaining desktop density regressions on `Logs` and `Ingest` without 
 - Final frontend regression proof passed in the full client wrapper after tightening shared transcript harness cleanup, a few slow client-test timeouts, and the persisted-agents status-chip test so it waits on the conversation row contract instead of a more timing-sensitive free-text paint during the long post-story follow-up cycle.
 - Manual proof on a fresh normal compose stack confirmed through both Playwright MCP and Chrome DevTools that desktop `Logs` now uses the wider data-shell contract plus a real horizontal table scroll region, desktop `Ingest` now uses the widened operational layout and wide roots surface, and both pages still render clean mobile stacked/card paths with no browser console errors on the checked routes.
 
+### Task 41. Keep Very Large Transcript Selections Pinned Through Virtualized Growth
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 40`
+- Task Status: `__done__`
+
+#### Overview
+
+Repair the remaining shared transcript long-thread bug where selecting a very large existing conversation can still open thousands of pixels above the newest turns after the initial history load. This task owns the shared transcript repin lifecycle between `SharedTranscript.tsx` and `VirtualizedTranscript.tsx`, and the proof must cover the real `manual_testing_agent` long-thread reproduction on the user’s running `compose:local` stack plus duplication and final verification on the supported normal compose stack.
+
+#### Non-Goals
+
+- Do not change transcript bubble spacing, scrollbar styling, `Logs`, or `Ingest` layout in this task.
+- Do not replace virtualization with a non-virtualized transcript path.
+- Do not add a page-specific `Agents` workaround when the failure is owned by the shared transcript repin lifecycle used by `Chat`, `Agents`, and `Flows`.
+
+#### Task Exit Criteria
+
+- Selecting a very large existing conversation keeps the transcript pinned to the newest turns even while virtualized row heights continue settling after the initial conversation load.
+- Shared transcript repin state is not dropped early by intermediate programmatic scroll or resize activity during initial long-thread hydration.
+- Focused automated proof covers the long-thread virtualized-growth case so future shared transcript changes cannot silently reintroduce this “opens above bottom” bug.
+
+#### Documentation Locations
+
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/VirtualizedTranscript.tsx`
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+
+#### Subtasks
+
+1. [x] Current Repository: Reproduce the very-large-thread selection bug on the user’s running `compose:local` stack at `http://localhost:5501/agents` with `manual_testing_agent`, then duplicate the same failure on the supported normal compose stack so the repair is tied to both the live reported surface and the repository-supported proof runtime.
+2. [x] Current Repository: Patch `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/VirtualizedTranscript.tsx` so shared repin ownership survives initial long-thread row-growth settlement and only yields once the transcript is honestly near the newest turns or the reader intentionally scrolls away.
+3. [x] Current Repository: Add or update focused regression coverage in `client/src/test/sharedTranscript.scrollBehavior.test.tsx` so a first-selection or resumed-selection long conversation with continuing virtualized row-growth deterministically proves the transcript stays pinned to the newest turns instead of stabilizing thousands of pixels early.
+
+#### Testing
+
+1. [x] Current Repository: Run `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`. Use the supported wrapper because this focused transcript proof owns the repaired long-thread repin lifecycle.
+2. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared transcript lifecycle used by the client workspace.
+3. [x] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this fix lands in the shared transcript seam and must clear the full client regression suite again before closeout.
+
+#### Implementation Notes
+
+- Follow-up task created after the user reported that the latest `manual_testing_agent` thread on `http://localhost:5501/agents` still opens well above the newest turns even after Task 39’s earlier conversation-switch repair. Live repro in both Playwright MCP and Chrome DevTools confirmed the selected long thread loads far from bottom while virtualized row remeasurement continues, so this task is scoped to the shared repin lifecycle rather than to any one page shell.
+- Reproduced the live `compose:local` failure exactly on `http://localhost:5501/agents` with the current `manual_testing_agent` thread in both browser toolchains: Playwright measured the transcript about `3613px` above bottom and Chrome DevTools measured it about `6486px` above bottom after 122 turns loaded. The supported normal stack uses a different Mongo port, so I seeded an equivalent giant `manual_testing_agent` conversation there instead of pretending the two runtimes shared persistence.
+- Patched the shared transcript seam in `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/VirtualizedTranscript.tsx` so the parent owns pending repin state until long-thread virtualization actually settles, and synthetic row-growth scroll movement no longer gets mistaken for intentional reader scroll-away.
+- Added focused regression coverage in `client/src/test/sharedTranscript.scrollBehavior.test.tsx` for the first-direct long conversation selection while later virtualized growth still settles, and updated the related shared transcript/page tests so intentional scroll-away is modeled with real user-input signals instead of bare programmatic scroll writes.
+- `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`, `npm run build:summary:client`, and `npm run test:summary:client` all passed from the repaired worktree. The final full client wrapper passed `852/852` in `test-results/client-tests-2026-05-26T18-44-46-391Z.log`.
+- Manual proof on a fresh normal compose stack (`npm run compose:build` then `npm run compose:up`) confirmed the seeded giant `manual_testing_agent` transcript opens pinned to the newest turns on first selection and after switching away to another conversation and back again. Playwright measured `distanceFromBottom: 0` with `scrollTop: 1119528`, and Chrome DevTools measured `distanceFromBottom: 0` with `scrollTop: 87624`; the stack was left up for any immediate follow-up proof.
+
 ## Final Summary
 
 1. What has been changed.

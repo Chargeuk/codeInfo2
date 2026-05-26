@@ -338,6 +338,7 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     });
 
     transcript.scrollTop = 420;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
 
     rerender(
@@ -691,6 +692,78 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     harness.restore();
   });
 
+  it('keeps repinning a first direct long conversation while later virtualized growth still settles', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const conversationMessages = buildMessages(24).map((message) => ({
+      ...message,
+      id: `direct-growth-${message.id}`,
+      content: `Direct growth ${message.content}`,
+    }));
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="agents"
+        conversationId={null}
+        messages={[]}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 320,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="agents"
+        conversationId="conversation-direct-growth"
+        messages={conversationMessages}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 3200,
+      scrollTop: 1500,
+    });
+    fireEvent.scroll(transcript);
+
+    harness.setScrollMetrics(transcript, {
+      scrollHeight: 3600,
+      scrollTop: 1500,
+    });
+    harness.triggerResize(transcript);
+
+    await waitFor(() => expect(transcript.scrollTop).toBe(3280));
+    harness.restore();
+  });
+
   it('lets a reader scroll away after a first direct conversation selection without re-pinning on later resize', async () => {
     const harness = installTranscriptMeasurementHarness();
     const conversationMessages = buildMessages(20).map((message) => ({
@@ -755,7 +828,9 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     await waitFor(() => expect(transcript.scrollTop).toBe(1880));
 
     transcript.scrollTop = 420;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(420));
 
     harness.setScrollMetrics(transcript, {
       scrollHeight: 2320,

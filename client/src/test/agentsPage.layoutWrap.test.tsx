@@ -278,7 +278,9 @@ describe('Agents shared shell layout wrap', () => {
     });
 
     transcript.scrollTop = 430;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(430));
 
     measurementHarness.setScrollMetrics(transcript, {
       scrollHeight: 1320,

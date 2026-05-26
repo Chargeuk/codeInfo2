@@ -1013,7 +1013,9 @@ describe('Flows info popover', () => {
     });
 
     transcript.scrollTop = 410;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(410));
 
     measurementHarness.setScrollMetrics(transcript, {
       scrollHeight: 1310,

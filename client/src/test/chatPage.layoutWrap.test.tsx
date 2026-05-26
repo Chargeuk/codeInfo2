@@ -806,7 +806,9 @@ describe('Chat shared shell layout alignment', () => {
     });
 
     transcript.scrollTop = 420;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(420));
 
     measurementHarness.setScrollMetrics(transcript, {
       scrollHeight: 1320,

@@ -53,7 +53,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Do not convert a review finding into a numbered task when the proposed fix would change established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user.
 - Do not create a review-created task merely because a behavior change would make the product contract cleaner, more consistent, easier to prove, easier to automate, or easier to implement.
 - Do not create a review-created task merely to fix a pre-existing bug, awkward workflow, inconsistency, limitation, or surprise unless the story explicitly requires that fix.
-- If honest proof cannot proceed without a separate behavior decision, record that as a blocker or explicit out-of-scope note for separate user-directed follow-up instead of silently tasking the behavior change into the current story.
+- If honest proof cannot proceed without a separate behavior decision, preserve current behavior and treat the issue as out-of-scope for the current story instead of silently tasking the behavior change into the current story.
+- Do not create a numbered task or blocker for that out-of-scope behavior change in this step. When this step owns or repairs review-state semantics, keep the issue in the non-actionable review bucket with a concise scope reason instead of turning it into current-story task-up work.
 - Review-task-up may decompose approved scope, but it must not widen approved scope.
 
 </story_behavior_lock_rules>

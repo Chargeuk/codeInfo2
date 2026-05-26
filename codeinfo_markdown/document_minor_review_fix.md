@@ -13,7 +13,7 @@ This step runs after every terminal minor-fix attempt outcome. It records what t
 - Re-open the exact canonical plan from disk before editing it, using explicit shell reads such as `sed`, `cat`, or `rg`.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
-- If the minor-fix result does not have `status: "fixed"`, do not mark any finding resolved. Update the state only when a skipped, blocked, or reclassification outcome must steer the next loop step honestly.
+- If the minor-fix result does not have `status: "fixed"`, do not mark any finding resolved. Update the state only when a skipped, blocked, reclassification, or out-of-scope outcome must steer the next loop step honestly.
 - Do not create a numbered task for a resolved minor finding.
 - Do not delete the original finding from the findings artifact.
 - Do not perform manual testing.
@@ -59,6 +59,17 @@ When the result has `status: "reclassify_task_required"`:
 4. Keep `review_created_tasks_added_or_updated` false in this step.
 5. Set `safe_to_exit_review_loop_without_tasking` false.
 6. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+
+When the result has `status: "out_of_scope_current_story"`:
+
+1. Remove the matching finding from `unresolved_minor_batchable_findings`.
+2. Add or update the matching entry in `rejected_or_non_actionable_findings` with a concise reason such as `Would require an unapproved user-facing behavior change; current behavior preserved for this story.`
+3. Recompute counts and booleans so `needs_minor_fix_path` reflects whether any unresolved minor findings still remain, and `needs_task_up_path` reflects only actual unresolved task-required work or incomplete-review blockers.
+4. Add a concise `classification_notes` entry explaining that the finding was treated as out-of-scope for the current story and that current behavior was preserved.
+5. Keep `review_created_tasks_added_or_updated` false in this step.
+6. Recompute `safe_to_exit_review_loop_without_tasking` from the current state arrays and existing closeout flags rather than forcing task-up.
+7. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+8. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 When the result has `status: "blocked"`:
 

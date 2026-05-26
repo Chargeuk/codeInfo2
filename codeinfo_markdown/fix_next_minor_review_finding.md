@@ -48,7 +48,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - When the classifier has already placed the selected finding in the minor path and fresh source inspection still shows one bounded same-repository seam, prefer attempting the repair first rather than immediately reclassifying it back to task-required.
 - For cross-surface error-classification findings, proceed in the minor path only when the classifier has already determined that the intended same-repository contract is clearly settled and the selected finding is just one bounded outlier alignment.
 - Minor review fixes may repair code within approved story scope, but they must not introduce new user-facing behavior changes unless that behavior change is explicitly approved by the story or explicitly approved later by the user.
-- If the selected minor finding would require changing established user-facing behavior outside approved scope, do not fix it inline in this story. Do not reclassify it into current-story task-up. Write a `blocked` result instead so the behavior question can follow a blocker or separate user-directed follow-up path.
+- If the selected minor finding would require changing established user-facing behavior outside approved scope, do not fix it inline in this story. Do not reclassify it into current-story task-up. Write an `out_of_scope_current_story` result instead so the current behavior is preserved and the finding can be recorded as non-actionable for this story.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
 - Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.
 - This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.
@@ -74,7 +74,7 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
   "review_pass_id": "<review pass id or null>",
   "finding_id": "<selected finding id or null>",
   "repository": "<repository owner or null>",
-  "status": "<fixed|skipped|blocked|reclassify_task_required>",
+  "status": "<fixed|skipped|blocked|reclassify_task_required|out_of_scope_current_story>",
   "summary": "<short selected finding summary or reason for no-op>",
   "changed_files": ["<repo-relative path>"],
   "targeted_proof": [
@@ -101,7 +101,7 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 - If the target repository cannot be resolved or its branch story number does not match the plan filename, write a `blocked` result with `blocker_scope: "global"` and stop.
 - If local uncommitted changes overlap the files needed for the selected minor fix, write a `blocked` result with `blocker_scope: "global"` instead of overwriting or mixing work.
 - If the selected finding no longer satisfies every minor-batchable rule after source inspection, write a `reclassify_task_required` result and stop.
-- If the selected finding would require an out-of-scope user-facing behavior change, do not write `reclassify_task_required`. Write a `blocked` result with `blocker_scope: "finding_only"` or `blocker_scope: "global"` as appropriate.
+- If the selected finding would require an out-of-scope user-facing behavior change, do not write `reclassify_task_required` or `blocked`. Write an `out_of_scope_current_story` result instead.
 - If targeted proof fails and the repair is not clearly minor after one bounded inspection, write a `blocked` or `reclassify_task_required` result rather than broadening the fix. Use `blocker_scope: "finding_only"` when the failure is local to the selected finding, and `blocker_scope: "global"` when the failure means later inline attempts are unsafe too.
 - If no tracked files changed after the attempted fix, write a `skipped` result explaining why no commit was made.
 - If `status` is `fixed` and the exact `commit_sha` written to `minor-review-fix-result.json` cannot be re-verified as a commit object with git, stop and rewrite the result before finishing this step.
@@ -111,7 +111,7 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 <output_contract>
 
 - Fix at most one minor finding.
-- Write `minor-review-fix-result.json` for every terminal outcome, including skipped or blocked outcomes.
+- Write `minor-review-fix-result.json` for every terminal outcome, including skipped, blocked, or out-of-scope outcomes.
 - Commit tracked changes when `status` is `fixed`.
 - Report the selected finding, status, exact full 40-character commit SHA when present, and targeted proof run.
 

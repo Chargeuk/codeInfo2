@@ -44,7 +44,7 @@ Do not treat this step as automated-proof completion.
 - Audit for out-of-scope user-facing behavior drift, not just checklist completion.
 - If the implementation changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, treat that as invalid implementation scope even when tests pass.
 - Do not excuse a behavior change merely because it made the code cleaner, the proof easier, the automation simpler, or the contract more internally consistent.
-- If invalid behavior drift is found, either reopen the affected work explicitly as out-of-scope behavior drift that must be reverted or re-tasked under approved requirements, or add a live blocker stating that the implementation changed behavior outside story scope.
+- If invalid behavior drift is found, record it explicitly as out-of-scope behavior drift in the audit note, keep the task aligned to the approved behavior target, and do not add a blocker solely because a new product decision would be needed to legitimize that drift.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
 - Mark completed subtasks complete when the repository evidence shows they were honestly completed but left unchecked.
 - Mark `Testing` items complete when the repository evidence shows they were honestly completed earlier or were honestly completed during the immediately preceding implementation pass.
@@ -66,6 +66,7 @@ Do not treat this step as automated-proof completion.
 - Compare the current task's checklist state and implementation notes against the repository evidence from the latest implementation pass.
 - Treat out-of-scope user-facing behavior drift as an invalid implementation state even if all subtasks appear complete.
 - A passing test suite does not legitimize a behavior change that the story did not ask for.
+- If the only invalid state is out-of-scope user-facing behavior drift, preserve the task as `__in_progress__` and record the drift honestly instead of adding a blocker solely for that drift.
 - If unchecked subtasks still remain after normalization and there is no live `**BLOCKER**` note, treat that as an invalid unresolved implementation state.
 - Open `Testing` items alone are not an invalid implementation state in this audit when all subtasks are complete and automated proof has not yet been completed.
 - If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as an invalid task-shape state too.
@@ -82,6 +83,7 @@ Do not treat this step as automated-proof completion.
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - After this audit, the task just worked in this loop must remain `__in_progress__`, because automated proof has not yet been completed in this loop.
+- If the only remaining reason the task is not acceptable is out-of-scope user-facing behavior drift, keep the task `__in_progress__` and record that drift honestly rather than adding a blocker solely because the story would otherwise need a new product decision.
 - If all subtasks are complete after normalization, do not create a blocker merely because `Testing` items remain for later proof.
 - If unchecked subtasks remain after normalization, the task must not continue without a live `**BLOCKER**`.
 - If this audit detects that invalid unresolved implementation state, preserve the task as `__in_progress__` and make the blocker visible so the planner or deeper repair loop can take over.

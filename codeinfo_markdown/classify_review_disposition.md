@@ -73,9 +73,8 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - If a finding identifies a pre-existing bug, awkward workflow, inconsistency, limitation, or surprising product behavior that is not explicitly part of the story's approved behavior changes, do not treat that alone as current-story implementation scope.
 - When a finding proposes or implies a user-facing behavior change, first check whether that change is explicitly approved by the story or explicitly approved later by the user.
 - If not, do not route that finding into current-story implementation merely to improve the product contract.
-- Instead:
-  - classify it as `rejected_or_non_actionable_findings` when the story can still be completed honestly without changing that behavior; or
-  - classify it as `incomplete_review_blockers` when honest proof cannot proceed without a separate product decision.
+- Instead, classify it as `rejected_or_non_actionable_findings` with a concise reason that the change would require a user-facing behavior change outside approved story scope and that current behavior was preserved for this story.
+- Do not classify a finding as `incomplete_review_blockers` solely because honest proof would otherwise need a separate product decision about user-facing behavior. Reserve `incomplete_review_blockers` for incomplete review basis, unreadable required artifacts, stale scope, or other conditions that prevent honest review from being completed at all.
 - For testing-additions and proof-authoring stories, prefer `document current behavior` over `change behavior to make proof easier`.
 
 </classification_rules>

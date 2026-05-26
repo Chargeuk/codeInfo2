@@ -308,13 +308,9 @@ const toWebSocketUrl = (value: string) => {
 
 export class MockLMStudioClient {
   constructor(baseUrl?: string) {
-    const candidate = toWebSocketUrl(
-      baseUrl ??
-        process.env.CODEINFO_LMSTUDIO_BASE_URL ??
-        'ws://localhost:1234',
-    );
-    if (!candidate.startsWith('ws://') && !candidate.startsWith('wss://')) {
-      throw new Error(wsProtocolError(candidate));
+    const original = baseUrl ?? process.env.CODEINFO_LMSTUDIO_BASE_URL ?? 'ws://localhost:1234';
+    if (!original.startsWith('ws://') && !original.startsWith('wss://')) {
+      throw new Error(wsProtocolError(original));
     }
   }
   system = {

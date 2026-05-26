@@ -26,6 +26,8 @@
 ## Enforcement
 
 - Planning must make the allowed user-facing behavior changes explicit.
+- By default, planning should do that by clarifying the plan's existing requirements and out-of-scope sections rather than by introducing a new section.
+- Add a separate behavior-lock section only when the story is unusually ambiguous, high-risk for scope reinterpretation, or otherwise needs an explicit extra boundary.
 - Tasking must decompose only that locked scope.
 - Implementation must reject scope drift even when tests pass.
 - Review must catch regressions and proof gaps, not create new product scope.

@@ -50,10 +50,11 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 <story_behavior_lock_rules>
 
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
-- Do not convert a review finding into a numbered task when the proposed fix would change established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user.
+- Do not convert a review finding into a numbered task when the proposed fix would change established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, unless the finding is describing a preserved-behavior regression introduced by the current story.
+- If the current story introduced unapproved drift away from previously approved or preserved behavior, treat the restoration of that behavior as actionable current-story work rather than as out-of-scope redesign.
 - Do not create a review-created task merely because a behavior change would make the product contract cleaner, more consistent, easier to prove, easier to automate, or easier to implement.
 - Do not create a review-created task merely to fix a pre-existing bug, awkward workflow, inconsistency, limitation, or surprise unless the story explicitly requires that fix.
-- If honest proof cannot proceed without a separate behavior decision, preserve current behavior and treat the issue as out-of-scope for the current story instead of silently tasking the behavior change into the current story.
+- If honest proof cannot proceed without a separate behavior decision, preserve current behavior and treat the issue as out-of-scope for the current story instead of silently tasking the behavior change into the current story, unless the finding is restoring previously approved or preserved behavior that the current story itself drifted away from.
 - Do not create a numbered task or blocker for that out-of-scope behavior change in this step. When this step owns or repairs review-state semantics, keep the issue in the non-actionable review bucket with a concise scope reason instead of turning it into current-story task-up work.
 - Review-task-up may decompose approved scope, but it must not widen approved scope.
 

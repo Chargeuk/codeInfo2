@@ -23,6 +23,7 @@
 - If proof needs a seam, prefer read-only observability, test-only harness work, fixture or setup work, or helper improvements over a production behavior change.
 - If honest proof cannot proceed without a product decision, preserve current behavior and treat the issue as out-of-scope for the current story instead of silently changing behavior in the current story.
 - If the current story itself introduced an unapproved user-facing behavior change, treat that as unfinished in-scope regression work against a preserved behavior rather than as acceptable completion or as out-of-scope product redesign.
+- Restoring previously approved or preserved behavior after drift introduced by the current story remains in-scope current-story work even when that restoration visibly changes current `HEAD`.
 - When a step must decide whether a user-facing behavior drift was introduced by the current story or merely discovered during it, make that call from repository evidence rather than intuition.
 - Treat the drift as story-caused when the current story changed the same surface, contract, or files and there is no honest evidence that the same behavior already existed before those story-owned edits.
 - Treat the drift as merely discovered when repository evidence shows the same behavior already existed before the current story's edits, or when the affected surface is unrelated to the story-owned changes.

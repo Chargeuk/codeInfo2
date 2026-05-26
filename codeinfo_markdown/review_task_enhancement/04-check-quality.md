@@ -10,10 +10,12 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Treat over-fragmented subtasks, micro-subtasks, and duplicated broad testing inside selected review-created tasks as defects to repair now.
 - If the selected review-created task set itself is over-fragmented across multiple task identities, do not merge, delete, absorb, renumber, or identity-shift those tasks in this pass. Stop and report an upstream packaging defect so review disposition or stored-review repair can regroup the tasks before scoped enhancement continues.
 - If any selected review-created task is over-grouped across unrelated repair seams, root causes, contract or lifecycle surfaces, prerequisite chains, or proof stories, do not split, delete, renumber, or identity-shift that task in this pass. Stop and report an upstream packaging defect so review disposition or stored-review repair can split the task before scoped enhancement continues.
-- If a selected review-created task changes or implies changing established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, treat that as a task-quality defect and repair it now.
+- If a selected review-created task changes or implies changing established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, treat that as a task-quality defect and repair it now, unless the task is restoring previously approved or preserved behavior that the current story itself regressed.
+- Do not strip or weaken restoration work for a story-caused preserved-behavior regression merely because that restoration visibly changes current `HEAD`.
 - Do not preserve a scope-expanded review-created task merely because it is already present in the plan.
 - If a selected review-created task exists only because a cleaner, more consistent, more provable, or easier-to-implement behavior was preferred over the current product contract, rewrite that task so it preserves current behavior and instead uses read-only observability, test-harness work, or removes the out-of-scope behavior change entirely.
 - If the issue is outside the current story scope, remove that behavior change from the task and mention the scope boundary in step output rather than leaving placeholder follow-up wording in the plan.
+- Do not use this removal path for restoration work that puts back previously approved or preserved behavior after current-story drift.
 - If a selected review-created task attempts to fix a pre-existing bug or awkward workflow that the story does not explicitly require, remove that behavior change from the task unless the user explicitly approved the expansion.
 
 </instruction_priority>

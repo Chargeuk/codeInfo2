@@ -7,6 +7,11 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
+import { getChatInterface } from '../../chat/factory.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -17,7 +22,6 @@ import {
   __setFlowServiceDepsForTests,
 } from '../../flows/service.js';
 import { startFlowRun } from '../../flows/service.js';
-import { getChatInterface } from '../../chat/factory.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
@@ -27,10 +31,6 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
-import {
-  __resetAgentServiceDepsForTests,
-  __setAgentServiceDepsForTests,
-} from '../../agents/service.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,

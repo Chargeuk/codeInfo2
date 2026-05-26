@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { CopilotRuntimeClient } from '../../chat/copilotLifecycle.js';
 import {
   getChatInterface,
   UnsupportedProviderError,
 } from '../../chat/factory.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import type { CopilotRuntimeClient } from '../../chat/copilotLifecycle.js';
 
 test('returns codex chat interface instance', () => {
   const chat = getChatInterface('codex');

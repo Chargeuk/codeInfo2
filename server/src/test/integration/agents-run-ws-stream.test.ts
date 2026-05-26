@@ -29,15 +29,15 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import {
+  createMockCopilotSdkHarness,
+  createSessionIdleEvent,
+} from '../support/mockCopilotSdk.js';
+import {
   closeWs,
   connectWs,
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-import {
-  createMockCopilotSdkHarness,
-  createSessionIdleEvent,
-} from '../support/mockCopilotSdk.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

@@ -14,6 +14,7 @@
 ## What Is Not Allowed
 
 - Do not change user-facing behavior merely because a different contract would be cleaner, more consistent, easier to prove, easier to automate, easier to implement, or easier to reason about.
+- If the change would alter an established user interaction pattern or workflow contract, preserve current behavior unless the story explicitly requests that change or the user explicitly approves that scope expansion later.
 - Do not convert a pre-existing bug, awkward workflow, inconsistency, limitation, surprise, or product-quality issue into current-story scope unless the story explicitly requires that change or the user explicitly approves the scope expansion.
 - Do not use testing, proof-authoring, or review feedback as a reason to widen product scope.
 

@@ -33,7 +33,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - If the repository refers to an additional repository, resolve it from `additional_repositories` or from the `repositories` entries in `review-disposition-state.json`.
 - Before touching files in the target repository, read that repository's `AGENTS.md` if it exists and follow its workflow rules.
 - Verify the target repository branch story number still matches the selected plan filename story number. If it does not, write a blocked result and stop.
-- Do not stash, reset, discard, or overwrite local changes. If local changes would make the minor fix unsafe to isolate, write a blocked result and stop.
+- Do not stash, reset, discard, or overwrite pre-existing local changes. If pre-existing local changes would make the minor fix unsafe to isolate, write a blocked result and stop. This does not prevent reverting tracked edits created by the current failed minor-fix attempt before a non-`fixed` exit.
 
 </target_repository_rules>
 

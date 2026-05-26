@@ -1012,11 +1012,27 @@ async function executeCodebaseQuestion(
   };
 
   try {
+    // If a listIngestedRepositories function was injected via deps, pre-load
+    // a knownRepositoryPathsState so restoreSavedWorkingFolder can validate
+    // saved host paths without clearing them prematurely.
+    if (deps.listIngestedRepositoriesFn) {
+      try {
+        knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+          async () =>
+            (
+              await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
+            ).repos.flatMap((repo) =>
+              getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
+                path.resolve(entry),
+              ),
+            ),
+        );
+      } catch {
+        // ignore and fall back to later retry logic when appropriate
+      }
+    }
+
     if (mutableConversation) {
-      // First, try to restore the saved working folder without asking the
-      // ingester/LM Studio for repository membership. This allows clearing
-      // stale host-only paths when the saved path isn't present locally and
-      // listIngestedRepositories isn't available in the test environment.
       effectiveWorkingFolder = await restoreSavedWorkingFolder({
         conversation: mutableConversation,
         surface: 'mcp_codebase_question',
@@ -1049,7 +1065,7 @@ async function executeCodebaseQuestion(
           }
           return currentWorkingFolder;
         },
-        knownRepositoryPathsState: undefined,
+        knownRepositoryPathsState,
       });
     }
   } catch (error) {

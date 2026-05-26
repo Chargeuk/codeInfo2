@@ -11,6 +11,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Do not discover review artifacts by timestamp.
 - Use the stored review handoff plus the artifacts it references as the sole source of review outcome.
+- If `codeInfoStatus/flow-state/archived-operational-blocks.json` exists, treat it as optional carry-forward context for reintroducing earlier finding-only operational blockers into the fresh minor queue.
 - Interpret the review handoff semantically rather than as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the referenced artifacts, current-plan handoff, and current git state to infer only the minimum safe meaning.
 - If the review outcome cannot be interpreted safely, write an incomplete-review state instead of claiming no findings.
 - Do not edit the canonical plan, review artifacts, code, tests, docs, or configuration in this step.
@@ -40,6 +41,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 7. Read the `findings_file` referenced by the review handoff directly from disk, for example with `cat <findings_file>`, or safely infer it from the handoff and artifact naming only when necessary.
 8. Read `saturation_file` and `challenge_file` when present or safely inferable. Treat them as additive context, not as replacements for the findings artifact.
 9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it clearly belongs to the same story and same canonical plan.
+10. Read `codeInfoStatus/flow-state/archived-operational-blocks.json` when it exists, for example with `cat codeInfoStatus/flow-state/archived-operational-blocks.json`. Use it only to reintroduce earlier finding-only operational blockers into the fresh unresolved minor queue for this same story when the fresh findings artifact still contains those finding IDs.
 
 </scope_rules>
 
@@ -76,6 +78,14 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Instead, classify it as `rejected_or_non_actionable_findings` with a concise reason that the change would require a user-facing behavior change outside approved story scope and that current behavior was preserved for this story.
 - Do not classify a finding as `incomplete_review_blockers` solely because honest proof would otherwise need a separate product decision about user-facing behavior. Reserve `incomplete_review_blockers` for incomplete review basis, unreadable required artifacts, stale scope, or other conditions that prevent honest review from being completed at all.
 - For testing-additions and proof-authoring stories, prefer `document current behavior` over `change behavior to make proof easier`.
+- After fresh classification from the current findings artifact, reintroduce archived finding-only operational blockers into `unresolved_minor_batchable_findings` only when all of these are true:
+  - the archived entry still belongs to the same story and canonical `plan_path`;
+  - the archived `blocker_scope` is `finding_only`;
+  - the same `finding_id` still appears in the current findings artifact and is still classified as actionable minor work rather than task-required, rejected, or incomplete-review;
+  - the fresh classification has not already placed that same `finding_id` into `unresolved_minor_batchable_findings`.
+- When reintroducing an archived finding-only blocker, append it to the end of `unresolved_minor_batchable_findings` rather than placing it at the front. The next fresh minor pass should prefer newly classified active minor work before retrying previously parked items.
+- Do not reintroduce archived `global` blockers into the minor queue automatically. A fresh classifier pass should rebuild the story's actionable state from the current artifacts after a pass-global interruption instead of replaying every earlier blocked minor attempt.
+- Record each successful reintroduction in `classification_notes` with a concise note that the finding was requeued after an earlier operational interruption was cleared.
 
 </classification_rules>
 
@@ -237,6 +247,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `review_cycle_id` must stay stable for one active review loop. Preserve it only when the previous state clearly belongs to the same still-active review loop for the same story and same canonical `plan_path`. Otherwise mint a fresh cycle id when writing new classifier state.
 - `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize them as empty, null, or false.
 - Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
+- Archived finding-only operational blockers from `archived-operational-blocks.json` are not same-loop carry-forward state. Treat them only as one-fresh-rerun requeue candidates for `unresolved_minor_batchable_findings`, then leave `operationally_blocked_minor_findings` empty until a new blocked outcome occurs in the fresh active review loop.
 - `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD, or when `operationally_blocked_minor_findings` is non-empty and the cycle still needs a fresh rerun after that operational interruption is repaired.
 - `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
@@ -251,6 +262,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - If any additional repository is missing, unreadable, or on a branch whose story number does not match the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing.
 - If the review handoff or findings artifact is missing, unreadable, or malformed but enough story context exists to write state, write an `incomplete_review_blockers` entry and set `needs_task_up_path` true.
 - If a previous state file is malformed, ignore its carry-forward fields, add a `classification_notes` entry, and continue from the current review artifacts when they are usable.
+- If `archived-operational-blocks.json` is missing, unreadable, malformed, or belongs to a different story or canonical `plan_path`, ignore it, add a `classification_notes` entry, and continue from the fresh review artifacts.
 - If a finding cannot be parsed into a stable ID, assign a deterministic local ID such as `unparsed-1` and record the parsing limitation in `classification_notes`.
 
 </failure_modes>
@@ -271,11 +283,13 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm `current-plan.json` was read before any other flow-state file.
 - Confirm the exact canonical plan was re-opened from disk.
 - Confirm the review handoff and referenced findings artifact were read.
+- Confirm `archived-operational-blocks.json` was read when it existed, or that its absence was treated as normal when no archived blocked minors were present.
 - Confirm every endorsed finding was classified into exactly one state bucket.
 - Confirm uncertain findings were classified as task-required rather than minor.
 - Confirm no finding was treated as current-story actionable solely because a user-facing behavior change would make the contract cleaner, more consistent, or easier to prove.
 - Confirm any finding that would change established user-facing behavior was kept out of current-story action unless that behavior change was explicitly approved by the story or explicitly approved later by the user.
 - Confirm any carry-forward state you preserved came from the same still-active review loop rather than an earlier completed review cycle.
+- Confirm any archived finding-only operational blockers that were reintroduced still existed in the fresh findings artifact and were appended to the end of `unresolved_minor_batchable_findings` rather than inserted ahead of newly classified active minor work.
 - Confirm `review_cycle_id` is present and belongs to the active review loop you just classified.
 - Confirm you did not treat an older completed final revalidation task in the canonical plan as proof that a fresh new review cycle was already closed.
 - Confirm the state file is valid JSON after writing.

@@ -18,8 +18,8 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Re-inspect the selected finding and the relevant source files before editing. If the finding is no longer clearly minor-batchable, do not fix it. Write a `reclassify_task_required` result and stop.
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.
 - Do not run broad final validation in this step. Run only bounded local automated proof that is directly needed for the selected minor fix. This may include a small test update or one or two new focused tests in the owning repository.
-- If tracked files are changed, commit them before finishing this step.
-- If the step is going to exit with any status other than `fixed`, revert any tracked edits made during this minor-fix attempt before writing the terminal result so the next loop pass does not inherit this attempt's partial tracked changes.
+- If the step is going to exit with `status = fixed` and tracked files were changed, commit them before finishing this step.
+- If the step is going to exit with any status other than `fixed`, do not commit. Revert any tracked edits made during this minor-fix attempt before writing the terminal result so the next loop pass does not inherit this attempt's partial tracked changes.
 - When `status` is `fixed`, `commit_sha` MUST be the exact full 40-character git commit SHA for the newly created fix commit. Do not write a guessed expansion of a short SHA, and do not copy a short SHA into this field.
 - Resolve that exact SHA from git after the fix commit is created, for example with `git rev-parse HEAD` or `git rev-parse <new-short-sha>`.
 - Do not push.

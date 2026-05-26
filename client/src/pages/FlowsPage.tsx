@@ -1291,11 +1291,28 @@ export default function FlowsPage() {
         try {
           details = await loadSelectedFlowDetails();
         } catch (error) {
-          setRunError(
-            (error as Error).message ?? 'Failed to load flow details.',
-          );
-          releaseFreshRunReplayGuard();
-          return;
+          // If the server indicates the details service is explicitly unavailable,
+          // surface that error and block the run. For other transient or generic
+          // failures, allow a conservative fallback (proceed without details)
+          // when the summary still indicates the flow is enabled.
+          if (error instanceof FlowApiError && error.code === 'DETAILS_UNAVAILABLE') {
+            setRunError((error as Error).message ?? 'Failed to load flow details.');
+            releaseFreshRunReplayGuard();
+            return;
+          }
+
+          const malformedDetailsPayload =
+            error instanceof Error &&
+            error.message === 'Invalid flow details response';
+          if (!malformedDetailsPayload && selectedFlow?.disabled !== true) {
+            details = undefined;
+          } else {
+            setRunError(
+              (error as Error).message ?? 'Failed to load flow details.',
+            );
+            releaseFreshRunReplayGuard();
+            return;
+          }
         }
       }
 

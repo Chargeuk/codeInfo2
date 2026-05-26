@@ -60,6 +60,31 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     ).toBeTruthy();
   });
 
+  it('keeps a visible shared scrollbar affordance on the transcript container', async () => {
+    render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="scrollbar-affordance"
+        messages={buildMessages(6)}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    expect(transcript.style.overflowY).toBe('auto');
+    expect(transcript.style.scrollbarWidth).toBe('thin');
+    expect(transcript.style.scrollbarGutter).toBe('stable');
+  });
+
   it('opens an existing conversation at the bottom after history finishes loading', async () => {
     const harness = installTranscriptMeasurementHarness();
 

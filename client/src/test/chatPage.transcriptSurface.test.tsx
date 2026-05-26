@@ -36,6 +36,10 @@ describe('ChatPage transcript surface wrapper', () => {
 
     const transcript = await screen.findByTestId('chat-transcript');
     expect(transcript.closest('.MuiPaper-root')).toBeNull();
+    expect(transcript.parentElement).not.toBeNull();
+    expect(transcript.parentElement!.style.paddingLeft).toBe('0px');
+    expect(transcript.parentElement!.style.paddingRight).toBe('0px');
+    expect(transcript.parentElement!.style.overflow).toBe('hidden');
     expect(screen.getByTestId('chat-controls')).toBeInTheDocument();
   });
 });

@@ -4912,6 +4912,61 @@ Use the checked-in supported main stack at `http://localhost:5001` and `http://l
 - Automated-proof audit confirmed Task 37 is complete: all four subtasks and all eleven broad wrapper proof items are checked, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-05-26T00-47-13-665Z.log`, `test-results/server-cucumber-tests-2026-05-26T01-12-41-727Z.log`, `test-results/client-tests-2026-05-26T01-25-53-375Z.log`, `logs/test-summaries/e2e-tests-latest.log`, and `logs/test-summaries/compose-build-latest.log` all match the checked proof claims, and `codeInfoStatus/flow-state/review-disposition-state.json` plus `codeInfoStatus/manual-proof/0000058/task-37/retained-proof-notes.md` still preserve the single-owner review-cycle routing and retained-proof handoff for this final revalidation task.
 - Manual testing completed as full-story proof on a fresh supported main-stack restart because the prior runtime provenance was not safely provable: `npm run compose:build`, `npm run compose:up`, and a clean `npm run compose:down` revalidated the checked-in stack at `http://localhost:5010/health` and `http://localhost:5001`; direct API proof under `codeInfoTmp/manual-testing/0000058/37/support-network.json` and `support-proof-context.txt` reconfirmed Task 34 invalid working-folder rejection plus stale-flag clearing, Task 35 exact-match replay reuse versus contradictory replay rejection, and parent-present resume precedence keeping parent `requestedProviderId=codex` / `agentRequestedProvider=codex` while the child stayed `requestedProviderId=copilot`; refreshed full-story browser proof under `codeInfoTmp/manual-testing/0000058/37/` kept `proof-02` through `proof-15` plus `support-browser-checks.txt` / `.json` for desktop and mobile `Home`, `Chat`, `Flows`, `Agents`, `Ingest`, and `Logs`, including accepted-launch refresh-failure behavior on both workspace surfaces and the inline minor-fix views; these latest Task 37 screenshots supersede earlier scratch screenshots for the same re-covered frontend surfaces, while earlier Task 34 and Task 35 scratch artifacts remain uniquely necessary for their direct API seam details; the exact request-A/request-B stale-abort loading overlap still was not safely reproducible through the supported live runtime, so Task 36's automated proof remains the durable owner for that deterministic race seam and no additional subtasks were needed.
 
+### Task 38. Align Shared Transcript Surface Padding And Scrollbar Affordance
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 37`
+- Task Status: `__done__`
+
+#### Overview
+
+Use one shared client transcript-surface contract for `Chat`, `Agents`, and `Flows` so the desktop transcript pane keeps the same left/right bubble gutters across all three pages, and restore a visible scrollbar affordance for the shared transcript scroll container instead of hiding scrollbars while the panel still scrolls.
+
+#### Non-Goals
+
+- Do not reshape `Logs` or `Ingest` in this task.
+- Do not change transcript selection, long-conversation scroll-restoration, or conversation-switch positioning in this task.
+- Do not introduce a page-specific one-off style fix when the mismatch can be resolved through the shared transcript surface seam.
+
+#### Task Exit Criteria
+
+- `Chat`, `Agents`, and `Flows` all render their transcript pane through the same shared surface wrapper so the visible bubble gutters match on desktop.
+- The shared transcript scroll container remains scrollable and now exposes a visible browser scrollbar instead of intentionally hiding it.
+- Focused client proof covers the shared transcript surface contract and the scrollbar-affordance change without relying on manual inspection alone.
+
+#### Documentation Locations
+
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptSurface.tsx`
+- `client/src/components/agents/AgentsTranscriptPane.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+- `client/src/test/chatPage.transcriptSurface.test.tsx`
+- `client/src/test/agentsPage.layoutWrap.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+
+#### Subtasks
+
+1. [x] Current Repository: Trace the transcript-surface framing across `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, `client/src/pages/FlowsPage.tsx`, and `client/src/components/chat/SharedTranscript.tsx` so the fix lands on the shared layout seam instead of papering over `Agents` and `Flows` independently.
+2. [x] Current Repository: Add a shared transcript-surface wrapper in `client/src/components/chat/SharedTranscriptSurface.tsx`, then move `Chat`, `Agents`, and `Flows` onto that shared wrapper so the desktop transcript pane keeps the same left/right bubble gutters and height/overflow contract across all three pages.
+3. [x] Current Repository: Update `client/src/components/chat/SharedTranscript.tsx` so the transcript scroll container keeps its current scroll behavior but no longer intentionally hides browser scrollbars, preserving the shared transcript seam for `Chat`, `Agents`, and `Flows`.
+4. [x] Current Repository: Add or update focused client proof in `client/src/test/sharedTranscript.scrollBehavior.test.tsx`, `client/src/test/chatPage.transcriptSurface.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, and `client/src/test/flowsPage.test.tsx` so the shared wrapper contract and visible-scrollbar affordance are both explicitly covered.
+
+#### Testing
+
+1. [x] Current Repository: Run `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx --file client/src/test/chatPage.transcriptSurface.test.tsx --file client/src/test/agentsPage.layoutWrap.test.tsx --file client/src/test/flowsPage.test.tsx`. Use the supported wrapper because these focused client proofs own the shared transcript surface and scrollbar-affordance repair.
+2. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared client layout components that must still pass the client typecheck-and-build gate before manual proof.
+
+#### Implementation Notes
+
+- Follow-up task created after live desktop review confirmed the shared transcript bubble gutters diverged between `Chat` versus `Agents` and `Flows`, and `SharedTranscript` was still deliberately hiding scrollbars even though the panel scrolls. No code changed while shaping this task.
+- Traced the transcript-surface ownership across `ChatPage`, `AgentsTranscriptPane`, `FlowsPage`, and `SharedTranscript`, then moved all three surfaces onto the same new `SharedTranscriptSurface` wrapper so the desktop pane now shares one gutter and height contract instead of keeping page-specific outer padding.
+- Updated `SharedTranscript` to keep its existing bottom-follow and scroll behavior while restoring a visible thin scrollbar affordance across the shared chat, agents, and flows transcript container.
+- Focused client proof now explicitly covers the shared transcript wrapper contract on `Chat`, `Agents`, and `Flows`, plus the restored scrollbar-affordance style on `SharedTranscript`; `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx --file client/src/test/chatPage.transcriptSurface.test.tsx --file client/src/test/agentsPage.layoutWrap.test.tsx --file client/src/test/flowsPage.test.tsx` passed with 32/32 tests in `test-results/client-tests-2026-05-26T12-34-45-157Z.log`.
+- `npm run build:summary:client` passed after the shared wrapper was simplified to a no-override contract; the only remaining output was the existing Vite chunk-size warning in `logs/test-summaries/build-client-latest.log`.
+- Manual browser proof on a fresh normal `compose` stack (`npm run compose:build`, `npm run compose:up`) confirmed through both Playwright MCP and Chrome DevTools on `http://localhost:5001/chat`, `/agents`, and `/flows` that the transcript surface now shares `transcriptWidth=1012`, `parentPaddingLeft=0px`, `parentPaddingRight=0px`, `overflowY=auto`, `scrollbarWidth=thin`, and `scrollbarGutter=stable` across the repaired workspace pages, with no browser-console errors observed during the check.
+
 ## Final Summary
 
 1. What has been changed.

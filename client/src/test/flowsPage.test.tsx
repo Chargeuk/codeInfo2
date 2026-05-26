@@ -281,7 +281,12 @@ describe('Flows page basics', () => {
     expect(await screen.findByTestId('bubble-info-step')).toHaveTextContent(
       'Step: Step 1 of 3',
     );
-    expect(screen.getByTestId('flows-transcript')).toBeInTheDocument();
+    const transcript = screen.getByTestId('flows-transcript');
+    expect(transcript).toBeInTheDocument();
+    expect(transcript.parentElement).not.toBeNull();
+    expect(transcript.parentElement!.style.paddingLeft).toBe('0px');
+    expect(transcript.parentElement!.style.paddingRight).toBe('0px');
+    expect(transcript.parentElement!.style.overflow).toBe('hidden');
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
 

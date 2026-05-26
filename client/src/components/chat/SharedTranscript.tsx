@@ -472,6 +472,8 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           flexBasis: '0%',
           minHeight: '0px',
           overflowY: 'auto',
+          scrollbarGutter: 'stable',
+          scrollbarWidth: 'thin',
         }}
         sx={{
           flex: 1,
@@ -480,11 +482,22 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           overflowY: 'auto',
           overflowX: 'hidden',
           minWidth: 0,
-          scrollbarWidth: 'none',
+          scrollbarGutter: 'stable',
+          scrollbarWidth: 'thin',
+          scrollbarColor: (theme) =>
+            `${theme.palette.action.disabled} transparent`,
           '&::-webkit-scrollbar': {
-            display: 'none',
-            width: 0,
-            height: 0,
+            width: 10,
+            height: 10,
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'action.disabled',
+            borderRadius: 999,
+            border: '2px solid transparent',
+            backgroundClip: 'content-box',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
           },
           ...contentSx,
         }}

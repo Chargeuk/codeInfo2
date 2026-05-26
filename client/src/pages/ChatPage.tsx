@@ -48,6 +48,7 @@ import {
 import AgentFlagsPanel from '../components/chat/AgentFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
 import SharedTranscript from '../components/chat/SharedTranscript';
+import SharedTranscriptSurface from '../components/chat/SharedTranscriptSurface';
 import {
   buildStepLine,
   buildTimingLine,
@@ -1546,16 +1547,7 @@ export default function ChatPage() {
   } as const;
 
   const transcriptSurface = (
-    <Box
-      sx={{
-        flex: '1 1 0%',
-        minHeight: 0,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
+    <SharedTranscriptSurface>
       {isLoading && (
         <Stack
           direction="row"
@@ -1618,7 +1610,7 @@ export default function ChatPage() {
           }}
         />
       )}
-    </Box>
+    </SharedTranscriptSurface>
   );
 
   const composerInfoContent = (

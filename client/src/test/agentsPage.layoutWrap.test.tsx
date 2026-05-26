@@ -125,6 +125,10 @@ describe('Agents shared shell layout wrap', () => {
     expect(transcript.style.flex).toBe('1 1 0%');
     expect(['0', '0px']).toContain(transcript.style.minHeight);
     expect(transcript.style.overflowY).toBe('auto');
+    expect(transcript.parentElement).not.toBeNull();
+    expect(transcript.parentElement!.style.paddingLeft).toBe('0px');
+    expect(transcript.parentElement!.style.paddingRight).toBe('0px');
+    expect(transcript.parentElement!.style.overflow).toBe('hidden');
   });
 
   it('renders the command selector and execute button in the same row', async () => {

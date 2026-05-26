@@ -43,6 +43,7 @@ import {
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
 import SharedTranscript from '../components/chat/SharedTranscript';
+import SharedTranscriptSurface from '../components/chat/SharedTranscriptSurface';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
@@ -1610,15 +1611,7 @@ export default function FlowsPage() {
   );
 
   const transcriptSurface = (
-    <Box
-      sx={{
-        flex: '1 1 auto',
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        p: 2,
-      }}
-    >
+    <SharedTranscriptSurface>
       <SharedTranscript
         surface="flows"
         conversationId={selectedConversation?.conversationId ?? null}
@@ -1678,7 +1671,7 @@ export default function FlowsPage() {
           },
         }}
       />
-    </Box>
+    </SharedTranscriptSurface>
   );
 
   const infoSelectionRows = [

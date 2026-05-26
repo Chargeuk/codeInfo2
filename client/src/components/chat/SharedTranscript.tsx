@@ -242,7 +242,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
       pendingConversationRepinRef.current = turnsLoading;
       syncScrollMetrics();
-    }, [conversationKey, messages.length, syncScrollMetrics, turnsLoading]);
+    }, [conversationKey, syncScrollMetrics, turnsLoading]);
 
     const handleSharedTranscriptScroll = useCallback<
       UIEventHandler<HTMLDivElement>
@@ -372,7 +372,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         conversationId != null &&
         previousConversationKey != null &&
         previousConversationKey !== conversationKey;
-    }, [conversationKey]);
+    }, [conversationId, conversationKey]);
 
     useLayoutEffect(() => {
       reconcileScrollPosition();

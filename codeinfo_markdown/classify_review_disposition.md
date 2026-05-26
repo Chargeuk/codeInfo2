@@ -163,6 +163,16 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "reason": "<why this is safe for inline minor fixing>"
     }
   ],
+  "operationally_blocked_minor_findings": [
+    {
+      "id": "<finding id or null when the interruption was pass-global before one finding could be isolated>",
+      "repository": "<repository owner or null>",
+      "summary": "<short summary or pass-level description>",
+      "reason": "<why the finding remains unresolved but inline minor fixing was unsafe in this pass>",
+      "blocker": "<operational interruption summary>",
+      "blocker_scope": "<finding_only|global>"
+    }
+  ],
   "resolved_minor_findings": [
     {
       "id": "<finding id>",
@@ -189,6 +199,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "counts": {
     "unresolved_task_required": 0,
     "unresolved_minor_batchable": 0,
+    "operationally_blocked_minor": 0,
     "resolved_minor": 0,
     "rejected_or_non_actionable": 0,
     "incomplete_review_blockers": 0
@@ -226,10 +237,10 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `review_cycle_id` must stay stable for one active review loop. Preserve it only when the previous state clearly belongs to the same still-active review loop for the same story and same canonical `plan_path`. Otherwise mint a fresh cycle id when writing new classifier state.
 - `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize them as empty, null, or false.
 - Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
-- `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD.
+- `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD, or when `operationally_blocked_minor_findings` is non-empty and the cycle still needs a fresh rerun after that operational interruption is repaired.
 - `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
-- `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
+- `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no operationally blocked minor findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
 
 </state_field_rules>
 

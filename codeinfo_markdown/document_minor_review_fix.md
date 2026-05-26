@@ -74,16 +74,23 @@ When the result has `status: "out_of_scope_current_story"`:
 When the result has `status: "blocked"`:
 
 1. A blocked result means the inline minor path could not proceed safely in this pass and must not be retried indefinitely from the same minor queue.
-2. Remove the blocked finding from `unresolved_minor_batchable_findings` so the loop does not keep selecting the same temporarily blocked item as minor work.
-3. Add or update the matching entry in `rejected_or_non_actionable_findings` with a concise reason such as `Operationally blocked in this review pass; not converted into current-story product work.`
-4. If `blocker_scope` is `global`, also remove every remaining `unresolved_minor_batchable_findings` entry and add or update matching `rejected_or_non_actionable_findings` entries explaining that a global operational blocker made further inline minor attempts unsafe in this pass.
+2. Remove the blocked finding from `unresolved_minor_batchable_findings` so the loop does not keep selecting the same temporarily blocked item as minor work in this pass.
+3. Add or update the matching entry in `operationally_blocked_minor_findings` instead of `rejected_or_non_actionable_findings`, because the finding may still be real even though the inline fix attempt was temporarily unsafe. Record:
+   - the `finding_id` when one exists, or `null` only for a pass-global interruption raised before one finding could be isolated;
+   - repository;
+   - summary;
+   - a concise reason such as `Operationally blocked in this review pass; still unresolved and awaiting a fresh rerun after the interruption is cleared.`;
+   - blocker text;
+   - blocker scope.
+4. If `blocker_scope` is `global`, also remove every remaining `unresolved_minor_batchable_findings` entry and add or update matching `operationally_blocked_minor_findings` entries explaining that a global operational blocker made further inline minor attempts unsafe in this pass.
 5. If `blocker_scope` is missing or ambiguous, treat it as `global` rather than leaving any blocked minor finding stranded in the retry queue.
-6. Add a concise `classification_notes` entry naming the blocker and whether it was treated as finding-only or global.
-7. Recompute counts and booleans so `needs_minor_fix_path` reflects only remaining unresolved minor findings, and `needs_task_up_path` reflects only actual unresolved task-required work or incomplete-review blockers.
-8. Keep `review_created_tasks_added_or_updated` false in this step.
-9. Recompute `safe_to_exit_review_loop_without_tasking` from the current state arrays and existing closeout flags rather than forcing task-up for an operational interruption.
-10. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
-11. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
+6. Set `needs_review_rerun_before_close` to true because the review cycle must be rerun after the operational interruption is repaired before the story can close honestly.
+7. Add a concise `classification_notes` entry naming the blocker and whether it was treated as finding-only or global.
+8. Recompute counts and booleans so `needs_minor_fix_path` reflects only remaining unresolved minor findings, `needs_task_up_path` reflects only actual unresolved task-required work or incomplete-review blockers, and the blocked finding stays visible as unresolved review state instead of disappearing into a non-actionable bucket.
+9. Keep `review_created_tasks_added_or_updated` false in this step.
+10. Recompute `safe_to_exit_review_loop_without_tasking` from the current state arrays and closeout flags. A non-empty `operationally_blocked_minor_findings` array must keep this false until a fresh rerun resolves or reclassifies the finding honestly.
+11. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+12. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 When the result has `status: "skipped"`:
 

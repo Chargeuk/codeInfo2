@@ -23,8 +23,8 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 
 <story_behavior_lock_requirements>
 
-- Every story plan must explicitly state the allowed user-facing behavior changes.
-- Every story plan must also explicitly state which established behaviors must be preserved.
+- Every story plan must make the allowed user-facing behavior changes clear from its existing requirements, acceptance criteria, description, and out-of-scope sections, or from an explicit behavior-lock section when those existing sections are not sufficient.
+- Every story plan must make clear which established behaviors are intended to be preserved, preferably by tightening existing requirements and out-of-scope wording before introducing a new section.
 - If the story does not ask for a user-facing behavior change in an area, the default rule is that the existing behavior in that area must be preserved.
 - Do not leave behavior scope implicit when later tasking or review might reinterpret it.
 - If the story is a testing-additions, proof-authoring, refactor, infrastructure, or review-fix story, the plan should normally state that no user-facing behavior changes are intended beyond any explicitly listed exceptions.

@@ -20,7 +20,7 @@
 ## What To Do Instead
 
 - If proof needs a seam, prefer read-only observability, test-only harness work, fixture or setup work, or helper improvements over a production behavior change.
-- If honest proof cannot proceed without a product decision, record a blocker or a follow-up story candidate instead of silently changing behavior in the current story.
+- If honest proof cannot proceed without a product decision, record a blocker or report the issue as out-of-scope for separate user-directed follow-up instead of silently changing behavior in the current story.
 - For testing-additions and proof-authoring stories, tests must document current behavior unless the story explicitly asks for that behavior to change.
 
 ## Enforcement

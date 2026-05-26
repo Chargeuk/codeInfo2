@@ -54,7 +54,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Tasking must decompose the already-approved story behavior scope, not expand it.
 - Do not create a task, subtask, testing step, or manual-testing expectation that changes established user-facing behavior unless that change is explicitly listed in the story's approved behavior changes or explicitly approved later by the user.
 - If a pre-existing bug, awkward workflow, inconsistency, limitation, or surprise is discovered during tasking, do not convert it into current-story implementation work unless the story explicitly requires that fix.
-- If proof seems to require a behavior change, prefer read-only observability, test-only harness work, or a blocker or follow-up story candidate instead of tasking the behavior change into the current story.
+- If proof seems to require a behavior change, prefer read-only observability, test-only harness work, or a blocker or explicit out-of-scope note for separate user-directed follow-up instead of tasking the behavior change into the current story.
 - Do not treat cleaner contracts, simpler automation, easier proofs, or internal consistency as valid reasons to widen story scope.
 
 </behavior_scope_rules>

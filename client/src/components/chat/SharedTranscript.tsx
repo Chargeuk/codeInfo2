@@ -106,9 +106,11 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
   ) {
     const transcriptContainerRef = useRef<HTMLDivElement | null>(null);
     const lastRenderStateRef = useRef<string | null>(null);
+    const lastConversationKeyRef = useRef<string | null>(null);
     const measurementReadyRef = useRef<string | null>(null);
     const missingRowLoggedRef = useRef(new Set<string>());
     const scrollModeRef = useRef<SharedTranscriptScrollMode>('pinned-bottom');
+    const pendingConversationRepinRef = useRef(false);
     const scrollMetricsRef = useRef<{
       conversationKey: string;
       scrollHeight: number;
@@ -228,20 +230,28 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         return;
       }
 
-      if (scrollModeRef.current === 'pinned-bottom') {
+      if (
+        scrollModeRef.current === 'pinned-bottom' ||
+        pendingConversationRepinRef.current
+      ) {
         transcriptElement.scrollTop = Math.max(
           0,
           transcriptElement.scrollHeight - transcriptElement.clientHeight,
         );
       }
 
+      pendingConversationRepinRef.current = turnsLoading;
       syncScrollMetrics();
-    }, [conversationKey, syncScrollMetrics]);
+    }, [conversationKey, messages.length, syncScrollMetrics, turnsLoading]);
 
     const handleSharedTranscriptScroll = useCallback<
       UIEventHandler<HTMLDivElement>
     >(
       (event) => {
+        if (pendingConversationRepinRef.current) {
+          onScroll?.(event);
+          return;
+        }
         const nextMode = isNearBottom(event.currentTarget)
           ? 'pinned-bottom'
           : 'scrolled-away';
@@ -349,9 +359,15 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       return () => observer.disconnect();
     }, [conversationId, messages, reconcileScrollPosition, surface]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
+      const previousConversationKey = lastConversationKeyRef.current;
+      lastConversationKeyRef.current = conversationKey;
       scrollModeRef.current = 'pinned-bottom';
       scrollMetricsRef.current = null;
+      pendingConversationRepinRef.current =
+        conversationId != null &&
+        previousConversationKey != null &&
+        previousConversationKey !== conversationKey;
     }, [conversationKey]);
 
     useLayoutEffect(() => {
@@ -525,6 +541,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             surface={surface}
             conversationId={conversationId}
             messages={messages}
+            turnsLoading={turnsLoading}
             transcriptContainerRef={transcriptContainerRef}
             renderMessageRow={renderMessageRow}
             measurementKeyByMessageId={measurementKeyByMessageId}

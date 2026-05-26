@@ -300,6 +300,369 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     harness.restore();
   });
 
+  it('re-pins a newly selected conversation even when the previous conversation was scrolled away', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const conversationAMessages = buildMessages(18);
+    const conversationBMessages = buildMessages(20).map((message) => ({
+      ...message,
+      id: `conversation-b-${message.id}`,
+      content: `Conversation B ${message.content}`,
+    }));
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-a"
+        messages={conversationAMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1600,
+      scrollTop: 1280,
+    });
+
+    transcript.scrollTop = 420;
+    fireEvent.scroll(transcript);
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={conversationAMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={[]}
+        activeToolsAvailable={false}
+        turnsLoading
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 320,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={conversationBMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 2200,
+      scrollTop: 0,
+    });
+    harness.triggerResize(transcript);
+
+    expect(transcript.scrollTop).toBe(1880);
+    harness.restore();
+  });
+
+  it('re-pins a same-length conversation selection after the previous conversation was scrolled away', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const conversationAMessages = buildMessages(18);
+    const conversationBMessages = buildMessages(18).map((message) => ({
+      ...message,
+      id: `same-length-${message.id}`,
+      content: `Same length ${message.content}`,
+    }));
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-a"
+        messages={conversationAMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1960,
+      scrollTop: 1640,
+    });
+
+    transcript.scrollTop = 420;
+    fireEvent.scroll(transcript);
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={conversationBMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1960,
+      scrollTop: 0,
+    });
+    harness.triggerResize(transcript);
+
+    await waitFor(() => expect(transcript.scrollTop).toBe(1640));
+    harness.restore();
+  });
+
+  it('opens the first selected conversation at the bottom after an empty transcript state', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const conversationBMessages = buildMessages(20).map((message) => ({
+      ...message,
+      id: `fresh-selection-${message.id}`,
+      content: `Fresh selection ${message.content}`,
+    }));
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId={null}
+        messages={[]}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 320,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={[]}
+        activeToolsAvailable={false}
+        turnsLoading
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={conversationBMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 2200,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={conversationBMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    await waitFor(() => expect(transcript.scrollTop).toBe(1880));
+    harness.restore();
+  });
+
+  it('opens the first selected conversation at the bottom when loaded turns arrive without a loading-only pass', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const conversationBMessages = buildMessages(20).map((message) => ({
+      ...message,
+      id: `direct-load-${message.id}`,
+      content: `Direct load ${message.content}`,
+    }));
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId={null}
+        messages={[]}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 320,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="conversation-b"
+        messages={conversationBMessages}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 2200,
+      scrollTop: 0,
+    });
+    harness.triggerResize(transcript);
+
+    await waitFor(() => expect(transcript.scrollTop).toBe(1880));
+    harness.restore();
+  });
+
   it("keeps a reader's place when transcript growth happens below the viewport", async () => {
     const harness = installTranscriptMeasurementHarness();
 

@@ -4,6 +4,7 @@ import {
   type ChatAgentFlagValue,
 } from '@codeinfo2/common';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LayersRoundedIcon from '@mui/icons-material/LayersRounded';
@@ -28,6 +29,7 @@ import {
   ListItemText,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -2124,6 +2126,21 @@ export default function ChatPage() {
             onClick={handleComposerInfoOpen}
             data-testid="chat-composer-info"
           />
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Tooltip title="New conversation">
+              <span>
+                <ComposerFooterButton
+                  icon={<EditOutlinedIcon fontSize="small" />}
+                  label="New"
+                  iconOnly
+                  ariaLabel="Reset chat draft"
+                  onClick={() => handleNewConversation()}
+                  data-testid="chat-new-conversation-trigger"
+                  disabled={showStop || isSending}
+                />
+              </span>
+            </Tooltip>
+          </Box>
           <ComposerFooterButton
             icon={<FolderOutlinedIcon fontSize="small" />}
             label="Working path"

@@ -41,7 +41,9 @@ describe('DirectoryPickerDialog', () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId('directory-picker-current-path')).toHaveTextContent(
+      expect(
+        screen.getByTestId('directory-picker-current-path'),
+      ).toHaveTextContent(
         '/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/components/workspace',
       ),
     );

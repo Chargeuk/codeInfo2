@@ -2073,6 +2073,7 @@ export default function AgentsPage() {
       onLoadMore={loadMoreConversations}
       onRefresh={refreshConversations}
       onRetry={refreshConversations}
+      onNewConversation={resetConversation}
     />
   );
 

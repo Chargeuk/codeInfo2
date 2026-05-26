@@ -1,4 +1,13 @@
-import { Alert, Box, Stack, Typography, type SxProps } from '@mui/material';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
+import {
+  Alert,
+  Box,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+  type SxProps,
+} from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import {
   forwardRef,
@@ -117,6 +126,8 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     const pendingRepinUserScrollIntentRef = useRef(false);
     const [pendingConversationRepin, setPendingConversationRepinState] =
       useState(false);
+    const [scrollModeState, setScrollModeState] =
+      useState<SharedTranscriptScrollMode>('pinned-bottom');
     const scrollMetricsRef = useRef<{
       conversationKey: string;
       scrollHeight: number;
@@ -169,6 +180,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           return;
         }
         scrollModeRef.current = nextMode;
+        setScrollModeState(nextMode);
         sharedTranscriptLog(
           'info',
           'DEV-0000049:T08:shared_transcript_scroll_mode_changed',
@@ -205,6 +217,20 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       },
       [setScrollMode],
     );
+
+    const jumpToLatest = useCallback(() => {
+      const transcriptElement = transcriptContainerRef.current;
+      if (!transcriptElement) {
+        return;
+      }
+      transcriptElement.scrollTop = Math.max(
+        0,
+        transcriptElement.scrollHeight - transcriptElement.clientHeight,
+      );
+      setPendingConversationRepin(false);
+      setScrollMode('pinned-bottom');
+      syncScrollMetrics();
+    }, [setPendingConversationRepin, setScrollMode, syncScrollMetrics]);
 
     const getScrollSnapshot =
       useCallback((): TranscriptScrollSnapshot | null => {
@@ -406,6 +432,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       const previousConversationKey = lastConversationKeyRef.current;
       lastConversationKeyRef.current = conversationKey;
       scrollModeRef.current = 'pinned-bottom';
+      setScrollModeState('pinned-bottom');
       scrollMetricsRef.current = null;
       setPendingConversationRepin(
         conversationId != null &&
@@ -556,6 +583,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           flex: 1,
           height: '100%',
           minHeight: 0,
+          position: 'relative',
           overflowY: 'auto',
           overflowX: 'hidden',
           minWidth: 0,
@@ -579,6 +607,39 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           ...contentSx,
         }}
       >
+        {scrollModeState === 'scrolled-away' ? (
+          <Box
+            sx={{
+              position: 'absolute',
+              right: { xs: 10, sm: 14 },
+              bottom: { xs: 10, sm: 14 },
+              zIndex: 2,
+            }}
+          >
+            <Tooltip title="Jump to latest">
+              <IconButton
+                size="small"
+                aria-label="Jump to latest"
+                data-testid="transcript-jump-to-latest"
+                onClick={jumpToLatest}
+                sx={{
+                  width: 36,
+                  height: 36,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
+                  boxShadow: '0 6px 18px rgba(15, 23, 42, 0.18)',
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                  },
+                }}
+              >
+                <KeyboardArrowDownRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ) : null}
         <Stack spacing={1} sx={{ minHeight: 0, flex: 1, width: '100%' }}>
           {turnsLoading && (
             <Typography

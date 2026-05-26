@@ -1,4 +1,5 @@
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
@@ -236,6 +237,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   onCommandModeSelect,
   onPromptModeSelect,
   onStepSelect,
+  onResetConversation,
   onWorkingFolderChange,
   onCommitWorkingFolder,
   onOpenDirPicker,
@@ -707,6 +709,21 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           }}
           data-testid="agent-info"
         />
+      </Box>
+      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Tooltip title="New conversation">
+          <span>
+            <ComposerFooterButton
+              icon={<EditOutlinedIcon fontSize="small" />}
+              label="New"
+              iconOnly
+              ariaLabel="Reset agent draft"
+              onClick={onResetConversation}
+              data-testid="agent-new-conversation-trigger"
+              disabled={showStop}
+            />
+          </span>
+        </Tooltip>
       </Box>
       <ComposerFooterButton
         icon={<FolderOutlinedIcon fontSize="small" />}

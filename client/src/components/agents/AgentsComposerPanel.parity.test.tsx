@@ -104,6 +104,7 @@ describe('AgentsComposerPanel parity', () => {
     const shell = screen.getByTestId('chat-controls');
     const footerButtons = [
       'agent-composer-info',
+      'agent-new-conversation-trigger',
       'agent-working-path-trigger',
       'agent-select-trigger',
       'agent-command-trigger',
@@ -131,6 +132,9 @@ describe('AgentsComposerPanel parity', () => {
     expect(
       within(shell).getByTestId('agent-command-trigger'),
     ).toHaveTextContent('Write instruction');
+    expect(
+      within(shell).getByTestId('agent-new-conversation-trigger'),
+    ).toHaveClass('MuiIconButton-root');
     expect(screen.getByTestId('agent-step-trigger')).toBeDisabled();
     expect(screen.getByTestId('agent-step-trigger')).not.toHaveTextContent(
       /Not used/i,

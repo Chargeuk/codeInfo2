@@ -129,6 +129,9 @@ describe('Flows page composer parity', () => {
 
     const composer = await screen.findByTestId('chat-controls');
     const infoButton = await screen.findByTestId('flow-info');
+    const newButton = await screen.findByTestId(
+      'flow-new-conversation-trigger',
+    );
     const workingPathButton = await screen.findByTestId(
       'flow-working-folder-trigger',
     );
@@ -136,11 +139,16 @@ describe('Flows page composer parity', () => {
     const titleButton = await screen.findByTestId('flow-title-trigger');
 
     expect(composer).toContainElement(infoButton);
+    expect(composer).toContainElement(newButton);
     expect(composer).toContainElement(workingPathButton);
     expect(composer).toContainElement(flowButton);
     expect(composer).toContainElement(titleButton);
     expect(
-      infoButton.compareDocumentPosition(workingPathButton) &
+      infoButton.compareDocumentPosition(newButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      newButton.compareDocumentPosition(workingPathButton) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
@@ -155,6 +163,7 @@ describe('Flows page composer parity', () => {
     await waitFor(() => expect(flowButton).toHaveTextContent('daily'));
     expect(titleButton).toBeEnabled();
     expect(titleButton).toHaveTextContent('daily');
+    expect(newButton).toBeVisible();
     expect(screen.queryByTestId('flow-note')).not.toBeInTheDocument();
 
     await user.click(workingPathButton);
@@ -253,5 +262,16 @@ describe('Flows page composer parity', () => {
     expect(within(titlePopover).getByTestId('flow-title-input')).toHaveValue(
       'Resume nightly sync',
     );
+  });
+
+  it('shows the shared conversation-header new action on Flows', async () => {
+    installFlowsComposerMocks();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const newButton = await screen.findByTestId('conversation-new');
+    expect(newButton).toBeVisible();
+    expect(newButton).toHaveAccessibleName('New flow');
   });
 });

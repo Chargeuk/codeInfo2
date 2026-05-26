@@ -85,6 +85,61 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     expect(transcript.style.scrollbarGutter).toBe('stable');
   });
 
+  it('shows a jump-to-latest affordance when scrolled away and re-pins on click', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="jump-to-latest"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1400,
+      scrollTop: 1080,
+    });
+
+    act(() => {
+      harness.setScrollMetrics(transcript, {
+        scrollHeight: 1400,
+        scrollTop: 720,
+      });
+      fireEvent.scroll(transcript);
+    });
+
+    const jumpButton = await screen.findByTestId('transcript-jump-to-latest');
+    expect(jumpButton).toBeVisible();
+
+    act(() => {
+      fireEvent.click(jumpButton);
+    });
+
+    expect(transcript.scrollTop).toBe(1080);
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('transcript-jump-to-latest'),
+      ).not.toBeInTheDocument(),
+    );
+
+    harness.restore();
+  });
+
   it('opens an existing conversation at the bottom after history finishes loading', async () => {
     const harness = installTranscriptMeasurementHarness();
 

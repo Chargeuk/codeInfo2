@@ -189,6 +189,76 @@ function installChatLayoutRectMocks(options?: {
 }
 
 describe('Chat shared shell transcript wrapping', () => {
+  it('keeps the shared footer new-conversation trigger between info and working path on desktop', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/providers')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                  models: [{ id: 'gpt-5.2', label: 'GPT-5.2' }],
+                },
+              ],
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        );
+      }
+
+      if (target.includes('/health')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ mongoConnected: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/conversations')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [], nextCursor: null }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const infoButton = await screen.findByTestId('chat-composer-info');
+    const newButton = await screen.findByTestId(
+      'chat-new-conversation-trigger',
+    );
+    const workingPathButton = await screen.findByTestId(
+      'chat-working-folder-trigger',
+    );
+
+    expect(
+      infoButton.compareDocumentPosition(newButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      newButton.compareDocumentPosition(workingPathButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('wraps long citation chunk text without expanding transcript width', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();

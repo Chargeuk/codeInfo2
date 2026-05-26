@@ -174,6 +174,7 @@ describe('Agents shared shell layout wrap', () => {
 
     const footerButtons = [
       await screen.findByTestId('agent-info'),
+      await screen.findByTestId('agent-new-conversation-trigger'),
       await screen.findByTestId('agent-working-path-trigger'),
       await screen.findByTestId('agent-select-trigger'),
       await screen.findByTestId('agent-command-trigger'),
@@ -187,6 +188,17 @@ describe('Agents shared shell layout wrap', () => {
       ).toBeTruthy();
       return current;
     });
+  });
+
+  it('shows the shared conversation-header new action on Agents', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const newButton = await screen.findByTestId('conversation-new');
+    expect(newButton).toBeVisible();
+    expect(newButton).toHaveAccessibleName('New conversation');
   });
 
   it('renders a single primary action button', async () => {

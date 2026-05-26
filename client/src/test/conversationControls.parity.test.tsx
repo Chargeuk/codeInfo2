@@ -99,6 +99,35 @@ function ControlsHarness() {
   );
 }
 
+function AgentsControlsHarness() {
+  const [filterState, setFilterState] = useState<ConversationFilterState>({
+    active: true,
+    archived: false,
+  });
+  const handleNewConversation = jest.fn();
+
+  return (
+    <ConversationList
+      conversations={baseConversations}
+      selectedId={undefined}
+      isLoading={false}
+      isError={false}
+      hasMore={false}
+      filterState={filterState}
+      mongoConnected
+      variant="agents"
+      onSelect={() => undefined}
+      onFilterChange={setFilterState}
+      onArchive={() => undefined}
+      onRestore={() => undefined}
+      onLoadMore={() => undefined}
+      onRefresh={() => undefined}
+      onRetry={() => undefined}
+      onNewConversation={handleNewConversation}
+    />
+  );
+}
+
 describe('conversation controls parity', () => {
   it('renders the shared controls row with no search control and with the compact new-conversation icon immediately left of refresh', () => {
     render(<ControlsHarness />);
@@ -229,5 +258,14 @@ describe('conversation controls parity', () => {
         JSON.stringify({ active: true, archived: false }),
       );
     });
+  });
+
+  it('shows the shared top-of-sidebar new action outside the chat variant when a reset handler is provided', () => {
+    render(<AgentsControlsHarness />);
+
+    expect(screen.getByTestId('conversation-new')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^New conversation$/i }),
+    ).toBeVisible();
   });
 });

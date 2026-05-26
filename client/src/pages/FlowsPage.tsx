@@ -1,3 +1,4 @@
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
@@ -1596,6 +1597,8 @@ export default function FlowsPage() {
       onLoadMore={loadMoreConversations}
       onRefresh={refreshConversations}
       onRetry={refreshConversations}
+      onNewConversation={handleNewFlowReset}
+      newActionLabel="New flow"
     />
   );
 
@@ -1968,6 +1971,21 @@ export default function FlowsPage() {
           />
         </span>
       </Tooltip>
+      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Tooltip title="New flow">
+          <span>
+            <ComposerFooterButton
+              icon={<EditOutlinedIcon fontSize="small" />}
+              label="New"
+              iconOnly
+              ariaLabel="Reset flow draft"
+              onClick={handleNewFlowReset}
+              data-testid="flow-new-conversation-trigger"
+              disabled={!selectedFlowName || flowsLoading || showStop}
+            />
+          </span>
+        </Tooltip>
+      </Box>
       <ComposerFooterButton
         icon={<FolderOutlinedIcon fontSize="small" />}
         label="Working path"

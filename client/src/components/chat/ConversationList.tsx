@@ -137,6 +137,7 @@ type Props = {
   onRefresh: () => void;
   onRetry: () => void;
   onNewConversation?: () => void;
+  newActionLabel?: string;
   showHeaderTitle?: boolean;
 };
 
@@ -163,6 +164,7 @@ export function ConversationList({
   onRefresh,
   onRetry,
   onNewConversation,
+  newActionLabel = 'New conversation',
   showHeaderTitle = true,
 }: Props) {
   const relativeTimeNowMs = useRelativeTimeTick();
@@ -468,14 +470,14 @@ export function ConversationList({
           )}
           {showFilters && (
             <Stack direction="row" spacing={0.25} alignItems="center">
-              {variant === 'chat' && onNewConversation ? (
-                <Tooltip title="New conversation">
+              {onNewConversation ? (
+                <Tooltip title={newActionLabel}>
                   <span>
                     <IconButton
                       size="small"
                       onClick={onNewConversation}
                       disabled={disabled || selectionDisabled}
-                      aria-label="New conversation"
+                      aria-label={newActionLabel}
                       data-testid="conversation-new"
                       sx={{ color: '#1F2933' }}
                     >

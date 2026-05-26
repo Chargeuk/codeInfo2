@@ -49,6 +49,11 @@ describe('WorkspaceMobileTopBar', () => {
     ).toBeVisible();
     expect(screen.getByRole('button', { name: /^New chat$/i })).toBeVisible();
     expect(screen.getByRole('button', { name: /^Open menu$/i })).toBeVisible();
+    expect(screen.getByTestId('workspace-mobile-new-action-slot')).toHaveStyle({
+      position: 'absolute',
+      left: '50%',
+      transform: 'translateX(-50%)',
+    });
     expect(
       screen.queryByRole('button', { name: /^Conversations$/i }),
     ).not.toBeInTheDocument();

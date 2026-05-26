@@ -5318,6 +5318,79 @@ Repair the next set of shared workspace polish issues confirmed on the user’s 
 - Manual proof on the rebuilt normal compose stack confirmed in both Chrome DevTools MCP and Playwright MCP that the folder picker now wraps long paths on desktop and mobile, the mobile `Chat`/`Agents`/`Flows` top bars each expose the direct new-action button, `Flows` alone shows the inline step header, visible relative timestamps refresh without interaction, and the mobile app-menu header now matches the smaller shared shell tone.
 - Final hygiene passed cleanly with `npm run format`, `npm run lint`, and `npm run format:check`, so the polished workspace changes are now ready to push without touching the user’s running `compose:local` stack.
 
+### Task 44. Restore Shared New-Actions And Transcript Jump Controls
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 43`
+- Task Status: `__done__`
+
+#### Overview
+
+Repair the next set of shared workspace affordance issues confirmed on the user’s running `compose:local` stack without relying on that stack for implementation proof. This task owns the mobile top-bar center-action layout, the shared desktop conversation-list new-action header, the new desktop composer reset/create affordance across `Chat`, `Agents`, and `Flows`, and a shared transcript “jump to latest” button that appears when the reader has scrolled away from the newest turns.
+
+#### Non-Goals
+
+- Do not change the user’s running `compose:local` stack or use it as the app-under-test runtime for implementation proof.
+- Do not move the mobile top-bar menu or conversations buttons off their shared shell edges; only relocate the new-action affordance so it is centered and easier to tap.
+- Do not add page-specific transcript scroll buttons when the required jump-to-latest behavior belongs to the shared transcript surface used by `Chat`, `Agents`, and `Flows`.
+
+#### Task Exit Criteria
+
+- The mobile top bar centers the new pencil action instead of grouping it next to the menu button, leaving a safer tap target separation on mobile `Chat`, `Agents`, and `Flows`.
+- Desktop `Chat`, `Agents`, and `Flows` composers expose a new/reset pencil action between the info button and working-path trigger, and that affordance stays hidden on mobile.
+- The shared desktop conversations header shows the top-of-list pencil action on `Agents` and `Flows` as well as `Chat`, using the correct page-owned reset/create handler.
+- `Chat`, `Agents`, and `Flows` transcripts show a right-edge jump-to-latest affordance when the reader is scrolled away from the newest turns, hide it again near the bottom, and scroll back to the newest turns when clicked.
+- Focused proof plus the full client wrapper cover the centered mobile action slot, desktop composer/header new-action wiring, and the shared jump-to-latest transcript affordance so these workspace controls do not silently regress.
+
+#### Documentation Locations
+
+- `client/src/components/chat/ConversationList.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/workspace/WorkspaceMobileTopBar.tsx`
+- `client/src/components/workspace/MobileTopBar.test.tsx`
+- `client/src/components/agents/AgentsComposerPanel.tsx`
+- `client/src/components/agents/AgentsComposerPanel.parity.test.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/chatPage.layoutWrap.test.tsx`
+- `client/src/test/agentsPage.layoutWrap.test.tsx`
+- `client/src/test/flowsPage.composer.test.tsx`
+- `client/src/test/conversationControls.parity.test.tsx`
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+
+#### Subtasks
+
+1. [x] Current Repository: Update `client/src/components/workspace/WorkspaceMobileTopBar.tsx` so the mobile new-action button uses a true centered slot instead of sitting adjacent to the menu button, while preserving the existing conversations and menu edge actions.
+2. [x] Current Repository: Extend `client/src/components/chat/ConversationList.tsx` plus the `Chat`, `Agents`, and `Flows` page adapters so the top-of-sidebar new-action button appears wherever the page passes a reset/create handler instead of being chat-only.
+3. [x] Current Repository: Add desktop-only new/reset pencil actions to the shared composer rows in `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, and `client/src/pages/FlowsPage.tsx`, placing each trigger between the info button and working-path trigger without surfacing it on mobile.
+4. [x] Current Repository: Update `client/src/components/chat/SharedTranscript.tsx` so the shared transcript renders a jump-to-latest affordance whenever the reader is scrolled away from the newest turns and returns to the newest turns when clicked.
+5. [x] Current Repository: Add or update focused proof in `client/src/components/workspace/MobileTopBar.test.tsx`, `client/src/components/agents/AgentsComposerPanel.parity.test.tsx`, `client/src/test/chatPage.layoutWrap.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, `client/src/test/flowsPage.composer.test.tsx`, `client/src/test/conversationControls.parity.test.tsx`, and `client/src/test/sharedTranscript.scrollBehavior.test.tsx` so the centered mobile action slot, desktop composer/sidebar new-action order, and shared jump-to-latest behavior are explicit.
+6. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task touches shared workspace chrome, shared transcript behavior, and page-level composer wiring.
+7. [x] Current Repository: Run `npm run format`. Use the repository-root formatter because this task touches shared workspace components, transcript code, route adapters, and proof files.
+
+#### Testing
+
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared client workspace, transcript, and composer surfaces.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this task updates shared workspace chrome, shared transcript scroll behavior, and page-level composer affordances.
+3. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task touches shared workspace chrome, transcript code, and page-level composer wiring.
+4. [x] Current Repository: Run `npm run format`. Use the repository-root formatter because this task touches shared workspace components, transcript code, route adapters, and proof files.
+5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate to confirm the final workspace-control tree stays Prettier-clean before push.
+
+#### Implementation Notes
+
+- Follow-up task created after fresh live review on the user’s running `compose:local` stack confirmed four remaining control issues: the mobile top-bar pencil sits too close to the menu button, the desktop composers still lack a direct reset/create affordance, the `Agents` and `Flows` conversation headers still miss the top-of-list pencil action that `Chat` already exposes, and the shared transcript still offers no jump-to-latest affordance once the reader scrolls away from the newest turns. No code changed while shaping this task.
+- Reworked `WorkspaceMobileTopBar` so the mobile new-action pencil now sits in its own centered slot, independent from the right-edge menu button, while the conversations/menu edge affordances kept their shared shell ownership.
+- Extended the shared `ConversationList` header to show the top-of-sidebar new-action wherever a page passes a reset/create handler, then wired `AgentsPage` and `FlowsPage` into that shared path without disturbing Chat’s existing behavior.
+- Added desktop-only new/reset pencil actions between `Info` and `Working path` in the `Chat`, `Agents`, and `Flows` composer rows, keeping those quick-reset affordances off the mobile footer while using each page’s existing reset/create handler.
+- Added a shared floating `Jump to latest` control in `SharedTranscript` that appears only while the reader is scrolled away from the newest turns and re-pins the transcript when clicked, so `Chat`, `Agents`, and `Flows` all share the same recovery affordance.
+- Focused proof now explicitly covers the centered mobile slot, the sidebar/composer new-action order, and the shared jump-to-latest behavior; `npm run test:summary:client -- --file client/src/components/workspace/MobileTopBar.test.tsx --file client/src/components/agents/AgentsComposerPanel.parity.test.tsx --file client/src/test/chatPage.layoutWrap.test.tsx --file client/src/test/agentsPage.layoutWrap.test.tsx --file client/src/test/flowsPage.composer.test.tsx --file client/src/test/conversationControls.parity.test.tsx --file client/src/test/sharedTranscript.scrollBehavior.test.tsx` passed with 60/60 tests in `test-results/client-tests-2026-05-26T23-01-14-574Z.log`.
+- `npm run build:summary:client` passed in `logs/test-summaries/build-client-latest.log`; the only remaining wrapper warning was the existing Vite chunk-size warning on the large client bundle, with no new task-owned build failures.
+- The full frontend regression wrapper passed with 864/864 tests in `test-results/client-tests-2026-05-26T23-13-27-263Z.log` after one follow-up label adjustment so the new desktop chat reset button no longer collided with older chat tests that intentionally query the sidebar `New conversation` control by accessible name.
+- Repository-root hygiene gates all passed after the UI proof work: `npm run lint`, `npm run format`, and `npm run format:check`.
+- Manual proof on a restarted normal compose stack (`npm run compose:down`, `npm run compose:build`, `npm run compose:up`) used both Chrome DevTools MCP and Playwright MCP against `http://localhost:5001/chat`, `/agents`, and `/flows`. Desktop proof confirmed the composer order `Info -> reset pencil -> Working path` on all three pages, the restored sidebar header pencil on `Agents` and `Flows`, and the shared `Jump to latest` control on a real long chat transcript where scrolling 900px above bottom surfaced the button and clicking it returned `distanceFromBottom` to `0`; mobile proof confirmed the centered top-bar pencil on `Chat`, `Agents`, and `Flows` with `centerOffset: 0` and about `142px` of separation from the menu button. No browser-console errors surfaced during the checked pages; one aborted turns fetch only occurred during route-switch navigation while the proof pass intentionally changed pages.
+
 ## Final Summary
 
 1. What has been changed.

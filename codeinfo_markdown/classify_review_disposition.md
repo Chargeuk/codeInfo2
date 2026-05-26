@@ -276,7 +276,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm every endorsed finding was classified into exactly one state bucket.
 - Confirm uncertain findings were classified as task-required rather than minor.
 - Confirm no finding was treated as current-story actionable solely because a user-facing behavior change would make the contract cleaner, more consistent, or easier to prove.
-- Confirm any finding that would change established user-facing behavior was kept out of current-story action unless that behavior change was explicitly approved by the story or explicitly approved later by the user.
+- Confirm any finding that would change established user-facing behavior was kept out of current-story action unless that behavior change was explicitly approved by the story or explicitly approved later by the user, or the finding was a story-caused preserved-behavior regression being routed as actionable restoration work.
 - Confirm any carry-forward state you preserved came from the same still-active review loop rather than an earlier completed review cycle.
 - Confirm `review_cycle_id` is present and belongs to the active review loop you just classified.
 - Confirm you did not treat an older completed final revalidation task in the canonical plan as proof that a fresh new review cycle was already closed.

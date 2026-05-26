@@ -71,9 +71,11 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - When the findings artifact and handoff counts disagree, trust the findings artifact and record the mismatch in `classification_notes`.
 - Do not classify a finding as current-story actionable solely because a user-facing behavior change would make the code, contract, proof, or automation cleaner.
 - If a finding identifies a pre-existing bug, awkward workflow, inconsistency, limitation, or surprising product behavior that is not explicitly part of the story's approved behavior changes, do not treat that alone as current-story implementation scope.
-- When a finding proposes or implies a user-facing behavior change, first check whether that change is explicitly approved by the story or explicitly approved later by the user.
-- If not, do not route that finding into current-story implementation merely to improve the product contract.
-- Instead, classify it as `rejected_or_non_actionable_findings` with a concise reason that the change would require a user-facing behavior change outside approved story scope and that current behavior was preserved for this story.
+- When a finding proposes or implies a user-facing behavior change, first check whether the finding is actually describing an unapproved behavior drift introduced by the current story away from previously approved or preserved behavior.
+- If the current story introduced that drift, classify the finding as actionable restoration work for the current story, routing it to `unresolved_minor_batchable_findings` or `unresolved_task_required_findings` according to the normal severity, boundedness, and evidence rules, even when fixing it would visibly restore prior behavior.
+- Otherwise, check whether the proposed user-facing behavior change is explicitly approved by the story or explicitly approved later by the user.
+- If not, do not route that finding into current-story implementation merely to improve the product contract or redesign current behavior.
+- Instead, classify it as `rejected_or_non_actionable_findings` with a concise reason that the change would require a user-facing behavior change outside approved story scope; use this rejection path for cleaner redesigns and pre-existing or otherwise out-of-scope product changes, not for regressions introduced by the current story.
 - Do not classify a finding as `incomplete_review_blockers` solely because honest proof would otherwise need a separate product decision about user-facing behavior. Reserve `incomplete_review_blockers` for incomplete review basis, unreadable required artifacts, stale scope, or other conditions that prevent honest review from being completed at all.
 - For testing-additions and proof-authoring stories, prefer `document current behavior` over `change behavior to make proof easier`.
 

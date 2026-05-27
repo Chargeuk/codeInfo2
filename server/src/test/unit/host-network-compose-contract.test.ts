@@ -133,6 +133,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+networks:/u);
+  assert.match(mainPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
   assert.doesNotMatch(
     mainPlaywright,
     /\n\s+profiles:\n\s+- local/u,
@@ -179,7 +180,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(
     localServer,
-    /\/var\/run\/docker\.sock:\/var\/run\/docker\.sock/u,
+    /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );
   assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
 
@@ -187,6 +188,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localPlaywright, /network_mode: host/u);
   assert.doesNotMatch(localPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(localPlaywright, /\n\s+networks:/u);
+  assert.match(localPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
   assert.match(localPlaywright, /'8931'/u);
   assert.match(
     localPlaywright,

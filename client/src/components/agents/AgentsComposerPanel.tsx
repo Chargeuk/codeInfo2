@@ -2,7 +2,6 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
@@ -35,6 +34,7 @@ import {
   type RefObject,
 } from 'react';
 import Markdown from '../Markdown';
+import { getConversationProviderPresentation } from '../chat/conversationRowFormatting';
 import CodexDeviceAuthDialog from '../codex/CodexDeviceAuthDialog';
 import DirectoryPickerDialog from '../ingest/DirectoryPickerDialog';
 import CommonComposerFooter from '../workspace/composer/CommonComposerFooter';
@@ -51,6 +51,8 @@ import { getWorkingFolderName } from '../workspace/composer/composerFormatting';
 
 type AgentOption = {
   name: string;
+  requestedProviderId?: string;
+  executionProviderId?: string;
 };
 
 type AgentWarningDetails = {
@@ -88,6 +90,8 @@ type AgentsComposerPanelProps = {
   agentsError: string | null;
   agents: AgentOption[];
   selectedAgentName: string;
+  selectedAgentRequestedProviderId?: string;
+  selectedAgentExecutionProviderId?: string;
   selectedAgentDisabled: boolean;
   selectedAgentDescription?: string;
   agentWarnings: AgentWarningDetails[];
@@ -204,6 +208,8 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   agentsError,
   agents,
   selectedAgentName,
+  selectedAgentRequestedProviderId,
+  selectedAgentExecutionProviderId,
   selectedAgentDisabled,
   selectedAgentDescription,
   agentWarnings,
@@ -265,6 +271,18 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   const workingFolderName = useMemo(
     () => getWorkingFolderName(selectedWorkingFolder) || 'Select folder',
     [selectedWorkingFolder],
+  );
+  const selectedAgentPresentation = useMemo(
+    () =>
+      getConversationProviderPresentation(
+        selectedAgentExecutionProviderId ?? selectedAgentRequestedProviderId,
+        agentModelId !== 'unknown' ? agentModelId : undefined,
+      ),
+    [
+      agentModelId,
+      selectedAgentExecutionProviderId,
+      selectedAgentRequestedProviderId,
+    ],
   );
 
   const selectedCommandOption = useMemo(
@@ -339,7 +357,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
             key: 'agent',
             label: 'Agent',
             value: selectedAgentName || 'Select agent',
-            icon: <PersonOutlineOutlinedIcon fontSize="small" />,
+            icon: selectedAgentPresentation.icon,
           },
           {
             key: 'action',
@@ -419,6 +437,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
       modeLabel,
       selectedActionMode,
       selectedAgentName,
+      selectedAgentPresentation,
       selectedCommandOption,
       selectedPromptEntry,
       selectedStep,
@@ -489,25 +508,31 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           />
         </ListItemButton>
       ) : null}
-      {agents.map((agent) => (
-        <ListItemButton
-          key={agent.name}
-          component="div"
-          role="option"
-          aria-selected={agent.name === selectedAgentName}
-          selected={agent.name === selectedAgentName}
-          disabled={agentsLoading}
-          onClick={() => {
-            setAgentAnchorEl(null);
-            onAgentSelect(agent.name);
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
-            <PersonOutlineOutlinedIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary={agent.name} />
-        </ListItemButton>
-      ))}
+      {agents.map((agent) => {
+        const providerPresentation = getConversationProviderPresentation(
+          agent.executionProviderId ?? agent.requestedProviderId,
+        );
+
+        return (
+          <ListItemButton
+            key={agent.name}
+            component="div"
+            role="option"
+            aria-selected={agent.name === selectedAgentName}
+            selected={agent.name === selectedAgentName}
+            disabled={agentsLoading}
+            onClick={() => {
+              setAgentAnchorEl(null);
+              onAgentSelect(agent.name);
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+              {providerPresentation.icon}
+            </ListItemIcon>
+            <ListItemText primary={agent.name} />
+          </ListItemButton>
+        );
+      })}
     </List>
   );
 
@@ -751,7 +776,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
       ) : null}
 
       <ComposerFooterButton
-        icon={<PersonOutlineOutlinedIcon fontSize="small" />}
+        icon={selectedAgentPresentation.icon}
         label="Agent"
         value={selectedAgentName || 'Select agent'}
         selected={Boolean(agentAnchorEl)}

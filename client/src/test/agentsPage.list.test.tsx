@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -78,8 +78,15 @@ function mockAgentsListAndDetails() {
         status: 200,
         json: async () => ({
           agents: [
-            { name: 'coding_agent', warnings: ['duplicate root warning'] },
-            { name: 'review_agent' },
+            {
+              name: 'coding_agent',
+              warnings: ['duplicate root warning'],
+              executionProviderId: 'codex',
+            },
+            {
+              name: 'review_agent',
+              executionProviderId: 'lmstudio',
+            },
           ],
         }),
       } as Response);
@@ -127,6 +134,22 @@ describe('Agents page - list/details separation', () => {
     expect(
       screen.queryByText(/unsupported provider "not-a-provider"/i),
     ).toBeNull();
+    expect(
+      within(screen.getByTestId('agent-select-trigger')).getByRole('img', {
+        name: 'OpenAI Codex logo',
+      }),
+    ).toBeVisible();
+
+    await user.click(screen.getByTestId('agent-select-trigger'));
+    const listbox = await screen.findByRole('listbox', {
+      name: /agent options/i,
+    });
+    expect(
+      within(listbox).getByRole('img', { name: 'OpenAI Codex logo' }),
+    ).toBeVisible();
+    expect(
+      within(listbox).getByRole('img', { name: 'LM Studio logo' }),
+    ).toBeVisible();
 
     await user.click(screen.getByTestId('agent-info'));
 

@@ -144,6 +144,8 @@ export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
         description: agent.description,
         disabled: availability.disabled,
         warnings: warnings.length > 0 ? warnings : undefined,
+        requestedProviderId: availability.requestedProviderId,
+        executionProviderId: availability.executionProviderId,
       } satisfies AgentSummary;
     }),
   );

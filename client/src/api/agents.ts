@@ -5,6 +5,8 @@ type AgentSummary = {
   description?: string;
   disabled?: boolean;
   warnings?: string[];
+  requestedProviderId?: string;
+  executionProviderId?: string;
 };
 
 export type AgentWarningDetails = {
@@ -142,6 +144,14 @@ export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
           warnings: Array.isArray(record.warnings)
             ? (record.warnings.filter((w) => typeof w === 'string') as string[])
             : undefined,
+          requestedProviderId:
+            typeof record.requestedProviderId === 'string'
+              ? record.requestedProviderId
+              : undefined,
+          executionProviderId:
+            typeof record.executionProviderId === 'string'
+              ? record.executionProviderId
+              : undefined,
         } satisfies AgentSummary;
       })
       .filter(Boolean) as AgentSummary[],

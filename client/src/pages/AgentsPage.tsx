@@ -77,6 +77,8 @@ type AgentListEntry = {
   description?: string;
   disabled?: boolean;
   warnings?: string[];
+  requestedProviderId?: string;
+  executionProviderId?: string;
 };
 
 export default function AgentsPage() {
@@ -2106,6 +2108,14 @@ export default function AgentsPage() {
       agentsError={agentsError}
       agents={agents}
       selectedAgentName={selectedAgentName}
+      selectedAgentRequestedProviderId={
+        selectedAgentDetails?.requestedProviderId ??
+        selectedAgent?.requestedProviderId
+      }
+      selectedAgentExecutionProviderId={
+        selectedAgentDetails?.executionProviderId ??
+        selectedAgent?.executionProviderId
+      }
       selectedAgentDisabled={selectedAgentDisabled}
       selectedAgentDescription={agentDescription}
       agentWarnings={agentWarnings}

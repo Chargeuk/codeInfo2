@@ -22,7 +22,9 @@ const fallbackCopyText = (text: string): boolean => {
   textarea.style.fontSize = '16px';
 
   const activeElement =
-    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
   const selection = window.getSelection();
   const previousRanges =
     selection == null

@@ -31,18 +31,18 @@ describe('useConversations loading state', () => {
         return new Promise<Response>((resolve, reject) => {
           resolveCalls.push(resolve);
           const signal = init?.signal;
-          signal?.addEventListener(
-            'abort',
-            () => reject(makeAbortError()),
-            { once: true },
-          );
+          signal?.addEventListener('abort', () => reject(makeAbortError()), {
+            once: true,
+          });
         });
       },
     );
 
     const { result } = renderHook(() => useConversations());
 
-    await waitFor(() => expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() =>
+      expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2),
+    );
     expect(result.current.isLoading).toBe(true);
 
     let refreshPromise: Promise<void> | undefined;
@@ -50,7 +50,9 @@ describe('useConversations loading state', () => {
       refreshPromise = result.current.refresh();
     });
 
-    await waitFor(() => expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(3));
+    await waitFor(() =>
+      expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(3),
+    );
 
     await act(async () => {
       await Promise.resolve();

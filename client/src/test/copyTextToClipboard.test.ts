@@ -25,7 +25,9 @@ describe('copyTextToClipboard', () => {
   });
 
   it('uses the async clipboard API when it is available', async () => {
-    await expect(copyTextToClipboard('Primary path')).resolves.toBe('clipboard');
+    await expect(copyTextToClipboard('Primary path')).resolves.toBe(
+      'clipboard',
+    );
 
     expect(clipboardWriteText).toHaveBeenCalledWith('Primary path');
     expect(execCommandMock).not.toHaveBeenCalled();

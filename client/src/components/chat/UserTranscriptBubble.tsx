@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { ChatMessage, ChatSegment } from '../../hooks/useChatStream';
+import { copyTextToClipboard } from '../../utils/copyTextToClipboard';
 import Markdown from '../Markdown';
 import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 import { formatTranscriptTimestamp } from './transcriptSurfaceFormatting';
@@ -202,7 +203,7 @@ function UserTranscriptBubble({
     }
 
     try {
-      await navigator.clipboard.writeText(visibleCopyText);
+      await copyTextToClipboard(visibleCopyText);
       setCopyFeedback({
         severity: 'success',
         message: 'Copied visible message content.',

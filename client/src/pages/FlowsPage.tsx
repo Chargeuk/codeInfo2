@@ -72,6 +72,7 @@ import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
 import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
+import { copyTextToClipboard } from '../utils/copyTextToClipboard';
 import { reconcileFlowDetailsCache } from './flowsPage.shared';
 
 const buildFlowMetaLine = (command: ChatMessage['command']) => {
@@ -1172,12 +1173,7 @@ export default function FlowsPage() {
       return;
     }
     try {
-      const clipboard =
-        window.navigator.clipboard ?? globalThis.navigator?.clipboard;
-      if (!clipboard || typeof clipboard.writeText !== 'function') {
-        throw new Error('clipboard_unavailable');
-      }
-      await clipboard.writeText(titleLabel);
+      await copyTextToClipboard(titleLabel);
       setTitleCopyFeedback({
         severity: 'success',
         message: 'Flow title copied.',

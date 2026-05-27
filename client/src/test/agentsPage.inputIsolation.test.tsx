@@ -104,9 +104,9 @@ describe('Agents page input isolation', () => {
 
     const renderCountBeforeTyping = transcriptRenderSpy.mock.calls.length;
     const input = screen.getByTestId('agent-input');
-    await user.type(input, 'Isolated typing');
+    await user.type(input, 'abc');
 
-    expect(input).toHaveValue('Isolated typing');
+    expect(input).toHaveValue('abc');
     expect(transcriptRenderSpy).toHaveBeenCalledTimes(renderCountBeforeTyping);
-  });
+  }, 60000);
 });

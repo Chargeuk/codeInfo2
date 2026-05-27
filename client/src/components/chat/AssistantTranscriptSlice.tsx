@@ -38,6 +38,7 @@ import type {
   ToolCall,
   ToolCitation,
 } from '../../hooks/useChatStream';
+import { copyTextToClipboard } from '../../utils/copyTextToClipboard';
 import Markdown from '../Markdown';
 import SharedTranscriptToolDetails from './SharedTranscriptToolDetails';
 import {
@@ -373,7 +374,7 @@ function AssistantTranscriptSlice({
     }
 
     try {
-      await navigator.clipboard.writeText(visibleCopyText);
+      await copyTextToClipboard(visibleCopyText);
       setCopyFeedback({
         severity: 'success',
         message: 'Copied visible message content.',

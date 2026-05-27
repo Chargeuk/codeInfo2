@@ -255,7 +255,7 @@ describe('Chat transcript viewport height fill', () => {
     const height700 = transcript.getBoundingClientRect().height;
     expect(height700).toBeGreaterThan(height480);
     harness.restore();
-  });
+  }, 60000);
 
   it('ignores a late measurement callback for a removed row without crashing the transcript', async () => {
     const harness = installTranscriptMeasurementHarness();

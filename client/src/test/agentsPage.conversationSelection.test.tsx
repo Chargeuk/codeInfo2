@@ -290,6 +290,9 @@ describe('Agents page - conversation selection', () => {
 
     expect(screen.queryByTestId('agent-send')).toBeNull();
     expect(screen.getByTestId('agent-stop')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('agent-new-conversation-trigger'),
+    ).toBeEnabled();
 
     const refreshedRows = await screen.findAllByTestId('conversation-row');
     await act(async () => {

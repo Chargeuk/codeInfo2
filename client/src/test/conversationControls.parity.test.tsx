@@ -128,6 +128,34 @@ function AgentsControlsHarness() {
   );
 }
 
+function SelectionLockedHarness() {
+  const [filterState, setFilterState] = useState<ConversationFilterState>({
+    active: true,
+    archived: false,
+  });
+
+  return (
+    <ConversationList
+      conversations={baseConversations}
+      selectedId={undefined}
+      isLoading={false}
+      isError={false}
+      hasMore={false}
+      filterState={filterState}
+      mongoConnected
+      selectionDisabled
+      onSelect={() => undefined}
+      onFilterChange={setFilterState}
+      onArchive={() => undefined}
+      onRestore={() => undefined}
+      onLoadMore={() => undefined}
+      onRefresh={() => undefined}
+      onRetry={() => undefined}
+      onNewConversation={() => undefined}
+    />
+  );
+}
+
 describe('conversation controls parity', () => {
   it('renders the shared controls row with no search control and with the compact new-conversation icon immediately left of refresh', () => {
     render(<ControlsHarness />);
@@ -154,6 +182,12 @@ describe('conversation controls parity', () => {
     expect(screen.queryByText(/^New conversation$/)).toBeNull();
     expect(screen.queryByLabelText(/search/i)).toBeNull();
     expect(screen.queryByPlaceholderText(/search/i)).toBeNull();
+  });
+
+  it('keeps the shared new-conversation button enabled when row selection is locked', () => {
+    render(<SelectionLockedHarness />);
+
+    expect(screen.getByTestId('conversation-new')).toBeEnabled();
   });
 
   it('keeps the four conversation filter states explicit and falls back safely when both toggles are off', async () => {

@@ -16,6 +16,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -210,6 +211,10 @@ export default function FlowsPage() {
   const [selectedFlowAnchorEl, setSelectedFlowAnchorEl] =
     useState<HTMLElement | null>(null);
   const [titleAnchorEl, setTitleAnchorEl] = useState<HTMLElement | null>(null);
+  const [titleCopyFeedback, setTitleCopyFeedback] = useState<{
+    severity: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const [workingFolder, setWorkingFolder] = useState('');
   const selectedConversationIdRef = useRef<string | undefined>(undefined);
@@ -387,13 +392,14 @@ export default function FlowsPage() {
     selectedConversation?.title?.trim() && selectedConversation.title.trim()
       ? selectedConversation.title.trim()
       : '';
-  const defaultTitleLabel = selectedConversationTitle || selectedFlowLabel;
+  const defaultTitleLabel = selectedConversationTitle || selectedFlowName;
   const titleLabel =
     customTitle.trim().length > 0
       ? customTitle.trim()
       : defaultTitleLabel !== 'Select flow'
         ? defaultTitleLabel
         : 'Set title';
+  const titleLockedToConversation = Boolean(activeConversationId);
 
   const resumeStepPath = useMemo(() => {
     const flags = selectedConversation?.flags;
@@ -1157,7 +1163,38 @@ export default function FlowsPage() {
     setSelectedFlowAnchorEl(null);
   };
 
+  const copyFlowTitle = useCallback(async () => {
+    if (!titleLabel.trim() || titleLabel === 'Set title') {
+      setTitleCopyFeedback({
+        severity: 'error',
+        message: 'No flow title is available to copy yet.',
+      });
+      return;
+    }
+    try {
+      const clipboard =
+        window.navigator.clipboard ?? globalThis.navigator?.clipboard;
+      if (!clipboard || typeof clipboard.writeText !== 'function') {
+        throw new Error('clipboard_unavailable');
+      }
+      await clipboard.writeText(titleLabel);
+      setTitleCopyFeedback({
+        severity: 'success',
+        message: 'Flow title copied.',
+      });
+    } catch {
+      setTitleCopyFeedback({
+        severity: 'error',
+        message: 'Unable to copy the flow title.',
+      });
+    }
+  }, [titleLabel]);
+
   const handleTitleOpen = (event: MouseEvent<HTMLElement>) => {
+    if (titleLockedToConversation) {
+      void copyFlowTitle();
+      return;
+    }
     if (titleDisabled) return;
     if (!customTitle.trim() && defaultTitleLabel !== 'Select flow') {
       setCustomTitle(defaultTitleLabel);
@@ -1528,10 +1565,13 @@ export default function FlowsPage() {
     !wsTranscriptReady ||
     showStop;
   const titleDisabled = flowTitleDisabled || showStop;
+  const titleTriggerDisabled =
+    (titleLockedToConversation && titleLabel === 'Set title') ||
+    flowTitleDisabled;
   const titleProxyInputDisabled =
     flowTitleDisabled || showStop || Boolean(resumeStepPath);
   const selectedFlowTriggerDisabled =
-    flowsLoading || !!flowsError || flowOptions.length === 0 || showStop;
+    flowsLoading || !!flowsError || flowOptions.length === 0;
 
   const handleMainSubmit = useCallback<FormEventHandler<HTMLFormElement>>(
     (event) => {
@@ -1803,7 +1843,9 @@ export default function FlowsPage() {
             </ListItemIcon>
             <ListItemText
               primary={flow.name}
-              secondary={flow.description ?? flow.sourceLabel ?? 'Flow'}
+              secondary={
+                flow.sourceLabel?.trim() || flow.sourceId?.trim() || 'Local'
+              }
             />
           </ListItemButton>
         ))}
@@ -1827,7 +1869,7 @@ export default function FlowsPage() {
           event.stopPropagation();
           (event.currentTarget as HTMLInputElement).blur();
         }}
-        disabled={titleDisabled}
+        disabled={flowTitleDisabled}
         inputProps={{
           'data-testid': 'flow-title-input',
           'aria-label': 'Custom title',
@@ -1843,7 +1885,7 @@ export default function FlowsPage() {
           variant="text"
           size="small"
           onClick={() => setCustomTitle('')}
-          disabled={titleDisabled}
+          disabled={flowTitleDisabled}
         >
           Clear
         </Button>
@@ -1925,25 +1967,20 @@ export default function FlowsPage() {
           alignItems: 'center',
         }}
       >
-        <Stack spacing={0.2} minWidth={0}>
-          <Typography variant="caption" color="text.secondary">
-            {selectedFlowName ? 'Selected flow' : 'Flow launch'}
-          </Typography>
-          <Typography
-            variant="body2"
-            fontWeight={600}
-            sx={{ wordBreak: 'break-word' }}
-          >
-            {selectedFlowName
-              ? `${selectedFlowLabel} · ${titleLabel}`
-              : 'Choose a flow to start a run.'}
-          </Typography>
-          {resumeStepPath ? (
-            <Typography variant="caption" color="text.secondary">
-              Resume step: {resumeStepPath.join(' / ')}
-            </Typography>
-          ) : null}
-        </Stack>
+        <Typography
+          variant="body2"
+          fontWeight={600}
+          data-testid="flow-launch-title"
+          sx={{
+            minWidth: 0,
+            width: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {selectedFlowName ? titleLabel : 'Choose a flow to start a run.'}
+        </Typography>
       </Box>
       <ComposerSendButton
         showStop={showStop}
@@ -1981,7 +2018,7 @@ export default function FlowsPage() {
               ariaLabel="Reset flow draft"
               onClick={handleNewFlowReset}
               data-testid="flow-new-conversation-trigger"
-              disabled={!selectedFlowName || flowsLoading || showStop}
+              disabled={!selectedFlowName || flowsLoading}
             />
           </span>
         </Tooltip>
@@ -2016,8 +2053,11 @@ export default function FlowsPage() {
         selected={Boolean(titleAnchorEl)}
         onClick={handleTitleOpen}
         data-testid="flow-title-trigger"
-        disabled={titleDisabled}
-        ariaHaspopup="dialog"
+        disabled={titleTriggerDisabled}
+        ariaLabel={
+          titleLockedToConversation ? 'Copy flow title' : 'Edit flow title'
+        }
+        ariaHaspopup={titleLockedToConversation ? undefined : 'dialog'}
         ariaExpanded={Boolean(titleAnchorEl)}
       />
     </CommonComposerFooter>
@@ -2076,7 +2116,7 @@ export default function FlowsPage() {
           <Button
             type="button"
             onClick={handleNewFlowReset}
-            disabled={!selectedFlowName || flowsLoading || showStop}
+            disabled={!selectedFlowName || flowsLoading}
             data-testid="flow-new"
           >
             New Flow
@@ -2223,6 +2263,21 @@ export default function FlowsPage() {
           void persistWorkingFolder('');
         }}
       />
+      <Snackbar
+        open={Boolean(titleCopyFeedback)}
+        autoHideDuration={2400}
+        onClose={() => setTitleCopyFeedback(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setTitleCopyFeedback(null)}
+          severity={titleCopyFeedback?.severity ?? 'success'}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {titleCopyFeedback?.message ?? ''}
+        </Alert>
+      </Snackbar>
     </>
   );
 

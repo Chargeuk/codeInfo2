@@ -102,6 +102,9 @@ describe('Chat page new conversation control', () => {
   it('does not send cancel_inflight when opening a new conversation during an active run', async () => {
     const user = userEvent.setup();
     const { conversationId } = await startInflightConversation(user);
+    expect(
+      await screen.findByTestId('chat-new-conversation-trigger'),
+    ).toBeEnabled();
 
     await act(async () => {
       await user.click(

@@ -720,7 +720,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
               ariaLabel="Reset agent draft"
               onClick={onResetConversation}
               data-testid="agent-new-conversation-trigger"
-              disabled={showStop}
             />
           </span>
         </Tooltip>

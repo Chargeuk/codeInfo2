@@ -10,11 +10,8 @@ await jest.unstable_mockModule('../logging/logger', async () => ({
 const { default: ConversationList } = await import(
   '../components/chat/ConversationList'
 );
-const {
-  buildConversationPreviewText,
-  formatConversationRowTimestamp,
-  getConversationProviderPresentation,
-} = await import('../components/chat/conversationRowFormatting');
+const { formatConversationRowTimestamp, getConversationProviderPresentation } =
+  await import('../components/chat/conversationRowFormatting');
 
 describe('Conversation row parity', () => {
   beforeEach(() => {
@@ -27,7 +24,7 @@ describe('Conversation row parity', () => {
     jest.useRealTimers();
   });
 
-  it('renders the shared row hierarchy with provider icon, preview, model/source chips, timestamp, and archive action', () => {
+  it('renders the shared row hierarchy with provider icon, two-line title, model/source chips, timestamp, and archive action', () => {
     render(
       <ConversationList
         conversations={[
@@ -84,9 +81,7 @@ describe('Conversation row parity', () => {
     expect(firstRow.getByTestId('conversation-title')).toHaveTextContent(
       'Rework flow rerun semantics',
     );
-    expect(firstRow.getByTestId('conversation-preview')).toHaveTextContent(
-      'Update step gating and retry behavior.',
-    );
+    expect(firstRow.queryByTestId('conversation-preview')).toBeNull();
     expect(firstRow.queryByTestId('conversation-provider-chip')).toBeNull();
     expect(firstRow.getByTestId('conversation-model-chip')).toHaveTextContent(
       'gpt-4.1',
@@ -100,9 +95,7 @@ describe('Conversation row parity', () => {
     expect(screen.getAllByTestId('conversation-archive')[0]).toBeVisible();
 
     const archivedRow = within(rows[1]);
-    expect(archivedRow.getByTestId('conversation-preview')).toHaveTextContent(
-      'Verify Copilot availability and health across environments.',
-    );
+    expect(archivedRow.queryByTestId('conversation-preview')).toBeNull();
     expect(
       archivedRow.getByTestId('conversation-provider-icon'),
     ).toHaveAttribute('aria-label', 'Codex provider icon');
@@ -113,32 +106,10 @@ describe('Conversation row parity', () => {
     expect(
       runtimeRow.getByTestId('conversation-provider-icon'),
     ).toHaveAttribute('aria-label', 'Runtime provider icon');
-    expect(runtimeRow.getByTestId('conversation-preview')).toHaveTextContent(
-      'No preview available',
-    );
+    expect(runtimeRow.queryByTestId('conversation-preview')).toBeNull();
   });
 
-  it('falls back through preview and provider helpers without source-control branding', () => {
-    expect(
-      buildConversationPreviewText({
-        userText: 'Use the first meaningful user prompt.',
-        assistantSummary: 'Assistant summary',
-        systemSummary: 'System summary',
-      }),
-    ).toBe('Use the first meaningful user prompt.');
-    expect(
-      buildConversationPreviewText({
-        assistantSummary: 'Assistant summary',
-        systemSummary: 'System summary',
-      }),
-    ).toBe('Assistant summary');
-    expect(
-      buildConversationPreviewText({
-        systemSummary: 'System summary',
-      }),
-    ).toBe('System summary');
-    expect(buildConversationPreviewText({})).toBe('No preview available');
-
+  it('falls back through provider helpers without source-control branding', () => {
     expect(getConversationProviderPresentation('codex').label).toBe('Codex');
     expect(getConversationProviderPresentation('copilot').label).toBe(
       'Copilot',

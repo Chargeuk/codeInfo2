@@ -34,7 +34,6 @@ import type {
 } from '../../hooks/useConversations';
 import { createLogger } from '../../logging/logger';
 import {
-  buildConversationPreviewText,
   formatConversationRowTimestamp,
   getConversationProviderPresentation,
 } from './conversationRowFormatting';
@@ -121,6 +120,7 @@ type Props = {
   mongoConnected?: boolean | null;
   disabled?: boolean;
   selectionDisabled?: boolean;
+  newActionDisabled?: boolean;
   variant?: 'chat' | 'agents';
   onSelect: (conversationId: string) => void;
   onFilterChange: (state: ConversationFilterState) => void;
@@ -152,6 +152,7 @@ export function ConversationList({
   mongoConnected,
   disabled,
   selectionDisabled = false,
+  newActionDisabled = false,
   variant = 'chat',
   onSelect,
   onFilterChange,
@@ -175,6 +176,7 @@ export function ConversationList({
   const showRowActions = true;
   void showHeaderTitle;
   const mutationDisabled = Boolean(disabled || selectionDisabled);
+  const newActionLocked = Boolean(disabled || newActionDisabled);
   const bulkDisabled = Boolean(mutationDisabled || mongoConnected === false);
   const visibleFilterState = normalizeVisibleFilterState(filterState);
   const sorted = useMemo(
@@ -476,7 +478,7 @@ export function ConversationList({
                     <IconButton
                       size="small"
                       onClick={onNewConversation}
-                      disabled={disabled || selectionDisabled}
+                      disabled={newActionLocked}
                       aria-label={newActionLabel}
                       data-testid="conversation-new"
                       sx={{ color: '#1F2933' }}
@@ -651,11 +653,6 @@ export function ConversationList({
                     conversation.provider,
                     conversation.model,
                   );
-                const previewText = buildConversationPreviewText({
-                  userText: conversation.previewUserText,
-                  assistantSummary: conversation.previewAssistantSummary,
-                  systemSummary: conversation.previewSystemSummary,
-                });
                 const timestamp = formatConversationRowTimestamp(
                   conversation.lastMessageAt,
                   relativeTimeNowMs,
@@ -709,7 +706,6 @@ export function ConversationList({
                         <Typography
                           variant="body2"
                           fontWeight={selected ? 700 : 600}
-                          noWrap
                           data-testid="conversation-title"
                           sx={{
                             minWidth: 0,
@@ -717,23 +713,14 @@ export function ConversationList({
                             color: '#1F2933',
                             fontSize: { xs: '0.82rem', sm: '0.875rem' },
                             lineHeight: 1.2,
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: 2,
+                            overflow: 'hidden',
+                            wordBreak: 'break-word',
                           }}
                         >
                           {conversation.title || 'Untitled conversation'}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          data-testid="conversation-preview"
-                          noWrap
-                          sx={{
-                            minWidth: 0,
-                            width: '100%',
-                            color: '#52606D',
-                            fontSize: { xs: '0.72rem', sm: '0.78rem' },
-                            lineHeight: 1.25,
-                          }}
-                        >
-                          {previewText}
                         </Typography>
                         <Box
                           sx={{

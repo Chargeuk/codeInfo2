@@ -24,28 +24,6 @@ const cleanConversationText = (value?: string | null) => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-export type ConversationPreviewTextSource = {
-  userText?: string | null;
-  assistantSummary?: string | null;
-  systemSummary?: string | null;
-  fallback?: string;
-};
-
-export const buildConversationPreviewText = (
-  params: ConversationPreviewTextSource,
-) => {
-  const userText = cleanConversationText(params.userText);
-  if (userText) return userText;
-
-  const assistantSummary = cleanConversationText(params.assistantSummary);
-  if (assistantSummary) return assistantSummary;
-
-  const systemSummary = cleanConversationText(params.systemSummary);
-  if (systemSummary) return systemSummary;
-
-  return cleanConversationText(params.fallback) ?? 'No preview available';
-};
-
 export const formatConversationRowTimestamp = (
   value?: string | null,
   nowMs = Date.now(),

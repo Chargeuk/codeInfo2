@@ -956,10 +956,7 @@ export default function ChatPage() {
     nextProvider?: string;
   }) => {
     const resetReason = options?.reason ?? 'new-conversation';
-    if (
-      nextSendContextLocked &&
-      (resetReason === 'new-conversation' || resetReason === 'model-change')
-    ) {
+    if (nextSendContextLocked && resetReason === 'model-change') {
       return;
     }
     const olderConversationRemainedInflight = Boolean(
@@ -1525,6 +1522,7 @@ export default function ChatPage() {
       mongoConnected={mongoConnected}
       disabled={persistenceUnavailable || persistenceLoading}
       selectionDisabled={nextSendContextLocked}
+      newActionDisabled={providerLocked}
       onSelect={handleSelectConversation}
       onFilterChange={setFilterState}
       onArchive={handleArchive}
@@ -2136,7 +2134,6 @@ export default function ChatPage() {
                   ariaLabel="Reset chat draft"
                   onClick={() => handleNewConversation()}
                   data-testid="chat-new-conversation-trigger"
-                  disabled={showStop || isSending}
                 />
               </span>
             </Tooltip>

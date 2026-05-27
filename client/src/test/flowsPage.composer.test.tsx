@@ -74,6 +74,8 @@ function installFlowsComposerMocks() {
         flow: {
           name: 'daily',
           description: 'Daily flow',
+          sourceLabel: 'Repo Alpha',
+          sourceId: 'repo-alpha',
           disabled: false,
           warnings: [],
         },
@@ -82,7 +84,15 @@ function installFlowsComposerMocks() {
 
     if (target.includes('/flows') && !target.includes('/run')) {
       return mockJsonResponse({
-        flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+        flows: [
+          {
+            name: 'daily',
+            description: 'Daily flow',
+            sourceLabel: 'Repo Alpha',
+            sourceId: 'repo-alpha',
+            disabled: false,
+          },
+        ],
       });
     }
 
@@ -137,6 +147,7 @@ describe('Flows page composer parity', () => {
     );
     const flowButton = await screen.findByTestId('flow-select-trigger');
     const titleButton = await screen.findByTestId('flow-title-trigger');
+    const launchTitle = await screen.findByTestId('flow-launch-title');
 
     expect(composer).toContainElement(infoButton);
     expect(composer).toContainElement(newButton);
@@ -163,6 +174,9 @@ describe('Flows page composer parity', () => {
     await waitFor(() => expect(flowButton).toHaveTextContent('daily'));
     expect(titleButton).toBeEnabled();
     expect(titleButton).toHaveTextContent('daily');
+    expect(launchTitle).toHaveTextContent('daily');
+    expect(screen.queryByText('Selected flow')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Resume step:/)).not.toBeInTheDocument();
     expect(newButton).toBeVisible();
     expect(screen.queryByTestId('flow-note')).not.toBeInTheDocument();
 
@@ -192,7 +206,7 @@ describe('Flows page composer parity', () => {
     expect(titleButton).toHaveTextContent('Daily recap');
   });
 
-  it('keeps the title trigger editable for resumed flow conversations and seeds it from the active title', async () => {
+  it('copies the active title instead of reopening the editor once a flow conversation already exists', async () => {
     const user = userEvent.setup();
 
     installFlowsComposerMocks();
@@ -215,6 +229,8 @@ describe('Flows page composer parity', () => {
           flow: {
             name: 'daily',
             description: 'Daily flow',
+            sourceLabel: 'Repo Alpha',
+            sourceId: 'repo-alpha',
             disabled: false,
             warnings: [],
           },
@@ -224,7 +240,13 @@ describe('Flows page composer parity', () => {
       if (target.includes('/flows') && !target.includes('/run')) {
         return mockJsonResponse({
           flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
+            {
+              name: 'daily',
+              description: 'Daily flow',
+              sourceLabel: 'Repo Alpha',
+              sourceId: 'repo-alpha',
+              disabled: false,
+            },
           ],
         });
       }
@@ -256,12 +278,28 @@ describe('Flows page composer parity', () => {
       expect(titleButton).toHaveTextContent('Resume nightly sync'),
     );
     expect(titleButton).toBeEnabled();
+    expect(titleButton).toHaveAccessibleName('Copy flow title');
 
     await user.click(titleButton);
-    const titlePopover = await screen.findByTestId('flow-title-popover');
-    expect(within(titlePopover).getByTestId('flow-title-input')).toHaveValue(
-      'Resume nightly sync',
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('flow-title-popover'),
+      ).not.toBeInTheDocument(),
     );
+  });
+
+  it('shows the repository source under each flow option in the selector', async () => {
+    const user = userEvent.setup();
+    installFlowsComposerMocks();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await user.click(await screen.findByTestId('flow-select-trigger'));
+    const selector = await screen.findByTestId('flow-selector-content');
+
+    expect(within(selector).getByText('daily')).toBeInTheDocument();
+    expect(within(selector).getByText('Repo Alpha')).toBeInTheDocument();
   });
 
   it('shows the shared conversation-header new action on Flows', async () => {

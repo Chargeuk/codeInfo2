@@ -318,6 +318,9 @@ describe('Flows page stop control', () => {
     expect(await findLatestSubscribedConversationId()).toBe(conversationId);
 
     const stopButton = await screen.findByTestId('flow-stop');
+    expect(
+      await screen.findByTestId('flow-new-conversation-trigger'),
+    ).toBeEnabled();
     await waitFor(() => expect(stopButton).toBeEnabled());
     await act(async () => {
       await user.click(stopButton);

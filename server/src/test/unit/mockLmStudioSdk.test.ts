@@ -11,8 +11,19 @@ import {
   waitForControlledEmbeddingCalls,
 } from '../support/mockLmStudioSdk.js';
 
+const ORIGINAL_LMSTUDIO_BASE_URL = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+
+test.beforeEach(() => {
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+});
+
 test.afterEach(() => {
   stopMock();
+  if (ORIGINAL_LMSTUDIO_BASE_URL === undefined) {
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  } else {
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = ORIGINAL_LMSTUDIO_BASE_URL;
+  }
 });
 
 test('controlled embedding waiters are cleaned up after timeout', async () => {

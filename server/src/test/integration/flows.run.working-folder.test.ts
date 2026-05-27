@@ -259,22 +259,7 @@ test('a stale saved path yields to a newer saved working folder before a flow re
     archivedAt: null,
   });
 
-  let statHookUsed = false;
-  setWorkingFolderStatForTests(async (targetPath) => {
-    if (!statHookUsed && targetPath === staleWorkingFolder) {
-      statHookUsed = true;
-      updateMemoryConversationWorkingFolder({
-        conversationId: 'flow-stale-restore',
-        workingFolder: refreshedWorkingFolder,
-      });
-      const error = new Error('missing path') as NodeJS.ErrnoException;
-      error.code = 'ENOENT';
-      throw error;
-    }
-    return {
-      isDirectory: () => true,
-    } as never;
-  });
+  let updateHookUsed = false;
 
   const app = express();
   app.use(express.json());
@@ -284,19 +269,42 @@ test('a stale saved path yields to a newer saved working folder before a flow re
         repos: [],
         lockedModelId: null,
       }),
+      updateConversationWorkingFolder: async (params) => {
+        if (
+          !updateHookUsed &&
+          params.conversationId === 'flow-stale-restore' &&
+          params.workingFolder == null &&
+          params.expectedWorkingFolder === staleWorkingFolder
+        ) {
+          updateHookUsed = true;
+          updateMemoryConversationWorkingFolder({
+            conversationId: 'flow-stale-restore',
+            workingFolder: refreshedWorkingFolder,
+          });
+          return null;
+        }
+
+        return (
+          updateMemoryConversationWorkingFolder({
+            conversationId: params.conversationId,
+            workingFolder: params.workingFolder,
+            expectedWorkingFolder: params.expectedWorkingFolder,
+          }) ?? null
+        );
+      },
     }),
   );
 
   try {
     const res = await supertest(app).get('/conversations?flowName=llm-basic');
     assert.equal(res.status, 200);
+    assert.equal(updateHookUsed, true);
     assert.equal(res.body.items[0].flags.workingFolder, refreshedWorkingFolder);
     assert.equal(
       memoryConversations.get('flow-stale-restore')?.flags?.workingFolder,
       refreshedWorkingFolder,
     );
   } finally {
-    setWorkingFolderStatForTests(undefined);
     memoryConversations.delete('flow-stale-restore');
     memoryTurns.delete('flow-stale-restore');
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;

@@ -684,12 +684,12 @@ export function ConversationList({
                         width: '100%',
                         borderBottom: '1px solid',
                         borderColor: '#D9E2EC',
-                        bgcolor: selected ? '#E8F1FB' : '#EEF2F6',
+                        bgcolor: selected ? 'rgb(245, 248, 255)' : '#EEF2F6',
                         '&.Mui-selected': {
-                          bgcolor: '#E8F1FB',
+                          bgcolor: 'rgb(245, 248, 255)',
                         },
                         '&.Mui-selected:hover': {
-                          bgcolor: '#E8F1FB',
+                          bgcolor: 'rgb(245, 248, 255)',
                         },
                       }}
                     >

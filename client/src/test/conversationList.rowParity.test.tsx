@@ -92,6 +92,9 @@ describe('Conversation row parity', () => {
     expect(firstRow.getByTestId('conversation-updated')).toHaveTextContent(
       '2 hours ago',
     );
+    expect(window.getComputedStyle(rows[0]).backgroundColor).toBe(
+      'rgb(245, 248, 255)',
+    );
     expect(screen.getAllByTestId('conversation-archive')[0]).toBeVisible();
 
     const archivedRow = within(rows[1]);

@@ -4,9 +4,10 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
+import { ChromaClient } from 'chromadb';
 import { resolveAgentHomeEnv } from '../../../agents/roots.js';
 import { getChatInterface } from '../../../chat/factory.js';
 import { __resetCompletedInflightForTests } from '../../../chat/inflightRegistry.js';
@@ -20,6 +21,7 @@ import {
 } from '../../../chat/memoryPersistence.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
+import { resetCollectionsForTests } from '../../../ingest/chromaClient.js';
 import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
@@ -52,6 +54,8 @@ const setCodexHomes = (codexHome: string) => {
 };
 
 beforeEach(() => {
+  mock.restoreAll();
+  resetCollectionsForTests();
   originalEnv.clear();
   for (const key of ENV_KEYS) {
     originalEnv.set(key, process.env[key]);
@@ -61,6 +65,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  mock.restoreAll();
+  resetCollectionsForTests();
   for (const key of ENV_KEYS) {
     const value = originalEnv.get(key);
     if (value === undefined) {
@@ -721,6 +727,108 @@ test('codebase_question reuses saved selected-repository metadata when provider 
     }
     await tempHome.cleanup();
     await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('codebase_question restores a saved host path before local mount lookup when using default repository discovery', async () => {
+  const missingHostPath = path.join(
+    os.tmpdir(),
+    `codebase-question-host-only-${Date.now()}`,
+    'repo-root',
+  );
+  const chat = new CapturingChat();
+  const conversationId = 'mcp-working-folder-default-discovery';
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'Saved host-path conversation',
+    source: 'MCP',
+    flags: { workingFolder: missingHostPath },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Conversation);
+
+  mock.method(
+    ChromaClient.prototype,
+    'getOrCreateCollection',
+    async (opts: { name?: string }) => {
+      if (opts.name === 'ingest_roots') {
+        return {
+          get: async () => ({
+            ids: ['repo-1'],
+            metadatas: [
+              {
+                root: missingHostPath,
+                lastIngestAt: '2025-01-01T00:00:00.000Z',
+              },
+            ],
+          }),
+        } as never;
+      }
+
+      return {
+        metadata: {},
+        count: async () => 0,
+        modify: async () => {},
+      } as never;
+    },
+  );
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Use the saved host path repo context',
+        conversationId,
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      workingFolder: path.resolve(missingHostPath),
+      lookupSummary: {
+        selectedRepositoryPath: path.resolve(missingHostPath),
+        fallbackUsed: false,
+        workingRepositoryAvailable: true,
+      },
+    });
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.workingFolder,
+      missingHostPath,
+    );
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
   }
 });
 

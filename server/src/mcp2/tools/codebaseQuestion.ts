@@ -78,6 +78,7 @@ import { resolveCopilotReadiness } from '../../providers/copilotReadiness.js';
 import { resolveSharedExecutionContext } from '../../workingFolders/executionContext.js';
 import type { KnownRepositoryPathsState } from '../../workingFolders/state.js';
 import {
+  knownRepositoryPathsAvailable,
   resolveKnownRepositoryPathsState,
   restoreSavedWorkingFolder,
 } from '../../workingFolders/state.js';
@@ -1012,24 +1013,19 @@ async function executeCodebaseQuestion(
   };
 
   try {
-    // If a listIngestedRepositories function was injected via deps, pre-load
-    // a knownRepositoryPathsState so restoreSavedWorkingFolder can validate
-    // saved host paths without clearing them prematurely.
-    if (deps.listIngestedRepositoriesFn) {
-      try {
-        knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
-          async () =>
-            (
-              await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
-            ).repos.flatMap((repo) =>
-              getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
-                path.resolve(entry),
-              ),
-            ),
-        );
-      } catch {
-        // ignore and fall back to later retry logic when appropriate
-      }
+    try {
+      const repos = await (
+        deps.listIngestedRepositoriesFn ?? listIngestedRepositories
+      )();
+      knownRepositoryPathsState = knownRepositoryPathsAvailable(
+        repos.repos.flatMap((repo) =>
+          getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
+            path.resolve(entry),
+          ),
+        ),
+      );
+    } catch {
+      // ignore and fall back to later retry logic when appropriate
     }
 
     if (mutableConversation) {

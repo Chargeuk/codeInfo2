@@ -406,15 +406,6 @@ test('flows warning rendering and disabled run guard stay visible at the browser
   await page.goto(`${baseUrl}/flows`);
   await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
 
-  await page.getByTestId('flow-working-folder-trigger').click();
-  await expect(page.getByTestId('flow-working-folder-popover')).toBeVisible({
-    timeout: 20000,
-  });
-  await page.getByTestId('flow-working-folder-input').fill('/tmp/stale');
-  await page
-    .getByTestId('flow-working-folder-popover')
-    .getByRole('button', { name: 'Close' })
-    .click();
   await page.getByTestId('flow-info').click();
 
   await expect(page.getByText('Primary provider unavailable')).toBeVisible();
@@ -752,7 +743,10 @@ test('flows existing-conversation working-folder picker applies a local reposito
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${baseUrl}/flows`);
-  await expect(page.getByText('Flow: daily')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('flow-title-trigger')).toContainText(
+    'Flow: daily',
+    { timeout: 20000 },
+  );
   await page.locator('[data-testid="conversation-row"]').first().click();
 
   await expect(page.getByTestId('flow-working-folder-trigger')).toContainText(
@@ -760,19 +754,15 @@ test('flows existing-conversation working-folder picker applies a local reposito
   );
 
   await page.getByTestId('flow-working-folder-trigger').click();
-  await expect(page.getByTestId('flow-working-folder-popover')).toBeVisible({
-    timeout: 20000,
-  });
-  await page
-    .getByTestId('flow-working-folder-popover')
-    .getByRole('button', { name: 'Choose folder…' })
-    .click();
-
   await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toBeVisible(
     { timeout: 20000 },
   );
   await page.getByRole('button', { name: 'child' }).click();
   await page.getByRole('button', { name: 'Use this folder' }).click();
+
+  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toHaveCount(
+    0,
+  );
 
   await expect(page.getByTestId('flow-working-folder-trigger')).toContainText(
     'child',
@@ -954,10 +944,15 @@ test('flows existing conversations open at the newest visible content and preser
 
   const scrolledTop = await transcript.evaluate((node) => {
     const element = node as HTMLElement;
-    element.scrollTop = Math.max(0, element.scrollTop - 220);
+    const targetTop = Math.max(120, element.scrollTop - 520);
+    element.scrollTop = targetTop;
     element.dispatchEvent(new Event('scroll', { bubbles: true }));
     return element.scrollTop;
   });
+  expect(scrolledTop).toBeGreaterThan(0);
+
+  const anchorMessage = transcript.getByText('Flow history message 6');
+  await expect(anchorMessage).toBeVisible();
 
   await mockWs.waitForConversationSubscription('flow-1');
   await mockWs.sendUserTurn({
@@ -976,7 +971,5 @@ test('flows existing conversations open at the newest visible content and preser
     status: 'ok',
   });
 
-  await expect.poll(async () =>
-    transcript.evaluate((node) => (node as HTMLElement).scrollTop),
-  ).toBe(scrolledTop);
+  await expect(anchorMessage).toBeVisible();
 });

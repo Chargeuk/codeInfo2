@@ -683,11 +683,6 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   await page.getByRole('option', { name: 'Improve' }).click();
   await expect(sendButton).toBeEnabled();
 
-  await page.getByTestId('agent-working-path-trigger').click();
-  const folder = page.getByRole('textbox', { name: 'working_folder' });
-  await folder.fill('/tmp/stale');
-  await page.keyboard.press('Escape');
-  await expect(folder).toHaveCount(0);
   await infoButton.click();
 
   await expect(

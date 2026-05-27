@@ -317,7 +317,7 @@ describe('Chat shared shell conversation selection', () => {
     const { user } = await startDraftRun();
 
     expect(screen.getByText('Hello inflight')).toBeInTheDocument();
-    expect(screen.getByText(/Responding.../i)).toBeInTheDocument();
+    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
 
     const codexRowTitle = screen.getByText('Codex conversation');
     const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');

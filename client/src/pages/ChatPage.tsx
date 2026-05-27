@@ -2045,20 +2045,13 @@ export default function ChatPage() {
           CLI/auth/config prerequisites above are satisfied.
         </Alert>
       ) : null}
-      {isSending || isStopping ? (
-        <Typography variant="body2" color="text.secondary">
-          {isStopping ? 'Stopping…' : 'Responding...'}
-        </Typography>
-      ) : null}
     </>
   );
   const hasComposerSupplementalContent =
     (isComposerTestMode && availableAgentFlags.length > 0) ||
     showCodexWarnings ||
     showCodexUnavailable ||
-    showCodexToolsMissing ||
-    isSending ||
-    isStopping;
+    showCodexToolsMissing;
 
   const composerSurface = (
     <CommonComposerShell

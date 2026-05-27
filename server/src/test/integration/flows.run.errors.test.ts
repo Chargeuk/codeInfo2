@@ -1354,6 +1354,147 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
   }
 });
 
+test('flow start does not surface warnings for supported Codex compatibility keys', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'model = "gpt-5.4-mini"',
+      'model_auto_compact_token_limit = 300000',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'config.toml'),
+    [
+      'web_search_mode = "disabled"',
+      'hide_agent_reasoning = false',
+      'model_reasoning_summary = "detailed"',
+      '',
+      '[features]',
+      'fast_mode = false',
+      '',
+      '[model_providers.lmstudiospark]',
+      'name = "lmstudiospark"',
+      'base_url = "http://localhost:1234/v1"',
+      '',
+      '[plugins."github@openai-curated"]',
+      'enabled = true',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  try {
+    await withFlowHarness(async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'supported-config-flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'supported-config-warning-check',
+            messages: [{ role: 'user', content: ['after'] }],
+          },
+        ],
+      });
+
+      const result = await startFlowRun({
+        flowName: 'supported-config-flow',
+        source: 'REST',
+      });
+
+      const warningsText = result.warnings?.join('\n') ?? '';
+      assert.equal(
+        /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
+          warningsText,
+        ),
+        false,
+      );
+      assert.equal(
+        /Unknown key agent\.features\.fast_mode/u.test(warningsText),
+        false,
+      );
+    });
+  } finally {
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
 test('flow run start payload keeps providerId, warnings, and machine-readable launch truth on the first response', async () => {
   const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;

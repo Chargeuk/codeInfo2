@@ -93,7 +93,7 @@ describe('Conversation row parity', () => {
       '2 hours ago',
     );
     expect(window.getComputedStyle(rows[0]).backgroundColor).toBe(
-      'rgb(245, 248, 255)',
+      'rgb(231, 237, 245)',
     );
     expect(screen.getAllByTestId('conversation-archive')[0]).toBeVisible();
 

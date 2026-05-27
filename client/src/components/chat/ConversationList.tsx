@@ -528,7 +528,7 @@ export function ConversationList({
           borderColor: '#D9E2EC',
           borderRadius: 1,
           overflow: 'hidden',
-          bgcolor: '#E7EDF5',
+          bgcolor: 'rgb(245, 248, 255)',
           flex: 1,
           width: '100%',
           minHeight: 240,
@@ -684,12 +684,12 @@ export function ConversationList({
                         width: '100%',
                         borderBottom: '1px solid',
                         borderColor: '#D9E2EC',
-                        bgcolor: selected ? 'rgb(245, 248, 255)' : '#E7EDF5',
+                        bgcolor: selected ? '#E7EDF5' : 'rgb(245, 248, 255)',
                         '&.Mui-selected': {
-                          bgcolor: 'rgb(245, 248, 255)',
+                          bgcolor: '#E7EDF5',
                         },
                         '&.Mui-selected:hover': {
-                          bgcolor: 'rgb(245, 248, 255)',
+                          bgcolor: '#E7EDF5',
                         },
                       }}
                     >

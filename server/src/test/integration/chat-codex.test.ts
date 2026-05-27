@@ -14,7 +14,6 @@ import type {
 import express from 'express';
 import request from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
-import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   releaseConversationLock,
   tryAcquireConversationLock,
@@ -1486,6 +1485,7 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
 
   const mockCodex = new MockCodex('thread-opt');
   const codexFactory = () => mockCodex;
@@ -1501,7 +1501,7 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
 
   assert.equal(
     mockCodex.lastStartOptions?.workingDirectory,
-    resolveAgentHomeEnv().codeInfoRoot,
+    '/mounted/default-root',
   );
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });

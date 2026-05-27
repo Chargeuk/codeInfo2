@@ -6,7 +6,6 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { Router, json } from 'express';
 
-import { resolveAgentHomeEnv } from '../agents/roots.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,
@@ -688,13 +687,8 @@ export function createChatRouter({
       throw err;
     }
 
-    const agentHomeResolution = resolveAgentHomeEnv();
     const executionContext = await resolveSharedExecutionContext({
       workingFolder: effectiveWorkingFolder,
-      defaultRepositoryRoot:
-        agentHomeResolution.activeEnvName !== 'default'
-          ? agentHomeResolution.codeInfoRoot
-          : undefined,
     });
     const envOverrides: NodeJS.ProcessEnv = {
       CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,

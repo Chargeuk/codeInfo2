@@ -118,7 +118,7 @@ import {
 import { runAgentCommandRunner } from './commandsRunner.js';
 import { readAgentRequestedProviderMetadata } from './config.js';
 import { discoverAgents } from './discovery.js';
-import { resolveAgentHomeEnv, resolveAgentHomeForRepository } from './roots.js';
+import { resolveAgentHomeForRepository } from './roots.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,
@@ -712,8 +712,6 @@ async function prepareDirectAgentExecution(params: {
   const providerStates = await collectDirectAgentProviderStates();
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
-    defaultRepositoryRoot:
-      params.defaultRepositoryRoot ?? resolveAgentHomeEnv().codeInfoRoot,
   });
 
   if (params.pinnedProviderId) {

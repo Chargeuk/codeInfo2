@@ -606,10 +606,12 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
   }
 });
 
-test('flow-owned llm steps default to the selected sourceId repository when working_folder is empty', async () => {
+test('flow-owned llm steps default to the shared execution root when working_folder is empty', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const prevCodeWorkdir = process.env.CODEX_WORKDIR;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -618,15 +620,19 @@ test('flow-owned llm steps default to the selected sourceId repository when work
     path.join(process.cwd(), 'tmp-flows-source-default-root-'),
   );
   const sourceRoot = path.join(tmpDir, 'source-root');
+  const sharedExecutionRoot = path.join(tmpDir, 'shared-runtime-root');
   const calls: Array<{
     message: string;
     flags: Record<string, unknown>;
     conversationId: string;
   }> = [];
   await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
+  await fs.mkdir(sharedExecutionRoot, { recursive: true });
   await fs.cp(fixturesDir, path.join(sourceRoot, 'flows'), { recursive: true });
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_CODEX_WORKDIR = sharedExecutionRoot;
+  delete process.env.CODEX_WORKDIR;
 
   const app = express();
   app.use(
@@ -659,7 +665,10 @@ test('flow-owned llm steps default to the selected sourceId repository when work
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.message, 'Say hello from a flow step.');
-    assert.equal(calls[0]?.flags.workingDirectoryOverride, sourceRoot);
+    assert.equal(
+      calls[0]?.flags.workingDirectoryOverride,
+      sharedExecutionRoot,
+    );
     assert.equal(
       memoryConversations.get('flow-source-default-root')?.flags?.workingFolder,
       undefined,
@@ -667,12 +676,10 @@ test('flow-owned llm steps default to the selected sourceId repository when work
   } finally {
     memoryConversations.delete('flow-source-default-root');
     memoryTurns.delete('flow-source-default-root');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
+    restoreEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
+    restoreEnvVar('FLOWS_DIR', prevFlowsDir);
+    restoreEnvVar('CODEINFO_CODEX_WORKDIR', prevCodexWorkdir);
+    restoreEnvVar('CODEX_WORKDIR', prevCodeWorkdir);
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

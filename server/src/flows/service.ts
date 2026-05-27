@@ -4603,6 +4603,9 @@ export async function startFlowRun(
       : sourceId
         ? path.resolve(sourceId)
         : undefined;
+    const flowRunDefaultRepositoryRoot = effectiveWorkingFolder
+      ? flowDefaultRepositoryRoot
+      : undefined;
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
     if (firstAgentStep) {
@@ -4626,7 +4629,7 @@ export async function startFlowRun(
         agentName: firstAgentStep.agentType,
         configPath: agent.configPath,
         workingFolder: effectiveWorkingFolder,
-        defaultRepositoryRoot: flowDefaultRepositoryRoot,
+        defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
         source: params.source,
       });
       modelId = prepared.modelId;
@@ -4638,7 +4641,7 @@ export async function startFlowRun(
     repositoryContext = {
       flowName,
       workingRepositoryPath: effectiveWorkingFolder,
-      defaultRepositoryRoot: flowDefaultRepositoryRoot,
+      defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
       flowSourceId: sourceRepo?.containerPath
         ? path.resolve(sourceRepo.containerPath)
         : sourceId

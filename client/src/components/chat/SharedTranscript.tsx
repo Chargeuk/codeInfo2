@@ -552,59 +552,15 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
     return (
       <Box
-        ref={setContainerRef}
-        onScroll={handleSharedTranscriptScroll}
-        onPointerDownCapture={() => {
-          if (pendingConversationRepinRef.current) {
-            pendingRepinUserScrollIntentRef.current = true;
-          }
-        }}
-        onTouchMoveCapture={() => {
-          if (pendingConversationRepinRef.current) {
-            pendingRepinUserScrollIntentRef.current = true;
-          }
-        }}
-        onWheelCapture={() => {
-          if (pendingConversationRepinRef.current) {
-            pendingRepinUserScrollIntentRef.current = true;
-          }
-        }}
-        data-testid={transcriptTestId}
-        style={{
-          flexGrow: 1,
-          flexShrink: 1,
-          flexBasis: '0%',
-          minHeight: '0px',
-          overflowY: 'auto',
-          scrollbarGutter: 'stable',
-          scrollbarWidth: 'thin',
-        }}
         sx={{
           flex: 1,
           height: '100%',
           minHeight: 0,
-          position: 'relative',
-          overflowY: 'auto',
-          overflowX: 'hidden',
           minWidth: 0,
-          scrollbarGutter: 'stable',
-          scrollbarWidth: 'thin',
-          scrollbarColor: (theme) =>
-            `${theme.palette.action.disabled} transparent`,
-          '&::-webkit-scrollbar': {
-            width: 10,
-            height: 10,
-          },
-          '&::-webkit-scrollbar-thumb': {
-            backgroundColor: 'action.disabled',
-            borderRadius: 999,
-            border: '2px solid transparent',
-            backgroundClip: 'content-box',
-          },
-          '&::-webkit-scrollbar-track': {
-            backgroundColor: 'transparent',
-          },
-          ...contentSx,
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         {scrollModeState === 'scrolled-away' ? (
@@ -640,37 +596,93 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             </Tooltip>
           </Box>
         ) : null}
-        <Stack spacing={1} sx={{ minHeight: 0, flex: 1, width: '100%' }}>
-          {turnsLoading && (
-            <Typography
-              color="text.secondary"
-              variant="caption"
-              sx={{ px: 0.5 }}
-            >
-              Loading history...
-            </Typography>
-          )}
-          {turnsError && (
-            <Alert severity="warning" data-testid={warningTestId}>
-              {turnsErrorMessage ?? 'Failed to load conversation history.'}
-            </Alert>
-          )}
-          {messages.length === 0 &&
-            (emptyStateContent ?? (
-              <Typography color="text.secondary">{emptyMessage}</Typography>
-            ))}
-          <VirtualizedTranscript
-            surface={surface}
-            conversationId={conversationId}
-            messages={messages}
-            turnsLoading={turnsLoading}
-            transcriptContainerRef={transcriptContainerRef}
-            renderMessageRow={renderMessageRow}
-            measurementKeyByMessageId={measurementKeyByMessageId}
-            getScrollSnapshot={getScrollSnapshot}
-            pendingConversationRepin={pendingConversationRepin}
-          />
-        </Stack>
+        <Box
+          ref={setContainerRef}
+          onScroll={handleSharedTranscriptScroll}
+          onPointerDownCapture={() => {
+            if (pendingConversationRepinRef.current) {
+              pendingRepinUserScrollIntentRef.current = true;
+            }
+          }}
+          onTouchMoveCapture={() => {
+            if (pendingConversationRepinRef.current) {
+              pendingRepinUserScrollIntentRef.current = true;
+            }
+          }}
+          onWheelCapture={() => {
+            if (pendingConversationRepinRef.current) {
+              pendingRepinUserScrollIntentRef.current = true;
+            }
+          }}
+          data-testid={transcriptTestId}
+          style={{
+            flexGrow: 1,
+            flexShrink: 1,
+            flexBasis: '0%',
+            minHeight: '0px',
+            overflowY: 'auto',
+            scrollbarGutter: 'stable',
+            scrollbarWidth: 'thin',
+          }}
+          sx={{
+            flex: 1,
+            height: '100%',
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            minWidth: 0,
+            scrollbarGutter: 'stable',
+            scrollbarWidth: 'thin',
+            scrollbarColor: (theme) =>
+              `${theme.palette.action.disabled} transparent`,
+            '&::-webkit-scrollbar': {
+              width: 10,
+              height: 10,
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'action.disabled',
+              borderRadius: 999,
+              border: '2px solid transparent',
+              backgroundClip: 'content-box',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+            ...contentSx,
+          }}
+        >
+          <Stack spacing={1} sx={{ minHeight: 0, flex: 1, width: '100%' }}>
+            {turnsLoading && (
+              <Typography
+                color="text.secondary"
+                variant="caption"
+                sx={{ px: 0.5 }}
+              >
+                Loading history...
+              </Typography>
+            )}
+            {turnsError && (
+              <Alert severity="warning" data-testid={warningTestId}>
+                {turnsErrorMessage ?? 'Failed to load conversation history.'}
+              </Alert>
+            )}
+            {messages.length === 0 &&
+              (emptyStateContent ?? (
+                <Typography color="text.secondary">{emptyMessage}</Typography>
+              ))}
+            <VirtualizedTranscript
+              surface={surface}
+              conversationId={conversationId}
+              messages={messages}
+              turnsLoading={turnsLoading}
+              transcriptContainerRef={transcriptContainerRef}
+              renderMessageRow={renderMessageRow}
+              measurementKeyByMessageId={measurementKeyByMessageId}
+              getScrollSnapshot={getScrollSnapshot}
+              pendingConversationRepin={pendingConversationRepin}
+            />
+          </Stack>
+        </Box>
       </Box>
     );
   },

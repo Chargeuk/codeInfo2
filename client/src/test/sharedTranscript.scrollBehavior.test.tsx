@@ -18,6 +18,8 @@ function buildMessages(count: number) {
   }));
 }
 
+const sharedTranscriptSurfaces = ['chat', 'agents', 'flows'] as const;
+
 describe('Shared transcript scroll and bottom-follow behavior', () => {
   it('renders transcript rows in chronological top-to-bottom order', async () => {
     render(
@@ -139,6 +141,54 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
 
     harness.restore();
   });
+
+  it.each(sharedTranscriptSurfaces)(
+    'renders the jump-to-latest affordance outside the scroll container for %s',
+    async (surface) => {
+      const harness = installTranscriptMeasurementHarness();
+
+      render(
+        <SharedTranscript
+          surface={surface}
+          conversationId={`jump-overlay-${surface}`}
+          messages={buildMessages(14)}
+          activeToolsAvailable={false}
+          emptyMessage="Empty"
+          citationsOpen={{}}
+          thinkOpen={{}}
+          toolOpen={{}}
+          toolErrorOpen={{}}
+          onToggleCitation={() => {}}
+          onToggleThink={() => {}}
+          onToggleTool={() => {}}
+          onToggleToolError={() => {}}
+        />,
+      );
+
+      const transcript = await screen.findByTestId('chat-transcript');
+      harness.setContainerMetrics(transcript, {
+        width: 640,
+        height: 320,
+        clientHeight: 320,
+        scrollHeight: 1400,
+        scrollTop: 1080,
+      });
+
+      act(() => {
+        harness.setScrollMetrics(transcript, {
+          scrollHeight: 1400,
+          scrollTop: 720,
+        });
+        fireEvent.scroll(transcript);
+      });
+
+      const jumpButton = await screen.findByTestId('transcript-jump-to-latest');
+      expect(jumpButton).toBeVisible();
+      expect(transcript.contains(jumpButton)).toBe(false);
+
+      harness.restore();
+    },
+  );
 
   it('opens an existing conversation at the bottom after history finishes loading', async () => {
     const harness = installTranscriptMeasurementHarness();

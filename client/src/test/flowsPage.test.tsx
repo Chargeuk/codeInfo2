@@ -301,9 +301,11 @@ describe('Flows page basics', () => {
     const transcript = screen.getByTestId('flows-transcript');
     expect(transcript).toBeInTheDocument();
     expect(transcript.parentElement).not.toBeNull();
-    expect(transcript.parentElement!.style.paddingLeft).toBe('0px');
-    expect(transcript.parentElement!.style.paddingRight).toBe('0px');
-    expect(transcript.parentElement!.style.overflow).toBe('hidden');
+    const transcriptOverlay = transcript.parentElement!;
+    const overlayStyles = getComputedStyle(transcriptOverlay);
+    expect(overlayStyles.overflow).toBe('hidden');
+    expect(overlayStyles.position).toBe('relative');
+    expect(overlayStyles.display).toBe('flex');
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
 

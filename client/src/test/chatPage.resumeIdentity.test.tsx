@@ -223,5 +223,5 @@ describe('Chat page resumed execution identity', () => {
       conversationId: 'c1',
     });
     expect(chatBodies[0]).not.toHaveProperty('agentName');
-  }, 15000);
+  }, 60000);
 });

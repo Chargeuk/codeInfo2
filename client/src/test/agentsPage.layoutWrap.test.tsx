@@ -126,9 +126,11 @@ describe('Agents shared shell layout wrap', () => {
     expect(['0', '0px']).toContain(transcript.style.minHeight);
     expect(transcript.style.overflowY).toBe('auto');
     expect(transcript.parentElement).not.toBeNull();
-    expect(transcript.parentElement!.style.paddingLeft).toBe('0px');
-    expect(transcript.parentElement!.style.paddingRight).toBe('0px');
-    expect(transcript.parentElement!.style.overflow).toBe('hidden');
+    const transcriptOverlay = transcript.parentElement!;
+    const overlayStyles = getComputedStyle(transcriptOverlay);
+    expect(overlayStyles.overflow).toBe('hidden');
+    expect(overlayStyles.position).toBe('relative');
+    expect(overlayStyles.display).toBe('flex');
   });
 
   it('renders the command selector before the step control in the shared footer order', async () => {

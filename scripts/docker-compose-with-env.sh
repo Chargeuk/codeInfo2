@@ -106,7 +106,10 @@ resolve_docker_socket() {
   # 3) Fallback paths:
   #    - /var/run/docker.sock (common on WSL/Linux)
   #    - ~/.docker/run/docker.sock (common on macOS Docker Desktop)
-  for path in /var/run/docker.sock "${HOME:-}/.docker/run/docker.sock"; do
+  for path in \
+    /var/run/docker.sock \
+    "${HOME:-}/.docker/run/docker.sock" \
+    "${HOME:-}/.docker/desktop/docker.sock"; do
     if [ -S "${path}" ]; then
       printf '%s\n' "${path}"
       return 0
@@ -218,7 +221,7 @@ resolve_runtime_codeinfo_config_dir() {
     return 0
   fi
 
-  fallback_dir="${TMPDIR:-/tmp}/codeinfo2-empty-codeinfo-config"
+  fallback_dir="${repo_root}/logs/codeinfo2-empty-codeinfo-config"
   mkdir -p "${fallback_dir}"
   printf '%s\n' "${fallback_dir}"
 }
@@ -754,6 +757,7 @@ fi
 export CODEINFO_DOCKER_UID="${DOCKER_UID}"
 export CODEINFO_DOCKER_GID="${DOCKER_GID}"
 export CODEINFO_DOCKER_SOCK_GID="${SOCKET_GID}"
+export CODEINFO_DOCKER_SOCKET_PATH="${SOCKET_PATH}"
 export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="$(resolve_runtime_codeinfo_config_dir)"
 export CODEINFO_HOST_CODEX_HOME="$(resolve_host_codex_home_dir)"
 

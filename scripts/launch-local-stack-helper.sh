@@ -31,7 +31,7 @@ resolve_repo_root() {
 }
 
 resolve_docker_socket() {
-  local path
+  local endpoint path
   if [ -n "${CODEINFO_LOCAL_HELPER_SOCKET_PATH:-}" ]; then
     printf '%s\n' "${CODEINFO_LOCAL_HELPER_SOCKET_PATH}"
     return 0
@@ -49,7 +49,21 @@ resolve_docker_socket() {
     esac
   fi
 
-  for path in /var/run/docker.sock "${HOME:-}/.docker/run/docker.sock"; do
+  endpoint="$("${DOCKER_BIN}" context inspect --format '{{ .Endpoints.docker.Host }}' 2>/dev/null || true)"
+  case "${endpoint}" in
+    unix://*)
+      path="${endpoint#unix://}"
+      if [ -S "${path}" ]; then
+        printf '%s\n' "${path}"
+        return 0
+      fi
+      ;;
+  esac
+
+  for path in \
+    /var/run/docker.sock \
+    "${HOME:-}/.docker/run/docker.sock" \
+    "${HOME:-}/.docker/desktop/docker.sock"; do
     if [ -S "${path}" ]; then
       printf '%s\n' "${path}"
       return 0

@@ -48,6 +48,7 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   assert.match(mainMongo, /27517:27017/u);
   const mainChroma = getServiceBlock(mainCompose, 'chroma');
   assert.match(mainChroma, /'8000:8000'/u);
+  assert.match(mainChroma, /00000000:1F40/u);
   const mainOtel = getServiceBlock(mainCompose, 'otel-collector');
   assert.match(mainOtel, /'4317:4317'/u);
   assert.match(mainOtel, /'4318:4318'/u);
@@ -72,6 +73,7 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   assert.match(localMongo, /27417:27017/u);
   const localChroma = getServiceBlock(localCompose, 'chroma');
   assert.match(localChroma, /'8200:8000'/u);
+  assert.match(localChroma, /00000000:1F40/u);
   const localOtel = getServiceBlock(localCompose, 'otel-collector');
   assert.match(localOtel, /'4917:4317'/u);
   assert.match(localOtel, /'4918:4318'/u);
@@ -92,6 +94,7 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   assert.match(e2eMongo, /27617:27017/u);
   const e2eChroma = getServiceBlock(e2eCompose, 'chroma-e2e');
   assert.match(e2eChroma, /'8800:8000'/u);
+  assert.match(e2eChroma, /00000000:1F40/u);
   const e2eOtel = getServiceBlock(e2eCompose, 'otel-collector');
   assert.match(e2eOtel, /'4417:4317'/u);
   assert.match(e2eOtel, /'4418:4318'/u);
@@ -254,7 +257,7 @@ test('compose wrapper resolves a non-repo fallback mount for absent codeinfo_con
 
   assert.match(
     composeWrapper,
-    /fallback_dir="\$\{TMPDIR:-\/tmp\}\/codeinfo2-empty-codeinfo-config"/u,
+    /fallback_dir="\$\{repo_root\}\/logs\/codeinfo2-empty-codeinfo-config"/u,
   );
   assert.match(
     composeWrapper,
@@ -289,5 +292,29 @@ test('compose wrapper normalizes host Codex-home mounts when HOME resolves to a 
   assert.match(
     composeWrapper,
     /export CODEINFO_HOST_CODEX_HOME="\$\(resolve_host_codex_home_dir\)"/u,
+  );
+});
+
+test('compose wrapper exports the resolved docker socket path for Linux Docker Desktop-compatible bind mounts', () => {
+  const composeWrapper = readRepoFile('scripts/docker-compose-with-env.sh');
+  const localCompose = readRepoFile('docker-compose.local.yml');
+  const helperLauncher = readRepoFile('scripts/launch-local-stack-helper.sh');
+
+  assert.match(
+    composeWrapper,
+    /"\$\{HOME:-\}\/\.docker\/desktop\/docker\.sock"/u,
+  );
+  assert.match(
+    composeWrapper,
+    /export CODEINFO_DOCKER_SOCKET_PATH="\$\{SOCKET_PATH\}"/u,
+  );
+  assert.match(
+    localCompose,
+    /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
+  );
+  assert.match(helperLauncher, /context inspect --format/u);
+  assert.match(
+    helperLauncher,
+    /"\$\{HOME:-\}\/\.docker\/desktop\/docker\.sock"/u,
   );
 });

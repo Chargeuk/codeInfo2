@@ -109,16 +109,17 @@ class ReviewPromptContractTests(unittest.TestCase):
         document_minor_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
         task_up_text = read_text("codeinfo_markdown/ensure_review_findings_became_tasks.md")
 
-        self.assertIn("review_rerun_count", classify_text)
         self.assertIn("at most one fresh rerun", classify_text)
+        self.assertIn("previous same-cycle state already had `needs_review_rerun_before_close: true`", classify_text)
         self.assertIn("do not request a second rerun", classify_text)
         self.assertIn("needs_task_up_path", classify_text)
-        self.assertIn("review rerun did not converge", classify_text)
-        self.assertIn("review_rerun_count", document_minor_text)
-        self.assertIn("Do not increment `review_rerun_count` in this step", document_minor_text)
-        self.assertIn("needs_review_rerun_before_close: true", task_up_text)
-        self.assertIn("review_rerun_count >= 1", task_up_text)
-        self.assertIn("exhausted-rerun", task_up_text)
+        self.assertIn("unresolved_task_required_findings", classify_text)
+        self.assertIn("incomplete_review_blockers", classify_text)
+        self.assertIn("review did not converge after one allowed rerun", classify_text)
+        self.assertNotIn("review_rerun_count", classify_text)
+        self.assertNotIn("review_rerun_count", document_minor_text)
+        self.assertNotIn("review_rerun_count", task_up_text)
+        self.assertNotIn("exhausted-rerun", task_up_text)
 
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(

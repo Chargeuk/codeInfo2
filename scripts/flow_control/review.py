@@ -44,27 +44,7 @@ def _review_context(payload: dict[str, Any] | None) -> dict[str, Any]:
         "review_created_tasks_added_or_updated": payload.get(
             "review_created_tasks_added_or_updated"
         ),
-        "review_rerun_count": _review_rerun_count(payload),
     }
-
-
-def _review_rerun_count(payload: dict[str, Any] | None) -> int:
-    if not isinstance(payload, dict):
-        return 0
-    value = payload.get("review_rerun_count")
-    if isinstance(value, int) and value >= 0:
-        return value
-    return 0
-
-
-def _review_rerun_budget_exhausted(payload: dict[str, Any] | None) -> bool:
-    if not isinstance(payload, dict):
-        return False
-    return (
-        payload.get("needs_review_rerun_before_close") is True
-        and _review_rerun_count(payload) >= 1
-        and payload.get("review_created_tasks_added_or_updated") is not True
-    )
 
 
 def check_review_minor_fix_path_clear() -> DecisionOutcome:
@@ -104,6 +84,4 @@ def check_review_task_up_path_clear() -> DecisionOutcome:
         return yes("review_state_unreadable", error=error)
     if payload.get("needs_task_up_path") is True:
         return no("task_up_path_still_needed", **_review_context(payload))
-    if _review_rerun_budget_exhausted(payload):
-        return no("review_rerun_budget_exhausted", **_review_context(payload))
     return yes("task_up_path_clear", **_review_context(payload))

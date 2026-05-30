@@ -50,6 +50,15 @@ const findBubbleByRole = async (role: string, kind: string = 'normal') => {
   return match;
 };
 
+async function openBubbleInfoPopover(
+  bubble: HTMLElement,
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  await user.click(within(bubble).getByTestId('bubble-info'));
+  const popovers = await screen.findAllByTestId('bubble-info-popover');
+  return popovers[popovers.length - 1];
+}
+
 function mockAgentsFetch(params?: {
   conversations?: unknown;
   turns?: unknown;
@@ -461,7 +470,7 @@ describe('AgentsPage live transcript (WS)', () => {
     await waitFor(() => {
       expect(
         within(newerBubbleNode).getByTestId('status-chip'),
-      ).toHaveTextContent('Processing');
+      ).toHaveTextContent('Working');
       expect(
         within(olderBubbleNode).getByTestId('status-chip'),
       ).toHaveTextContent('Complete');
@@ -723,16 +732,16 @@ describe('AgentsPage live transcript (WS)', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
-    const scoped = within(assistantBubble);
-    expect(scoped.getByTestId('bubble-timestamp')).toHaveTextContent(
-      formatTimestamp(startedAt),
-    );
-    expect(scoped.getByTestId('bubble-tokens')).toHaveTextContent(
-      'Tokens: in 7 · out 3 · total 10',
-    );
-    expect(scoped.getByTestId('bubble-timing')).toHaveTextContent(
-      'Time: 1.4s · Rate: 9.1 tok/s',
-    );
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
+    expect(
+      within(infoPopover).getByTestId('bubble-info-time'),
+    ).toHaveTextContent(formatTimestamp(startedAt));
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).toHaveTextContent('Tokens: in 7 · out 3 · total 10');
+    expect(
+      within(infoPopover).getByTestId('bubble-info-timing'),
+    ).toHaveTextContent('Time: 1.4s · Rate: 9.1 tok/s');
   });
 
   it('renders step indicator only when command metadata exists', async () => {
@@ -770,9 +779,10 @@ describe('AgentsPage live transcript (WS)', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
     expect(
-      within(assistantBubble).getByTestId('bubble-step'),
-    ).toHaveTextContent('Step 2 of 6');
+      within(infoPopover).getByTestId('bubble-info-step'),
+    ).toHaveTextContent('Step: Step 2 of 6');
 
     emitWsEvent({
       protocolVersion: 'v1',
@@ -802,7 +812,8 @@ describe('AgentsPage live transcript (WS)', () => {
     ) as HTMLElement | null;
     expect(bubble).not.toBeNull();
     if (bubble) {
-      expect(within(bubble).queryByTestId('bubble-step')).toBeNull();
+      const infoPopover = await openBubbleInfoPopover(bubble, user);
+      expect(within(infoPopover).queryByTestId('bubble-info-step')).toBeNull();
     }
   });
 
@@ -841,8 +852,9 @@ describe('AgentsPage live transcript (WS)', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
     expect(
-      within(assistantBubble).getByTestId('bubble-step'),
-    ).toHaveTextContent('Step 1 of 3');
+      within(infoPopover).getByTestId('bubble-info-step'),
+    ).toHaveTextContent('Step: Step 1 of 3');
   });
 });

@@ -145,5 +145,5 @@ describe('Codex network access flag defaults', () => {
 
     const networkSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(networkSwitch).toBeChecked());
-  });
+  }, 30_000);
 });

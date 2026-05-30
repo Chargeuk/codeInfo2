@@ -279,7 +279,7 @@ async function openCommandPicker(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function clickExecuteCommand(user: ReturnType<typeof userEvent.setup>) {
-  const execute = await screen.findByTestId('agent-command-execute');
+  const execute = await screen.findByTestId('agent-send');
   await waitFor(() => expect(execute).toBeEnabled());
   await user.click(execute);
 }
@@ -328,7 +328,7 @@ describe('Agents page stop control', () => {
     });
 
     const statusChip = await screen.findByTestId('status-chip');
-    await waitFor(() => expect(statusChip).toHaveTextContent('Processing'));
+    await waitFor(() => expect(statusChip).toHaveTextContent('Working'));
 
     const stopButton = await screen.findByTestId('agent-stop');
     await waitFor(() => expect(stopButton).toBeEnabled());
@@ -346,9 +346,9 @@ describe('Agents page stop control', () => {
     await waitFor(() =>
       expect(screen.getByTestId('agent-stop')).toBeDisabled(),
     );
-    expect(screen.getByTestId('agent-stop')).toHaveTextContent('Stopping...');
+    expect(screen.getByTestId('agent-stop')).toHaveTextContent('Stopping');
     expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-      'Stopping',
+      'Working',
     );
     expect(
       parseSocketMessages().filter(
@@ -434,7 +434,7 @@ describe('Agents page stop control', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('agent-stop')).not.toBeInTheDocument(),
     );
-    expect(await screen.findByTestId('agent-command-execute')).toBeEnabled();
+    expect(await screen.findByTestId('agent-send')).toBeEnabled();
     expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument();
     expect(
       infoSpy.mock.calls.some(

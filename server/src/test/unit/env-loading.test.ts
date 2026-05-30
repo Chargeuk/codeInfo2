@@ -450,7 +450,7 @@ test('checked-in defaults and wrappers seed only renamed CODEINFO server env nam
     'docker-compose.yml',
     'docker-compose.local.yml',
     'docker-compose.e2e.yml',
-    'scripts/test-summary-server-unit.mjs',
+    'scripts/test-summary-server-unit-env.mjs',
     'scripts/test-summary-server-cucumber.mjs',
     'server/package.json',
   ];

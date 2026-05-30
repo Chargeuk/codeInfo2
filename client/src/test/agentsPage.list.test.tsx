@@ -78,8 +78,15 @@ function mockAgentsListAndDetails() {
         status: 200,
         json: async () => ({
           agents: [
-            { name: 'coding_agent', warnings: ['duplicate root warning'] },
-            { name: 'review_agent' },
+            {
+              name: 'coding_agent',
+              warnings: ['duplicate root warning'],
+              executionProviderId: 'codex',
+            },
+            {
+              name: 'review_agent',
+              executionProviderId: 'lmstudio',
+            },
           ],
         }),
       } as Response);
@@ -127,27 +134,33 @@ describe('Agents page - list/details separation', () => {
     expect(
       screen.queryByText(/unsupported provider "not-a-provider"/i),
     ).toBeNull();
+    expect(
+      within(screen.getByTestId('agent-select-trigger')).getByRole('img', {
+        name: 'OpenAI Codex logo',
+      }),
+    ).toBeVisible();
+
+    await user.click(screen.getByTestId('agent-select-trigger'));
+    const listbox = await screen.findByRole('listbox', {
+      name: /agent options/i,
+    });
+    expect(
+      within(listbox).getByRole('img', { name: 'OpenAI Codex logo' }),
+    ).toBeVisible();
+    expect(
+      within(listbox).getByRole('img', { name: 'LM Studio logo' }),
+    ).toBeVisible();
 
     await user.click(screen.getByTestId('agent-info'));
 
     const popover = await screen.findByTestId('agent-info-popover');
-    expect(
-      await within(popover).findByText(
+    await waitFor(() =>
+      expect(popover).toHaveTextContent(
         /unsupported provider "not-a-provider"/i,
       ),
-    ).toBeInTheDocument();
-    expect(
-      await within(popover).findByText('No usable provider remains'),
-    ).toBeVisible();
+    );
+    expect(popover).toHaveTextContent('No usable provider remains');
     expect(getDetailFetches()).toBe(1);
     expect(select).toHaveTextContent('coding_agent');
-
-    await user.click(select);
-    expect(
-      await screen.findByRole('option', { name: 'coding_agent' }),
-    ).toBeVisible();
-    expect(
-      await screen.findByRole('option', { name: 'review_agent' }),
-    ).toBeVisible();
   });
 });

@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -63,6 +64,13 @@ function emitWsEvent(event: Record<string, unknown>) {
   });
 }
 
+async function openBubbleInfoPopover(bubble: HTMLElement) {
+  const user = userEvent.setup();
+  await user.click(within(bubble).getByTestId('bubble-info'));
+  const popovers = await screen.findAllByTestId('bubble-info-popover');
+  return popovers[popovers.length - 1];
+}
+
 describe('Flows page basics', () => {
   it('keeps flow metadata, omits citations, and recovers cleanly after a transient empty transcript', async () => {
     const harness = installTranscriptMeasurementHarness();
@@ -99,6 +107,14 @@ describe('Flows page basics', () => {
           activeToolsAvailable={false}
           citationsEnabled={false}
           emptyMessage="No flow transcript yet."
+          renderHeaderContent={(message) =>
+            message.command?.label ? (
+              <span data-testid="bubble-flow-step-header">
+                {message.command.label} · {message.command.stepIndex} of{' '}
+                {message.command.totalSteps}
+              </span>
+            ) : null
+          }
           renderMetadataContent={(message) => (
             <span data-testid="bubble-flow-meta">
               {message.command?.label} · {message.command?.agentType}/
@@ -132,13 +148,17 @@ describe('Flows page basics', () => {
     transcript.scrollTop = 420;
     fireEvent.scroll(transcript);
 
-    expect(await screen.findAllByTestId('bubble-flow-meta')).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          textContent: expect.stringContaining('coding_agent/coder'),
-        }),
-      ]),
-    );
+    const bubble = (await screen.findAllByTestId('chat-bubble')).find((item) =>
+      item.textContent?.includes('Flow transcript message 8'),
+    ) as HTMLElement | undefined;
+    expect(bubble).toBeDefined();
+    const infoPopover = await openBubbleInfoPopover(bubble!);
+    expect(
+      within(infoPopover).getByTestId('bubble-flow-meta'),
+    ).toHaveTextContent('Step 8 · coding_agent/coder');
+    expect(
+      within(bubble!).getByTestId('bubble-flow-step-header'),
+    ).toHaveTextContent('Step 8 · 8 of 14');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
 
     const measuredRow = transcript.querySelector(
@@ -155,17 +175,23 @@ describe('Flows page basics', () => {
     await waitFor(() => expect(transcript.scrollTop).toBe(scrollTop + 180));
 
     rerender(<StatefulFlowsTranscript currentMessages={[]} />);
-    expect(screen.queryByTestId('bubble-flow-meta')).toBeNull();
+    expect(screen.queryByTestId('bubble-info-popover')).toBeNull();
     expect(screen.getByText('No flow transcript yet.')).toBeInTheDocument();
 
     rerender(<StatefulFlowsTranscript currentMessages={messages} />);
-    expect(await screen.findAllByTestId('bubble-flow-meta')).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          textContent: expect.stringContaining('coding_agent/coder'),
-        }),
-      ]),
+    const rerenderedBubble = (await screen.findAllByTestId('chat-bubble')).find(
+      (item) => item.textContent?.includes('Flow transcript message 8'),
+    ) as HTMLElement | undefined;
+    expect(rerenderedBubble).toBeDefined();
+    const rerenderedInfoPopover = await openBubbleInfoPopover(
+      rerenderedBubble!,
     );
+    expect(
+      within(rerenderedInfoPopover).getByTestId('bubble-flow-meta'),
+    ).toHaveTextContent('Step 8 · coding_agent/coder');
+    expect(
+      within(rerenderedBubble!).getByTestId('bubble-flow-step-header'),
+    ).toHaveTextContent('Step 8 · 8 of 14');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
 
     harness.restore();
@@ -262,9 +288,24 @@ describe('Flows page basics', () => {
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
 
-    const metadata = await screen.findByTestId('bubble-flow-meta');
-    expect(metadata).toHaveTextContent('Plan · planning_agent/main');
-    expect(screen.getByTestId('flows-transcript')).toBeInTheDocument();
+    const bubbles = await screen.findAllByTestId('chat-bubble');
+    const bubble = bubbles[0] as HTMLElement | undefined;
+    expect(bubble).toBeDefined();
+    expect(
+      within(bubble!).getByTestId('bubble-flow-step-header'),
+    ).toHaveTextContent('Plan · 1 of 3');
+    await openBubbleInfoPopover(bubble!);
+    expect(await screen.findByTestId('bubble-info-step')).toHaveTextContent(
+      'Step: Step 1 of 3',
+    );
+    const transcript = screen.getByTestId('flows-transcript');
+    expect(transcript).toBeInTheDocument();
+    expect(transcript.parentElement).not.toBeNull();
+    const transcriptOverlay = transcript.parentElement!;
+    const overlayStyles = getComputedStyle(transcriptOverlay);
+    expect(overlayStyles.overflow).toBe('hidden');
+    expect(overlayStyles.position).toBe('relative');
+    expect(overlayStyles.display).toBe('flex');
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
 
@@ -606,7 +647,11 @@ describe('Flows page basics', () => {
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
-    await screen.findByText('Flow: daily');
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent(
+        'Flow: daily',
+      ),
+    );
 
     emitWsEvent({
       protocolVersion: 'v1',
@@ -710,8 +755,12 @@ describe('Flows page basics', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByText('Flow: daily one');
-    await user.click(screen.getByText('Flow: daily one'));
+    const flowRows = await screen.findAllByTestId('conversation-row');
+    const firstRow = flowRows.find((row) =>
+      within(row).queryByText('Flow: daily one'),
+    );
+    expect(firstRow).toBeTruthy();
+    await user.click(firstRow!);
 
     emitWsEvent({
       protocolVersion: 'v1',
@@ -731,7 +780,12 @@ describe('Flows page basics', () => {
     expect(await screen.findByTestId('think-content')).toBeVisible();
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
 
-    await user.click(await screen.findByText('Flow: daily two'));
+    const secondConversation = await screen.findByText('Flow: daily two');
+    const secondRow = secondConversation.closest(
+      '[data-testid="conversation-row"]',
+    );
+    expect(secondRow).toBeTruthy();
+    await user.click(secondRow!);
 
     emitWsEvent({
       protocolVersion: 'v1',
@@ -747,6 +801,11 @@ describe('Flows page basics', () => {
       },
     });
 
+    const bubble = (await screen.findAllByTestId('chat-bubble')).find((item) =>
+      item.textContent?.includes('Flow content Two'),
+    ) as HTMLElement | undefined;
+    expect(bubble).toBeDefined();
+    await openBubbleInfoPopover(bubble!);
     expect(await screen.findByTestId('bubble-flow-meta')).toHaveTextContent(
       'Step Two · coding_agent/coder',
     );
@@ -986,7 +1045,9 @@ describe('Flows info popover', () => {
     });
 
     transcript.scrollTop = 410;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(410));
 
     measurementHarness.setScrollMetrics(transcript, {
       scrollHeight: 1310,

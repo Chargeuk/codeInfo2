@@ -80,7 +80,7 @@ const createBaseProps = (
   isError: false,
   error: undefined,
   hasMore: false,
-  filterState: 'active',
+  filterState: { active: true, archived: false },
   mongoConnected: true,
   disabled: false,
   onSelect: jest.fn(),
@@ -109,11 +109,9 @@ function filterConversations(
   all: ConversationListItem[],
   filterState: ConversationFilterState,
 ) {
-  return all.filter((c) => {
-    if (filterState === 'all') return true;
-    if (filterState === 'archived') return Boolean(c.archived);
-    return !c.archived;
-  });
+  if (filterState.active && filterState.archived) return all;
+  if (filterState.archived) return all.filter((c) => Boolean(c.archived));
+  return all.filter((c) => !c.archived);
 }
 
 function makeBulkArchiveResult(ids: string[]): ConversationBulkResult {
@@ -359,8 +357,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: true,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('all');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: true,
+      });
 
       return (
         <ConversationList
@@ -424,8 +424,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: false,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('active');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: false,
+      });
 
       return (
         <>
@@ -507,8 +509,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: true,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('all');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: true,
+      });
 
       return (
         <ConversationList
@@ -549,7 +553,7 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     expect(screen.getByTestId('conversation-bulk-archive')).toBeEnabled();
     expect(screen.queryByTestId('conversation-bulk-delete')).toBeNull();
 
-    await user.click(screen.getByTestId('conversation-filter-archived'));
+    await user.click(screen.getByTestId('conversation-filter-active'));
     await waitFor(() =>
       expect(
         screen.getByTestId('conversation-bulk-restore'),
@@ -572,8 +576,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     );
 
     function Wrapper() {
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('archived');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: false,
+        archived: true,
+      });
       const conversations: ConversationListItem[] = [
         {
           conversationId: 'c1',
@@ -630,6 +636,84 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     await waitFor(() => expect(bulkDelete).toHaveBeenCalledTimes(1));
   });
 
+  it('keeps archived bulk-delete confirmation disabled when mutations become unavailable before submit', async () => {
+    const user = userEvent.setup();
+    const bulkDelete = jest.fn(async (ids: string[]) =>
+      makeBulkDeleteResult(ids),
+    );
+
+    function Wrapper() {
+      const [mongoConnected, setMongoConnected] = useState(true);
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: false,
+        archived: true,
+      });
+      const conversations: ConversationListItem[] = [
+        {
+          conversationId: 'c1',
+          title: 'Archived conversation',
+          provider: 'lmstudio',
+          model: 'm1',
+          lastMessageAt: '2025-01-01T00:00:00Z',
+          archived: true,
+        },
+      ];
+
+      return (
+        <>
+          <button
+            type="button"
+            data-testid="disconnect-mongo"
+            onClick={() => setMongoConnected(false)}
+          >
+            Disconnect Mongo
+          </button>
+          <ConversationList
+            conversations={filterConversations(conversations, filterState)}
+            selectedId={undefined}
+            isLoading={false}
+            isError={false}
+            error={undefined}
+            hasMore={false}
+            filterState={filterState}
+            mongoConnected={mongoConnected}
+            disabled={false}
+            onSelect={() => undefined}
+            onFilterChange={setFilterState}
+            onArchive={() => undefined}
+            onRestore={() => undefined}
+            onBulkArchive={async (ids) => makeBulkArchiveResult(ids)}
+            onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
+            onBulkDelete={bulkDelete}
+            onLoadMore={async () => undefined}
+            onRefresh={() => undefined}
+            onRetry={() => undefined}
+          />
+        </>
+      );
+    }
+
+    render(<Wrapper />);
+
+    await user.click(
+      within(rowByTitle('Archived conversation')).getByTestId(
+        'conversation-select',
+      ),
+    );
+    await user.click(screen.getByTestId('conversation-bulk-delete'));
+
+    expect(
+      await screen.findByTestId('conversation-delete-confirm'),
+    ).toBeEnabled();
+
+    await user.click(screen.getByTestId('disconnect-mongo'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('conversation-delete-confirm')).toBeDisabled(),
+    );
+    expect(bulkDelete).not.toHaveBeenCalled();
+  });
+
   it('keeps unresolved rows selected after partial bulk archive and excludes confirmed rows from the next request', async () => {
     const user = userEvent.setup();
     const bulkArchive = jest
@@ -663,8 +747,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: false,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('all');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: true,
+      });
 
       return (
         <ConversationList
@@ -750,7 +836,7 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
         isError={false}
         error={undefined}
         hasMore={false}
-        filterState="active"
+        filterState={{ active: true, archived: false }}
         mongoConnected={false}
         disabled={false}
         onSelect={() => undefined}
@@ -771,6 +857,21 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('conversation-select-all')).toBeDisabled();
     expect(screen.getByTestId('conversation-select')).toBeDisabled();
+  });
+
+  it('disables row-level archive and restore actions when mongoConnected is false', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          conversations: baseConversations,
+          filterState: { active: true, archived: true },
+          mongoConnected: false,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('conversation-archive')).toBeDisabled();
+    expect(screen.getByTestId('conversation-restore')).toBeDisabled();
   });
 });
 

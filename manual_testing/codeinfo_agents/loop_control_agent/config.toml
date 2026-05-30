@@ -3,7 +3,7 @@ model = "gpt-5-mini"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-web_search = "disabled"
+web_search_mode = "disabled"
 
 [features]
 view_image_tool = true

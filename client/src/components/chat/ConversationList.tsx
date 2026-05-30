@@ -1,11 +1,11 @@
 import ArchiveIcon from '@mui/icons-material/Archive';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RestoreIcon from '@mui/icons-material/Restore';
 import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   Divider,
   Dialog,
@@ -14,24 +14,30 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  Checkbox,
   List,
   ListItem,
   ListItemButton,
-  ListItemText,
+  ListItemIcon,
   Snackbar,
   Stack,
   ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { type InputHTMLAttributes } from 'react';
 import type { ConversationFlags } from '../../api/conversations';
 import type {
   ConversationBulkResult,
   ConversationFilterState,
 } from '../../hooks/useConversations';
 import { createLogger } from '../../logging/logger';
+import {
+  formatConversationRowTimestamp,
+  getConversationProviderPresentation,
+} from './conversationRowFormatting';
+import { useRelativeTimeTick } from './useRelativeTimeTick';
 
 export type ConversationListItem = {
   conversationId: string;
@@ -44,6 +50,63 @@ export type ConversationListItem = {
   flags?: ConversationFlags;
   agentName?: string;
   flowName?: string;
+  previewUserText?: string;
+  previewAssistantSummary?: string;
+  previewSystemSummary?: string;
+};
+
+const checkboxInputProps = (
+  ariaLabel: string,
+  dataTestId: string,
+): InputHTMLAttributes<HTMLInputElement> & {
+  'aria-label': string;
+  'data-testid': string;
+} => ({
+  'aria-label': ariaLabel,
+  'data-testid': dataTestId,
+});
+
+const fallbackFilterState: ConversationFilterState = {
+  active: true,
+  archived: false,
+};
+
+const normalizeVisibleFilterState = (state: ConversationFilterState) =>
+  state.active || state.archived ? state : fallbackFilterState;
+
+const getNextVisibleFilterState = (
+  current: ConversationFilterState,
+  toggled: 'active' | 'archived',
+) => {
+  if (toggled === 'active') {
+    if (current.active) {
+      return current.archived
+        ? {
+            active: false,
+            archived: true,
+          }
+        : fallbackFilterState;
+    }
+
+    return {
+      active: true,
+      archived: current.archived,
+    };
+  }
+
+  if (current.archived) {
+    return current.active
+      ? {
+          active: true,
+          archived: false,
+        }
+      : fallbackFilterState;
+  }
+
+  return {
+    active: current.active,
+    archived: true,
+  };
 };
 
 type Props = {
@@ -57,6 +120,7 @@ type Props = {
   mongoConnected?: boolean | null;
   disabled?: boolean;
   selectionDisabled?: boolean;
+  newActionDisabled?: boolean;
   variant?: 'chat' | 'agents';
   onSelect: (conversationId: string) => void;
   onFilterChange: (state: ConversationFilterState) => void;
@@ -72,46 +136,10 @@ type Props = {
   onLoadMore: () => Promise<void> | void;
   onRefresh: () => void;
   onRetry: () => void;
+  onNewConversation?: () => void;
+  newActionLabel?: string;
+  showHeaderTitle?: boolean;
 };
-
-const checkboxInputProps = (
-  ariaLabel: string,
-  dataTestId: string,
-): InputHTMLAttributes<HTMLInputElement> & {
-  'aria-label': string;
-  'data-testid': string;
-} => ({
-  'aria-label': ariaLabel,
-  'data-testid': dataTestId,
-});
-
-function formatTimestamp(value?: string) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleString();
-}
-
-function readRunExecutionId(conversation: ConversationListItem) {
-  const parentExecutionId =
-    conversation.flowName &&
-    typeof conversation.flags?.flow?.executionId === 'string'
-      ? conversation.flags.flow.executionId.trim()
-      : '';
-  if (parentExecutionId.length > 0) return parentExecutionId;
-
-  const childExecutionId =
-    conversation.agentName &&
-    typeof conversation.flags?.flowChild?.executionId === 'string'
-      ? conversation.flags.flowChild.executionId.trim()
-      : '';
-  return childExecutionId.length > 0 ? childExecutionId : undefined;
-}
-
-function formatRunLabel(executionId?: string) {
-  if (!executionId) return undefined;
-  return `Run ${executionId.slice(0, 8)}`;
-}
 
 export function ConversationList({
   conversations,
@@ -124,6 +152,7 @@ export function ConversationList({
   mongoConnected,
   disabled,
   selectionDisabled = false,
+  newActionDisabled = false,
   variant = 'chat',
   onSelect,
   onFilterChange,
@@ -135,13 +164,21 @@ export function ConversationList({
   onLoadMore,
   onRefresh,
   onRetry,
+  onNewConversation,
+  newActionLabel = 'New conversation',
+  showHeaderTitle = true,
 }: Props) {
+  const relativeTimeNowMs = useRelativeTimeTick();
   const log = useMemo(() => createLogger('client'), []);
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
+  const showBulkUi = enableBulkUi;
   const showFilters = true;
   const showRowActions = true;
+  void showHeaderTitle;
   const mutationDisabled = Boolean(disabled || selectionDisabled);
+  const newActionLocked = Boolean(disabled || newActionDisabled);
   const bulkDisabled = Boolean(mutationDisabled || mongoConnected === false);
+  const visibleFilterState = normalizeVisibleFilterState(filterState);
   const sorted = useMemo(
     () =>
       [...conversations].sort((a, b) => {
@@ -189,10 +226,10 @@ export function ConversationList({
   useEffect(() => {
     if (!enableBulkUi) return;
     log('info', 'chat.sidebar.selection_changed', {
-      filterState,
+      filterState: visibleFilterState,
       selectedCount: selectedIds.size,
     });
-  }, [enableBulkUi, filterState, log, selectedIds.size, selectedKey]);
+  }, [enableBulkUi, log, selectedIds.size, selectedKey, visibleFilterState]);
 
   useEffect(() => {
     log('info', '0000023 conversationlist controls visible', {
@@ -251,15 +288,20 @@ export function ConversationList({
     enableBulkUi &&
     !bulkDisabled &&
     selectedIds.size > 0 &&
-    filterState === 'archived' &&
+    !visibleFilterState.active &&
+    visibleFilterState.archived &&
     Boolean(onBulkDelete);
 
   const handleBulk = async (action: 'archive' | 'restore' | 'delete') => {
+    if (action === 'archive' && !canBulkArchive) return;
+    if (action === 'restore' && !canBulkRestore) return;
+    if (action === 'delete' && !canBulkDelete) return;
+
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
     log('info', 'chat.sidebar.bulk_action_request', {
-      filterState,
+      filterState: visibleFilterState,
       selectedCount: ids.length,
       action,
     });
@@ -302,7 +344,7 @@ export function ConversationList({
       setSelectedIds(new Set(result.pendingConversationIds));
 
       log('info', 'chat.sidebar.bulk_action_result', {
-        filterState,
+        filterState: visibleFilterState,
         selectedCount: ids.length,
         action,
         status: pendingCount > 0 ? 'partial' : 'ok',
@@ -315,7 +357,7 @@ export function ConversationList({
           ? String((err as { code?: unknown }).code)
           : undefined;
       log('info', 'chat.sidebar.bulk_action_result', {
-        filterState,
+        filterState: visibleFilterState,
         selectedCount: ids.length,
         action,
         status: 'failed',
@@ -329,72 +371,140 @@ export function ConversationList({
   };
 
   return (
-    <Stack spacing={1} sx={{ height: '100%', minHeight: 0 }}>
+    <Stack
+      spacing={1}
+      sx={{ height: '100%', minHeight: 0, width: '100%', bgcolor: '#F4F6F8' }}
+    >
       <Stack
         spacing={0.75}
-        sx={{ px: 1.5 }}
+        sx={{
+          px: 1.5,
+          py: 1,
+          bgcolor: '#DCE7F2',
+          borderBottom: '1px solid',
+          borderColor: '#D9E2EC',
+        }}
         style={{ paddingLeft: 12, paddingRight: 12 }}
       >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
+          spacing={1}
+          sx={{ minWidth: 0 }}
+          data-testid="conversation-filter"
         >
-          <Typography variant="subtitle1" fontWeight={700}>
-            Conversations
-          </Typography>
+          {showFilters ? (
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <ToggleButton
+                value="active"
+                selected={visibleFilterState.active}
+                onClick={() => {
+                  const next = getNextVisibleFilterState(
+                    visibleFilterState,
+                    'active',
+                  );
+                  log('info', 'chat.sidebar.filter_changed', {
+                    filterState: next,
+                  });
+                  onFilterChange(next);
+                }}
+                data-testid="conversation-filter-active"
+                aria-label="Active conversations"
+                disabled={disabled}
+                size="small"
+                sx={{
+                  minWidth: 0,
+                  px: 1.25,
+                  py: 0.5,
+                  borderColor: '#D9E2EC',
+                  color: visibleFilterState.active ? '#F4F6F8' : '#1F2933',
+                  bgcolor: visibleFilterState.active ? '#20354A' : '#F4F6F8',
+                  '&.Mui-selected': {
+                    color: '#F4F6F8',
+                    bgcolor: '#20354A',
+                  },
+                  '&.Mui-selected:hover': {
+                    bgcolor: '#20354A',
+                  },
+                }}
+              >
+                Active
+              </ToggleButton>
+              <ToggleButton
+                value="archived"
+                selected={visibleFilterState.archived}
+                onClick={() => {
+                  const next = getNextVisibleFilterState(
+                    visibleFilterState,
+                    'archived',
+                  );
+                  log('info', 'chat.sidebar.filter_changed', {
+                    filterState: next,
+                  });
+                  onFilterChange(next);
+                }}
+                data-testid="conversation-filter-archived"
+                aria-label="Archived conversations"
+                disabled={disabled}
+                size="small"
+                sx={{
+                  minWidth: 0,
+                  px: 1.25,
+                  py: 0.5,
+                  borderColor: '#D9E2EC',
+                  color: visibleFilterState.archived ? '#F4F6F8' : '#1F2933',
+                  bgcolor: visibleFilterState.archived ? '#20354A' : '#F4F6F8',
+                  '&.Mui-selected': {
+                    color: '#F4F6F8',
+                    bgcolor: '#20354A',
+                  },
+                  '&.Mui-selected:hover': {
+                    bgcolor: '#20354A',
+                  },
+                }}
+              >
+                Archived
+              </ToggleButton>
+            </Stack>
+          ) : (
+            <Box />
+          )}
           {showFilters && (
-            <Tooltip title="Refresh list">
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={onRefresh}
-                  disabled={disabled}
-                  aria-label="Refresh conversations"
-                  data-testid="conversation-refresh"
-                >
-                  <RefreshIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
+            <Stack direction="row" spacing={0.25} alignItems="center">
+              {onNewConversation ? (
+                <Tooltip title={newActionLabel}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={onNewConversation}
+                      disabled={newActionLocked}
+                      aria-label={newActionLabel}
+                      data-testid="conversation-new"
+                      sx={{ color: '#1F2933' }}
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              ) : null}
+              <Tooltip title="Refresh list">
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onRefresh}
+                    disabled={disabled}
+                    aria-label="Refresh conversations"
+                    data-testid="conversation-refresh"
+                    sx={{ color: '#1F2933' }}
+                  >
+                    <RefreshIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Stack>
           )}
         </Stack>
-
-        {showFilters && (
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            fullWidth
-            value={filterState}
-            onChange={(_event, next) => {
-              if (!next) return;
-              log('info', 'chat.sidebar.filter_changed', {
-                filterState: next as ConversationFilterState,
-              });
-              onFilterChange(next as ConversationFilterState);
-            }}
-            aria-label="Conversation filter"
-            disabled={disabled}
-            data-testid="conversation-filter"
-            sx={{ alignSelf: 'stretch', flexWrap: 'wrap' }}
-          >
-            <ToggleButton
-              value="active"
-              data-testid="conversation-filter-active"
-            >
-              Active
-            </ToggleButton>
-            <ToggleButton value="all" data-testid="conversation-filter-all">
-              Active &amp; Archived
-            </ToggleButton>
-            <ToggleButton
-              value="archived"
-              data-testid="conversation-filter-archived"
-            >
-              Archived
-            </ToggleButton>
-          </ToggleButtonGroup>
-        )}
       </Stack>
 
       {isError && (
@@ -412,19 +522,21 @@ export function ConversationList({
       )}
 
       <Box
+        data-testid="conversation-list"
         sx={{
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: '#D9E2EC',
           borderRadius: 1,
           overflow: 'hidden',
-          bgcolor: 'background.paper',
+          bgcolor: 'rgb(245, 248, 255)',
           flex: 1,
+          width: '100%',
           minHeight: 240,
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        {enableBulkUi && sorted.length > 0 && (
+        {showBulkUi && enableBulkUi && sorted.length > 0 && (
           <Stack
             direction="row"
             spacing={1}
@@ -434,7 +546,7 @@ export function ConversationList({
               px: 1.5,
               py: 0.5,
               borderBottom: '1px solid',
-              borderColor: 'divider',
+              borderColor: '#D9E2EC',
               flexWrap: 'wrap',
               rowGap: 0.5,
             }}
@@ -462,11 +574,11 @@ export function ConversationList({
                   ),
                 }}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: '#52606D' }}>
                 {selectedIds.size} selected
               </Typography>
               {mongoConnected === false && (
-                <Typography variant="caption" color="warning.main">
+                <Typography variant="caption" sx={{ color: '#52606D' }}>
                   Bulk actions disabled (Mongo disconnected)
                 </Typography>
               )}
@@ -501,7 +613,7 @@ export function ConversationList({
               >
                 Restore
               </Button>
-              {filterState === 'archived' && (
+              {!visibleFilterState.active && visibleFilterState.archived && (
                 <Button
                   size="small"
                   variant="outlined"
@@ -528,7 +640,7 @@ export function ConversationList({
               spacing={1}
               data-testid="conversation-empty"
             >
-              <Typography color="text.secondary" align="center">
+              <Typography sx={{ color: '#52606D' }} align="center">
                 No conversations yet. Start a chat to see history here.
               </Typography>
             </Stack>
@@ -536,207 +648,337 @@ export function ConversationList({
             <List dense disablePadding sx={{ width: '100%', minWidth: 0 }}>
               {sorted.map((conversation) => {
                 const selected = selectedId === conversation.conversationId;
-                const runLabel = formatRunLabel(
-                  readRunExecutionId(conversation),
+                const providerPresentation =
+                  getConversationProviderPresentation(
+                    conversation.provider,
+                    conversation.model,
+                  );
+                const timestamp = formatConversationRowTimestamp(
+                  conversation.lastMessageAt,
+                  relativeTimeNowMs,
                 );
+                const sourceLabel = conversation.source ?? 'REST';
                 return (
                   <ListItem
                     key={conversation.conversationId}
                     disableGutters
+                    disablePadding
                     sx={{
                       width: '100%',
                       minWidth: 0,
                       overflow: 'hidden',
-                      pr: showRowActions ? 7 : 0,
                     }}
-                    secondaryAction={
-                      showRowActions ? (
-                        conversation.archived ? (
-                          <Tooltip title="Restore conversation">
-                            <span>
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                onClick={() => {
-                                  void Promise.resolve(
-                                    onRestore(conversation.conversationId),
-                                  )
-                                    .then(() => {
-                                      setToast({
-                                        severity: 'success',
-                                        message: 'Conversation restored',
-                                      });
-                                    })
-                                    .catch((err) => {
-                                      setToast({
-                                        severity: 'error',
-                                        message:
-                                          (err as Error).message ||
-                                          'Restore failed',
-                                      });
-                                    });
-                                }}
-                                disabled={mutationDisabled}
-                                data-testid="conversation-restore"
-                                aria-label="Restore conversation"
-                              >
-                                <RestoreIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        ) : (
-                          <Tooltip title="Archive conversation">
-                            <span>
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                onClick={() => {
-                                  void Promise.resolve(
-                                    onArchive(conversation.conversationId),
-                                  )
-                                    .then(() => {
-                                      setToast({
-                                        severity: 'success',
-                                        message: 'Conversation archived',
-                                      });
-                                    })
-                                    .catch((err) => {
-                                      setToast({
-                                        severity: 'error',
-                                        message:
-                                          (err as Error).message ||
-                                          'Archive failed',
-                                      });
-                                    });
-                                }}
-                                disabled={mutationDisabled}
-                                data-testid="conversation-archive"
-                                aria-label="Archive conversation"
-                              >
-                                <ArchiveIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        )
-                      ) : null
-                    }
                   >
                     <ListItemButton
                       selected={selected}
                       onClick={() => onSelect(conversation.conversationId)}
                       disabled={mutationDisabled}
                       data-testid="conversation-row"
-                      style={{ paddingLeft: 12, paddingRight: 12 }}
                       sx={{
                         alignItems: 'flex-start',
-                        py: 1.25,
-                        px: 1.5,
+                        gap: { xs: 0.5, sm: 0.75 },
+                        py: { xs: 1, sm: 1.25 },
+                        pl: { xs: 1, sm: 1.5 },
+                        pr: { xs: 1, sm: 1.5 },
                         minWidth: 0,
                         width: '100%',
+                        borderBottom: '1px solid',
+                        borderColor: '#D9E2EC',
+                        bgcolor: selected ? '#E7EDF5' : 'rgb(245, 248, 255)',
+                        '&.Mui-selected': {
+                          bgcolor: '#E7EDF5',
+                        },
+                        '&.Mui-selected:hover': {
+                          bgcolor: '#E7EDF5',
+                        },
                       }}
                     >
-                      {enableBulkUi && (
-                        <Checkbox
-                          size="small"
-                          checked={selectedIds.has(conversation.conversationId)}
-                          disabled={bulkDisabled}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={() => {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(conversation.conversationId)) {
-                                next.delete(conversation.conversationId);
-                              } else {
-                                next.add(conversation.conversationId);
-                              }
-                              return next;
-                            });
+                      <Box
+                        sx={{
+                          minWidth: 0,
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 0.5,
+                          pr: 0.5,
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          fontWeight={selected ? 700 : 600}
+                          data-testid="conversation-title"
+                          sx={{
+                            minWidth: 0,
+                            width: '100%',
+                            color: '#1F2933',
+                            fontSize: { xs: '0.82rem', sm: '0.875rem' },
+                            lineHeight: 1.2,
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: 2,
+                            overflow: 'hidden',
+                            wordBreak: 'break-word',
                           }}
-                          slotProps={{
-                            input: checkboxInputProps(
-                              'Select conversation',
-                              'conversation-select',
-                            ),
+                        >
+                          {conversation.title || 'Untitled conversation'}
+                        </Typography>
+                        <Box
+                          sx={{
+                            width: '100%',
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            display: 'grid',
+                            gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                            alignItems: 'center',
+                            columnGap: 0.75,
                           }}
-                          sx={{ mt: 0.25, mr: 0.5 }}
-                        />
-                      )}
-                      <ListItemText
-                        disableTypography
-                        sx={{ minWidth: 0, overflow: 'hidden' }}
-                        primary={
+                        >
+                          <ListItemIcon
+                            data-testid="conversation-provider-icon"
+                            aria-label={`${providerPresentation.label} provider icon`}
+                            sx={{
+                              minWidth: 0,
+                              color: selected ? '#20354A' : '#52606D',
+                              justifyContent: 'center',
+                              alignSelf: 'center',
+                              '& img': {
+                                height: 24,
+                                width: 'auto',
+                                maxWidth: 32,
+                              },
+                              '& .MuiSvgIcon-root': {
+                                fontSize: 24,
+                              },
+                            }}
+                          >
+                            {providerPresentation.icon}
+                          </ListItemIcon>
                           <Stack
                             direction="row"
-                            spacing={1}
+                            spacing={0.75}
                             alignItems="center"
-                            sx={{ minWidth: 0, maxWidth: '100%' }}
+                            sx={{
+                              minWidth: 0,
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                            }}
                           >
-                            <Typography
-                              variant="body2"
-                              fontWeight={selected ? 700 : 600}
-                              noWrap
-                              data-testid="conversation-title"
-                              sx={{ minWidth: 0, flex: 1 }}
-                            >
-                              {conversation.title || 'Untitled conversation'}
-                            </Typography>
-                            {conversation.archived && (
-                              <Chip
-                                label="Archived"
-                                size="small"
-                                color="default"
-                                variant="outlined"
-                                data-testid="conversation-archived-chip"
-                              />
-                            )}
-                          </Stack>
-                        }
-                        secondary={
-                          <Stack
-                            spacing={0.5}
-                            alignItems="flex-start"
-                            sx={{ minWidth: 0, maxWidth: '100%' }}
-                          >
-                            <Stack
-                              direction="row"
-                              spacing={0.75}
-                              alignItems="center"
-                              flexWrap="wrap"
-                              useFlexGap
-                              sx={{ minWidth: 0, maxWidth: '100%' }}
-                            >
-                              {runLabel && (
+                            {conversation.flags?.flow?.executionId &&
+                              !conversation.flags?.flowChild?.executionId && (
                                 <Chip
-                                  label={runLabel}
+                                  label={`Run ${conversation.flags.flow.executionId.split('-')[0]}`}
                                   size="small"
                                   variant="outlined"
                                   color="default"
                                   data-testid="conversation-run-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
                                 />
                               )}
+                            {conversation.flags?.flowChild?.executionId &&
+                              !conversation.flags?.flow?.executionId && (
+                                <Chip
+                                  label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
+                                  size="small"
+                                  variant="outlined"
+                                  color="default"
+                                  data-testid="conversation-run-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
+                            <Chip
+                              label={conversation.model || 'Unknown model'}
+                              size="small"
+                              variant="outlined"
+                              color="default"
+                              data-testid="conversation-model-chip"
+                              sx={{
+                                minWidth: 0,
+                                maxWidth: '100%',
+                                flexShrink: 1,
+                                '& .MuiChip-label': {
+                                  px: { xs: 0.75, sm: 1 },
+                                  fontSize: { xs: '0.67rem', sm: '0.75rem' },
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                },
+                              }}
+                            />
+                          </Stack>
+                          <Chip
+                            label={sourceLabel}
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            data-testid="conversation-source-chip"
+                            sx={{
+                              justifySelf: 'end',
+                              '& .MuiChip-label': {
+                                px: { xs: 0.75, sm: 1 },
+                                fontSize: { xs: '0.67rem', sm: '0.75rem' },
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              },
+                            }}
+                          />
+                        </Box>
+                        <Box sx={{ width: '100%', minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              width: '100%',
+                              minWidth: 0,
+                              display: 'grid',
+                              gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                              alignItems: 'center',
+                              columnGap: 0.75,
+                            }}
+                          >
+                            {showBulkUi && enableBulkUi && (
+                              <Checkbox
+                                size="small"
+                                checked={selectedIds.has(
+                                  conversation.conversationId,
+                                )}
+                                disabled={bulkDisabled}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  if (bulkDisabled) return;
+                                  setSelectedIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(conversation.conversationId))
+                                      next.delete(conversation.conversationId);
+                                    else next.add(conversation.conversationId);
+                                    return next;
+                                  });
+                                }}
+                                slotProps={{
+                                  input: checkboxInputProps(
+                                    'Select conversation',
+                                    'conversation-select',
+                                  ),
+                                }}
+                                sx={{ my: -0.5, ml: -0.75 }}
+                              />
+                            )}
+                            <Box
+                              sx={{
+                                minWidth: 0,
+                                display: 'flex',
+                                justifyContent: 'center',
+                              }}
+                            >
                               <Typography
                                 variant="caption"
-                                color="text.secondary"
-                                data-testid="conversation-meta"
+                                data-testid="conversation-updated"
                                 noWrap
-                                sx={{ minWidth: 0, maxWidth: '100%' }}
+                                sx={{
+                                  minWidth: 0,
+                                  color: '#52606D',
+                                  fontSize: { xs: '0.72rem', sm: '0.78rem' },
+                                  textAlign: 'center',
+                                }}
                               >
-                                {conversation.provider} · {conversation.model} ·{' '}
-                                {conversation.source ?? 'REST'}
+                                {timestamp}
                               </Typography>
-                            </Stack>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              data-testid="conversation-updated"
-                              noWrap
-                              sx={{ maxWidth: '100%' }}
-                            >
-                              {formatTimestamp(conversation.lastMessageAt)}
-                            </Typography>
-                          </Stack>
-                        }
-                      />
+                            </Box>
+                            {showRowActions ? (
+                              <Tooltip
+                                title={
+                                  conversation.archived
+                                    ? 'Restore conversation'
+                                    : 'Archive conversation'
+                                }
+                              >
+                                <span>
+                                  <IconButton
+                                    edge="end"
+                                    size="small"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void Promise.resolve(
+                                        conversation.archived
+                                          ? onRestore(
+                                              conversation.conversationId,
+                                            )
+                                          : onArchive(
+                                              conversation.conversationId,
+                                            ),
+                                      )
+                                        .then(() => {
+                                          setToast({
+                                            severity: 'success',
+                                            message: conversation.archived
+                                              ? 'Conversation restored'
+                                              : 'Conversation archived',
+                                          });
+                                        })
+                                        .catch((err) => {
+                                          setToast({
+                                            severity: 'error',
+                                            message:
+                                              (err as Error).message ||
+                                              (conversation.archived
+                                                ? 'Restore failed'
+                                                : 'Archive failed'),
+                                          });
+                                        });
+                                    }}
+                                    disabled={bulkDisabled}
+                                    data-testid={
+                                      conversation.archived
+                                        ? 'conversation-restore'
+                                        : 'conversation-archive'
+                                    }
+                                    aria-label={
+                                      conversation.archived
+                                        ? 'Restore conversation'
+                                        : 'Archive conversation'
+                                    }
+                                    sx={{ justifySelf: 'end', mr: -0.5 }}
+                                  >
+                                    {conversation.archived ? (
+                                      <RestoreIcon fontSize="small" />
+                                    ) : (
+                                      <ArchiveIcon fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <Box />
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
                     </ListItemButton>
                   </ListItem>
                 );
@@ -793,7 +1035,9 @@ export function ConversationList({
           <Button
             color="error"
             variant="contained"
+            disabled={!canBulkDelete}
             onClick={() => {
+              if (!canBulkDelete) return;
               setDeleteDialogOpen(false);
               void handleBulk('delete');
             }}

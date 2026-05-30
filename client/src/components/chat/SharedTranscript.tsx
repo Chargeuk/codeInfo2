@@ -1,4 +1,14 @@
-import { Alert, Box, Stack, Typography } from '@mui/material';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
+import {
+  Alert,
+  Box,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+  type SxProps,
+} from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import {
   forwardRef,
   useCallback,
@@ -60,8 +70,10 @@ type SharedTranscriptProps = {
     toggleKey: string,
     message: ChatMessage,
   ) => ReactNode;
+  renderHeaderContent?: (message: ChatMessage) => ReactNode;
   renderMetadataContent?: (message: ChatMessage) => ReactNode;
   sharedRenderLogConfig?: SharedTranscriptLogConfig;
+  contentSx?: SxProps<Theme>;
 };
 
 const sharedTranscriptLog = createLogger('client');
@@ -97,24 +109,30 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       userMarkdownTestId,
       resolveStreamStatus,
       renderToolExtraContent,
+      renderHeaderContent,
       renderMetadataContent,
       sharedRenderLogConfig,
+      contentSx,
     },
     ref,
   ) {
     const transcriptContainerRef = useRef<HTMLDivElement | null>(null);
     const lastRenderStateRef = useRef<string | null>(null);
+    const lastConversationKeyRef = useRef<string | null>(null);
     const measurementReadyRef = useRef<string | null>(null);
     const missingRowLoggedRef = useRef(new Set<string>());
     const scrollModeRef = useRef<SharedTranscriptScrollMode>('pinned-bottom');
-    const initialHistoryOpenHandledRef = useRef(false);
-    const openHistoryAtTopRef = useRef(false);
+    const pendingConversationRepinRef = useRef(false);
+    const pendingRepinUserScrollIntentRef = useRef(false);
+    const [pendingConversationRepin, setPendingConversationRepinState] =
+      useState(false);
+    const [scrollModeState, setScrollModeState] =
+      useState<SharedTranscriptScrollMode>('pinned-bottom');
     const scrollMetricsRef = useRef<{
       conversationKey: string;
       scrollHeight: number;
       scrollTop: number;
     } | null>(null);
-    const [historyTopLockActive, setHistoryTopLockActive] = useState(false);
     const hasWarningState = turnsError;
     const hasEmptyState = messages.length === 0;
     const conversationKey = `${surface}:${conversationId ?? 'none'}`;
@@ -162,6 +180,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           return;
         }
         scrollModeRef.current = nextMode;
+        setScrollModeState(nextMode);
         sharedTranscriptLog(
           'info',
           'DEV-0000049:T08:shared_transcript_scroll_mode_changed',
@@ -187,6 +206,32 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       };
     }, [conversationKey]);
 
+    const setPendingConversationRepin = useCallback(
+      (nextPending: boolean) => {
+        pendingConversationRepinRef.current = nextPending;
+        setPendingConversationRepinState(nextPending);
+        pendingRepinUserScrollIntentRef.current = false;
+        if (nextPending) {
+          setScrollMode('pinned-bottom');
+        }
+      },
+      [setScrollMode],
+    );
+
+    const jumpToLatest = useCallback(() => {
+      const transcriptElement = transcriptContainerRef.current;
+      if (!transcriptElement) {
+        return;
+      }
+      transcriptElement.scrollTop = Math.max(
+        0,
+        transcriptElement.scrollHeight - transcriptElement.clientHeight,
+      );
+      setPendingConversationRepin(false);
+      setScrollMode('pinned-bottom');
+      syncScrollMetrics();
+    }, [setPendingConversationRepin, setScrollMode, syncScrollMetrics]);
+
     const getScrollSnapshot =
       useCallback((): TranscriptScrollSnapshot | null => {
         const transcriptElement = transcriptContainerRef.current;
@@ -206,13 +251,16 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       if (!transcriptElement) {
         return;
       }
+      const shouldRepinToBottom =
+        scrollModeRef.current === 'pinned-bottom' ||
+        pendingConversationRepinRef.current;
 
       const previousMetrics = scrollMetricsRef.current;
       if (
         !previousMetrics ||
         previousMetrics.conversationKey !== conversationKey
       ) {
-        if (scrollModeRef.current === 'pinned-bottom') {
+        if (shouldRepinToBottom) {
           transcriptElement.scrollTop = Math.max(
             0,
             transcriptElement.scrollHeight - transcriptElement.clientHeight,
@@ -225,11 +273,17 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       const deltaScrollHeight =
         transcriptElement.scrollHeight - previousMetrics.scrollHeight;
       if (deltaScrollHeight === 0) {
+        if (shouldRepinToBottom && !isNearBottom(transcriptElement)) {
+          transcriptElement.scrollTop = Math.max(
+            0,
+            transcriptElement.scrollHeight - transcriptElement.clientHeight,
+          );
+        }
         syncScrollMetrics();
         return;
       }
 
-      if (scrollModeRef.current === 'pinned-bottom') {
+      if (shouldRepinToBottom) {
         transcriptElement.scrollTop = Math.max(
           0,
           transcriptElement.scrollHeight - transcriptElement.clientHeight,
@@ -237,20 +291,44 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       }
 
       syncScrollMetrics();
-    }, [conversationKey, syncScrollMetrics]);
+    }, [conversationKey, isNearBottom, syncScrollMetrics]);
 
     const handleSharedTranscriptScroll = useCallback<
       UIEventHandler<HTMLDivElement>
     >(
       (event) => {
-        const nextMode = isNearBottom(event.currentTarget)
-          ? 'pinned-bottom'
-          : 'scrolled-away';
+        const nearBottom = isNearBottom(event.currentTarget);
+        if (pendingConversationRepinRef.current) {
+          if (nearBottom) {
+            setScrollMode('pinned-bottom');
+            syncScrollMetrics();
+            onScroll?.(event);
+            return;
+          }
+          if (pendingRepinUserScrollIntentRef.current) {
+            setPendingConversationRepin(false);
+            setScrollMode('scrolled-away');
+            syncScrollMetrics();
+            onScroll?.(event);
+            return;
+          }
+          setScrollMode('pinned-bottom');
+          syncScrollMetrics();
+          onScroll?.(event);
+          return;
+        }
+        const nextMode = nearBottom ? 'pinned-bottom' : 'scrolled-away';
         setScrollMode(nextMode);
         syncScrollMetrics();
         onScroll?.(event);
       },
-      [isNearBottom, onScroll, setScrollMode, syncScrollMetrics],
+      [
+        isNearBottom,
+        onScroll,
+        setPendingConversationRepin,
+        setScrollMode,
+        syncScrollMetrics,
+      ],
     );
 
     useEffect(() => {
@@ -302,31 +380,43 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
       const observer = new ResizeObserver((entries) => {
         entries.forEach((entry) => {
-          if (!(entry.target instanceof HTMLElement)) {
-            return;
+          try {
+            if (!(entry.target instanceof HTMLElement)) {
+              return;
+            }
+            if (entry.target === transcriptElement) {
+              reconcileScrollPosition();
+              return;
+            }
+            const rowId = entry.target.dataset.transcriptRowId;
+            if (!rowId || entry.target.isConnected) {
+              return;
+            }
+            const missingRowKey = `${measurementKey}:${rowId}`;
+            if (missingRowLoggedRef.current.has(missingRowKey)) {
+              return;
+            }
+            missingRowLoggedRef.current.add(missingRowKey);
+            sharedTranscriptLog(
+              'info',
+              'DEV-0000049:T06:transcript_measurement_missing_row_ignored',
+              {
+                surface,
+                conversationId: conversationId ?? null,
+                reason: 'missing-row-target',
+              },
+            );
+          } catch (err) {
+            sharedTranscriptLog(
+              'warn',
+              'DEV-0000049:T06:transcript_measurement_error',
+              {
+                surface,
+                conversationId: conversationId ?? null,
+                error: err instanceof Error ? err.message : String(err),
+              },
+            );
           }
-          if (entry.target === transcriptElement) {
-            reconcileScrollPosition();
-            return;
-          }
-          const rowId = entry.target.dataset.transcriptRowId;
-          if (!rowId || entry.target.isConnected) {
-            return;
-          }
-          const missingRowKey = `${measurementKey}:${rowId}`;
-          if (missingRowLoggedRef.current.has(missingRowKey)) {
-            return;
-          }
-          missingRowLoggedRef.current.add(missingRowKey);
-          sharedTranscriptLog(
-            'info',
-            'DEV-0000049:T06:transcript_measurement_missing_row_ignored',
-            {
-              surface,
-              conversationId: conversationId ?? null,
-              reason: 'missing-row-target',
-            },
-          );
         });
       });
 
@@ -338,38 +428,20 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       return () => observer.disconnect();
     }, [conversationId, messages, reconcileScrollPosition, surface]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
+      const previousConversationKey = lastConversationKeyRef.current;
+      lastConversationKeyRef.current = conversationKey;
       scrollModeRef.current = 'pinned-bottom';
-      initialHistoryOpenHandledRef.current = false;
+      setScrollModeState('pinned-bottom');
       scrollMetricsRef.current = null;
-      openHistoryAtTopRef.current = false;
-      setHistoryTopLockActive(false);
-    }, [conversationKey]);
-
-    useEffect(() => {
-      if (!turnsLoading || initialHistoryOpenHandledRef.current) {
-        return;
-      }
-      scrollMetricsRef.current = null;
-      openHistoryAtTopRef.current = true;
-      setHistoryTopLockActive(true);
-    }, [turnsLoading]);
+      setPendingConversationRepin(
+        conversationId != null &&
+          previousConversationKey != null &&
+          previousConversationKey !== conversationKey,
+      );
+    }, [conversationId, conversationKey, setPendingConversationRepin]);
 
     useLayoutEffect(() => {
-      const transcriptElement = transcriptContainerRef.current;
-      if (transcriptElement && openHistoryAtTopRef.current && !turnsLoading) {
-        initialHistoryOpenHandledRef.current = true;
-        openHistoryAtTopRef.current = false;
-        transcriptElement.scrollTop = 0;
-        setScrollMode('scrolled-away');
-        syncScrollMetrics();
-        return;
-      }
-      if (openHistoryAtTopRef.current && !turnsLoading) {
-        initialHistoryOpenHandledRef.current = true;
-        openHistoryAtTopRef.current = false;
-        setHistoryTopLockActive(false);
-      }
       reconcileScrollPosition();
     }, [
       reconcileScrollPosition,
@@ -378,9 +450,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       thinkOpen,
       toolOpen,
       toolErrorOpen,
-      turnsLoading,
       turnsError,
-      setScrollMode,
       syncScrollMetrics,
     ]);
 
@@ -404,6 +474,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             resolveStreamStatus?.(message) ?? message.streamStatus
           }
           renderToolExtraContent={renderToolExtraContent}
+          renderHeaderContent={renderHeaderContent}
           renderMetadataContent={renderMetadataContent}
           userMarkdownTestId={userMarkdownTestId}
           log={sharedTranscriptLog}
@@ -420,6 +491,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         onToggleThink,
         onToggleTool,
         onToggleToolError,
+        renderHeaderContent,
         renderMetadataContent,
         renderToolExtraContent,
         resolveStreamStatus,
@@ -480,56 +552,137 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
     return (
       <Box
-        ref={setContainerRef}
-        onScroll={handleSharedTranscriptScroll}
-        data-testid={transcriptTestId}
-        style={{
-          flex: '1 1 0%',
-          minHeight: 0,
-          overflowY: 'auto',
-        }}
         sx={{
           flex: 1,
+          height: '100%',
           minHeight: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          pr: 1,
           minWidth: 0,
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Stack spacing={1} sx={{ minHeight: 0 }}>
-          {turnsLoading && (
-            <Typography
-              color="text.secondary"
-              variant="caption"
-              sx={{ px: 0.5 }}
-            >
-              Loading history...
-            </Typography>
-          )}
-          {turnsError && (
-            <Alert severity="warning" data-testid={warningTestId}>
-              {turnsErrorMessage ?? 'Failed to load conversation history.'}
-            </Alert>
-          )}
-          {messages.length === 0 &&
-            (emptyStateContent ?? (
-              <Typography color="text.secondary">{emptyMessage}</Typography>
-            ))}
-          <VirtualizedTranscript
-            surface={surface}
-            conversationId={conversationId}
-            messages={messages}
-            transcriptContainerRef={transcriptContainerRef}
-            renderMessageRow={renderMessageRow}
-            measurementKeyByMessageId={measurementKeyByMessageId}
-            getScrollSnapshot={getScrollSnapshot}
-            historyTopLockActive={historyTopLockActive}
-            onHistoryTopSettled={() => {
-              setHistoryTopLockActive(false);
+        {scrollModeState === 'scrolled-away' ? (
+          <Box
+            sx={{
+              position: 'absolute',
+              right: { xs: 10, sm: 14 },
+              bottom: { xs: 10, sm: 14 },
+              zIndex: 2,
             }}
-          />
-        </Stack>
+          >
+            <Tooltip title="Jump to latest">
+              <IconButton
+                size="small"
+                aria-label="Jump to latest"
+                data-testid="transcript-jump-to-latest"
+                onClick={jumpToLatest}
+                sx={{
+                  width: 36,
+                  height: 36,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
+                  boxShadow: '0 6px 18px rgba(15, 23, 42, 0.18)',
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                  },
+                }}
+              >
+                <KeyboardArrowDownRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ) : null}
+        <Box
+          ref={setContainerRef}
+          onScroll={handleSharedTranscriptScroll}
+          onPointerDownCapture={() => {
+            if (pendingConversationRepinRef.current) {
+              pendingRepinUserScrollIntentRef.current = true;
+            }
+          }}
+          onTouchMoveCapture={() => {
+            if (pendingConversationRepinRef.current) {
+              pendingRepinUserScrollIntentRef.current = true;
+            }
+          }}
+          onWheelCapture={() => {
+            if (pendingConversationRepinRef.current) {
+              pendingRepinUserScrollIntentRef.current = true;
+            }
+          }}
+          data-testid={transcriptTestId}
+          style={{
+            flexGrow: 1,
+            flexShrink: 1,
+            flexBasis: '0%',
+            minHeight: '0px',
+            overflowY: 'auto',
+            scrollbarGutter: 'stable',
+            scrollbarWidth: 'thin',
+          }}
+          sx={{
+            flex: 1,
+            height: '100%',
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            minWidth: 0,
+            scrollbarGutter: 'stable',
+            scrollbarWidth: 'thin',
+            scrollbarColor: (theme) =>
+              `${theme.palette.action.disabled} transparent`,
+            '&::-webkit-scrollbar': {
+              width: 10,
+              height: 10,
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'action.disabled',
+              borderRadius: 999,
+              border: '2px solid transparent',
+              backgroundClip: 'content-box',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+            ...contentSx,
+          }}
+        >
+          <Stack spacing={1} sx={{ minHeight: 0, flex: 1, width: '100%' }}>
+            {turnsLoading && (
+              <Typography
+                color="text.secondary"
+                variant="caption"
+                sx={{ px: 0.5 }}
+              >
+                Loading history...
+              </Typography>
+            )}
+            {turnsError && (
+              <Alert severity="warning" data-testid={warningTestId}>
+                {turnsErrorMessage ?? 'Failed to load conversation history.'}
+              </Alert>
+            )}
+            {messages.length === 0 &&
+              (emptyStateContent ?? (
+                <Typography color="text.secondary">{emptyMessage}</Typography>
+              ))}
+            <VirtualizedTranscript
+              surface={surface}
+              conversationId={conversationId}
+              messages={messages}
+              turnsLoading={turnsLoading}
+              transcriptContainerRef={transcriptContainerRef}
+              renderMessageRow={renderMessageRow}
+              measurementKeyByMessageId={measurementKeyByMessageId}
+              getScrollSnapshot={getScrollSnapshot}
+              pendingConversationRepin={pendingConversationRepin}
+            />
+          </Stack>
+        </Box>
       </Box>
     );
   },

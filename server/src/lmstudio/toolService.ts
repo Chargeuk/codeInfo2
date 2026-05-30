@@ -686,6 +686,13 @@ export function getAdvertisedRepositoryIdentityPaths(
         hostPath: mapped.hostPath,
       }),
     );
+    paths.add(
+      resolveMountedIngestPath({
+        containerPath: mapped.containerPath,
+        hostPath: mapped.hostPath,
+        codexWorkdir: '/data',
+      }),
+    );
   });
 
   return [...paths];

@@ -39,6 +39,7 @@ import type {
 } from '../../ingest/reingestService.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
+import type { Conversation } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -75,6 +76,27 @@ class MinimalChat extends ChatInterface {
   ) {
     void _model;
     this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+class DelayedMinimalChat extends ChatInterface {
+  constructor(private readonly delayMs: number) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _flags;
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    await delay(this.delayMs);
     this.emit('final', { type: 'final', content: 'ok' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
@@ -1332,6 +1354,147 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
   }
 });
 
+test('flow start does not surface warnings for supported Codex compatibility keys', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'model = "gpt-5.4-mini"',
+      'model_auto_compact_token_limit = 300000',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'config.toml'),
+    [
+      'web_search_mode = "disabled"',
+      'hide_agent_reasoning = false',
+      'model_reasoning_summary = "detailed"',
+      '',
+      '[features]',
+      'fast_mode = false',
+      '',
+      '[model_providers.lmstudiospark]',
+      'name = "lmstudiospark"',
+      'base_url = "http://localhost:1234/v1"',
+      '',
+      '[plugins."github@openai-curated"]',
+      'enabled = true',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  try {
+    await withFlowHarness(async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'supported-config-flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'supported-config-warning-check',
+            messages: [{ role: 'user', content: ['after'] }],
+          },
+        ],
+      });
+
+      const result = await startFlowRun({
+        flowName: 'supported-config-flow',
+        source: 'REST',
+      });
+
+      const warningsText = result.warnings?.join('\n') ?? '';
+      assert.equal(
+        /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
+          warningsText,
+        ),
+        false,
+      );
+      assert.equal(
+        /Unknown key agent\.features\.fast_mode/u.test(warningsText),
+        false,
+      );
+    });
+  } finally {
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
 test('flow run start payload keeps providerId, warnings, and machine-readable launch truth on the first response', async () => {
   const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -1756,36 +1919,121 @@ test('flow run fails clearly when no fallback provider can execute after request
   }
 });
 
-test('unexpected thrown exceptions fail the current dedicated flow', async () => {
+test('pre-launch persistence failure clears stale retry ownership for later legitimate fresh runs', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,
-      flowName: 'reingest-throws',
-      steps: [{ type: 'reingest', sourceId: '/repo/source-a' }, makeLlmStep()],
+      flowName: 'retry-ownership-persist-fails',
+      steps: [makeLlmStep()],
     });
-    __setFlowServiceDepsForTests({
-      runReingestRepository: async () => {
-        throw new Error('boom');
-      },
-    });
+    const originalSet = memoryConversations.set;
+    let failedConversationId = '';
 
-    const result = await startFlowRun({
-      flowName: 'reingest-throws',
+    // Override memoryConversations.set to throw when the flow flag is being set.
+    memoryConversations.set = ((key: string, value: Conversation) => {
+      if (value?.flags && Object.prototype.hasOwnProperty.call(value.flags, 'flow')) {
+        throw new Error('boom');
+      }
+      return originalSet.call(memoryConversations, key, value);
+    }) as typeof memoryConversations.set;
+
+    try {
+      await assert.rejects(
+        startFlowRun({
+          flowName: 'retry-ownership-persist-fails',
+          source: 'REST',
+          retryOwnershipId: 'fresh-run-retry-1',
+          chatFactory: () => new MinimalChat(),
+          onOwnershipReady: ({ conversationId }) => {
+            failedConversationId = conversationId;
+            // Pre-create a memory conversation so the subsequent flow-state save will attempt an update that triggers our override.
+            originalSet.call(memoryConversations, conversationId, {
+              _id: conversationId,
+              provider: 'codex',
+              model: 'gpt-5.1-codex-max',
+              title: 'retry-ownership-persist-fails',
+              flowName: 'retry-ownership-persist-fails',
+              source: 'REST',
+              flags: {},
+              lastMessageAt: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              archivedAt: null,
+            });
+          },
+        }),
+        /boom/i,
+      );
+    } finally {
+      // Restore original Map.set implementation
+      memoryConversations.set = originalSet;
+    }
+
+    const retryResult = await startFlowRun({
+      flowName: 'retry-ownership-persist-fails',
       source: 'REST',
-      listIngestedRepositories: listDefaultReingestRepos,
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, result.conversationId);
+    subscribeConversation(ws, retryResult.conversationId);
     await waitForFlowFinal({
       ws,
-      conversationId: result.conversationId,
-      status: 'failed',
+      conversationId: retryResult.conversationId,
+      status: 'ok',
     });
     const turns = await waitForTurns(
-      result.conversationId,
+      retryResult.conversationId,
       (items) => items.length >= 2,
     );
     assert.equal(turns.length, 2);
-    assert.match(turns[1]?.content ?? '', /boom/i);
+    assert.notEqual(retryResult.conversationId, failedConversationId);
+  });
+});
+
+test('contradictory retryOwnershipId fresh-run payload is rejected before mutating accepted launch state', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-ownership-contradiction',
+      steps: [makeLlmStep()],
+    });
+
+    const acceptedTitle = 'Accepted Replay Launch';
+    const firstResult = await startFlowRun({
+      flowName: 'retry-ownership-contradiction',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle: acceptedTitle,
+      chatFactory: () => new DelayedMinimalChat(100),
+    });
+    const secondResult = await startFlowRun({
+      flowName: 'retry-ownership-contradiction',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle: acceptedTitle,
+      chatFactory: () => new DelayedMinimalChat(100),
+    });
+
+    assert.deepEqual(secondResult, firstResult);
+    assert.equal(
+      memoryConversations.get(firstResult.conversationId)?.title,
+      acceptedTitle,
+    );
+
+    const conflictingResponse = await supertest(baseUrl)
+      .post('/flows/retry-ownership-contradiction/run')
+      .send({
+        retryOwnershipId: 'fresh-run-retry-1',
+        customTitle: 'Contradictory Replay Launch',
+      });
+
+    assert.equal(conflictingResponse.status, 400);
+    assert.equal(conflictingResponse.body.error, 'invalid_request');
+    assert.equal(conflictingResponse.body.code, 'INVALID_REQUEST');
+    assert.equal(
+      memoryConversations.get(firstResult.conversationId)?.title,
+      acceptedTitle,
+    );
   });
 });
 

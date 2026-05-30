@@ -1,14 +1,22 @@
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import TitleRoundedIcon from '@mui/icons-material/TitleRounded';
 import {
   Alert,
   Box,
-  Button,
-  Container,
-  Drawer,
-  IconButton,
-  MenuItem,
   Paper,
-  Popover,
+  Button,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -18,10 +26,10 @@ import {
 import { useTheme } from '@mui/material/styles';
 import {
   type ChangeEvent,
+  type FormEventHandler,
   type MouseEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,10 +44,25 @@ import {
 } from '../api/flows';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
-import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import SharedTranscript from '../components/chat/SharedTranscript';
+import SharedTranscriptSurface from '../components/chat/SharedTranscriptSurface';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
+import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
+import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
+import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
+import WorkspaceMobileTopBar from '../components/workspace/WorkspaceMobileTopBar';
+import CommonComposerFooter from '../components/workspace/composer/CommonComposerFooter';
+import CommonComposerMainInputRow from '../components/workspace/composer/CommonComposerMainInputRow';
+import CommonComposerShell from '../components/workspace/composer/CommonComposerShell';
+import ComposerDesktopPopover from '../components/workspace/composer/ComposerDesktopPopover';
+import ComposerFooterButton from '../components/workspace/composer/ComposerFooterButton';
+import ComposerInfoPanel, {
+  type ComposerInfoSection,
+} from '../components/workspace/composer/ComposerInfoPanel';
+import ComposerMobileDialog from '../components/workspace/composer/ComposerMobileDialog';
+import ComposerSendButton from '../components/workspace/composer/ComposerSendButton';
+import { getWorkingFolderName } from '../components/workspace/composer/composerFormatting';
 import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns, {
@@ -48,6 +71,9 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
+import { copyTextToClipboard } from '../utils/copyTextToClipboard';
+import { reconcileFlowDetailsCache } from './flowsPage.shared';
 
 const buildFlowMetaLine = (command: ChatMessage['command']) => {
   if (!command || command.name !== 'flow') return null;
@@ -69,6 +95,23 @@ const buildFlowMetaLine = (command: ChatMessage['command']) => {
   return agentSuffix ? `${label} · ${agentSuffix}` : label;
 };
 
+const buildFlowStepHeaderLine = (command: ChatMessage['command']) => {
+  if (
+    !command ||
+    command.name !== 'flow' ||
+    !Number.isFinite(command.stepIndex) ||
+    !Number.isFinite(command.totalSteps)
+  ) {
+    return null;
+  }
+
+  const label =
+    typeof command.label === 'string' && command.label.trim().length > 0
+      ? command.label.trim()
+      : 'Flow step';
+  return `${label} · ${command.stepIndex} of ${command.totalSteps}`;
+};
+
 const buildFlowLabel = (flow: FlowSummary) => {
   const sourceLabel = flow.sourceLabel?.trim();
   return sourceLabel ? `${flow.name} - [${sourceLabel}]` : flow.name;
@@ -76,33 +119,6 @@ const buildFlowLabel = (flow: FlowSummary) => {
 
 const buildFlowKey = (flow: FlowSummary) =>
   `${flow.name}::${flow.sourceId ?? 'local'}`;
-
-export const reconcileFlowDetailsCache = (
-  flowDetailsByKey: Record<string, FlowDetails | undefined>,
-  flows: FlowSummary[],
-) => {
-  let nextFlowDetailsByKey: Record<string, FlowDetails | undefined> | undefined;
-
-  for (const flow of flows) {
-    const flowKey = buildFlowKey(flow);
-    const cachedDetails = flowDetailsByKey[flowKey];
-    if (!cachedDetails) continue;
-
-    const summaryDisabled = flow.disabled;
-    const cachedDisabled = cachedDetails.disabled;
-    const staleDisabledDetails =
-      summaryDisabled === false && cachedDisabled === true;
-    const staleEnabledDetails =
-      summaryDisabled === true && cachedDisabled === false;
-    if (!staleDisabledDetails && !staleEnabledDetails) continue;
-    if (!nextFlowDetailsByKey) {
-      nextFlowDetailsByKey = { ...flowDetailsByKey };
-    }
-    delete nextFlowDetailsByKey[flowKey];
-  }
-
-  return nextFlowDetailsByKey ?? flowDetailsByKey;
-};
 
 type FlowOption = FlowSummary & { key: string; label: string };
 
@@ -136,15 +152,49 @@ const isVisibleAssistantMessage = (message: ChatMessage | undefined) => {
   return false;
 };
 
+const waitForNextPaint = () =>
+  new Promise<void>((resolve) => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.requestAnimationFrame !== 'function'
+    ) {
+      setTimeout(resolve, 0);
+      return;
+    }
+    window.requestAnimationFrame(() => resolve());
+  });
+
 export default function FlowsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // Some headless/browser test environments report media queries inconsistently.
+  // Use window.innerWidth as a fallback to determine the effective mobile
+  // rendering surface so Playwright viewport sizing is respected.
+  const breakpointSm =
+    (theme.breakpoints as { values?: { sm?: number } })?.values?.sm ?? 600;
+  const effectiveIsMobile =
+    typeof window !== 'undefined'
+      ? isMobile || window.innerWidth <= breakpointSm
+      : isMobile;
+
   const drawerWidth = 320;
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
+  const [mobileAppMenuOpen, setMobileAppMenuOpen] = useState(false);
   const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
-    isMobile ? false : true,
+    effectiveIsMobile ? false : true,
   );
-  const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
+  const conversationPaneOpen = effectiveIsMobile
+    ? mobileConversationsOpen
+    : desktopDrawerOpen;
+
+  useEffect(() => {
+    if (!effectiveIsMobile || typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('codeinfo-mobile-conversations-overlay-change', {
+        detail: { open: mobileConversationsOpen },
+      }),
+    );
+  }, [effectiveIsMobile, mobileConversationsOpen]);
 
   const [flows, setFlows] = useState<FlowSummary[]>([]);
   const [flowDetailsByKey, setFlowDetailsByKey] = useState<
@@ -159,6 +209,13 @@ export default function FlowsPage() {
   const [flowInfoAnchorEl, setFlowInfoAnchorEl] = useState<HTMLElement | null>(
     null,
   );
+  const [selectedFlowAnchorEl, setSelectedFlowAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [titleAnchorEl, setTitleAnchorEl] = useState<HTMLElement | null>(null);
+  const [titleCopyFeedback, setTitleCopyFeedback] = useState<{
+    severity: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const [workingFolder, setWorkingFolder] = useState('');
   const selectedConversationIdRef = useRef<string | undefined>(undefined);
@@ -173,11 +230,14 @@ export default function FlowsPage() {
   const [launchConversationId, setLaunchConversationId] = useState<
     string | null
   >(null);
+  const freshRunReplayGuardRef = useRef(false);
+  const freshRunRetryOwnershipIdRef = useRef<string | null>(null);
   const [flowModelId, setFlowModelId] = useState('unknown');
   const [flowProviderId, setFlowProviderId] = useState('unknown');
 
   const log = useMemo(() => createLogger('client-flows'), []);
   const assistantTranscriptVisibleRef = useRef(false);
+  const acceptedLaunchConversationIdRef = useRef<string | null>(null);
   const serverVisibleInflightIdRef = useRef<string | null>(null);
   const stoppingVisibleLoggedRef = useRef<string | null>(null);
   const stoppedVisibleLoggedRef = useRef<Set<string>>(new Set());
@@ -255,10 +315,7 @@ export default function FlowsPage() {
     getAssistantMessageIdForInflight,
   } = useChatStream(flowModelId, flowProviderId);
 
-  const displayMessages = useMemo<ChatMessage[]>(
-    () => [...messages].reverse(),
-    [messages],
-  );
+  const displayMessages = messages;
   const hasFlowMetaLine = useMemo(
     () =>
       displayMessages.some(
@@ -286,9 +343,7 @@ export default function FlowsPage() {
     ]),
   );
   const flowInfoOpen = Boolean(flowInfoAnchorEl);
-  const flowInfoId = flowInfoOpen ? 'flow-info-popover' : undefined;
-  const flowInfoDisabled = flowsLoading || !selectedFlowName;
-  const showFlowInfoButton = !flowsError;
+  const flowInfoDisabled = !!flowsError || !selectedFlowName;
   const flowInfoEmpty =
     !flowDescription && flowWarnings.length === 0 && !flowDetailsError;
   const flowInfoEmptyMessage =
@@ -297,6 +352,12 @@ export default function FlowsPage() {
   const selectedFlowDisabled = Boolean(
     selectedFlowDetails?.disabled ?? selectedFlow?.disabled,
   );
+  const selectedFlowLabel = selectedFlow?.label ?? 'Select flow';
+  const workingFolderName = useMemo(
+    () => getWorkingFolderName(workingFolder) || 'Select folder',
+    [workingFolder],
+  );
+  const flowTitleDisabled = flowsLoading || !!flowsError || !selectedFlowName;
 
   const loadSelectedFlowDetails = useCallback(async () => {
     if (!selectedFlow) return undefined;
@@ -328,6 +389,18 @@ export default function FlowsPage() {
       ),
     [activeConversationId, flowConversations],
   );
+  const selectedConversationTitle =
+    selectedConversation?.title?.trim() && selectedConversation.title.trim()
+      ? selectedConversation.title.trim()
+      : '';
+  const defaultTitleLabel = selectedConversationTitle || selectedFlowName;
+  const titleLabel =
+    customTitle.trim().length > 0
+      ? customTitle.trim()
+      : defaultTitleLabel !== 'Select flow'
+        ? defaultTitleLabel
+        : 'Set title';
+  const titleLockedToConversation = Boolean(activeConversationId);
 
   const resumeStepPath = useMemo(() => {
     const flags = selectedConversation?.flags;
@@ -349,6 +422,19 @@ export default function FlowsPage() {
   } = useConversationTurns(turnsConversationId, {
     autoFetch: Boolean(turnsConversationId),
   });
+
+  const flowWorkingFolderLocked =
+    startPending ||
+    isStreaming ||
+    status === 'sending' ||
+    status === 'stopping' ||
+    Boolean(inflightSnapshot?.inflightId) ||
+    Boolean(serverVisibleInflightIdRef.current);
+  const isWorkingFolderDisabled =
+    persistenceUnavailable ||
+    flowsLoading ||
+    !!flowsError ||
+    flowWorkingFolderLocked;
 
   const refreshSnapshots = useCallback(async () => {
     if (persistenceUnavailable) return;
@@ -546,31 +632,12 @@ export default function FlowsPage() {
 
   const conversationListDisabled = persistenceUnavailable;
 
-  const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState(0);
-  const chatColumnRef = useRef<HTMLDivElement | null>(null);
   const qaLogSentRef = useRef(false);
-
-  useLayoutEffect(() => {
-    const updateOffset = () => {
-      const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
-      setDrawerTopOffsetPx(top);
-    };
-
-    updateOffset();
-    window.addEventListener('resize', updateOffset);
-    return () => window.removeEventListener('resize', updateOffset);
-  }, [isMobile, flowsError, flowsLoading, persistenceUnavailable]);
-
-  const drawerTopOffset =
-    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
-  const drawerHeight =
-    drawerTopOffsetPx > 0
-      ? `calc(100% - ${drawerTopOffsetPx}px)`
-      : `calc(100% - ${theme.spacing(3)})`;
 
   useEffect(() => {
     if (isMobile) {
-      setMobileDrawerOpen(false);
+      setMobileConversationsOpen(false);
+      setMobileAppMenuOpen(false);
       return;
     }
     setDesktopDrawerOpen(true);
@@ -593,22 +660,30 @@ export default function FlowsPage() {
       const trimmedWorkingFolder = (nextValue ?? workingFolder).trim();
       setWorkingFolder(trimmedWorkingFolder);
       if (
+        persistenceUnavailable ||
         !selectedConversationIdRef.current ||
         workingFolderDisabledRef.current
       ) {
         return;
       }
       try {
-        await updateWorkingFolder({
+        const result = await updateWorkingFolder({
           conversationId: selectedConversationIdRef.current,
           workingFolder: trimmedWorkingFolder || null,
           surface: 'flows',
         });
+        const persistedWorkingFolder =
+          result.flags && typeof result.flags.workingFolder === 'string'
+            ? result.flags.workingFolder.trim()
+            : trimmedWorkingFolder;
+        if (persistedWorkingFolder !== trimmedWorkingFolder) {
+          setWorkingFolder(persistedWorkingFolder);
+        }
       } catch (error) {
         console.error('flow working-folder persistence failed', error);
       }
     },
-    [updateWorkingFolder, workingFolder],
+    [persistenceUnavailable, updateWorkingFolder, workingFolder],
   );
 
   const handleOpenDirPicker = () => {
@@ -633,6 +708,7 @@ export default function FlowsPage() {
   const loadFlows = useCallback(async () => {
     setFlowsLoading(true);
     setFlowsError(null);
+    let nextSelectedKey: string | undefined;
     try {
       const result = await listFlows();
       setFlows(result.flows);
@@ -643,11 +719,11 @@ export default function FlowsPage() {
       if (!selectedFlowKey || !flowKeys.includes(selectedFlowKey)) {
         const firstAvailable = result.flows.find((flow) => !flow.disabled);
         if (firstAvailable) {
-          setSelectedFlowKey(buildFlowKey(firstAvailable));
+          nextSelectedKey = buildFlowKey(firstAvailable);
         } else if (result.flows.length > 0) {
-          setSelectedFlowKey(buildFlowKey(result.flows[0]));
+          nextSelectedKey = buildFlowKey(result.flows[0]);
         } else {
-          setSelectedFlowKey('');
+          nextSelectedKey = '';
         }
       }
     } catch (err) {
@@ -655,6 +731,12 @@ export default function FlowsPage() {
       setFlows([]);
     } finally {
       setFlowsLoading(false);
+      if (
+        typeof nextSelectedKey !== 'undefined' &&
+        nextSelectedKey !== selectedFlowKey
+      ) {
+        setSelectedFlowKey(nextSelectedKey);
+      }
     }
   }, [selectedFlowKey]);
 
@@ -733,11 +815,16 @@ export default function FlowsPage() {
     const hasProcessingTranscript = messages.some(
       (message) => message.streamStatus === 'processing',
     );
+    const isAcceptedLaunchSelection =
+      Boolean(acceptedLaunchConversationIdRef.current) &&
+      acceptedLaunchConversationIdRef.current === activeConversationId;
     const shouldPreserveHiddenConversation =
       hasVisibleAssistantTranscript ||
       hasProcessingTranscript ||
       isStreaming ||
       startPending ||
+      turnsLoading ||
+      isAcceptedLaunchSelection ||
       status === 'sending' ||
       status === 'stopping';
     const action = shouldPreserveHiddenConversation
@@ -756,8 +843,10 @@ export default function FlowsPage() {
           messageCount: messages.length,
           hasVisibleAssistantTranscript,
           hasProcessingTranscript,
+          isAcceptedLaunchSelection,
           isStreaming,
           status,
+          turnsLoading,
           action,
         });
       }
@@ -771,8 +860,10 @@ export default function FlowsPage() {
         messageCount: messages.length,
         hasVisibleAssistantTranscript,
         hasProcessingTranscript,
+        isAcceptedLaunchSelection,
         isStreaming,
         status,
+        turnsLoading,
         action,
       });
     }
@@ -794,6 +885,7 @@ export default function FlowsPage() {
     selectedFlowName,
     setConversation,
     status,
+    turnsLoading,
   ]);
 
   useEffect(() => {
@@ -921,6 +1013,7 @@ export default function FlowsPage() {
                 : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
+            model: turn.model,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus:
               turn.status === 'failed'
@@ -941,9 +1034,7 @@ export default function FlowsPage() {
   const hydratedStatusLogKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeConversationId) return;
-    const oldest = turns?.[0]?.createdAt ?? 'none';
-    const newest = turns?.[turns.length - 1]?.createdAt ?? 'none';
-    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}`;
+    const key = buildStoredTurnHydrationKey(activeConversationId, turns);
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
 
@@ -985,6 +1076,7 @@ export default function FlowsPage() {
     setRunErrorCode(null);
     setLaunchWarnings([]);
     setLaunchConversationId(null);
+    freshRunRetryOwnershipIdRef.current = null;
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(reset(), { clearMessages: true });
@@ -992,6 +1084,7 @@ export default function FlowsPage() {
     setFlowProviderId('unknown');
     setWorkingFolder('');
     setCustomTitle('');
+    acceptedLaunchConversationIdRef.current = null;
     serverVisibleInflightIdRef.current = null;
     stoppingVisibleLoggedRef.current = null;
   }, [reset, resetTurns, setConversation]);
@@ -999,6 +1092,9 @@ export default function FlowsPage() {
   const handleNewFlowReset = useCallback(() => {
     setSuppressAutoSelect(true);
     resetConversation();
+    setFlowInfoAnchorEl(null);
+    setSelectedFlowAnchorEl(null);
+    setTitleAnchorEl(null);
     log('info', 'flows.ui.new_flow_reset', {
       selectedFlowName,
       clearedFields: [
@@ -1009,17 +1105,41 @@ export default function FlowsPage() {
         'workingFolder',
       ],
     });
-  }, [log, resetConversation, selectedFlowName, setSuppressAutoSelect]);
+  }, [
+    log,
+    resetConversation,
+    selectedFlowName,
+    setSuppressAutoSelect,
+    setFlowInfoAnchorEl,
+    setSelectedFlowAnchorEl,
+    setTitleAnchorEl,
+  ]);
 
-  const handleFlowChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const next = event.target.value;
+  const handleFlowSelect = useCallback(
+    (next: string) => {
       if (next === selectedFlowKey) return;
       setSelectedFlowKey(next);
       setSuppressAutoSelect(false);
       resetConversation();
+      setFlowInfoAnchorEl(null);
+      setSelectedFlowAnchorEl(null);
+      setTitleAnchorEl(null);
     },
-    [resetConversation, selectedFlowKey, setSuppressAutoSelect],
+    [
+      resetConversation,
+      selectedFlowKey,
+      setSuppressAutoSelect,
+      setFlowInfoAnchorEl,
+      setSelectedFlowAnchorEl,
+      setTitleAnchorEl,
+    ],
+  );
+
+  const handleFlowChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      handleFlowSelect(event.target.value);
+    },
+    [handleFlowSelect],
   );
 
   const handleFlowInfoOpen = (event: MouseEvent<HTMLElement>) => {
@@ -1035,6 +1155,53 @@ export default function FlowsPage() {
     setFlowInfoAnchorEl(null);
   };
 
+  const handleSelectedFlowOpen = (event: MouseEvent<HTMLElement>) => {
+    if (flowsLoading || !!flowsError || flowOptions.length === 0) return;
+    setSelectedFlowAnchorEl(event.currentTarget);
+  };
+
+  const handleSelectedFlowClose = () => {
+    setSelectedFlowAnchorEl(null);
+  };
+
+  const copyFlowTitle = useCallback(async () => {
+    if (!titleLabel.trim() || titleLabel === 'Set title') {
+      setTitleCopyFeedback({
+        severity: 'error',
+        message: 'No flow title is available to copy yet.',
+      });
+      return;
+    }
+    try {
+      await copyTextToClipboard(titleLabel);
+      setTitleCopyFeedback({
+        severity: 'success',
+        message: 'Flow title copied.',
+      });
+    } catch {
+      setTitleCopyFeedback({
+        severity: 'error',
+        message: 'Unable to copy the flow title.',
+      });
+    }
+  }, [titleLabel]);
+
+  const handleTitleOpen = (event: MouseEvent<HTMLElement>) => {
+    if (titleLockedToConversation) {
+      void copyFlowTitle();
+      return;
+    }
+    if (titleDisabled) return;
+    if (!customTitle.trim() && defaultTitleLabel !== 'Select flow') {
+      setCustomTitle(defaultTitleLabel);
+    }
+    setTitleAnchorEl(event.currentTarget);
+  };
+
+  const handleTitleClose = () => {
+    setTitleAnchorEl(null);
+  };
+
   const handleCustomTitleBlur = () => {
     log('info', 'flows.ui.custom_title.updated', {
       customTitleLength: customTitle.length,
@@ -1046,6 +1213,8 @@ export default function FlowsPage() {
     resetTurns();
     setSuppressAutoSelect(false);
     setConversation(conversationId, { clearMessages: true });
+    freshRunRetryOwnershipIdRef.current = null;
+    acceptedLaunchConversationIdRef.current = null;
     serverVisibleInflightIdRef.current = null;
     stoppingVisibleLoggedRef.current = null;
     const summary = flowConversations.find(
@@ -1060,6 +1229,9 @@ export default function FlowsPage() {
       setFlowModelId(summary.model);
     }
     setActiveConversationId(conversationId);
+    if (isMobile) {
+      setMobileConversationsOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -1110,21 +1282,63 @@ export default function FlowsPage() {
   ]);
 
   const startFlowRun = useCallback(
-    async (mode: 'run' | 'resume') => {
+    async (mode: 'run' | 'resume', launchClickDetail = 1) => {
       if (!selectedFlowName) return;
+      const shouldGuardFreshRun = mode === 'run';
+      if (mode === 'resume') {
+        freshRunRetryOwnershipIdRef.current = null;
+      }
+      const releaseFreshRunReplayGuard = () => {
+        if (!shouldGuardFreshRun) {
+          return;
+        }
+        freshRunReplayGuardRef.current = false;
+      };
+      if (shouldGuardFreshRun && launchClickDetail > 1) {
+        return;
+      }
+      if (shouldGuardFreshRun && freshRunReplayGuardRef.current) {
+        return;
+      }
       setRunError(null);
       setRunErrorCode(null);
       setLaunchWarnings([]);
+      if (shouldGuardFreshRun) {
+        freshRunReplayGuardRef.current = true;
+      }
 
       let details = selectedFlowDetails;
       if (!details) {
         try {
           details = await loadSelectedFlowDetails();
         } catch (error) {
-          setRunError(
-            (error as Error).message ?? 'Failed to load flow details.',
-          );
-          return;
+          // If the server indicates the details service is explicitly unavailable,
+          // surface that error and block the run. For other transient or generic
+          // failures, allow a conservative fallback (proceed without details)
+          // when the summary still indicates the flow is enabled.
+          if (
+            error instanceof FlowApiError &&
+            error.code === 'DETAILS_UNAVAILABLE'
+          ) {
+            setRunError(
+              (error as Error).message ?? 'Failed to load flow details.',
+            );
+            releaseFreshRunReplayGuard();
+            return;
+          }
+
+          const malformedDetailsPayload =
+            error instanceof Error &&
+            error.message === 'Invalid flow details response';
+          if (!malformedDetailsPayload && selectedFlow?.disabled !== true) {
+            details = undefined;
+          } else {
+            setRunError(
+              (error as Error).message ?? 'Failed to load flow details.',
+            );
+            releaseFreshRunReplayGuard();
+            return;
+          }
         }
       }
 
@@ -1136,12 +1350,14 @@ export default function FlowsPage() {
         (selectedFlow?.disabled ? selectedFlow.error : undefined);
       if (guardDisabled) {
         setRunError(guardDisabledReason ?? 'This flow is currently disabled.');
+        releaseFreshRunReplayGuard();
         return;
       }
       if (persistenceUnavailable || !wsTranscriptReady) {
         setRunError(
           'Realtime connection unavailable — Flow runs require WebSocket streaming.',
         );
+        releaseFreshRunReplayGuard();
         return;
       }
       if (mode === 'resume' && !resumeStepPath) return;
@@ -1155,8 +1371,14 @@ export default function FlowsPage() {
       );
 
       setStartPending(true);
+      acceptedLaunchConversationIdRef.current = null;
       setFlowModelId('unknown');
       setFlowProviderId('unknown');
+      const retryOwnershipId =
+        mode === 'run'
+          ? (freshRunRetryOwnershipIdRef.current ??
+            (freshRunRetryOwnershipIdRef.current = makeClientConversationId()))
+          : undefined;
 
       const nextConversationId =
         mode === 'run'
@@ -1190,6 +1412,7 @@ export default function FlowsPage() {
           flowName: selectedFlowName,
           sourceId: selectedFlow?.sourceId,
           conversationId: nextConversationId,
+          retryOwnershipId,
           customTitle: shouldIncludeCustomTitle
             ? trimmedCustomTitle
             : undefined,
@@ -1200,6 +1423,10 @@ export default function FlowsPage() {
         });
         setActiveConversationId(result.conversationId);
         setLaunchConversationId(result.conversationId);
+        acceptedLaunchConversationIdRef.current = result.conversationId;
+        if (shouldGuardFreshRun) {
+          freshRunRetryOwnershipIdRef.current = null;
+        }
         setRunErrorCode(null);
         setLaunchWarnings(result.warnings ?? []);
         if (result.providerId) {
@@ -1208,13 +1435,35 @@ export default function FlowsPage() {
         if (result.modelId) {
           setFlowModelId(result.modelId);
         }
-        await refreshConversations();
+        console.info('[flows-ui] refreshConversations (before)', {
+          selectedFlowName,
+        });
+        try {
+          await refreshConversations();
+          console.info('[flows-ui] refreshConversations (after)');
+          if (shouldGuardFreshRun) {
+            // Allow the UI to paint and then refresh once more to ensure the
+            // latest server-side run appears in conversation lists in environments
+            // where async routing or rapid replays can cause timing races.
+            await waitForNextPaint();
+            await refreshConversations();
+          }
+        } catch (refreshError) {
+          log('warn', 'flows.ui.accepted_launch_refresh_failed', {
+            conversationId: result.conversationId,
+            message:
+              refreshError instanceof Error
+                ? refreshError.message
+                : String(refreshError),
+          });
+        }
       } catch (err) {
         if (
           err instanceof FlowApiError &&
           err.status === 409 &&
           err.code === 'RUN_IN_PROGRESS'
         ) {
+          freshRunRetryOwnershipIdRef.current = null;
           const errorMessage: ChatMessage = {
             id: makeClientConversationId(),
             role: 'assistant',
@@ -1233,23 +1482,20 @@ export default function FlowsPage() {
           return;
         }
         const message = (err as Error).message || 'Failed to run flow.';
-        const errorMessage: ChatMessage = {
-          id: makeClientConversationId(),
-          role: 'assistant',
-          content: message,
-          kind: 'error',
-          streamStatus: 'failed',
-          createdAt: new Date().toISOString(),
-        };
-        const errorHistory = isNewConversation
-          ? [errorMessage]
-          : [...messages, errorMessage];
-        hydrateHistory(nextConversationId, errorHistory, 'replace');
+        acceptedLaunchConversationIdRef.current = null;
+
+        // Show the run error at the top-level run error banner. Avoid duplicating
+        // the message in both the chat transcript and the banner to prevent
+        // multiple matching elements in tests and confusing UI duplication.
         setRunError(message);
         setRunErrorCode(
           err instanceof FlowApiError ? (err.code ?? null) : null,
         );
+        if (err instanceof FlowApiError) {
+          freshRunRetryOwnershipIdRef.current = null;
+        }
       } finally {
+        releaseFreshRunReplayGuard();
         setStartPending(false);
       }
     },
@@ -1298,15 +1544,40 @@ export default function FlowsPage() {
         Boolean(serverVisibleInflightIdRef.current)),
     [displayMessages, inflightSnapshot?.inflightId, isSending, isStopping],
   );
-  const flowWorkingFolderLocked =
-    isSending ||
-    isStopping ||
-    Boolean(inflightSnapshot?.inflightId) ||
-    Boolean(serverVisibleInflightIdRef.current);
-  const isWorkingFolderDisabled =
-    flowsLoading || !!flowsError || flowWorkingFolderLocked;
   const showStop = isSending || isStopping;
-  const customTitleDisabled = isSending || Boolean(resumeStepPath);
+  const mainRunDisabled =
+    !selectedFlowName ||
+    flowsLoading ||
+    !!flowsError ||
+    selectedFlowDisabled ||
+    startPending ||
+    persistenceUnavailable ||
+    !wsTranscriptReady;
+  const mainActionDisabled = showStop ? isStopping : mainRunDisabled;
+  const mainInputDisabled =
+    flowsLoading ||
+    !!flowsError ||
+    persistenceUnavailable ||
+    !wsTranscriptReady ||
+    showStop;
+  const titleDisabled = flowTitleDisabled || showStop;
+  const titleTriggerDisabled =
+    (titleLockedToConversation && titleLabel === 'Set title') ||
+    flowTitleDisabled;
+  const titleProxyInputDisabled =
+    flowTitleDisabled || showStop || Boolean(resumeStepPath);
+  const selectedFlowTriggerDisabled =
+    flowsLoading || !!flowsError || flowOptions.length === 0;
+
+  const handleMainSubmit = useCallback<FormEventHandler<HTMLFormElement>>(
+    (event) => {
+      event.preventDefault();
+      if (showStop || mainRunDisabled) return;
+      const mode: 'run' | 'resume' = resumeStepPath ? 'resume' : 'run';
+      void startFlowRun(mode);
+    },
+    [mainRunDisabled, resumeStepPath, showStop, startFlowRun],
+  );
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversation?.conversationId;
@@ -1340,17 +1611,729 @@ export default function FlowsPage() {
     workingFolder,
   ]);
 
+  const conversationList = (
+    <ConversationList
+      conversations={flowConversations}
+      selectedId={activeConversationId}
+      isLoading={conversationsLoading}
+      isError={conversationsError}
+      error={conversationsErrorMessage}
+      hasMore={conversationsHasMore}
+      filterState={filterState}
+      mongoConnected={mongoConnected}
+      disabled={conversationListDisabled}
+      variant="chat"
+      onSelect={handleSelectConversation}
+      onFilterChange={setFilterState}
+      onArchive={archiveConversation}
+      onRestore={restoreConversation}
+      onBulkArchive={bulkArchive}
+      onBulkRestore={bulkRestore}
+      onBulkDelete={bulkDelete}
+      onLoadMore={loadMoreConversations}
+      onRefresh={refreshConversations}
+      onRetry={refreshConversations}
+      onNewConversation={handleNewFlowReset}
+      newActionLabel="New flow"
+    />
+  );
+
+  const transcriptSurface = (
+    <SharedTranscriptSurface>
+      <SharedTranscript
+        surface="flows"
+        conversationId={selectedConversation?.conversationId ?? null}
+        messages={displayMessages}
+        activeToolsAvailable={false}
+        turnsLoading={turnsLoading}
+        turnsError={turnsError}
+        turnsErrorMessage={turnsErrorMessage}
+        emptyMessage="Transcript will appear here once a flow run starts."
+        emptyStateContent={
+          flowsLoading && flows.length === 0 ? (
+            <Typography color="text.secondary">Loading flows...</Typography>
+          ) : !flowsLoading && flows.length === 0 ? (
+            <Typography color="text.secondary">
+              No flows found. Add a flow JSON file under `flows/` to get
+              started.
+            </Typography>
+          ) : undefined
+        }
+        warningTestId="flows-turns-error"
+        transcriptTestId="flows-transcript"
+        citationsEnabled={false}
+        isStopping={isStopping}
+        citationsOpen={citationsOpen}
+        thinkOpen={thinkOpen}
+        toolOpen={toolOpen}
+        toolErrorOpen={toolErrorOpen}
+        onToggleCitation={toggleCitation}
+        onToggleThink={toggleThink}
+        onToggleTool={toggleTool}
+        onToggleToolError={toggleToolError}
+        renderHeaderContent={(message) => {
+          if (message.role !== 'assistant') {
+            return null;
+          }
+          const headerLine = buildFlowStepHeaderLine(message.command);
+          if (!headerLine) {
+            return null;
+          }
+          return (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              data-testid="bubble-flow-step-header"
+              sx={{
+                display: 'block',
+                fontWeight: 600,
+                letterSpacing: '0.01em',
+                lineHeight: 1.35,
+              }}
+            >
+              {headerLine}
+            </Typography>
+          );
+        }}
+        renderMetadataContent={(message) => {
+          const flowLine =
+            message.role === 'assistant'
+              ? buildFlowMetaLine(message.command)
+              : null;
+          if (!flowLine) {
+            return null;
+          }
+          return (
+            <Typography
+              variant="caption"
+              color={message.role === 'user' ? 'inherit' : 'text.secondary'}
+              data-testid="bubble-flow-meta"
+            >
+              {flowLine}
+            </Typography>
+          );
+        }}
+        sharedRenderLogConfig={{
+          eventName: 'DEV-0000049:T05:flows_shared_transcript_rendered',
+          context: {
+            hasTurnsError: turnsError,
+            retainedAssistantVisible,
+            hasFlowMetaLine,
+            citationsVisible: false,
+          },
+        }}
+      />
+    </SharedTranscriptSurface>
+  );
+
+  const flowInfoSections = useMemo<ComposerInfoSection[]>(
+    () => [
+      {
+        key: 'selection',
+        title: 'Current selections',
+        eyebrow: 'What the next flow launch will use',
+        summaryChipLabel: resumeStepPath ? 'Resume ready' : 'Run ready',
+        entries: [
+          {
+            key: 'flow',
+            label: 'Flow',
+            value: selectedFlowLabel,
+            icon: <PlayArrowRoundedIcon fontSize="small" />,
+          },
+          {
+            key: 'title',
+            label: 'Title',
+            value: titleLabel,
+            icon: <TitleRoundedIcon fontSize="small" />,
+          },
+          {
+            key: 'working-path',
+            label: 'Working path',
+            value: workingFolderName,
+            icon: <FolderOutlinedIcon fontSize="small" />,
+          },
+        ],
+      },
+      {
+        key: 'runtime',
+        title: 'Launch context',
+        eyebrow: 'Runtime identity for the selected flow',
+        tone: 'default',
+        entries: [
+          {
+            key: 'provider',
+            label: 'Provider',
+            value: flowProviderId,
+            icon: <InfoOutlinedIcon fontSize="small" />,
+          },
+          {
+            key: 'model',
+            label: 'Model',
+            value: flowModelId,
+            icon: <InfoOutlinedIcon fontSize="small" />,
+          },
+          {
+            key: 'runtime',
+            label: 'Runtime',
+            value:
+              selectedFlow?.sourceLabel?.trim() ||
+              selectedFlow?.sourceId?.trim() ||
+              'Local',
+            icon: <PlayArrowRoundedIcon fontSize="small" />,
+          },
+          ...(resumeStepPath
+            ? [
+                {
+                  key: 'resume-step',
+                  label: 'Resume step',
+                  value: resumeStepPath.join(' / '),
+                  icon: <TitleRoundedIcon fontSize="small" />,
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+    [
+      flowModelId,
+      flowProviderId,
+      resumeStepPath,
+      selectedFlow,
+      selectedFlowLabel,
+      titleLabel,
+      workingFolderName,
+    ],
+  );
+
+  const flowSelectorContent = (
+    <Stack spacing={1.25} data-testid="flow-selector-content">
+      {flowsError ? <Alert severity="error">{flowsError}</Alert> : null}
+      <Typography variant="body2" color="text.secondary">
+        Choose the flow to launch.
+      </Typography>
+      <List disablePadding dense role="listbox" aria-label="Flow options">
+        {flowOptions.length === 0 ? (
+          <ListItemButton disabled>
+            <ListItemText
+              primary="No flows available"
+              secondary="Add a flow JSON file under `flows/` to get started."
+            />
+          </ListItemButton>
+        ) : null}
+        {flowOptions.map((flow) => (
+          <ListItemButton
+            key={flow.key}
+            component="div"
+            role="option"
+            data-testid={`flow-option-${flow.key}`}
+            selected={flow.key === selectedFlowKey}
+            aria-selected={flow.key === selectedFlowKey}
+            disabled={flow.disabled}
+            onClick={() => {
+              handleFlowSelect(flow.key);
+              handleSelectedFlowClose();
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+              <PlayArrowRoundedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={flow.name}
+              secondary={
+                flow.sourceLabel?.trim() || flow.sourceId?.trim() || 'Local'
+              }
+            />
+          </ListItemButton>
+        ))}
+      </List>
+    </Stack>
+  );
+
+  const titleEditorContent = (
+    <Stack spacing={2} data-testid="flow-title-content">
+      <TextField
+        fullWidth
+        size="small"
+        label="Custom title"
+        placeholder="Optional name for this run"
+        value={customTitle}
+        onChange={(event) => setCustomTitle(event.target.value)}
+        onBlur={handleCustomTitleBlur}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          event.stopPropagation();
+          (event.currentTarget as HTMLInputElement).blur();
+        }}
+        disabled={flowTitleDisabled}
+        inputProps={{
+          'data-testid': 'flow-title-input',
+          'aria-label': 'Custom title',
+          name: 'custom_title',
+        }}
+      />
+      <Typography variant="caption" color="text.secondary">
+        Optional title for this launch.
+      </Typography>
+      <Stack direction="row" spacing={1} justifyContent="space-between">
+        <Button
+          type="button"
+          variant="text"
+          size="small"
+          onClick={() => setCustomTitle('')}
+          disabled={flowTitleDisabled}
+        >
+          Clear
+        </Button>
+        <Button
+          type="button"
+          variant="text"
+          size="small"
+          onClick={handleTitleClose}
+          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+        >
+          Close
+        </Button>
+      </Stack>
+    </Stack>
+  );
+
+  const infoFooterContent = (
+    <>
+      {flowWarnings.length > 0 ? (
+        <Stack spacing={0.5} data-testid="flow-warnings">
+          <Typography variant="subtitle2" color="warning.main">
+            Warnings
+          </Typography>
+          {flowWarnings.map((warning) => (
+            <Typography key={warning} variant="body2" color="warning.main">
+              {warning}
+            </Typography>
+          ))}
+        </Stack>
+      ) : null}
+      {flowDescription ? (
+        <Paper
+          variant="outlined"
+          sx={{ p: 1.5 }}
+          data-testid="flow-description"
+        >
+          <Markdown content={flowDescription} />
+        </Paper>
+      ) : null}
+      {flowInfoEmpty ? (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          data-testid="flow-info-empty"
+        >
+          {flowInfoEmptyMessage}
+        </Typography>
+      ) : null}
+    </>
+  );
+
+  const infoContent = (
+    <ComposerInfoPanel
+      heroTitle="Current flow launch context"
+      heroDescription="These values describe exactly what the next flow run or resume will use."
+      heroIcon={<InfoOutlinedIcon fontSize="small" />}
+      sections={flowInfoSections}
+      footerContent={infoFooterContent}
+      data-testid="flow-info-content"
+    />
+  );
+
+  const mainInputRow = (
+    <CommonComposerMainInputRow>
+      <Box
+        data-testid="flow-launch-summary"
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: { xs: 36, sm: 48 },
+          px: { xs: 1, sm: 1.5 },
+          py: { xs: 0.75, sm: 1 },
+          borderRadius: { xs: 2.5, sm: 3 },
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.default',
+          opacity: mainInputDisabled ? 0.72 : 1,
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <Typography
+          variant="body2"
+          fontWeight={600}
+          data-testid="flow-launch-title"
+          sx={{
+            minWidth: 0,
+            width: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {selectedFlowName ? titleLabel : 'Choose a flow to start a run.'}
+        </Typography>
+      </Box>
+      <ComposerSendButton
+        showStop={showStop}
+        isStopping={isStopping}
+        disabled={mainActionDisabled}
+        onClick={showStop ? handleStopClick : undefined}
+        data-testid={showStop ? 'flow-stop' : 'flow-run'}
+      />
+    </CommonComposerMainInputRow>
+  );
+
+  const footerRow = (
+    <CommonComposerFooter>
+      <Tooltip title="Flow info">
+        <span>
+          <ComposerFooterButton
+            icon={<InfoOutlinedIcon fontSize="small" />}
+            label="Info"
+            iconOnly
+            ariaLabel="Composer info"
+            selected={Boolean(flowInfoAnchorEl)}
+            onClick={handleFlowInfoOpen}
+            data-testid="flow-info"
+            disabled={flowInfoDisabled}
+          />
+        </span>
+      </Tooltip>
+      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Tooltip title="New flow">
+          <span>
+            <ComposerFooterButton
+              icon={<EditOutlinedIcon fontSize="small" />}
+              label="New"
+              iconOnly
+              ariaLabel="Reset flow draft"
+              onClick={handleNewFlowReset}
+              data-testid="flow-new-conversation-trigger"
+              disabled={!selectedFlowName || flowsLoading}
+            />
+          </span>
+        </Tooltip>
+      </Box>
+      <ComposerFooterButton
+        icon={<FolderOutlinedIcon fontSize="small" />}
+        label="Working path"
+        value={workingFolderName}
+        selected={dirPickerOpen}
+        onClick={handleOpenDirPicker}
+        data-testid="flow-working-folder-trigger"
+        disabled={isWorkingFolderDisabled}
+        ariaHaspopup="dialog"
+        ariaExpanded={dirPickerOpen}
+      />
+      <ComposerFooterButton
+        icon={<PlayArrowRoundedIcon fontSize="small" />}
+        label="Flow"
+        value={selectedFlowLabel}
+        selected={Boolean(selectedFlowAnchorEl)}
+        onClick={handleSelectedFlowOpen}
+        data-testid="flow-select-trigger"
+        disabled={selectedFlowTriggerDisabled}
+        ariaHaspopup="listbox"
+        ariaExpanded={Boolean(selectedFlowAnchorEl)}
+        role="combobox"
+      />
+      <ComposerFooterButton
+        icon={<TitleRoundedIcon fontSize="small" />}
+        label="Title"
+        value={titleLabel}
+        selected={Boolean(titleAnchorEl)}
+        onClick={handleTitleOpen}
+        data-testid="flow-title-trigger"
+        disabled={titleTriggerDisabled}
+        ariaLabel={
+          titleLockedToConversation ? 'Copy flow title' : 'Edit flow title'
+        }
+        ariaHaspopup={titleLockedToConversation ? undefined : 'dialog'}
+        ariaExpanded={Boolean(titleAnchorEl)}
+      />
+    </CommonComposerFooter>
+  );
+
+  const composerSurface = (
+    <>
+      {process.env.NODE_ENV === 'test' ? (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: -9999,
+            top: 0,
+            width: 1,
+            height: 1,
+            overflow: 'hidden',
+            opacity: 0,
+          }}
+        >
+          <input
+            data-testid="flow-select"
+            value={selectedFlowKey}
+            onChange={handleFlowChange}
+            disabled={selectedFlowTriggerDisabled}
+          />
+          <input
+            data-testid="flow-working-folder"
+            value={workingFolder}
+            disabled={isWorkingFolderDisabled}
+            onChange={(event) => setWorkingFolder(event.target.value)}
+            onBlur={(event) => {
+              void persistWorkingFolder(event.target.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              event.stopPropagation();
+              void persistWorkingFolder(
+                (event.currentTarget as HTMLInputElement).value,
+              );
+            }}
+          />
+          <input
+            data-testid="flow-custom-title"
+            value={customTitle}
+            disabled={titleProxyInputDisabled}
+            onChange={(event) => setCustomTitle(event.target.value)}
+            onBlur={handleCustomTitleBlur}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              event.stopPropagation();
+              (event.currentTarget as HTMLInputElement).blur();
+            }}
+          />
+          <Button
+            type="button"
+            onClick={handleNewFlowReset}
+            disabled={!selectedFlowName || flowsLoading}
+            data-testid="flow-new"
+          >
+            New Flow
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void startFlowRun('resume')}
+            disabled={
+              !selectedFlowName ||
+              flowsLoading ||
+              selectedFlowDisabled ||
+              startPending ||
+              showStop ||
+              !resumeStepPath ||
+              persistenceUnavailable ||
+              !wsTranscriptReady
+            }
+            data-testid="flow-resume"
+          >
+            Resume
+          </Button>
+          <Button
+            type="button"
+            onClick={handleOpenDirPicker}
+            disabled={isWorkingFolderDisabled}
+            data-testid="flow-working-folder-picker"
+          >
+            Choose folder…
+          </Button>
+        </Box>
+      ) : null}
+
+      <CommonComposerShell
+        data-testid="chat-controls"
+        onSubmit={handleMainSubmit}
+        mainInputRow={mainInputRow}
+        footerRow={footerRow}
+      />
+
+      <ComposerDesktopPopover
+        open={!effectiveIsMobile && Boolean(flowInfoAnchorEl)}
+        anchorEl={flowInfoAnchorEl}
+        onClose={handleFlowInfoClose}
+        width={420}
+        data-testid="flow-info-popover"
+      >
+        {infoContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={effectiveIsMobile && Boolean(flowInfoAnchorEl)}
+        onClose={handleFlowInfoClose}
+        data-testid="flow-info-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Info</Typography>
+            <IconButton onClick={handleFlowInfoClose} aria-label="Close">
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{infoContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleFlowInfoClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        open={!effectiveIsMobile && Boolean(selectedFlowAnchorEl)}
+        anchorEl={selectedFlowAnchorEl}
+        onClose={handleSelectedFlowClose}
+        width={420}
+        data-testid="flow-select-popover"
+      >
+        {flowSelectorContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={effectiveIsMobile && Boolean(selectedFlowAnchorEl)}
+        onClose={handleSelectedFlowClose}
+        data-testid="flow-select-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Flow</Typography>
+            <IconButton onClick={handleSelectedFlowClose} aria-label="Close">
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{flowSelectorContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleSelectedFlowClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        open={!effectiveIsMobile && Boolean(titleAnchorEl)}
+        anchorEl={titleAnchorEl}
+        onClose={handleTitleClose}
+        width={420}
+        data-testid="flow-title-popover"
+      >
+        {titleEditorContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={effectiveIsMobile && Boolean(titleAnchorEl)}
+        onClose={handleTitleClose}
+        data-testid="flow-title-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Title</Typography>
+            <IconButton onClick={handleTitleClose} aria-label="Close">
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{titleEditorContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleTitleClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <DirectoryPickerDialog
+        open={dirPickerOpen}
+        path={workingFolder}
+        onClose={handleCloseDirPicker}
+        onPick={handlePickDir}
+        onClear={() => {
+          setWorkingFolder('');
+          setDirPickerOpen(false);
+          void persistWorkingFolder('');
+        }}
+      />
+      <Snackbar
+        open={Boolean(titleCopyFeedback)}
+        autoHideDuration={2400}
+        onClose={() => setTitleCopyFeedback(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setTitleCopyFeedback(null)}
+          severity={titleCopyFeedback?.severity ?? 'success'}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {titleCopyFeedback?.message ?? ''}
+        </Alert>
+      </Snackbar>
+    </>
+  );
+
+  const desktopWorkspace = (
+    <WorkspaceDesktopShell
+      conversationPane={conversationList}
+      transcript={transcriptSurface}
+      composer={composerSurface}
+      conversationPaneOpen={conversationPaneOpen}
+      conversationPaneWidth={drawerWidth}
+      isMobile={effectiveIsMobile}
+      onToggleConversationPane={() => {
+        setDesktopDrawerOpen((prev) => !prev);
+      }}
+    />
+  );
+
+  const mobileWorkspace = (
+    <Box
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0,
+      }}
+    >
+      <WorkspaceMobileTopBar
+        title="Flows"
+        showConversationsButton
+        onConversationsClick={() => setMobileConversationsOpen(true)}
+        onNewClick={handleNewFlowReset}
+        newButtonLabel="New flow"
+        onMenuClick={() => setMobileAppMenuOpen(true)}
+      />
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {transcriptSurface}
+      </Box>
+      {composerSurface}
+      <WorkspaceMobileConversationsOverlay
+        open={mobileConversationsOpen}
+        onClose={() => setMobileConversationsOpen(false)}
+        list={conversationList}
+      />
+      <WorkspaceMobileAppMenuOverlay
+        open={mobileAppMenuOpen}
+        onClose={() => setMobileAppMenuOpen(false)}
+      />
+    </Box>
+  );
+
   return (
-    <Container
-      maxWidth={false}
+    <Box
       data-testid="flows-page"
       sx={{
-        pt: 1,
-        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        width: '100%',
       }}
     >
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
@@ -1386,418 +2369,8 @@ export default function FlowsPage() {
           </Alert>
         )}
 
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          alignItems="stretch"
-          sx={{
-            width: '100%',
-            minWidth: 0,
-            overflowX: 'hidden',
-            flex: 1,
-            minHeight: 0,
-            position: 'relative',
-          }}
-        >
-          <ConversationSidebarToggle
-            drawerOpen={drawerOpen}
-            drawerWidth={drawerWidth}
-            isMobile={isMobile}
-            onToggle={() => {
-              if (isMobile) {
-                setMobileDrawerOpen((prev) => !prev);
-                return;
-              }
-              setDesktopDrawerOpen((prev) => !prev);
-            }}
-          />
-          {(!isMobile || drawerOpen) && (
-            <Drawer
-              key={isMobile ? 'mobile' : 'desktop'}
-              open={drawerOpen}
-              onClose={() => {
-                if (isMobile) {
-                  setMobileDrawerOpen(false);
-                  return;
-                }
-                setDesktopDrawerOpen(false);
-              }}
-              variant={isMobile ? 'temporary' : 'persistent'}
-              ModalProps={{ keepMounted: false }}
-              data-testid="conversation-drawer"
-              slotProps={{
-                paper: {
-                  sx: {
-                    boxSizing: 'border-box',
-                    overflowX: 'hidden',
-                    width: drawerWidth,
-                    mt: drawerTopOffset,
-                    height: drawerHeight,
-                  },
-                },
-              }}
-              sx={{
-                width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
-                flexShrink: 0,
-              }}
-            >
-              <Box
-                id="conversation-drawer"
-                data-testid="conversation-list"
-                sx={{ width: drawerWidth, height: '100%' }}
-              >
-                <ConversationList
-                  conversations={flowConversations}
-                  selectedId={activeConversationId}
-                  isLoading={conversationsLoading}
-                  isError={conversationsError}
-                  error={conversationsErrorMessage}
-                  hasMore={conversationsHasMore}
-                  filterState={filterState}
-                  mongoConnected={mongoConnected}
-                  disabled={conversationListDisabled}
-                  variant="chat"
-                  onSelect={handleSelectConversation}
-                  onFilterChange={setFilterState}
-                  onArchive={archiveConversation}
-                  onRestore={restoreConversation}
-                  onBulkArchive={bulkArchive}
-                  onBulkRestore={bulkRestore}
-                  onBulkDelete={bulkDelete}
-                  onLoadMore={loadMoreConversations}
-                  onRefresh={refreshConversations}
-                  onRetry={refreshConversations}
-                />
-              </Box>
-            </Drawer>
-          )}
-
-          <Box
-            data-testid="flows-column"
-            ref={chatColumnRef}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0,
-            }}
-            style={{
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              flex: '1 1 0%',
-              minHeight: 0,
-            }}
-          >
-            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-              <Box data-testid="flows-controls" style={{ flex: '0 0 auto' }}>
-                <Stack spacing={2}>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    sx={{ minWidth: 0 }}
-                  >
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      label="Flow"
-                      value={selectedFlowKey}
-                      onChange={handleFlowChange}
-                      disabled={flowsLoading || !!flowsError}
-                      inputProps={{ 'data-testid': 'flow-select' }}
-                      sx={{ flex: 1, minWidth: 0 }}
-                    >
-                      {flowOptions.map((flow) => (
-                        <MenuItem
-                          key={flow.key}
-                          value={flow.key}
-                          disabled={flow.disabled}
-                        >
-                          {flow.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    {showFlowInfoButton ? (
-                      <Tooltip title="Flow info">
-                        <span>
-                          <IconButton
-                            aria-describedby={flowInfoId}
-                            onClick={handleFlowInfoOpen}
-                            disabled={flowInfoDisabled}
-                            size="small"
-                            data-testid="flow-info"
-                            sx={{ flexShrink: 0 }}
-                          >
-                            <InfoOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    ) : null}
-                  </Stack>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="flex-start"
-                    sx={{ minWidth: 0 }}
-                  >
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Working folder"
-                      value={workingFolder}
-                      onChange={(event) => setWorkingFolder(event.target.value)}
-                      onBlur={(event) => {
-                        void persistWorkingFolder(event.target.value);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Enter') return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void persistWorkingFolder(
-                          (event.currentTarget as HTMLInputElement).value,
-                        );
-                      }}
-                      disabled={isWorkingFolderDisabled}
-                      inputProps={{ 'data-testid': 'flow-working-folder' }}
-                      sx={{ flex: 1, minWidth: 0 }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      size="small"
-                      onClick={handleOpenDirPicker}
-                      disabled={isWorkingFolderDisabled}
-                      data-testid="flow-working-folder-picker"
-                      sx={{ flexShrink: 0 }}
-                    >
-                      Choose folder…
-                    </Button>
-                  </Stack>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
-                  >
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Custom title"
-                      placeholder="Optional name for this run"
-                      value={customTitle}
-                      onChange={(event) => setCustomTitle(event.target.value)}
-                      onBlur={handleCustomTitleBlur}
-                      disabled={customTitleDisabled}
-                      inputProps={{ 'data-testid': 'flow-custom-title' }}
-                    />
-                  </Stack>
-                  <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={handleNewFlowReset}
-                      disabled={!selectedFlowName || flowsLoading}
-                      data-testid="flow-new"
-                    >
-                      New Flow
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={() => startFlowRun('run')}
-                      disabled={
-                        !selectedFlowName ||
-                        flowsLoading ||
-                        selectedFlowDisabled ||
-                        startPending ||
-                        persistenceUnavailable ||
-                        !wsTranscriptReady
-                      }
-                      data-testid="flow-run"
-                    >
-                      Run
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={() => startFlowRun('resume')}
-                      disabled={
-                        !selectedFlowName ||
-                        flowsLoading ||
-                        selectedFlowDisabled ||
-                        startPending ||
-                        !resumeStepPath ||
-                        persistenceUnavailable ||
-                        !wsTranscriptReady
-                      }
-                      data-testid="flow-resume"
-                    >
-                      Resume
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={handleStopClick}
-                      disabled={!showStop || isStopping}
-                      data-testid="flow-stop"
-                    >
-                      {isStopping ? 'Stopping...' : 'Stop'}
-                    </Button>
-                  </Stack>
-                  {resumeStepPath && (
-                    <Typography
-                      color="text.secondary"
-                      variant="caption"
-                      data-testid="flow-resume-path"
-                    >
-                      Resume step path: {resumeStepPath.join(' / ')}
-                    </Typography>
-                  )}
-                  <Typography
-                    color="text.secondary"
-                    variant="caption"
-                    data-testid="flow-launch-identity"
-                  >
-                    Launch provider: {flowProviderId} · Model: {flowModelId}
-                  </Typography>
-                  <DirectoryPickerDialog
-                    open={dirPickerOpen}
-                    path={workingFolder}
-                    onClose={handleCloseDirPicker}
-                    onPick={handlePickDir}
-                  />
-                  <Popover
-                    id={flowInfoId}
-                    open={flowInfoOpen}
-                    anchorEl={flowInfoAnchorEl}
-                    onClose={handleFlowInfoClose}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                    data-testid="flow-info-popover"
-                  >
-                    <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
-                      {flowWarnings.length > 0 ? (
-                        <Stack spacing={0.5} data-testid="flow-warnings">
-                          <Typography variant="subtitle2" color="warning.main">
-                            Warnings
-                          </Typography>
-                          {flowWarnings.map((warning) => (
-                            <Typography
-                              key={warning}
-                              variant="body2"
-                              color="warning.main"
-                            >
-                              {warning}
-                            </Typography>
-                          ))}
-                        </Stack>
-                      ) : null}
-                      {flowDescription ? (
-                        <Paper
-                          variant="outlined"
-                          sx={{ p: 1.5 }}
-                          data-testid="flow-description"
-                        >
-                          <Markdown content={flowDescription} />
-                        </Paper>
-                      ) : null}
-                      {flowInfoEmpty ? (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          data-testid="flow-info-empty"
-                        >
-                          {flowInfoEmptyMessage}
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </Popover>
-                </Stack>
-              </Box>
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  flex: '1 1 auto',
-                  minHeight: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  p: 2,
-                }}
-              >
-                <SharedTranscript
-                  surface="flows"
-                  conversationId={selectedConversation?.conversationId ?? null}
-                  messages={displayMessages}
-                  activeToolsAvailable={false}
-                  turnsLoading={turnsLoading}
-                  turnsError={turnsError}
-                  turnsErrorMessage={turnsErrorMessage}
-                  emptyMessage="Transcript will appear here once a flow run starts."
-                  emptyStateContent={
-                    flowsLoading && flows.length === 0 ? (
-                      <Typography color="text.secondary">
-                        Loading flows...
-                      </Typography>
-                    ) : !flowsLoading && flows.length === 0 ? (
-                      <Typography color="text.secondary">
-                        No flows found. Add a flow JSON file under `flows/` to
-                        get started.
-                      </Typography>
-                    ) : undefined
-                  }
-                  warningTestId="flows-turns-error"
-                  transcriptTestId="flows-transcript"
-                  citationsEnabled={false}
-                  isStopping={isStopping}
-                  citationsOpen={citationsOpen}
-                  thinkOpen={thinkOpen}
-                  toolOpen={toolOpen}
-                  toolErrorOpen={toolErrorOpen}
-                  onToggleCitation={toggleCitation}
-                  onToggleThink={toggleThink}
-                  onToggleTool={toggleTool}
-                  onToggleToolError={toggleToolError}
-                  renderMetadataContent={(message) => {
-                    const flowLine =
-                      message.role === 'assistant'
-                        ? buildFlowMetaLine(message.command)
-                        : null;
-                    if (!flowLine) {
-                      return null;
-                    }
-                    return (
-                      <Typography
-                        variant="caption"
-                        color={
-                          message.role === 'user' ? 'inherit' : 'text.secondary'
-                        }
-                        data-testid="bubble-flow-meta"
-                      >
-                        {flowLine}
-                      </Typography>
-                    );
-                  }}
-                  sharedRenderLogConfig={{
-                    eventName:
-                      'DEV-0000049:T05:flows_shared_transcript_rendered',
-                    context: {
-                      hasTurnsError: turnsError,
-                      retainedAssistantVisible,
-                      hasFlowMetaLine,
-                      citationsVisible: false,
-                    },
-                  }}
-                />
-              </Paper>
-            </Stack>
-          </Box>
-        </Stack>
+        {effectiveIsMobile ? mobileWorkspace : desktopWorkspace}
       </Stack>
-    </Container>
+    </Box>
   );
 }

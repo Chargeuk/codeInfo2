@@ -68,7 +68,7 @@ test('shared-home refresh detection stays available when auth lives in the runti
   assert.equal(after.configPresent, true);
 });
 
-test('shared-home auth validation does not execute destructive delete operations', () => {
+test('repeated shared-home startup does not execute destructive delete operations', () => {
   const containerHome = makeTempDir('codex-container-');
   fs.writeFileSync(path.join(containerHome, 'auth.json'), '{"token":"shared"}');
   const unlinkCalls: string[] = [];
@@ -86,6 +86,11 @@ test('shared-home auth validation does not execute destructive delete operations
       hostHome: containerHome,
       logger,
     });
+    ensureCodexAuthFromHost({
+      containerHome,
+      hostHome: containerHome,
+      logger,
+    });
     assert.equal(unlinkCalls.length, 0);
     assert.equal(rmCalls.length, 0);
   } finally {
@@ -93,7 +98,7 @@ test('shared-home auth validation does not execute destructive delete operations
   }
 });
 
-test('shared-home auth validation does not execute rename or move operations', () => {
+test('repeated shared-home startup does not execute rename or move operations', () => {
   const containerHome = makeTempDir('codex-container-');
   fs.writeFileSync(path.join(containerHome, 'auth.json'), '{"token":"shared"}');
   const renameCalls: Array<{ from: string; to: string }> = [];
@@ -111,19 +116,25 @@ test('shared-home auth validation does not execute rename or move operations', (
       hostHome: containerHome,
       logger,
     });
+    ensureCodexAuthFromHost({
+      containerHome,
+      hostHome: containerHome,
+      logger,
+    });
     assert.equal(renameCalls.length, 0);
   } finally {
     mock.restoreAll();
   }
 });
 
-test('split host auth seeds the runtime home before detection runs', () => {
+test('read-only split host auth seeds the runtime home before detection runs', () => {
   const containerHome = makeTempDir('codex-container-');
   const hostHome = makeTempDir('codex-host-');
   const configPath = path.join(containerHome, 'config.toml');
 
   fs.writeFileSync(configPath, 'model = "gpt-5.3-codex"\n');
   fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+  fs.chmodSync(hostHome, 0o555);
 
   ensureCodexAuthFromHost({ containerHome, hostHome, logger });
 
@@ -156,4 +167,40 @@ test('split host and runtime auth preserves the runtime copy when both are prese
     fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
     '{"token":"container"}',
   );
+});
+
+test('missing host auth leaves the runtime home untouched without cleanup', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  const unlinkCalls: string[] = [];
+  const rmCalls: string[] = [];
+  const renameCalls: Array<{ from: string; to: string }> = [];
+
+  mock.method(fs, 'unlinkSync', (targetPath: fs.PathLike) => {
+    unlinkCalls.push(String(targetPath));
+  });
+  mock.method(fs, 'rmSync', (targetPath: fs.PathLike) => {
+    rmCalls.push(String(targetPath));
+  });
+  mock.method(
+    fs,
+    'renameSync',
+    (oldPath: fs.PathLike, newPath: fs.PathLike) => {
+      renameCalls.push({ from: String(oldPath), to: String(newPath) });
+    },
+  );
+
+  try {
+    ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+    assert.equal(
+      fs.existsSync(path.join(containerHome, 'auth.json')),
+      false,
+    );
+    assert.equal(unlinkCalls.length, 0);
+    assert.equal(rmCalls.length, 0);
+    assert.equal(renameCalls.length, 0);
+  } finally {
+    mock.restoreAll();
+  }
 });

@@ -1,7 +1,6 @@
-import { Alert, Box, Container, CssBaseline } from '@mui/material';
+import { Alert, Box, CssBaseline } from '@mui/material';
 import { useEffect, useMemo } from 'react';
 import { Outlet } from 'react-router-dom';
-import NavBar from './components/NavBar';
 import { getApiBaseUrlBlockingIssueMessage } from './config/runtimeConfig';
 import { createLogger } from './logging';
 import { isDevEnv } from './utils/isDevEnv';
@@ -23,19 +22,16 @@ export default function App() {
   }, [logInfo]);
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CssBaseline />
-      <NavBar />
-      <Container
-        maxWidth={false}
+      <Box
         sx={{
-          mt: 0.5,
-          pb: 2,
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
           minHeight: 0,
-          overflow: 'auto',
+          overflow: 'hidden',
+          width: '100%',
         }}
       >
         {apiBaseUrlBlockingIssueMessage && (
@@ -48,7 +44,7 @@ export default function App() {
           </Alert>
         )}
         <Outlet />
-      </Container>
+      </Box>
     </Box>
   );
 }

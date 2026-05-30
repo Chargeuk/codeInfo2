@@ -76,7 +76,9 @@ import {
 } from '../../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../../providers/copilotReadiness.js';
 import { resolveSharedExecutionContext } from '../../workingFolders/executionContext.js';
+import type { KnownRepositoryPathsState } from '../../workingFolders/state.js';
 import {
+  knownRepositoryPathsAvailable,
   resolveKnownRepositoryPathsState,
   restoreSavedWorkingFolder,
 } from '../../workingFolders/state.js';
@@ -969,22 +971,26 @@ async function executeCodebaseQuestion(
 
   let effectiveWorkingFolder: string | undefined;
   let mutableConversation = existingConversation;
-  const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
-    async () =>
-      (
-        await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
-      ).repos.flatMap((repo) =>
-        getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
-          path.resolve(entry),
-        ),
-      ),
-  );
-  const persistWorkingFolder = async (workingFolder?: string | null) => {
+  let knownRepositoryPathsState: KnownRepositoryPathsState | undefined =
+    undefined;
+  const persistWorkingFolder = async (
+    workingFolder?: string | null,
+    expectedWorkingFolder?: string | null,
+  ): Promise<string | undefined> => {
     if (!conversationId) return;
     if (shouldUseCodebaseQuestionMemoryPersistence()) {
       const existing = memoryConversations.get(conversationId);
       if (!existing) return;
       const nextFlags = { ...(existing.flags ?? {}) };
+      const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+      if (
+        !workingFolder &&
+        trimmedExpectedWorkingFolder &&
+        (existing.flags?.workingFolder?.trim() ?? undefined) !==
+          trimmedExpectedWorkingFolder
+      ) {
+        return;
+      }
       if (workingFolder && workingFolder.trim().length > 0) {
         nextFlags.workingFolder = workingFolder;
       } else {
@@ -994,27 +1000,66 @@ async function executeCodebaseQuestion(
         ...existing,
         flags: nextFlags,
       } as Conversation);
-      return;
+      return memoryConversations
+        .get(conversationId)
+        ?.flags?.workingFolder?.trim();
     }
-    await updateConversationWorkingFolder({
+    const updated = await updateConversationWorkingFolder({
       conversationId,
       workingFolder,
+      expectedWorkingFolder,
     });
+    return updated?.flags?.workingFolder?.trim();
   };
 
   try {
+    try {
+      const repos = await (
+        deps.listIngestedRepositoriesFn ?? listIngestedRepositories
+      )();
+      knownRepositoryPathsState = knownRepositoryPathsAvailable(
+        repos.repos.flatMap((repo) =>
+          getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
+            path.resolve(entry),
+          ),
+        ),
+      );
+    } catch {
+      // ignore and fall back to later retry logic when appropriate
+    }
+
     if (mutableConversation) {
       effectiveWorkingFolder = await restoreSavedWorkingFolder({
         conversation: mutableConversation,
         surface: 'mcp_codebase_question',
-        clearPersistedWorkingFolder: async () => {
-          await persistWorkingFolder(null);
-          const nextFlags = { ...(mutableConversation?.flags ?? {}) };
-          delete nextFlags.workingFolder;
-          mutableConversation = {
-            ...mutableConversation!,
-            flags: nextFlags,
-          } as Conversation;
+        clearPersistedWorkingFolder: async (
+          _conversationId,
+          expectedWorkingFolder,
+        ) => {
+          const updatedWorkingFolder = await persistWorkingFolder(
+            null,
+            expectedWorkingFolder,
+          );
+          if (updatedWorkingFolder) {
+            return updatedWorkingFolder;
+          }
+          const currentConversation = await getConversation(_conversationId);
+          const currentWorkingFolder =
+            currentConversation?.flags?.workingFolder?.trim();
+          const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+          if (
+            !trimmedExpectedWorkingFolder ||
+            currentWorkingFolder === trimmedExpectedWorkingFolder
+          ) {
+            const nextFlags = { ...(mutableConversation?.flags ?? {}) };
+            delete nextFlags.workingFolder;
+            mutableConversation = {
+              ...mutableConversation!,
+              flags: nextFlags,
+            } as Conversation;
+            return mutableConversation.flags?.workingFolder?.trim();
+          }
+          return currentWorkingFolder;
         },
         knownRepositoryPathsState,
       });
@@ -1025,7 +1070,82 @@ async function executeCodebaseQuestion(
       reason?: string;
       causeCode?: string;
     };
+
+    // If repository validation failed because repository membership couldn't
+    // be validated, do a best-effort load of known repository paths and retry
+    // once. If that still fails, surface the original working-folder error.
     if (
+      workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE' &&
+      knownRepositoryPathsState === undefined
+    ) {
+      knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+        async () =>
+          (
+            await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
+          ).repos.flatMap((repo) =>
+            getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
+              path.resolve(entry),
+            ),
+          ),
+      );
+
+      try {
+        if (mutableConversation) {
+          effectiveWorkingFolder = await restoreSavedWorkingFolder({
+            conversation: mutableConversation,
+            surface: 'mcp_codebase_question',
+            clearPersistedWorkingFolder: async (
+              _conversationId,
+              expectedWorkingFolder,
+            ) => {
+              const updatedWorkingFolder = await persistWorkingFolder(
+                null,
+                expectedWorkingFolder,
+              );
+              if (updatedWorkingFolder) {
+                return updatedWorkingFolder;
+              }
+              const currentConversation = await getConversation(_conversationId);
+              const currentWorkingFolder =
+                currentConversation?.flags?.workingFolder?.trim();
+              const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+              if (
+                !trimmedExpectedWorkingFolder ||
+                currentWorkingFolder === trimmedExpectedWorkingFolder
+              ) {
+                const nextFlags = { ...(mutableConversation?.flags ?? {}) };
+                delete nextFlags.workingFolder;
+                mutableConversation = {
+                  ...mutableConversation!,
+                  flags: nextFlags,
+                } as Conversation;
+                return mutableConversation.flags?.workingFolder?.trim();
+              }
+              return currentWorkingFolder;
+            },
+            knownRepositoryPathsState,
+          });
+        }
+      } catch (err2) {
+        const workingFolderError2 = err2 as {
+          code?: string;
+          reason?: string;
+          causeCode?: string;
+        };
+        if (
+          workingFolderError2.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+          workingFolderError2.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+        ) {
+          throw new ToolExecutionError(-32002, workingFolderError2.code, {
+            reason: workingFolderError2.reason,
+            ...(workingFolderError2.causeCode
+              ? { causeCode: workingFolderError2.causeCode }
+              : {}),
+          });
+        }
+        throw err2;
+      }
+    } else if (
       workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
       workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
     ) {
@@ -1035,8 +1155,9 @@ async function executeCodebaseQuestion(
           ? { causeCode: workingFolderError.causeCode }
           : {}),
       });
+    } else {
+      throw error;
     }
-    throw error;
   }
 
   const replayAfterWorkingFolderRestore = await getReplayResult({
@@ -1054,6 +1175,7 @@ async function executeCodebaseQuestion(
       agentHomeResolution.activeEnvName !== 'default'
         ? agentHomeResolution.codeInfoRoot
         : undefined,
+    allowMissingWorkingFolder: effectiveWorkingFolder !== undefined,
   });
   const envOverrides: NodeJS.ProcessEnv = {
     CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,

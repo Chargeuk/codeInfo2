@@ -400,37 +400,34 @@ describe('Codex compatibility defaults behavior', () => {
       }) as unknown as Response;
     });
 
-    try {
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /openai codex/i }),
-      );
-      await ensureAgentFlagsPanelExpanded();
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
+    await ensureAgentFlagsPanelExpanded();
 
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /^LM Studio$/i }),
-      );
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /openai codex/i }),
-      );
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /^LM Studio$/i }),
+    );
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
 
-      await ensureAgentFlagsPanelExpanded();
-      await waitFor(() =>
-        expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
-          /minimal/i,
-        ),
-      );
-      expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
-    } finally {
-    }
+    await ensureAgentFlagsPanelExpanded();
+    await waitFor(() =>
+      expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
+        /minimal/i,
+      ),
+    );
+    expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
   }, 15000);
 
   it('logs deterministic error for malformed empty supportedReasoningEfforts payload', async () => {
@@ -447,26 +444,23 @@ describe('Codex compatibility defaults behavior', () => {
       ],
     });
 
-    try {
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /openai codex/i }),
-      );
-      await waitFor(() =>
-        expect(
-          screen.queryByRole('button', { name: /agent flags/i }),
-        ).not.toBeInTheDocument(),
-      );
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /agent flags/i }),
+      ).not.toBeInTheDocument(),
+    );
 
-      expect(screen.getByTestId('chat-input')).toBeEnabled();
-    } finally {
-    }
+    expect(screen.getByTestId('chat-input')).toBeEnabled();
   });
 
   it('falls back deterministically when defaultReasoningEffort is not supported', async () => {
@@ -489,25 +483,22 @@ describe('Codex compatibility defaults behavior', () => {
       ],
     });
 
-    try {
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /openai codex/i }),
-      );
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
 
-      await ensureAgentFlagsPanelExpanded();
-      await waitFor(() =>
-        expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
-          /low/i,
-        ),
-      );
-    } finally {
-    }
+    await ensureAgentFlagsPanelExpanded();
+    await waitFor(() =>
+      expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
+        /low/i,
+      ),
+    );
   });
 });

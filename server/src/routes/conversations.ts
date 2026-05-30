@@ -438,14 +438,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
   const persistConversationWorkingFolder = async (params: {
     conversationId: string;
     workingFolder?: string | null;
+    expectedWorkingFolder?: string | null;
   }) => {
     if (deps.updateConversationWorkingFolder) {
-      return await updateConversationWorkingFolder(params);
+      const updated = await deps.updateConversationWorkingFolder(params);
+      return updated;
     }
 
     if (shouldUseMemoryPersistence()) {
-      updateMemoryConversationWorkingFolder(params);
-      const updated = memoryConversations.get(params.conversationId) ?? null;
+      const updated = updateMemoryConversationWorkingFolder(params);
       if (updated) {
         emitConversationUpsert(toConversationEventSummary(updated));
       }
@@ -559,11 +560,30 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
             flags: item.flags,
           },
           surface: 'conversations_list',
-          clearPersistedWorkingFolder: async (conversationId) => {
-            await persistConversationWorkingFolder({
+          clearPersistedWorkingFolder: async (
+            conversationId,
+            expectedWorkingFolder,
+          ): Promise<string | undefined> => {
+            const updatedConversation = await persistConversationWorkingFolder({
               conversationId,
               workingFolder: null,
+              expectedWorkingFolder,
             });
+            if (updatedConversation) {
+              return updatedConversation.flags?.workingFolder?.trim();
+            }
+            if (shouldUseMemoryPersistence()) {
+              return (
+                memoryConversations
+                  .get(conversationId)
+                  ?.flags?.workingFolder?.trim() ?? undefined
+              );
+            }
+            return (
+              (
+                await ConversationModel.findById(conversationId).lean().exec()
+              )?.flags?.workingFolder?.trim() ?? undefined
+            );
           },
           knownRepositoryPathsState: repoPathsState,
         });

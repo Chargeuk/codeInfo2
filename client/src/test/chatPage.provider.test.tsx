@@ -982,7 +982,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(link).toHaveAttribute('href', expect.stringContaining('#codex-cli'));
   });
 
-  it('shows device-auth button when Codex is selected and available', async () => {
+  it('does not show re-authenticate on chat when Codex is selected and available', async () => {
     mockChatProvidersFetch({
       providers: [
         {
@@ -1004,41 +1004,13 @@ describe('Chat provider selection (WS transport)', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const button = await screen.findByRole('button', {
-      name: /re-authenticate/i,
-    });
-    expect(button).toBeInTheDocument();
+    await screen.findByRole('combobox', { name: /provider/i });
+    expect(
+      screen.queryByRole('button', { name: /re-authenticate/i }),
+    ).toBeNull();
   });
 
-  it('opens shared device-auth dialog without target selector', async () => {
-    const user = userEvent.setup();
-    mockChatProvidersFetch({
-      providers: [
-        {
-          id: 'codex',
-          label: 'OpenAI Codex',
-          available: true,
-          toolsAvailable: true,
-        },
-      ],
-      modelsProvider: 'codex',
-      agents: [{ name: 'alpha' }],
-    });
-
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    await user.click(
-      await screen.findByRole('button', {
-        name: /re-authenticate/i,
-      }),
-    );
-
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
-  });
-
-  it('shows re-authenticate button even when Codex is unavailable', async () => {
+  it('does not show re-authenticate on chat when Codex is unavailable', async () => {
     mockChatProvidersFetch({
       providers: [
         {
@@ -1062,10 +1034,8 @@ describe('Chat provider selection (WS transport)', () => {
 
     await screen.findByRole('combobox', { name: /provider/i });
     expect(
-      await screen.findByRole('button', {
-        name: /re-authenticate/i,
-      }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /re-authenticate/i }),
+    ).toBeNull();
   });
 
   it('renders provider-driven Agent Flags and refreshes them when switching between Codex and Copilot', async () => {
@@ -1338,8 +1308,8 @@ describe('Chat provider selection (WS transport)', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByRole('button', {
-      name: /re-authenticate/i,
+    await screen.findByRole('combobox', {
+      name: /provider/i,
     });
     await ensureAgentFlagsPanelExpanded(user);
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
@@ -1366,10 +1336,8 @@ describe('Chat provider selection (WS transport)', () => {
     );
 
     expect(
-      await screen.findByRole('button', {
-        name: /re-authenticate/i,
-      }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /re-authenticate/i }),
+    ).toBeNull();
     expect(
       screen.queryByTestId('codex-warnings-banner'),
     ).not.toBeInTheDocument();
@@ -1404,10 +1372,8 @@ describe('Chat provider selection (WS transport)', () => {
     );
 
     expect(
-      await screen.findByRole('button', {
-        name: /re-authenticate/i,
-      }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /re-authenticate/i }),
+    ).toBeNull();
     await ensureAgentFlagsPanelExpanded(user);
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
     expect(

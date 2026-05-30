@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe('Ingest page layout', () => {
-  it('does not apply the default maxWidth container class', () => {
+  it('renders inside the shared utility shell without the old maxWidth container class', async () => {
     const router = createMemoryRouter(ingestRoutes, {
       initialEntries: ['/ingest'],
     });
@@ -80,7 +80,12 @@ describe('Ingest page layout', () => {
       jest.runOnlyPendingTimers();
     });
 
+    const shell = await screen.findByTestId('utility-page-shell');
+
+    expect(shell).toBeInTheDocument();
+    expect(shell).toHaveAttribute('data-utility-shell-layout', 'data');
     expect(document.querySelector('.MuiContainer-maxWidthLg')).toBeNull();
+    expect(screen.getByTestId('ingest-workspace-grid')).toBeInTheDocument();
   });
 
   it('renders a degraded queue-read warning while keeping visible roots on the page', async () => {
@@ -142,6 +147,7 @@ describe('Ingest page layout', () => {
     });
 
     expect(await screen.findByText('repo')).toBeInTheDocument();
+    expect(screen.getByTestId('roots-table-scroll-region')).toBeInTheDocument();
     expect(
       screen.getByText(
         'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',

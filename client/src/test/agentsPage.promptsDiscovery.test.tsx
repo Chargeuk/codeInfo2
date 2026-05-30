@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -434,15 +435,20 @@ describe('Agents page - prompts discovery lifecycle', () => {
 });
 
 describe('Agents page - prompts selector state transitions', () => {
+  async function openActionSelector(user: ReturnType<typeof userEvent.setup>) {
+    const actionSelect = await screen.findByTestId('agent-command-trigger');
+    await user.click(actionSelect);
+    return actionSelect;
+  }
+
   async function selectPromptOption(
     user: ReturnType<typeof userEvent.setup>,
-    optionLabel: string,
+    fullPath: string,
   ) {
-    const promptsSelect = await screen.findByRole('combobox', {
-      name: /prompts/i,
-    });
-    await user.click(promptsSelect);
-    await user.click(await screen.findByRole('option', { name: optionLabel }));
+    await openActionSelector(user);
+    await user.click(
+      await screen.findByTestId(`agent-prompt-option-${fullPath}`),
+    );
   }
 
   async function commitWorkingFolderByEnter(
@@ -456,6 +462,7 @@ describe('Agents page - prompts selector state transitions', () => {
   }
 
   it('shows prompts row for prompts/error outcomes and hides it for zero-result discovery', async () => {
+    const user = userEvent.setup();
     setupPromptUiFetch({
       promptsByFolder: {
         '/with-prompts': {
@@ -481,31 +488,28 @@ describe('Agents page - prompts selector state transitions', () => {
 
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/with-prompts');
-    expect(await screen.findByTestId('agent-prompts-row')).toBeInTheDocument();
+    await openActionSelector(user);
     expect(
-      await screen.findByTestId('agent-prompts-select'),
+      await screen.findByTestId('agent-prompt-option-/x/start.md'),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByTestId('agent-prompt-execute'),
-    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
 
     await commitWorkingFolderByBlur('/with-error');
-    expect(await screen.findByTestId('agent-prompts-row')).toBeInTheDocument();
+    await openActionSelector(user);
     expect(
       await screen.findByTestId('agent-prompts-error'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('agent-prompts-select'),
-    ).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
 
     await commitWorkingFolderByBlur('/with-zero');
-    await waitFor(() =>
-      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
-    );
+    await openActionSelector(user);
+    expect(
+      screen.queryByRole('option', { name: 'onboarding/start.md' }),
+    ).toBeNull();
     expect(screen.queryByTestId('agent-prompts-error')).not.toBeInTheDocument();
   });
 
-  it('renders relative-path labels and explicit No prompt selected option', async () => {
+  it('renders relative-path labels inside the unified action selector', async () => {
     const user = userEvent.setup();
     setupPromptUiFetch({
       promptsByFolder: {
@@ -525,18 +529,12 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/labels-folder');
 
-    const promptsSelect = await screen.findByRole('combobox', {
-      name: /prompts/i,
-    });
-    await user.click(promptsSelect);
+    await openActionSelector(user);
     expect(
-      await screen.findByRole('option', { name: 'No prompt selected' }),
-    ).toBeInTheDocument();
+      await screen.findByTestId('agent-prompt-option-/abs/alpha/start.md'),
+    ).toHaveTextContent('alpha/start.md');
     expect(
-      await screen.findByRole('option', { name: 'alpha/start.md' }),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByRole('option', { name: 'beta/guide.md' }),
+      await screen.findByTestId('agent-prompt-option-/abs/beta/guide.md'),
     ).toBeInTheDocument();
   });
 
@@ -560,14 +558,13 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/privacy-folder');
 
-    const promptsSelect = await screen.findByRole('combobox', {
-      name: /prompts/i,
-    });
-    await user.click(promptsSelect);
+    await openActionSelector(user);
     expect(
-      await screen.findByRole('option', { name: 'secret/path.md' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(leakedFullPath)).not.toBeInTheDocument();
+      await screen.findByTestId(`agent-prompt-option-${leakedFullPath}`),
+    ).toHaveTextContent('secret/path.md');
+    expect(
+      screen.getByTestId(`agent-prompt-option-${leakedFullPath}`),
+    ).toHaveTextContent(leakedFullPath);
   });
 
   it('resets prompt selection immediately on committed folder changes from Enter and picker', async () => {
@@ -599,16 +596,16 @@ describe('Agents page - prompts selector state transitions', () => {
 
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/folder-a');
-    await selectPromptOption(user, 'a.md');
-    expect(await screen.findByTestId('agent-prompt-execute')).toBeEnabled();
+    await selectPromptOption(user, '/folder-a/a.md');
+    expect(await screen.findByTestId('agent-send')).toBeEnabled();
 
     await commitWorkingFolderByEnter(user, '/folder-b');
     await waitFor(() =>
-      expect(screen.getByTestId('agent-prompt-execute')).toBeDisabled(),
+      expect(screen.getByTestId('agent-send')).toBeDisabled(),
     );
     expect(
-      screen.getByRole('combobox', { name: /prompts/i }),
-    ).toHaveTextContent('No prompt selected');
+      screen.getByRole('combobox', { name: /command/i }),
+    ).toHaveTextContent('Write instruction');
 
     await user.click(await screen.findByTestId('agent-working-folder-picker'));
     await user.click(
@@ -622,20 +619,16 @@ describe('Agents page - prompts selector state transitions', () => {
         screen.queryByRole('dialog', { name: 'Choose folder…' }),
       ).not.toBeInTheDocument(),
     );
-    const executeButtonAfterPicker = screen.queryByTestId(
-      'agent-prompt-execute',
-    );
+    const executeButtonAfterPicker = screen.queryByTestId('agent-send');
     if (executeButtonAfterPicker) {
       expect(executeButtonAfterPicker).toBeDisabled();
       expect(
-        screen.getByRole('combobox', { name: /prompts/i }),
-      ).toHaveTextContent('No prompt selected');
-    } else {
-      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument();
+        screen.getByRole('combobox', { name: /command/i }),
+      ).toHaveTextContent('Write instruction');
     }
   });
 
-  it('hides prompts row and clears error when committed working folder is cleared', async () => {
+  it('clears prompt discovery errors when committed working folder is cleared', async () => {
     const user = userEvent.setup();
     setupPromptUiFetch({
       promptsByFolder: {
@@ -655,17 +648,17 @@ describe('Agents page - prompts selector state transitions', () => {
 
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/error-folder');
+    await openActionSelector(user);
     expect(
       await screen.findByTestId('agent-prompts-error'),
     ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
 
     const input = await screen.findByTestId('agent-working-folder');
     await user.clear(input);
     fireEvent.blur(input);
 
-    await waitFor(() =>
-      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
-    );
+    await openActionSelector(user);
     expect(screen.queryByTestId('agent-prompts-error')).not.toBeInTheDocument();
   });
 
@@ -688,10 +681,6 @@ describe('Agents page - prompts selector state transitions', () => {
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.blur(input);
 
-    await waitFor(() =>
-      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
-    );
-
     await act(async () => {
       stale.resolve(
         (await okJson({
@@ -709,10 +698,9 @@ describe('Agents page - prompts selector state transitions', () => {
         ),
       ).toBe(true),
     );
-    expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument();
     expect(
-      screen.queryByTestId('agent-prompts-select'),
-    ).not.toBeInTheDocument();
+      screen.getByRole('combobox', { name: /command/i }),
+    ).toHaveTextContent('Write instruction');
     expect(screen.queryByTestId('agent-prompts-error')).not.toBeInTheDocument();
     infoSpy.mockRestore();
   });
@@ -739,24 +727,25 @@ describe('Agents page - prompts selector state transitions', () => {
 
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/agent-a');
-    await selectPromptOption(user, 'agent-a.md');
-    expect(await screen.findByTestId('agent-prompt-execute')).toBeEnabled();
+    await selectPromptOption(user, '/agent-a.md');
+    expect(await screen.findByTestId('agent-send')).toBeEnabled();
 
-    const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
+    const agentSelect = await screen.findByTestId('agent-select-trigger');
     await user.click(agentSelect);
-    await user.click(
-      await screen.findByRole('option', { name: 'review_agent' }),
-    );
+    const agentPopover = await screen.findByTestId('agent-selector-popover');
+    await user.click(within(agentPopover).getByText('review_agent'));
 
     await waitFor(() =>
-      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
+      expect(
+        screen.getByRole('combobox', { name: /command/i }),
+      ).toHaveTextContent('Write instruction'),
     );
 
     await commitWorkingFolderByBlur('/agent-b');
-    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     expect(
-      await screen.findByRole('combobox', { name: /prompts/i }),
-    ).toHaveTextContent('No prompt selected');
+      await screen.findByRole('combobox', { name: /command/i }),
+    ).toHaveTextContent('Write instruction');
     expect(executeButton).toBeDisabled();
   });
 
@@ -779,13 +768,13 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/enable-folder');
 
-    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     expect(executeButton).toBeDisabled();
-    await selectPromptOption(user, 'enable.md');
+    await selectPromptOption(user, '/enable-folder/enable.md');
     expect(executeButton).toBeEnabled();
   });
 
-  it('disables Execute Prompt again when No prompt selected is chosen after a valid selection', async () => {
+  it('disables Execute Prompt again when Write instruction is chosen after a valid prompt selection', async () => {
     const user = userEvent.setup();
     setupPromptUiFetch({
       promptsByFolder: {
@@ -807,10 +796,11 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/clear-option-folder');
 
-    const executeButton = await screen.findByTestId('agent-prompt-execute');
-    await selectPromptOption(user, 'choose-me.md');
+    const executeButton = await screen.findByTestId('agent-send');
+    await selectPromptOption(user, '/clear-option/choose-me.md');
     expect(executeButton).toBeEnabled();
-    await selectPromptOption(user, 'No prompt selected');
+    await openActionSelector(user);
+    await user.click(await screen.findByText(/Write instruction/i));
     expect(executeButton).toBeDisabled();
   });
 });

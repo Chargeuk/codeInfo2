@@ -719,11 +719,15 @@ export async function readAndNormalizeRuntimeTomlConfig(
 const TOP_LEVEL_STRING_KEYS = new Set([
   'model',
   'model_reasoning_effort',
+  'model_reasoning_summary',
+  'model_provider',
   'approval_policy',
   'sandbox_mode',
   'personality',
   'cli_auth_credentials_store',
 ]);
+const TOP_LEVEL_BOOLEAN_KEYS = new Set(['hide_agent_reasoning']);
+const TOP_LEVEL_INTEGER_KEYS = new Set(['model_auto_compact_token_limit']);
 
 const ALLOWED_WEB_SEARCH = new Set(['live', 'cached', 'disabled']);
 const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -960,10 +964,30 @@ export function validateRuntimeConfig(
       continue;
     }
 
-    if (key === 'web_search') {
+    if (TOP_LEVEL_BOOLEAN_KEYS.has(key)) {
+      if (typeof value !== 'boolean') {
+        throw new Error(
+          `invalid type at ${pathLabel}.${key}: expected boolean`,
+        );
+      }
+      sanitized[key] = value;
+      continue;
+    }
+
+    if (TOP_LEVEL_INTEGER_KEYS.has(key)) {
+      if (!Number.isInteger(value)) {
+        throw new Error(
+          `invalid type at ${pathLabel}.${key}: expected integer`,
+        );
+      }
+      sanitized[key] = value;
+      continue;
+    }
+
+    if (key === 'web_search' || key === 'web_search_mode') {
       if (typeof value !== 'string' || !ALLOWED_WEB_SEARCH.has(value)) {
         throw new Error(
-          `invalid type at ${pathLabel}.web_search: expected one of live|cached|disabled`,
+          `invalid type at ${pathLabel}.${key}: expected one of live|cached|disabled`,
         );
       }
       sanitized.web_search = value;
@@ -977,6 +1001,26 @@ export function validateRuntimeConfig(
         );
       }
       sanitized.mcp_servers = value;
+      continue;
+    }
+
+    if (key === 'model_providers') {
+      if (!isRecord(value)) {
+        throw new Error(
+          `invalid type at ${pathLabel}.model_providers: expected table`,
+        );
+      }
+      sanitized.model_providers = value;
+      continue;
+    }
+
+    if (key === 'plugins') {
+      if (!isRecord(value)) {
+        throw new Error(
+          `invalid type at ${pathLabel}.plugins: expected table`,
+        );
+      }
+      sanitized.plugins = value;
       continue;
     }
 
@@ -1024,7 +1068,8 @@ export function validateRuntimeConfig(
         }
         if (
           featureKey === 'view_image_tool' ||
-          featureKey === 'web_search_request'
+          featureKey === 'web_search_request' ||
+          featureKey === 'fast_mode'
         ) {
           if (typeof featureValue !== 'boolean') {
             throw new Error(

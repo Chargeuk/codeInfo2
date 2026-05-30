@@ -106,7 +106,10 @@ resolve_docker_socket() {
   # 3) Fallback paths:
   #    - /var/run/docker.sock (common on WSL/Linux)
   #    - ~/.docker/run/docker.sock (common on macOS Docker Desktop)
-  for path in /var/run/docker.sock "${HOME:-}/.docker/run/docker.sock"; do
+  for path in \
+    /var/run/docker.sock \
+    "${HOME:-}/.docker/run/docker.sock" \
+    "${HOME:-}/.docker/desktop/docker.sock"; do
     if [ -S "${path}" ]; then
       printf '%s\n' "${path}"
       return 0
@@ -218,7 +221,7 @@ resolve_runtime_codeinfo_config_dir() {
     return 0
   fi
 
-  fallback_dir="${TMPDIR:-/tmp}/codeinfo2-empty-codeinfo-config"
+  fallback_dir="${repo_root}/logs/codeinfo2-empty-codeinfo-config"
   mkdir -p "${fallback_dir}"
   printf '%s\n' "${fallback_dir}"
 }
@@ -270,6 +273,31 @@ ensure_repo_bind_mount_dirs_for_profile() {
       printf '{\n  "storeTokenPlaintext": true\n}\n' > "${copilot_settings_path}"
     fi
   fi
+}
+
+resolve_host_codex_home_dir() {
+  local override_host_codex_home
+  override_host_codex_home="${CODEINFO_HOST_CODEX_HOME:-}"
+
+  if [ -n "${override_host_codex_home//[[:space:]]/}" ]; then
+    printf '%s\n' "${override_host_codex_home}"
+    return 0
+  fi
+
+  local default_host_codex_home repo_root fallback_host_codex_home
+  default_host_codex_home="${HOME:-}/.codex"
+
+  case "${default_host_codex_home}" in
+    /app/* | /workspace/*)
+      repo_root="$(repo_root_for_compose_wrapper)"
+      fallback_host_codex_home="${repo_root}/codex"
+      mkdir -p "${fallback_host_codex_home}"
+      printf '%s\n' "${fallback_host_codex_home}"
+      return 0
+      ;;
+  esac
+
+  printf '%s\n' "${default_host_codex_home}"
 }
 
 should_run_compose_preflight() {
@@ -729,7 +757,9 @@ fi
 export CODEINFO_DOCKER_UID="${DOCKER_UID}"
 export CODEINFO_DOCKER_GID="${DOCKER_GID}"
 export CODEINFO_DOCKER_SOCK_GID="${SOCKET_GID}"
+export CODEINFO_DOCKER_SOCKET_PATH="${SOCKET_PATH}"
 export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="$(resolve_runtime_codeinfo_config_dir)"
+export CODEINFO_HOST_CODEX_HOME="$(resolve_host_codex_home_dir)"
 
 compose_args="$*"
 if [[ "${compose_args}" == *"--env-file .env.e2e"* ]]; then

@@ -1,6 +1,8 @@
 import {
   Alert,
   Button,
+  Card,
+  CardContent,
   Checkbox,
   Chip,
   CircularProgress,
@@ -13,7 +15,9 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../../api/baseUrl';
 import { isDev0000038MarkerGateEnabled } from '../../hooks/useChatWs';
@@ -153,6 +157,8 @@ export default function RootsTable({
   onRefreshModels,
 }: RootsTableProps) {
   const log = useMemo(() => createLogger('client'), []);
+  const theme = useTheme();
+  const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionState, setActionState] = useState<Record<string, ActionState>>(
     {},
@@ -430,7 +436,12 @@ export default function RootsTable({
 
   const headerActions = useMemo(
     () => (
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+      <Stack
+        direction={isSmall ? 'column' : 'row'}
+        spacing={2}
+        alignItems={isSmall ? 'stretch' : 'center'}
+        sx={{ mb: 2 }}
+      >
         <Typography variant="h6" sx={{ flex: 1 }}>
           Embedded folders
         </Typography>
@@ -448,7 +459,51 @@ export default function RootsTable({
         </Button>
       </Stack>
     ),
-    [lockDisplay, onRefresh, busy],
+    [busy, isSmall, lockDisplay, onRefresh],
+  );
+
+  const bulkControls = (
+    <Stack
+      direction={isSmall ? 'column' : 'row'}
+      spacing={1.5}
+      alignItems={isSmall ? 'stretch' : 'center'}
+    >
+      <Typography variant="body2" color="text.secondary">
+        {selected.size} selected
+      </Typography>
+      <Stack
+        direction={isSmall ? 'column' : 'row'}
+        spacing={1}
+        flexWrap="wrap"
+        alignItems={isSmall ? 'stretch' : 'center'}
+      >
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => void handleBulk('reembed')}
+          disabled={busy || reembeddableSelectedTargets.length === 0}
+        >
+          Re-embed selected
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          onClick={() => void handleBulk('remove')}
+          disabled={!canBulkRemove}
+        >
+          Remove selected
+        </Button>
+      </Stack>
+      {bulkMessage ? (
+        <Typography
+          variant="body2"
+          color={bulkMessage.status === 'error' ? 'error' : 'text.secondary'}
+        >
+          {bulkMessage.message}
+        </Typography>
+      ) : null}
+    </Stack>
   );
 
   useEffect(() => {
@@ -513,44 +568,162 @@ export default function RootsTable({
     );
   }
 
+  if (isSmall) {
+    return (
+      <Stack spacing={2}>
+        {headerActions}
+        {warning ? <Alert severity="warning">{warning}</Alert> : null}
+        {bulkControls}
+        <Stack spacing={1.5}>
+          {roots.map((root) => {
+            const reembedPath = getRootReembedPath(root);
+            const removePath = getRootRemovePath(root);
+            const activeActionState =
+              getRootActionStatusKeys(root)
+                .map((statusKey) => actionState[statusKey])
+                .find((status) => status?.status === 'loading') ??
+              getRootActionStatusKeys(root)
+                .map((statusKey) => actionState[statusKey])
+                .find(Boolean);
+            const state = activeActionState?.status;
+            const message = activeActionState?.message;
+            const rowDisabled = busy || state === 'loading';
+            const reembedDisabled =
+              rowDisabled || blocksSharedSelection(root, activeRunId);
+            const removeDisabled =
+              rowDisabled || hasActiveRun || blocksUserRemove(root);
+            const rowKey = getRootSelectionKey(root);
+            const isSelected = selected.has(rowKey);
+            const chipColor = statusColor[root.status] ?? 'default';
+            const phase = root.status === 'ingesting' ? root.phase : undefined;
+            const statusLabel =
+              root.queueState === 'cleanup-blocked'
+                ? 'cleanup blocked'
+                : root.queueState === 'waiting'
+                  ? `queued${typeof root.queuePosition === 'number' ? ` (#${root.queuePosition})` : ''}`
+                  : phase
+                    ? `${root.status} (${phase})`
+                    : root.status;
+            const rootModelDisplay = getRootEmbeddingDisplay(root);
+            const rootError = getRenderableRootError(root);
+            const astCounts = root.ast;
+
+            return (
+              <Card key={rowKey} variant="outlined">
+                <CardContent sx={{ display: 'grid', gap: 1.25 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Checkbox
+                      checked={isSelected}
+                      disabled={
+                        busy || blocksSharedSelection(root, activeRunId)
+                      }
+                      onChange={() => toggle(rowKey)}
+                      inputProps={{ 'aria-label': `Select ${root.name}` }}
+                      sx={{ mt: -0.75, ml: -1 }}
+                    />
+                    <Stack spacing={0.25} sx={{ flex: 1, minWidth: 0 }}>
+                      <Tooltip
+                        title={root.description || 'No description provided'}
+                        placement="top"
+                      >
+                        <Typography fontWeight={600} noWrap>
+                          {root.name || 'Untitled'}
+                        </Typography>
+                      </Tooltip>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {root.path}
+                      </Typography>
+                    </Stack>
+                    <Chip label={statusLabel} color={chipColor} size="small" />
+                  </Stack>
+
+                  <Typography variant="body2">
+                    <strong>Embedding:</strong> {rootModelDisplay}
+                  </Typography>
+
+                  <Stack spacing={0.5}>
+                    <Typography variant="body2" color="text.secondary">
+                      Last ingest:{' '}
+                      {root.lastIngestAt
+                        ? new Date(root.lastIngestAt).toLocaleString()
+                        : '–'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Files {root.counts?.files ?? '–'} · Chunks{' '}
+                      {root.counts?.chunks ?? '–'} · Embedded{' '}
+                      {root.counts?.embedded ?? '–'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      AST Supported {astCounts?.supportedFileCount ?? '–'} · AST
+                      Skipped {astCounts?.skippedFileCount ?? '–'} · AST Failed{' '}
+                      {astCounts?.failedFileCount ?? '–'}
+                    </Typography>
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Button
+                      variant="text"
+                      size="small"
+                      onClick={() => void handleRowReembed(reembedPath)}
+                      disabled={reembedDisabled}
+                    >
+                      Re-embed
+                    </Button>
+                    <Button
+                      variant="text"
+                      color="error"
+                      size="small"
+                      onClick={() => void handleRowRemove(removePath, rowKey)}
+                      disabled={removeDisabled}
+                    >
+                      Remove
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => onShowDetails?.(root)}
+                    >
+                      Details
+                    </Button>
+                  </Stack>
+
+                  {rootError ? (
+                    <Typography
+                      variant="caption"
+                      color="error.main"
+                      data-testid="roots-row-last-error"
+                    >
+                      Last error: {rootError}
+                    </Typography>
+                  ) : null}
+                  {message ? (
+                    <Typography
+                      variant="body2"
+                      color={state === 'error' ? 'error' : 'text.secondary'}
+                    >
+                      {message}
+                    </Typography>
+                  ) : null}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Stack>
+      </Stack>
+    );
+  }
+
   return (
     <Stack spacing={2}>
       {headerActions}
       {warning ? <Alert severity="warning">{warning}</Alert> : null}
+      {bulkControls}
 
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">
-          {selected.size} selected
-        </Typography>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => void handleBulk('reembed')}
-          disabled={busy || reembeddableSelectedTargets.length === 0}
-        >
-          Re-embed selected
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          size="small"
-          onClick={() => void handleBulk('remove')}
-          disabled={!canBulkRemove}
-        >
-          Remove selected
-        </Button>
-        {bulkMessage ? (
-          <Typography
-            variant="body2"
-            color={bulkMessage.status === 'error' ? 'error' : 'text.secondary'}
-          >
-            {bulkMessage.message}
-          </Typography>
-        ) : null}
-      </Stack>
-
-      <TableContainer>
-        <Table size="small">
+      <TableContainer
+        data-testid="roots-table-scroll-region"
+        sx={{ width: '100%', overflowX: 'auto' }}
+      >
+        <Table size="small" sx={{ minWidth: 1180 }}>
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox">

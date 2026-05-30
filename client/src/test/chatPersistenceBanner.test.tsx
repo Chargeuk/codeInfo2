@@ -70,4 +70,6 @@ test('shows persistence banner and disables archive controls when mongo is down'
   expect(banner).toHaveTextContent(/conversation history unavailable/i);
   expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
   expect(screen.getByTestId('conversation-refresh')).toBeDisabled();
+  expect(screen.getByTestId('chat-working-folder-trigger')).toBeDisabled();
+  expect(screen.getByTestId('chat-working-folder')).toBeDisabled();
 });

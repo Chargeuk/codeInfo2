@@ -1,5 +1,12 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 const logSpy = jest.fn();
 
@@ -52,9 +59,47 @@ function renderTranscriptWithMessage(message: Record<string, unknown>) {
   );
 }
 
-describe('Shared transcript proof contract', () => {
+async function openMetadataPopover() {
+  const user = userEvent.setup();
+  const bubble = await screen.findByTestId('chat-bubble');
+  await user.click(within(bubble).getByTestId('bubble-info'));
+  return screen.findByTestId('bubble-info-popover');
+}
+
+describe('Shared transcript row proof contract', () => {
   beforeEach(() => {
     logSpy.mockReset();
+  });
+
+  it('does not emit SharedTranscript console diagnostics during normal render', async () => {
+    const consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+    try {
+      render(
+        <SharedTranscript
+          surface="chat"
+          conversationId="quiet-render"
+          messages={buildMessages(2)}
+          activeToolsAvailable={false}
+          emptyMessage="Empty"
+          citationsOpen={{}}
+          thinkOpen={{}}
+          toolOpen={{}}
+          toolErrorOpen={{}}
+          onToggleCitation={() => {}}
+          onToggleThink={() => {}}
+          onToggleTool={() => {}}
+          onToggleToolError={() => {}}
+        />,
+      );
+
+      await screen.findByTestId('chat-transcript');
+
+      expect(consoleInfoSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleInfoSpy.mockRestore();
+    }
   });
 
   it('uses T08 for scroll mode changes and T10 for anchor-preserving row growth', async () => {
@@ -151,17 +196,12 @@ describe('Shared transcript proof contract', () => {
       timing: { totalTimeSec: 1.25 },
     });
 
-    expect(await screen.findByTestId('bubble-timing')).toHaveTextContent(
-      'Time: 1.25s',
-    );
-    expect(screen.queryByText(/Rate:/i)).toBeNull();
-    expect(logSpy).toHaveBeenCalledWith(
-      'info',
-      'story.0000051.task13.partial_metadata_rendered',
-      expect.objectContaining({
-        omittedFields: expect.arrayContaining(['timing.tokensPerSecond']),
-      }),
-    );
+    const infoPopover = await openMetadataPopover();
+
+    expect(
+      within(infoPopover).getByTestId('bubble-info-timing'),
+    ).toHaveTextContent('Time: 1.25s');
+    expect(within(infoPopover).queryByText(/Rate:/i)).toBeNull();
   });
 
   it('renders partial Copilot token metadata without placeholder token values', async () => {
@@ -171,11 +211,13 @@ describe('Shared transcript proof contract', () => {
       timing: { tokensPerSecond: 9.5 },
     });
 
-    expect(await screen.findByTestId('bubble-tokens')).toHaveTextContent(
-      'Tokens: out 5',
-    );
-    expect(screen.queryByText(/in 0/i)).toBeNull();
-    expect(screen.queryByText(/total 0/i)).toBeNull();
+    const infoPopover = await openMetadataPopover();
+
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).toHaveTextContent('Tokens: out 5');
+    expect(within(infoPopover).queryByText(/in 0/i)).toBeNull();
+    expect(within(infoPopover).queryByText(/total 0/i)).toBeNull();
   });
 
   it('omits null and undefined Copilot usage values instead of rendering zero placeholders', async () => {
@@ -189,11 +231,13 @@ describe('Shared transcript proof contract', () => {
       },
     });
 
-    expect(await screen.findByTestId('bubble-tokens')).toHaveTextContent(
-      'Tokens: total 4',
-    );
-    expect(screen.queryByText(/cached 0/i)).toBeNull();
-    expect(screen.queryByText(/out 0/i)).toBeNull();
+    const infoPopover = await openMetadataPopover();
+
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).toHaveTextContent('Tokens: total 4');
+    expect(within(infoPopover).queryByText(/cached 0/i)).toBeNull();
+    expect(within(infoPopover).queryByText(/out 0/i)).toBeNull();
   });
 
   it('keeps existing Codex metadata rendering unchanged', async () => {
@@ -208,11 +252,50 @@ describe('Shared transcript proof contract', () => {
       timing: { totalTimeSec: 1.2, tokensPerSecond: 12.5 },
     });
 
-    expect(await screen.findByTestId('bubble-tokens')).toHaveTextContent(
-      'Tokens: in 10 · out 5 · total 15 · cached 2',
-    );
-    expect(screen.getByTestId('bubble-timing')).toHaveTextContent(
-      'Time: 1.2s · Rate: 12.5 tok/s',
-    );
+    const infoPopover = await openMetadataPopover();
+
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).toHaveTextContent('Tokens: in 10 · out 5 · total 15 · cached 2');
+    expect(
+      within(infoPopover).getByTestId('bubble-info-timing'),
+    ).toHaveTextContent('Time: 1.2s · Rate: 12.5 tok/s');
+  });
+
+  it('keeps footer metadata in the Info popover instead of the visible message body', async () => {
+    const user = userEvent.setup();
+
+    renderTranscriptWithMessage({
+      provider: 'codex',
+      warnings: ['Provider warning'],
+      usage: { inputTokens: 8, totalTokens: 13 },
+      timing: { totalTimeSec: 1.25 },
+    });
+
+    const bubble = await screen.findByTestId('chat-bubble');
+
+    expect(
+      within(bubble).getByText('Assistant metadata sample'),
+    ).toBeInTheDocument();
+    expect(within(bubble).queryByText(/Provider: codex/i)).toBeNull();
+    expect(within(bubble).queryByText(/Tokens:/i)).toBeNull();
+    expect(within(bubble).queryByText(/Time:/i)).toBeNull();
+    expect(screen.queryByTestId('bubble-info-popover')).toBeNull();
+
+    await user.click(within(bubble).getByTestId('bubble-info'));
+
+    const infoPopover = await screen.findByTestId('bubble-info-popover');
+    expect(
+      within(infoPopover).getByTestId('bubble-info-provider'),
+    ).toHaveTextContent('Provider: codex');
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).toHaveTextContent('Usage: Tokens: in 8 · total 13');
+    expect(
+      within(infoPopover).getByTestId('bubble-info-timing'),
+    ).toHaveTextContent('Timing: Time: 1.25s');
+    expect(
+      within(infoPopover).getByText('Provider warning'),
+    ).toBeInTheDocument();
   });
 });

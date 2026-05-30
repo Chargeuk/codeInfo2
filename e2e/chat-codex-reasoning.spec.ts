@@ -175,11 +175,13 @@ test('renders Codex thought process when analysis frames stream', async ({
   await page.getByLabel('Model').click();
   await page.getByRole('option', { name: 'gpt-5.1-codex-max' }).click();
 
-  const agentFlagsToggle = page
-    .getByTestId('agent-flags-panel')
-    .getByRole('button', { name: /Agent Flags/i });
-  if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
-    await agentFlagsToggle.click();
+  const agentFlagsPanel = page.locator('[data-testid="agent-flags-panel"]');
+  if (await agentFlagsPanel.count()) {
+    await expect(agentFlagsPanel.first()).toBeVisible({ timeout: 20000 });
+    const agentFlagsToggle = agentFlagsPanel.first().locator('[aria-expanded]').first();
+    if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+      await agentFlagsToggle.click();
+    }
   }
 
   const input = page.getByTestId('chat-input');

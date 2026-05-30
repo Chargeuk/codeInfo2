@@ -17,6 +17,7 @@ import {
   shouldUseMemoryPersistence,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import { TurnModel } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -57,6 +58,12 @@ let previousAgentsHome: string | undefined;
 let previousFlowsDir: string | undefined;
 let previousCodexHome: string | undefined;
 let previousNodeEnv: string | undefined;
+let originalConversationFindByIdAndUpdate:
+  | typeof ConversationModel.findByIdAndUpdate
+  | null = null;
+let originalMemoryConversationsSet:
+  | typeof memoryConversations.set
+  | null = null;
 
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
@@ -192,6 +199,14 @@ After({ tags: '@mongo' }, async () => {
   } else {
     process.env.NODE_ENV = previousNodeEnv;
   }
+  if (originalConversationFindByIdAndUpdate) {
+    ConversationModel.findByIdAndUpdate = originalConversationFindByIdAndUpdate;
+    originalConversationFindByIdAndUpdate = null;
+  }
+  if (originalMemoryConversationsSet) {
+    memoryConversations.set = originalMemoryConversationsSet;
+    originalMemoryConversationsSet = null;
+  }
 });
 
 Given('a flow execution test server', () => {
@@ -232,6 +247,69 @@ Given(
   },
 );
 
+Given('the flow state write fails once', () => {
+  // Keep a DB-level override when running against Mongo, but fall back to
+  // memory-persistence overrides when the tests are running in memory mode.
+  if (!originalConversationFindByIdAndUpdate) {
+    originalConversationFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+  }
+
+  if (shouldUseMemoryPersistence()) {
+    // Memory-mode: override Map.set so that an attempt to set flags.flow fails once.
+    if (!originalMemoryConversationsSet) {
+      originalMemoryConversationsSet = memoryConversations.set;
+    }
+    let shouldFail = true;
+    memoryConversations.set = ((key: string, value: Conversation) => {
+      if (
+        shouldFail &&
+        value?.flags &&
+        Object.prototype.hasOwnProperty.call(value.flags, 'flow')
+      ) {
+        shouldFail = false;
+        throw new Error('boom');
+      }
+      return originalMemoryConversationsSet!.call(
+        memoryConversations,
+        key,
+        value,
+      );
+    }) as typeof memoryConversations.set;
+    return;
+  }
+
+  let shouldFail = true;
+  ConversationModel.findByIdAndUpdate = ((
+    id: unknown,
+    update: unknown,
+    options: unknown,
+  ) => {
+    const candidate = update as {
+      $set?: Record<string, unknown>;
+    } | null;
+    if (
+      shouldFail &&
+      candidate?.$set &&
+      Object.prototype.hasOwnProperty.call(candidate.$set, 'flags.flow')
+    ) {
+      shouldFail = false;
+      throw new Error('boom');
+    }
+    const updateQuery = update as Parameters<
+      typeof ConversationModel.findByIdAndUpdate
+    >[1];
+    const updateOptions = options as Parameters<
+      typeof ConversationModel.findByIdAndUpdate
+    >[2];
+    return originalConversationFindByIdAndUpdate!.call(
+      ConversationModel,
+      id,
+      updateQuery,
+      updateOptions,
+    );
+  }) as typeof ConversationModel.findByIdAndUpdate;
+});
+
 When(
   'I start flow {string} with conversation id {string}',
   async (flowName: string, conversationId: string) => {
@@ -256,6 +334,21 @@ When(
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ conversationId }),
+    });
+    lastResponse = {
+      status: res.status,
+      body: (await res.json()) as Record<string, unknown>,
+    };
+  },
+);
+
+When(
+  'I start flow {string} with conversation id {string} and retry ownership {string}',
+  async (flowName: string, conversationId: string, retryOwnershipId: string) => {
+    const res = await fetch(`${baseUrl}/flows/${flowName}/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conversationId, retryOwnershipId }),
     });
     lastResponse = {
       status: res.status,

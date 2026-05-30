@@ -8,6 +8,19 @@ type Params = {
   logger: Logger;
 };
 
+function sharesBackingStore(pathA: string, pathB: string): boolean {
+  try {
+    if (fs.realpathSync(pathA) === fs.realpathSync(pathB)) {
+      return true;
+    }
+    const statA = fs.statSync(pathA);
+    const statB = fs.statSync(pathB);
+    return statA.dev === statB.dev && statA.ino === statB.ino;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Best-effort seed runtime auth from the host mount when needed.
  * Local and main compose may wire Codex homes differently, so startup stays permissive.
@@ -22,7 +35,11 @@ export function ensureCodexAuthFromHost({
   const containerAuthExists = fs.existsSync(containerAuthPath);
   const hostMountExists = fs.existsSync(hostHome);
   const hostAuthExists = fs.existsSync(hostAuthPath);
-  const sharedHome = path.resolve(containerHome) === path.resolve(hostHome);
+  const sharedHome =
+    path.resolve(containerHome) === path.resolve(hostHome) ||
+    (hostMountExists &&
+      fs.existsSync(containerHome) &&
+      sharesBackingStore(containerHome, hostHome));
 
   if (sharedHome) {
     if (containerAuthExists) {

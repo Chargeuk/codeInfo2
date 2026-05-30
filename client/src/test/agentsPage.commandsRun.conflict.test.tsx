@@ -97,7 +97,7 @@ describe('Agents page - run conflict handling', () => {
     );
     await user.click(option);
 
-    const execute = await screen.findByTestId('agent-command-execute');
+    const execute = await screen.findByTestId('agent-send');
     await waitFor(() => expect(execute).toBeEnabled());
     await user.click(execute);
 

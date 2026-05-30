@@ -95,3 +95,43 @@ export const buildStepLine = (command: ChatMessage['command']) => {
   }
   return `Step ${command.stepIndex} of ${command.totalSteps}`;
 };
+
+export type BubbleMetadataSummaryLine = {
+  label: string;
+  value: string;
+};
+
+export const buildBubbleMetadataSummary = (
+  message: Pick<
+    ChatMessage,
+    'createdAt' | 'provider' | 'usage' | 'timing' | 'command'
+  >,
+) => {
+  const summary: BubbleMetadataSummaryLine[] = [];
+
+  const timestamp = formatBubbleTimestamp(message.createdAt);
+  if (timestamp) {
+    summary.push({ label: 'Time', value: timestamp });
+  }
+
+  const usageLine = buildUsageLine(message.usage);
+  if (usageLine) {
+    summary.push({ label: 'Usage', value: usageLine });
+  }
+
+  const timingLine = buildTimingLine(message.timing);
+  if (timingLine) {
+    summary.push({ label: 'Timing', value: timingLine });
+  }
+
+  const stepLine = buildStepLine(message.command);
+  if (stepLine) {
+    summary.push({ label: 'Step', value: stepLine });
+  }
+
+  if (message.provider) {
+    summary.push({ label: 'Provider', value: message.provider });
+  }
+
+  return summary;
+};

@@ -124,6 +124,8 @@ const result = await runLoggedCommand({
     '--workspace',
     'client',
     '--',
+    '--runInBand',
+    '--silent',
     ...jestArgs,
     '--json',
     '--outputFile',

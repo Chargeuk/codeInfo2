@@ -52,6 +52,8 @@ Overview of where we are now, and where we would like to be once this phase has 
 - This guidance is advisory for the manual tester and should help later proof move faster, but it does not strictly limit the supporting repositories that may be investigated for honest proof; keep any such references portable rather than using absolute paths.
 - When tasks are later added, ensure the relevant story QA or final story validation tasks explicitly cover any applicable guidance from this section.
 - Task-level `Manual Testing Guidance` may later refine or override this section for one specific task when needed.
+- When final proof screenshots are needed, instruct the manual-proof pass to restart the supported main stack when client-visible code changed, capture only from a fresh browser context opened after that restart, and discard any screenshot that does not match the currently visible refreshed UI before keeping it as proof.
+- When both Chrome DevTools MCP and Playwright are available, prefer Chrome DevTools MCP first for live layout diagnosis, pixel-level alignment or spacing checks, clipping, stacking, and scroll-container inspection, and prefer Playwright for repeatable viewport setup, final screenshot capture, and retained proof artifacts.
 
 ### Questions
 

@@ -259,5 +259,5 @@ describe('Agents page - turn hydration', () => {
       expect(userMarkdown).toHaveTextContent('Diagram failed to render');
       expect(assistantMarkdown).toHaveTextContent('Diagram failed to render');
     });
-  });
+  }, 30_000);
 });

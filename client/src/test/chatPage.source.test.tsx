@@ -11,7 +11,7 @@ const baseProps: ComponentProps<typeof ConversationList> = {
   isError: false,
   error: undefined,
   hasMore: false,
-  filterState: 'active',
+  filterState: { active: true, archived: false },
   mongoConnected: true,
   disabled: false,
   onSelect: () => undefined,
@@ -24,7 +24,7 @@ const baseProps: ComponentProps<typeof ConversationList> = {
 };
 
 describe('ConversationList source badges', () => {
-  it('shows REST default and MCP source labels', () => {
+  it('shows provider icons plus REST default and MCP source labels without a redundant provider chip', () => {
     const conversations: ConversationListItem[] = [
       {
         conversationId: 'c1',
@@ -45,7 +45,24 @@ describe('ConversationList source badges', () => {
 
     render(<ConversationList {...baseProps} conversations={conversations} />);
 
-    expect(screen.getByText(/lmstudio · llama · REST/i)).toBeInTheDocument();
-    expect(screen.getByText(/codex · gpt · MCP/i)).toBeInTheDocument();
+    const providerIcons = screen
+      .getAllByTestId('conversation-provider-icon')
+      .map((n) => n.getAttribute('aria-label') || '');
+    const models = screen
+      .getAllByTestId('conversation-model-chip')
+      .map((n) => n.textContent || '');
+    const sources = screen
+      .getAllByTestId('conversation-source-chip')
+      .map((n) => n.textContent || '');
+
+    expect(providerIcons.some((p) => /lm\s*studio/i.test(p))).toBe(true);
+    expect(providerIcons.some((p) => /codex/i.test(p))).toBe(true);
+    expect(screen.queryByTestId('conversation-provider-chip')).toBeNull();
+
+    expect(models.some((m) => /llama/i.test(m))).toBe(true);
+    expect(models.some((m) => /gpt/i.test(m))).toBe(true);
+
+    expect(sources.some((s) => /REST/i.test(s))).toBe(true);
+    expect(sources.some((s) => /MCP/i.test(s))).toBe(true);
   });
 });

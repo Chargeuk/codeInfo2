@@ -24,7 +24,7 @@ services:
       - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.yml
       - CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8932
-      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5
       - CODEINFO_LMSTUDIO_BASE_URL=http://host.docker.internal:1234
       - CODEINFO_LOG_FILE_PATH=/app/logs/server.log
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
@@ -148,7 +148,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1/heartbeat']
+      test: ['CMD-SHELL', "grep -q '00000000:1F40' /proc/net/tcp"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -183,7 +183,7 @@ services:
     image: mcr.microsoft.com/playwright/mcp:latest
     user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     network_mode: host
-    entrypoint: ['node', 'cli.js']
+    entrypoint: ['node', '/app/cli.js']
     command:
       [
         '--host',

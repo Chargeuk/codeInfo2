@@ -284,7 +284,7 @@ async function selectProvider(
   });
 }
 
-describe('Chat page sidebar conversation selection', () => {
+describe('Chat shared shell conversation selection', () => {
   it('does not send cancel_inflight when switching conversations during an active run', async () => {
     const { user, draftConversationId } = await startDraftRun();
 
@@ -317,7 +317,7 @@ describe('Chat page sidebar conversation selection', () => {
     const { user } = await startDraftRun();
 
     expect(screen.getByText('Hello inflight')).toBeInTheDocument();
-    expect(screen.getByText(/Responding.../i)).toBeInTheDocument();
+    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
 
     const codexRowTitle = screen.getByText('Codex conversation');
     const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
@@ -336,6 +336,12 @@ describe('Chat page sidebar conversation selection', () => {
     );
 
     const transcript = await screen.findByTestId('chat-transcript');
+    const userTurn = within(transcript).getByText('hello codex');
+    const assistantTurn = within(transcript).getByText('codex reply');
+    expect(
+      userTurn.compareDocumentPosition(assistantTurn) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
     expect(
       within(transcript).queryByText('Hello inflight'),

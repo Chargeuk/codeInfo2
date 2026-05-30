@@ -9,6 +9,8 @@ export type AgentSummary = {
   description?: string;
   disabled?: boolean;
   warnings?: string[];
+  requestedProviderId?: string;
+  executionProviderId?: string;
 };
 
 export type AgentDetails = {

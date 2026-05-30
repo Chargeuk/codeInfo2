@@ -258,6 +258,8 @@ test('selected-agent details expose invalid-provider warnings and fallback candi
   const list = await listAgents();
   assert.equal(list.agents.length, 1);
   assert.deepEqual(list.agents[0].warnings, undefined);
+  assert.equal(list.agents[0].requestedProviderId, 'not-a-provider');
+  assert.equal(list.agents[0].executionProviderId, 'copilot');
 
   const details = await getAgentDetails('coding_agent');
   assert.equal(details.name, 'coding_agent');

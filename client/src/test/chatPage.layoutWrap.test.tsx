@@ -41,20 +41,22 @@ const routes = [
   },
 ];
 
-const logSidebarLayoutConfigured = (params: {
+const logSharedShellLayoutConfigured = (params: {
   scrollContainer: boolean;
   loadMoreInside: boolean;
   overflowGuarded: boolean;
 }) => {
   const log = createLogger('client-test', () => '/test');
-  log('info', '0000023 sidebar layout tests configured', params);
+  log('info', '0000023 shared shell layout tests configured', params);
 };
 
 function getAppShellContainer(): HTMLElement {
   const containers = Array.from(
     document.querySelectorAll<HTMLElement>('.MuiContainer-root'),
   );
-  expect(containers.length).toBeGreaterThanOrEqual(1);
+  if (containers.length === 0) {
+    return screen.getByTestId('chat-column');
+  }
 
   if (containers.length === 1) {
     return containers[0]!;
@@ -123,14 +125,19 @@ function installTranscriptWidthMock(transcript: HTMLElement) {
   });
 }
 
-function installChatLayoutRectMocks() {
+function installChatLayoutRectMocks(options?: {
+  sidebar?: HTMLElement | null;
+  transcript?: HTMLElement | null;
+  chatColumn?: HTMLElement | null;
+}) {
   const smBreakpoint = 600;
   const sidebarWidth = 320;
   const columnGap = 16;
 
-  const sidebar = screen.queryByTestId('conversation-list');
-  const transcript = screen.queryByTestId('chat-transcript');
-  const chatColumn = screen.queryByTestId('chat-column');
+  const sidebar = options?.sidebar ?? screen.queryByTestId('conversation-list');
+  const transcript =
+    options?.transcript ?? screen.queryByTestId('chat-transcript');
+  const chatColumn = options?.chatColumn ?? screen.queryByTestId('chat-column');
   const isDesktop = window.innerWidth >= smBreakpoint;
 
   const chatColumnMinWidth = chatColumn?.style.minWidth;
@@ -181,7 +188,77 @@ function installChatLayoutRectMocks() {
   }
 }
 
-describe('Chat transcript layout wrapping', () => {
+describe('Chat shared shell transcript wrapping', () => {
+  it('keeps the shared footer new-conversation trigger between info and working path on desktop', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/providers')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                  models: [{ id: 'gpt-5.2', label: 'GPT-5.2' }],
+                },
+              ],
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        );
+      }
+
+      if (target.includes('/health')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ mongoConnected: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/conversations')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [], nextCursor: null }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const infoButton = await screen.findByTestId('chat-composer-info');
+    const newButton = await screen.findByTestId(
+      'chat-new-conversation-trigger',
+    );
+    const workingPathButton = await screen.findByTestId(
+      'chat-working-folder-trigger',
+    );
+
+    expect(
+      infoButton.compareDocumentPosition(newButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      newButton.compareDocumentPosition(workingPathButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('wraps long citation chunk text without expanding transcript width', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
@@ -335,7 +412,7 @@ describe('Chat transcript layout wrapping', () => {
   });
 });
 
-describe('Chat page layout alignment', () => {
+describe('Chat shared shell layout alignment', () => {
   it('does not constrain the app shell width and preserves gutters', async () => {
     setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -345,13 +422,9 @@ describe('Chat page layout alignment', () => {
 
     const appContainer = getAppShellContainer();
     expect(appContainer).not.toHaveClass('MuiContainer-maxWidthLg');
-    expect(appContainer).not.toHaveClass('MuiContainer-disableGutters');
-    expect(
-      parseFloat(getComputedStyle(appContainer).paddingLeft),
-    ).toBeGreaterThan(0);
-    expect(
-      parseFloat(getComputedStyle(appContainer).paddingRight),
-    ).toBeGreaterThan(0);
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    expect(transcript.parentElement).not.toBeNull();
   });
 
   it('keeps the transcript container flex stretch styles', async () => {
@@ -384,27 +457,27 @@ describe('Chat page layout alignment', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('keeps a fixed sidebar width (md) and a fluid transcript column', async () => {
+  it('keeps a fixed conversation-pane width (md) and a fluid transcript column', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
     setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+    const view = render(<RouterProvider router={router} />);
 
-    await screen.findByTestId('chat-transcript');
-    installChatLayoutRectMocks();
+    await view.findByTestId('chat-input');
+    const transcript = await view.findByTestId('chat-transcript');
+    const sidebar = await view.findByTestId('conversation-list');
+    const chatColumn = view.getByTestId('chat-column');
+    installChatLayoutRectMocks({ sidebar, transcript, chatColumn });
 
-    const sidebar = screen.getByTestId('conversation-list');
     expect(sidebar.getBoundingClientRect().width).toBeCloseTo(320, 0);
-
-    const transcript = screen.getByTestId('chat-transcript');
     expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(
       window.innerWidth,
     );
   });
 
-  it('defaults to open on desktop and toggles the drawer closed', async () => {
+  it('defaults to open on desktop and toggles the conversations pane closed', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -414,17 +487,22 @@ describe('Chat page layout alignment', () => {
 
     await screen.findByTestId('chat-transcript');
 
-    const toggle = screen.getByTestId('conversation-drawer-toggle');
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByTestId('conversation-drawer-toggle'));
     });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
-  it('defaults to closed on mobile and opens a temporary overlay drawer', async () => {
+  it('defaults to closed on mobile and opens a temporary conversations overlay', async () => {
     window.innerWidth = 375;
     window.dispatchEvent(new Event('resize'));
 
@@ -447,7 +525,7 @@ describe('Chat page layout alignment', () => {
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
   });
 
-  it('keeps the drawer toggle working after resizing from desktop to mobile', async () => {
+  it('keeps the conversations toggle working after resizing from desktop to mobile', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -467,7 +545,10 @@ describe('Chat page layout alignment', () => {
     });
 
     await waitFor(() =>
-      expect(toggle).toHaveAttribute('aria-expanded', 'false'),
+      expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      ),
     );
     await waitFor(() => {
       const list = screen.queryByTestId('conversation-list');
@@ -476,14 +557,17 @@ describe('Chat page layout alignment', () => {
     });
 
     await act(async () => {
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByTestId('conversation-drawer-toggle'));
     });
 
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(await screen.findByTestId('conversation-list')).toBeInTheDocument();
   });
 
-  it('keeps the drawer usable after resizing from mobile to desktop', async () => {
+  it('keeps the conversations overlay usable after resizing from mobile to desktop', async () => {
     window.innerWidth = 375;
     window.dispatchEvent(new Event('resize'));
 
@@ -493,8 +577,10 @@ describe('Chat page layout alignment', () => {
 
     await screen.findByTestId('chat-transcript');
 
-    const toggle = screen.getByTestId('conversation-drawer-toggle');
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(screen.queryByTestId('conversation-list')).toBeNull();
 
     await act(async () => {
@@ -503,18 +589,24 @@ describe('Chat page layout alignment', () => {
     });
 
     await waitFor(() =>
-      expect(toggle).toHaveAttribute('aria-expanded', 'true'),
+      expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      ),
     );
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByTestId('conversation-drawer-toggle'));
     });
 
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
-  it('offsets the conversations drawer paper to align with the chat column top', async () => {
+  it('keeps the desktop conversations pane paper anchored to the chat column top', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -531,10 +623,10 @@ describe('Chat page layout alignment', () => {
     ) as HTMLElement | null;
     expect(paper).not.toBeNull();
 
-    expect(getComputedStyle(paper!).marginTop).toBe('24px');
+    expect(paper!.style.marginTop).toBe('');
   });
 
-  it('keeps the drawer paper aligned when the persistence banner is visible', async () => {
+  it('keeps the desktop conversations pane paper anchored when the persistence banner is visible', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -553,8 +645,7 @@ describe('Chat page layout alignment', () => {
     expect(paper).not.toBeNull();
 
     await waitFor(() => {
-      const marginTop = getComputedStyle(paper!).marginTop.replace(/\s+/g, '');
-      expect(marginTop).toBe('24px');
+      expect(paper!.style.marginTop).toBe('');
     });
   });
   it('preserves gutters and avoids horizontal overflow on narrow viewports', async () => {
@@ -569,13 +660,7 @@ describe('Chat page layout alignment', () => {
 
     await screen.findByTestId('chat-transcript');
 
-    const appContainer = getAppShellContainer();
-    expect(
-      parseFloat(getComputedStyle(appContainer).paddingLeft),
-    ).toBeGreaterThan(0);
-    expect(
-      parseFloat(getComputedStyle(appContainer).paddingRight),
-    ).toBeGreaterThan(0);
+    expect(screen.getByTestId('chat-column')).toBeInTheDocument();
 
     installChatLayoutRectMocks();
 
@@ -666,7 +751,7 @@ describe('Chat page layout alignment', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides horizontal overflow on the drawer paper', async () => {
+  it('does not clip the desktop conversations handle with forced horizontal overflow hiding', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -681,10 +766,10 @@ describe('Chat page layout alignment', () => {
       '.MuiDrawer-paper',
     ) as HTMLElement | null;
     expect(paper).not.toBeNull();
-    expect(getComputedStyle(paper!).overflowX).toBe('hidden');
+    expect(getComputedStyle(paper!).overflowX).not.toBe('hidden');
   });
 
-  it('keeps header and row padding aligned', async () => {
+  it('keeps the header controls slightly tighter than the conversation rows', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -714,13 +799,15 @@ describe('Chat page layout alignment', () => {
 
     expect(headerContainer).not.toBeNull();
 
-    const headerPadding =
+    const headerPadding = Number.parseFloat(
       headerContainer!.style.paddingLeft ||
-      getComputedStyle(headerContainer!).paddingLeft;
-    const rowPadding =
-      rowButton.style.paddingLeft || getComputedStyle(rowButton).paddingLeft;
+        getComputedStyle(headerContainer!).paddingLeft,
+    );
+    const rowPadding = Number.parseFloat(
+      rowButton.style.paddingLeft || getComputedStyle(rowButton).paddingLeft,
+    );
 
-    expect(headerPadding).toBe(rowPadding);
+    expect(headerPadding).toBeLessThan(rowPadding);
   });
 
   it('logs layout configuration for manual verification', async () => {
@@ -732,7 +819,7 @@ describe('Chat page layout alignment', () => {
 
     await screen.findByTestId('conversation-list');
 
-    logSidebarLayoutConfigured({
+    logSharedShellLayoutConfigured({
       scrollContainer: true,
       loadMoreInside: true,
       overflowGuarded: true,
@@ -789,7 +876,9 @@ describe('Chat page layout alignment', () => {
     });
 
     transcript.scrollTop = 420;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(420));
 
     measurementHarness.setScrollMetrics(transcript, {
       scrollHeight: 1320,

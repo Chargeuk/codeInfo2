@@ -21,9 +21,15 @@ export type ConversationSummary = {
   flags?: ConversationFlags;
   agentName?: string;
   flowName?: string;
+  previewUserText?: string;
+  previewAssistantSummary?: string;
+  previewSystemSummary?: string;
 };
 
-export type ConversationFilterState = 'active' | 'all' | 'archived';
+export type ConversationFilterState = {
+  active: boolean;
+  archived: boolean;
+};
 
 export type ConversationBulkAction = 'archive' | 'restore' | 'delete';
 
@@ -114,6 +120,10 @@ const isBulkErrorResponse = (
   );
 
 const PAGE_SIZE = 20;
+const DEFAULT_FILTER_STATE: ConversationFilterState = {
+  active: true,
+  archived: false,
+};
 
 function normalizeFlags(
   flags: ConversationFlags | null | undefined,
@@ -141,6 +151,50 @@ function normalizeConversationSummary(
   };
 }
 
+function normalizeConversationFilterState(
+  state: ConversationFilterState,
+): ConversationFilterState {
+  return state.active || state.archived ? state : { ...DEFAULT_FILTER_STATE };
+}
+
+function applyConversationFilter(
+  items: ConversationSummary[],
+  filterState: ConversationFilterState,
+) {
+  const normalized = normalizeConversationFilterState(filterState);
+  if (normalized.active && normalized.archived) return items;
+  if (normalized.archived) {
+    return items.filter((item) => Boolean(item.archived));
+  }
+  return items.filter((item) => !item.archived);
+}
+
+function matchesScopedConversation(
+  item: ConversationSummary,
+  params: {
+    agentName: string;
+    flowName: string;
+  },
+) {
+  if (params.agentName) {
+    if (params.agentName === '__none__') {
+      if (item.agentName) return false;
+    } else if (item.agentName !== params.agentName) {
+      return false;
+    }
+  }
+
+  if (params.flowName) {
+    if (params.flowName === '__none__') {
+      if (item.flowName) return false;
+    } else if (item.flowName !== params.flowName) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function useConversations(params?: {
   agentName?: string;
   flowName?: string;
@@ -149,13 +203,14 @@ export function useConversations(params?: {
   const flowName = params?.flowName;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [filterState, setFilterState] =
-    useState<ConversationFilterState>('active');
+    useState<ConversationFilterState>(DEFAULT_FILTER_STATE);
   const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const controllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef(0);
   const log = useMemo(() => createLogger('client-flows'), []);
 
   const normalizedAgentName =
@@ -163,38 +218,10 @@ export function useConversations(params?: {
   const normalizedFlowName =
     typeof flowName === 'string' ? flowName.trim() : '';
 
-  const applyStateFilter = useCallback(
-    (items: ConversationSummary[]) => {
-      if (filterState === 'all') return items;
-      if (filterState === 'archived') {
-        return items.filter((item) => Boolean(item.archived));
-      }
-      return items.filter((item) => !item.archived);
-    },
-    [filterState],
-  );
-
   const applyFilter = useCallback(
-    (items: ConversationSummary[]) => {
-      const agentFiltered = normalizedAgentName
-        ? items.filter((item) => {
-            if (normalizedAgentName === '__none__') {
-              return !item.agentName;
-            }
-            return item.agentName === normalizedAgentName;
-          })
-        : items;
-      const flowFiltered = normalizedFlowName
-        ? agentFiltered.filter((item) => {
-            if (normalizedFlowName === '__none__') {
-              return !item.flowName;
-            }
-            return item.flowName === normalizedFlowName;
-          })
-        : agentFiltered;
-      return applyStateFilter(flowFiltered);
-    },
-    [applyStateFilter, normalizedAgentName, normalizedFlowName],
+    (items: ConversationSummary[]) =>
+      applyConversationFilter(items, filterState),
+    [filterState],
   );
 
   const dedupeAndSort = useCallback((items: ConversationSummary[]) => {
@@ -239,8 +266,11 @@ export function useConversations(params?: {
     async (mode: 'replace' | 'append' = 'replace') => {
       controllerRef.current?.abort();
       const controller = new AbortController();
+      const requestId = activeRequestIdRef.current + 1;
+      activeRequestIdRef.current = requestId;
       controllerRef.current = controller;
       setIsLoading(true);
+      const isCurrentRequest = () => activeRequestIdRef.current === requestId;
       try {
         console.info('[conversations] fetch start', {
           mode,
@@ -254,7 +284,7 @@ export function useConversations(params?: {
           flowName: normalizedFlowName || '__all__',
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
-        search.set('state', filterState);
+        search.set('state', 'all');
         if (normalizedAgentName) search.set('agentName', normalizedAgentName);
         if (normalizedFlowName) search.set('flowName', normalizedFlowName);
         const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
@@ -271,28 +301,33 @@ export function useConversations(params?: {
           (item) =>
             normalizeConversationSummary(parseConversationSummary(item)),
         );
+        if (!isCurrentRequest()) return;
         setHasMore(Boolean(data.nextCursor));
         cursorRef.current = data.nextCursor;
         setConversations((prev) => {
           const merged = mode === 'append' ? [...prev, ...items] : items;
-          return dedupeAndSort(applyStateFilter(merged));
+          return dedupeAndSort(applyFilter(merged));
         });
         console.info('[conversations] fetch success', {
           mode,
           received: items.length,
           hasMore: Boolean(data.nextCursor),
         });
+        if (!isCurrentRequest()) return;
         setIsError(false);
         setError(undefined);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
+        if (!isCurrentRequest()) return;
         setIsError(true);
         setError((err as Error).message);
       } finally {
         if (controllerRef.current === controller) {
           controllerRef.current = null;
         }
-        setIsLoading(false);
+        if (isCurrentRequest()) {
+          setIsLoading(false);
+        }
       }
     },
     [
@@ -302,7 +337,7 @@ export function useConversations(params?: {
       normalizedFlowName,
       log,
       dedupeAndSort,
-      applyStateFilter,
+      applyFilter,
     ],
   );
 
@@ -328,21 +363,17 @@ export function useConversations(params?: {
     (conversationId: string, archived: boolean) => {
       setConversations((prev) =>
         dedupeAndSort(
-          prev
-            .map((conv) =>
+          applyFilter(
+            prev.map((conv) =>
               conv.conversationId === conversationId
                 ? { ...conv, archived }
                 : conv,
-            )
-            .filter((conv) => {
-              if (filterState === 'all') return true;
-              if (filterState === 'archived') return Boolean(conv.archived);
-              return !conv.archived;
-            }),
+            ),
+          ),
         ),
       );
     },
-    [dedupeAndSort, filterState],
+    [applyFilter, dedupeAndSort],
   );
 
   const archive = useCallback(
@@ -618,6 +649,22 @@ export function useConversations(params?: {
           agentName: normalizedConversation.agentName,
         };
 
+        if (
+          !matchesScopedConversation(merged, {
+            agentName: normalizedAgentName,
+            flowName: normalizedFlowName,
+          })
+        ) {
+          return dedupeAndSort(
+            applyFilter(
+              prev.filter(
+                (c) =>
+                  c.conversationId !== normalizedConversation.conversationId,
+              ),
+            ),
+          );
+        }
+
         return dedupeAndSort(
           applyFilter([
             merged,
@@ -628,7 +675,7 @@ export function useConversations(params?: {
         );
       });
     },
-    [applyFilter, dedupeAndSort, log],
+    [applyFilter, dedupeAndSort, log, normalizedAgentName, normalizedFlowName],
   );
 
   const applyWsDelete = useCallback(

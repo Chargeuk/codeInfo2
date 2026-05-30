@@ -14,8 +14,8 @@ import {
   createSummaryLogStream,
   createSummaryWrapperProtocol,
   runLoggedCommand,
-  SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV,
 } from './summary-wrapper-protocol.mjs';
+import { buildServerUnitWrapperEnv } from './test-summary-server-unit-env.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -79,13 +79,6 @@ const normalizeServerPath = (value) => {
   return withoutDotPrefix;
 };
 
-const buildCleanWrapperEnv = () =>
-  Object.fromEntries(
-    Object.entries(process.env).filter(
-      ([key]) => !key.startsWith('CODEINFO_') && !key.startsWith('CODEX_'),
-    ),
-  );
-
 const sumFromMatches = (output, pattern) =>
   [...output.matchAll(pattern)].reduce(
     (sum, match) => sum + Number(match[1]),
@@ -126,6 +119,7 @@ const buildResult = await runLoggedCommand({
 });
 
 const defaultFiles = [
+  '../scripts/test-summary-server-unit-env.test.mjs',
   'src/test/unit/*.test.ts',
   'src/test/integration/*.test.ts',
   'src/test/mcp2/**/*.test.ts',
@@ -142,19 +136,7 @@ if (options.testName) {
 testArgs.push(...unitFiles);
 
 const unitEnv = {
-  ...buildCleanWrapperEnv(),
-  CODEINFO_LOG_FILE_PATH: '../logs/server-test.log',
-  CODEINFO_CHROMA_URL: '',
-  CODEINFO_MONGO_URI: '',
-  CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8932/mcp',
-  [SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV]:
-    process.env[SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV],
-  TS_NODE_DEBUG: 'false',
-  TS_NODE_LOG_ERROR: 'true',
-  TS_NODE_FILES: 'true',
-  TS_NODE_PROJECT: './tsconfig.json',
-  NODE_OPTIONS:
-    '--max-old-space-size=6144 --import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180',
+  ...buildServerUnitWrapperEnv(),
 };
 
 let exitCode = buildResult.code;

@@ -104,6 +104,7 @@ export const resolveDefaultExecutionRoot = (
 
 export async function resolveWorkingFolderWorkingDirectory(
   working_folder: string | undefined,
+  options?: { allowMissingHostPath?: boolean },
 ): Promise<string | undefined> {
   if (!working_folder || !working_folder.trim()) return undefined;
 
@@ -139,8 +140,14 @@ export async function resolveWorkingFolderWorkingDirectory(
     }
   }
 
-  if (await isDirectory(workingFolder))
+  if (await isDirectory(workingFolder)) return normalizeWorkingFolder(workingFolder);
+
+  // The requested host working folder was not present on the local filesystem.
+  // If caller allows restoring host path even when the mount isn't present,
+  // return normalized host path (do not throw). Otherwise throw NOT_FOUND.
+  if (options?.allowMissingHostPath) {
     return normalizeWorkingFolder(workingFolder);
+  }
 
   throw {
     code: 'WORKING_FOLDER_NOT_FOUND',
@@ -151,6 +158,7 @@ export async function resolveWorkingFolderWorkingDirectory(
 export async function resolveSharedExecutionContext(params: {
   workingFolder?: string;
   defaultRepositoryRoot?: string;
+  allowMissingWorkingFolder?: boolean;
 }): Promise<SharedExecutionContext> {
   const requestedDefaultRepositoryRoot = normalizeOptionalRoot(
     params.defaultRepositoryRoot,
@@ -162,6 +170,9 @@ export async function resolveSharedExecutionContext(params: {
       : resolveDefaultExecutionRoot();
   const resolvedWorkingFolder = await resolveWorkingFolderWorkingDirectory(
     params.workingFolder,
+    {
+      allowMissingHostPath: params.allowMissingWorkingFolder,
+    },
   );
   const selectedRepositoryPath = resolvedWorkingFolder ?? defaultExecutionRoot;
   const fallbackUsed = resolvedWorkingFolder === undefined;

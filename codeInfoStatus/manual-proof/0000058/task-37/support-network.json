@@ -1,0 +1,124 @@
+{
+  "task34": {
+    "invalidStalePath": "/definitely/missing/path/task37-stale",
+    "flowRunInvalidWorkingFolder": {
+      "status": 400,
+      "body": {
+        "error": "invalid_request",
+        "code": "WORKING_FOLDER_NOT_FOUND",
+        "message": "working_folder not found"
+      }
+    },
+    "conversationCreated": {
+      "status": 201,
+      "body": {
+        "conversationId": "4b6fc1cc-7bd3-42e8-9b5b-e69a5270365b"
+      }
+    },
+    "conversationEditInvalidWorkingFolder": {
+      "status": 400,
+      "body": {
+        "error": "invalid_request",
+        "code": "WORKING_FOLDER_NOT_FOUND",
+        "message": "working_folder not found"
+      }
+    },
+    "afterFirstList": {
+      "conversationId": "4b6fc1cc-7bd3-42e8-9b5b-e69a5270365b",
+      "provider": "codex",
+      "model": "gpt-5.3-codex",
+      "title": "Task 37 stale restore proof",
+      "source": "REST",
+      "lastMessageAt": "2026-05-26T02:08:02.648Z",
+      "archived": false,
+      "flags": {},
+      "createdAt": "2026-05-26T02:08:02.648Z",
+      "updatedAt": "2026-05-26T02:08:02.648Z"
+    },
+    "afterSecondList": {
+      "conversationId": "4b6fc1cc-7bd3-42e8-9b5b-e69a5270365b",
+      "provider": "codex",
+      "model": "gpt-5.3-codex",
+      "title": "Task 37 stale restore proof",
+      "source": "REST",
+      "lastMessageAt": "2026-05-26T02:08:02.648Z",
+      "archived": false,
+      "flags": {},
+      "createdAt": "2026-05-26T02:08:02.648Z",
+      "updatedAt": "2026-05-26T02:08:02.685Z"
+    },
+    "firstListHasWorkingFolder": false,
+    "secondListHasWorkingFolder": false
+  },
+  "task35": {
+    "replay": {
+      "requestA": {
+        "retryOwnershipId": "task37-retry-1779761282717",
+        "customTitle": "Task 37 Accepted Replay Launch Seq"
+      },
+      "responseA": {
+        "status": 202,
+        "body": {
+          "status": "started",
+          "flowName": "smoke",
+          "conversationId": "7dad3c61-609c-4094-8aac-371cb45aa4df",
+          "inflightId": "eb696a98-cbbb-40ac-b970-9bcb09dbbdc9",
+          "providerId": "codex",
+          "modelId": "gpt-5.4"
+        }
+      },
+      "requestB": {
+        "retryOwnershipId": "task37-retry-1779761282717",
+        "customTitle": "Task 37 Accepted Replay Launch Seq"
+      },
+      "responseB": {
+        "status": 202,
+        "body": {
+          "status": "started",
+          "flowName": "smoke",
+          "conversationId": "7dad3c61-609c-4094-8aac-371cb45aa4df",
+          "inflightId": "eb696a98-cbbb-40ac-b970-9bcb09dbbdc9",
+          "providerId": "codex",
+          "modelId": "gpt-5.4"
+        }
+      },
+      "contradictoryRequest": {
+        "retryOwnershipId": "task37-retry-1779761282717",
+        "customTitle": "Task 37 Contradictory Replay Launch Seq"
+      },
+      "contradictoryResponse": {
+        "status": 400,
+        "body": {
+          "error": "invalid_request",
+          "code": "INVALID_REQUEST",
+          "message": "retryOwnershipId already belongs to a different fresh-run launch"
+        }
+      }
+    },
+    "resume": {
+      "parentConversationId": "7dad3c61-609c-4094-8aac-371cb45aa4df",
+      "childConversationId": "92414c09-0f00-4f37-81b4-661014e0814f",
+      "seededBeforeResume": {
+        "parentRequestedProviderId": "codex",
+        "parentFlowAgentRequestedProvider": "codex",
+        "childRequestedProviderId": "copilot"
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "status": "started",
+          "flowName": "smoke",
+          "conversationId": "7dad3c61-609c-4094-8aac-371cb45aa4df",
+          "inflightId": "6c296bdf-ffde-4026-8c6a-f849f63d29ef",
+          "providerId": "codex",
+          "modelId": "gpt-5.4"
+        }
+      },
+      "afterResume": {
+        "parentRequestedProviderId": "codex",
+        "parentFlowAgentRequestedProvider": "codex",
+        "childRequestedProviderId": "copilot"
+      }
+    }
+  }
+}

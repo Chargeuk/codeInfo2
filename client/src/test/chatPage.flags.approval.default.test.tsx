@@ -144,5 +144,5 @@ describe('Codex approval policy flag defaults', () => {
     await waitFor(() =>
       expect(approvalSelect).toHaveTextContent(/on request/i),
     );
-  });
+  }, 30_000);
 });

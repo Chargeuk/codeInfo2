@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -29,7 +29,7 @@ const routes = [
 ];
 
 describe('Agents page - command execute disabled when persistence unavailable', () => {
-  it('disables Execute and shows the persistence note when mongoConnected === false', async () => {
+  it('disables Send plus working-folder persistence affordances and shows the persistence banner when mongoConnected === false', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -84,11 +84,13 @@ describe('Agents page - command execute disabled when persistence unavailable', 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const execute = await screen.findByTestId('agent-command-execute');
+    const execute = await screen.findByTestId('agent-send');
     await waitFor(() => expect(execute).toBeDisabled());
+    expect(await screen.findByTestId('agent-working-folder')).toBeDisabled();
+    expect(screen.getByTestId('agent-working-folder-picker')).toBeDisabled();
     expect(
-      await screen.findByTestId('agent-command-persistence-note'),
-    ).toHaveTextContent('Commands require conversation history');
+      await screen.findByTestId('agents-persistence-banner'),
+    ).toHaveTextContent('Conversation persistence is currently unavailable');
   });
 
   it('sends selected startStep as an integer in command execute payload', async () => {
@@ -180,22 +182,19 @@ describe('Agents page - command execute disabled when persistence unavailable', 
       expect(registry?.last()?.readyState).toBe(1);
     });
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
+    const commandSelect = await screen.findByTestId('agent-command-trigger');
     await user.click(commandSelect);
     await user.click(
       await screen.findByTestId('agent-command-option-improve_plan::local'),
     );
 
-    const startStepSelect = await screen.findByRole('combobox', {
-      name: /start step/i,
-    });
+    const startStepSelect = await screen.findByTestId('agent-step-trigger');
     await user.click(startStepSelect);
-    await user.click(await screen.findByRole('option', { name: 'Step 2' }));
+    const stepPopover = await screen.findByTestId('agent-step-popover');
+    await user.click(await within(stepPopover).findByText('Step 2'));
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 2'));
 
-    await user.click(await screen.findByTestId('agent-command-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runBodies).toHaveLength(1));
     expect(runBodies[0]?.startStep).toBe(2);

@@ -4,13 +4,13 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
-  Paper,
   Typography,
 } from '@mui/material';
 import { memo, useEffect, useMemo, useRef } from 'react';
 import type { ChatMessage, ToolCall } from '../../hooks/useChatStream';
 import { createLogger } from '../../logging/logger';
 import SharedTranscript from '../chat/SharedTranscript';
+import SharedTranscriptSurface from '../chat/SharedTranscriptSurface';
 
 type LiveStoppedMarker = {
   conversationId: string;
@@ -160,16 +160,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
   }, [conversationId, displayMessages.length, renderStateKey]);
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 2,
-        flex: '1 1 0%',
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
+    <SharedTranscriptSurface>
       <SharedTranscript
         ref={transcriptRef}
         surface="agents"
@@ -214,7 +205,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
           },
         }}
       />
-    </Paper>
+    </SharedTranscriptSurface>
   );
 });
 

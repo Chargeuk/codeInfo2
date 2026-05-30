@@ -7,6 +7,7 @@ type ConversationSidebarToggleProps = {
   drawerWidth: number;
   isMobile: boolean;
   onToggle: () => void;
+  controlsId?: string;
 };
 
 export default function ConversationSidebarToggle({
@@ -14,38 +15,36 @@ export default function ConversationSidebarToggle({
   drawerWidth,
   isMobile,
   onToggle,
+  controlsId = 'conversation-drawer',
 }: ConversationSidebarToggleProps) {
-  const buttonSize = 28;
-  const handleLeft = drawerOpen ? drawerWidth : buttonSize / 2;
+  const buttonSize = isMobile ? 30 : 28;
+  const handleLeft = drawerOpen ? drawerWidth : 0;
 
   return (
     <IconButton
       aria-label="Toggle conversations"
-      aria-controls="conversation-drawer"
+      aria-controls={controlsId}
       aria-expanded={drawerOpen}
       onClick={onToggle}
       size="small"
       data-testid="conversation-drawer-toggle"
       sx={{
         position: 'absolute',
-        top: 12,
+        top: isMobile ? 10 : 12,
         left: handleLeft,
         transform: 'translateX(-50%)',
-        zIndex: (theme) => theme.zIndex.drawer + 1,
+        zIndex: (theme) => theme.zIndex.drawer + 4,
         border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        boxShadow: 1,
+        borderColor: '#D9E2EC',
+        bgcolor: '#F4F6F8',
+        color: '#1F2933',
+        boxShadow: 2,
         width: buttonSize,
         height: buttonSize,
+        borderRadius: '999px',
         '&:hover': {
-          bgcolor: 'background.paper',
+          bgcolor: '#F4F6F8',
         },
-        ...(isMobile
-          ? {
-              top: 8,
-            }
-          : {}),
       }}
     >
       {drawerOpen ? (

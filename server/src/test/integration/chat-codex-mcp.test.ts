@@ -12,7 +12,6 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
-import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   memoryConversations,
   memoryTurns,
@@ -264,6 +263,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
 
   const mockCodex = new MockCodex('thread-mcp');
   const codexFactory = () => mockCodex;
@@ -467,7 +467,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
   );
   assert.equal(
     mockCodex.lastStartOptions?.workingDirectory,
-    resolveAgentHomeEnv().codeInfoRoot,
+    '/mounted/default-root',
   );
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });

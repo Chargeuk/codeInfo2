@@ -92,22 +92,26 @@ function mockAgentsFetch(options?: {
   });
 }
 
-describe('Agents page layout wrap', () => {
+describe('Agents shared shell layout wrap', () => {
   it('keeps the list panel scrollable and keeps Load more inside it', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const panel = await screen.findByTestId('conversation-list');
+    const panels = await screen.findAllByTestId('conversation-list');
+    const panel = panels.find((candidate) =>
+      within(candidate).queryByTestId('conversation-load-more'),
+    );
     const row = await screen.findByTestId('conversation-row');
     const list = row.closest('ul');
     const scrollContainer = list?.parentElement;
 
+    expect(panel).toBeDefined();
     expect(scrollContainer).not.toBeNull();
     expect(getComputedStyle(scrollContainer!).overflowY).toBe('auto');
     expect(
-      within(panel).getByTestId('conversation-load-more'),
+      within(panel!).getByTestId('conversation-load-more'),
     ).toBeInTheDocument();
   });
 
@@ -121,21 +125,27 @@ describe('Agents page layout wrap', () => {
     expect(transcript.style.flex).toBe('1 1 0%');
     expect(['0', '0px']).toContain(transcript.style.minHeight);
     expect(transcript.style.overflowY).toBe('auto');
+    expect(transcript.parentElement).not.toBeNull();
+    const transcriptOverlay = transcript.parentElement!;
+    const overlayStyles = getComputedStyle(transcriptOverlay);
+    expect(overlayStyles.overflow).toBe('hidden');
+    expect(overlayStyles.position).toBe('relative');
+    expect(overlayStyles.display).toBe('flex');
   });
 
-  it('renders the command selector and execute button in the same row', async () => {
+  it('renders the command selector before the step control in the shared footer order', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandRow = await screen.findByTestId('agent-command-row');
+    const commandTrigger = await screen.findByTestId('agent-command-trigger');
+    const stepTrigger = await screen.findByTestId('agent-step-trigger');
+
     expect(
-      within(commandRow).getByTestId('agent-command-select'),
-    ).toBeInTheDocument();
-    expect(
-      within(commandRow).getByTestId('agent-command-execute'),
-    ).toBeInTheDocument();
+      commandTrigger.compareDocumentPosition(stepTrigger) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('renders the instruction input and action buttons in the same row', async () => {
@@ -144,100 +154,90 @@ describe('Agents page layout wrap', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const instructionRow = await screen.findByTestId('agent-instruction-row');
-    expect(
-      within(instructionRow).getByTestId('agent-input'),
-    ).toBeInTheDocument();
-    expect(
-      within(instructionRow).getByTestId('agent-send'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('agent-input')).toBeInTheDocument();
+    expect(await screen.findByTestId('agent-send')).toBeInTheDocument();
   });
 
-  it('moves the stop button out of the header row', async () => {
+  it('renders only the shared send control while no run is active', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const headerRow = await screen.findByTestId('agent-header-row');
-    expect(within(headerRow).queryByTestId('agent-stop')).toBeNull();
-
-    const instructionRow = await screen.findByTestId('agent-instruction-row');
-    expect(
-      within(instructionRow).getByTestId('agent-action-slot'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('agent-send')).toBeInTheDocument();
+    expect(screen.queryByTestId('agent-stop')).toBeNull();
   });
 
-  it('keeps the action slot width fixed', async () => {
+  it('keeps the shared footer trigger order intact', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const actionSlot = await screen.findByTestId('agent-action-slot');
-    expect(actionSlot).toHaveStyle({ minWidth: '120px' });
+    const footerButtons = [
+      await screen.findByTestId('agent-info'),
+      await screen.findByTestId('agent-new-conversation-trigger'),
+      await screen.findByTestId('agent-working-path-trigger'),
+      await screen.findByTestId('agent-select-trigger'),
+      await screen.findByTestId('agent-command-trigger'),
+      await screen.findByTestId('agent-step-trigger'),
+    ];
+
+    footerButtons.reduce((previous, current) => {
+      expect(
+        previous.compareDocumentPosition(current) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      return current;
+    });
   });
 
-  it('renders a single action button in the slot', async () => {
+  it('shows the shared conversation-header new action on Agents', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const actionSlot = await screen.findByTestId('agent-action-slot');
-    expect(within(actionSlot).getByTestId('agent-send')).toBeInTheDocument();
-    expect(within(actionSlot).queryByTestId('agent-stop')).toBeNull();
+    const newButton = await screen.findByTestId('conversation-new');
+    expect(newButton).toBeVisible();
+    expect(newButton).toHaveAccessibleName('New conversation');
   });
 
-  it('applies size="small" and variant rules to agent controls', async () => {
+  it('renders a single primary action button', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const agentSelect = await screen.findByTestId('agent-select');
-    const agentSelectRoot = agentSelect.closest('.MuiInputBase-root');
-    expect(agentSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
+    expect(await screen.findByTestId('agent-send')).toBeInTheDocument();
+    expect(screen.queryByTestId('agent-stop')).toBeNull();
+  });
 
-    const commandSelect = await screen.findByTestId('agent-command-select');
-    const commandSelectRoot = commandSelect.closest('.MuiInputBase-root');
-    expect(commandSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
+  it('applies the shared small-input and outlined-trigger styles to agent controls', async () => {
+    mockAgentsFetch();
 
-    const workingFolder = await screen.findByTestId('agent-working-folder');
-    const workingFolderRoot = workingFolder.closest('.MuiInputBase-root');
-    expect(workingFolderRoot).toHaveClass('MuiInputBase-sizeSmall');
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
 
     const instructionInput = await screen.findByTestId('agent-input');
     const instructionRoot = instructionInput.closest('.MuiInputBase-root');
     expect(instructionRoot).toHaveClass('MuiInputBase-sizeSmall');
 
-    const executeButton = await screen.findByTestId('agent-command-execute');
-    expect(executeButton).toHaveClass(
-      'MuiButton-contained',
-      'MuiButton-sizeSmall',
-    );
-
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    expect(newConversationButton).toHaveClass(
+    expect(await screen.findByTestId('agent-working-path-trigger')).toHaveClass(
       'MuiButton-outlined',
-      'MuiButton-sizeSmall',
     );
-
-    const chooseFolderButton = screen.getByTestId(
-      'agent-working-folder-picker',
-    );
-    expect(chooseFolderButton).toHaveClass(
+    expect(await screen.findByTestId('agent-select-trigger')).toHaveClass(
       'MuiButton-outlined',
-      'MuiButton-sizeSmall',
+    );
+    expect(await screen.findByTestId('agent-command-trigger')).toHaveClass(
+      'MuiButton-outlined',
+    );
+    expect(await screen.findByTestId('agent-step-trigger')).toHaveClass(
+      'MuiIconButton-root',
     );
 
     const sendButton = await screen.findByTestId('agent-send');
-    expect(sendButton).toHaveClass(
-      'MuiButton-contained',
-      'MuiButton-sizeSmall',
-    );
+    expect(sendButton).toHaveClass('MuiIconButton-root');
   });
 
   it('uses the shared pinned-bottom and scroll-away rules on Agents', async () => {
@@ -275,6 +275,12 @@ describe('Agents page layout wrap', () => {
     await waitFor(() =>
       expect(screen.getAllByTestId('chat-bubble')).toHaveLength(14),
     );
+    const firstMessage = within(transcript).getByText('Agent message 1');
+    const secondMessage = within(transcript).getByText('Agent message 2');
+    expect(
+      firstMessage.compareDocumentPosition(secondMessage) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     measurementHarness.setContainerMetrics(transcript, {
       width: 640,
@@ -285,7 +291,9 @@ describe('Agents page layout wrap', () => {
     });
 
     transcript.scrollTop = 430;
+    fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
+    await waitFor(() => expect(transcript.scrollTop).toBe(430));
 
     measurementHarness.setScrollMetrics(transcript, {
       scrollHeight: 1320,

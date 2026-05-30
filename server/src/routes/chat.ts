@@ -6,7 +6,6 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { Router, json } from 'express';
 
-import { resolveAgentHomeEnv } from '../agents/roots.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,
@@ -646,7 +645,21 @@ export function createChatRouter({
         effectiveWorkingFolder = await restoreSavedWorkingFolder({
           conversation: existingConversation,
           surface: 'chat_run',
-          clearPersistedWorkingFolder: async (id) => {
+          clearPersistedWorkingFolder: async (
+            id,
+            expectedWorkingFolder,
+          ): Promise<string | undefined> => {
+            const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+            if (trimmedExpectedWorkingFolder) {
+              const currentWorkingFolder = shouldUseMemoryPersistence()
+                ? memoryConversations.get(id)?.flags?.workingFolder?.trim()
+                : (
+                    await ConversationModel.findById(id).lean().exec()
+                  )?.flags?.workingFolder?.trim();
+              if (currentWorkingFolder !== trimmedExpectedWorkingFolder) {
+                return currentWorkingFolder ?? undefined;
+              }
+            }
             const nextFlags = { ...(existingConversation?.flags ?? {}) };
             delete nextFlags.workingFolder;
             existingConversation = {
@@ -654,6 +667,7 @@ export function createChatRouter({
               flags: nextFlags,
             } as Conversation;
             void id;
+            return existingConversation.flags?.workingFolder?.trim();
           },
           knownRepositoryPathsState,
         });
@@ -673,13 +687,8 @@ export function createChatRouter({
       throw err;
     }
 
-    const agentHomeResolution = resolveAgentHomeEnv();
     const executionContext = await resolveSharedExecutionContext({
       workingFolder: effectiveWorkingFolder,
-      defaultRepositoryRoot:
-        agentHomeResolution.activeEnvName !== 'default'
-          ? agentHomeResolution.codeInfoRoot
-          : undefined,
     });
     const envOverrides: NodeJS.ProcessEnv = {
       CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,

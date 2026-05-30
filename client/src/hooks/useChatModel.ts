@@ -409,13 +409,19 @@ function buildLegacyCodexAgentFlags(params: {
 function normalizeProviders(list: ChatProviderInfo[]): ChatProviderInfo[] {
   const provided = new Map<ChatProviderId, ChatProviderInfo>();
 
+  const orderedFromServer: ChatProviderInfo[] = [];
   list.forEach((entry) => {
     if (!isChatProviderId(entry.id)) {
       return;
     }
-    provided.set(entry.id, buildProviderInfo(entry.id, entry));
+    const built = buildProviderInfo(entry.id, entry);
+    provided.set(entry.id, built);
+    orderedFromServer.push(built);
   });
 
+  // Always return providers in canonical ordering (ORDERED_CHAT_PROVIDER_IDS),
+  // but use server-provided entries when present and fall back to defaults for
+  // any missing providers.
   return ORDERED_CHAT_PROVIDER_IDS.map(
     (id) => provided.get(id) ?? buildProviderInfo(id),
   );
@@ -581,6 +587,10 @@ export function useChatModel() {
 
       legacyBootstrapRef.current = false;
       const list = normalizeProviders(data.providers);
+      console.info(
+        '[useChatModel] normalized providers order:',
+        list.map((p) => p.id),
+      );
       setProviders(list);
       setServerSelectedProvider(data.selectedProvider);
       const preferredProvider =

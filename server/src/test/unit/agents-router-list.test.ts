@@ -49,7 +49,14 @@ test('GET /agents includes description when provided by the list payload', async
   const res = await request(
     buildApp({
       listAgents: async () => ({
-        agents: [{ name: 'coding_agent', description: '# Hello agent' }],
+        agents: [
+          {
+            name: 'coding_agent',
+            description: '# Hello agent',
+            requestedProviderId: 'codex',
+            executionProviderId: 'copilot',
+          },
+        ],
       }),
     }),
   ).get('/agents');
@@ -57,6 +64,8 @@ test('GET /agents includes description when provided by the list payload', async
   assert.equal(res.status, 200);
   assert.equal(res.body.agents.length, 1);
   assert.equal(res.body.agents[0].description, '# Hello agent');
+  assert.equal(res.body.agents[0].requestedProviderId, 'codex');
+  assert.equal(res.body.agents[0].executionProviderId, 'copilot');
 });
 
 test('GET /agents keeps invalid-provider warnings off the list payload and exposes them on details only', async () => {
@@ -99,6 +108,8 @@ test('GET /agents keeps invalid-provider warnings off the list payload and expos
           warnings: [
             'Agent "coding_agent" exists in both codeinfo_agents and codex_agents under "/repo"; using codeinfo_agents and ignoring the legacy codex_agents copy.',
           ],
+          requestedProviderId: 'not-a-provider',
+          executionProviderId: 'copilot',
         },
       ],
     }),

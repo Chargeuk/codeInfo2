@@ -32,7 +32,9 @@ const routes = [
 ];
 
 describe('Agents page auth dialog', () => {
-  it('shows re-authenticate even when Codex is currently unavailable', async () => {
+  it('keeps the info summary free of re-authenticate actions when Codex is unavailable', async () => {
+    const user = userEvent.setup();
+
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
       if (href.includes('/health')) {
@@ -119,14 +121,14 @@ describe('Agents page auth dialog', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
+    await user.click(await screen.findByTestId('agent-info'));
     expect(
-      await screen.findByRole('button', { name: /re-authenticate/i }),
-    ).toBeInTheDocument();
-  });
+      screen.queryByRole('button', { name: /re-authenticate/i }),
+    ).not.toBeInTheDocument();
+  }, 30_000);
 
-  it('opens the shared dialog from the agents page while agent execution stays Codex-backed', async () => {
+  it('keeps the info summary free of re-authenticate actions when Codex is available', async () => {
     const user = userEvent.setup();
-    let runCalls = 0;
 
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
@@ -203,24 +205,6 @@ describe('Agents page auth dialog', () => {
           json: async () => ({ items: [], nextCursor: null }),
         }) as unknown as Response;
       }
-      if (href.includes('/agents/a1/run')) {
-        runCalls += 1;
-        return Promise.resolve({
-          ok: true,
-          status: 202,
-          json: async () => ({ status: 'started' }),
-        }) as unknown as Response;
-      }
-      if (href.endsWith('/copilot/device-auth')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            provider: 'copilot',
-            state: 'already_authenticated',
-          }),
-        }) as unknown as Response;
-      }
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -231,29 +215,9 @@ describe('Agents page auth dialog', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    await user.click(
-      await screen.findByRole('button', {
-        name: /re-authenticate/i,
-      }),
-    );
-
+    await user.click(await screen.findByTestId('agent-info'));
     expect(
-      await screen.findByRole('heading', { name: 'Choose Authentication' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Codex Auth' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Copilot Auth' }),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
-
-    expect(
-      await screen.findByText(
-        'GitHub Copilot is already authenticated for this runtime.',
-      ),
-    ).toBeInTheDocument();
-    expect(runCalls).toBe(0);
-  });
+      screen.queryByRole('button', { name: /re-authenticate/i }),
+    ).not.toBeInTheDocument();
+  }, 30_000);
 });

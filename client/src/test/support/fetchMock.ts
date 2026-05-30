@@ -22,21 +22,83 @@ export function mockJsonResponse(
   payload: unknown,
   init: ResponseInit = {},
 ): Response {
-  const headers = new Headers(init.headers);
-  if (!headers.has('content-type')) {
-    headers.set('content-type', 'application/json');
+  // Return a lightweight Response-like object whose json()/text() methods
+  // produce fresh values on each call. This avoids reusing an actual
+  // ReadableStream-backed Response instance across multiple fetch calls
+  // when tests use jest.mockResolvedValue(...), which can cause body
+  // consumption problems.
+  const status = init.status ?? 200;
+  const providedHeaders = init.headers as Record<string, string> | undefined;
+  const headerStore: Record<string, string> = {};
+  if (providedHeaders) {
+    Object.keys(providedHeaders).forEach((k) => {
+      headerStore[k.toLowerCase()] = providedHeaders[k];
+    });
   }
-  return new Response(JSON.stringify(payload), {
-    ...init,
+  const headers =
+    typeof Headers === 'function'
+      ? new Headers(init.headers)
+      : ({
+          get(name: string) {
+            const key = name.toLowerCase();
+            return (
+              headerStore[key] ??
+              headerStore[
+                key.replace(
+                  /(^|-)([a-z])/g,
+                  (_, prefix, char) => `${prefix}${char.toUpperCase()}`,
+                )
+              ] ??
+              null
+            );
+          },
+          set(name: string, value: string) {
+            headerStore[name.toLowerCase()] = value;
+          },
+        } as Pick<Headers, 'get' | 'set'>);
+  const maybeHeadersWithSet = headers as {
+    set?: (name: string, value: string) => void;
+  };
+  if (
+    headers.get('content-type') == null &&
+    typeof maybeHeadersWithSet.set === 'function'
+  ) {
+    maybeHeadersWithSet.set('content-type', 'application/json');
+  }
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
     headers,
-  });
+    async json() {
+      return payload;
+    },
+    async text() {
+      return JSON.stringify(payload);
+    },
+  } as unknown as Response;
 }
 
 export function mockTextResponse(
   payload: string,
   init: ResponseInit = {},
 ): Response {
-  return new Response(payload, init);
+  const status = init.status ?? 200;
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: {
+      get() {
+        return 'text/plain';
+      },
+    },
+    async text() {
+      return payload;
+    },
+    async json() {
+      return JSON.parse(payload);
+    },
+  } as unknown as Response;
 }
 
 export function buildProviderDiscoveryPayload(providers: ChatProviderInfo[]): {

@@ -318,6 +318,9 @@ describe('Flows page stop control', () => {
     expect(await findLatestSubscribedConversationId()).toBe(conversationId);
 
     const stopButton = await screen.findByTestId('flow-stop');
+    expect(
+      await screen.findByTestId('flow-new-conversation-trigger'),
+    ).toBeEnabled();
     await waitFor(() => expect(stopButton).toBeEnabled());
     await act(async () => {
       await user.click(stopButton);
@@ -368,7 +371,7 @@ describe('Flows page stop control', () => {
     });
 
     expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-      'Stopping',
+      'Working',
     );
 
     const cancelCount = parseSocketMessages().filter(
@@ -439,7 +442,9 @@ describe('Flows page stop control', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
-    await waitFor(() => expect(screen.getByTestId('flow-stop')).toBeDisabled());
+    await waitFor(() =>
+      expect(screen.queryByTestId('flow-stop')).not.toBeInTheDocument(),
+    );
     expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /^Stopping\.\.\.$/i }),
@@ -689,7 +694,7 @@ describe('Flows page stop control', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
-    expect(screen.getByTestId('flow-stop')).toBeDisabled();
+    expect(screen.queryByTestId('flow-stop')).not.toBeInTheDocument();
     expect(screen.queryByText(/^Stopping$/i)).not.toBeInTheDocument();
   });
 });

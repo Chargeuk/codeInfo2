@@ -67,6 +67,15 @@ const findBubbleByRole = async (role: string, kind: string = 'normal') => {
   return match;
 };
 
+async function openBubbleInfoPopover(
+  bubble: HTMLElement,
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  await user.click(within(bubble).getByTestId('bubble-info'));
+  const popovers = await screen.findAllByTestId('bubble-info-popover');
+  return popovers[popovers.length - 1];
+}
+
 describe('Chat WS streaming UI', () => {
   it('renders Processing then Complete as transcript events arrive', async () => {
     const harness = setupChatWsHarness({ mockFetch });
@@ -97,7 +106,7 @@ describe('Chat WS streaming UI', () => {
     });
 
     const statusChip = await screen.findByTestId('status-chip');
-    expect(statusChip).toHaveTextContent('Processing');
+    expect(statusChip).toHaveTextContent('Working');
 
     harness.emitAssistantDelta({
       conversationId: conversationId!,
@@ -518,7 +527,11 @@ describe('Chat WS streaming UI', () => {
     const statusChip = await screen.findByTestId('status-chip');
     await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
     expect(await screen.findByText('Still going')).toBeInTheDocument();
-    expect(await screen.findByText('Reconnecting... 1/5')).toBeInTheDocument();
+    const assistantBubble = await findBubbleByRole('assistant');
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
+    expect(
+      within(infoPopover).getByText('Reconnecting... 1/5'),
+    ).toBeInTheDocument();
     expect(statusChip).not.toHaveTextContent('Failed');
   });
 
@@ -962,7 +975,7 @@ describe('Chat WS streaming UI', () => {
 
     const transcript = screen.getByTestId('chat-transcript');
     const text = transcript.textContent ?? '';
-    expect(text.indexOf('Assistant B')).toBeLessThan(text.indexOf('User B'));
+    expect(text.indexOf('Assistant B')).toBeGreaterThan(text.indexOf('User B'));
   });
 
   it('renders same-createdAt turns deterministically when turnId is present', async () => {
@@ -1030,7 +1043,7 @@ describe('Chat WS streaming UI', () => {
 
     const transcript = screen.getByTestId('chat-transcript');
     const text = transcript.textContent ?? '';
-    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+    expect(text.indexOf('Assistant A')).toBeGreaterThan(text.indexOf('User A'));
   });
 
   it('renders same-createdAt turns deterministically when turnId is missing (legacy)', async () => {
@@ -1096,7 +1109,7 @@ describe('Chat WS streaming UI', () => {
 
     const transcript = screen.getByTestId('chat-transcript');
     const text = transcript.textContent ?? '';
-    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+    expect(text.indexOf('Assistant A')).toBeGreaterThan(text.indexOf('User A'));
   });
 
   it('dedupes ws user_turn against the sender tab optimistic bubble', async () => {
@@ -1419,16 +1432,16 @@ describe('Chat WS streaming UI', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
-    const scoped = within(assistantBubble);
-    expect(scoped.getByTestId('bubble-timestamp')).toHaveTextContent(
-      formatTimestamp(startedAt),
-    );
-    expect(scoped.getByTestId('bubble-tokens')).toHaveTextContent(
-      'Tokens: in 10 · out 5 · total 15',
-    );
-    expect(scoped.getByTestId('bubble-timing')).toHaveTextContent(
-      'Time: 1.2s · Rate: 12.5 tok/s',
-    );
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
+    expect(
+      within(infoPopover).getByTestId('bubble-info-time'),
+    ).toHaveTextContent(formatTimestamp(startedAt));
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).toHaveTextContent('Tokens: in 10 · out 5 · total 15');
+    expect(
+      within(infoPopover).getByTestId('bubble-info-timing'),
+    ).toHaveTextContent('Time: 1.2s · Rate: 12.5 tok/s');
   });
 
   it('renders cached input token suffix when provided', async () => {
@@ -1476,10 +1489,10 @@ describe('Chat WS streaming UI', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
-    const tokensLine = within(assistantBubble).getByTestId('bubble-tokens');
-    expect(tokensLine).toHaveTextContent(
-      'Tokens: in 10 · out 5 · total 15 · cached 2',
-    );
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).toHaveTextContent('Tokens: in 10 · out 5 · total 15 · cached 2');
   });
 
   it('omits cached suffix when cached input tokens are missing', async () => {
@@ -1520,8 +1533,10 @@ describe('Chat WS streaming UI', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
-    const tokensLine = within(assistantBubble).getByTestId('bubble-tokens');
-    expect(tokensLine).not.toHaveTextContent('cached');
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
+    expect(
+      within(infoPopover).getByTestId('bubble-info-usage'),
+    ).not.toHaveTextContent('cached');
   });
 
   it('omits token metadata when usage is missing', async () => {
@@ -1561,7 +1576,8 @@ describe('Chat WS streaming UI', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
-    expect(within(assistantBubble).queryByTestId('bubble-tokens')).toBeNull();
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
+    expect(within(infoPopover).queryByTestId('bubble-info-usage')).toBeNull();
   });
 
   it('omits timing metadata when timing fields are missing', async () => {
@@ -1649,10 +1665,10 @@ describe('Chat WS streaming UI', () => {
     });
 
     const assistantBubble = await findBubbleByRole('assistant');
-    const timestamp = within(assistantBubble).getByTestId('bubble-timestamp');
-    expect(timestamp).toHaveTextContent(
-      formatTimestamp('2026-01-03T00:00:00.000Z'),
-    );
+    const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
+    expect(
+      within(infoPopover).getByTestId('bubble-info-time'),
+    ).toHaveTextContent(formatTimestamp('2026-01-03T00:00:00.000Z'));
     expect(harness.chatBodies.length).toBe(0);
   });
 
@@ -1724,7 +1740,13 @@ describe('Chat WS streaming UI', () => {
     });
 
     const errorBubble = await findBubbleByRole('assistant', 'error');
-    expect(within(errorBubble).queryByTestId('bubble-timestamp')).toBeNull();
+    const errorInfoPopover = await openBubbleInfoPopover(errorBubble, user);
+    expect(
+      within(errorInfoPopover).getByTestId('bubble-info-time'),
+    ).toHaveTextContent('Time: Jan 1, 2025, 12:00 AM');
+    expect(
+      within(errorInfoPopover).queryByTestId('bubble-info-usage'),
+    ).toBeNull();
   });
 
   it('preserves leading/trailing whitespace and newline structure in outbound chat payload', async () => {

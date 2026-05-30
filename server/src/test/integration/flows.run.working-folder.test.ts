@@ -16,6 +16,7 @@ import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
+  updateMemoryConversationWorkingFolder,
 } from '../../chat/memoryPersistence.js';
 import {
   __resetFlowServiceDepsForTests,
@@ -106,6 +107,14 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+
+const restoreEnvVar = (key: string, value: string | undefined) => {
+  if (typeof value === 'string') {
+    process.env[key] = value;
+    return;
+  }
+  delete process.env[key];
+};
 
 test('POST /flows/:flowName/run validates working_folder', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -220,7 +229,7 @@ test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE messa
   });
 });
 
-test('a stale saved path is cleared before a flow restore uses it', async () => {
+test('a stale saved path yields to a newer saved working folder before a flow restore completes', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -234,6 +243,8 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  const staleWorkingFolder = '/definitely/missing/path';
+  const refreshedWorkingFolder = '/repos/newer-flow-working-folder';
   memoryConversations.set('flow-stale-restore', {
     _id: 'flow-stale-restore',
     provider: 'codex',
@@ -241,12 +252,14 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
-    flags: { workingFolder: '/definitely/missing/path' },
+    flags: { workingFolder: staleWorkingFolder },
     createdAt: new Date(),
     updatedAt: new Date(),
     lastMessageAt: new Date(),
     archivedAt: null,
   });
+
+  let updateHookUsed = false;
 
   const app = express();
   app.use(express.json());
@@ -256,16 +269,40 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
         repos: [],
         lockedModelId: null,
       }),
+      updateConversationWorkingFolder: async (params) => {
+        if (
+          !updateHookUsed &&
+          params.conversationId === 'flow-stale-restore' &&
+          params.workingFolder == null &&
+          params.expectedWorkingFolder === staleWorkingFolder
+        ) {
+          updateHookUsed = true;
+          updateMemoryConversationWorkingFolder({
+            conversationId: 'flow-stale-restore',
+            workingFolder: refreshedWorkingFolder,
+          });
+          return null;
+        }
+
+        return (
+          updateMemoryConversationWorkingFolder({
+            conversationId: params.conversationId,
+            workingFolder: params.workingFolder,
+            expectedWorkingFolder: params.expectedWorkingFolder,
+          }) ?? null
+        );
+      },
     }),
   );
 
   try {
     const res = await supertest(app).get('/conversations?flowName=llm-basic');
     assert.equal(res.status, 200);
-    assert.equal(res.body.items[0].flags.workingFolder, undefined);
+    assert.equal(updateHookUsed, true);
+    assert.equal(res.body.items[0].flags.workingFolder, refreshedWorkingFolder);
     assert.equal(
       memoryConversations.get('flow-stale-restore')?.flags?.workingFolder,
-      undefined,
+      refreshedWorkingFolder,
     );
   } finally {
     memoryConversations.delete('flow-stale-restore');
@@ -560,19 +597,21 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
   } finally {
     memoryConversations.delete('flow-host-working-folder-map');
     memoryTurns.delete('flow-host-working-folder-map');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    process.env.FLOWS_DIR = prevFlowsDir;
-    process.env.CODEINFO_HOST_INGEST_DIR = prevHostIngestDir;
-    process.env.CODEINFO_CODEX_WORKDIR = prevCodexWorkdir;
-    process.env.CODEX_WORKDIR = prevCodeWorkdir;
+    restoreEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
+    restoreEnvVar('FLOWS_DIR', prevFlowsDir);
+    restoreEnvVar('CODEINFO_HOST_INGEST_DIR', prevHostIngestDir);
+    restoreEnvVar('CODEINFO_CODEX_WORKDIR', prevCodexWorkdir);
+    restoreEnvVar('CODEX_WORKDIR', prevCodeWorkdir);
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('flow-owned llm steps default to the selected sourceId repository when working_folder is empty', async () => {
+test('flow-owned llm steps default to the shared execution root when working_folder is empty', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const prevCodeWorkdir = process.env.CODEX_WORKDIR;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -581,15 +620,19 @@ test('flow-owned llm steps default to the selected sourceId repository when work
     path.join(process.cwd(), 'tmp-flows-source-default-root-'),
   );
   const sourceRoot = path.join(tmpDir, 'source-root');
+  const sharedExecutionRoot = path.join(tmpDir, 'shared-runtime-root');
   const calls: Array<{
     message: string;
     flags: Record<string, unknown>;
     conversationId: string;
   }> = [];
   await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
+  await fs.mkdir(sharedExecutionRoot, { recursive: true });
   await fs.cp(fixturesDir, path.join(sourceRoot, 'flows'), { recursive: true });
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_CODEX_WORKDIR = sharedExecutionRoot;
+  delete process.env.CODEX_WORKDIR;
 
   const app = express();
   app.use(
@@ -622,7 +665,10 @@ test('flow-owned llm steps default to the selected sourceId repository when work
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.message, 'Say hello from a flow step.');
-    assert.equal(calls[0]?.flags.workingDirectoryOverride, sourceRoot);
+    assert.equal(
+      calls[0]?.flags.workingDirectoryOverride,
+      sharedExecutionRoot,
+    );
     assert.equal(
       memoryConversations.get('flow-source-default-root')?.flags?.workingFolder,
       undefined,
@@ -630,12 +676,10 @@ test('flow-owned llm steps default to the selected sourceId repository when work
   } finally {
     memoryConversations.delete('flow-source-default-root');
     memoryTurns.delete('flow-source-default-root');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
+    restoreEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
+    restoreEnvVar('FLOWS_DIR', prevFlowsDir);
+    restoreEnvVar('CODEINFO_CODEX_WORKDIR', prevCodexWorkdir);
+    restoreEnvVar('CODEX_WORKDIR', prevCodeWorkdir);
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1007,11 +1051,11 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
     __resetAgentServiceDepsForTests();
     memoryConversations.delete('flow-copilot-env-forwarding');
     memoryTurns.delete('flow-copilot-env-forwarding');
-    process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevLegacyAgentHome;
-    process.env.FLOWS_DIR = prevFlowsDir;
-    process.env.CODEINFO_CODEX_HOME = prevCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = prevCopilotHome;
+    restoreEnvVar('CODEINFO_AGENT_HOME', prevAgentHome);
+    restoreEnvVar('CODEINFO_CODEX_AGENT_HOME', prevLegacyAgentHome);
+    restoreEnvVar('FLOWS_DIR', prevFlowsDir);
+    restoreEnvVar('CODEINFO_CODEX_HOME', prevCodexHome);
+    restoreEnvVar('CODEINFO_COPILOT_HOME', prevCopilotHome);
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -132,7 +132,7 @@ describe('Agents page - command start errors', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     await screen.findByTestId('agents-run-error');
@@ -238,7 +238,7 @@ describe('Agents page - command start errors', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     await screen.findByTestId('agents-run-error');
@@ -345,18 +345,17 @@ describe('Agents page - command start errors', () => {
       );
     });
 
-    const startStepSelect = await screen.findByRole('combobox', {
-      name: /start step/i,
-    });
+    const startStepSelect = await screen.findByTestId('agent-step-trigger');
     await act(async () => {
       await user.click(startStepSelect);
     });
+    const stepPopover = await screen.findByTestId('agent-step-popover');
     await act(async () => {
-      await user.click(await screen.findByRole('option', { name: 'Step 3' }));
+      await user.click(await within(stepPopover).findByText('Step 3'));
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     const errorBanner = await screen.findByTestId('agents-run-error');
@@ -463,7 +462,7 @@ describe('Agents page - command start errors', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     const errorBanner = await screen.findByTestId('agents-run-error');

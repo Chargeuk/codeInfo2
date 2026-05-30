@@ -169,16 +169,21 @@ test('Agents runs accept a client-supplied conversationId even when it does not 
   }
 });
 
-test('direct agent execution uses the legacy CODEINFO_CODEX_AGENT_HOME alias for the default repository root', async () => {
+test('direct agent execution uses the shared execution root when no working folder is provided', async () => {
   resetStore();
 
   const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const previousCodeWorkdir = process.env.CODEX_WORKDIR;
   const tempAgentsHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'agents-home-'),
   );
   const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const sharedExecutionRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-shared-root-'),
+  );
   const agentHome = path.join(tempAgentsHome, 'coding_agent');
   const capturedFlags: Array<Record<string, unknown>> = [];
 
@@ -201,6 +206,8 @@ test('direct agent execution uses the legacy CODEINFO_CODEX_AGENT_HOME alias for
   delete process.env.CODEINFO_AGENT_HOME;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.CODEINFO_CODEX_WORKDIR = sharedExecutionRoot;
+  delete process.env.CODEX_WORKDIR;
 
   try {
     await runAgentInstruction({
@@ -215,8 +222,7 @@ test('direct agent execution uses the legacy CODEINFO_CODEX_AGENT_HOME alias for
     });
 
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
-    const expectedRepositoryRoot = path.resolve(tempAgentsHome, '..');
-    assert.equal(flags.workingDirectoryOverride, expectedRepositoryRoot);
+    assert.equal(flags.workingDirectoryOverride, sharedExecutionRoot);
     assert.notEqual(flags.workingDirectoryOverride, process.cwd());
   } finally {
     memoryConversations.delete('legacy-alias-default-root');
@@ -236,8 +242,19 @@ test('direct agent execution uses the legacy CODEINFO_CODEX_AGENT_HOME alias for
     } else {
       process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     }
+    if (previousCodexWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = previousCodexWorkdir;
+    }
+    if (previousCodeWorkdir === undefined) {
+      delete process.env.CODEX_WORKDIR;
+    } else {
+      process.env.CODEX_WORKDIR = previousCodeWorkdir;
+    }
     await fs.rm(tempAgentsHome, { recursive: true, force: true });
     await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(sharedExecutionRoot, { recursive: true, force: true });
   }
 });
 

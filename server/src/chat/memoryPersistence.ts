@@ -54,11 +54,21 @@ export const updateMemoryConversationMeta = (
 export const updateMemoryConversationWorkingFolder = (params: {
   conversationId: string;
   workingFolder?: string | null;
-}): void => {
+  expectedWorkingFolder?: string | null;
+}): Conversation | null => {
   const existing = memoryConversations.get(params.conversationId);
-  if (!existing) return;
+  if (!existing) return null;
 
   const trimmedWorkingFolder = params.workingFolder?.trim();
+  const trimmedExpectedWorkingFolder = params.expectedWorkingFolder?.trim();
+  if (
+    !trimmedWorkingFolder &&
+    trimmedExpectedWorkingFolder &&
+    (existing.flags?.workingFolder?.trim() ?? undefined) !==
+      trimmedExpectedWorkingFolder
+  ) {
+    return null;
+  }
   const nextFlags = { ...(existing.flags ?? {}) };
   if (trimmedWorkingFolder) {
     nextFlags.workingFolder = trimmedWorkingFolder;
@@ -81,4 +91,6 @@ export const updateMemoryConversationWorkingFolder = (params: {
       action: trimmedWorkingFolder ? 'save' : 'clear',
     },
   });
+
+  return memoryConversations.get(params.conversationId) ?? null;
 };

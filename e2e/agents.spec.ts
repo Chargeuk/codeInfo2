@@ -15,14 +15,61 @@ const skipIfUnreachable = async (page: Page) => {
   }
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1400 });
+});
+
 const routeAgentsApis = async (
   page: Page,
   runBodies: Array<Record<string, unknown>>,
+  commandRunBodiesOrOptions:
+    | Array<Record<string, unknown>>
+    | {
+        conversations?: Array<Record<string, unknown>>;
+        turnsByConversationId?: Record<string, Array<Record<string, unknown>>>;
+        commandsByAgent?: Record<
+          string,
+          Array<{
+            name: string;
+            description: string;
+            disabled?: boolean;
+            stepCount: number;
+          }>
+        >;
+        promptsByAgent?: Record<
+          string,
+          Array<{ relativePath: string; fullPath: string }>
+        >;
+      } = runBodies,
   options?: {
     conversations?: Array<Record<string, unknown>>;
     turnsByConversationId?: Record<string, Array<Record<string, unknown>>>;
+    commandsByAgent?: Record<
+      string,
+      Array<{
+        name: string;
+        description: string;
+        disabled?: boolean;
+        stepCount: number;
+      }>
+    >;
+    promptsByAgent?: Record<
+      string,
+      Array<{ relativePath: string; fullPath: string }>
+    >;
   },
 ) => {
+  const commandRunBodies = Array.isArray(commandRunBodiesOrOptions)
+    ? commandRunBodiesOrOptions
+    : runBodies;
+  const resolvedOptions = Array.isArray(commandRunBodiesOrOptions)
+    ? options
+    : commandRunBodiesOrOptions;
+  const scopedConversations = (resolvedOptions?.conversations ?? []).map((item) => ({
+    agentName: 'coding_agent',
+    ...item,
+  }));
+
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
     const method = req.method();
@@ -55,28 +102,61 @@ const routeAgentsApis = async (
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ commands: [] }),
+        body: JSON.stringify({
+          commands: resolvedOptions?.commandsByAgent?.coding_agent ?? [],
+        }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent/prompts' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          prompts: resolvedOptions?.promptsByAgent?.coding_agent ?? [],
+        }),
       });
       return;
     }
 
     if (path === '/conversations' && method === 'GET') {
-      const items = options?.conversations ?? [];
+      const items = scopedConversations;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, nextCursor: null }),
       });
       return;
     }
 
     if (path.startsWith('/conversations/') && path.endsWith('/turns')) {
       const conversationId = path.split('/')[2] ?? '';
-      const items = options?.turnsByConversationId?.[conversationId] ?? [];
+      const items = resolvedOptions?.turnsByConversationId?.[conversationId] ?? [];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, nextCursor: null }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
+      const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      commandRunBodies.push(payload);
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId:
+            typeof payload.conversationId === 'string'
+              ? payload.conversationId
+              : 'c1',
+          inflightId: 'i2',
+          modelId: 'gpt-5.3-codex',
+        }),
       });
       return;
     }
@@ -135,14 +215,9 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
 
   await page.goto(`${baseUrl}/agents`);
 
-  const agentSelect = page.getByTestId('agent-select');
+  const agentSelect = page.getByTestId('agent-select-trigger');
   await expect(agentSelect).toBeVisible({ timeout: 20000 });
-  await expect
-    .poll(async () => await agentSelect.inputValue(), {
-      timeout: 20000,
-      message: 'Expected agent select to hydrate coding_agent',
-    })
-    .toBe('coding_agent');
+  await expect(agentSelect).toContainText('coding_agent', { timeout: 20000 });
 
   const input = page.getByTestId('agent-input');
   const send = page.getByTestId('agent-send');
@@ -164,6 +239,133 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
   await input.fill('   \n   ');
   await expect(send).toBeDisabled();
   expect(runBodies).toHaveLength(1);
+});
+
+test('agents composer popovers open upward on desktop and centered on mobile', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const commandRunBodies: Array<Record<string, unknown>> = [];
+  await routeAgentsApis(page, runBodies, commandRunBodies, {
+    commandsByAgent: {
+      coding_agent: [
+        {
+          name: 'build',
+          description: 'Build the workspace',
+          disabled: false,
+          stepCount: 3,
+        },
+      ],
+    },
+    promptsByAgent: {
+      coding_agent: [
+        {
+          relativePath: 'workflows/prompts/review.md',
+          fullPath: '/workflows/prompts/review.md',
+        },
+      ],
+    },
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${baseUrl}/agents`);
+
+  const infoTrigger = page.getByTestId('agent-composer-info');
+  const agentTrigger = page.getByTestId('agent-select-trigger');
+  const commandTrigger = page.getByTestId('agent-command-trigger');
+
+  await infoTrigger.click();
+  const infoPopover = page.getByTestId('agent-info-popover');
+  const infoPopoverSurface = infoPopover.locator('.MuiPaper-root').last();
+  await expect(infoPopoverSurface).toBeVisible();
+  const infoTriggerBox = await infoTrigger.boundingBox();
+  const infoPopoverBox = await infoPopoverSurface.boundingBox();
+  expect(infoTriggerBox).not.toBeNull();
+  expect(infoPopoverBox).not.toBeNull();
+  expect(
+    ((infoPopoverBox?.y ?? 0) + (infoPopoverBox?.height ?? 0)) -
+      (infoTriggerBox?.y ?? 0),
+  ).toBeLessThan(2);
+  await page.keyboard.press('Escape');
+  await expect(infoPopoverSurface).toBeHidden();
+
+  await agentTrigger.click();
+  const agentPopover = page.getByTestId('agent-selector-popover');
+  const agentPopoverSurface = agentPopover.locator('.MuiPaper-root').last();
+  await expect(agentPopoverSurface).toBeVisible();
+  const agentTriggerBox = await agentTrigger.boundingBox();
+  const agentPopoverBox = await agentPopoverSurface.boundingBox();
+  expect(agentTriggerBox).not.toBeNull();
+  expect(agentPopoverBox).not.toBeNull();
+  expect(
+    ((agentPopoverBox?.y ?? 0) + (agentPopoverBox?.height ?? 0)) -
+      (agentTriggerBox?.y ?? 0),
+  ).toBeLessThan(2);
+  await page.keyboard.press('Escape');
+  await expect(agentPopoverSurface).toBeHidden();
+
+  await commandTrigger.click();
+  const commandPopover = page.getByTestId('agent-command-popover');
+  const commandPopoverSurface = commandPopover.locator('.MuiPaper-root').last();
+  await expect(commandPopoverSurface).toBeVisible();
+  const commandTriggerBox = await commandTrigger.boundingBox();
+  const commandPopoverBox = await commandPopoverSurface.boundingBox();
+  expect(commandTriggerBox).not.toBeNull();
+  expect(commandPopoverBox).not.toBeNull();
+  expect(
+    ((commandPopoverBox?.y ?? 0) + (commandPopoverBox?.height ?? 0)) -
+      (commandTriggerBox?.y ?? 0),
+  ).toBeLessThan(2);
+
+  await page.getByRole('option', { name: 'Build' }).click();
+  await page.getByTestId('agent-step-trigger').click();
+  const stepPopover = page.getByTestId('agent-step-popover');
+  const stepPopoverSurface = stepPopover.locator('.MuiPaper-root').last();
+  await expect(stepPopoverSurface).toBeVisible();
+  const stepTriggerBox = await page.getByTestId('agent-step-trigger').boundingBox();
+  const stepPopoverBox = await stepPopoverSurface.boundingBox();
+  expect(stepTriggerBox).not.toBeNull();
+  expect(stepPopoverBox).not.toBeNull();
+  expect(
+    ((stepPopoverBox?.y ?? 0) + (stepPopoverBox?.height ?? 0)) -
+      (stepTriggerBox?.y ?? 0),
+  ).toBeLessThan(2);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/agents`);
+
+  const mobileCommandTrigger = page.getByTestId('agent-command-trigger');
+  await mobileCommandTrigger.click();
+  const mobileCommandDialog = page.getByTestId('agent-command-dialog');
+  await expect(mobileCommandDialog).toBeVisible();
+  const dialogBox = await mobileCommandDialog.boundingBox();
+  const viewport = page.viewportSize();
+  expect(dialogBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(
+    Math.abs(
+      (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - (viewport?.width ?? 0) / 2,
+    ),
+  ).toBeLessThan(80);
+
+  await page.getByRole('option', { name: 'Build' }).click();
+  await expect(page.getByTestId('agent-input')).toBeDisabled();
+  await page.getByTestId('agent-step-trigger').click();
+  await page.getByRole('option', { name: 'Step 2' }).click();
+  await page.getByTestId('agent-send').click();
+
+  await expect
+    .poll(() => commandRunBodies.length, {
+      timeout: 10000,
+      message: 'Expected one command run POST request from the shared send button',
+    })
+    .toBe(1);
+  expect(commandRunBodies[0]).toMatchObject({
+    commandName: 'build',
+    startStep: 2,
+  });
 });
 
 test('agents hydrated user markdown matches assistant list/code/mermaid rendering', async ({
@@ -433,9 +635,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
     }
 
     if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
-      commandRunBodies.push(
-        (req.postDataJSON?.() ?? {}) as Record<string, unknown>,
-      );
+      commandRunBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
         contentType: 'application/json',
@@ -474,8 +674,6 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   const infoButton = page.getByTestId('agent-info');
   const sendButton = page.getByTestId('agent-send');
   const commandSelect = page.getByRole('combobox', { name: 'Command' });
-  const executeCommandButton = page.getByTestId('agent-command-execute');
-  const folder = page.getByRole('textbox', { name: 'working_folder' });
 
   await expect(infoButton).toBeVisible({ timeout: 20000 });
   await expect(
@@ -483,9 +681,8 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   ).toHaveCount(0);
   await commandSelect.click();
   await page.getByRole('option', { name: 'Improve' }).click();
-  await expect(executeCommandButton).toBeEnabled();
+  await expect(sendButton).toBeEnabled();
 
-  await folder.fill('/tmp/stale');
   await infoButton.click();
 
   await expect(
@@ -495,7 +692,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
     'No usable provider remains',
   );
   await expect(sendButton).toBeDisabled();
-  await expect(executeCommandButton).toBeDisabled();
+  await expect(sendButton).toBeDisabled();
   expect(runBodies).toHaveLength(0);
   expect(commandRunBodies).toHaveLength(0);
 });

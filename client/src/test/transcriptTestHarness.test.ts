@@ -1,21 +1,18 @@
 import { render, screen } from '@testing-library/react';
-import { createElement, useEffect, useRef, useState } from 'react';
+import { createElement, useEffect, useState } from 'react';
 import {
   installTranscriptMeasurementHarness,
   TranscriptMeasurementHarnessError,
 } from './support/transcriptMeasurementHarness';
 
 function MeasurementProbe() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [containerElement, setContainerElement] =
+    useState<HTMLDivElement | null>(null);
+  const [rowElement, setRowElement] = useState<HTMLDivElement | null>(null);
   const [events, setEvents] = useState<string[]>([]);
 
   useEffect(() => {
-    if (
-      !containerRef.current ||
-      !rowRef.current ||
-      !globalThis.ResizeObserver
-    ) {
+    if (!containerElement || !rowElement || !globalThis.ResizeObserver) {
       return;
     }
     const observer = new ResizeObserver((entries) => {
@@ -23,10 +20,10 @@ function MeasurementProbe() {
         entries.map((entry) => (entry.target as HTMLElement).dataset.id ?? ''),
       );
     });
-    observer.observe(containerRef.current);
-    observer.observe(rowRef.current);
+    observer.observe(containerElement);
+    observer.observe(rowElement);
     return () => observer.disconnect();
-  }, []);
+  }, [containerElement, rowElement]);
 
   return createElement(
     'div',
@@ -34,14 +31,14 @@ function MeasurementProbe() {
     createElement(
       'div',
       {
-        ref: containerRef,
+        ref: setContainerElement,
         'data-id': 'container',
         'data-testid': 'probe-container',
       },
       createElement(
         'div',
         {
-          ref: rowRef,
+          ref: setRowElement,
           'data-id': 'row',
           'data-testid': 'probe-row',
         },

@@ -1,96 +1,66 @@
-import { AppBar, Tabs, Tab, Toolbar } from '@mui/material';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
+import MenuIcon from '@mui/icons-material/Menu';
+import {
+  AppBar,
+  Box,
+  IconButton,
+  Stack,
+  Toolbar,
+  Typography,
+  useMediaQuery,
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { useCallback, useRef, useState } from 'react';
+import WorkspaceAppRail from './workspace/WorkspaceAppRail';
+import WorkspaceMobileAppMenuOverlay from './workspace/WorkspaceMobileAppMenuOverlay';
 
 export default function NavBar() {
-  const { pathname } = useLocation();
-  const value = pathname.startsWith('/chat')
-    ? '/chat'
-    : pathname.startsWith('/agents')
-      ? '/agents'
-      : pathname.startsWith('/flows')
-        ? '/flows'
-        : pathname.startsWith('/lmstudio')
-          ? '/lmstudio'
-          : pathname.startsWith('/ingest')
-            ? '/ingest'
-            : pathname.startsWith('/logs')
-              ? '/logs'
-              : '/';
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const closeMobileMenu = useCallback(() => {
+    menuButtonRef.current?.focus();
+    setMobileMenuOpen(false);
+  }, []);
+
+  if (!isMobile) {
+    return <WorkspaceAppRail />;
+  }
+
   return (
-    <AppBar position="static">
-      <Toolbar
-        sx={{
-          minHeight: { xs: 44, sm: 52 },
-          px: { xs: 1, sm: 2 },
-        }}
-      >
-        <Tabs
-          value={value}
-          aria-label="Main navigation"
-          textColor="inherit"
-          indicatorColor="secondary"
-          variant="scrollable"
-          scrollButtons={false}
-          sx={{ minHeight: { xs: 44, sm: 52 } }}
+    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      <AppBar position="static" elevation={0} color="default">
+        <Toolbar
+          sx={{
+            minHeight: 56,
+            px: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}
         >
-          <Tab
-            label="Home"
-            value="/"
-            component={RouterLink}
-            to="/"
-            aria-label="Home"
-            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
-          />
-          <Tab
-            label="Chat"
-            value="/chat"
-            component={RouterLink}
-            to="/chat"
-            aria-label="Chat"
-            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
-          />
-          <Tab
-            label="Agents"
-            value="/agents"
-            component={RouterLink}
-            to="/agents"
-            aria-label="Agents"
-            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
-          />
-          <Tab
-            label="Flows"
-            value="/flows"
-            component={RouterLink}
-            to="/flows"
-            aria-label="Flows"
-            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
-          />
-          <Tab
-            label="LM Studio"
-            value="/lmstudio"
-            component={RouterLink}
-            to="/lmstudio"
-            aria-label="LM Studio"
-            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
-          />
-          <Tab
-            label="Ingest"
-            value="/ingest"
-            component={RouterLink}
-            to="/ingest"
-            aria-label="Ingest"
-            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
-          />
-          <Tab
-            label="Logs"
-            value="/logs"
-            component={RouterLink}
-            to="/logs"
-            aria-label="Logs"
-            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
-          />
-        </Tabs>
-      </Toolbar>
-    </AppBar>
+          <Stack spacing={0.25}>
+            <Typography variant="h6" component="h1">
+              CodeInfo2
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Workspace navigation
+            </Typography>
+          </Stack>
+          <IconButton
+            ref={menuButtonRef}
+            aria-label="Open menu"
+            edge="end"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <MenuIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+      <WorkspaceMobileAppMenuOverlay
+        open={mobileMenuOpen}
+        onClose={closeMobileMenu}
+      />
+    </Box>
   );
 }

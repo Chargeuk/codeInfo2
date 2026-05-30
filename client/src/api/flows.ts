@@ -160,23 +160,38 @@ export async function getFlowDetails(params: {
   flowName: string;
   sourceId?: string;
 }): Promise<{ flow: FlowDetails }> {
+  const normalizedSourceId = params.sourceId?.trim() || undefined;
   const url = new URL(
     `/flows/${encodeURIComponent(params.flowName)}`,
     serverBase,
   );
-  if (params.sourceId?.trim()) {
-    url.searchParams.set('sourceId', params.sourceId.trim());
+  if (normalizedSourceId) {
+    url.searchParams.set('sourceId', normalizedSourceId);
   }
   const res = await fetch(url.toString());
   if (!res.ok) {
     await throwFlowApiError(res, `Failed to load flow details (${res.status})`);
   }
 
-  const data = (await res.json()) as { flow?: unknown };
-  if (!data.flow || typeof data.flow !== 'object') {
+  const data = (await res.json()) as { flow?: unknown; flows?: unknown[] };
+  let record: Record<string, unknown> | undefined;
+  if (data.flow && typeof data.flow === 'object') {
+    record = data.flow as Record<string, unknown>;
+  } else if (Array.isArray(data.flows)) {
+    const matches = data.flows.filter((f: unknown) => {
+      if (!f || typeof f !== 'object') return false;
+      const candidate = f as Record<string, unknown>;
+      if (candidate.name !== params.flowName) return false;
+      if (!normalizedSourceId) return true;
+      return candidate.sourceId === normalizedSourceId;
+    });
+    if (matches.length === 1 && typeof matches[0] === 'object') {
+      record = matches[0] as Record<string, unknown>;
+    }
+  }
+  if (!record) {
     throw new Error('Invalid flow details response');
   }
-  const record = data.flow as Record<string, unknown>;
   const name = typeof record.name === 'string' ? record.name : undefined;
   if (!name) {
     throw new Error('Invalid flow details response');
@@ -255,6 +270,7 @@ export async function runFlow(params: {
   flowName: string;
   sourceId?: string;
   conversationId?: string;
+  retryOwnershipId?: string;
   customTitle?: string;
   isNewConversation?: boolean;
   mode?: 'run' | 'resume';
@@ -276,6 +292,10 @@ export async function runFlow(params: {
     Boolean(trimmedCustomTitle) &&
     params.isNewConversation === true &&
     (params.mode ?? 'run') === 'run';
+  const shouldIncludeRetryOwnershipId =
+    Boolean(params.retryOwnershipId?.trim()) &&
+    params.isNewConversation === true &&
+    (params.mode ?? 'run') === 'run';
 
   log('info', 'flows.run.payload.custom_title_included', {
     included: shouldIncludeCustomTitle,
@@ -293,6 +313,9 @@ export async function runFlow(params: {
       body: JSON.stringify({
         ...(params.conversationId
           ? { conversationId: params.conversationId }
+          : {}),
+        ...(shouldIncludeRetryOwnershipId
+          ? { retryOwnershipId: params.retryOwnershipId!.trim() }
           : {}),
         ...(params.sourceId?.trim() ? { sourceId: params.sourceId } : {}),
         ...(shouldIncludeCustomTitle
@@ -319,8 +342,7 @@ export async function runFlow(params: {
   const conversationId =
     typeof data.conversationId === 'string' ? data.conversationId : '';
   const inflightId = typeof data.inflightId === 'string' ? data.inflightId : '';
-  const providerId =
-    typeof data.providerId === 'string' ? data.providerId : '';
+  const providerId = typeof data.providerId === 'string' ? data.providerId : '';
   const modelId = typeof data.modelId === 'string' ? data.modelId : '';
   const warnings = Array.isArray(data.warnings)
     ? data.warnings.filter(

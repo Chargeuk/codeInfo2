@@ -8,12 +8,14 @@ import request from 'supertest';
 import { createIngestDirsRouter } from '../../routes/ingestDirs.js';
 
 const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
+const ORIGINAL_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 
 let baseDir = '';
 
 beforeEach(async () => {
   baseDir = await mkdtemp(path.join(os.tmpdir(), 'codeinfo2-ingest-dirs-'));
   process.env.CODEINFO_HOST_INGEST_DIR = baseDir;
+  process.env.CODEINFO_CODEX_WORKDIR = baseDir;
   await mkdir(path.join(baseDir, 'repo-b'));
   await mkdir(path.join(baseDir, 'repo-a'));
   await writeFile(path.join(baseDir, 'file.txt'), 'hello');
@@ -25,6 +27,11 @@ afterEach(async () => {
     delete process.env.CODEINFO_HOST_INGEST_DIR;
   } else {
     process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_HOST;
+  }
+  if (ORIGINAL_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  } else {
+    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEX_WORKDIR;
   }
 });
 
@@ -105,4 +112,24 @@ test('NOT_DIRECTORY when path points at a file', async () => {
 
   assert.equal(res.status, 400);
   assert.deepEqual(res.body, { status: 'error', code: 'NOT_DIRECTORY' });
+});
+
+test('maps host ingest paths into the configured codex workdir before listing', async () => {
+  const mappedRoot = await mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-ingest-dirs-mapped-'),
+  );
+  try {
+    await mkdir(path.join(mappedRoot, 'repo-c'));
+    process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
+    process.env.CODEINFO_CODEX_WORKDIR = mappedRoot;
+
+    const res = await request(buildApp()).get('/ingest/dirs');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.base, '/host/base');
+    assert.equal(res.body.path, '/host/base');
+    assert.deepEqual(res.body.dirs, ['repo-c']);
+  } finally {
+    await rm(mappedRoot, { recursive: true, force: true });
+  }
 });

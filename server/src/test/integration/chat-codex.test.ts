@@ -14,7 +14,6 @@ import type {
 import express from 'express';
 import request from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
-import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   releaseConversationLock,
   tryAcquireConversationLock,
@@ -125,6 +124,7 @@ const lmstudioAvailableClientFactory = () =>
 
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
 
@@ -156,6 +156,7 @@ beforeEach(async () => {
     '{}',
     'utf8',
   );
+  process.env.CODEX_HOME = tempCodexHomeForTest;
   process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
   memoryConversations.clear();
   memoryTurns.clear();
@@ -181,6 +182,12 @@ afterEach(async () => {
     delete process.env.CODEINFO_CODEX_WORKDIR;
   } else {
     process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
+
+  if (ORIGINAL_CODEX_HOME === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = ORIGINAL_CODEX_HOME;
   }
 
   if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
@@ -1478,6 +1485,7 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
 
   const mockCodex = new MockCodex('thread-opt');
   const codexFactory = () => mockCodex;
@@ -1493,7 +1501,7 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
 
   assert.equal(
     mockCodex.lastStartOptions?.workingDirectory,
-    resolveAgentHomeEnv().codeInfoRoot,
+    '/mounted/default-root',
   );
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });

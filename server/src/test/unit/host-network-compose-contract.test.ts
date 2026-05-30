@@ -115,7 +115,13 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5/u);
+  assert.match(
+    mainServer,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
+  );
+  assert.match(mainServer, /codex-data:\/app\/codex/u);
+  assert.doesNotMatch(mainServer, /codex-data:\/host\/codex:ro/u);
   assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
   assert.match(
     entrypoint,
@@ -127,6 +133,11 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+networks:/u);
+  assert.match(mainPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
+  assert.doesNotMatch(
+    mainPlaywright,
+    /\n\s+profiles:\n\s+- local/u,
+  );
   assert.match(mainPlaywright, /'8932'/u);
   assert.match(
     mainPlaywright,
@@ -169,7 +180,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(
     localServer,
-    /\/var\/run\/docker\.sock:\/var\/run\/docker\.sock/u,
+    /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );
   assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
 
@@ -177,6 +188,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localPlaywright, /network_mode: host/u);
   assert.doesNotMatch(localPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(localPlaywright, /\n\s+networks:/u);
+  assert.match(localPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
   assert.match(localPlaywright, /'8931'/u);
   assert.match(
     localPlaywright,
@@ -204,7 +216,33 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
     e2eServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,
   );
-  assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+  assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=3/u);
+  assert.match(
+    e2eServer,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
+  );
+  assert.match(e2eServer, /codex-data:\/app\/codex/u);
+  assert.doesNotMatch(e2eServer, /codex-data:\/host\/codex:ro/u);
+});
+
+test('checked-in env and README keep the documented host Codex-home fallback contract intact', () => {
+  const serverEnv = readRepoFile('server/.env');
+  const e2eEnv = readRepoFile('.env.e2e');
+  const readme = readRepoFile('README.md');
+  const mainCompose = readRepoFile('docker-compose.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
+
+  assert.doesNotMatch(
+    serverEnv,
+    /^CODEINFO_HOST_CODEX_HOME=\.\/codex$/mu,
+  );
+  assert.doesNotMatch(e2eEnv, /^CODEINFO_HOST_CODEX_HOME=\.\/codex$/mu);
+  assert.match(
+    readme,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}/u,
+  );
+  assert.match(mainCompose, /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u);
+  assert.match(e2eCompose, /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u);
 });
 
 test('checked-in default launcher awaits provider bootstrap before listen instead of firing it off in the background', () => {

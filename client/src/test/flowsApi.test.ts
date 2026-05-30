@@ -158,6 +158,71 @@ describe('Flows API helpers', () => {
     );
   });
 
+  it('uses sourceId to disambiguate backward-compat flow detail arrays', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        flows: [
+          {
+            name: 'daily',
+            description: 'Repo B flow',
+            disabled: false,
+            sourceId: '/data/repo-b',
+            sourceLabel: 'Repo B',
+          },
+          {
+            name: 'daily',
+            description: 'Repo A flow',
+            disabled: true,
+            sourceId: '/data/repo-a',
+            sourceLabel: 'Repo A',
+          },
+        ],
+      }),
+    );
+
+    const result = await getFlowDetails({
+      flowName: 'daily',
+      sourceId: '/data/repo-a',
+    });
+
+    expect(result).toEqual({
+      flow: {
+        name: 'daily',
+        description: 'Repo A flow',
+        disabled: true,
+        warnings: [],
+        disabledReason: undefined,
+        sourceId: '/data/repo-a',
+        sourceLabel: 'Repo A',
+      },
+    });
+  });
+
+  it('rejects ambiguous backward-compat flow detail arrays', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        flows: [
+          {
+            name: 'daily',
+            description: 'Repo A flow',
+            disabled: false,
+            sourceId: '/data/repo-a',
+          },
+          {
+            name: 'daily',
+            description: 'Repo B flow',
+            disabled: true,
+            sourceId: '/data/repo-b',
+          },
+        ],
+      }),
+    );
+
+    await expect(getFlowDetails({ flowName: 'daily' })).rejects.toThrow(
+      'Invalid flow details response',
+    );
+  });
+
   it('preserves providerId and launch warnings from the first flow run-start response', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse(

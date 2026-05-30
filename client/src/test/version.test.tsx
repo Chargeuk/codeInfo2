@@ -79,6 +79,6 @@ describe('App version display', () => {
     expect(
       await screen.findByTestId('runtime-config-api-base-url-banner'),
     ).toHaveTextContent('Invalid apiBaseUrl directive');
-    expect(screen.getByText(/CodeInfo2 Versions/i)).toBeInTheDocument();
+    expect(screen.getByText(/Versions/i)).toBeInTheDocument();
   });
 });

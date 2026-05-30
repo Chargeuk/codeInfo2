@@ -74,7 +74,7 @@ services:
       - ./flows-sandbox:/app/flows-sandbox
       - ${CODEINFO_HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${CODEINFO_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
     depends_on:
       chroma:
@@ -162,7 +162,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1/heartbeat']
+      test: ['CMD-SHELL', "grep -q '00000000:1F40' /proc/net/tcp"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -200,7 +200,7 @@ services:
     image: mcr.microsoft.com/playwright/mcp:latest
     user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     network_mode: host
-    entrypoint: ['node', 'cli.js']
+    entrypoint: ['node', '/app/cli.js']
     command:
       [
         '--host',

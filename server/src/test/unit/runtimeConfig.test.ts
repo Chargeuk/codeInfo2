@@ -952,7 +952,53 @@ describe('runtimeConfig merge and validation', () => {
         wire_api: 'responses',
       },
     });
-    assert.equal(result.warnings.length, 2);
+    assert.equal(result.warnings.length, 0);
+  });
+
+  it('accepts supported codex runtime keys without forward-compatibility warnings', () => {
+    const result = validateRuntimeConfig({
+      model: 'gpt-5.4-mini',
+      web_search_mode: 'disabled',
+      model_reasoning_summary: 'concise',
+      hide_agent_reasoning: false,
+      model_auto_compact_token_limit: 300000,
+      model_provider: 'lmstudiospark',
+      model_providers: {
+        lmstudiospark: {
+          name: 'LM Studio Spark',
+          base_url: 'http://localhost:1234/v1',
+        },
+      },
+      plugins: {
+        'github@openai-curated': {
+          enabled: true,
+        },
+      },
+      features: {
+        fast_mode: false,
+      },
+    });
+
+    assert.equal(result.config.model_reasoning_summary, 'concise');
+    assert.equal(result.config.web_search, 'disabled');
+    assert.equal(result.config.hide_agent_reasoning, false);
+    assert.equal(result.config.model_auto_compact_token_limit, 300000);
+    assert.equal(result.config.model_provider, 'lmstudiospark');
+    assert.deepEqual(result.config.model_providers, {
+      lmstudiospark: {
+        name: 'LM Studio Spark',
+        base_url: 'http://localhost:1234/v1',
+      },
+    });
+    assert.deepEqual(result.config.plugins, {
+      'github@openai-curated': {
+        enabled: true,
+      },
+    });
+    assert.deepEqual(result.config.features, {
+      fast_mode: false,
+    });
+    assert.equal(result.warnings.length, 0);
   });
 
   it('warns and preserves unknown nested keys while keeping known key validation', () => {
@@ -2347,6 +2393,67 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
           name: 'Base Provider',
         },
       });
+      assert.equal(resolved.warnings.length, 0);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves agent runtime without warnings for supported inherited codex compatibility keys', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const agentConfigPath = path.join(codexHome, 'agent-config.toml');
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'web_search_mode = "disabled"',
+          '',
+          'hide_agent_reasoning = false',
+          'model_reasoning_summary = "detailed"',
+          '',
+          '[features]',
+          'fast_mode = false',
+          '',
+          '[model_providers.base-provider]',
+          'name = "Base Provider"',
+          '',
+          '[plugins."github@openai-curated"]',
+          'enabled = true',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        agentConfigPath,
+        ['model = "agent-model"', 'model_auto_compact_token_limit = 300000', '']
+          .join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveAgentRuntimeConfig({
+        codexHome,
+        agentConfigPath,
+      });
+
+      assert.equal(resolved.config.hide_agent_reasoning, false);
+      assert.equal(resolved.config.web_search, 'disabled');
+      assert.equal(resolved.config.model_reasoning_summary, 'detailed');
+      assert.equal(resolved.config.model_auto_compact_token_limit, 300000);
+      assert.deepEqual(resolved.config.features, {
+        fast_mode: false,
+      });
+      assert.deepEqual(resolved.config.model_providers, {
+        'base-provider': {
+          name: 'Base Provider',
+        },
+      });
+      assert.deepEqual(resolved.config.plugins, {
+        'github@openai-curated': {
+          enabled: true,
+        },
+      });
+      assert.equal(resolved.warnings.length, 0);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }

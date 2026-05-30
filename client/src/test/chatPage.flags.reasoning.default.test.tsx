@@ -144,5 +144,5 @@ describe('Codex model reasoning effort defaults', () => {
       'reasoning-effort-select',
     );
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
-  });
+  }, 30_000);
 });

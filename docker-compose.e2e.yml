@@ -27,7 +27,7 @@ services:
       - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.e2e.yml
       - CODEINFO_RUNTIME_SERVER_PORTS=6010,6011,6012
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=
-      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=3
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
@@ -46,6 +46,7 @@ services:
       - CODEINFO_FAKE_COPILOT_SCENARIO=${CODEINFO_FAKE_COPILOT_SCENARIO:-}
     volumes:
       - copilot-data:/app/copilot
+      - codex-data:/app/codex
       - lmstudio-data:/app/lmstudio
       - ./copilot:/seed/copilot:ro
       - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
@@ -139,7 +140,7 @@ services:
     networks:
       - internal_e2e
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1/heartbeat']
+      test: ['CMD-SHELL', "grep -q '00000000:1F40' /proc/net/tcp"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -176,3 +177,4 @@ networks:
 volumes:
   copilot-data:
   lmstudio-data:
+  codex-data:

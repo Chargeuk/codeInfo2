@@ -1098,6 +1098,86 @@ test('fresh executions of the same flow can run concurrently in different parent
   }
 });
 
+test('fresh-run retryOwnershipId reuses the accepted launch while the original run is still active, then clears for a later fresh run', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const localFixturesDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../fixtures/flows',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-retry-ownership-'),
+  );
+  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+  const customTitle = 'Accepted Retry Launch';
+
+  try {
+    const firstResult = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-a',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle,
+      chatFactory: () => new DelayedInstantChat(75),
+    });
+    const secondResult = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-b',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle,
+      chatFactory: () => new DelayedInstantChat(75),
+    });
+
+    assert.deepEqual(secondResult, firstResult);
+
+    await waitForTurns(firstResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+    assert.equal(
+      getFlowExecutionId(firstResult.conversationId),
+      getFlowExecutionId(secondResult.conversationId),
+    );
+    assert.equal(
+      memoryConversations.get(firstResult.conversationId)?.title,
+      customTitle,
+    );
+    await delay(50);
+    const thirdResult = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-c',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle,
+      chatFactory: () => new DelayedInstantChat(75),
+    });
+    await waitForTurns(thirdResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+    assert.notEqual(thirdResult.conversationId, firstResult.conversationId);
+  } finally {
+    cleanupMemory(
+      'flow-retry-ownership-a',
+      'flow-retry-ownership-b',
+      'flow-retry-ownership-c',
+    );
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

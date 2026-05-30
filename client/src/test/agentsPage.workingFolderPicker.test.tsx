@@ -196,6 +196,22 @@ function emitConversationUpsert(conversation: Record<string, unknown>) {
 }
 
 describe('Agents page - working folder picker', () => {
+  it('opens the directory picker dialog from the working path footer trigger', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+
+    await user.click(await screen.findByTestId('agent-working-path-trigger'));
+
+    expect(
+      await screen.findByRole('dialog', { name: /choose folder…/i }),
+    ).toBeInTheDocument();
+  });
+
   it('opens the directory picker dialog', async () => {
     const user = userEvent.setup();
     mockAgentsFetch();

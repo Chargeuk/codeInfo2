@@ -1,18 +1,9 @@
-import {
-  Alert,
-  Box,
-  Container,
-  Drawer,
-  Stack,
-  useMediaQuery,
-} from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material/Select';
+import { Alert, Box, Stack, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   FormEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -30,9 +21,9 @@ import {
   AgentApiError,
 } from '../api/agents';
 import AgentsComposerPanel from '../components/agents/AgentsComposerPanel';
+import type { AgentsActionMode } from '../components/agents/AgentsComposerPanel';
 import AgentsTranscriptPane from '../components/agents/AgentsTranscriptPane';
 import ConversationList from '../components/chat/ConversationList';
-import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import {
   buildStepLine,
   buildTimingLine,
@@ -40,6 +31,10 @@ import {
   formatBubbleTimestamp,
 } from '../components/chat/chatTranscriptFormatting';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
+import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
+import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
+import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
+import WorkspaceMobileTopBar from '../components/workspace/WorkspaceMobileTopBar';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   type ChatMessage,
@@ -56,6 +51,11 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
+import {
+  isExecutePromptEnabled,
+  reconcileAgentDetailsCache,
+} from './agentsPage.shared';
 
 const buildCommandDisplayName = (name: string) => name.replace(/_/g, ' ');
 
@@ -77,59 +77,33 @@ type AgentListEntry = {
   description?: string;
   disabled?: boolean;
   warnings?: string[];
+  requestedProviderId?: string;
+  executionProviderId?: string;
 };
-
-export const reconcileAgentDetailsCache = (
-  agentDetailsByName: Record<string, AgentDetails | undefined>,
-  agents: AgentListEntry[],
-) => {
-  let nextAgentDetailsByName:
-    | Record<string, AgentDetails | undefined>
-    | undefined;
-
-  for (const agent of agents) {
-    const cachedDetails = agentDetailsByName[agent.name];
-    if (!cachedDetails) continue;
-
-    const summaryDisabled = agent.disabled;
-    const cachedDisabled = cachedDetails.disabled;
-    const staleDisabledDetails =
-      summaryDisabled === false && cachedDisabled === true;
-    const staleEnabledDetails =
-      summaryDisabled === true && cachedDisabled === false;
-    if (!staleDisabledDetails && !staleEnabledDetails) continue;
-    if (!nextAgentDetailsByName) {
-      nextAgentDetailsByName = { ...agentDetailsByName };
-    }
-    delete nextAgentDetailsByName[agent.name];
-  }
-
-  return nextAgentDetailsByName ?? agentDetailsByName;
-};
-
-export const isExecutePromptEnabled = (params: {
-  selectedPromptEntry: AgentPromptEntry | null;
-  selectedAgentName: string;
-  selectedAgentDisabled: boolean;
-  startPending: boolean;
-  persistenceUnavailable: boolean;
-}) =>
-  params.selectedPromptEntry !== null &&
-  Boolean(params.selectedAgentName) &&
-  !params.selectedAgentDisabled &&
-  !params.startPending &&
-  !params.persistenceUnavailable;
 
 export default function AgentsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const controlsLayoutMode = isMobile ? 'stacked' : 'row';
   const drawerWidth = 320;
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+  const [mobileConversationsOpen, setMobileConversationsOpen] =
+    useState<boolean>(false);
+  const [mobileAppMenuOpen, setMobileAppMenuOpen] = useState<boolean>(false);
   const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
     isMobile ? false : true,
   );
-  const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
+  const conversationPaneOpen = isMobile
+    ? mobileConversationsOpen
+    : desktopDrawerOpen;
+
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('codeinfo-mobile-conversations-overlay-change', {
+        detail: { open: mobileConversationsOpen },
+      }),
+    );
+  }, [isMobile, mobileConversationsOpen]);
 
   const [agents, setAgents] = useState<AgentListEntry[]>([]);
   const [agentDetailsByName, setAgentDetailsByName] = useState<
@@ -161,8 +135,9 @@ export default function AgentsPage() {
   >([]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
-  const [selectedCommandKey, setSelectedCommandKey] = useState('');
   const [startStep, setStartStep] = useState<number>(1);
+  const [selectedActionMode, setSelectedActionMode] =
+    useState<AgentsActionMode>('instruction');
 
   const [agentModelId, setAgentModelId] = useState<string>('unknown');
   const {
@@ -193,16 +168,16 @@ export default function AgentsPage() {
     runKind: 'instruction' | 'command';
   } | null>(null);
 
-  const displayMessages = useMemo<ChatMessage[]>(
-    () => [...messages].reverse(),
-    [messages],
-  );
-  const latestAssistantMessageId = useMemo(
-    () =>
-      displayMessages.find((message) => message.role === 'assistant')?.id ??
-      null,
-    [displayMessages],
-  );
+  const displayMessages = messages;
+  const latestAssistantMessageId = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role === 'assistant') {
+        return message.id;
+      }
+    }
+    return null;
+  }, [messages]);
 
   const toolMatchCountByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -239,7 +214,6 @@ export default function AgentsPage() {
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [promptsError, setPromptsError] = useState<string | null>(null);
   const [promptEntries, setPromptEntries] = useState<AgentPromptEntry[]>([]);
-  const [selectedPromptFullPath, setSelectedPromptFullPath] = useState('');
   const [committedWorkingFolder, setCommittedWorkingFolder] = useState('');
   const lastCommittedWorkingFolderRef = useRef('');
   const persistConversationWorkingFolderRef = useRef<
@@ -279,30 +253,9 @@ export default function AgentsPage() {
   const citationsReadyLoggedRef = useRef<string | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
 
-  const chatColumnRef = useRef<HTMLDivElement | null>(null);
-  const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState<number>(0);
-
   const { mongoConnected, isLoading: persistenceLoading } =
     usePersistenceStatus();
   const persistenceUnavailable = mongoConnected === false;
-
-  useLayoutEffect(() => {
-    const updateOffset = () => {
-      const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
-      setDrawerTopOffsetPx(top);
-    };
-
-    updateOffset();
-    window.addEventListener('resize', updateOffset);
-    return () => window.removeEventListener('resize', updateOffset);
-  }, [isMobile, persistenceUnavailable, agentsError, agentsLoading]);
-
-  const drawerTopOffset =
-    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
-  const drawerHeight =
-    drawerTopOffsetPx > 0
-      ? `calc(100% - ${drawerTopOffsetPx}px)`
-      : `calc(100% - ${theme.spacing(3)})`;
 
   const log = useMemo(() => createLogger('client'), []);
   const deviceAuthLog = useMemo(
@@ -362,7 +315,9 @@ export default function AgentsPage() {
       setPromptsLoading(false);
       setPromptsError(null);
       setPromptEntries([]);
-      setSelectedPromptFullPath('');
+      setSelectedActionMode((prev) =>
+        prev.startsWith('prompt:') ? 'instruction' : prev,
+      );
       if (params.clearCommittedWorkingFolder) {
         setCommittedWorkingFolder('');
         lastCommittedWorkingFolderRef.current = '';
@@ -391,6 +346,7 @@ export default function AgentsPage() {
       lastCommittedWorkingFolderRef.current = committed;
       setCommittedWorkingFolder(committed);
       if (
+        persistenceUnavailable ||
         !selectedConversationIdRef.current ||
         workingFolderDisabledRef.current
       ) {
@@ -406,7 +362,7 @@ export default function AgentsPage() {
         console.error('agent working-folder persistence failed', error);
       }
     },
-    [invalidatePromptDiscoveryState, workingFolder],
+    [invalidatePromptDiscoveryState, persistenceUnavailable, workingFolder],
   );
 
   const handlePickDir = (path: string) => {
@@ -529,7 +485,8 @@ export default function AgentsPage() {
 
   useEffect(() => {
     if (isMobile) {
-      setMobileDrawerOpen(false);
+      setMobileConversationsOpen(false);
+      setMobileAppMenuOpen(false);
       return;
     }
 
@@ -588,7 +545,7 @@ export default function AgentsPage() {
       setCommands([]);
       setCommandsError(null);
       setCommandsLoading(false);
-      setSelectedCommandKey('');
+      setSelectedActionMode('instruction');
       setStartStep(1);
       return;
     }
@@ -600,19 +557,20 @@ export default function AgentsPage() {
         if (cancelled) return;
         const nextCommands = result.commands ?? [];
         setCommands(nextCommands);
-        setSelectedCommandKey((prev) => {
-          if (!prev) return '';
+        setSelectedActionMode((prev) => {
+          if (!prev.startsWith('command:')) return prev;
+          const prevKey = prev.slice('command:'.length);
           const isStillValid = nextCommands.some(
-            (cmd) => buildCommandKey(cmd) === prev && !cmd.disabled,
+            (cmd) => buildCommandKey(cmd) === prevKey && !cmd.disabled,
           );
-          return isStillValid ? prev : '';
+          return isStillValid ? prev : 'instruction';
         });
       })
       .catch((err) => {
         if (cancelled) return;
         setCommandsError((err as Error).message);
         setCommands([]);
-        setSelectedCommandKey('');
+        setSelectedActionMode('instruction');
         setStartStep(1);
       })
       .finally(() => {
@@ -713,6 +671,16 @@ export default function AgentsPage() {
     return options.sort((a, b) => a.label.localeCompare(b.label));
   }, [commands]);
 
+  const selectedCommandKey = useMemo(() => {
+    if (!selectedActionMode.startsWith('command:')) return '';
+    return selectedActionMode.slice('command:'.length);
+  }, [selectedActionMode]);
+
+  const selectedPromptFullPath = useMemo(() => {
+    if (!selectedActionMode.startsWith('prompt:')) return '';
+    return selectedActionMode.slice('prompt:'.length);
+  }, [selectedActionMode]);
+
   const selectedCommand = useMemo(
     () => commandOptions.find((cmd) => cmd.key === selectedCommandKey),
     [commandOptions, selectedCommandKey],
@@ -747,16 +715,6 @@ export default function AgentsPage() {
       setStartStep(1);
     }
   }, [selectedCommand, startStep]);
-
-  useEffect(() => {
-    if (!selectedPromptFullPath) return;
-    const stillValid = promptEntries.some(
-      (entry) => entry.fullPath === selectedPromptFullPath,
-    );
-    if (!stillValid) {
-      setSelectedPromptFullPath('');
-    }
-  }, [promptEntries, selectedPromptFullPath]);
 
   useEffect(() => {
     if (hasPromptEntries) {
@@ -810,8 +768,10 @@ export default function AgentsPage() {
     );
   }, [selectedPromptEntry]);
 
-  const handlePromptSelectionChange = (event: SelectChangeEvent<string>) => {
-    setSelectedPromptFullPath(event.target.value);
+  const handlePromptSelectionChange = (nextPromptFullPath: string) => {
+    setSelectedActionMode(
+      nextPromptFullPath ? `prompt:${nextPromptFullPath}` : 'instruction',
+    );
   };
   useEffect(() => {
     console.info('[agents.commandDescription.inlineRemoved] rendered=false');
@@ -1220,6 +1180,7 @@ export default function AgentsPage() {
   const resetConversation = useCallback(() => {
     setStartPending(false);
     setRunError(null);
+    setSelectedActionMode('instruction');
     invalidatePromptDiscoveryState({
       reason: 'selected_agent_reset',
       clearCommittedWorkingFolder: true,
@@ -1242,7 +1203,7 @@ export default function AgentsPage() {
 
   const clearSelectedAgentRunState = useCallback(
     (reason: 'agent_disabled' | 'agent_unrunnable') => {
-      setSelectedCommandKey('');
+      setSelectedActionMode('instruction');
       setStartStep(1);
       setCommandInfoAnchorEl(null);
       invalidatePromptDiscoveryState({
@@ -1314,11 +1275,10 @@ export default function AgentsPage() {
   ]);
 
   const handleAgentChange = useCallback(
-    (event: SelectChangeEvent<string>) => {
-      const next = event.target.value;
+    (next: string) => {
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
-      setSelectedCommandKey('');
+      setSelectedActionMode('instruction');
       setStartStep(1);
       setAgentModelId('unknown');
       resetConversation();
@@ -1326,24 +1286,19 @@ export default function AgentsPage() {
     [resetConversation, selectedAgentName],
   );
 
-  const handleCommandChange = useCallback(
-    (event: SelectChangeEvent<string>) => {
-      setSelectedCommandKey(event.target.value);
-      setStartStep(1);
-    },
-    [],
-  );
+  const handleCommandChange = useCallback((nextCommandKey: string) => {
+    setSelectedActionMode(
+      nextCommandKey ? `command:${nextCommandKey}` : 'instruction',
+    );
+    setStartStep(1);
+  }, []);
 
-  const handleStartStepChange = useCallback(
-    (event: SelectChangeEvent<string>) => {
-      const parsed = Number.parseInt(event.target.value, 10);
-      if (!Number.isInteger(parsed) || parsed < 1) {
-        return;
-      }
-      setStartStep(parsed);
-    },
-    [],
-  );
+  const handleStartStepChange = useCallback((step: number) => {
+    if (!Number.isInteger(step) || step < 1) {
+      return;
+    }
+    setStartStep(step);
+  }, []);
 
   const handleToggleTool = useCallback(
     (id: string, messageId: string) => {
@@ -1414,6 +1369,7 @@ export default function AgentsPage() {
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             provider: turn.provider,
+            model: turn.model,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus:
               turn.status === 'failed'
@@ -1434,9 +1390,7 @@ export default function AgentsPage() {
   const lastInflightHydratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeConversationId) return;
-    const oldest = turns?.[0]?.createdAt ?? 'none';
-    const newest = turns?.[turns.length - 1]?.createdAt ?? 'none';
-    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}`;
+    const key = buildStoredTurnHydrationKey(activeConversationId, turns);
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
 
@@ -1586,6 +1540,18 @@ export default function AgentsPage() {
     event.preventDefault();
     setRunError(null);
     const rawInstruction = input;
+    if (selectedActionMode !== 'instruction') {
+      if (selectedActionMode.startsWith('command:')) {
+        await handleExecuteCommand();
+        return;
+      }
+
+      if (selectedActionMode.startsWith('prompt:')) {
+        await handleExecutePrompt();
+        return;
+      }
+    }
+
     const hasNonWhitespaceContent = rawInstruction.trim().length > 0;
     const blockedBySelection = !selectedAgentName;
     const blockedByPending = startPending;
@@ -1747,9 +1713,19 @@ export default function AgentsPage() {
         setAgentModelId(result.modelId);
       }
 
-      await refreshConversations();
       setActiveConversationId(result.conversationId);
       lastHydratedRef.current = null;
+      try {
+        await refreshConversations();
+      } catch (refreshError) {
+        log('warn', 'agents.ui.accepted_launch_refresh_failed', {
+          conversationId: result.conversationId,
+          message:
+            refreshError instanceof Error
+              ? refreshError.message
+              : String(refreshError),
+        });
+      }
     } catch (err) {
       if (
         err instanceof AgentApiError &&
@@ -1853,12 +1829,17 @@ export default function AgentsPage() {
   const inputEditableDuringRun = true;
   const sidebarSelectableDuringRun = true;
   const isWorkingFolderDisabled =
+    persistenceUnavailable ||
     controlsDisabled ||
     agentWorkingFolderLocked ||
     !wsTranscriptReady ||
     selectedAgentDisabled;
   const isInstructionInputDisabled =
-    !inputEditableDuringRun || !wsTranscriptReady || selectedAgentDisabled;
+    selectedActionMode !== 'instruction' ||
+    !inputEditableDuringRun ||
+    !wsTranscriptReady ||
+    selectedAgentDisabled ||
+    controlsDisabled;
   const conversationListDisabled =
     !sidebarSelectableDuringRun || persistenceUnavailable;
   const lastSelectedAgentDisabledStateRef = useRef<{
@@ -2011,21 +1992,6 @@ export default function AgentsPage() {
     inputRef.current?.focus();
   }, [resetConversation]);
 
-  const handleToggleDrawer = useCallback(() => {
-    if (isMobile) {
-      setMobileDrawerOpen((prev) => {
-        const next = !prev;
-        log('info', 'DEV-0000021[T8] agents.layout drawer toggle', {
-          open: next,
-        });
-        return next;
-      });
-      return;
-    }
-
-    setDesktopDrawerOpen((prev) => !prev);
-  }, [isMobile, log]);
-
   const handleAgentInfoOpen = (event: React.MouseEvent<HTMLElement>) => {
     if (agentInfoDisabled) return;
     setAgentInfoAnchorEl(event.currentTarget);
@@ -2087,17 +2053,201 @@ export default function AgentsPage() {
   const handleCommandInfoClose = () => {
     setCommandInfoAnchorEl(null);
   };
+  const conversationList = (
+    <ConversationList
+      conversations={conversations}
+      selectedId={activeConversationId}
+      isLoading={conversationsLoading}
+      isError={conversationsError}
+      error={conversationsErrorMessage}
+      hasMore={conversationsHasMore}
+      filterState={filterState}
+      mongoConnected={mongoConnected}
+      disabled={conversationListDisabled}
+      variant="agents"
+      onSelect={handleSelectConversation}
+      onFilterChange={setFilterState}
+      onArchive={archiveConversation}
+      onRestore={restoreConversation}
+      onBulkArchive={bulkArchive}
+      onBulkRestore={bulkRestore}
+      onBulkDelete={bulkDelete}
+      onLoadMore={loadMoreConversations}
+      onRefresh={refreshConversations}
+      onRetry={refreshConversations}
+      onNewConversation={resetConversation}
+    />
+  );
+
+  const transcriptSurface = (
+    <AgentsTranscriptPane
+      conversationId={activeConversationId}
+      transcriptRef={transcriptRef}
+      displayMessages={displayMessages}
+      turnsLoading={turnsLoading}
+      turnsError={turnsError}
+      turnsErrorMessage={turnsErrorMessage}
+      citationsOpen={citationsOpen}
+      thinkOpen={thinkOpen}
+      toolOpen={toolOpen}
+      toolErrorOpen={toolErrorOpen}
+      activeToolsAvailable
+      latestAssistantMessageId={latestAssistantMessageId}
+      liveStoppedMarker={liveStoppedMarker}
+      isStopping={isStopping}
+      onToggleCitation={toggleCitation}
+      onToggleThink={toggleThink}
+      onToggleTool={handleToggleTool}
+      onToggleToolError={toggleToolError}
+    />
+  );
+
+  const composerSurface = (
+    <AgentsComposerPanel
+      agentsLoading={agentsLoading}
+      agentsError={agentsError}
+      agents={agents}
+      selectedAgentName={selectedAgentName}
+      selectedAgentRequestedProviderId={
+        selectedAgentDetails?.requestedProviderId ??
+        selectedAgent?.requestedProviderId
+      }
+      selectedAgentExecutionProviderId={
+        selectedAgentDetails?.executionProviderId ??
+        selectedAgent?.executionProviderId
+      }
+      selectedAgentDisabled={selectedAgentDisabled}
+      selectedAgentDescription={agentDescription}
+      agentWarnings={agentWarnings}
+      agentDisabledReason={selectedAgentDetails?.disabledReason}
+      agentInfoEmpty={agentInfoEmpty}
+      agentInfoEmptyMessage={agentInfoEmptyMessage}
+      agentModelId={agentModelId}
+      commandsError={commandsError}
+      commandsLoading={commandsLoading}
+      commandOptions={commandOptions}
+      promptEntries={promptEntries}
+      promptsError={promptsError}
+      selectedActionMode={selectedActionMode}
+      selectedCommandStepCount={selectedCommandStepCount}
+      selectedStep={startStep}
+      selectedWorkingFolder={workingFolder}
+      input={input}
+      showStop={showStop}
+      isStopping={isStopping}
+      canShowDeviceAuth={canShowDeviceAuth}
+      controlsDisabled={controlsDisabled}
+      submitDisabledForRun={submitDisabledForRun}
+      startStepDisabled={startStepDisabled}
+      persistenceUnavailable={persistenceUnavailable}
+      wsTranscriptReady={wsTranscriptReady}
+      isWorkingFolderDisabled={isWorkingFolderDisabled}
+      isInstructionInputDisabled={isInstructionInputDisabled}
+      commandInfoDisabled={commandInfoDisabled}
+      selectedCommandKey={selectedCommandKey}
+      selectedCommandDescription={selectedCommandDescription}
+      selectedPromptFullPath={selectedPromptFullPath}
+      hasPromptEntries={hasPromptEntries}
+      shouldShowPromptsError={shouldShowPromptsError}
+      shouldShowPromptsRow={shouldShowPromptsRow}
+      executePromptEnabled={executePromptEnabled}
+      workingFolder={workingFolder}
+      actionSlotMinWidth={actionSlotMinWidth}
+      onSubmit={handleSubmit}
+      onAgentSelect={handleAgentChange}
+      onInstructionModeSelect={() => setSelectedActionMode('instruction')}
+      onCommandModeSelect={handleCommandChange}
+      onPromptModeSelect={handlePromptSelectionChange}
+      onStepSelect={handleStartStepChange}
+      onResetConversation={handleResetConversation}
+      onWorkingFolderChange={setWorkingFolder}
+      onCommitWorkingFolder={commitWorkingFolder}
+      onOpenDirPicker={handleOpenDirPicker}
+      onInputChange={handleComposerInputChange}
+      onStopClick={handleStopClick}
+      onDeviceAuthOpen={handleDeviceAuthOpen}
+      onDeviceAuthClose={handleDeviceAuthClose}
+      onDeviceAuthSuccess={handleDeviceAuthSuccess}
+      dirPickerOpen={dirPickerOpen}
+      onCloseDirPicker={handleCloseDirPicker}
+      onPickDir={handlePickDir}
+      deviceAuthOpen={deviceAuthOpen}
+      inputRef={inputRef}
+      agentInfoDisabled={agentInfoDisabled}
+      showAgentInfoButton={showAgentInfoButton}
+      agentInfoId={agentInfoId}
+      agentInfoOpen={agentInfoOpen}
+      agentInfoAnchorEl={agentInfoAnchorEl}
+      commandInfoId={commandInfoId}
+      commandInfoOpen={commandInfoOpen}
+      commandInfoAnchorEl={commandInfoAnchorEl}
+      onAgentInfoOpen={handleAgentInfoOpen}
+      onAgentInfoClose={handleAgentInfoClose}
+      onCommandInfoAttempt={handleCommandInfoAttempt}
+      onCommandInfoOpen={handleCommandInfoOpen}
+      onCommandInfoClose={handleCommandInfoClose}
+      onExecuteCommand={handleExecuteCommand}
+      onExecutePrompt={handleExecutePrompt}
+    />
+  );
+
+  const desktopWorkspace = (
+    <WorkspaceDesktopShell
+      conversationPane={conversationList}
+      transcript={transcriptSurface}
+      composer={composerSurface}
+      conversationPaneOpen={conversationPaneOpen}
+      conversationPaneWidth={drawerWidth}
+      isMobile={isMobile}
+      onToggleConversationPane={() => {
+        setDesktopDrawerOpen((prev) => !prev);
+      }}
+    />
+  );
+
+  const mobileWorkspace = (
+    <Box
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0,
+      }}
+    >
+      <WorkspaceMobileTopBar
+        title="Agents"
+        showConversationsButton
+        onConversationsClick={() => setMobileConversationsOpen(true)}
+        onNewClick={resetConversation}
+        newButtonLabel="New conversation"
+        onMenuClick={() => setMobileAppMenuOpen(true)}
+      />
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {transcriptSurface}
+      </Box>
+      {composerSurface}
+      <WorkspaceMobileConversationsOverlay
+        open={mobileConversationsOpen}
+        onClose={() => setMobileConversationsOpen(false)}
+        list={conversationList}
+      />
+      <WorkspaceMobileAppMenuOverlay
+        open={mobileAppMenuOpen}
+        onClose={() => setMobileAppMenuOpen(false)}
+      />
+    </Box>
+  );
+
   return (
-    <Container
-      maxWidth={false}
+    <Box
       data-testid="agents-page"
       sx={{
-        pt: 1,
-        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        width: '100%',
       }}
     >
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
@@ -2127,210 +2277,8 @@ export default function AgentsPage() {
           </Alert>
         )}
 
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          alignItems="stretch"
-          sx={{
-            width: '100%',
-            minWidth: 0,
-            overflowX: 'hidden',
-            flex: 1,
-            minHeight: 0,
-            position: 'relative',
-          }}
-        >
-          <ConversationSidebarToggle
-            drawerOpen={drawerOpen}
-            drawerWidth={drawerWidth}
-            isMobile={isMobile}
-            onToggle={handleToggleDrawer}
-          />
-          {(!isMobile || drawerOpen) && (
-            <Drawer
-              key={isMobile ? 'mobile' : 'desktop'}
-              open={drawerOpen}
-              onClose={() => {
-                if (isMobile) {
-                  setMobileDrawerOpen(false);
-                  log('info', 'DEV-0000021[T8] agents.layout drawer toggle', {
-                    open: false,
-                  });
-                  return;
-                }
-
-                setDesktopDrawerOpen(false);
-              }}
-              variant={isMobile ? 'temporary' : 'persistent'}
-              ModalProps={{ keepMounted: false }}
-              data-testid="conversation-drawer"
-              slotProps={{
-                paper: {
-                  sx: {
-                    boxSizing: 'border-box',
-                    overflowX: 'hidden',
-                    width: drawerWidth,
-                    mt: drawerTopOffset,
-                    height: drawerHeight,
-                  },
-                },
-              }}
-              sx={{
-                width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
-                flexShrink: 0,
-              }}
-            >
-              <Box
-                id="conversation-drawer"
-                data-testid="conversation-list"
-                sx={{ width: drawerWidth, height: '100%' }}
-              >
-                <ConversationList
-                  conversations={conversations}
-                  selectedId={activeConversationId}
-                  isLoading={conversationsLoading}
-                  isError={conversationsError}
-                  error={conversationsErrorMessage}
-                  hasMore={conversationsHasMore}
-                  filterState={filterState}
-                  mongoConnected={mongoConnected}
-                  disabled={conversationListDisabled}
-                  variant="agents"
-                  onSelect={handleSelectConversation}
-                  onFilterChange={setFilterState}
-                  onArchive={archiveConversation}
-                  onRestore={restoreConversation}
-                  onBulkArchive={bulkArchive}
-                  onBulkRestore={bulkRestore}
-                  onBulkDelete={bulkDelete}
-                  onLoadMore={loadMoreConversations}
-                  onRefresh={refreshConversations}
-                  onRetry={refreshConversations}
-                />
-              </Box>
-            </Drawer>
-          )}
-
-          <Box
-            data-testid="chat-column"
-            ref={chatColumnRef}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0,
-            }}
-            style={{
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              flex: '1 1 0%',
-              minHeight: 0,
-            }}
-          >
-            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-              <AgentsComposerPanel
-                agentsLoading={agentsLoading}
-                agentsError={agentsError}
-                selectedAgentName={selectedAgentName}
-                selectedCommandKey={selectedCommandKey}
-                startStep={startStep}
-                selectedCommandStepCount={selectedCommandStepCount}
-                selectedCommandDescription={selectedCommandDescription}
-                agentWarnings={agentWarnings}
-                agentDescription={agentDescription}
-                agentDisabledReason={selectedAgentDetails?.disabledReason}
-                agentInfoDisabled={agentInfoDisabled}
-                showAgentInfoButton={showAgentInfoButton}
-                agentInfoEmpty={agentInfoEmpty}
-                agentInfoEmptyMessage={agentInfoEmptyMessage}
-                commandsError={commandsError}
-                commandsLoading={commandsLoading}
-                controlsDisabled={controlsDisabled}
-                submitDisabledForRun={submitDisabledForRun}
-                startStepDisabled={startStepDisabled}
-                persistenceUnavailable={persistenceUnavailable}
-                wsTranscriptReady={wsTranscriptReady}
-                isWorkingFolderDisabled={isWorkingFolderDisabled}
-                isInstructionInputDisabled={isInstructionInputDisabled}
-                hasPromptEntries={hasPromptEntries}
-                shouldShowPromptsError={shouldShowPromptsError}
-                shouldShowPromptsRow={shouldShowPromptsRow}
-                executePromptEnabled={executePromptEnabled}
-                selectedPromptFullPath={selectedPromptFullPath}
-                input={input}
-                workingFolder={workingFolder}
-                showStop={showStop}
-                isStopping={isStopping}
-                canShowDeviceAuth={canShowDeviceAuth}
-                commandInfoDisabled={commandInfoDisabled}
-                actionSlotMinWidth={actionSlotMinWidth}
-                selectedAgentDisabled={selectedAgentDisabled}
-                agents={agents}
-                commandOptions={commandOptions}
-                promptEntries={promptEntries}
-                onSubmit={handleSubmit}
-                onAgentChange={handleAgentChange}
-                onCommandChange={handleCommandChange}
-                onStartStepChange={handleStartStepChange}
-                onResetConversation={handleResetConversation}
-                onAgentInfoOpen={handleAgentInfoOpen}
-                onAgentInfoClose={handleAgentInfoClose}
-                onCommandInfoAttempt={handleCommandInfoAttempt}
-                onCommandInfoOpen={handleCommandInfoOpen}
-                onCommandInfoClose={handleCommandInfoClose}
-                onExecuteCommand={handleExecuteCommand}
-                onWorkingFolderChange={setWorkingFolder}
-                onCommitWorkingFolder={commitWorkingFolder}
-                onOpenDirPicker={handleOpenDirPicker}
-                onPromptSelectionChange={handlePromptSelectionChange}
-                onExecutePrompt={handleExecutePrompt}
-                onInputChange={handleComposerInputChange}
-                onStopClick={handleStopClick}
-                onDeviceAuthOpen={handleDeviceAuthOpen}
-                onDeviceAuthClose={handleDeviceAuthClose}
-                onDeviceAuthSuccess={handleDeviceAuthSuccess}
-                dirPickerOpen={dirPickerOpen}
-                onCloseDirPicker={handleCloseDirPicker}
-                onPickDir={handlePickDir}
-                deviceAuthOpen={deviceAuthOpen}
-                agentInfoId={agentInfoId}
-                agentInfoOpen={agentInfoOpen}
-                agentInfoAnchorEl={agentInfoAnchorEl}
-                commandInfoId={commandInfoId}
-                commandInfoOpen={commandInfoOpen}
-                commandInfoAnchorEl={commandInfoAnchorEl}
-                inputRef={inputRef}
-                conversationId={activeConversationId}
-                promptsError={promptsError}
-              />
-              <AgentsTranscriptPane
-                conversationId={activeConversationId}
-                transcriptRef={transcriptRef}
-                displayMessages={displayMessages}
-                turnsLoading={turnsLoading}
-                turnsError={turnsError}
-                turnsErrorMessage={turnsErrorMessage}
-                citationsOpen={citationsOpen}
-                thinkOpen={thinkOpen}
-                toolOpen={toolOpen}
-                toolErrorOpen={toolErrorOpen}
-                activeToolsAvailable
-                latestAssistantMessageId={latestAssistantMessageId}
-                liveStoppedMarker={liveStoppedMarker}
-                isStopping={isStopping}
-                onToggleCitation={toggleCitation}
-                onToggleThink={toggleThink}
-                onToggleTool={handleToggleTool}
-                onToggleToolError={toggleToolError}
-              />
-            </Stack>
-          </Box>
-        </Stack>
+        {isMobile ? mobileWorkspace : desktopWorkspace}
       </Stack>
-    </Container>
+    </Box>
   );
 }

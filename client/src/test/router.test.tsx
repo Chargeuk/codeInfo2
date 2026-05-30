@@ -1,47 +1,119 @@
+import type { LmStudioStatusOk } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import App from '../App';
-import HomePage from '../pages/HomePage';
-import LmStudioPage from '../pages/LmStudioPage';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-jest.mock('@codeinfo2/common', () => {
-  const actual = jest.requireActual(
-    '@codeinfo2/common',
-  ) as typeof import('@codeinfo2/common');
-  return {
-    ...actual,
-    fetchServerVersion: jest
-      .fn<typeof actual.fetchServerVersion>()
-      .mockResolvedValue({ app: 'server', version: '1.0.0' }),
-  };
-});
+const mockFetchServerVersion = jest
+  .fn<() => Promise<{ version: string }>>()
+  .mockResolvedValue({ version: '1.0.0' });
+const mockFetchLmStudioStatus = jest.fn<() => Promise<LmStudioStatusOk>>();
+const actualCommon = await import('@codeinfo2/common');
 
-const routes = [
-  {
-    path: '/',
-    element: <App />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'lmstudio', element: <LmStudioPage /> },
-    ],
-  },
-];
+await jest.unstable_mockModule('@codeinfo2/common', async () => ({
+  ...actualCommon,
+  fetchServerVersion: mockFetchServerVersion,
+  fetchLmStudioStatus: mockFetchLmStudioStatus,
+}));
+
+const { router } = await import('../routes/router');
+
+function installProviderFetch() {
+  const fetchMock = getFetchMock();
+  fetchMock.mockImplementation(async (input) => {
+    const href = typeof input === 'string' ? input : input.toString();
+    if (href.includes('/chat/providers')) {
+      return mockJsonResponse({
+        providers: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: 'codex auth required',
+          },
+          {
+            id: 'copilot',
+            label: 'GitHub Copilot',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+        selectedProvider: 'copilot',
+        selectedModel: 'friendly-model',
+      });
+    }
+    throw new Error(`Unexpected fetch: ${href}`);
+  });
+  global.fetch = fetchMock as typeof fetch;
+}
+
+const okResponse: LmStudioStatusOk = {
+  status: 'ok',
+  baseUrl: 'http://127.0.0.1:1234',
+  models: [
+    {
+      modelKey: 'friendly-model',
+      displayName: 'Friendly Model',
+      type: 'gguf',
+      format: 'gguf',
+      sizeBytes: 1024,
+    },
+  ],
+};
 
 describe('router navigation', () => {
-  it('renders Home by default and navigates to LM Studio', async () => {
-    const router = createMemoryRouter(routes, { initialEntries: ['/'] });
-    render(<RouterProvider router={router} />);
+  const originalFetch = global.fetch;
 
-    expect(await screen.findByText(/Client version/i)).toBeInTheDocument();
+  beforeEach(() => {
+    mockFetchServerVersion.mockClear();
+    mockFetchLmStudioStatus.mockReset();
+    mockFetchLmStudioStatus.mockResolvedValue(okResponse);
+    localStorage.clear();
+    installProviderFetch();
+  });
 
-    const lmTab = screen.getByRole('tab', { name: /LM Studio/i });
-    await userEvent.click(lmTab);
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
 
-    expect(router.state.location.pathname).toBe('/lmstudio');
+  it('keeps the default route tree reachable for the visible destinations', () => {
+    const childRoutes = router.routes[0]?.children ?? [];
+    const childPaths = childRoutes.map((route) =>
+      route.index ? '/' : (route.path ?? ''),
+    );
+
+    expect(childPaths).toEqual(
+      expect.arrayContaining([
+        '/',
+        'chat',
+        'agents',
+        'flows',
+        'ingest',
+        'logs',
+      ]),
+    );
+  });
+
+  it('redirects /lmstudio into Home with the LM Studio section visible', async () => {
+    const memoryRouter = createMemoryRouter(router.routes, {
+      initialEntries: ['/lmstudio'],
+    });
+
+    render(<RouterProvider router={memoryRouter} />);
+
     expect(
-      await screen.findByRole('heading', { name: /LM Studio/i }),
+      await screen.findByRole('heading', { name: 'Home' }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'LM Studio' }),
+    ).toBeInTheDocument();
+    expect(memoryRouter.state.location.pathname).toBe('/');
   });
 });

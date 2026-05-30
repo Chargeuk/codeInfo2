@@ -130,6 +130,7 @@ async function setCodexHome(chatToml?: string) {
     );
   }
   env.set('CODEX_HOME', codexHome);
+  env.set('CODEINFO_CODEX_HOME', codexHome);
   return {
     codexHome,
     chatConfigPath: path.join(codexHome, 'chat', 'config.toml'),
@@ -454,6 +455,7 @@ test('chat models codexDefaults and warnings come from shared resolver precedenc
     'utf8',
   );
   env.set('CODEX_HOME', codexHome);
+  env.set('CODEINFO_CODEX_HOME', codexHome);
   env.set('Codex_network_access_enabled', 'false');
   env.set('Codex_model_list', 'alpha');
   setCodexDetection({
@@ -492,7 +494,7 @@ test('chat models parity fixture remains deterministic across resolver-backed de
       modelVerbosity: 'medium',
       networkAccessEnabled: false,
       webSearchEnabled: false,
-      webSearchMode: 'disabled',
+      webSearchMode: 'live',
     },
     models: [
       {
@@ -532,7 +534,7 @@ test('chat models parity fixture remains deterministic across resolver-backed de
     assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
     assert.equal(
       res.body.providerInfo.compatibility.codexDefaults.webSearchMode,
-      'disabled',
+      'live',
     );
   } finally {
     await stopServer(server);
@@ -750,6 +752,7 @@ test('codex defaults include SDK-native minimal reasoning effort when configured
     'utf8',
   );
   env.set('CODEX_HOME', codexHome);
+  env.set('CODEINFO_CODEX_HOME', codexHome);
   env.set('Codex_reasoning_effort', 'minimal');
   setCodexDetection({
     available: true,

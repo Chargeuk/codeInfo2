@@ -241,6 +241,12 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
 - `operationally_blocked_minor_findings` is not part of the initial endorsed-finding classification from the findings artifact. It is a later review-loop state bucket populated only after an inline minor-fix attempt ends with `status: "blocked"`.
 - `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD, or when `operationally_blocked_minor_findings` is non-empty and the cycle still needs a fresh rerun after that operational interruption is repaired.
+- A review cycle gets at most one fresh rerun after inline minor-fix work or an operational interruption.
+- If the previous same-cycle state already had `needs_review_rerun_before_close: true`, the current pass is the one allowed rerun for that `review_cycle_id`.
+- After that one allowed rerun, do not leave any still-unresolved condition on the minor-fix rerun path. Do not request another rerun, do not leave the outcome represented only as `needs_review_rerun_before_close: true`, and do not leave the remaining issue only in `unresolved_minor_batchable_findings` or `operationally_blocked_minor_findings`.
+- Instead route any still-unresolved condition into durable follow-up by setting `needs_review_rerun_before_close` to false, setting `needs_task_up_path` to true, and recording the unresolved condition in the normal task-up source buckets for this step.
+- When a concrete same-story issue remains after that one allowed rerun, convert it into an `unresolved_task_required_findings` entry that explains why review did not converge after one allowed rerun.
+- When the rerun still cannot converge because the review basis is too incomplete, ambiguous, or operationally blocked to describe as one concrete task, convert the remaining condition into an `incomplete_review_blockers` entry instead.
 - `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
 - `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no operationally blocked minor findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
@@ -281,6 +287,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm any carry-forward state you preserved came from the same still-active review loop rather than an earlier completed review cycle.
 - Confirm `review_cycle_id` is present and belongs to the active review loop you just classified.
 - Confirm you did not treat an older completed final revalidation task in the canonical plan as proof that a fresh new review cycle was already closed.
+- Confirm any second consecutive rerun request for the same `review_cycle_id` was converted into `unresolved_task_required_findings` or `incomplete_review_blockers` plus `needs_task_up_path = true`, instead of requesting another review rerun.
 - Confirm the state file is valid JSON after writing.
 - Confirm the state counts match the arrays in the state file.
 - Confirm this step did not edit the canonical plan, review artifacts, code, tests, docs, or config.

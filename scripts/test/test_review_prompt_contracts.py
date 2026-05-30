@@ -111,7 +111,9 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("at most one fresh rerun", classify_text)
         self.assertIn("previous same-cycle state already had `needs_review_rerun_before_close: true`", classify_text)
-        self.assertIn("do not request a second rerun", classify_text)
+        self.assertIn("the current pass is the one allowed rerun", classify_text)
+        self.assertIn("do not leave any still-unresolved condition on the minor-fix rerun path", classify_text)
+        self.assertIn("do not leave the remaining issue only in `unresolved_minor_batchable_findings` or `operationally_blocked_minor_findings`", classify_text)
         self.assertIn("needs_task_up_path", classify_text)
         self.assertIn("unresolved_task_required_findings", classify_text)
         self.assertIn("incomplete_review_blockers", classify_text)

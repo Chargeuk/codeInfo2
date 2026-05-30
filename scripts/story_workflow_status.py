@@ -225,9 +225,8 @@ def load_review_state(
         "safe_to_exit_review_loop_without_tasking": safe_to_exit,
         "review_cycle_id": review_cycle_id,
         "should_exit_review_loop_to_main_loop": review_created_tasks,
-        "should_finish_review_loop_cleanly": (
-            not needs_review_rerun and not review_created_tasks
-        ),
+        # The classifier owns the full "nothing left to do" contract.
+        "should_finish_review_loop_cleanly": safe_to_exit,
     }
 
 

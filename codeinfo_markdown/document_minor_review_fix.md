@@ -44,7 +44,7 @@ When `minor-review-fix-result.json` has `status: "fixed"`:
    - `needs_minor_fix_path`
    - `needs_task_up_path`
 7. Set `needs_review_rerun_before_close` to true unless unresolved task-required findings now take precedence.
-8. Set `review_rerun_count` to at least `1` when this step requests that fresh rerun for the current review cycle.
+8. Do not increment `review_rerun_count` in this step. The later classifier pass must decide whether the one allowed rerun has now been consumed.
 9. Keep `needs_final_minor_fix_revalidation_task` false until a later clean review pass sees no unresolved findings after the minor fixes.
 10. Set `minor_fix_revalidation_cycle_closed` to false because this cycle is still open until a later clean review pass confirms the final revalidation task has been completed.
 11. Keep `review_created_tasks_added_or_updated` false in this step.
@@ -86,7 +86,7 @@ When the result has `status: "blocked"`:
 4. If `blocker_scope` is `global`, also remove every remaining `unresolved_minor_batchable_findings` entry and add or update matching `operationally_blocked_minor_findings` entries explaining that a global operational blocker made further inline minor attempts unsafe in this pass.
 5. If `blocker_scope` is missing or ambiguous, treat it as `global` rather than leaving any blocked minor finding stranded in the retry queue.
 6. Set `needs_review_rerun_before_close` to true because the review cycle must be rerun after the operational interruption is repaired before the story can close honestly.
-7. Set `review_rerun_count` to at least `1` when this step requests that fresh rerun for the current review cycle.
+7. Do not increment `review_rerun_count` in this step. The later classifier pass must decide whether the one allowed rerun has now been consumed.
 8. Add a concise `classification_notes` entry naming the blocker and whether it was treated as finding-only or global.
 9. Recompute counts and booleans so `needs_minor_fix_path` reflects only remaining unresolved minor findings, `needs_task_up_path` reflects only actual unresolved task-required work or incomplete-review blockers, and the blocked finding stays visible as unresolved review state instead of disappearing into a non-actionable bucket.
 10. Keep `review_created_tasks_added_or_updated` false in this step.

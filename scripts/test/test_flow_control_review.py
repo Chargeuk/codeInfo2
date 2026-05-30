@@ -98,6 +98,22 @@ class FlowControlReviewTests(unittest.TestCase):
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "task_up_path_still_needed")
 
+    def test_task_up_path_forces_durable_follow_up_after_exhausted_rerun_budget(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "needs_minor_fix_path": False,
+                "needs_task_up_path": False,
+                "needs_review_rerun_before_close": True,
+                "review_created_tasks_added_or_updated": False,
+                "review_rerun_count": 1,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_task_up_path_clear)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "review_rerun_budget_exhausted")
+
 
 if __name__ == "__main__":
     unittest.main()

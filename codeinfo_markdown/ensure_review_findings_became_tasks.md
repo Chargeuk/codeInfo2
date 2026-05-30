@@ -40,7 +40,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Do not create a numbered review-fix task solely because a finding required a small local automated test update or one or two new focused tests in the owning repository.
 - If this step creates or updates the cycle's fresh final revalidation task, it becomes the one final review task for the whole current review cycle. Record that ownership in `review-disposition-state.json` so the inline-minor final-task path does not create a second final task later.
 - Preserve `review_cycle_id` from `review-disposition-state.json`, keep its `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>` format unchanged, and make the fresh final revalidation task record that same cycle id.
-- If the disposition state says `needs_task_up_path` is false, make no plan changes in this step and report that no unresolved task-required findings remain for task-up.
+- If the disposition state says `needs_task_up_path` is false, make no plan changes in this step and report that no unresolved task-required findings remain for task-up, unless the same state also shows `needs_review_rerun_before_close: true` with `review_rerun_count >= 1`. That exhausted-rerun combination must be treated as durable follow-up work for this step even when the classifier forgot to flip `needs_task_up_path`.
 - If the disposition state is missing, unreadable, malformed, or for a different story/plan, fall back to the existing findings-artifact behavior and record that fallback in the output.
 - If state counts disagree with state arrays, trust the arrays and record the mismatch before deciding task-up work.
 - If a finding appears in both `resolved_minor_findings` and `unresolved_task_required_findings`, treat the unresolved task-required bucket as authoritative only when the state includes an explicit reclassification reason; otherwise stop and say the review disposition state must be repaired.
@@ -79,7 +79,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
    - tiny unrelated cleanup-only findings are not left as a trail of micro-tasks when they could be absorbed into a nearby substantive task or grouped into one cleanup task honestly.
-7. If the chosen source of truth communicates no unresolved task-required findings and no incomplete-review blockers, make no plan change in this task-up step.
+7. If the chosen source of truth communicates no unresolved task-required findings and no incomplete-review blockers, make no plan change in this task-up step unless the same state also shows `needs_review_rerun_before_close: true` with `review_rerun_count >= 1`; that exhausted-rerun case must become a bounded review follow-up task or blocker instead of another rerun.
 8. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of claiming the review is clean.
 9. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
 10. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.

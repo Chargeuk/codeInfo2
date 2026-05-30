@@ -107,14 +107,18 @@ class ReviewPromptContractTests(unittest.TestCase):
     def test_review_classifier_caps_reruns_before_forcing_durable_follow_up(self) -> None:
         classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
         document_minor_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
+        task_up_text = read_text("codeinfo_markdown/ensure_review_findings_became_tasks.md")
 
         self.assertIn("review_rerun_count", classify_text)
-        self.assertIn("at most one fresh rerun request", classify_text)
-        self.assertIn("do not request another rerun", classify_text)
+        self.assertIn("at most one fresh rerun", classify_text)
+        self.assertIn("do not request a second rerun", classify_text)
         self.assertIn("needs_task_up_path", classify_text)
         self.assertIn("review rerun did not converge", classify_text)
         self.assertIn("review_rerun_count", document_minor_text)
-        self.assertIn("at least `1`", document_minor_text)
+        self.assertIn("Do not increment `review_rerun_count` in this step", document_minor_text)
+        self.assertIn("needs_review_rerun_before_close: true", task_up_text)
+        self.assertIn("review_rerun_count >= 1", task_up_text)
+        self.assertIn("exhausted-rerun", task_up_text)
 
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(

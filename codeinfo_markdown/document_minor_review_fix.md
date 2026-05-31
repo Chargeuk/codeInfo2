@@ -55,10 +55,11 @@ When the result has `status: "reclassify_task_required"`:
 
 1. Move the matching finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings`.
 2. Record the reclassification reason.
-3. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true when other unresolved minor findings still remain.
-4. Keep `review_created_tasks_added_or_updated` false in this step.
-5. Set `safe_to_exit_review_loop_without_tasking` false.
-6. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+3. If the original minor-batchable entry already carried a routed fix constraint in its `reason`, preserve that constraint when writing the escalated task-required entry instead of replacing it with a generic escalation note. The later task-up step must still be able to tell that the underlying issue is actionable while the reviewer-proposed remedy is not.
+4. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true when other unresolved minor findings still remain.
+5. Keep `review_created_tasks_added_or_updated` false in this step.
+6. Set `safe_to_exit_review_loop_without_tasking` false.
+7. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
 
 When the result has `status: "out_of_scope_current_story"`:
 

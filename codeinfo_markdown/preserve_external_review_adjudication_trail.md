@@ -25,6 +25,10 @@ This step is bookkeeping only. It must not create tasks, fix code, or change the
 
 - Preserve the external-review adjudication trail already written into the findings artifact and optional saturation artifact, including rejected or non-adopted external comments when those sections exist.
 - If the findings artifact is missing an external-review adjudication section but the handoff and artifacts make the accepted-vs-rejected outcome safely inferable, append a concise `External Review Adjudication Trail` section to the findings artifact.
+- When the adjudication trail exists, preserve or repair any explicit distinction between:
+  - comments rejected because the underlying issue is out-of-scope for the story;
+  - comments rejected because they are invalid or unproven;
+  - comments whose underlying issue was adopted as an endorsed finding but whose suggested remedy was rejected as out-of-scope for the story.
 - Keep the findings artifact local-only. Do not try to force it into tracked repository history.
 - If the canonical plan already contains a review-created `Code Review Findings` block or a `Post-Implementation Code Review` closeout for the current `review_pass_id`, add or repair one concise sentence stating that the outcome came from ingested external review comments and that the detailed accepted/rejected comment trail remains in the local review artifacts for this pass.
 - Preserve local-fallback review-base context when it materially affects review confidence for the external pass.

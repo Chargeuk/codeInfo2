@@ -96,6 +96,68 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("continue task-up normally", task_up_text)
         self.assertIn("Missing or malformed `Scope Impact` metadata", task_audit_text)
 
+    def test_external_review_findings_keep_existing_top_level_outcomes(self) -> None:
+        external_text = read_text("codeinfo_markdown/external_review_findings.md")
+        saturation_text = read_text("codeinfo_markdown/external_review_findings_saturation.md")
+
+        self.assertIn("an endorsed finding", external_text)
+        self.assertIn("a partially valid but non-reopening concern", external_text)
+        self.assertIn("a rejected comment", external_text)
+        self.assertIn("Do not replace them with a new top-level taxonomy", external_text)
+        self.assertIn("endorsed, partially valid, and rejected external-comment reasoning", saturation_text)
+
+    def test_external_review_findings_split_issue_validity_from_remedy_compatibility(self) -> None:
+        external_text = read_text("codeinfo_markdown/external_review_findings.md")
+        preserve_text = read_text(
+            "codeinfo_markdown/preserve_external_review_adjudication_trail.md"
+        )
+
+        self.assertIn('follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`', external_text)
+        self.assertIn("External Issue Validity", external_text)
+        self.assertIn("External Remedy Compatibility", external_text)
+        self.assertIn("Story Scope Handling", external_text)
+        self.assertIn("endorse_but_constrain_fix", external_text)
+        self.assertIn("Fix Constraint:", external_text)
+        self.assertIn(
+            'Do not describe an endorsed finding with a rejected remedy as "not accepted as a finding."',
+            external_text,
+        )
+        self.assertIn(
+            "comments kept as endorsed findings whose suggested remedy was rejected as out-of-scope",
+            external_text,
+        )
+        self.assertNotIn("why they were not accepted as findings", external_text)
+        self.assertIn("underlying issue was adopted as an endorsed finding but whose suggested remedy was rejected as out-of-scope", preserve_text)
+
+    def test_classifier_and_follow_up_prompts_preserve_constrained_external_findings(self) -> None:
+        classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
+        minor_fix_text = read_text("codeinfo_markdown/fix_next_minor_review_finding.md")
+        task_up_text = read_text("codeinfo_markdown/ensure_review_findings_became_tasks.md")
+        document_minor_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
+
+        self.assertIn("suggested fix is outside approved story scope", classify_text)
+        self.assertIn("preserving the fix constraint in the finding's routing reason", classify_text)
+        self.assertIn("routed `reason` as the binding downstream contract", minor_fix_text)
+        self.assertIn("Do not go back to the findings artifact or external-review adjudication trail", minor_fix_text)
+        self.assertIn("attempt that alternative fix first", minor_fix_text)
+        self.assertIn("Do not use this out-of-scope path merely because the reviewer's preferred remedy is out-of-scope", minor_fix_text)
+        self.assertIn("preserve that constraint when writing the escalated task-required entry", document_minor_text)
+        self.assertIn("treat that routed `reason` as the authoritative downstream wording", task_up_text)
+        self.assertIn("external reviewer's proposed remedy is out-of-scope but the underlying issue remains current-story actionable", task_up_text)
+        self.assertIn("must not restate the out-of-scope remedy as the implementation contract", task_up_text)
+
+    def test_external_review_saturation_preserves_constraint_metadata(self) -> None:
+        saturation_text = read_text(
+            "codeinfo_markdown/external_review_findings_saturation.md"
+        )
+
+        self.assertIn("Preserve any external-review constraint metadata", saturation_text)
+        self.assertIn("`External Issue Validity`", saturation_text)
+        self.assertIn("`External Remedy Compatibility`", saturation_text)
+        self.assertIn("`Story Scope Handling`", saturation_text)
+        self.assertIn("`Fix Constraint`", saturation_text)
+        self.assertIn("carry forward an equivalent `Fix Constraint`", saturation_text)
+
     def test_only_exact_cleanup_preference_gets_the_narrowing_behavior(self) -> None:
         classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
         disposition_text = read_text("codeinfo_markdown/review_disposition.md")

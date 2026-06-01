@@ -118,7 +118,18 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 
 ### Questions
 
-None. The initial environment-variable shape, `codeinfo_openai_endpoint` config contract, harness scope, lack of first-use probing, and full-URL `/v1` contract are now fixed for this story.
+1. If a chat config names an endpoint outside the env var list, should that endpoint still appear in the chat picker?
+   - Why this is important: Without a clear rule here, a chat can boot with a valid endpoint-backed default that the user cannot see, understand, or reselect in the UI.
+   - Best Answer: Yes. If a chat config pins `codeinfo_openai_endpoint`, that active endpoint and its discovered models should appear in the chat picker even when the same endpoint is not listed in `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`. This best matches the current chat state flow, where the server tells the client which provider and model are selected, and it avoids a hidden default that looks broken or unexplained. The endpoint can still be discovered directly through its own `/v1/models` response, so the UI does not need the env var list just to render the active choice.
+   - Where this answer came from: Local repo evidence in this plan's Description and Acceptance Criteria, the current chat bootstrap flow in [client/src/hooks/useChatModel.ts](/home/dan/code/codeInfo2/client/src/hooks/useChatModel.ts:153), and the OpenAI Models API docs showing that `/v1/models` can list models directly from an endpoint (https://platform.openai.com/docs/api-reference/models/list).
+2. When we save a conversation using an external endpoint, should the endpoint be stored separately from the model?
+   - Why this is important: This decides whether resumed conversations can safely tell apart the same model id coming from two different endpoints without hiding routing data inside a single string.
+   - Best Answer: Yes. Keep the raw model id separate and store the derived endpoint identity separately. That is the closest fit to the current repository shape, which already stores `provider` and `model` as separate conversation fields and restores them separately when a conversation is reopened. A separate endpoint field is easier to inspect, query, migrate, and reason about later than packing endpoint identity into the model value itself.
+   - Where this answer came from: Local repo evidence in [server/src/routes/conversations.ts](/home/dan/code/codeInfo2/server/src/routes/conversations.ts:60), [client/src/pages/ChatPage.tsx](/home/dan/code/codeInfo2/client/src/pages/ChatPage.tsx:817), and the current story Acceptance Criteria about avoiding collisions between the same model id on different endpoints.
+3. How should external models be labeled in chat: `host / model`, full URL, or just the model name?
+   - Why this is important: The label format decides whether users can quickly tell two identical model ids apart without cluttering the picker with long technical strings.
+   - Best Answer: Use `host / model`. That keeps the label short like the current UI while still showing which endpoint the model came from. A full URL is too noisy for the picker, and the raw model name alone is not enough when two endpoints expose the same id. This also matches the reality that OpenAI-compatible `/v1/models` responses often give basic model identifiers, so CodeInfo2 needs to add the source context itself.
+   - Where this answer came from: Local repo evidence in the provider-label and model-mapping code in [client/src/hooks/useChatModel.ts](/home/dan/code/codeInfo2/client/src/hooks/useChatModel.ts:17) and [server/src/routes/chatModels.ts](/home/dan/code/codeInfo2/server/src/routes/chatModels.ts:106), plus the OpenAI Models API docs showing basic model-list fields (https://platform.openai.com/docs/api-reference/models/list).
 
 ## Implementation Ideas
 

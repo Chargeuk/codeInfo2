@@ -33,6 +33,8 @@ This story therefore has three concrete user outcomes:
 
 This story should keep the first implementation deliberately lightweight. If an endpoint is configured and its `/v1/models` list returns model ids, that is enough to surface those models in the relevant harness picker. If a chat or agent config pins `codeinfo_openai_endpoint` plus `model`, that is enough for CodeInfo2 to translate the selection into the correct underlying Codex or Copilot runtime settings. The user does not want a first-use capability probe, compatibility certification flow, extra validation layer beyond parsing and harness-wire-compatibility checks, or speculative future syntax in this initial version. If some models later prove unreliable for tool use or agent execution, that can be addressed in a later story after there is evidence that the additional complexity is needed.
 
+This story must also preserve and extend the repository's current fallback philosophy rather than replacing it. For a new chat conversation or a new agent run, when `codeinfo_openai_endpoint` is configured for Codex or Copilot, CodeInfo2 should try that external endpoint first. If the endpoint is healthy but the requested model is not available there, CodeInfo2 should repair within that same provider path first by choosing another selectable model on that same endpoint. If the endpoint itself is unavailable, CodeInfo2 should fall back to the same provider's normal built-in or native model path before considering the existing cross-provider fallback order. Only after the same-provider external and native paths both fail should the normal provider-order fallback choose another provider. At the same time, existing pinned or resumed execution identities must keep the current fail-in-place contract: they must not silently drift to a different endpoint or a different provider on later turns just because the previously pinned external endpoint later became unavailable.
+
 Because this work touches both harnesses, the story must begin by upgrading the Codex and Copilot libraries to the latest published versions available at implementation time before the new endpoint behavior is built on top. Planning-time research found the currently published targets to be `@openai/codex` and `@openai/codex-sdk` `0.136.0`, and `@github/copilot-sdk` `1.0.0-beta.9`, but the implementation should re-check those versions at the start of the work rather than assuming the planning-time values are still latest.
 
 ### Acceptance Criteria
@@ -66,13 +68,23 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - When `codeinfo_openai_endpoint` is present, harness-wire compatibility is validated during runtime-config resolution:
   - Codex requires `responses`.
   - Copilot requires `completions`, `responses`, or both.
+- For a new chat conversation or a new agent run, when `codeinfo_openai_endpoint` is present, CodeInfo2 first attempts execution through the requested provider on that configured endpoint.
+- If the configured endpoint is reachable but the requested model is unavailable there, CodeInfo2 keeps the same requested provider and repairs to another selectable model on that same endpoint before considering broader fallback.
+- If the configured endpoint is unavailable, CodeInfo2 falls back to the same requested provider's normal built-in or native model path before considering cross-provider fallback.
+- If the requested provider still cannot execute after same-provider endpoint fallback and native fallback have both been evaluated, the existing cross-provider fallback order continues to apply.
+- Fallback and repair warnings clearly distinguish:
+  - endpoint unavailable with same-provider native fallback;
+  - requested model unavailable on endpoint with same-endpoint model repair;
+  - requested provider unavailable with cross-provider fallback.
 - The initial implementation does not add a new first-class LM Studio harness or any other new top-level provider choice for these external endpoints.
 - The initial implementation does not perform a separate first-use capability probe beyond configured-endpoint parsing and `/v1/models` discovery.
 - External model selections are persisted using a composite identity that includes both the discovered model id and a derived stable endpoint identity so the same model id from different endpoints cannot collide.
 - The UI derives a human-usable display label for each external model from the configured endpoint URL rather than from a user-supplied endpoint nickname.
 - Existing built-in Codex and Copilot model discovery and selection behavior remains coherent for users who do not configure any external endpoints.
 - Existing conversation persistence, resumed-conversation provider pinning, and agent-flag behavior remain coherent when an external model has been selected through either harness.
-- Automated tests cover endpoint parsing, `codeinfo_openai_endpoint` parsing, `/v1/models` discovery, harness-specific model filtering, internal harness translation from CodeInfo-owned config fields, persisted composite model identity behavior, and the upgraded Codex and Copilot dependency seams touched by the story.
+- Existing resumed conversations and saved execution identities do not silently switch to a different endpoint, model source, or provider when their pinned external endpoint later becomes unavailable.
+- New chat conversations and new agent runs can use the endpoint-aware fallback path, but later turns on a pinned saved execution continue to fail in place when the pinned provider path or pinned external endpoint is unavailable.
+- Automated tests cover endpoint parsing, `codeinfo_openai_endpoint` parsing, `/v1/models` discovery, harness-specific model filtering, internal harness translation from CodeInfo-owned config fields, endpoint-unavailable same-provider fallback, endpoint-model-missing same-endpoint repair, cross-provider fallback after same-provider failure, fail-in-place behavior for pinned executions, persisted composite model identity behavior, and the upgraded Codex and Copilot dependency seams touched by the story.
 
 ### Out Of Scope
 
@@ -83,6 +95,11 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - Using raw Codex `model_provider` and `[model_providers.*]` settings as the user-authored configuration contract for this feature.
 - Adding any second or more structured TOML syntax for external endpoint selection beyond the single `codeinfo_openai_endpoint` string field.
 - Adding speculative alternative config syntaxes, abstractions, or future-facing config layers beyond what is needed to support the single `codeinfo_openai_endpoint` string contract now.
+- Silently changing a resumed or pinned conversation from one external endpoint to another external endpoint.
+- Silently changing a resumed or pinned conversation from its pinned provider path to a different provider because an external endpoint later became unavailable.
+- Adding endpoint-to-endpoint fallback chains across multiple configured external OpenAI-compatible endpoints in this story.
+- Adding user-configurable fallback policy matrices or other speculative fallback configuration beyond extending the existing provider fallback behavior to account for external endpoints.
+- Relaxing the current Codex or Copilot active/auth readiness rules so those providers can execute against `codeinfo_openai_endpoint` while their normal built-in login state is still missing.
 - Performing additional capability probes, preflight tool-use certification, or first-use runtime compatibility checks beyond endpoint parsing and `/v1/models` discovery.
 - Building a generic endpoint-management UI for editing external endpoint configuration in the browser.
 - Replacing the current built-in Codex or Copilot harnesses with a new generic "OpenAI-compatible" harness.
@@ -111,11 +128,20 @@ None. The initial environment-variable shape, `codeinfo_openai_endpoint` config 
 - Keep the GUI selection surface scoped to chat so the user can choose external endpoint models from the Codex and Copilot chat model picker without also expanding the Agents page model-selection UI in this story.
 - Treat external model discovery as a catalog-building step: parse configured endpoints, call `/v1/models`, normalize the returned model ids, and then filter the combined catalog per harness.
 - Treat `codeinfo_openai_endpoint` as a CodeInfo-owned metadata field that is interpreted and then translated internally into the correct Codex or Copilot runtime settings rather than being forwarded directly as a raw user-authored harness config block.
+- Model external endpoint execution as part of the requested provider path rather than as a new top-level provider id.
+- Extend the current fallback flow so the order becomes:
+  - requested provider on the configured external endpoint;
+  - same provider with same-endpoint model repair when the endpoint is healthy but the requested model is missing;
+  - same provider on its normal built-in or native path when the endpoint is unavailable;
+  - existing cross-provider fallback only after same-provider options fail.
 - For persisted selections, store a composite external-model key such as `external:<derived-endpoint-id>:<model-id>` instead of persisting only the raw model id.
 - Derive user-facing external endpoint labels from the URL, such as host-oriented or origin-oriented labels, without requiring user-configured names in the environment variable.
 - Revisit the Copilot session-creation seam so it can pass a custom OpenAI-compatible provider configuration whenever the selected model belongs to an external endpoint or a runtime config pins `codeinfo_openai_endpoint`.
 - Revisit the Codex runtime-config seam so it can translate `codeinfo_openai_endpoint` into the appropriate internal Codex provider configuration for `responses`-capable endpoints.
+- Reuse the existing fallback warning and result surfaces so endpoint-aware fallback remains visible and explainable in chat and agent responses.
+- Keep pinned execution identity behavior strict so later turns fail in place instead of silently re-routing to a different endpoint or provider.
 - Keep malformed-endpoint handling explicit and non-silent so one bad entry does not make the whole external catalog ambiguous.
+- Known later enhancement, intentionally deferred from this story: revisit provider readiness so endpoint-backed Codex or Copilot execution can remain usable even when the provider's usual built-in login state is inactive, without redefining the broader meaning of provider availability in the same change.
 - Add focused proof for:
   - environment-variable parsing and validation;
   - `codeinfo_openai_endpoint` parsing and validation;
@@ -123,5 +149,9 @@ None. The initial environment-variable shape, `codeinfo_openai_endpoint` config 
   - Codex-only `responses` filtering;
   - Copilot `completions` and dual-capability filtering;
   - direct agent and chat config translation into harness-specific runtime settings;
+  - endpoint-unavailable same-provider native fallback;
+  - endpoint-model-missing same-endpoint repair;
+  - cross-provider fallback only after same-provider endpoint and native paths fail;
+  - fail-in-place behavior for pinned or resumed executions that already point at an external endpoint;
   - composite persisted external model identity;
   - compatibility of the upgraded Codex and Copilot library seams with the existing CodeInfo2 harness contracts.

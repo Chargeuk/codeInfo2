@@ -815,7 +815,7 @@ Extend the existing provider fallback logic so new runs can repair or fall back 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the endpoint-aware fallback matrix compiles cleanly across chat, agents, commands, and flows.
+1. [x] Run `npm run build:summary:server` to confirm the endpoint-aware fallback matrix compiles cleanly across chat, agents, commands, and flows.
 2. [x] Run `npm run test:summary:server:unit` to prove fresh-run repair/fallback ordering, pinned fail-in-place behavior, and warning propagation through the server unit/integration wrapper.
 3. [x] Run `npm run lint` for the final fallback/fail-in-place surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [x] Run `npm run format:check` for the final fallback/fail-in-place surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
@@ -823,6 +823,7 @@ Extend the existing provider fallback logic so new runs can repair or fall back 
 #### Implementation notes
 
 - Starts empty.
+- Build: `npm run build:summary:server` passed; log: `logs/test-summaries/build-server-latest.log`.
 - Extended the shared runtime-selection matrix so endpoint-aware fresh runs now repair on the same endpoint, fall back to the same provider when the endpoint is unavailable, and fail in place for pinned/resumed endpoint-backed runs that later lose their saved endpoint.
 - Updated chat warnings so the route surface clearly distinguishes same-endpoint repair, same-provider native fallback, and cross-provider fallback, and tightened explicit LM Studio handling so explicit requests do not drift cross-provider.
 - Wired direct-agent, command-agent, MCP-agent, and flow execution paths to preserve `endpointId` through resumed and pinned execution state, then validated the combined Task 6 server surface with the targeted wrapper across config, chat, agent, MCP, and flow tests.

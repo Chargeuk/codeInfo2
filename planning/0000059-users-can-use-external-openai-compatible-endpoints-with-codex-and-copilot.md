@@ -523,7 +523,7 @@ Create the shared parser and normalization contract for `CODEINFO_EXTERNAL_OPENA
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the new parser and runtime-config metadata surfaces compile cleanly.
+1. [x] Run `npm run build:summary:server` to confirm the new parser and runtime-config metadata surfaces compile cleanly.
 2. [x] Run `npm run test:summary:server:unit` to prove env parsing, runtime-config normalization, duplicate warnings, and provider-compatibility validation through the server unit/integration wrapper.
 3. [x] Run `npm run lint` for the final parser/metadata surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [x] Run `npm run format:check` for the final parser/metadata surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
@@ -532,6 +532,7 @@ Create the shared parser and normalization contract for `CODEINFO_EXTERNAL_OPENA
 
 - Added the shared OpenAI-compatible endpoint parser and wired it into startup env loading, runtime metadata extraction, and agent runtime execution so the new `codeinfo_openai_endpoint` contract stays canonical.
 - Added parser, env, runtime-config, and agent-config unit coverage for accepted paths, malformed input, duplicate handling, and provider-specific compatibility validation; the agent metadata reader now wraps endpoint parse errors in the repo’s standard runtime-config error shape.
+- Build: `npm run build:summary:server` passed; log: logs/test-summaries/build-server-latest.log.
 
 ---
 

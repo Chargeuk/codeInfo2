@@ -426,16 +426,16 @@ Upgrade the Codex and Copilot packages before any external-endpoint behavior lan
 
 #### Subtasks
 
-1. [ ] Read the full story sections for Story `0000059`, then inspect `server/package.json`, `package-lock.json`, and `server/src/config/codexSdkUpgrade.ts`. Purpose: confirm the current package pins and exact-version guard before changing any dependency versions. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`.
-2. [ ] Inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/config/codexConfig.ts`, `server/src/test/unit/copilot-compose-contract.test.ts`, and `server/src/test/integration/mcp-codex-wrapper.test.ts`. Purpose: confirm the existing Codex and Copilot runtime seams that the dependency upgrade must preserve. Proof owners: `server/src/test/unit/copilot-compose-contract.test.ts`, `server/src/test/integration/mcp-codex-wrapper.test.ts`.
-3. [ ] Re-check the current latest published compatible versions of `@openai/codex`, `@openai/codex-sdk`, and `@github/copilot-sdk` immediately before editing the repo. Purpose: satisfy the story’s upgrade-first requirement without relying on planning-time version assumptions.
-4. [ ] Update `server/package.json` and `package-lock.json` so the installed `@openai/codex`, `@openai/codex-sdk`, and `@github/copilot-sdk` versions match the re-checked published versions chosen for this story. Purpose: move the repo itself onto the approved baseline before any endpoint work starts. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`, `server/src/test/unit/copilot-compose-contract.test.ts`.
-5. [ ] Update `server/src/config/codexSdkUpgrade.ts` so the repo-owned exact-version guard matches the installed Codex SDK version after the dependency upgrade. Purpose: keep startup guard behavior aligned with the actual installed package version. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/codexSdkUpgrade.test.ts`. Description: prove the installed Codex package version and the repo-owned exact-version guard stay aligned after the upgrade. Implementation files: `server/package.json`, `package-lock.json`, and `server/src/config/codexSdkUpgrade.ts`. Purpose: prevent a startup-guard drift where the repo installs one Codex SDK version but still enforces another.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/copilot-compose-contract.test.ts`. Description: prove the upgraded Copilot SDK does not silently change the repo’s existing runtime/compose contract. Implementation files: `server/package.json`, `package-lock.json`, and any affected Copilot runtime seam such as `server/src/chat/interfaces/ChatInterfaceCopilot.ts`. Purpose: keep the baseline Copilot runtime reachable through the repo’s standard startup path after the dependency upgrade.
-8. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-codex-wrapper.test.ts`. Description: prove the upgraded Codex packages still satisfy the existing wrapper/runtime integration boundary when that boundary changes. Implementation files: `server/package.json`, `package-lock.json`, and any affected Codex runtime seam such as `server/src/config/codexConfig.ts`. Purpose: catch post-upgrade breakage that would only appear once the Codex wrapper consumes the runtime config.
-9. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-10. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+1. [x] Read the full story sections for Story `0000059`, then inspect `server/package.json`, `package-lock.json`, and `server/src/config/codexSdkUpgrade.ts`. Purpose: confirm the current package pins and exact-version guard before changing any dependency versions. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`.
+2. [x] Inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/config/codexConfig.ts`, `server/src/test/unit/copilot-compose-contract.test.ts`, and `server/src/test/integration/mcp-codex-wrapper.test.ts`. Purpose: confirm the existing Codex and Copilot runtime seams that the dependency upgrade must preserve. Proof owners: `server/src/test/unit/copilot-compose-contract.test.ts`, `server/src/test/integration/mcp-codex-wrapper.test.ts`.
+3. [x] Re-check the current latest published compatible versions of `@openai/codex`, `@openai/codex-sdk`, and `@github/copilot-sdk` immediately before editing the repo. Purpose: satisfy the story’s upgrade-first requirement without relying on planning-time version assumptions.
+4. [x] Update `server/package.json` and `package-lock.json` so the installed `@openai/codex`, `@openai/codex-sdk`, and `@github/copilot-sdk` versions match the re-checked published versions chosen for this story. Purpose: move the repo itself onto the approved baseline before any endpoint work starts. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`, `server/src/test/unit/copilot-compose-contract.test.ts`.
+5. [x] Update `server/src/config/codexSdkUpgrade.ts` so the repo-owned exact-version guard matches the installed Codex SDK version after the dependency upgrade. Purpose: keep startup guard behavior aligned with the actual installed package version. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`.
+6. [x] Test type: server unit. Location: `server/src/test/unit/codexSdkUpgrade.test.ts`. Description: prove the installed Codex package version and the repo-owned exact-version guard stay aligned after the upgrade. Implementation files: `server/package.json`, `package-lock.json`, and `server/src/config/codexSdkUpgrade.ts`. Purpose: prevent a startup-guard drift where the repo installs one Codex SDK version but still enforces another.
+7. [x] Test type: server unit. Location: `server/src/test/unit/copilot-compose-contract.test.ts`. Description: prove the upgraded Copilot SDK does not silently change the repo’s existing runtime/compose contract. Implementation files: `server/package.json`, `package-lock.json`, and any affected Copilot runtime seam such as `server/src/chat/interfaces/ChatInterfaceCopilot.ts`. Purpose: keep the baseline Copilot runtime reachable through the repo’s standard startup path after the dependency upgrade.
+8. [x] Test type: server integration. Location: `server/src/test/integration/mcp-codex-wrapper.test.ts`. Description: prove the upgraded Codex packages still satisfy the existing wrapper/runtime integration boundary when that boundary changes. Implementation files: `server/package.json`, `package-lock.json`, and any affected Codex runtime seam such as `server/src/config/codexConfig.ts`. Purpose: catch post-upgrade breakage that would only appear once the Codex wrapper consumes the runtime config.
+9. [x] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+10. [x] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Testing
 
@@ -446,7 +446,12 @@ Upgrade the Codex and Copilot packages before any external-endpoint behavior lan
 
 #### Implementation notes
 
-- Starts empty.
+- Read the task scope and confirmed the existing pins/guard before editing anything.
+- Rechecked npm registry versions at implementation time and found `@openai/codex`/`@openai/codex-sdk` `0.136.0` and `@github/copilot-sdk` `1.0.0-beta.12`.
+- Updated `server/package.json`, the root lockfile, and the Codex SDK exact-version guard to the rechecked versions.
+- Verified the targeted server unit/integration proof homes still pass after the upgrade bump.
+- Lint passed cleanly after the dependency bump.
+- Format check passed cleanly after the dependency bump.
 
 ---
 

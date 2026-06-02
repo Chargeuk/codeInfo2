@@ -138,6 +138,20 @@ const toWebSocketUrl = (value: string) => {
   return value;
 };
 
+const omitCodexRuntimeModelForConfigDefaults = (
+  runtimeConfig: CodexOptions['config'],
+): CodexOptions['config'] => {
+  if (!runtimeConfig || typeof runtimeConfig !== 'object') {
+    return runtimeConfig;
+  }
+
+  const { model: _unusedModel, ...rest } = runtimeConfig as Record<
+    string,
+    unknown
+  >;
+  return rest as CodexOptions['config'];
+};
+
 function resolvePinnedOpenAiCompatEndpoint(params: {
   provider: ChatDefaultProvider;
   codexHome?: string;
@@ -1246,6 +1260,9 @@ export function createChatRouter({
                 null)
               : null) ??
             null;
+          const codexRuntimeConfig = repositoryBackedCodexRun
+            ? omitCodexRuntimeModelForConfigDefaults(chatRuntimeConfig)
+            : chatRuntimeConfig;
 
           await chat.run(
             message,
@@ -1256,7 +1273,7 @@ export function createChatRouter({
                 ? { codexHome: repositoryBackedCodexHome }
                 : {}),
               useConfigDefaults: repositoryBackedCodexRun,
-              runtimeConfig: chatRuntimeConfig,
+              runtimeConfig: codexRuntimeConfig,
               codexFlags: effectiveCodexFlags,
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,

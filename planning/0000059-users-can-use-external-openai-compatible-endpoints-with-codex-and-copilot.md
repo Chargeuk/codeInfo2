@@ -734,7 +734,7 @@ Translate the new CodeInfo-owned endpoint metadata into provider-native Codex an
 
 1. [x] Run `npm run build:summary:server` to confirm the runtime translation and persistence changes compile cleanly.
 2. [x] Run `npm run build:summary:client` to confirm the endpoint-aware request/restore contract compiles cleanly on the client.
-3. [ ] Run `npm run test:summary:server:unit` to prove provider-native translation, persistence, and backward-compatible resume behavior.
+3. [x] Run `npm run test:summary:server:unit` to prove provider-native translation, persistence, and backward-compatible resume behavior.
 4. [ ] Run `npm run test:summary:client` to prove endpoint-aware chat request and resume payload behavior.
 5. [x] Run `npm run lint` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 6. [x] Run `npm run format:check` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
@@ -751,7 +751,8 @@ When the supported main compose stack is available, verify one resumed conversat
 - Prettier drift in `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx` and `client/src/test/chatPage.models.test.tsx` was normalized so the task-level format check could pass cleanly.
 - Task 5 endpoint-aware request, resume, persistence, and runtime translation subtasks are now all checked off after the client/server proof runs passed; the broader task-level Testing section remains untouched for the later automated-proof pass.
 - Implementation-only audit normalized Testing items 5 and 6 to complete from the existing `npm run lint` and `npm run format:check` evidence recorded in this task's subtasks and notes; wrapper-backed build and summary test proof still remain for the later automated-proof pass.
-- **BLOCKER** Automated-proof audit still lacks the exact full-wrapper evidence for Testing items 3 and 4. Evidence checked: `test-results/server-unit-tests-2026-06-02T11-35-42-965Z.log` shows a targeted `node --test` subset for the Task 5 server files, and `test-results/client-tests-2026-06-02T11-25-21-935Z.log` shows a targeted Jest run for `chatSendPayload.test.tsx` plus `chatPage.resumeIdentity.test.tsx`, not the full `npm run test:summary:server:unit` or `npm run test:summary:client` wrappers named by this checklist. Task 5 cannot close honestly until those full wrapper-backed proof steps run or the checklist is explicitly narrowed by planner repair.
+- Repository-backed Codex contradictory-follow-up proof failed because config-default runs were still forwarding `runtimeConfig.model` even though the repository-backed chat home had already materialized the selected model into `chat/config.toml`; stripping that duplicate runtime override restored the saved-thread rollout-recording path without affecting endpoint-provider metadata.
+- **RESOLVED ISSUE** `npm run test:summary:server:unit` now passes cleanly (`2177` passed, `0` failed) in `test-results/server-unit-tests-2026-06-02T13-39-53-441Z.log` after the repository-backed Codex runtime-config fix. Testing item 4 (`npm run test:summary:client`) remains unchecked, but it is ordinary remaining proof work rather than a live blocker.
 
 ---
 

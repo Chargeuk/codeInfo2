@@ -17,7 +17,7 @@ The configuration contract for this first version is intentionally simple. One e
 
 - `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS=http://192.168.1.3/v1|responses,completions;http://localhost:1234/v1|responses,completions`
 
-Each entry is assumed to be an OpenAI-compatible endpoint. The user does not want to configure endpoint nicknames such as `lmstudio` or `vllm`, and the product should not introduce a new first-class LM Studio harness as part of this story. Instead, the system should derive its own internal endpoint identity from the configured URL and use `/v1/models` to discover the models each endpoint exposes. For chat display, external models should be labeled in a short human-usable form based on the endpoint host plus the model id, such as `localhost / qwen2.5-coder-14b`, rather than showing the full URL.
+Each entry is assumed to be an OpenAI-compatible endpoint. The user does not want to configure endpoint nicknames such as `lmstudio` or `vllm`, and the product should not introduce a new first-class LM Studio harness as part of this story. Instead, the system should derive its own internal endpoint identity from the normalized full configured URL and use `/v1/models` to discover the models each endpoint exposes. Two endpoints that share a host but differ by path must therefore remain distinct endpoints internally. For chat display, external models should be labeled in a short human-usable form based on the endpoint host plus the model id, such as `localhost / qwen2.5-coder-14b`, rather than showing the full URL. If two visible choices would otherwise produce the same `host / model` label, the UI should append a short path hint only for those colliding labels.
 
 The user also wants a very simple repository-owned runtime-config contract for direct selection in `config.toml` files. Rather than asking users to author raw Codex `model_provider` and `[model_providers.*]` tables, CodeInfo2 should accept one new app-owned string field:
 
@@ -31,7 +31,7 @@ This story therefore has three concrete user outcomes:
 - Users can configure the default chat model for Codex or Copilot to use a local or remote OpenAI-compatible endpoint by setting `codeinfo_openai_endpoint` plus `model` in `codex/chat/config.toml` or `copilot/chat/config.toml`.
 - Users can configure an agent to use a Codex or Copilot model from a local or remote OpenAI-compatible endpoint by setting `codeinfo_provider`, `codeinfo_openai_endpoint`, and `model` in `codeinfo_agents/<agent>/config.toml`.
 
-This story should keep the first implementation deliberately lightweight. If an endpoint is configured and its `/v1/models` list returns model ids, that is enough to surface those models in the relevant harness picker. If a chat or agent config pins `codeinfo_openai_endpoint` plus `model`, that is enough for CodeInfo2 to translate the selection into the correct underlying Codex or Copilot runtime settings. When conversations are saved, the raw model id should remain distinct from the derived endpoint identity so resumed conversations can tell apart the same model id coming from different endpoints without hiding endpoint routing inside the model string itself. The user does not want a first-use capability probe, compatibility certification flow, extra validation layer beyond parsing and harness-wire-compatibility checks, or speculative future syntax in this initial version. If some models later prove unreliable for tool use or agent execution, that can be addressed in a later story after there is evidence that the additional complexity is needed.
+This story should keep the first implementation deliberately lightweight. If an endpoint is configured and its `/v1/models` list returns model ids, that is enough to surface those models in the relevant harness picker. If a chat or agent config pins `codeinfo_openai_endpoint` plus `model`, that is enough for CodeInfo2 to translate the selection into the correct underlying Codex or Copilot runtime settings. When conversations are saved, the raw model id should remain distinct from the derived endpoint identity so resumed conversations can tell apart the same model id coming from different endpoints without hiding endpoint routing inside the model string itself. Older saved conversations that do not carry endpoint identity should continue to open using the current provider-and-model behavior, with the new endpoint identity treated as optional and only used when present. The user does not want a first-use capability probe, compatibility certification flow, extra validation layer beyond parsing and harness-wire-compatibility checks, or speculative future syntax in this initial version. If some models later prove unreliable for tool use or agent execution, that can be addressed in a later story after there is evidence that the additional complexity is needed.
 
 This story must also preserve and extend the repository's current fallback philosophy rather than replacing it. For a new chat conversation or a new agent run, when `codeinfo_openai_endpoint` is configured for Codex or Copilot, CodeInfo2 should try that external endpoint first. If the endpoint is healthy but the requested model is not available there, CodeInfo2 should repair within that same provider path first by choosing another selectable model on that same endpoint. If the endpoint itself is unavailable, CodeInfo2 should fall back to the same provider's normal built-in or native model path before considering the existing cross-provider fallback order. Only after the same-provider external and native paths both fail should the normal provider-order fallback choose another provider. At the same time, existing pinned or resumed execution identities must keep the current fail-in-place contract: they must not silently drift to a different endpoint or a different provider on later turns just because the previously pinned external endpoint later became unavailable.
 
@@ -51,6 +51,7 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - The server parses `codeinfo_openai_endpoint` deterministically and exposes validation errors clearly when the value is malformed.
 - The system assumes every configured entry is an OpenAI-compatible endpoint and does not require user-supplied endpoint names such as `lmstudio` or `vllm`.
 - The user-authored config contract does not require or expose raw Codex `model_provider` or `[model_providers.*]` configuration tables.
+- External endpoint identity is derived from the normalized full configured base URL rather than from the host alone.
 - The server discovers external models by calling each configured endpoint's `/v1/models` API.
 - The chat model picker includes discovered external models when they are compatible with the currently selected harness.
 - The chat model picker requirement applies only to Codex and Copilot chat.
@@ -80,7 +81,9 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - The initial implementation does not add a new first-class LM Studio harness or any other new top-level provider choice for these external endpoints.
 - The initial implementation does not perform a separate first-use capability probe beyond configured-endpoint parsing and `/v1/models` discovery.
 - External model selections are persisted using separate values for the raw model id and the derived stable endpoint identity so the same model id from different endpoints cannot collide.
+- Older saved conversations that do not have external endpoint identity continue to open normally with the current provider-and-model behavior.
 - The UI derives a human-usable display label for each external model using `host / model` rather than the full endpoint URL or the model name alone.
+- If two visible external model choices would otherwise share the same `host / model` label, the UI appends a short path hint to distinguish only those colliding labels.
 - Existing built-in Codex and Copilot model discovery and selection behavior remains coherent for users who do not configure any external endpoints.
 - Existing conversation persistence, resumed-conversation provider pinning, and agent-flag behavior remain coherent when an external model has been selected through either harness.
 - Existing resumed conversations and saved execution identities do not silently switch to a different endpoint, model source, or provider when their pinned external endpoint later becomes unavailable.
@@ -116,22 +119,13 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - If later manual proof uses live external endpoints, use explicit `/v1` base URLs in the environment and record which harness surface was exercised for each retained artifact.
 - If later manual proof covers direct runtime-config selection, include at least one proof case where a chat or agent config uses `codeinfo_openai_endpoint` without the same endpoint appearing in `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`.
 - If later manual proof covers chat picker behavior, include at least one proof case where a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` still appears in the picker with a `host / model` label.
+- If later manual proof covers same-host endpoints, include at least one proof case where two different full base URLs on the same host remain distinct internally and only gain a short path hint when their `host / model` labels would otherwise collide.
+- If later manual proof covers conversation resume behavior, include at least one proof case showing that an older saved chat without endpoint identity still opens normally.
 - If a later manual proof step reaches an auth-dependent Codex or Copilot surface that cannot be restored without human-controlled two-factor authentication, follow the repository's documented skip policy for that affected surface only.
 
 ### Questions
 
-1. If two endpoints share a host but use different paths, should we treat them as different endpoints?
-   - Why this is important: Some OpenAI-compatible setups use the same host with different path prefixes, so treating only the host as the identity could merge two different endpoints by mistake.
-   - Best Answer: Yes. Treat endpoints as different when their normalized full base URLs differ, even if the host is the same. This matches the repository's existing pattern of using the full URL or full path for identity and only shortening to host or origin for display or logs. It also matches current Copilot and Codex docs, which treat the configured base URL as a full API endpoint, including path when appropriate.
-   - Where this answer came from: Local repo evidence in [server/src/lmstudio/clientPool.ts](/home/dan/code/codeInfo2/server/src/lmstudio/clientPool.ts:4), [server/src/routes/lmstudioUrl.ts](/home/dan/code/codeInfo2/server/src/routes/lmstudioUrl.ts:1), and the path-keying patterns summarized by `code_info`; external evidence from GitHub Copilot BYOK docs (https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/byok) and OpenAI Codex config docs (https://developers.openai.com/codex/config-reference and https://developers.openai.com/codex/config-advanced).
-2. If two labels would both read `host / model`, should chat add a short path to tell them apart?
-   - Why this is important: Without a collision rule, two different endpoints could look identical in the picker even though they route to different places.
-   - Best Answer: Yes. Use `host / model` by default, but append a short path hint only when two visible choices would otherwise collide. That keeps the common case simple while still making same-host endpoints understandable. It also matches the repo's general pattern of keeping a short default label and adding extra source context only when it helps disambiguate.
-   - Where this answer came from: Local repo evidence in [client/src/pages/AgentsPage.tsx](/home/dan/code/codeInfo2/client/src/pages/AgentsPage.tsx:60), the provider and model label patterns summarized by `code_info`, and the official endpoint examples in GitHub Copilot BYOK docs (https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/byok).
-3. Should older saved chats without endpoint info still open normally?
-   - Why this is important: Existing conversations should not break just because the story adds a new endpoint identity field for newer saved chats.
-   - Best Answer: Yes. Older saved chats should continue to open with the current provider-and-model behavior, while the new endpoint identity stays optional and is only used when present. This matches the repository's existing backward-compatibility pattern for schema growth: add a default and also tolerate missing values when reading older documents.
-   - Where this answer came from: Local repo evidence in [server/src/mongo/conversation.ts](/home/dan/code/codeInfo2/server/src/mongo/conversation.ts:45), [server/src/mongo/repo.ts](/home/dan/code/codeInfo2/server/src/mongo/repo.ts:55), [client/src/hooks/useConversations.ts](/home/dan/code/codeInfo2/client/src/hooks/useConversations.ts:144), and the backward-compatibility summary from `code_info`; external evidence from Mongoose defaults docs via Context7 (https://mongoosejs.com/docs/defaults.html) and DeepWiki on `Automattic/mongoose`.
+None.
 
 ## Decisions
 
@@ -153,6 +147,24 @@ Because this work touches both harnesses, the story must begin by upgrading the 
    - What the answer is: Use `host / model`.
    - Where the answer came from: The user's answer, the current provider and model label handling in [client/src/hooks/useChatModel.ts](/home/dan/code/codeInfo2/client/src/hooks/useChatModel.ts:17) and [server/src/routes/chatModels.ts](/home/dan/code/codeInfo2/server/src/routes/chatModels.ts:106), and the OpenAI-compatible model-list pattern where source context must often be added by the client.
    - Why it is the best answer: It is short, readable, and gives enough source context to distinguish duplicate model ids without exposing a noisy full URL.
+4. Full endpoint identity for same-host URLs
+   - The question being addressed: If two endpoints share a host but use different paths, should we treat them as different endpoints?
+   - Why the question matters: Same-host deployments can still be different endpoints, so host-only identity could merge distinct routes by mistake.
+   - What the answer is: Yes. Treat endpoints as different when their normalized full base URLs differ, even if the host is the same.
+   - Where the answer came from: The user's answer, local URL and path identity patterns such as [server/src/lmstudio/clientPool.ts](/home/dan/code/codeInfo2/server/src/lmstudio/clientPool.ts:4) and [server/src/routes/lmstudioUrl.ts](/home/dan/code/codeInfo2/server/src/routes/lmstudioUrl.ts:1), plus the official Copilot and Codex docs that treat `baseUrl` as a full endpoint configuration.
+   - Why it is the best answer: It matches the repo's established identity rules, avoids collapsing distinct routes, and still leaves room for shorter display labels in the UI.
+5. Collision handling for `host / model` labels
+   - The question being addressed: If two labels would both read `host / model`, should chat add a short path to tell them apart?
+   - Why the question matters: Two distinct endpoint choices should not look identical in the picker.
+   - What the answer is: Yes. Use `host / model` by default, but append a short path hint only when two visible choices would otherwise collide.
+   - Where the answer came from: The user's answer, local display-label patterns such as [client/src/pages/AgentsPage.tsx](/home/dan/code/codeInfo2/client/src/pages/AgentsPage.tsx:60), and the story's existing preference for short labels in the common case.
+   - Why it is the best answer: It keeps the picker simple most of the time while still making edge-case collisions understandable.
+6. Backward compatibility for older saved chats
+   - The question being addressed: Should older saved chats without endpoint info still open normally?
+   - Why the question matters: Existing persisted chats should keep working after the story adds endpoint identity for newer chats.
+   - What the answer is: Yes. Older saved chats continue to open with the current provider-and-model behavior, and the new endpoint identity remains optional and is used only when present.
+   - Where the answer came from: The user's answer, current backward-compatibility patterns in [server/src/mongo/conversation.ts](/home/dan/code/codeInfo2/server/src/mongo/conversation.ts:45), [server/src/mongo/repo.ts](/home/dan/code/codeInfo2/server/src/mongo/repo.ts:55), and [client/src/hooks/useConversations.ts](/home/dan/code/codeInfo2/client/src/hooks/useConversations.ts:144), plus Mongoose defaults guidance.
+   - Why it is the best answer: It protects existing data, fits the repo's current schema-growth pattern, and avoids forcing migration work into this story.
 
 ## Implementation Ideas
 
@@ -163,6 +175,7 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - Treat external model discovery as a catalog-building step: parse configured endpoints, call `/v1/models`, normalize the returned model ids, and then filter the combined catalog per harness.
 - If a chat config pins `codeinfo_openai_endpoint` outside the env var catalog, still surface that active endpoint and its discovered models in the chat picker for the selected provider.
 - Treat `codeinfo_openai_endpoint` as a CodeInfo-owned metadata field that is interpreted and then translated internally into the correct Codex or Copilot runtime settings rather than being forwarded directly as a raw user-authored harness config block.
+- Derive internal endpoint identity from the normalized full base URL, not from the host alone, so same-host endpoints with different paths remain distinct.
 - Model external endpoint execution as part of the requested provider path rather than as a new top-level provider id.
 - Extend the current fallback flow so the order becomes:
   - requested provider on the configured external endpoint;
@@ -171,10 +184,12 @@ Because this work touches both harnesses, the story must begin by upgrading the 
   - existing cross-provider fallback only after same-provider options fail.
 - For persisted selections, store the raw model id separately from the derived endpoint identity instead of packing both values into a single composite model string.
 - Derive user-facing external endpoint labels using `host / model` without requiring user-configured names in the environment variable and without showing the full URL in the picker by default.
+- When two visible external choices would otherwise share the same `host / model` label, append a short path hint only for those colliding labels.
 - Revisit the Copilot session-creation seam so it can pass a custom OpenAI-compatible provider configuration whenever the selected model belongs to an external endpoint or a runtime config pins `codeinfo_openai_endpoint`.
 - Revisit the Codex runtime-config seam so it can translate `codeinfo_openai_endpoint` into the appropriate internal Codex provider configuration for `responses`-capable endpoints.
 - Reuse the existing fallback warning and result surfaces so endpoint-aware fallback remains visible and explainable in chat and agent responses.
 - Keep pinned execution identity behavior strict so later turns fail in place instead of silently re-routing to a different endpoint or provider.
+- Keep the new persisted endpoint identity optional at read time so older saved chats without that field continue to load normally.
 - Keep malformed-endpoint handling explicit and non-silent so one bad entry does not make the whole external catalog ambiguous.
 - Known later enhancement, intentionally deferred from this story: revisit provider readiness so endpoint-backed Codex or Copilot execution can remain usable even when the provider's usual built-in login state is inactive, without redefining the broader meaning of provider availability in the same change.
 - Add focused proof for:
@@ -185,10 +200,13 @@ Because this work touches both harnesses, the story must begin by upgrading the 
   - Copilot `completions` and dual-capability filtering;
   - direct agent and chat config translation into harness-specific runtime settings;
   - chat picker visibility for a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`;
+  - distinct internal identity for same-host endpoints whose normalized full base URLs differ;
   - endpoint-unavailable same-provider native fallback;
   - endpoint-model-missing same-endpoint repair;
   - cross-provider fallback only after same-provider endpoint and native paths fail;
   - fail-in-place behavior for pinned or resumed executions that already point at an external endpoint;
   - separate persisted endpoint identity plus raw model id for external selections;
   - `host / model` labeling for external chat models;
+  - short path hints only when `host / model` labels would otherwise collide;
+  - backward-compatible loading of older saved chats that do not carry endpoint identity;
   - compatibility of the upgraded Codex and Copilot library seams with the existing CodeInfo2 harness contracts.

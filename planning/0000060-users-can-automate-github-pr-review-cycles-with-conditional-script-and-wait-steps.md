@@ -27,9 +27,11 @@ When tasks are later added to this story, use this section contract:
 
 CodeInfo2 already supports long-running implementation and review flows, but the current workflow primitives are too limited for an automated external-review cycle that opens a GitHub pull request, waits for outside feedback, classifies that feedback, and then either finishes cleanly or loops back into more implementation work. Today flows only have `llm`, `break`, `continue`, `command`, `reingest`, and `startLoop` style orchestration, and the review flows depend on local review artifacts rather than directly reading GitHub PR review comments.
 
-From the user's point of view, a flow such as `flows/implement_next_plan.json` should be able to perform one bounded review cycle without a human manually stitching the steps together. The flow should be able to open a pull request for the current branch, wait for a configured period, fetch the latest open pull request's review comments from other people, classify those comments using the same validity and disposition rules already used by the repository's local and external review flows, and then either stop cleanly or route the findings back through the existing minor-fix and task-up patterns.
+From the user's point of view, a flow such as `flows/implement_next_plan.json` should be able to perform one bounded external review cycle without a human manually stitching the steps together. The flow should be able to open a pull request for the current branch, wait for a configured period, fetch the latest open pull request's review comments from other people, decide which of those comments are actually valid for the story, and then either stop cleanly or route the findings back through the existing minor-fix and task-up patterns.
 
 The repository also has an important operational constraint: some existing flow files are already in use and must not be edited in place for this story. When the new review-cycle behavior is wired into a real workflow, the implementation must create new flow-definition variants by copying and renaming the relevant in-use flow files, then editing those new variants. This story therefore adds new workflow capabilities and new flow variants, rather than mutating the currently in-use checked-in flows directly.
+
+This story is intentionally flow-only. The new primitives are being added for flow definitions, not for agent command JSON in this story. That keeps the implementation focused on the workflow surface that actually needs the external-review loop, and avoids expanding the scope into a second schema and runtime contract before the flow-first version has proved its value.
 
 This story therefore introduces a small set of workflow primitives that stay intentionally thin and composable instead of embedding lots of hidden policy into one giant GitHub step. The new primitives are:
 
@@ -38,12 +40,15 @@ This story therefore introduces a small set of workflow primitives that stay int
 - a persisted timed wait step whose duration is expressed in seconds;
 - thin GitHub pull-request steps that can open a PR for the current branch, fetch the latest open PR review comments for the current branch, and close the latest open PR for the current branch.
 
-The first intended use case is an external-review loop for implementation flows. A typical cycle is:
+The first intended use case is an external-review loop for implementation flows. This is separate from the repository's existing internal review and external-review-ingest flows. It happens only after the normal internal review believes the work is complete enough for outside review. The purpose of this GitHub review pass is not to re-run the whole existing review pipeline against a second copy of the same evidence; it is to inspect outside review comments, reject any comments that would force behavior changes outside the story scope, classify the valid ones, and then feed those valid findings into the same follow-up repair patterns the repository already uses after review.
+
+A typical cycle is:
 
 - open a PR for the current branch;
 - wait for a configured window such as 15 minutes;
 - fetch the latest open PR review comments from other users on that branch;
-- classify the comments with the existing review-disposition contract used by `flows/review_plan.json` and `flows/ingest_external_review_plan.json`;
+- decide which of those comments are valid under the repository's current story-scope rules, especially the rule that behavior outside the story scope must not be changed just because an external reviewer asked for it;
+- classify the valid comments into small fixes that can be handled now versus larger findings that should become new story tasks;
 - if there are no comments, or every comment is judged invalid or already non-actionable, treat the review cycle as clean and keep the PR open for human inspection;
 - if valid issues exist, fix the small ones immediately, encode larger ones as tasks in the story, close that PR, and loop back into implementation and proof before opening a fresh PR for the next review cycle.
 
@@ -54,7 +59,8 @@ This story should remain focused on enabling that review-loop orchestration. It 
 ### Acceptance Criteria
 
 - Flow definitions support a dedicated `if` step with `then` behavior and an optional `else` path.
-- The new conditional behavior is available in the workflow surface intended by the story, and the contract is explicit enough that later work can extend it consistently across flows and agent commands where appropriate.
+- The new conditional behavior is available in flows in this story.
+- Agent command JSON does not gain matching `if`, timed wait, or GitHub PR step support in this story.
 - `break`, `continue`, and `if` conditions can continue using the existing AI yes or no decision path.
 - `break`, `continue`, and `if` conditions can also be driven by a direct Python script execution path.
 - The direct Python decision path has a strict contract for path resolution, working-directory rules, timeout behavior, exit-code handling, and stdout parsing.
@@ -74,22 +80,25 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - The story does not edit currently in-use flow files in place under `flows/` when wiring in the new review-cycle behavior.
 - When an existing checked-in flow needs the new review-cycle behavior, the implementation creates a copied and renamed flow-definition variant first, then applies the new step composition to that new variant.
 - The first practical review-cycle wiring for this story lands in newly created flow-definition variants rather than by mutating the current `flows/implement_next_plan.json`, `flows/review_plan.json`, or other already in-use flow files directly.
-- A flow can compose the new primitives so that it opens a PR, waits, fetches review comments, classifies them using the existing review-disposition rules, and then either completes cleanly or routes valid issues into the same minor-fix and task-up behavior already used for local or external review findings.
+- A flow can compose the new primitives so that it opens a PR, waits, fetches review comments, decides which comments are valid under the story-scope rules, classifies the valid findings, and then either completes cleanly or routes valid issues into the same minor-fix and task-up behavior already used after review.
 - If the fetched review set is empty, that review cycle is treated as clean.
-- If fetched review comments exist but all are classified as invalid, stale, or otherwise non-actionable under the existing review-disposition rules, that review cycle is also treated as clean.
+- If fetched review comments exist but all are classified as invalid, stale, outside story scope, or otherwise non-actionable, that review cycle is also treated as clean.
 - If valid review issues exist, the flow can close the current review-cycle PR only after classification has determined that there is more work to do.
-- When valid review issues exist, the flow can distinguish small issues that should be fixed immediately from larger issues that should become new story tasks, using the same repository review rules rather than inventing a second classification system.
+- When valid review issues exist, the flow can distinguish small issues that should be fixed immediately from larger issues that should become new story tasks, using the same repository repair patterns that already follow review findings.
 - The final clean PR is intentionally left open for human review rather than being automatically closed at the end of a clean cycle.
 - The new primitives are structured so they can later be reused by `flows/implement_next_plan.json` and adjacent review or implementation flows without needing a second incompatible step family.
+- When the timed wait window ends, the flow resumes automatically without requiring human intervention.
 - Automated tests cover the new schema shapes, runtime behavior, persisted wait behavior, Python decision execution path, GitHub step wiring, and the review-loop composition points touched by this story.
 
 ### Out Of Scope
 
 - Acting as the currently logged-in browser user for GitHub operations.
 - Building a full GitHub App auth model or per-user OAuth flow in this story.
+- Adding matching `if`, timed wait, or GitHub PR steps to agent command JSON in this story.
 - Embedding hidden IF logic directly into the GitHub pull-request comment step.
 - Automatically reopening previously closed PRs or reusing a closed PR for a later review cycle.
 - Replacing the existing local or external review-disposition rules with a brand-new classification system.
+- Reusing the existing external-review ingest storage path or ingest flow as the raw-input path for this GitHub review cycle.
 - Editing currently in-use checked-in flow definitions in place under `flows/` as part of this story.
 - Solving every possible stale-PR, duplicate-PR, or multi-actor branch edge case before there is evidence that the first-version branch lookup rule is insufficient.
 - Building a general arbitrary workflow variable system in this story.
@@ -110,34 +119,45 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-1. Should these new steps work in agent commands too, or should this story add them only to flows first?
-   - Why this is important: This changes the size of the story because flow JSON and agent command JSON use different schemas and runtimes today.
-   - Best Answer: Add these new steps to flows first, and treat agent-command support as a later story unless you explicitly need both now. Local repo precedent allows a flow-only rollout when the story is about flow behavior, and this story's main user outcome is extending implementation and review flows. Story 27 added flow-specific orchestration without requiring matching agent-command support, while Story 61 only added a step to both surfaces because that story said so explicitly.
-   - Where this answer came from: Local repo evidence first: this story's own flow-centered description and implementation ideas in `planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md`; flow-only precedent in `planning/0000027-flows-mode.md`; both-surfaces precedent in `planning/0000061-command-and-flow-user-input-wait-step.md`; and the current agent-command schema in `server/src/agents/commandsSchema.ts`.
-2. Should fetched GitHub review comments go into the existing external review input file, or into a new storage path?
-   - Why this is important: The answer decides whether GitHub review comments reuse the current review-disposition pipeline cleanly or create a second parallel review-input system.
-   - Best Answer: Write the fetched GitHub review comments into the existing external review input markdown file and then reuse the current external-review pipeline. The repo already has a deterministic contract where raw external review comments live in `codeInfoTmp/reviews/<story-number>-external-review-input.md`, evidence writes `codeInfoTmp/reviews/<story-number>-current-review.json`, and the later findings and disposition steps treat that material as candidate review input rather than automatically valid findings. Reusing that contract keeps the adjudication trail, reduces new storage concepts, and still fits GitHub CLI or API retrieval because the fetched review comments can be normalized into the same markdown file shape before review classification.
-   - Where this answer came from: Local repo evidence first: `flows/ingest_external_review_plan.json`, `codeinfo_markdown/external_review_evidence_gate.md`, `codeinfo_markdown/external_review_findings.md`, `codeinfo_markdown/review_disposition.md`, and `codeinfo_markdown/classify_review_disposition.md`. Supporting external evidence: GitHub CLI docs for `gh pr view --comments` and `gh pr create`, plus GitHub Docs guidance that pull requests have review comments and review bodies available through the PR review and comment APIs.
-3. When the wait time ends, should the flow resume by itself, or stay paused until someone resumes it?
-   - Why this is important: Your intended PR-review loop is meant to keep moving without a person babysitting it, so the wait-step resume rule changes whether the story actually meets that goal.
-   - Best Answer: Resume automatically when the timer expires. The repo's current waiting precedent is explicit REST resume for user-input pauses, but that precedent is about waiting for a human to provide content. For a timed review window, forcing a manual resume would break the autonomous review-loop goal described in this story. The implementation should therefore persist the wait state and recover overdue waits after restart, rather than relying on an in-memory timer alone. Node's timer docs reinforce that plain `setTimeout` is only an in-process scheduled callback, so memory-only waiting would not be strong enough here.
-   - Where this answer came from: Local repo evidence first: `planning/0000061-command-and-flow-user-input-wait-step.md`, `planning/0000027-flows-mode.md`, `server/src/routes/flowsRun.ts`, and `server/src/flows/service.ts`. Supporting external evidence: official Node.js timer documentation for `setTimeout()` and timer-promise waits as in-process delayed callbacks rather than durable persisted jobs.
+None at this time.
+
+## Decisions
+
+1. Flow-only primitive scope
+   - The question being addressed: Should these new steps work in agent commands too, or should this story add them only to flows first?
+   - Why the question matters: This changes the size of the story because flow JSON and agent command JSON use different schemas and runtimes today.
+   - What the answer is: This story is flows only. Agent command JSON does not gain matching support for these new steps here.
+   - Where the answer came from: User direction, plus local repo precedent in `planning/0000027-flows-mode.md`, `planning/0000061-command-and-flow-user-input-wait-step.md`, and `server/src/agents/commandsSchema.ts`.
+   - Why it is the best answer: The user outcome is extending implementation and review flows, and keeping the first version flow-only avoids doubling the surface area before the design has proved itself in the place it is actually needed.
+2. GitHub review-comment handling path
+   - The question being addressed: Should fetched GitHub review comments go into the existing external review input file, or into a new storage path?
+   - Why the question matters: The answer decides whether GitHub review comments reuse the current external-review ingest contract or form a separate review stage after internal review completion.
+   - What the answer is: Use a separate GitHub-review stage after the normal internal review believes the work is complete. Do not feed the fetched GitHub review comments into the existing external-review ingest path. Instead, inspect those comments, reject requests that would change behavior outside the story scope, classify the valid ones, then reuse the repository's normal minor-fix and task-up repair patterns afterward.
+   - Where the answer came from: User direction, plus local repo evidence from `flows/implement_next_plan.json`, `flows/ingest_external_review_plan.json`, and the existing review-disposition markdown contracts that already separate evidence gathering from later fix and task-up behavior.
+   - Why it is the best answer: It preserves the user's intended lifecycle: internal review first, GitHub review second, and only a lighter-weight validity and classification pass on the outside feedback rather than a full second ingestion of the same review pipeline.
+3. Timed-wait resume behavior
+   - The question being addressed: When the wait time ends, should the flow resume by itself, or stay paused until someone resumes it?
+   - Why the question matters: The intended PR-review loop is supposed to run without human babysitting.
+   - What the answer is: Resume automatically when the timer expires.
+   - Where the answer came from: User direction, plus local waiting-state precedent in `planning/0000061-command-and-flow-user-input-wait-step.md`, `planning/0000027-flows-mode.md`, `server/src/routes/flowsRun.ts`, and `server/src/flows/service.ts`, and the supporting Node.js timer docs that show plain timers are only in-process callbacks.
+   - Why it is the best answer: Manual resume would break the autonomous review-loop goal, so the story needs persisted wait state plus automatic continuation when the review window ends.
 
 ## Implementation Ideas
 
 - Extend the flow schema and runtime dispatcher to introduce an `if` step that owns a condition source plus `thenSteps` and optional `elseSteps`.
-- Decide whether agent command JSON should gain matching primitives now or whether the first implementation should land in flows first with a clearly documented extension seam for commands.
+- Keep the first implementation flow-only and document agent-command support as a later extension seam rather than part of this story.
 - Refactor the current `break` and `continue` execution path so both the AI decision mode and the direct-script decision mode use one shared yes or no parsing and validation contract.
 - Reuse the newer wrapper-script direction already planned for flow control under `scripts/flow_control/` so direct Python decisions stay deterministic and composable.
-- Represent the timed wait step as persisted paused workflow state with a resume timestamp, rather than a plain in-memory sleep.
-- Reuse the repository's existing waiting and resume concepts where they already exist or are planned, instead of inventing a second pause lifecycle just for timed waits.
+- Represent the timed wait step as persisted paused workflow state with a resume timestamp plus automatic continuation when the timer expires, rather than a plain in-memory sleep.
+- Reuse the repository's existing waiting and resume concepts where they already exist or are planned, but adapt them for autonomous timer expiry rather than human-submitted resume input.
 - Keep the GitHub PR steps intentionally narrow:
   - open PR for current branch;
   - fetch latest open PR review comments for current branch;
   - close latest open PR for current branch.
 - Resolve GitHub operations through `gh` inside the server runtime with one shared configured identity from `GH_TOKEN` or `GITHUB_TOKEN`.
 - Detect repository owner, name, current branch, and current head commit from the selected working repository rather than asking the user to duplicate that information in every workflow step.
-- Feed the fetched PR review comments into the same review evidence, findings, saturation, blind-spot, and classification pattern already used by `flows/review_plan.json` and `flows/ingest_external_review_plan.json` rather than inventing a separate "GitHub review validity" model.
+- Treat fetched GitHub review comments as a separate post-internal-review input, not as the raw input for `flows/ingest_external_review_plan.json`.
+- Add a lighter-weight GitHub-review validity and classification seam that rejects requests outside story scope, then hands valid findings into the same minor-fix and task-up repair patterns already used after review.
 - Use the new `if` step to express the clean-review versus more-work-needed branch explicitly instead of hiding that rule inside one GitHub step.
 - If classification finds valid issues, reuse the existing minor-fix and task-up flow ideas so the external-review cycle behaves like the repository's current review discipline rather than a parallel process.
 - Add focused proof for:

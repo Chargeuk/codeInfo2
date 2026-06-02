@@ -119,7 +119,18 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-None at this time.
+1. Should the PR step build the title and body from the current story, or should every flow write them out explicitly?
+   - Why this is important: `gh pr create` needs non-interactive title and body input, and this decision affects whether the new PR step stays thin and reusable or forces every flow to repeat reviewer-facing text.
+   - Best Answer: Build the title and body automatically from the current story and branch context, using the repository's existing PR-summary conventions rather than forcing every flow to duplicate that text. That keeps flow JSON smaller, keeps reviewer-facing content aligned with the active plan, and avoids a second parallel summary-authoring contract inside flows.
+   - Where this answer came from: Local repo precedent in `codeinfo_markdown/create_pr_summary.md`, `codeinfo_markdown/task_up/01-shared-contract.md`, and `planning/0000055-pr-summary.md`; supporting external evidence from the GitHub CLI manual for `gh pr create`, which requires non-interactive `--title`, `--body`, or `--body-file` input when prompts are not allowed.
+2. If the branch is not pushed yet, should the PR step push it automatically or fail?
+   - Why this is important: The story's review loop is supposed to run without human intervention, but `gh pr create` otherwise prompts the user about pushing or forking when the branch is not already available remotely.
+   - Best Answer: Push automatically only to the branch's existing upstream remote, and fail clearly if no upstream is configured. That preserves unattended flow execution for the normal branch workflow while avoiding unsafe guessing about forks, remotes, or first-time branch publication targets.
+   - Where this answer came from: Local repo precedent in `AGENTS.md` branch workflow and non-interactive git guidance; supporting external evidence from the GitHub CLI manual and DeepWiki coverage of `gh pr create`, which note that the command otherwise prompts about pushing or forking when the branch is not fully pushed.
+3. Should fetched GitHub review comments be saved in a separate scratch file, or only kept in flow memory?
+   - Why this is important: The later classification and repair steps need restart-safe review input, but this GitHub review stage must stay separate from the existing external-review ingest files.
+   - Best Answer: Save the fetched GitHub review comments in a separate transient GitHub-review scratch file, plus only the minimal additional state needed for resume. That keeps the stage inspectable and restart-safe, matches the repository's existing transient review handoff pattern, and avoids polluting the current external-review ingest path that this story explicitly does not reuse.
+   - Where this answer came from: Local repo precedent in `codeinfo_markdown/review_disposition.md`, `codeinfo_markdown/review_evidence_gate/01-core.md`, `scripts/story_workflow_status.py`, `scripts/find_minor_fix_revalidation_task.py`, and the existing transient review-handoff conventions referenced throughout the planning docs; supporting external evidence from Node.js timer documentation showing that in-process timers alone are not durable across restarts.
 
 ## Decisions
 

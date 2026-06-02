@@ -751,6 +751,7 @@ When the supported main compose stack is available, verify one resumed conversat
 - Prettier drift in `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx` and `client/src/test/chatPage.models.test.tsx` was normalized so the task-level format check could pass cleanly.
 - Task 5 endpoint-aware request, resume, persistence, and runtime translation subtasks are now all checked off after the client/server proof runs passed; the broader task-level Testing section remains untouched for the later automated-proof pass.
 - Implementation-only audit normalized Testing items 5 and 6 to complete from the existing `npm run lint` and `npm run format:check` evidence recorded in this task's subtasks and notes; wrapper-backed build and summary test proof still remain for the later automated-proof pass.
+- **BLOCKER** Automated-proof audit still lacks the exact full-wrapper evidence for Testing items 3 and 4. Evidence checked: `test-results/server-unit-tests-2026-06-02T11-35-42-965Z.log` shows a targeted `node --test` subset for the Task 5 server files, and `test-results/client-tests-2026-06-02T11-25-21-935Z.log` shows a targeted Jest run for `chatSendPayload.test.tsx` plus `chatPage.resumeIdentity.test.tsx`, not the full `npm run test:summary:server:unit` or `npm run test:summary:client` wrappers named by this checklist. Task 5 cannot close honestly until those full wrapper-backed proof steps run or the checklist is explicitly narrowed by planner repair.
 
 ---
 

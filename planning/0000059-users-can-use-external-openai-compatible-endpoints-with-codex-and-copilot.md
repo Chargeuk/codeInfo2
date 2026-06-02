@@ -881,7 +881,7 @@ Validate the full story across the repository’s wrapper-first proof path, then
 #### Testing
 
 1. [x] Run `npm run build:summary:server` to confirm the final server parser, discovery, runtime translation, persistence, validator, and fallback surfaces compile cleanly before broader proof.
-2. [ ] Run `npm run build:summary:client` to confirm the final chat picker, restored-selection, and endpoint-aware payload surfaces compile cleanly on the client before browser proof.
+2. [x] Run `npm run build:summary:client` to confirm the final chat picker, restored-selection, and endpoint-aware payload surfaces compile cleanly on the client before browser proof.
 3. [ ] Run `npm run test:summary:server:unit` to prove the task-owned server unit and `node:test` integration files from Tasks 1 through 6, including parser, discovery, validator, persistence, runtime translation, fallback, and resumed fail-in-place behavior.
 4. [ ] Run `npm run test:summary:server:cucumber` to prove the task-owned feature-level contract in `server/src/test/features/chat_models.feature` and `server/src/test/features/chat_stream.feature`, along with their step files, through the repository’s Cucumber wrapper.
 5. [ ] Run `npm run test:summary:client` to prove the task-owned client unit files for picker identity, stale-state exclusion, restored endpoint identity, and endpoint-aware send payload behavior.

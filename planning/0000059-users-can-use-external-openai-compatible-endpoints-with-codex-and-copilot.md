@@ -736,8 +736,8 @@ Translate the new CodeInfo-owned endpoint metadata into provider-native Codex an
 2. [ ] Run `npm run build:summary:client` to confirm the endpoint-aware request/restore contract compiles cleanly on the client.
 3. [ ] Run `npm run test:summary:server:unit` to prove provider-native translation, persistence, and backward-compatible resume behavior.
 4. [ ] Run `npm run test:summary:client` to prove endpoint-aware chat request and resume payload behavior.
-5. [ ] Run `npm run lint` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-6. [ ] Run `npm run format:check` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+5. [x] Run `npm run lint` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+6. [x] Run `npm run format:check` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -750,6 +750,7 @@ When the supported main compose stack is available, verify one resumed conversat
 - Endpoint-aware request, persistence, and runtime translation now flow through `useChatStream.ts`, `ChatPage.tsx`, `chatValidators.ts`, `chat.ts`, `agentFlags.ts`, `codexConfig.ts`, and `ChatInterfaceCopilot.ts`; targeted client/server wrappers and lint/format checks passed after the edits.
 - Prettier drift in `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx` and `client/src/test/chatPage.models.test.tsx` was normalized so the task-level format check could pass cleanly.
 - Task 5 endpoint-aware request, resume, persistence, and runtime translation subtasks are now all checked off after the client/server proof runs passed; the broader task-level Testing section remains untouched for the later automated-proof pass.
+- Implementation-only audit normalized Testing items 5 and 6 to complete from the existing `npm run lint` and `npm run format:check` evidence recorded in this task's subtasks and notes; wrapper-backed build and summary test proof still remain for the later automated-proof pass.
 
 ---
 

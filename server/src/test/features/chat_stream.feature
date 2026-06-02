@@ -46,6 +46,7 @@ Feature: chat streaming endpoint
 
   Scenario: External endpoint unavailable plus native fallback failure returns the existing unavailable contract
     Given chat stream scenario "external-endpoint-native-failure"
+    And later fallback providers are unavailable
     And chat default provider is "codex"
     And chat default model is "gpt-5.3-codex"
     And codex detection is unavailable

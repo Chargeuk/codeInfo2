@@ -53,6 +53,7 @@ import {
 import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
 import {
   type OpenAiCompatEndpointConfig,
+  parseOpenAiCompatEndpointConfig,
   validateOpenAiCompatEndpointConfigForProvider,
 } from '../config/openaiCompatEndpoints.js';
 import {
@@ -164,10 +165,14 @@ function resolvePinnedOpenAiCompatEndpoint(params: {
       codexHome: params.codexHome,
       copilotHome: params.copilotHome,
     });
-    const endpoint = snapshot.config?.codeinfo_openai_endpoint;
-    return typeof endpoint === 'object' && endpoint !== null
-      ? (endpoint as OpenAiCompatEndpointConfig)
-      : undefined;
+    const rawEndpoint = snapshot.config?.codeinfo_openai_endpoint;
+    if (typeof rawEndpoint !== 'string') {
+      return undefined;
+    }
+
+    return parseOpenAiCompatEndpointConfig(rawEndpoint, {
+      pathLabel: `${snapshot.chatConfigPath}.codeinfo_openai_endpoint`,
+    });
   } catch {
     return undefined;
   }

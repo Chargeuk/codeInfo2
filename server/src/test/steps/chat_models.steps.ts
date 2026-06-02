@@ -430,20 +430,23 @@ Then(
     const models = (response.body as { models?: Array<Record<string, unknown>> })
       .models;
     assert(Array.isArray(models), 'expected models array');
-    const model = models.find((entry) => entry.key === modelKey);
-    assert(model, `expected model ${modelKey}`);
-    const endpointId = String(
-      (model as Record<string, unknown>).endpointId ?? '',
+    const expectedEndpointId =
+      endpoint === 'discovered endpoint'
+        ? discoveredEndpointId
+        : endpoint === 'pinned endpoint'
+          ? pinnedEndpointId
+          : endpoint;
+    const model = models.find(
+      (entry) =>
+        entry.key === modelKey &&
+        String((entry as Record<string, unknown>).endpointId ?? '') ===
+          String(expectedEndpointId ?? ''),
     );
-    if (endpoint === 'discovered endpoint') {
-      assert.equal(endpointId, discoveredEndpointId);
-      return;
-    }
-    if (endpoint === 'pinned endpoint') {
-      assert.equal(endpointId, pinnedEndpointId);
-      return;
-    }
-    assert.equal(endpointId, endpoint);
+    assert(model, `expected model ${modelKey}`);
+    assert.equal(
+      String((model as Record<string, unknown>).endpointId ?? ''),
+      String(expectedEndpointId ?? ''),
+    );
   },
 );
 

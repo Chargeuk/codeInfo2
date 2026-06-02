@@ -343,6 +343,10 @@ Given('chat stream scenario {string}', async (name: string) => {
   await startLegacyChatStreamServer();
 });
 
+Given('later fallback providers are unavailable', () => {
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = '';
+});
+
 When('I POST to the chat endpoint with the chat request fixture', async () => {
   activeConversationId = createConversationId('chat-fixture-conv');
   await ensureWsSubscribed(activeConversationId);

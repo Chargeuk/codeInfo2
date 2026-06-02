@@ -23,6 +23,8 @@ import {
   toChatResolutionSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
+import { parseOpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
+import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
@@ -59,6 +61,32 @@ const isChatModel = (model: { type?: string; architecture?: string }) => {
   const kind = (model.type ?? '').toLowerCase();
   return kind !== 'embedding' && kind !== 'vector';
 };
+
+function resolvePinnedProviderEndpoint(params: {
+  provider: ChatDefaultProvider;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}) {
+  try {
+    const snapshot = loadProviderChatDefaultsSnapshotSync({
+      provider: params.provider,
+      codexHome: params.codexHome,
+      copilotHome: params.copilotHome,
+      lmstudioHome: params.lmstudioHome,
+    });
+    const rawEndpoint = snapshot.config?.codeinfo_openai_endpoint;
+    if (typeof rawEndpoint !== 'string') {
+      return undefined;
+    }
+
+    return parseOpenAiCompatEndpointConfig(rawEndpoint, {
+      pathLabel: `${snapshot.chatConfigPath}.codeinfo_openai_endpoint`,
+    });
+  } catch {
+    return undefined;
+  }
+}
 
 export function createChatProvidersRouter({
   clientFactory,
@@ -221,6 +249,16 @@ export function createChatProvidersRouter({
         reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
       },
     });
+    const selectedProviderPinnedEndpoint =
+      runtimeSelection.executionProvider === 'codex' ||
+      runtimeSelection.executionProvider === 'copilot'
+        ? resolvePinnedProviderEndpoint({
+            provider: runtimeSelection.executionProvider,
+            codexHome,
+            copilotHome: process.env.CODEINFO_COPILOT_HOME,
+            lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+          })
+        : undefined;
 
     const codexWarnings = [...capabilities.warnings];
     codexWarnings.push(...getProviderBootstrapWarnings('codex'));
@@ -327,9 +365,9 @@ export function createChatProvidersRouter({
       providerMap,
       selectedProvider: runtimeSelection.executionProvider,
       selectedModel: runtimeSelection.executionModel,
-      selectedEndpointId: externalOpenAiCompatDiscovery.models.find(
-        (model) => model.key === runtimeSelection.executionModel,
-      )?.endpointId,
+      selectedEndpointId:
+        runtimeSelection.endpointId ??
+        selectedProviderPinnedEndpoint?.endpointId,
       fallbackApplied: runtimeSelection.fallbackApplied,
       compatibility: {
         codexDefaults,

@@ -62,7 +62,7 @@ If the current branch has not yet been pushed, the PR flow should push it automa
 
 When GitHub review is skipped for a supported reason such as missing `CODEINFO_PR_TOKEN`, the flow result should not pretend that a full clean external review happened. It should finish as completed with warning so the final status remains truthful: the implementation flow completed, but the optional GitHub review stage did not run for that cycle.
 
-Fetched GitHub review comments should also be kept separate from the existing external-review ingest files. They should be stored in their own transient GitHub-review scratch file, plus only the minimum additional persisted state needed for wait/resume and later classification.
+Fetched GitHub review comments should also be kept separate from the existing external-review ingest files. They should be stored as JSON in their own transient GitHub-review scratch file under `codeInfoTmp/reviews/`, plus only the minimum additional persisted state needed for wait/resume and later classification.
 
 This story should remain focused on enabling that review-loop orchestration. It is not trying to build a full GitHub integration platform, a general per-user GitHub auth model, or a fully generic workflow-state store for every future step type.
 
@@ -107,7 +107,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - The final clean PR is intentionally left open for human review rather than being automatically closed at the end of a clean cycle.
 - The new primitives are structured so they can later be reused by `flows/implement_next_plan.json` and adjacent review or implementation flows without needing a second incompatible step family.
 - When the timed wait window ends, the flow resumes automatically without requiring human intervention.
-- Fetched GitHub review comments are written to a separate transient GitHub-review scratch file rather than to the existing external-review ingest files, and only the minimal extra persisted state needed for resume and classification is stored alongside that scratch path.
+- Fetched GitHub review comments are written as JSON to a separate transient GitHub-review scratch file under `codeInfoTmp/reviews/` rather than to the existing external-review ingest files, and only the minimal extra persisted state needed for resume and classification is stored alongside that scratch path.
 - Automated tests cover the new schema shapes, runtime behavior, persisted wait behavior, Python decision execution path, GitHub step wiring, and the review-loop composition points touched by this story.
 
 ### Out Of Scope
@@ -141,10 +141,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-1. Should GitHub review scratch live in `codeInfoTmp/reviews/` as JSON, or somewhere else?
-   - Why this is important: The story already requires restart-safe scratch state, but the exact file contract still affects how later steps find and reuse the review input.
-   - Best Answer: Store it as JSON under `codeInfoTmp/reviews/` in a separate GitHub-review handoff file. That matches the repo's existing transient review-artifact patterns, keeps it clearly non-durable, and avoids mixing it with the existing external-review input file.
-   - Where this answer came from: Local repo precedent in `codeinfo_markdown/write_review_no_findings_closeout.md`, `codeinfo_markdown/review_disposition.md`, `scripts/flow_state_utils.py`, and the broader `codeInfoTmp/reviews/<story>-current-review.json` handoff pattern already used by review flows. No external source is needed beyond those repository patterns.
+None at this time.
 
 ## Decisions
 
@@ -208,6 +205,12 @@ This story should remain focused on enabling that review-loop orchestration. It 
    - What the answer is: Put a concise note in the plan immediately, and let the later PR summary reflect it when a PR summary is generated.
    - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/preserve_external_review_adjudication_trail.md`, `codeinfo_markdown/create_pr_summary.md`, and `codeinfo_markdown/task_up/01-shared-contract.md`.
    - Why it is the best answer: The plan is the active source of truth during implementation, while the PR summary is a derived closeout artifact that may not exist yet when the skip or failure happens.
+11. GitHub review scratch-file contract
+   - The question being addressed: Should GitHub review scratch live in `codeInfoTmp/reviews/` as JSON, or somewhere else?
+   - Why the question matters: The story already requires restart-safe scratch state, but the exact file contract affects how later steps find and reuse the review input.
+   - What the answer is: Store GitHub review scratch as JSON under `codeInfoTmp/reviews/` in a separate GitHub-review handoff file.
+   - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/write_review_no_findings_closeout.md`, `codeinfo_markdown/review_disposition.md`, `scripts/flow_state_utils.py`, and the broader `codeInfoTmp/reviews/<story>-current-review.json` handoff pattern already used by review flows.
+   - Why it is the best answer: It matches the repository's existing transient review-artifact patterns, keeps the GitHub-review state clearly non-durable, and avoids mixing it with the existing external-review input file.
 
 ## Implementation Ideas
 
@@ -229,7 +232,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - Mark supported GitHub-review skip paths as completed with warning rather than plain completed so the final run status reflects that external review did not run.
 - Detect repository owner, name, current branch, and current head commit from the selected working repository rather than asking the user to duplicate that information in every workflow step.
 - Treat fetched GitHub review comments as a separate post-internal-review input, not as the raw input for `flows/ingest_external_review_plan.json`.
-- Persist fetched GitHub review comments in a dedicated transient GitHub-review scratch file plus the minimum extra resume metadata, rather than only in memory and rather than in the existing external-review ingest files.
+- Persist fetched GitHub review comments as JSON in a dedicated transient GitHub-review scratch file under `codeInfoTmp/reviews/`, plus the minimum extra resume metadata, rather than only in memory and rather than in the existing external-review ingest files.
 - Add a lighter-weight GitHub-review validity and classification seam that rejects requests outside story scope, then hands valid findings into the same minor-fix and task-up repair patterns already used after review.
 - Use the new `if` step to express the clean-review versus more-work-needed branch explicitly instead of hiding that rule inside one GitHub step.
 - If classification finds valid issues, reuse the existing minor-fix and task-up flow ideas so the external-review cycle behaves like the repository's current review discipline rather than a parallel process.

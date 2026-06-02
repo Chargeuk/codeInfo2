@@ -56,9 +56,11 @@ A typical cycle is:
 
 The GitHub integration for this story intentionally uses the simplest operational model. The server image may include the `gh` CLI and use a repository-specific fine-grained GitHub token loaded from the `CODEINFO_PR_TOKEN` value in a `.env.local` file in the repository being worked in for GitHub PR API operations. Normal git credentials in the worked repository remain the preferred path for git fetch and push behavior when they are already configured. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date, and ignore closed PRs.
 
-If the repository being worked in does not provide the expected `CODEINFO_PR_TOKEN` value in its `.env.local` file, the GitHub PR and external-review path should not execute for that cycle. The flow should record in the story that external GitHub review was skipped because the repository-specific token was not configured, then continue or complete without treating missing GitHub review comments as implementation feedback.
+If the repository being worked in does not provide the expected `CODEINFO_PR_TOKEN` value in its `.env.local` file, the GitHub PR and external-review path should not execute for that cycle. The flow should record in the plan that external GitHub review was skipped because the repository-specific token was not configured, then continue or complete without treating missing GitHub review comments as implementation feedback.
 
-If the current branch has not yet been pushed, the PR flow should push it automatically to its existing upstream remote so the review loop can continue without human intervention. If that automatic push fails, the flow should not keep guessing about alternate remotes or block forever waiting for help. Instead, it should record in the story that the PR could not be created, stop the external-review path for that cycle, and complete without treating missing GitHub review comments as implementation feedback.
+If the current branch has not yet been pushed, the PR flow should push it automatically to its existing upstream remote so the review loop can continue without human intervention. If that automatic push fails, the flow should not keep guessing about alternate remotes or block forever waiting for help. Instead, it should record in the plan that the PR could not be created, stop the external-review path for that cycle, and complete without treating missing GitHub review comments as implementation feedback.
+
+When GitHub review is skipped for a supported reason such as missing `CODEINFO_PR_TOKEN`, the flow result should not pretend that a full clean external review happened. It should finish as completed with warning so the final status remains truthful: the implementation flow completed, but the optional GitHub review stage did not run for that cycle.
 
 Fetched GitHub review comments should also be kept separate from the existing external-review ingest files. They should be stored in their own transient GitHub-review scratch file, plus only the minimum additional persisted state needed for wait/resume and later classification.
 
@@ -85,11 +87,13 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - The GitHub comment-fetch step is a retrieval primitive only and does not embed completion policy, implicit waiting, or hidden conditional behavior.
 - The GitHub steps use `gh` plus a repository-specific fine-grained token loaded from the `CODEINFO_PR_TOKEN` value in the worked repository's `.env.local` file for PR API operations, or an equivalent thin wrapper around that same model.
 - The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, and close-PR behavior, and keeps them restricted to that scope.
-- If the expected `CODEINFO_PR_TOKEN` value is missing from the worked repository's `.env.local`, the flow skips PR creation and external-review ingestion for that cycle and records a story note explaining why.
+- The flow reads `CODEINFO_PR_TOKEN` only from the worked repository's `.env.local` file and does not fall back to `.env` in this story.
+- If the expected `CODEINFO_PR_TOKEN` value is missing from the worked repository's `.env.local`, the flow skips PR creation and external-review ingestion for that cycle and records a concise plan note explaining why.
 - Normal git credentials remain the preferred auth path for branch fetch and push behavior when they are already configured in the worked repository.
 - If the current branch is not yet pushed, the PR creation path pushes automatically to the branch's existing upstream remote using the repository's normal git credentials when available.
-- If that automatic push or PR creation fails, the flow records a note in the story explaining that the PR could not be created and that external GitHub review comments were therefore not part of the implementation cycle.
+- If that automatic push or PR creation fails, the flow records a concise plan note explaining that the PR could not be created and that external GitHub review comments were therefore not part of the implementation cycle.
 - If PR creation fails, the flow can complete without attempting the GitHub wait or comment-ingestion steps for that cycle.
+- If GitHub review is skipped for a supported reason, the flow finishes as completed with warning rather than as a plain clean completion.
 - The first-version PR lookup rule is explicit: use the latest open PR for the current branch by open date and ignore closed PRs.
 - The first-version implementation does not attempt per-user GitHub execution identity or browser-user impersonation.
 - The story does not edit currently in-use flow files in place under `flows/` when wiring in the new review-cycle behavior.
@@ -137,18 +141,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-1. If GitHub review is skipped, should the flow finish as completed with warning, or as plain completed?
-   - Why this is important: This decides whether the run status tells the truth that implementation finished but outside review did not happen.
-   - Best Answer: Finish as completed with warning. The repo already distinguishes supported skip-with-note behavior from hard failure, and skipped external review is not the same thing as a clean reviewed cycle.
-   - Where this answer came from: Local repo precedent in `server/dist/flows/markdownFileResolver.js`, `server/dist/ingest/planScopeResolver.js`, and `codeinfo_markdown/preserve_external_review_adjudication_trail.md`; no external source needed beyond those repository patterns.
-2. Should the flow read only `.env.local`, or also fall back to `.env`?
-   - Why this is important: This decides whether GitHub review is an explicit per-repository opt-in or whether a broader shared env file could turn it on by accident.
-   - Best Answer: Read only `.env.local` for `CODEINFO_PR_TOKEN`. That keeps the contract explicit, matches the repo-local opt-in model already chosen for this story, and avoids silently pulling credentials from a broader file. Node.js does not automatically load `.env.local` unless the app explicitly does so, which makes it important to name one exact file contract here.
-   - Where this answer came from: Local repo precedent in Story 60's existing repository-local token decision plus the harness-vs-target repository contract in `AGENTS.md` and `codeinfo_markdown/repository_information.md`; supporting external evidence from Node.js `process.env` and `process.loadEnvFile()` documentation showing env files are an explicit application behavior, not implicit magic.
-3. When GitHub review is skipped or PR creation fails, should the note go in the plan, the PR summary, or both?
-   - Why this is important: The story already says to record a note, but the exact location needs to be clear so the implementation leaves a reliable trail instead of scattering status across different files.
-   - Best Answer: Put a concise note in the plan immediately, and let the later PR summary reflect it when a PR summary is generated. The plan is the active source of truth during implementation, while the PR summary is a derived closeout artifact and may not exist yet when the skip happens.
-   - Where this answer came from: Local repo precedent in `codeinfo_markdown/preserve_external_review_adjudication_trail.md` and `codeinfo_markdown/create_pr_summary.md`, plus the canonical PR summary location rules in `codeinfo_markdown/task_up/01-shared-contract.md`; supporting GitHub CLI evidence from `gh pr create` docs and DeepWiki that non-interactive PR creation can fail early around push/title/body concerns before any reviewer-facing summary artifact would exist.
+None at this time.
 
 ## Decisions
 
@@ -194,6 +187,24 @@ This story should remain focused on enabling that review-loop orchestration. It 
    - What the answer is: The expected fine-grained GitHub token should live in the `CODEINFO_PR_TOKEN` variable inside a `.env.local` file in the repository being worked in and should be used for GitHub PR API operations, not as the default replacement for normal git push and pull credentials. If that file or token value is missing, the PR creation and external-review logic does not execute for that cycle, and the story records that external review was skipped because repository-local GitHub credentials were not configured.
    - Where the answer came from: User direction, plus the repository's harness-vs-target path contract in `AGENTS.md` and `codeinfo_markdown/repository_information.md`, which supports reading target-repository configuration from the worked repository instead of from harness-owned paths.
    - Why it is the best answer: It lets each repository opt into its own least-privilege GitHub token without forcing one global token to span multiple owners or organizations.
+8. GitHub-review skip status
+   - The question being addressed: If GitHub review is skipped, should the flow finish as completed with warning, or as plain completed?
+   - Why the question matters: The final run status needs to distinguish a fully reviewed clean cycle from a supported skip where implementation finished but outside review did not run.
+   - What the answer is: Finish as completed with warning.
+   - Where the answer came from: User direction, plus local skip-versus-fail precedent in `server/dist/flows/markdownFileResolver.js`, `server/dist/ingest/planScopeResolver.js`, and `codeinfo_markdown/preserve_external_review_adjudication_trail.md`.
+   - Why it is the best answer: It preserves honest flow status without turning a supported skip path into a hard failure or falsely implying that a clean external review occurred.
+9. Exact GitHub token file contract
+   - The question being addressed: Should the flow read only `.env.local`, or also fall back to `.env`?
+   - Why the question matters: The story needs one exact repository-local credential contract so GitHub review is enabled intentionally rather than accidentally through broader shared environment files.
+   - What the answer is: Read only `.env.local` for `CODEINFO_PR_TOKEN`.
+   - Where the answer came from: User direction, plus Story 60's existing repository-local token model and the harness-vs-target repository contract in `AGENTS.md` and `codeinfo_markdown/repository_information.md`, with supporting Node.js documentation showing env files are loaded only when the application explicitly chooses to read them.
+   - Why it is the best answer: It keeps GitHub review as an explicit per-repository opt-in and avoids silently pulling credentials from broader environment files.
+10. Where skip notes belong
+   - The question being addressed: When GitHub review is skipped or PR creation fails, should the note go in the plan, the PR summary, or both?
+   - Why the question matters: The story says to record a note, but the canonical immediate location needs to be clear so the implementation writes one trustworthy trail instead of scattering status across multiple outputs.
+   - What the answer is: Put a concise note in the plan immediately, and let the later PR summary reflect it when a PR summary is generated.
+   - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/preserve_external_review_adjudication_trail.md`, `codeinfo_markdown/create_pr_summary.md`, and `codeinfo_markdown/task_up/01-shared-contract.md`.
+   - Why it is the best answer: The plan is the active source of truth during implementation, while the PR summary is a derived closeout artifact that may not exist yet when the skip or failure happens.
 
 ## Implementation Ideas
 
@@ -209,8 +220,10 @@ This story should remain focused on enabling that review-loop orchestration. It 
   - close latest open PR for current branch.
 - Generate the PR title and body from current story context and implementation state, following the repository's existing reviewer-summary conventions so the PR explains the intended work, implementation rationale, and the no-out-of-scope-behavior-change rule.
 - Resolve GitHub operations through `gh` inside the server runtime using a fine-grained token sourced from the worked repository's `.env.local` file through the `CODEINFO_PR_TOKEN` variable for PR API calls, rather than from one shared cross-repository token.
-- Treat missing `CODEINFO_PR_TOKEN` repository-local configuration as a supported skip path for the GitHub review cycle, with an explicit story note rather than a hidden silent no-op.
-- Prefer the repository's normal git credentials for fetch and push behavior. Before PR creation, push the branch to its configured upstream remote when needed; if that push or PR creation fails, record a story note and route the flow to a clean completion path that skips external-review ingestion for that cycle.
+- Treat missing `CODEINFO_PR_TOKEN` repository-local configuration as a supported skip path for the GitHub review cycle, with an explicit concise plan note rather than a hidden silent no-op.
+- Read `CODEINFO_PR_TOKEN` only from `.env.local` in the worked repository for this story, with no `.env` fallback.
+- Prefer the repository's normal git credentials for fetch and push behavior. Before PR creation, push the branch to its configured upstream remote when needed; if that push or PR creation fails, record a concise plan note and route the flow to a clean completion path that skips external-review ingestion for that cycle.
+- Mark supported GitHub-review skip paths as completed with warning rather than plain completed so the final run status reflects that external review did not run.
 - Detect repository owner, name, current branch, and current head commit from the selected working repository rather than asking the user to duplicate that information in every workflow step.
 - Treat fetched GitHub review comments as a separate post-internal-review input, not as the raw input for `flows/ingest_external_review_plan.json`.
 - Persist fetched GitHub review comments in a dedicated transient GitHub-review scratch file plus the minimum extra resume metadata, rather than only in memory and rather than in the existing external-review ingest files.

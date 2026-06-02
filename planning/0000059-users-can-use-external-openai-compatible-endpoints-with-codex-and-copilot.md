@@ -679,7 +679,7 @@ When the supported main compose stack is available, verify the Chat page picker 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`, `Task 3`, `Task 4`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -754,6 +754,7 @@ When the supported main compose stack is available, verify one resumed conversat
 - Implementation-only audit normalized Testing items 5 and 6 to complete from the existing `npm run lint` and `npm run format:check` evidence recorded in this task's subtasks and notes; wrapper-backed build and summary test proof still remain for the later automated-proof pass.
 - Repository-backed Codex contradictory-follow-up proof failed because config-default runs were still forwarding `runtimeConfig.model` even though the repository-backed chat home had already materialized the selected model into `chat/config.toml`; stripping that duplicate runtime override restored the saved-thread rollout-recording path without affecting endpoint-provider metadata.
 - **RESOLVED ISSUE** `npm run test:summary:server:unit` now passes cleanly (`2177` passed, `0` failed) in `test-results/server-unit-tests-2026-06-02T13-39-53-441Z.log` after the repository-backed Codex runtime-config fix. After increasing the Node heap for the client test wrapper and re-running the wrapper, Testing item 4 (`npm run test:summary:client`) now passed cleanly (879 tests, 0 failures) and its wrapper log is `test-results/client-tests-2026-06-02T14-51-33-393Z.log`.
+- Automated-proof audit closed Task 5 after re-reading the current plan state and proof artifacts: all 31 subtasks and all 6 Testing items are checked, `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 5` reports no live blocker, and the full client wrapper log at `test-results/client-tests-2026-06-02T14-51-33-393Z.log` ends with 140 passing suites and 879 passing tests.
 
 
 ---

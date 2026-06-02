@@ -441,8 +441,8 @@ Upgrade the Codex and Copilot packages before any external-endpoint behavior lan
 
 1. [ ] Run `npm run build:summary:server` to confirm the upgraded server workspace still builds cleanly before story-specific endpoint changes begin.
 2. [ ] Run `npm run test:summary:server:unit` to revalidate the baseline Codex and Copilot unit/integration proof on the upgraded versions.
-3. [ ] Run `npm run lint` for the final upgraded surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-4. [ ] Run `npm run format:check` for the final upgraded surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+3. [x] Run `npm run lint` for the final upgraded surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [x] Run `npm run format:check` for the final upgraded surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -452,6 +452,7 @@ Upgrade the Codex and Copilot packages before any external-endpoint behavior lan
 - Verified the targeted server unit/integration proof homes still pass after the upgrade bump.
 - Lint passed cleanly after the dependency bump.
 - Format check passed cleanly after the dependency bump.
+- Audit normalized Testing items 3 and 4 to complete from the existing `npm run lint` and `npm run format:check` evidence in this task's subtasks and notes; wrapper-based `build:summary:server` and `test:summary:server:unit` proof still remain for the later automated-proof pass.
 
 ---
 

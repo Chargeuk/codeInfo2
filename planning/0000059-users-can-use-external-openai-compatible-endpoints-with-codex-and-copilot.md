@@ -120,7 +120,18 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 
 ### Questions
 
-None.
+1. If two endpoints share a host but use different paths, should we treat them as different endpoints?
+   - Why this is important: Some OpenAI-compatible setups use the same host with different path prefixes, so treating only the host as the identity could merge two different endpoints by mistake.
+   - Best Answer: Yes. Treat endpoints as different when their normalized full base URLs differ, even if the host is the same. This matches the repository's existing pattern of using the full URL or full path for identity and only shortening to host or origin for display or logs. It also matches current Copilot and Codex docs, which treat the configured base URL as a full API endpoint, including path when appropriate.
+   - Where this answer came from: Local repo evidence in [server/src/lmstudio/clientPool.ts](/home/dan/code/codeInfo2/server/src/lmstudio/clientPool.ts:4), [server/src/routes/lmstudioUrl.ts](/home/dan/code/codeInfo2/server/src/routes/lmstudioUrl.ts:1), and the path-keying patterns summarized by `code_info`; external evidence from GitHub Copilot BYOK docs (https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/byok) and OpenAI Codex config docs (https://developers.openai.com/codex/config-reference and https://developers.openai.com/codex/config-advanced).
+2. If two labels would both read `host / model`, should chat add a short path to tell them apart?
+   - Why this is important: Without a collision rule, two different endpoints could look identical in the picker even though they route to different places.
+   - Best Answer: Yes. Use `host / model` by default, but append a short path hint only when two visible choices would otherwise collide. That keeps the common case simple while still making same-host endpoints understandable. It also matches the repo's general pattern of keeping a short default label and adding extra source context only when it helps disambiguate.
+   - Where this answer came from: Local repo evidence in [client/src/pages/AgentsPage.tsx](/home/dan/code/codeInfo2/client/src/pages/AgentsPage.tsx:60), the provider and model label patterns summarized by `code_info`, and the official endpoint examples in GitHub Copilot BYOK docs (https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/byok).
+3. Should older saved chats without endpoint info still open normally?
+   - Why this is important: Existing conversations should not break just because the story adds a new endpoint identity field for newer saved chats.
+   - Best Answer: Yes. Older saved chats should continue to open with the current provider-and-model behavior, while the new endpoint identity stays optional and is only used when present. This matches the repository's existing backward-compatibility pattern for schema growth: add a default and also tolerate missing values when reading older documents.
+   - Where this answer came from: Local repo evidence in [server/src/mongo/conversation.ts](/home/dan/code/codeInfo2/server/src/mongo/conversation.ts:45), [server/src/mongo/repo.ts](/home/dan/code/codeInfo2/server/src/mongo/repo.ts:55), [client/src/hooks/useConversations.ts](/home/dan/code/codeInfo2/client/src/hooks/useConversations.ts:144), and the backward-compatibility summary from `code_info`; external evidence from Mongoose defaults docs via Context7 (https://mongoosejs.com/docs/defaults.html) and DeepWiki on `Automattic/mongoose`.
 
 ## Decisions
 

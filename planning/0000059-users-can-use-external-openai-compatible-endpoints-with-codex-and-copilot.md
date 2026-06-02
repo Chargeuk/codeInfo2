@@ -127,6 +127,159 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - If later manual proof covers conversation resume behavior, include at least one proof case showing that an older saved chat without endpoint identity still opens normally.
 - If a later manual proof step reaches an auth-dependent Codex or Copilot surface that cannot be restored without human-controlled two-factor authentication, follow the repository's documented skip policy for that affected surface only.
 
+## Feasibility Proof Pass
+
+### 1. External endpoint parsing and normalization
+
+- Already existing capabilities:
+  - `server/src/config/startupEnv.ts` already owns deterministic env parsing with trimming, duplicate dropping, warning collection, stable ordering, and default handling through `resolveAgentProviderFallbackOrder()`.
+  - `server/src/test/unit/env-loading.test.ts` already proves the repository-standard parsing behaviors for blank input, whitespace trimming, duplicate warnings, and env inventory reporting.
+  - `server/src/config/runtimeConfig.ts` already owns the strip-then-translate pattern for `codeinfo_*` metadata through `extractRuntimeConfigAppMetadata()` and `stripAppOwnedRuntimeMetadata()`.
+- Missing prerequisite capabilities:
+  - One shared parser and normalized shape for `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` and the single-string `codeinfo_openai_endpoint` value is still missing and must be created before route, runtime, or persistence work depends on it.
+  - `SERVER_CODEINFO_ENV_NAMES` in `server/src/config/startupEnv.ts` does not yet include `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`, so the existing startup-env inventory would silently omit the new contract unless this story updates that owner.
+  - `RuntimeConfigAppMetadata` in `server/src/config/runtimeConfig.ts` currently only carries `codeinfoProvider`; it must grow an external-endpoint field before agent or chat runtime translation can use the new metadata cleanly.
+- Assumptions currently invalid:
+  - The current runtime metadata type does not know about endpoint identity or wire capability declarations yet.
+  - The current plan text does not yet state the exact blank-input and malformed-input behavior strongly enough for later task generation.
+- Feasibility and sequencing note:
+  - The parser must be implemented first and treated as the single source of truth. All later discovery, runtime translation, persistence, and manual-proof work should consume the normalized parsed structure instead of reparsing raw strings in multiple places.
+
+### 2. External model discovery and selection identity
+
+- Already existing capabilities:
+  - `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/routes/chatDiscovery.ts` already own provider discovery, model aggregation, default-model selection, provider ordering, and provider-specific warning surfacing.
+  - `client/src/hooks/useChatModel.ts` already owns provider bootstrap, model bootstrap, provider ordering, selected-model hydration, and Codex-specific reasoning-capability handling in the chat picker.
+  - `common/src/api.ts` already locks the top-level provider contract to `codex`, `copilot`, and `lmstudio`.
+- Missing prerequisite capabilities:
+  - The repository does not yet have a shared multi-endpoint HTTP probe helper for `GET /v1/models`. A new helper must be created before route work begins so chat discovery and runtime execution do not each invent their own timeout and partial-failure behavior.
+  - The current chat picker and request contracts only carry one selected `model` string at a time. That is insufficient when two external endpoints expose the same raw model id, because `client/src/hooks/useChatModel.ts` currently matches selected models by `model.key === selected`.
+  - The plan must therefore treat separate endpoint identity in the chat discovery response, client selection state, and `/chat` request body as a prerequisite rather than leaving it for later debugging.
+- Assumptions currently invalid:
+  - Reusing the current `selectedModel` string-only state without an accompanying endpoint identity would collapse same-model choices from different external endpoints.
+  - Introducing a brand-new top-level provider id is not allowed by the story and would also fight the current `ORDERED_CHAT_PROVIDER_IDS` contract.
+- Feasibility and sequencing note:
+  - The existing provider order and selected-provider contract can stay intact. External Codex models should remain Codex models, and external Copilot models should remain Copilot models, with a separate endpoint identity carried alongside the raw model id instead of replacing the provider contract.
+
+### 3. Runtime translation and execution fallback
+
+- Already existing capabilities:
+  - `server/src/config/runtimeConfig.ts` already supports app-owned metadata stripping, provider-specific runtime resolution, placeholder normalization, and preservation of raw `model_provider` / `model_providers` tables when they already exist.
+  - `server/src/agents/config.ts` already resolves provider-neutral agent metadata into provider-specific runtime execution config.
+  - `server/src/config/chatDefaults.ts` and `server/src/routes/chat.ts` already implement provider-order fallback, same-provider preferred-model repair, and explicit-provider fail-in-place behavior.
+  - `server/src/chat/interfaces/ChatInterfaceCopilot.ts` already owns the final `createSession()` config handed to the Copilot SDK, and `server/src/config/codexConfig.ts` already owns Codex runtime config seeding and `model_provider` support.
+- Missing prerequisite capabilities:
+  - There is no existing helper that translates a parsed external endpoint into a Codex `model_provider` / `model_providers.<name>` runtime shape.
+  - There is no existing helper that translates a parsed external endpoint into a Copilot SDK `provider` object with `type`, `baseUrl`, `wireApi`, and explicit `model`.
+  - There is no existing endpoint-aware selection layer that inserts same-endpoint model repair and same-provider native fallback before the current cross-provider fallback order.
+- Assumptions currently invalid:
+  - The current `RuntimeProviderSelection` model is provider-centric only and does not know about endpoint reachability or endpoint-local model repair yet.
+  - The latest GitHub Copilot SDK and CLI docs allow BYOK providers to bypass GitHub-hosted auth, but this story explicitly preserves the repository's current readiness policy and does not relax the existing auth gate in the current product behavior.
+- Feasibility and sequencing note:
+  - The dependency upgrade and baseline harness revalidation must happen before endpoint translation work. The repository is still pinned to `@openai/codex` / `@openai/codex-sdk` `0.130.0` and `@github/copilot-sdk` `0.3.0`, while the latest published versions confirmed during this pass are `0.136.0`, `0.136.0`, and `1.0.0-beta.12`.
+
+### 4. Persistence, resume behavior, and proof ownership
+
+- Already existing capabilities:
+  - `server/src/mongo/conversation.ts` already keeps optional flexible state in `Conversation.flags`.
+  - `server/src/routes/chat.ts` already reads a resumed execution identity from persisted conversation state and already uses explicit-provider fail-in-place behavior for pinned executions.
+  - Existing proof homes already cover persistence and resume semantics for provider/model pinning.
+- Missing prerequisite capabilities:
+  - The repository does not yet persist endpoint identity separately from the raw model id.
+  - The resumed execution identity read path does not yet include endpoint identity, so resumed conversations cannot currently fail in place on endpoint changes without more contract work.
+  - The existing plan text does not yet assign proof ownership for endpoint-aware persistence and resume behavior strongly enough for later task generation.
+- Assumptions currently invalid:
+  - Older saved conversations still contain only provider and model, so any new endpoint identity must remain optional and non-breaking at read time.
+  - Packing endpoint routing into the `model` string would violate the story contract and would also blur the repository's current persistence model.
+- Feasibility and sequencing note:
+  - The cleanest repository-owned persistence pattern is to keep `Conversation.model` as the raw model id and add an optional endpoint identity field in `Conversation.flags`, then extend the resumed execution identity to read both.
+
+## Message Contracts And Storage Shapes
+
+- `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` is an optional server env input.
+  - Missing or whitespace-only value means no external endpoints are configured.
+  - Split on semicolons after trimming. Ignore blank segments that become empty after trim.
+  - Every non-blank segment must use the exact single-endpoint grammar `<full http-or-https /v1 base URL>|<capability[,capability...]>`.
+  - URL normalization must produce the stable endpoint identity used everywhere else in the story. Query strings and fragments are out of contract for this story and should fail validation instead of creating alternate identities.
+  - The normalized path must represent a full explicit `/v1` base URL. Host-only roots remain out of scope.
+  - Capability tokens are case-insensitive after trim, but the normalized stored set should be lowercase and deduplicated.
+  - Supported capabilities are only `responses` and `completions`. At least one capability is required. Unknown capability tokens make the entry malformed.
+  - Duplicate normalized endpoints from the env list are not malformed; keep the first entry, drop later duplicates, and emit warnings.
+- `codeinfo_openai_endpoint` is an optional CodeInfo-owned runtime-config field in `codeinfo_agents/<agent>/config.toml`, `codex/chat/config.toml`, and `copilot/chat/config.toml`.
+  - Missing key means no endpoint pin.
+  - Present but blank or whitespace-only value is malformed and should fail validation instead of being treated as absent.
+  - The value uses the same single-endpoint grammar and normalization rules as one env-list item.
+- Official contract evidence confirmed during this pass:
+  - OpenAI-compatible model discovery uses `GET /v1/models` and only needs the returned `data[].id` field from the list response.
+  - Codex runtime translation must emit a generated `model_provider` plus matching `model_providers.<name>` entry with `base_url` and `wire_api`.
+  - Copilot SDK runtime translation must emit a generated custom provider object with `type: "openai"`, a full `baseUrl` including `/v1`, an explicit `wireApi`, and an explicit `model`.
+- Chat API and client-selection contracts need one new optional endpoint identity alongside the raw model id.
+  - Keep the top-level provider ids unchanged as `codex`, `copilot`, and `lmstudio`.
+  - Keep external Codex models typed as Codex models and external Copilot models typed as Copilot models so the current capability handling remains provider-shaped.
+  - Do not encode endpoint identity into the raw `model` string.
+  - Use `endpointId` as the separate identity field on internal runtime selection, persisted conversation flags, and `/chat` request handling, and use `selectedEndpointId` as the provider-bootstrap response field paired with `selectedModel`.
+  - The `ChatModelInfo` surface also needs a separate endpoint identity field so the client can distinguish duplicate raw model ids from different external endpoints without introducing a new top-level provider.
+- Persistence contract:
+  - `Conversation.model` remains the raw model id.
+  - `Conversation.flags.endpointId` is the recommended optional persisted endpoint identity for this story.
+  - Resumed execution identity must read `{ provider, model, endpointId? }` and keep fail-in-place semantics when the endpoint is later unavailable.
+- Bounding strategy:
+  - Discovery fan-out is bounded to one `GET /v1/models` probe per unique normalized endpoint from the env list plus one optional config-pinned endpoint that is not already present after normalization.
+  - Deduplicate before network I/O and preserve the normalized input order for all later merges, warnings, and picker ordering.
+
+## Test Harnesses
+
+- Existing proof homes that later tasks should extend directly:
+  - `server/src/test/unit/env-loading.test.ts` for env parsing, normalization, blank-input handling, and duplicate warnings.
+  - `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, and `server/src/test/unit/chatProviders.test.ts` for provider/model discovery, filtering, default-model selection, and shared picker behavior.
+  - `server/src/test/unit/config.chatDefaults.test.ts` and `server/src/test/integration/chat-copilot-fallback.test.ts` for provider/model repair, fallback ordering, and explicit-provider fail-in-place behavior.
+  - `server/src/test/unit/agents-config-defaults.test.ts` for provider-neutral runtime-config metadata and agent execution config resolution.
+  - `server/src/test/unit/chat-interface-run-persistence.test.ts` and `server/src/test/integration/chat-copilot-resume.test.ts` for endpoint-aware persistence and resumed fail-in-place behavior.
+  - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and `server/src/test/integration/mcp-codex-wrapper.test.ts` for Codex runtime config inheritance and generated `model_provider` / `model_providers` shapes.
+- Missing prerequisite test capability:
+  - The repository needs one lightweight `startExternalEndpointServer()` style helper for story 59 unit and integration tests. It should follow the existing `express + httpServer.listen(0) + supertest` pattern already used by the current route tests and expose configurable `GET /v1/models` responses plus failure cases.
+- Missing prerequisite production capability:
+  - The repository needs one shared external-endpoint probe helper that performs `fetch` + `AbortController` timeout behavior following the current `server/src/providers/mcpStatus.ts` pattern. That helper should own deterministic ordering, partial failure handling, and one-request-per-endpoint semantics instead of leaving those choices to route code.
+- Manual-proof and runtime entrypoint evidence already confirmed:
+  - Main proof stack startup order remains `npm run compose:build` then `npm run compose:up`, with the supported surfaces at `http://localhost:5001` and `http://localhost:5010`.
+  - The server health surface remains `http://localhost:5010/health`.
+  - The main stack does not provide an external OpenAI-compatible endpoint service, so any later live manual proof must point `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` at an external or locally running endpoint outside the checked-in compose services.
+  - Auth-dependent Codex or Copilot proof still uses the repository-defined skip rule when restoring auth would require human-controlled two-factor authentication.
+
+## Edge Cases And Failure Modes
+
+- Early risk-invariant matrix:
+  - Parser and endpoint identity owner:
+    - Invariant: the same normalized full `/v1` URL must always produce the same endpoint identity, and the first duplicate entry wins.
+    - Most likely contradiction: env list duplicates, config-pin duplicates, trailing-slash variants, or same-host different-path endpoints being merged incorrectly.
+    - Proof status: direct proof required.
+    - Future task home: the parser and normalization task.
+  - Discovery fan-out owner:
+    - Invariant: probe each unique endpoint at most once per discovery pass, preserve input order, and keep partial failures from hiding healthy endpoints.
+    - Most likely contradiction: one endpoint times out or returns malformed data while another succeeds, leading to reordered or partially dropped picker choices.
+    - Proof status: direct proof required.
+    - Future task home: the external discovery helper and route task.
+  - Selection identity owner:
+    - Invariant: two visible choices with the same raw model id but different endpoint identities stay independently selectable, displayable, and resumable.
+    - Most likely contradiction: current string-only `selectedModel` state collapsing duplicate raw model ids from different endpoints.
+    - Proof status: direct proof required.
+    - Future task home: the discovery-response and client-selection task.
+  - Runtime execution owner:
+    - Invariant: new runs may repair or fall back within the requested provider path, but resumed or pinned executions must never silently drift to a different endpoint or provider.
+    - Most likely contradiction: the endpoint disappears between picker discovery and send, or between an earlier saved run and a later resumed turn.
+    - Proof status: direct proof required.
+    - Future task home: the runtime translation and endpoint-aware fallback task.
+  - Runtime-config metadata owner:
+    - Invariant: `codeinfo_*` metadata stays repository-owned and stripped before the underlying harness validates or executes provider-native config.
+    - Most likely contradiction: `codeinfo_openai_endpoint` reaching raw validation at the wrong layer or leaking into final user-visible provider-native config files.
+    - Proof status: direct proof required.
+    - Future task home: the runtime-config translation task.
+  - Manual-proof runtime owner:
+    - Invariant: later live proof must use the supported main stack startup order, explicit env injection, and repository-defined auth skip conditions, while keeping external endpoint services outside the checked-in compose stack unless the user later expands scope.
+    - Most likely contradiction: later proof assuming the external endpoint is part of `docker-compose.yml` or that auth can be repaired autonomously.
+    - Proof status: indirect proof via final manual-testing guidance plus automated mocks.
+    - Future task home: the final story validation and close-out task.
+
 ### Questions
 
 None.
@@ -236,3 +389,454 @@ None.
   - short path hints only when `host / model` labels would otherwise collide;
   - backward-compatible loading of older saved chats that do not carry endpoint identity;
   - compatibility of the upgraded Codex and Copilot library seams with the existing CodeInfo2 harness contracts.
+
+# Tasks
+
+### Task 1. Upgrade Codex And Copilot SDK Baselines Before Story Work
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Upgrade the Codex and Copilot packages before any external-endpoint behavior lands so the rest of the story is built on the versions that will actually ship. This task also updates the repo-owned exact-version guard and the baseline proof homes that already protect these harness seams.
+
+#### Task Exit Criteria
+
+- `server/package.json`, the lockfile, and the exact-version guard all point at the latest published compatible `@openai/codex`, `@openai/codex-sdk`, and `@github/copilot-sdk` versions rechecked at implementation time.
+- Existing Codex and Copilot runtime seams still build and pass their baseline automated proof after the upgrade.
+
+#### Documentation Locations
+
+- `Context7 /openai/codex` - use for current Codex provider-routing and config expectations while validating that the upgraded package still matches the repo-owned runtime translation shape.
+- `Context7 /github/copilot-sdk` - use for current Copilot session/provider expectations while validating that the upgraded SDK still matches the repo-owned session creation seam.
+
+#### Subtasks
+
+1. [ ] Read the full story sections for Story `0000059`, then inspect `server/package.json`, `package-lock.json`, and `server/src/config/codexSdkUpgrade.ts`. Purpose: confirm the current package pins and exact-version guard before changing any dependency versions. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`.
+2. [ ] Inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/config/codexConfig.ts`, `server/src/test/unit/copilot-compose-contract.test.ts`, and `server/src/test/integration/mcp-codex-wrapper.test.ts`. Purpose: confirm the existing Codex and Copilot runtime seams that the dependency upgrade must preserve. Proof owners: `server/src/test/unit/copilot-compose-contract.test.ts`, `server/src/test/integration/mcp-codex-wrapper.test.ts`.
+3. [ ] Re-check the current latest published compatible versions of `@openai/codex`, `@openai/codex-sdk`, and `@github/copilot-sdk` immediately before editing the repo. Purpose: satisfy the story’s upgrade-first requirement without relying on planning-time version assumptions.
+4. [ ] Update `server/package.json` and `package-lock.json` so the installed `@openai/codex`, `@openai/codex-sdk`, and `@github/copilot-sdk` versions match the re-checked published versions chosen for this story. Purpose: move the repo itself onto the approved baseline before any endpoint work starts. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`, `server/src/test/unit/copilot-compose-contract.test.ts`.
+5. [ ] Update `server/src/config/codexSdkUpgrade.ts` so the repo-owned exact-version guard matches the installed Codex SDK version after the dependency upgrade. Purpose: keep startup guard behavior aligned with the actual installed package version. Proof owners: `server/src/test/unit/codexSdkUpgrade.test.ts`.
+6. [ ] Test type: server unit. Location: `server/src/test/unit/codexSdkUpgrade.test.ts`. Description: prove the installed Codex package version and the repo-owned exact-version guard stay aligned after the upgrade. Implementation files: `server/package.json`, `package-lock.json`, and `server/src/config/codexSdkUpgrade.ts`. Purpose: prevent a startup-guard drift where the repo installs one Codex SDK version but still enforces another.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/copilot-compose-contract.test.ts`. Description: prove the upgraded Copilot SDK does not silently change the repo’s existing runtime/compose contract. Implementation files: `server/package.json`, `package-lock.json`, and any affected Copilot runtime seam such as `server/src/chat/interfaces/ChatInterfaceCopilot.ts`. Purpose: keep the baseline Copilot runtime reachable through the repo’s standard startup path after the dependency upgrade.
+8. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-codex-wrapper.test.ts`. Description: prove the upgraded Codex packages still satisfy the existing wrapper/runtime integration boundary when that boundary changes. Implementation files: `server/package.json`, `package-lock.json`, and any affected Codex runtime seam such as `server/src/config/codexConfig.ts`. Purpose: catch post-upgrade breakage that would only appear once the Codex wrapper consumes the runtime config.
+9. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+10. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the upgraded server workspace still builds cleanly before story-specific endpoint changes begin.
+2. [ ] Run `npm run test:summary:server:unit` to revalidate the baseline Codex and Copilot unit/integration proof on the upgraded versions.
+3. [ ] Run `npm run lint` for the final upgraded surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [ ] Run `npm run format:check` for the final upgraded surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 2. Parse And Normalize External Endpoint Config Inputs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Create the shared parser and normalization contract for `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` and `codeinfo_openai_endpoint`. This task owns the canonical endpoint identity, deterministic duplicate handling, config-domain validation, and the rule that CodeInfo-owned metadata stays separate from provider-native runtime config.
+
+#### Task Exit Criteria
+
+- The server has one shared endpoint parser/normalizer that accepts only the story-approved `/v1|capabilities` format, derives stable endpoint identity from the normalized full URL, and emits deterministic warnings/errors for blank, malformed, duplicate, or unsupported-capability inputs.
+- Runtime-config reads for `codeinfo_openai_endpoint` are deterministic across agent configs and provider chat configs, and the CodeInfo-owned metadata is retained only long enough for later translation instead of leaking into provider-native config validation/execution.
+
+#### Documentation Locations
+
+- `https://platform.openai.com/docs/api-reference/models/list` - use for the official `/v1/models` contract so the parser task preserves the exact `/v1` base-URL requirement the later discovery task depends on.
+- `Context7 /openai/codex` - use for Codex `responses`-capable provider expectations when validating `codeinfo_openai_endpoint` compatibility for Codex runtime-config resolution.
+- `Context7 /github/copilot-sdk` - use for Copilot custom OpenAI-provider expectations when validating `codeinfo_openai_endpoint` compatibility for Copilot runtime-config resolution.
+
+#### Subtasks
+
+1. [ ] Read the story’s `Description`, `Acceptance Criteria`, `Message Contracts And Storage Shapes`, `Test Harnesses`, and `Edge Cases And Failure Modes`, then inspect `server/src/config/startupEnv.ts`, `server/src/config/runtimeConfig.ts`, `server/src/agents/config.ts`, and `server/src/config/chatDefaults.ts`. Purpose: confirm the existing env-loading, runtime-config stripping, and provider metadata seams before introducing a new CodeInfo-owned endpoint field.
+2. [ ] Inspect `server/src/test/unit/env-loading.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, and `server/src/test/unit/agents-config-defaults.test.ts`. Purpose: confirm the current proof homes that must own the new parser and metadata behavior.
+3. [ ] Create `server/src/config/openaiCompatEndpoints.ts` as the shared parser/normalizer for one endpoint string. The implementation must trim whitespace, require an explicit `http` or `https` `/v1` base URL with no query string or fragment, normalize capability tokens to lowercase, require at least one supported capability, and reject unsupported capability names. Purpose: give every later task one canonical endpoint parser and one canonical endpoint identity rule. Proof owners: `server/src/test/unit/openaiCompatEndpoints.test.ts`.
+4. [ ] Update `server/src/config/startupEnv.ts` so `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` uses the shared parser, ignores blank env segments, preserves first-wins duplicate handling by normalized full URL, and emits warnings rather than hard failure for later duplicates. Purpose: make server startup the source of truth for env-backed endpoint normalization. Proof owners: `server/src/test/unit/env-loading.test.ts`.
+5. [ ] Update `server/src/config/runtimeConfig.ts` so `codeinfo_openai_endpoint` is read, normalized, validated, and retained as CodeInfo-owned runtime metadata on `codex/chat/config.toml` and `copilot/chat/config.toml`, and so `stripAppOwnedRuntimeMetadata()` removes `codeinfo_openai_endpoint` before provider-native execution config is finalized. Purpose: keep provider chat config parsing repository-owned instead of exposing raw provider-native endpoint tables. Proof owners: `server/src/test/unit/runtimeConfig.test.ts`.
+6. [ ] Update `server/src/agents/config.ts` so `codeinfo_openai_endpoint` is read and surfaced correctly on `codeinfo_agents/<agent>/config.toml`, while keeping non-agent `codeinfo_provider` rules honest and preserving provider-specific validation flow. Purpose: keep agent endpoint selection aligned with the repo’s provider-neutral config contract. Proof owners: `server/src/test/unit/agents-config-defaults.test.ts`.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove one endpoint string accepts the supported in-range contract of an explicit `http` or `https` `/v1` base URL plus at least one supported capability. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the accepted parser contract explicit instead of proving only rejections.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove one endpoint string rejects a malformed URL that cannot be normalized into an explicit `http` or `https` base URL. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: give raw URL-shape rejection its own proof home instead of bundling it with other `/v1` contract failures.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove one endpoint string rejects an otherwise valid URL when the normalized path does not end at `/v1`. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the story’s exact `/v1` requirement explicit as its own parser invariant.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove one endpoint string rejects query-string variants even when the base URL and capability tokens are otherwise valid. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: prevent ambiguous endpoint identity caused by query-bearing URLs.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove one endpoint string rejects fragment-bearing variants even when the base URL and capability tokens are otherwise valid. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: prevent ambiguous endpoint identity caused by fragment-bearing URLs.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove one endpoint string rejects unsupported capability names. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep later discovery/filtering logic bounded to the approved wire-capability names only.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove one endpoint string rejects entries that omit every supported capability token. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the no-supported-capability failure path explicit instead of bundling it with unsupported-token coverage.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove a blank `codeinfo_openai_endpoint` value fails validation instead of being treated as absent. Implementation files: `server/src/config/openaiCompatEndpoints.ts` and `server/src/config/runtimeConfig.ts`. Purpose: keep the exact blank-input edge case explicit for runtime-config callers.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove a whitespace-only `codeinfo_openai_endpoint` value fails validation instead of being treated as absent after trimming. Implementation files: `server/src/config/openaiCompatEndpoints.ts` and `server/src/config/runtimeConfig.ts`. Purpose: keep the whitespace-only edge case separate from the truly blank-input path.
+16. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatEndpoints.test.ts`. Description: prove same-host endpoints with different normalized paths remain distinct endpoint identities. Implementation files: `server/src/config/openaiCompatEndpoints.ts`. Purpose: prevent host-only identity collapse when the story requires full normalized URL identity.
+17. [ ] Test type: server unit. Location: `server/src/test/unit/env-loading.test.ts`. Description: prove `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` ignores fully blank env segments. Implementation files: `server/src/config/startupEnv.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep env parsing tolerant of empty separators without inventing phantom endpoints.
+18. [ ] Test type: server unit. Location: `server/src/test/unit/env-loading.test.ts`. Description: prove `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` ignores whitespace-only env segments after trimming. Implementation files: `server/src/config/startupEnv.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep whitespace-only env noise separate from the truly blank-segment path.
+19. [ ] Test type: server unit. Location: `server/src/test/unit/env-loading.test.ts`. Description: prove duplicate normalized env entries keep the first winner and emit a warning instead of failing startup. Implementation files: `server/src/config/startupEnv.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: preserve the repo’s warn-and-continue duplicate policy on this new env contract.
+20. [ ] Test type: server unit. Location: `server/src/test/unit/env-loading.test.ts`. Description: prove malformed env entries fail clearly without hiding that the startup-env parser was the rejecting owner. Implementation files: `server/src/config/startupEnv.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep startup diagnosis honest when an operator provides a bad endpoint string.
+21. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove provider chat config reads `codeinfo_openai_endpoint`, preserves the accepted in-range config path, and strips that field before provider-native runtime execution. Implementation files: `server/src/config/runtimeConfig.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: prevent CodeInfo-owned endpoint metadata from leaking into provider-native config at the exact success-path boundary.
+22. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove provider chat config rejects a blank `codeinfo_openai_endpoint` value. Implementation files: `server/src/config/runtimeConfig.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: give the blank runtime-config rejection its own proof home instead of bundling it into broader provider-compatibility coverage.
+23. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove provider chat config rejects a whitespace-only `codeinfo_openai_endpoint` value after trimming. Implementation files: `server/src/config/runtimeConfig.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the whitespace-only runtime-config rejection separate from the truly blank path.
+24. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove Codex provider chat config rejects `codeinfo_openai_endpoint` values that do not advertise `responses` support. Implementation files: `server/src/config/runtimeConfig.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the Codex-specific compatibility invariant explicit at the runtime-config boundary.
+25. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove Copilot provider chat config rejects `codeinfo_openai_endpoint` values that do not advertise `completions` or `responses` support. Implementation files: `server/src/config/runtimeConfig.ts` and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the Copilot-specific compatibility invariant explicit at the runtime-config boundary.
+26. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove agent config normalizes `codeinfo_openai_endpoint` on the accepted path while preserving the provider-neutral `codeinfo_provider` ownership rules. Implementation files: `server/src/agents/config.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the agent-side accepted path explicit before later translation uses it.
+27. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove agent config rejects a blank `codeinfo_openai_endpoint` value. Implementation files: `server/src/agents/config.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/config/openaiCompatEndpoints.ts`. Purpose: give the blank agent-config rejection its own proof home instead of bundling it into broader validation coverage.
+28. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove agent config rejects a whitespace-only `codeinfo_openai_endpoint` value after trimming. Implementation files: `server/src/agents/config.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the whitespace-only agent-config rejection separate from the truly blank path.
+29. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove agent config preserves the Codex-side `responses` compatibility failure when `codeinfo_openai_endpoint` targets an incompatible endpoint. Implementation files: `server/src/agents/config.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the agent-side Codex compatibility failure explicit instead of assuming provider-chat tests are sufficient.
+30. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove agent config preserves the Copilot-side `completions` or `responses` compatibility failure when `codeinfo_openai_endpoint` targets an incompatible endpoint. Implementation files: `server/src/agents/config.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/config/openaiCompatEndpoints.ts`. Purpose: keep the agent-side Copilot compatibility failure explicit instead of assuming provider-chat tests are sufficient.
+31. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+32. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the new parser and runtime-config metadata surfaces compile cleanly.
+2. [ ] Run `npm run test:summary:server:unit` to prove env parsing, runtime-config normalization, duplicate warnings, and provider-compatibility validation through the server unit/integration wrapper.
+3. [ ] Run `npm run lint` for the final parser/metadata surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [ ] Run `npm run format:check` for the final parser/metadata surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 3. Add Shared External Endpoint Model Discovery
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 2`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Build the shared server-side discovery helper that probes external endpoints through `/v1/models` and returns a deterministic catalog shape the chat routes can reuse. This task owns one-request-per-endpoint behavior, timeout/failure handling, config-pinned endpoint inclusion, and the test helper needed to prove those discovery states honestly.
+
+#### Task Exit Criteria
+
+- The server has one shared external-endpoint discovery helper that probes each unique endpoint at most once, preserves normalized input order, tolerates partial failures, and returns only the model-id data needed by the later catalog task.
+- The repository has a reusable test helper for synthetic external OpenAI-compatible `/v1/models` servers so route and helper proof do not rely on live internet endpoints.
+
+#### Documentation Locations
+
+- `https://platform.openai.com/docs/api-reference/models/list` - use for the expected `GET /v1/models` response shape and the requirement that discovery only needs `data[].id`.
+
+#### Subtasks
+
+1. [ ] Read the story’s `Feasibility Proof Pass`, `Message Contracts And Storage Shapes`, `Test Harnesses`, and `Risk And Invariant Matrix`, then inspect `server/src/providers/mcpStatus.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatDiscovery.ts`, and `common/src/lmstudio.ts`. Purpose: confirm the current timeout pattern and the route seams that will consume shared endpoint discovery.
+2. [ ] Inspect `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, and `server/src/test/unit/chatProviders.test.ts`. Purpose: confirm the current route proof homes before moving endpoint probing out of route code.
+3. [ ] Create `server/src/chat/openaiCompatModelDiscovery.ts` as the shared production helper for endpoint model discovery. It must deduplicate by normalized endpoint identity before fetch, preserve normalized input order, and merge one config-pinned endpoint only when it is not already present after normalization. Purpose: centralize endpoint discovery ownership before route code consumes it. Proof owners: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`.
+4. [ ] Extend `server/src/chat/openaiCompatModelDiscovery.ts` with `fetch` plus `AbortController` timeout behavior modeled on `server/src/providers/mcpStatus.ts`, and make partial endpoint failures non-fatal to healthy endpoint results. Purpose: keep timeout and degraded-endpoint behavior deterministic instead of leaving it to route-level branching. Proof owners: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`.
+5. [ ] Update `server/src/routes/chatModels.ts` so `/chat/models` consumes `server/src/chat/openaiCompatModelDiscovery.ts` instead of probing endpoints directly. Do not change LM Studio’s existing non-endpoint discovery flow in this step. Purpose: move the model-catalog route onto the shared one-request-per-endpoint helper before provider bootstrap starts reusing it. Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`.
+6. [ ] Update `server/src/routes/chatProviders.ts` and `server/src/routes/chatDiscovery.ts` so provider bootstrap consumes `server/src/chat/openaiCompatModelDiscovery.ts` instead of probing endpoints directly. Keep provider ordering and non-endpoint bootstrap behavior unchanged in this step. Purpose: make provider bootstrap reuse the same deduplicated discovery source as `/chat/models` rather than maintaining a second probing path. Proof owners: `server/src/test/unit/chatProviders.test.ts`.
+7. [ ] Create `server/src/test/support/externalOpenAiCompatServer.ts` as the reusable test-only helper for synthetic `/v1/models` endpoints. Start with the success-path and malformed-payload controls that `server/src/test/unit/openaiCompatModelDiscovery.test.ts` will need immediately. Purpose: give the discovery tests one local fake-endpoint helper before adding the slower failure modes. 
+8. [ ] Extend `server/src/test/support/externalOpenAiCompatServer.ts` with slow-response timeout control and transport-failure control, while keeping the helper test-only and reusable by later fallback or translation tests. Purpose: make timeout and transport-failure discovery proofs deterministic without pushing those behaviors into production code.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`. Description: prove the shared discovery helper probes each unique normalized endpoint at most once even when env and config sources repeat it. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts` and `server/src/test/support/externalOpenAiCompatServer.ts`. Purpose: keep the bounded one-request-per-endpoint strategy explicit instead of only implied by route behavior.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`. Description: prove the shared discovery helper preserves normalized input order in the returned endpoint/model catalog. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts` and `server/src/test/support/externalOpenAiCompatServer.ts`. Purpose: give stable ordering its own proof home instead of bundling it into deduplication coverage.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`. Description: prove a config-pinned endpoint is merged only when it is not already present after normalization. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts`. Purpose: keep source-merging behavior explicit before provider bootstrap and picker code depend on it.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`. Description: prove a timed-out endpoint does not hide healthy endpoint results. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts` and `server/src/test/support/externalOpenAiCompatServer.ts`. Purpose: give the timeout failure path its own proof home instead of bundling it with other transport failures.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`. Description: prove a transport-failing endpoint does not hide healthy endpoint results. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts` and `server/src/test/support/externalOpenAiCompatServer.ts`. Purpose: keep the non-timeout transport failure path separate from timeout coverage.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/openaiCompatModelDiscovery.test.ts`. Description: prove a malformed `/v1/models` payload is isolated to that endpoint and does not reorder or erase healthy endpoint results. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts` and `server/src/test/support/externalOpenAiCompatServer.ts`. Purpose: pin down the post-response failure boundary that later routes rely on.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.codex.test.ts`. Description: prove the Codex catalog surfaces only endpoint-backed models from endpoints that declare `responses` support. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts` and `server/src/routes/chatModels.ts`. Purpose: keep Codex compatibility filtering explicit at the route consumer.
+16. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.copilot.test.ts`. Description: prove the Copilot catalog surfaces only endpoint-backed models from endpoints that declare `completions` or both capabilities. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts` and `server/src/routes/chatModels.ts`. Purpose: keep Copilot compatibility filtering explicit at the route consumer.
+17. [ ] Test type: server unit. Location: `server/src/test/unit/chatProviders.test.ts`. Description: prove provider bootstrap includes a config-pinned endpoint that is absent from the env list. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep the config-pinned discovery path explicit before the client picker relies on it.
+18. [ ] Test type: server unit. Location: `server/src/test/unit/chatProviders.test.ts`. Description: prove env-backed and config-backed copies of the same normalized endpoint collapse into one provider-bootstrap identity. Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep deduplication across source boundaries explicit before the picker consumes bootstrap output.
+19. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+20. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the new production and test discovery helpers compile cleanly.
+2. [ ] Run `npm run test:summary:server:unit` to prove one-probe-per-endpoint behavior, ordering, partial failures, and route-facing discovery filtering through the server wrapper.
+3. [ ] Run `npm run lint` for the final discovery-helper surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [ ] Run `npm run format:check` for the final discovery-helper surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 4. Surface External Endpoint Models In The Chat Picker
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 2`, `Task 3`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Extend the shared chat discovery contract and the Chat page picker so external Codex and Copilot models appear as additional choices under their existing providers. This task owns harness-specific model filtering, shared endpoint deduplication across env/config sources, the separate picker identity needed for duplicate raw model ids, and the `host / model` display-label rules.
+
+#### Task Exit Criteria
+
+- `/chat/models` and `/chat/providers` expose endpoint-backed Codex and Copilot models without creating a new top-level provider, and LM Studio remains unchanged by this story.
+- The Chat page can select and display two models with the same raw model id from different endpoint identities without collapsing them into one choice, while still clearing or excluding stale hidden selection state when the active provider or visible catalog changes and while keeping create-mode bootstrap state separate from restored conversation state.
+
+#### Documentation Locations
+
+- `https://platform.openai.com/docs/api-reference/models/list` - use for the official model-list contract that the picker surfaces indirectly through server discovery.
+
+#### Subtasks
+
+1. [ ] Read the story’s `Description`, `Acceptance Criteria`, `Message Contracts And Storage Shapes`, and `Risk And Invariant Matrix`, then inspect `common/src/lmstudio.ts`, `common/src/api.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: confirm the current shared discovery contract before adding endpoint-aware picker identity.
+2. [ ] Inspect `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx`. Purpose: confirm the exact client seams that still assume one string-only selected model.
+3. [ ] Rewrite or split any misleading reused tests in `client/src/test/chatPage.provider.conversationSelection.test.tsx` before adding endpoint-aware assertions. In particular, keep the existing provider/model read-only, hidden-draft isolation, and stale-label replacement tests scoped to the invariant their titles currently claim, and add separate endpoint-aware tests when the new behavior is broader than those existing titles. Purpose: prevent reused conversation-selection proof from silently claiming endpoint behavior that the old test names do not actually describe.
+4. [ ] Update `common/src/lmstudio.ts` so `ChatModelInfo` carries a separate `endpointId`, and update any related shared response types there so provider bootstrap can carry `selectedEndpointId` alongside `selectedModel`. Purpose: give the client enough shared contract detail to distinguish duplicate raw model ids without adding a new top-level provider.
+5. [ ] Update `client/src/hooks/useChatModel.ts` so `isChatModelInfo()` accepts optional `endpointId`, `parseProvidersResponse()` accepts optional `selectedEndpointId`, and bootstrap selection consumes `selectedModel` plus `selectedEndpointId` as one paired identity. Purpose: keep the client consumer aligned with the shared endpoint-aware bootstrap contract instead of silently accepting malformed or incomplete endpoint fields. Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`.
+6. [ ] Update `common/src/api.ts` only where the shared chat bootstrap contract needs the new endpoint-aware selection fields. Purpose: keep the shared API contract aligned with the server and client changes without widening unrelated provider surfaces.
+7. [ ] Update `server/src/routes/chatModels.ts` so Codex surfaces only endpoints declaring `responses`, Copilot surfaces endpoints declaring `completions` or both capabilities, and LM Studio keeps its current catalog behavior. Purpose: keep external models provider-shaped inside the existing `/chat/models` route.
+8. [ ] Update `server/src/routes/chatProviders.ts` and `server/src/routes/chatDiscovery.ts` so provider bootstrap can return `selectedEndpointId`, config-pinned endpoints outside `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` still appear for the selected provider, and env-backed/config-backed copies of the same normalized endpoint appear only once. Purpose: keep chat bootstrap and picker defaults aligned to the endpoint-aware catalog.
+9. [ ] Update `client/src/hooks/useChatModel.ts` so create-mode picker state tracks separate endpoint identity, duplicate raw model ids remain independently selectable, and stale hidden selections are cleared by exact `(model.key, endpointId)` pair membership when a provider change or catalog refresh hides the previously selected endpoint/model combination. Purpose: make create-mode transitions clear stale hidden state instead of silently retaining a same-key choice from the wrong endpoint. Proof owners: `client/src/test/chatPage.models.test.tsx`.
+10. [ ] Update `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx` so restored conversation state keeps its endpoint identity locally for display and resumed sends, blocks create-mode bootstrap churn from overwriting that restored selection while the conversation remains active, and returns to current bootstrap defaults when the user goes back to a fresh draft. Purpose: separate create-vs-reuse state so a restored endpoint does not leak into later new-conversation sends. Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`.
+11. [ ] Update `client/src/pages/ChatPage.tsx` so endpoint-backed model labels default to `host / model`, and only colliding `host / model` labels gain a short path hint. Purpose: keep the visible picker compact in the common case while still distinguishing colliding endpoint choices. Proof owners: `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.models.test.tsx`.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.codex.test.ts`. Description: prove `/chat/models` surfaces endpoint-backed Codex choices with separate endpoint identity while preserving Codex-only compatibility filtering. Implementation files: `common/src/lmstudio.ts`, `server/src/routes/chatModels.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep the Codex model catalog contract explicit after endpoint identity is introduced.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.copilot.test.ts`. Description: prove `/chat/models` surfaces endpoint-backed Copilot choices with separate endpoint identity while preserving Copilot compatibility filtering. Implementation files: `common/src/lmstudio.ts`, `server/src/routes/chatModels.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep the Copilot model catalog contract explicit after endpoint identity is introduced.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/chatProviders.test.ts`. Description: prove provider bootstrap exposes a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` without adding a new top-level provider, and returns `selectedEndpointId` when that endpoint is the active default. Implementation files: `common/src/api.ts`, `common/src/lmstudio.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep the config-pinned bootstrap path and the producer side of the selected-endpoint contract explicit for the later picker default flow.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/chatProviders.test.ts`. Description: prove provider bootstrap collapses env-backed and config-backed copies of the same normalized endpoint into one shared identity. Implementation files: `common/src/api.ts`, `common/src/lmstudio.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep source-merging behavior explicit at the server bootstrap boundary instead of leaving it implied by client selection tests.
+16. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove the client picker keeps duplicate raw model ids independently selectable by endpoint identity. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: prevent duplicate raw model ids from collapsing into one visible choice.
+17. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove a stale selection is cleared when the previous `(model.key, endpointId)` pair disappears even though the same raw model key is still visible from a different endpoint. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: make the mixed-state cleanup discriminant explicit instead of relying on key-only catalog checks.
+18. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove hidden endpoint selections are cleared when the visible model catalog changes and the previously selected endpoint is no longer available. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: give the stale-hidden-selection cleanup path its own proof home.
+19. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove invalid endpoint selections are excluded from submission when the current provider or visible catalog no longer supports them. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: keep the stale-invalid-submission guard separate from the visible-state cleanup path.
+20. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Description: prove endpoint-backed model labels default to `host / model` in the non-collision case. Implementation files: `client/src/pages/ChatPage.tsx` and any label helpers reused by `client/src/hooks/useChatModel.ts`. Purpose: keep the default visible-label contract explicit.
+21. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Description: prove colliding `host / model` labels gain a short path hint. Implementation files: `client/src/pages/ChatPage.tsx` and any label helpers reused by `client/src/hooks/useChatModel.ts`. Purpose: keep the collision-expansion trigger explicit instead of bundling it with unrelated label cases.
+22. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Description: prove only the colliding endpoint-backed choices gain the short path hint suffix. Implementation files: `client/src/pages/ChatPage.tsx` and any label helpers reused by `client/src/hooks/useChatModel.ts`. Purpose: keep the no-extra-noise side of the collision-label rule explicit.
+23. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.conversationSelection.test.tsx`. Description: prove chat bootstrap restores endpoint-aware selection defaults from standard discovered endpoint choices, using `selectedModel` plus `selectedEndpointId` as one paired identity. Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep the normal endpoint-aware bootstrap/default-selection path explicit.
+24. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.conversationSelection.test.tsx`. Description: prove chat bootstrap restores a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`. Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: give the config-pinned bootstrap edge case its own proof home instead of bundling it into the standard default-selection path.
+25. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.conversationSelection.test.tsx`. Description: prove selecting an existing conversation retains the restored endpoint identity locally, keeps provider/model controls in reuse mode, and prevents later provider-bootstrap refreshes from overwriting that restored selection while the conversation stays active. Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, and the chat bootstrap response shapes in `common/src/api.ts` and `common/src/lmstudio.ts`. Purpose: give the create-vs-reuse mixed-state boundary its own proof home.
+26. [ ] Test type: client unit. Location: `client/src/test/chatPage.resumeIdentity.test.tsx`. Description: prove returning from a restored conversation to a fresh draft restores the current bootstrap endpoint selection instead of carrying the stale restored endpoint into create mode. Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/conversations.ts`, and `client/src/hooks/useConversations.ts`. Purpose: keep the reuse-to-create transition explicit so restored endpoint state does not leak into later new sends.
+27. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+28. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the server-side discovery and provider bootstrap changes compile cleanly.
+2. [ ] Run `npm run build:summary:client` to confirm the picker-contract changes compile cleanly on the client.
+3. [ ] Run `npm run test:summary:server:unit` to prove the route-side discovery/filtering and provider bootstrap behavior.
+4. [ ] Run `npm run test:summary:client` to prove endpoint-aware picker identity, duplicate-id handling, and visible-label behavior on the Chat page.
+5. [ ] Run `npm run lint` for the final picker/discovery surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for the final picker/discovery surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 5. Translate Endpoint Selections Into Runtime Config And Persistence
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 2`, `Task 3`, `Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Translate the new CodeInfo-owned endpoint metadata into provider-native Codex and Copilot runtime settings, and persist endpoint identity separately from the raw model id. This task owns the `/chat` request contract, chat bootstrap selected-endpoint state, Codex/Copilot runtime translation, and backward-compatible conversation persistence.
+
+#### Task Exit Criteria
+
+- Chat requests, selected defaults, and saved conversations carry separate raw `model` and optional `endpointId` values instead of encoding endpoint routing inside the model string, and stale restored endpoint state does not leak into fresh-draft sends.
+- Codex and Copilot runtime execution paths can consume `codeinfo_openai_endpoint` through internal translation while preserving existing provider readiness/auth gates and backward compatibility for older saved conversations without endpoint identity.
+
+#### Documentation Locations
+
+- `Context7 /openai/codex` - use for the generated `model_provider` plus `model_providers.<name>` translation contract and required `base_url`/`wire_api` fields.
+- `Context7 /github/copilot-sdk` - use for the Copilot custom provider object contract (`type: "openai"`, `baseUrl`, `wireApi`, `model`) that this task must generate internally instead of exposing to users.
+
+#### Subtasks
+
+1. [ ] Read the story’s `Message Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, and `Decisions`, then inspect `common/src/lmstudio.ts`, `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/conversations.ts`, `client/src/hooks/useConversations.ts`, `server/src/config/codexConfig.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, and `server/src/mongo/conversation.ts`. Purpose: confirm the current request builder, persistence schema, and provider-native translation seams before adding endpoint identity.
+2. [ ] Inspect `client/src/test/chatSendPayload.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/integration/mcp-codex-wrapper.test.ts`. Purpose: confirm the exact proof homes that must own the request, persistence, and translation changes.
+3. [ ] Rewrite misleading reused proof names before extending payload and resume assertions. In `client/src/test/chatSendPayload.test.tsx`, replace the existing `"includes only conversationId and message"` claim with wording that still matches the final payload shape, and keep any no-endpoint baseline coverage separate from new endpoint-aware payload cases. In `client/src/test/chatPage.resumeIdentity.test.tsx`, keep the existing provider/model baseline explicit if it remains, but add separately named endpoint-aware resume and fresh-draft transition tests instead of silently widening provider-only titles. Purpose: prevent payload and resume proof from claiming a narrower invariant than the story now requires.
+4. [ ] Update `common/src/lmstudio.ts` so the shared chat request/response and selection shapes can carry `endpointId` and `selectedEndpointId` separately from the raw `model`. Purpose: keep shared contract identity explicit instead of encoding endpoint routing inside the model string.
+5. [ ] Update `client/src/hooks/useChatStream.ts` so `/chat` submissions include the selected `endpointId` when present, continue sending the raw `model` separately, and exclude `endpointId` when the active create-mode or restored-selection state no longer supports that endpoint-backed choice. Purpose: make the client request payload endpoint-aware without letting stale hidden endpoint state leak into sends. Proof owners: `client/src/test/chatSendPayload.test.tsx`.
+6. [ ] Update `client/src/pages/ChatPage.tsx` so create-mode and resumed-selection state both consume `selectedEndpointId` and restored `endpointId` separately from the raw model, preserve restored endpoint identity for resumed sends, and drop that restored endpoint identity when the user returns to a fresh draft. Purpose: keep the visible chat state aligned with the new endpoint-aware request and resume contract across run-vs-resume transitions. Proof owners: `client/src/test/chatPage.resumeIdentity.test.tsx`.
+7. [ ] Update `client/src/api/conversations.ts` and `client/src/hooks/useConversations.ts` so conversation normalization preserves optional `flags.endpointId` without breaking older saved conversations that do not have that field. Purpose: keep client-side conversation hydration backward-compatible while carrying new endpoint identity. Proof owners: `client/src/test/chatPage.resumeIdentity.test.tsx`.
+8. [ ] Update `server/src/mongo/conversation.ts` and `server/src/routes/conversations.ts` so saved conversations may persist `flags.endpointId` while keeping `Conversation.model` as the raw model id and keeping older stored records readable. Purpose: preserve the repo’s existing persistence shape while adding separate endpoint identity. Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`.
+9. [ ] Update `server/src/routes/chat.ts` so chat bootstrap and persistence read/write `endpointId` and `selectedEndpointId` separately from the raw `model`, including reading `existingConversation.flags.endpointId` into resumed execution identity when present. Purpose: keep the chat route as the server-side owner of endpoint-aware request and resume identity. Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`.
+10. [ ] Update `server/src/chat/agentFlags.ts` so `sanitizeConversationFlagsForProvider()` and `buildConversationFlags()` preserve optional `flags.endpointId` across continuation writes while keeping flow-owned state stripping and provider-specific flag filtering unchanged. Purpose: prevent the current flag allowlist from silently dropping persisted endpoint identity on the next chat, agent, or flow turn. Proof owners: `server/src/test/unit/flow-flag-sanitization.test.ts`, `server/src/test/unit/flow-flag-persistence.test.ts`.
+11. [ ] Update `server/src/routes/chatValidators.ts` so the `/chat` request contract validates optional `endpointId` against the selected provider/runtime path and rejects contradictory payloads, including stale endpoint-backed values that arrive with a non-endpoint provider or an otherwise incompatible create-mode selection. Purpose: give the server a second line of defense when hidden or restored UI state would otherwise leak into a request payload. Proof owners: `server/src/test/unit/chatValidators.test.ts`.
+12. [ ] Update `server/src/config/codexConfig.ts` so `codeinfo_openai_endpoint` is translated into a generated Codex `model_provider` plus matching `model_providers.<name>` entry with the required `base_url` and `wire_api` fields. Purpose: keep Codex runtime translation repository-owned instead of asking users to author native provider tables. Proof owners: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/integration/mcp-codex-wrapper.test.ts`.
+13. [ ] Update `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so `codeinfo_openai_endpoint` is translated into the generated Copilot custom provider object with `type: "openai"`, `baseUrl`, `wireApi`, and `model`. Purpose: keep Copilot runtime translation repository-owned instead of exposing native provider objects to users. Proof owners: `server/src/test/integration/chat-copilot-resume.test.ts`.
+14. [ ] Test type: client unit. Location: `client/src/test/chatSendPayload.test.tsx`. Description: prove chat requests submit raw `model` and optional `endpointId` as separate fields instead of a combined identifier. Implementation files: `common/src/lmstudio.ts`, `client/src/hooks/useChatStream.ts`, and `server/src/routes/chat.ts`. Purpose: keep the producer side of the endpoint-aware request contract explicit.
+15. [ ] Test type: client unit. Location: `client/src/test/chatSendPayload.test.tsx`. Description: prove create-mode sends exclude a stale `endpointId` after the visible provider or model state changes to a non-endpoint-backed path. Implementation files: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, and `server/src/routes/chat.ts`. Purpose: give the hidden-or-disabled stale-submission guard its own proof home at the last client payload boundary.
+16. [ ] Test type: client unit. Location: `client/src/test/chatPage.resumeIdentity.test.tsx`. Description: prove restored chat state consumes `endpointId` when present. Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/api/conversations.ts`, and `client/src/hooks/useConversations.ts`. Purpose: keep the client consumer side of the endpoint-aware resume contract explicit on the happy path.
+17. [ ] Test type: client unit. Location: `client/src/test/chatPage.resumeIdentity.test.tsx`. Description: prove older conversation records that do not have `endpointId` still restore correctly. Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/api/conversations.ts`, and `client/src/hooks/useConversations.ts`. Purpose: give backward-compatible reader behavior its own proof home instead of bundling it into the endpoint-present case.
+18. [ ] Test type: client unit. Location: `client/src/test/chatPage.resumeIdentity.test.tsx`. Description: prove restored endpoint identity is retained for resumed sends while the reused conversation remains active, but is dropped when the user returns to a fresh draft. Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/api/conversations.ts`, and `client/src/hooks/useConversations.ts`. Purpose: keep the run-vs-resume mixed-state boundary explicit on the client side.
+19. [ ] Test type: server unit. Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`. Description: prove persisted conversations store optional `flags.endpointId` separately from the raw model id. Implementation files: `server/src/mongo/conversation.ts`, `server/src/routes/conversations.ts`, and `server/src/routes/chat.ts`. Purpose: keep the writer side of the persistence contract explicit.
+20. [ ] Test type: server unit. Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`. Description: prove older stored conversations that do not have `flags.endpointId` still read successfully through the persistence layer. Implementation files: `server/src/mongo/conversation.ts`, `server/src/routes/conversations.ts`, and `server/src/routes/chat.ts`. Purpose: give reader/writer compatibility its own proof home instead of relying only on resume integration coverage.
+21. [ ] Test type: server unit. Location: `server/src/test/unit/flow-flag-sanitization.test.ts`. Description: prove ordinary conversation flag sanitization preserves `endpointId` while still dropping flow-owned metadata and unsupported provider flags on non-preserve writes. Implementation files: `server/src/chat/agentFlags.ts`. Purpose: keep the sanitizer allowlist aligned with the new persisted identity contract instead of silently stripping `endpointId` on continuation.
+22. [ ] Test type: server unit. Location: `server/src/test/unit/flow-flag-persistence.test.ts`. Description: prove `buildConversationFlags()` preserves `endpointId` across continuation writes while still respecting `preserveFlowState` and provider-specific thread or agent-flag behavior. Implementation files: `server/src/chat/agentFlags.ts` and the continuation writers that reuse it. Purpose: give the writer-side continuation boundary its own proof home instead of relying only on initial persistence tests.
+23. [ ] Test type: server unit. Location: `server/src/test/unit/chatValidators.test.ts`. Description: prove `/chat` rejects a contradictory payload that carries `endpointId` for a non-endpoint-backed provider path such as LM Studio. Implementation files: `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, and the shared request contract in `common/src/lmstudio.ts`. Purpose: keep the server-side stale-hidden-state rejection explicit instead of relying only on client clearing behavior.
+24. [ ] Test type: server unit. Location: `server/src/test/unit/chatValidators.test.ts`. Description: prove `/chat` rejects a contradictory payload whose `endpointId` no longer matches the selected provider/runtime path after a create-mode transition. Implementation files: `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, and the shared request contract in `common/src/lmstudio.ts`. Purpose: keep mismatched restored-or-hidden endpoint submissions from being honored by the server.
+25. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-resume.test.ts`. Description: prove resumed server-side chat execution reuses stored endpoint identity when present. Implementation files: `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and `server/src/chat/interfaces/ChatInterfaceCopilot.ts`. Purpose: keep the resumed endpoint-present path explicit on the end-to-end server surface.
+26. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-resume.test.ts`. Description: prove resumed server-side chat execution stays backward-compatible when older saved conversations do not have `endpointId`. Implementation files: `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and `server/src/chat/interfaces/ChatInterfaceCopilot.ts`. Purpose: give resume compatibility its own end-to-end proof home instead of leaving it implied by persistence-only tests.
+27. [ ] Test type: server unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`. Description: prove Codex runtime translation generates `model_provider` and `model_providers.<name>` metadata from `codeinfo_openai_endpoint` instead of requiring raw user-authored provider tables. Implementation files: `server/src/config/codexConfig.ts` and any shared runtime merge helpers it uses. Purpose: keep the Codex translation shape explicit at the runtime-merge boundary.
+28. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-codex-wrapper.test.ts`. Description: prove the generated Codex provider metadata survives the existing wrapper/runtime path unchanged enough for real execution setup. Implementation files: `server/src/config/codexConfig.ts`, `server/src/routes/chat.ts`, and the Codex wrapper seam. Purpose: catch translation regressions that only appear after the wrapper consumes the generated config.
+29. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-resume.test.ts`. Description: prove Copilot runtime translation builds the generated custom provider object with `type: "openai"`, `baseUrl`, `wireApi`, and `model` when `codeinfo_openai_endpoint` is present. Implementation files: `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and `server/src/routes/chat.ts`. Purpose: give the Copilot translation contract its own explicit proof home instead of leaving it implied by broader resume behavior.
+30. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+31. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the runtime translation and persistence changes compile cleanly.
+2. [ ] Run `npm run build:summary:client` to confirm the endpoint-aware request/restore contract compiles cleanly on the client.
+3. [ ] Run `npm run test:summary:server:unit` to prove provider-native translation, persistence, and backward-compatible resume behavior.
+4. [ ] Run `npm run test:summary:client` to prove endpoint-aware chat request and resume payload behavior.
+5. [ ] Run `npm run lint` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 6. Extend Fallback, Repair, And Fail-In-Place Behavior For Endpoint-Backed Runs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 3`, `Task 5`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Extend the existing provider fallback logic so new runs can repair or fall back within the requested provider path when an external endpoint is involved, while pinned and resumed runs keep today’s fail-in-place behavior. This task owns the runtime-selection matrix across chat, direct agents, command-backed agents, and flows, plus the warning text that distinguishes endpoint-unavailable, same-endpoint repair, and cross-provider fallback outcomes.
+
+#### Task Exit Criteria
+
+- New chat conversations and new agent/flow runs follow the story’s exact order: requested provider on the configured endpoint, same-endpoint model repair when the endpoint is healthy but the model is missing, same-provider native fallback when the endpoint is unavailable, then existing cross-provider fallback only after same-provider paths fail.
+- Pinned and resumed executions that already carry provider/model/endpoint identity do not silently drift to another endpoint or provider when the saved endpoint later becomes unavailable; they fail in place with clear warnings instead.
+
+#### Documentation Locations
+
+- `Context7 /openai/codex` - use for keeping generated Codex provider config aligned when same-provider native fallback switches away from an external endpoint.
+- `Context7 /github/copilot-sdk` - use for keeping Copilot custom-provider handling aligned when same-provider native fallback or pinned fail-in-place behavior switches between endpoint-backed and native runtime shapes.
+
+#### Subtasks
+
+1. [ ] Read the story’s `Acceptance Criteria`, `Edge Cases And Failure Modes`, and `Risk And Invariant Matrix`, then inspect `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Purpose: confirm the current fresh-run fallback path and pinned identity path before adding endpoint-aware repair/fallback behavior.
+2. [ ] Inspect `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`, `server/src/test/unit/mcp-agents-commands-run.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`. Purpose: confirm the exact proof homes that must own the new fallback matrix.
+3. [ ] Extend `server/src/config/chatDefaults.ts` so the shared runtime-selection helper and `RuntimeProviderSelection` shape model the story’s exact order: configured endpoint first, same-endpoint model repair when the endpoint is healthy but the requested model is missing, same-provider native fallback when the endpoint is unavailable, and cross-provider fallback only after both same-provider paths fail. Purpose: keep the lifecycle matrix centralized in the shared runtime-selection contract instead of burying endpoint state in route-only warnings. Proof owners: `server/src/test/unit/config.chatDefaults.test.ts`.
+4. [ ] Update `server/src/config/chatDefaults.ts` so `buildDefaultsAppliedMarkerPayload()` and any endpoint-aware warning or decision fields reflect the final resolved endpoint/native/cross-provider outcome after selection settles, rather than only the initial requested model. Purpose: keep operator-visible diagnostics aligned with the post-transition runtime decision and give downstream log consumers an honest contract. Proof owners: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`.
+5. [ ] Update `server/src/routes/chat.ts` so chat-specific warning text clearly distinguishes endpoint unavailable with native fallback, requested model unavailable with same-endpoint repair, and requested provider unavailable with cross-provider fallback. Purpose: make the chat-facing fallback path diagnosable without changing the fallback policy itself. Proof owners: `server/src/test/integration/chat-copilot-fallback.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
+6. [ ] Update `server/src/routes/chat.ts` so pinned/resumed chat execution identity reads `{ provider, model, endpointId? }`, and later turns fail in place instead of silently drifting to another endpoint or provider. Purpose: preserve the repo’s existing pinned-chat contract while adding endpoint identity. Proof owners: `server/src/test/integration/chat-codex.test.ts`.
+7. [ ] Update the direct-agent entrypoints in `server/src/agents/service.ts` so fresh-run direct-agent execution reuses the endpoint-aware fallback matrix, reads saved `flags.endpointId` for resumed executions, and does not rewrite that saved endpoint identity on pinned or resumed runs. Do not change command-agent or MCP-agent behavior in this step. Purpose: give the plain direct-agent path its own implementation step before the other agent route families follow it. Proof owners: `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`.
+8. [ ] Update the command-agent entrypoints in `server/src/agents/service.ts` so command-backed agent execution reuses the same endpoint-aware fallback matrix and preserves saved endpoint identity on pinned or resumed runs. Do not change MCP-agent behavior in this step. Purpose: keep the command-agent path aligned with the direct-agent path without making one checkbox span both route families. Proof owners: `server/src/test/unit/agents-commands-router-run.test.ts`.
+9. [ ] Update the MCP-agent entrypoints in `server/src/agents/service.ts` so both MCP direct-agent and MCP command-agent execution reuse the endpoint-aware fallback matrix and preserve saved endpoint identity on pinned or resumed runs. Purpose: finish the agent-service rollout across the MCP surfaces after the non-MCP agent paths are in place. Proof owners: `server/src/test/unit/mcp-agents-router-run.test.ts`, `server/src/test/unit/mcp-agents-commands-run.test.ts`.
+10. [ ] Update `server/src/flows/service.ts` so fresh-run flow-owned agent execution uses the endpoint-aware fallback matrix, reads saved child `endpointId` on resume, and keeps that saved child identity stable when the pinned endpoint later becomes unavailable. Purpose: prevent flow-owned runtime drift across resumed executions. Proof owners: `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/config.chatDefaults.test.ts`. Description: prove fresh-run runtime selection tries the configured endpoint first and repairs to the first selectable model on that same endpoint before any broader fallback is allowed. Implementation files: `server/src/config/chatDefaults.ts` and the runtime-selection helpers it owns. Purpose: pin down the same-endpoint repair ordering rather than leaving it implied by broader fallback coverage.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/config.chatDefaults.test.ts`. Description: prove endpoint-unavailable fresh-run selection falls back to the same provider’s native path before cross-provider fallback is allowed. Implementation files: `server/src/config/chatDefaults.ts` and the runtime-selection helpers it owns. Purpose: keep the same-provider native fallback boundary explicit as a separate ordering invariant.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/config.chatDefaults.test.ts`. Description: prove cross-provider fallback is reached only after both the configured endpoint path and the same-provider native path are unavailable. Implementation files: `server/src/config/chatDefaults.ts` and the runtime-selection helpers it owns. Purpose: assert the exact three-level ordering boundary instead of proving only adjacent fallback states.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/config.chatDefaults.test.ts`. Description: prove the defaults-applied diagnostic payload records the final resolved endpoint/native/cross-provider decision and any endpoint-aware repair outcome after selection settles. Implementation files: `server/src/config/chatDefaults.ts`. Purpose: keep producer and consumer alignment explicit for operator-visible fallback diagnostics.
+15. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-fallback.test.ts`. Description: prove Copilot chat warns distinctly for endpoint-unavailable native fallback. Implementation files: `server/src/config/chatDefaults.ts` and `server/src/routes/chat.ts`. Purpose: keep the first fallback warning path explicit at the caller-visible chat surface.
+16. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-fallback.test.ts`. Description: prove Copilot chat warns distinctly for same-endpoint model repair instead of skipping straight to unrelated provider fallback. Implementation files: `server/src/config/chatDefaults.ts` and `server/src/routes/chat.ts`. Purpose: give the model-missing repair warning its own proof home instead of bundling it into the endpoint-unavailable case.
+17. [ ] Test type: server integration. Location: `server/src/test/integration/chat-codex.test.ts`. Description: prove Codex chat uses endpoint-aware fresh-run behavior without silently drifting to another provider too early. Implementation files: `server/src/config/chatDefaults.ts` and `server/src/routes/chat.ts`. Purpose: keep the Codex fresh-run ordering explicit on its own route surface.
+18. [ ] Test type: server integration. Location: `server/src/test/integration/chat-codex.test.ts`. Description: prove pinned or resumed Codex chat fails in place when the saved endpoint later becomes unavailable. Implementation files: `server/src/routes/chat.ts`, persisted conversation identity fields, and the runtime-selection helpers used on resume. Purpose: give the post-transition fail-in-place boundary its own proof home instead of relying on fresh-run fallback coverage.
+19. [ ] Test type: server unit. Location: `server/src/test/unit/agents-router-run.test.ts`. Description: prove the direct-agent route surfaces endpoint-aware fallback warnings consistently with the shared runtime-selection contract. Implementation files: `server/src/agents/service.ts` and the direct-agent route seam it owns. Purpose: keep the direct-agent warning consumer explicit.
+20. [ ] Test type: server unit. Location: `server/src/test/unit/agents-commands-router-run.test.ts`. Description: prove the command-agent route surfaces endpoint-aware fallback warnings consistently with the shared runtime-selection contract. Implementation files: `server/src/agents/service.ts` and the command-agent route seam it owns. Purpose: keep the command-agent warning consumer explicit.
+21. [ ] Test type: server unit. Location: `server/src/test/unit/mcp-agents-router-run.test.ts`. Description: prove the MCP direct-agent surface surfaces endpoint-aware fallback warnings consistently with the shared runtime-selection contract. Implementation files: `server/src/agents/service.ts` and the MCP direct-agent route seam it owns. Purpose: keep the MCP direct-agent warning consumer explicit.
+22. [ ] Test type: server unit. Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`. Description: prove the MCP command-agent surface surfaces endpoint-aware fallback warnings consistently with the shared runtime-selection contract. Implementation files: `server/src/agents/service.ts` and the MCP command-agent route seam it owns. Purpose: keep the MCP command-agent warning consumer explicit.
+23. [ ] Test type: server integration. Location: `server/src/test/integration/agents-run-client-conversation-id.test.ts`. Description: prove direct-agent fresh runs surface endpoint-aware fallback warnings end to end. Implementation files: `server/src/agents/service.ts`, `server/src/routes/chat.ts`, and persisted conversation identity fields reused by direct agents. Purpose: keep the direct-agent wrapper/default-path warning propagation explicit.
+24. [ ] Test type: server integration. Location: `server/src/test/integration/agents-run-client-conversation-id.test.ts`. Description: prove direct-agent pinned or resumed runs keep saved endpoint identity stable and fail in place when that endpoint later becomes unavailable. Implementation files: `server/src/agents/service.ts`, `server/src/routes/chat.ts`, and persisted conversation identity fields reused by direct agents. Purpose: give the direct-agent post-transition fail-in-place boundary its own proof home.
+25. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.errors.test.ts`. Description: prove flow starts use the endpoint-aware repair/fallback order instead of skipping straight to cross-provider fallback. Implementation files: `server/src/flows/service.ts`, `server/src/config/chatDefaults.ts`, and the shared runtime-selection helpers they reuse. Purpose: keep the fresh-run flow ordering explicit on the caller-visible flow start surface.
+26. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.errors.test.ts`. Description: prove flow starts surface the correct endpoint-aware warning behavior after runtime selection has settled. Implementation files: `server/src/flows/service.ts`, `server/src/config/chatDefaults.ts`, and the shared runtime-selection helpers they reuse. Purpose: assert the post-transition warning value rather than only the initial selection attempt.
+27. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.resume.identity.test.ts`. Description: prove resumed flows keep saved endpoint identity stable and fail in place when that endpoint later becomes unavailable. Implementation files: `server/src/flows/service.ts`, persisted flow child identity fields, and the runtime-selection helpers used on resume. Purpose: keep the resumed flow identity contract explicit instead of relying on fresh-run flow coverage.
+28. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+29. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the endpoint-aware fallback matrix compiles cleanly across chat, agents, commands, and flows.
+2. [ ] Run `npm run test:summary:server:unit` to prove fresh-run repair/fallback ordering, pinned fail-in-place behavior, and warning propagation through the server unit/integration wrapper.
+3. [ ] Run `npm run lint` for the final fallback/fail-in-place surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [ ] Run `npm run format:check` for the final fallback/fail-in-place surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 7. Final Story Validation, Documentation, And Close-Out
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This final validation task depends on every earlier story seam because the final proof must cover parsing, discovery, picker behavior, runtime translation, persistence, and endpoint-aware fallback together.
+
+#### Overview
+
+Validate the full story across the repository’s wrapper-first proof path, then update the durable repo documentation and reviewer summary artifacts that changed because of this feature. This task also packages the manual-proof guidance the later manual testing agent will need for the main stack, external endpoint setup, auth-skip boundaries, and artifact locations.
+
+#### Task Exit Criteria
+
+- Every in-scope Acceptance Criterion is mapped to final automated proof, and the final runnable stack still behaves coherently for users who do not configure external endpoints.
+- README, structural traceability, and the reviewer-facing close-out summary all describe the final shipped contract rather than the pre-story behavior.
+
+#### Documentation Locations
+
+- `Context7 /openai/codex` - use for the final documented Codex runtime translation contract so README wording stays aligned with the generated `model_provider`/`model_providers` behavior.
+- `Context7 /github/copilot-sdk` - use for the final documented Copilot custom-provider contract so README wording stays aligned with the generated `type: "openai"` provider object behavior.
+- `https://platform.openai.com/docs/api-reference/models/list` - use for the final documented external endpoint discovery contract and the explicit `/v1` requirement.
+
+#### Subtasks
+
+1. [ ] Re-read the full story and trace Tasks 2 and 3 against the `Description`, `Acceptance Criteria`, `Out Of Scope`, `Message Contracts And Storage Shapes`, and `Risk And Invariant Matrix`. Confirm the final server proof still covers parser behavior, endpoint identity, `/v1/models` discovery, duplicate handling, bounded probe fan-out, and default-path route reachability without widening scope beyond chat-only endpoint selection. Purpose: make the final validation pass start with the server discovery contract rather than one broad story-wide check.
+2. [ ] Re-read the full story and trace Tasks 4 and 5 against the same story sections, focusing on picker identity, `selectedEndpointId`, request payload shape, persisted `flags.endpointId`, backward-compatible conversation reads, and the rule that external endpoint identity stays separate from the raw model string. Purpose: make the final validation pass explicitly confirm the client and persistence contracts before wrapper runs begin.
+3. [ ] Re-read the full story and trace Tasks 6 and 7 against the same story sections, focusing on endpoint-aware fallback ordering, fail-in-place behavior, unchanged LM Studio and Agents-page scope, Cucumber coverage, e2e coverage, and the normal supported Compose path. Purpose: keep the final validation checklist executable instead of leaving scope-boundary and default-path checks implied.
+4. [ ] Update `README.md` with the final `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` format, explicit `/v1` requirement, duplicate-handling rule, and chat-only picker scope for external endpoints. Purpose: keep the repository’s primary operator/developer doc aligned with the shipped endpoint discovery contract.
+5. [ ] Update `README.md` with the final `codeinfo_openai_endpoint` usage on `codex/chat/config.toml`, `copilot/chat/config.toml`, and `codeinfo_agents/<agent>/config.toml`, plus the persisted `endpointId` and unchanged auth/readiness boundaries. Purpose: document the final repository-owned config contract and its runtime limits.
+6. [ ] Update `projectStructure.md` with the Story `0000059` structural change ledger, including every new helper or test file added during this story and the final implementation traceability summary for the changed server, client, common, and plan files. Purpose: keep the repository’s structural ledger honest about any new tracked files introduced by this story.
+7. [ ] Extend `server/src/test/features/chat_models.feature` and `server/src/test/steps/chat_models.steps.ts` with the final external-endpoint discovery and picker-bootstrap scenarios that belong in the repository’s Cucumber contract surface. Keep the existing native-only scenarios honest by adding new external-endpoint scenarios instead of silently widening older scenario claims that do not mention endpoint identity. Purpose: give the wrapper-first Cucumber run a story-owned proof home for `/chat/models` and `/chat/providers` behavior instead of treating `test:summary:server:cucumber` as adjacent coverage only.
+8. [ ] Extend `server/src/test/features/chat_stream.feature` and `server/src/test/steps/chat_stream.steps.ts` with the final endpoint-aware fallback, same-endpoint repair, same-provider native fallback, and fail-in-place chat route scenarios that belong in the repository’s Cucumber contract surface. Cover three separate wire-level outcomes explicitly: endpoint unavailable with same-provider native success, endpoint unavailable plus same-provider native failure before the existing `PROVIDER_UNAVAILABLE` path, and endpoint healthy with requested-model-missing repair to the first selectable model on that same endpoint. If the existing LM Studio-only fallback scenario remains, keep it as the native baseline and add separately named endpoint-aware scenarios rather than overloading the older scenario title with a broader ordering claim. Purpose: make the route-level request/response contract visible in the feature-suite layer as well as the lower-level unit and integration tests.
+9. [ ] Rewrite or split any misleading reused e2e history titles in `e2e/chat-provider-history.spec.ts` before adding endpoint-aware assertions. Keep the existing provider-only history scenarios as no-endpoint baselines when they still matter, and add separately named endpoint-aware create-vs-reuse and fresh-after-history scenarios when the proof now covers `{ provider, model, endpointId? }` rather than provider state alone. Purpose: prevent browser-visible history proof from claiming only provider pinning when endpoint identity is part of the invariant.
+10. [ ] Extend `e2e/chat-provider-history.spec.ts` with the final browser-visible create-vs-reuse and fresh-after-history endpoint-selection scenarios, using the repo’s existing mock-chat and route-stubbing pattern. Purpose: give `npm run test:summary:e2e` a story-owned Playwright proof home for the stateful chat picker and restored-selection behavior instead of relying only on unit tests.
+11. [ ] Extend `e2e/chat-user-turn-ws.spec.ts` or `e2e/chat.spec.ts` with the final browser-visible endpoint-backed send path that proves the selected provider/model flow reaches the normal chat launcher under the repo’s supported e2e mock-chat workflow. If an existing send-path title is reused, rename it so the title still matches the final endpoint-aware payload and launcher invariant. Purpose: keep the browser proof proportional while still exercising one fresh-run chat send through the default `/chat` UI path.
+12. [ ] Create `codeInfoStatus/pr-summaries/0000059-pr-summary.md` as the reviewer-facing close-out artifact for this story. Summarize the shipped external-endpoint contract, the fallback/fail-in-place behavior, the documentation changes, and the automated/manual proof performed. Purpose: preserve the repository’s durable PR-summary pattern outside `planning/`.
+13. [ ] Run the exact repository-supported lint command for this task’s surface: `npm run lint`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+14. [ ] Run the exact repository-supported format-check command for this task’s surface: `npm run format:check`. Fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the final server parser, discovery, runtime translation, persistence, validator, and fallback surfaces compile cleanly before broader proof.
+2. [ ] Run `npm run build:summary:client` to confirm the final chat picker, restored-selection, and endpoint-aware payload surfaces compile cleanly on the client before browser proof.
+3. [ ] Run `npm run test:summary:server:unit` to prove the task-owned server unit and `node:test` integration files from Tasks 1 through 6, including parser, discovery, validator, persistence, runtime translation, fallback, and resumed fail-in-place behavior.
+4. [ ] Run `npm run test:summary:server:cucumber` to prove the task-owned feature-level contract in `server/src/test/features/chat_models.feature` and `server/src/test/features/chat_stream.feature`, along with their step files, through the repository’s Cucumber wrapper.
+5. [ ] Run `npm run test:summary:client` to prove the task-owned client unit files for picker identity, stale-state exclusion, restored endpoint identity, and endpoint-aware send payload behavior.
+6. [ ] Run `npm run test:summary:e2e` to prove the task-owned browser-visible chat flows in `e2e/chat-provider-history.spec.ts` and the selected chat send spec updated for this story, using the repository’s supported mock-chat Playwright workflow rather than a live-provider dependency.
+7. [ ] Run `npm run compose:build:summary` to verify the checked-in main stack images still build on the supported Compose path after all story changes land.
+8. [ ] Run `npm run compose:up` so the checked-in main stack is exercised on the normal supported runtime path, and verify the final runtime surfaces stay reachable at `http://localhost:5001` and `http://localhost:5010` with server health still exposed through `http://localhost:5010/health`.
+9. [ ] Run `npm run compose:down` to stop the main stack that was started for final runtime validation.
+10. [ ] Run `npm run lint` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+11. [ ] Run `npm run format:check` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+Use the checked-in main stack for later human proof: start with `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down`. Those wrappers load `server/.env` and `server/.env.local` automatically through `scripts/docker-compose-with-env.sh`. The supported human-proof surfaces remain `http://localhost:5001` for the client and `http://localhost:5010` for the server, with server health at `http://localhost:5010/health`.
+
+This story’s live external endpoint is not part of the checked-in Compose stack. When later manual proof needs a real endpoint, configure `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` to point at an already running external or local OpenAI-compatible `/v1` service outside the checked-in compose services, then exercise the Codex and Copilot chat pickers against that live endpoint from the main stack. The main stack already mounts the repo-owned `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs plus the existing Codex and Copilot runtime homes; provider access comes from whatever auth state is already present in those mounted homes or seed directories, not from checked-in secrets in this plan.
+
+Store task-level manual proof artifacts in `codeInfoTmp/manual-testing/0000059/7/` and do not commit them. Useful retained artifacts for this story include `proof-01-codex-picker.png`, `proof-02-copilot-picker.png`, `proof-03-config-pinned-endpoint.png`, `proof-04-resumed-endpoint-warning.png`, `support-console.txt`, and `support-server-log.txt`. Later story closeout should promote the curated durable bundle into `codeInfoStatus/manual-proof/0000059/`.
+
+If Playwright MCP screenshots are used during later manual proof, capture them in the Playwright output staging directory first and then transfer the retained files into `codeInfoTmp/manual-testing/0000059/7/`. In this local harness workflow, the usual staging path is `/tmp/playwright-output/0000059/7/<filename>` inside the Playwright MCP runtime and the usual host-side staging location is `$CODEINFO_ROOT/playwright-output-local/0000059/7/<filename>`, but `CODEINFO_ROOT` is the harness root, not the target artifact root.
+
+Later manual proof should cover the full implemented frontend surface for this story, not only one local screen: prove the Codex picker showing endpoint-backed models, the Copilot picker showing endpoint-backed models, a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` but still visible in chat, and any visible warning/result surface that distinguishes same-endpoint repair, same-provider native fallback, or fail-in-place on a resumed/pinned execution when the endpoint becomes unavailable. Treat these Task 7 screenshots and retained notes as the primary durable closeout proof for the re-covered story surfaces, and keep earlier screenshots in the durable bundle only when they still provide unique proof that the final Task 7 capture no longer shows.
+
+If Playwright MCP screenshot transfer fails after using the normal staging path and host-visible handoff path, record that limitation honestly in the retained proof notes and continue the proof pass with the best available evidence instead of blocking closeout on the transfer problem alone.
+
+If a Codex or Copilot manual-proof step reaches an auth-dependent surface and restoring the missing provider auth would require human-controlled two-factor authentication, skip only that affected auth-dependent surface, record the limitation honestly in the retained proof notes, and rely on the automated server/client tests for that seam.
+
+#### Implementation notes
+
+- Starts empty.

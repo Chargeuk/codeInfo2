@@ -5,6 +5,90 @@
 Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
 The migrated story ledgers below now reference that durable location consistently.
 
+## Story 0000059 structural change ledger
+
+Added files:
+
+- `codeInfo_simple_stories/0000059-users-can-use-external-openai-compatible-endpoints-with-codex-and-copilot.md`
+- `codeInfoStatus/pr-summaries/0000059-pr-summary.md`
+- `server/src/chat/openaiCompatModelDiscovery.ts`
+- `server/src/config/openaiCompatEndpoints.ts`
+- `server/src/test/support/externalOpenAiCompatServer.ts`
+- `server/src/test/unit/openaiCompatEndpoints.test.ts`
+- `server/src/test/unit/openaiCompatModelDiscovery.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `codeInfoStatus/flow-state/current-plan.json`
+- `common/src/lmstudio.ts`
+- `client/src/api/conversations.ts`
+- `client/src/components/workspace/composer/composerFormatting.ts`
+- `client/src/hooks/useChatModel.ts`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/chatPage.models.test.tsx`
+- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- `client/src/test/chatPage.provider.test.tsx`
+- `client/src/test/chatPage.resumeIdentity.test.tsx`
+- `client/src/test/chatSendPayload.test.tsx`
+- `planning/0000059-users-can-use-external-openai-compatible-endpoints-with-codex-and-copilot.md`
+- `scripts/test-summary-client.mjs`
+- `server/package.json`
+- `server/src/agents/config.ts`
+- `server/src/agents/service.ts`
+- `server/src/chat/agentFlags.ts`
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts`
+- `server/src/config/chatDefaults.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/codexSdkUpgrade.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/config/startupEnv.ts`
+- `server/src/flows/flowState.ts`
+- `server/src/flows/service.ts`
+- `server/src/flows/types.ts`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/mongo/conversation.ts`
+- `server/src/routes/chat.ts`
+- `server/src/routes/chatDiscovery.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/routes/chatProviders.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/routes/conversations.ts`
+- `server/src/test/integration/agents-run-client-conversation-id.test.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/integration/chat-copilot-fallback.test.ts`
+- `server/src/test/integration/chat-copilot-resume.test.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/integration/flows.run.resume.identity.test.ts`
+- `server/src/test/integration/mcp-codex-wrapper.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- `server/src/test/unit/agents-config-defaults.test.ts`
+- `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatModels.copilot.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/config.chatDefaults.test.ts`
+- `server/src/test/unit/env-loading.test.ts`
+- `server/src/test/unit/flow-flag-persistence.test.ts`
+- `server/src/test/unit/flow-flag-sanitization.test.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
+Story notes:
+
+- Story 59 adds the external OpenAI-compatible endpoint contract end to end: normalized `/v1` endpoint parsing, discovery fan-out and deduplication, endpoint-aware chat picker identity, persisted `endpointId` handling for conversations and flows, and same-endpoint repair plus same-provider native fallback before any cross-provider fallback is allowed.
+- The story keeps the chat picker scope narrow while still letting Codex/Copilot runtime config pin a specific `codeinfo_openai_endpoint` inside provider and agent `config.toml` files. Those pins remain separate from raw model ids and are persisted as endpoint identity, not as a new provider model namespace.
+- The server, client, and proof homes now all carry explicit endpoint-aware tests and integration coverage, including the story-owned external helper server used by the discovery and fallback suites.
+
 ## Story 0000057 structural change ledger
 
 Added files:

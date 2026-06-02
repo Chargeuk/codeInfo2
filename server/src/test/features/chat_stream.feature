@@ -34,6 +34,35 @@ Feature: chat streaming endpoint
     And the chat start response provider is "lmstudio"
     And the chat start response model is "llama-3"
 
+  Scenario: External endpoint unavailable falls back to the same provider native path before cross-provider fallback
+    Given chat stream scenario "external-endpoint-native-fallback"
+    And chat default provider is "codex"
+    And chat default model is "gpt-5.3-codex"
+    And codex detection is available
+    When I POST to the chat endpoint with the chat request fixture omitting provider and model
+    Then the chat stream status code is 202
+    And the chat start response provider is "codex"
+    And the chat start response model is "gpt-5.3-codex"
+
+  Scenario: External endpoint unavailable plus native fallback failure returns the existing unavailable contract
+    Given chat stream scenario "external-endpoint-native-failure"
+    And chat default provider is "codex"
+    And chat default model is "gpt-5.3-codex"
+    And codex detection is unavailable
+    When I POST to the chat endpoint with the chat request fixture omitting provider and model
+    Then the chat stream status code is 503
+    And the chat error code is "PROVIDER_UNAVAILABLE"
+
+  Scenario: External endpoint repairs to the first selectable model on the same endpoint
+    Given chat stream scenario "external-endpoint-repair"
+    And chat default provider is "codex"
+    And chat default model is "missing-codex-model"
+    And codex detection is available
+    When I POST to the chat endpoint with the chat request fixture omitting provider and model
+    Then the chat stream status code is 202
+    And the chat start response provider is "codex"
+    And the chat start response model is "alpha"
+
   Scenario: Explicit provider-model selection fails instead of silently switching providers
     Given chat stream scenario "chat-fixture"
     And codex detection is unavailable

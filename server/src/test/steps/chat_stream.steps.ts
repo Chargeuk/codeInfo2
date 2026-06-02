@@ -24,6 +24,10 @@ import {
   NAMED_COPILOT_SCENARIOS,
   type NamedCopilotScenario,
 } from '../support/copilotScenarioCatalog.js';
+import {
+  startExternalOpenAiCompatServer,
+  type ExternalOpenAiCompatServer,
+} from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   MockLMStudioClient,
@@ -44,6 +48,8 @@ const ORIGINAL_CODEINFO_CHAT_DEFAULT_PROVIDER =
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
 const ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL =
   process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+const ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
 
 type ChatStartResponse = {
   status: 'started';
@@ -76,6 +82,7 @@ let received: WsEvent[] = [];
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForScenario: string | null = null;
 let namedCopilotScenarioServer: StartedNamedCopilotScenarioServer | null = null;
+let externalServers: ExternalOpenAiCompatServer[] = [];
 
 async function removeDirectoryWithRetry(
   targetPath: string,
@@ -100,6 +107,27 @@ async function removeDirectoryWithRetry(
       await new Promise((resolve) => setTimeout(resolve, attempt * 100));
     }
   }
+}
+
+async function writeCodexChatConfig(params: {
+  model: string;
+  endpointId: string;
+}) {
+  if (!tempCodexHomeForScenario) {
+    throw new Error('codex home not initialised');
+  }
+  await fs.mkdir(path.join(tempCodexHomeForScenario, 'chat'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(tempCodexHomeForScenario, 'chat', 'config.toml'),
+    [
+      `model = "${params.model}"`,
+      `codeinfo_openai_endpoint = "${params.endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
 }
 
 function createUnavailableCopilotLifecycle() {
@@ -177,17 +205,14 @@ async function ensureWsSubscribed(conversationId: string) {
 Before(async () => {
   resetStore();
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  externalServers = [];
   tempCodexHomeForScenario = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-stream-codex-home-'),
   );
-  await fs.mkdir(path.join(tempCodexHomeForScenario, 'chat'), {
-    recursive: true,
+  await writeCodexChatConfig({
+    model: 'gpt-5.3-codex',
+    endpointId: 'https://alpha.example/v1',
   });
-  await fs.writeFile(
-    path.join(tempCodexHomeForScenario, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
-    'utf8',
-  );
   process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
   baseUrl = '';
 });
@@ -204,6 +229,10 @@ After(async () => {
   if (namedCopilotScenarioServer) {
     await namedCopilotScenarioServer.stop();
     namedCopilotScenarioServer = null;
+  }
+
+  while (externalServers.length > 0) {
+    await externalServers.pop()!.stop();
   }
 
   if (wsHandle) {
@@ -237,6 +266,12 @@ After(async () => {
     process.env.CODEINFO_CHAT_DEFAULT_MODEL =
       ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL;
   }
+  if (ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  }
   if (tempCodexHomeForScenario) {
     await removeDirectoryWithRetry(tempCodexHomeForScenario);
     tempCodexHomeForScenario = null;
@@ -244,6 +279,50 @@ After(async () => {
 });
 
 Given('chat stream scenario {string}', async (name: string) => {
+  if (name === 'external-endpoint-native-fallback') {
+    const server = await startExternalOpenAiCompatServer({
+      responseMode: 'transport-failure',
+      models: ['gpt-5.3-codex'],
+    });
+    externalServers.push(server);
+    await writeCodexChatConfig({
+      model: 'gpt-5.3-codex',
+      endpointId: `${server.baseUrl}/v1`,
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${server.baseUrl}/v1|responses`;
+    await startLegacyChatStreamServer();
+    return;
+  }
+
+  if (name === 'external-endpoint-native-failure') {
+    const server = await startExternalOpenAiCompatServer({
+      responseMode: 'transport-failure',
+      models: ['gpt-5.3-codex'],
+    });
+    externalServers.push(server);
+    await writeCodexChatConfig({
+      model: 'gpt-5.3-codex',
+      endpointId: `${server.baseUrl}/v1`,
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${server.baseUrl}/v1|responses`;
+    await startLegacyChatStreamServer();
+    return;
+  }
+
+  if (name === 'external-endpoint-repair') {
+    const server = await startExternalOpenAiCompatServer({
+      models: ['alpha', 'beta'],
+    });
+    externalServers.push(server);
+    await writeCodexChatConfig({
+      model: 'missing-codex-model',
+      endpointId: `${server.baseUrl}/v1`,
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${server.baseUrl}/v1|responses`;
+    await startLegacyChatStreamServer();
+    return;
+  }
+
   if (isNamedCopilotScenario(name)) {
     namedCopilotScenarioServer = await startNamedCopilotScenarioServer({
       scenarioName: name,

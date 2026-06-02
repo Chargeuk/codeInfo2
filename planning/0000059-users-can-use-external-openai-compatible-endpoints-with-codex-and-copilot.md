@@ -764,7 +764,7 @@ When the supported main compose stack is available, verify one resumed conversat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`, `Task 5`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

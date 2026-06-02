@@ -31,10 +31,10 @@ This story lets CodeInfo2 use external OpenAI-compatible `/v1` endpoints as an e
 
 4. [codeInfo2] - Surface external endpoint models in the chat picker
 - Extend the shared chat discovery contract and Chat page state so `Codex` and `Copilot` can show endpoint-backed models without adding a new provider id.
-- Keep duplicate raw model ids, config-pinned endpoints, and stale create-versus-reuse picker state separate and visible.
+- Preserve the current create-versus-reuse chat workflow while keeping duplicate raw model ids, config-pinned endpoints, and endpoint-backed picker identity separate and visible.
 
 5. [codeInfo2] - Translate endpoint selections into runtime config and persistence
-- Carry `endpointId` separately from the raw `model` through chat payloads, conversation state, and resume behavior.
+- Carry `endpointId` separately from the raw `model` through chat payloads, conversation state, and resume behavior without changing the existing top-level provider contract.
 - Translate `codeinfo_openai_endpoint` into the provider-native Codex and Copilot runtime settings inside the server.
 
 6. [codeInfo2] - Extend fallback and fail-in-place behavior for endpoint-backed runs

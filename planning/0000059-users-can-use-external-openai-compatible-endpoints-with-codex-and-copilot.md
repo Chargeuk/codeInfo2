@@ -111,6 +111,17 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 - Replacing the current built-in Codex or Copilot harnesses with a new generic "OpenAI-compatible" harness.
 - Solving every later provider-specific quirk for self-hosted gateways that claim OpenAI compatibility but diverge in behavior during agent execution.
 
+### User-Facing Behavior Lock
+
+- Preserve the current browser-visible and runtime-visible interaction contract everywhere this story does not explicitly ask for a change.
+- The only intentional user-facing behavior additions in this story are:
+  - endpoint-backed model choices appearing inside the existing `Codex` and `Copilot` chat pickers;
+  - endpoint-aware warnings that distinguish same-endpoint repair, same-provider native fallback, and fail-in-place behavior for pinned or resumed executions;
+  - endpoint-aware persistence that keeps the selected raw model id and endpoint identity separate without changing the existing top-level provider choices.
+- Keep the existing `LM Studio` chat flow, the existing `Agents` page selection UI, the existing provider-control reachability, and the existing create-vs-reuse chat workflow behavior unless preserving those current behaviors requires minimal restoration work after the endpoint identity changes land.
+- Do not introduce new user-facing toggles, menus, selection rules, validation timing changes, removal behavior, or replacement behavior merely because a different contract would be cleaner, easier to prove, or easier to implement.
+- If endpoint identity work exposes a drift risk in the current create-mode or resumed-conversation flow, fix only the minimum needed to preserve the pre-story user interaction contract plus the explicitly requested endpoint-backed behavior above.
+
 ### Additional Repositories
 
 - No Additional Repositories
@@ -290,43 +301,43 @@ None.
    - The question being addressed: If a chat config names an endpoint outside the env var list, should that endpoint still appear in the chat picker?
    - Why the question matters: A hidden config-backed default would make the selected endpoint hard to understand, verify, or reselect in the UI.
    - What the answer is: Yes. If a chat config pins `codeinfo_openai_endpoint`, that active endpoint and its discovered models still appear in the chat picker even when the same endpoint is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`.
-   - Where the answer came from: The user's answer, the current chat bootstrap and selected-model flow in [client/src/hooks/useChatModel.ts](/home/dan/code/codeInfo2/client/src/hooks/useChatModel.ts:153), and the existing story rules that allow `codeinfo_openai_endpoint` to stand on its own without the env var list.
+   - Where the answer came from: The user's answer, the current chat bootstrap and selected-model flow in `client/src/hooks/useChatModel.ts`, and the existing story rules that allow `codeinfo_openai_endpoint` to stand on its own without the env var list.
    - Why it is the best answer: It keeps the active default visible, avoids confusing hidden state, and uses the endpoint's own `/v1/models` response rather than requiring duplicate env configuration just for the picker.
 2. Conversation persistence for external endpoint selections
    - The question being addressed: When we save a conversation using an external endpoint, should the endpoint be stored separately from the model?
    - Why the question matters: Resumed conversations need to tell apart the same model id coming from different endpoints without burying routing data in one opaque string.
    - What the answer is: Yes. Store the raw model id separately from the derived endpoint identity.
-   - Where the answer came from: The user's answer, the current conversation schema in [server/src/routes/conversations.ts](/home/dan/code/codeInfo2/server/src/routes/conversations.ts:60), and the conversation restore flow in [client/src/pages/ChatPage.tsx](/home/dan/code/codeInfo2/client/src/pages/ChatPage.tsx:817).
+   - Where the answer came from: The user's answer, the current conversation schema in `server/src/routes/conversations.ts`, and the conversation restore flow in `client/src/pages/ChatPage.tsx`.
    - Why it is the best answer: It fits the repo's existing pattern of separate persisted fields, stays easier to inspect and migrate, and still prevents collisions between the same model id on different endpoints.
 3. Chat labels for external endpoint models
    - The question being addressed: How should external models be labeled in chat: `host / model`, full URL, or just the model name?
    - Why the question matters: Users need a picker label that distinguishes identical model ids without filling the UI with long endpoint strings.
    - What the answer is: Use `host / model`.
-   - Where the answer came from: The user's answer, the current provider and model label handling in [client/src/hooks/useChatModel.ts](/home/dan/code/codeInfo2/client/src/hooks/useChatModel.ts:17) and [server/src/routes/chatModels.ts](/home/dan/code/codeInfo2/server/src/routes/chatModels.ts:106), and the OpenAI-compatible model-list pattern where source context must often be added by the client.
+   - Where the answer came from: The user's answer, the current provider and model label handling in `client/src/hooks/useChatModel.ts` and `server/src/routes/chatModels.ts`, and the OpenAI-compatible model-list pattern where source context must often be added by the client.
    - Why it is the best answer: It is short, readable, and gives enough source context to distinguish duplicate model ids without exposing a noisy full URL.
 4. Full endpoint identity for same-host URLs
    - The question being addressed: If two endpoints share a host but use different paths, should we treat them as different endpoints?
    - Why the question matters: Same-host deployments can still be different endpoints, so host-only identity could merge distinct routes by mistake.
    - What the answer is: Yes. Treat endpoints as different when their normalized full base URLs differ, even if the host is the same.
-   - Where the answer came from: The user's answer, local URL and path identity patterns such as [server/src/lmstudio/clientPool.ts](/home/dan/code/codeInfo2/server/src/lmstudio/clientPool.ts:4) and [server/src/routes/lmstudioUrl.ts](/home/dan/code/codeInfo2/server/src/routes/lmstudioUrl.ts:1), plus the official Copilot and Codex docs that treat `baseUrl` as a full endpoint configuration.
+   - Where the answer came from: The user's answer, local URL and path identity patterns such as `server/src/lmstudio/clientPool.ts` and `server/src/routes/lmstudioUrl.ts`, plus the official Copilot and Codex docs that treat `baseUrl` as a full endpoint configuration.
    - Why it is the best answer: It matches the repo's established identity rules, avoids collapsing distinct routes, and still leaves room for shorter display labels in the UI.
 5. Collision handling for `host / model` labels
    - The question being addressed: If two labels would both read `host / model`, should chat add a short path to tell them apart?
    - Why the question matters: Two distinct endpoint choices should not look identical in the picker.
    - What the answer is: Yes. Use `host / model` by default, but append a short path hint only when two visible choices would otherwise collide.
-   - Where the answer came from: The user's answer, local display-label patterns such as [client/src/pages/AgentsPage.tsx](/home/dan/code/codeInfo2/client/src/pages/AgentsPage.tsx:60), and the story's existing preference for short labels in the common case.
+   - Where the answer came from: The user's answer, local display-label patterns such as `client/src/pages/AgentsPage.tsx`, and the story's existing preference for short labels in the common case.
    - Why it is the best answer: It keeps the picker simple most of the time while still making edge-case collisions understandable.
 6. Backward compatibility for older saved chats
    - The question being addressed: Should older saved chats without endpoint info still open normally?
    - Why the question matters: Existing persisted chats should keep working after the story adds endpoint identity for newer chats.
    - What the answer is: Yes. Older saved chats continue to open with the current provider-and-model behavior, and the new endpoint identity remains optional and is used only when present.
-   - Where the answer came from: The user's answer, current backward-compatibility patterns in [server/src/mongo/conversation.ts](/home/dan/code/codeInfo2/server/src/mongo/conversation.ts:45), [server/src/mongo/repo.ts](/home/dan/code/codeInfo2/server/src/mongo/repo.ts:55), and [client/src/hooks/useConversations.ts](/home/dan/code/codeInfo2/client/src/hooks/useConversations.ts:144), plus Mongoose defaults guidance.
+   - Where the answer came from: The user's answer, current backward-compatibility patterns in `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `client/src/hooks/useConversations.ts`, plus Mongoose defaults guidance.
    - Why it is the best answer: It protects existing data, fits the repo's current schema-growth pattern, and avoids forcing migration work into this story.
 7. Duplicate endpoint entries
    - The question being addressed: If the same endpoint is listed twice, should we keep the first one with a warning, or fail?
    - Why the question matters: Duplicate config entries are easy to create, and the product needs one predictable rule that does not surprise users.
    - What the answer is: Keep the first normalized endpoint entry and warn. Later duplicates are dropped.
-   - Where the answer came from: The user's answer, duplicate-handling patterns in [server/src/routes/ingestRoots.ts](/home/dan/code/codeInfo2/server/src/routes/ingestRoots.ts:280), [server/src/flows/repositoryCandidateOrder.ts](/home/dan/code/codeInfo2/server/src/flows/repositoryCandidateOrder.ts:69), and [server/src/config/runtimeConfig.ts](/home/dan/code/codeInfo2/server/src/config/runtimeConfig.ts:760).
+   - Where the answer came from: The user's answer, duplicate-handling patterns in `server/src/routes/ingestRoots.ts`, `server/src/flows/repositoryCandidateOrder.ts`, and `server/src/config/runtimeConfig.ts`.
    - Why it is the best answer: It matches the repo's normal warn-and-continue duplicate policy and avoids turning a small config mistake into a hard failure.
 8. Shared picker entry for the same endpoint identity
    - The question being addressed: If the same endpoint comes from both env vars and chat config, should chat show one shared entry or two?
@@ -338,7 +349,7 @@ None.
    - The question being addressed: If a pinned endpoint model is missing, should we pick the first available model there or stop with an error?
    - Why the question matters: The story already requires same-endpoint repair, but it needs one concrete rule for choosing the replacement model.
    - What the answer is: Pick the first selectable model on that same endpoint and warn.
-   - Where the answer came from: The user's answer and the fallback-selection behavior in [server/src/config/chatDefaults.ts](/home/dan/code/codeInfo2/server/src/config/chatDefaults.ts:477) and [server/src/config/chatDefaults.ts](/home/dan/code/codeInfo2/server/src/config/chatDefaults.ts:540).
+   - Where the answer came from: The user's answer and the fallback-selection behavior in `server/src/config/chatDefaults.ts`.
    - Why it is the best answer: It matches the current preferred-then-first-available fallback pattern already used by the repo.
 
 ## Implementation Ideas
@@ -457,7 +468,7 @@ Create the shared parser and normalization contract for `CODEINFO_EXTERNAL_OPENA
 
 #### Documentation Locations
 
-- `https://platform.openai.com/docs/api-reference/models/list` - use for the official `/v1/models` contract so the parser task preserves the exact `/v1` base-URL requirement the later discovery task depends on.
+- `Context7 /websites/developers_openai_api_reference` - use for the official `/v1/models` contract so the parser task preserves the exact `/v1` base-URL requirement the later discovery task depends on.
 - `Context7 /openai/codex` - use for Codex `responses`-capable provider expectations when validating `codeinfo_openai_endpoint` compatibility for Codex runtime-config resolution.
 - `Context7 /github/copilot-sdk` - use for Copilot custom OpenAI-provider expectations when validating `codeinfo_openai_endpoint` compatibility for Copilot runtime-config resolution.
 
@@ -527,7 +538,7 @@ Build the shared server-side discovery helper that probes external endpoints thr
 
 #### Documentation Locations
 
-- `https://platform.openai.com/docs/api-reference/models/list` - use for the expected `GET /v1/models` response shape and the requirement that discovery only needs `data[].id`.
+- `Context7 /websites/developers_openai_api_reference` - use for the expected `GET /v1/models` response shape and the requirement that discovery only needs `data[].id`.
 
 #### Subtasks
 
@@ -579,11 +590,11 @@ Extend the shared chat discovery contract and the Chat page picker so external C
 #### Task Exit Criteria
 
 - `/chat/models` and `/chat/providers` expose endpoint-backed Codex and Copilot models without creating a new top-level provider, and LM Studio remains unchanged by this story.
-- The Chat page can select and display two models with the same raw model id from different endpoint identities without collapsing them into one choice, while still clearing or excluding stale hidden selection state when the active provider or visible catalog changes and while keeping create-mode bootstrap state separate from restored conversation state.
+- The Chat page can select and display two models with the same raw model id from different endpoint identities without collapsing them into one choice, while preserving the current create-mode versus restored-conversation workflow contract and preventing endpoint identity from leaking stale hidden state into the wrong visible selection or send path.
 
 #### Documentation Locations
 
-- `https://platform.openai.com/docs/api-reference/models/list` - use for the official model-list contract that the picker surfaces indirectly through server discovery.
+- `Context7 /websites/developers_openai_api_reference` - use for the official model-list contract that the picker surfaces indirectly through server discovery.
 
 #### Subtasks
 
@@ -595,8 +606,8 @@ Extend the shared chat discovery contract and the Chat page picker so external C
 6. [ ] Update `common/src/api.ts` only where the shared chat bootstrap contract needs the new endpoint-aware selection fields. Purpose: keep the shared API contract aligned with the server and client changes without widening unrelated provider surfaces.
 7. [ ] Update `server/src/routes/chatModels.ts` so Codex surfaces only endpoints declaring `responses`, Copilot surfaces endpoints declaring `completions` or both capabilities, and LM Studio keeps its current catalog behavior. Purpose: keep external models provider-shaped inside the existing `/chat/models` route.
 8. [ ] Update `server/src/routes/chatProviders.ts` and `server/src/routes/chatDiscovery.ts` so provider bootstrap can return `selectedEndpointId`, config-pinned endpoints outside `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` still appear for the selected provider, and env-backed/config-backed copies of the same normalized endpoint appear only once. Purpose: keep chat bootstrap and picker defaults aligned to the endpoint-aware catalog.
-9. [ ] Update `client/src/hooks/useChatModel.ts` so create-mode picker state tracks separate endpoint identity, duplicate raw model ids remain independently selectable, and stale hidden selections are cleared by exact `(model.key, endpointId)` pair membership when a provider change or catalog refresh hides the previously selected endpoint/model combination. Purpose: make create-mode transitions clear stale hidden state instead of silently retaining a same-key choice from the wrong endpoint. Proof owners: `client/src/test/chatPage.models.test.tsx`.
-10. [ ] Update `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx` so restored conversation state keeps its endpoint identity locally for display and resumed sends, blocks create-mode bootstrap churn from overwriting that restored selection while the conversation remains active, and returns to current bootstrap defaults when the user goes back to a fresh draft. Purpose: separate create-vs-reuse state so a restored endpoint does not leak into later new-conversation sends. Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`.
+9. [ ] Update `client/src/hooks/useChatModel.ts` so create-mode picker state tracks separate endpoint identity, duplicate raw model ids remain independently selectable, and the existing hidden-selection cleanup behavior continues to use the full `(model.key, endpointId)` pair once endpoint identity is introduced. Purpose: preserve the current create-mode cleanup contract instead of letting endpoint identity make a previously hidden selection look valid on the wrong endpoint. Proof owners: `client/src/test/chatPage.models.test.tsx`.
+10. [ ] Update `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx` so restored conversation state keeps its endpoint identity locally for display and resumed sends, while preserving the current create-vs-reuse workflow contract: provider bootstrap must not overwrite an active restored selection, and returning to a fresh draft must fall back to the normal current bootstrap defaults. Purpose: preserve the existing chat workflow while carrying the new endpoint identity explicitly. Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`.
 11. [ ] Update `client/src/pages/ChatPage.tsx` so endpoint-backed model labels default to `host / model`, and only colliding `host / model` labels gain a short path hint. Purpose: keep the visible picker compact in the common case while still distinguishing colliding endpoint choices. Proof owners: `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.models.test.tsx`.
 12. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.codex.test.ts`. Description: prove `/chat/models` surfaces endpoint-backed Codex choices with separate endpoint identity while preserving Codex-only compatibility filtering. Implementation files: `common/src/lmstudio.ts`, `server/src/routes/chatModels.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep the Codex model catalog contract explicit after endpoint identity is introduced.
 13. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.copilot.test.ts`. Description: prove `/chat/models` surfaces endpoint-backed Copilot choices with separate endpoint identity while preserving Copilot compatibility filtering. Implementation files: `common/src/lmstudio.ts`, `server/src/routes/chatModels.ts`, and `server/src/routes/chatDiscovery.ts`. Purpose: keep the Copilot model catalog contract explicit after endpoint identity is introduced.
@@ -605,7 +616,7 @@ Extend the shared chat discovery contract and the Chat page picker so external C
 16. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove the client picker keeps duplicate raw model ids independently selectable by endpoint identity. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: prevent duplicate raw model ids from collapsing into one visible choice.
 17. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove a stale selection is cleared when the previous `(model.key, endpointId)` pair disappears even though the same raw model key is still visible from a different endpoint. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: make the mixed-state cleanup discriminant explicit instead of relying on key-only catalog checks.
 18. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove hidden endpoint selections are cleared when the visible model catalog changes and the previously selected endpoint is no longer available. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: give the stale-hidden-selection cleanup path its own proof home.
-19. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove invalid endpoint selections are excluded from submission when the current provider or visible catalog no longer supports them. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: keep the stale-invalid-submission guard separate from the visible-state cleanup path.
+19. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Description: prove endpoint identity does not break the existing rule that hidden or invalid selections are excluded from submission when the current provider or visible catalog no longer supports them. Implementation files: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: keep the stale-invalid-submission guard separate from the visible-state cleanup path.
 20. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Description: prove endpoint-backed model labels default to `host / model` in the non-collision case. Implementation files: `client/src/pages/ChatPage.tsx` and any label helpers reused by `client/src/hooks/useChatModel.ts`. Purpose: keep the default visible-label contract explicit.
 21. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Description: prove colliding `host / model` labels gain a short path hint. Implementation files: `client/src/pages/ChatPage.tsx` and any label helpers reused by `client/src/hooks/useChatModel.ts`. Purpose: keep the collision-expansion trigger explicit instead of bundling it with unrelated label cases.
 22. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Description: prove only the colliding endpoint-backed choices gain the short path hint suffix. Implementation files: `client/src/pages/ChatPage.tsx` and any label helpers reused by `client/src/hooks/useChatModel.ts`. Purpose: keep the no-extra-noise side of the collision-label rule explicit.
@@ -664,7 +675,7 @@ Translate the new CodeInfo-owned endpoint metadata into provider-native Codex an
 8. [ ] Update `server/src/mongo/conversation.ts` and `server/src/routes/conversations.ts` so saved conversations may persist `flags.endpointId` while keeping `Conversation.model` as the raw model id and keeping older stored records readable. Purpose: preserve the repo’s existing persistence shape while adding separate endpoint identity. Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`.
 9. [ ] Update `server/src/routes/chat.ts` so chat bootstrap and persistence read/write `endpointId` and `selectedEndpointId` separately from the raw `model`, including reading `existingConversation.flags.endpointId` into resumed execution identity when present. Purpose: keep the chat route as the server-side owner of endpoint-aware request and resume identity. Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`.
 10. [ ] Update `server/src/chat/agentFlags.ts` so `sanitizeConversationFlagsForProvider()` and `buildConversationFlags()` preserve optional `flags.endpointId` across continuation writes while keeping flow-owned state stripping and provider-specific flag filtering unchanged. Purpose: prevent the current flag allowlist from silently dropping persisted endpoint identity on the next chat, agent, or flow turn. Proof owners: `server/src/test/unit/flow-flag-sanitization.test.ts`, `server/src/test/unit/flow-flag-persistence.test.ts`.
-11. [ ] Update `server/src/routes/chatValidators.ts` so the `/chat` request contract validates optional `endpointId` against the selected provider/runtime path and rejects contradictory payloads, including stale endpoint-backed values that arrive with a non-endpoint provider or an otherwise incompatible create-mode selection. Purpose: give the server a second line of defense when hidden or restored UI state would otherwise leak into a request payload. Proof owners: `server/src/test/unit/chatValidators.test.ts`.
+11. [ ] Update `server/src/routes/chatValidators.ts` so the `/chat` request contract validates optional `endpointId` against the selected provider/runtime path and rejects contradictory payloads, including stale endpoint-backed values that arrive with a non-endpoint provider or an otherwise incompatible create-mode selection. Purpose: preserve the current server-side protection against contradictory request state once endpoint identity becomes part of the payload. Proof owners: `server/src/test/unit/chatValidators.test.ts`.
 12. [ ] Update `server/src/config/codexConfig.ts` so `codeinfo_openai_endpoint` is translated into a generated Codex `model_provider` plus matching `model_providers.<name>` entry with the required `base_url` and `wire_api` fields. Purpose: keep Codex runtime translation repository-owned instead of asking users to author native provider tables. Proof owners: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/integration/mcp-codex-wrapper.test.ts`.
 13. [ ] Update `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so `codeinfo_openai_endpoint` is translated into the generated Copilot custom provider object with `type: "openai"`, `baseUrl`, `wireApi`, and `model`. Purpose: keep Copilot runtime translation repository-owned instead of exposing native provider objects to users. Proof owners: `server/src/test/integration/chat-copilot-resume.test.ts`.
 14. [ ] Test type: client unit. Location: `client/src/test/chatSendPayload.test.tsx`. Description: prove chat requests submit raw `model` and optional `endpointId` as separate fields instead of a combined identifier. Implementation files: `common/src/lmstudio.ts`, `client/src/hooks/useChatStream.ts`, and `server/src/routes/chat.ts`. Purpose: keep the producer side of the endpoint-aware request contract explicit.
@@ -788,7 +799,7 @@ Validate the full story across the repository’s wrapper-first proof path, then
 
 - `Context7 /openai/codex` - use for the final documented Codex runtime translation contract so README wording stays aligned with the generated `model_provider`/`model_providers` behavior.
 - `Context7 /github/copilot-sdk` - use for the final documented Copilot custom-provider contract so README wording stays aligned with the generated `type: "openai"` provider object behavior.
-- `https://platform.openai.com/docs/api-reference/models/list` - use for the final documented external endpoint discovery contract and the explicit `/v1` requirement.
+- `Context7 /websites/developers_openai_api_reference` - use for the final documented external endpoint discovery contract and the explicit `/v1` requirement.
 
 #### Subtasks
 
@@ -829,7 +840,7 @@ This story’s live external endpoint is not part of the checked-in Compose stac
 
 Store task-level manual proof artifacts in `codeInfoTmp/manual-testing/0000059/7/` and do not commit them. Useful retained artifacts for this story include `proof-01-codex-picker.png`, `proof-02-copilot-picker.png`, `proof-03-config-pinned-endpoint.png`, `proof-04-resumed-endpoint-warning.png`, `support-console.txt`, and `support-server-log.txt`. Later story closeout should promote the curated durable bundle into `codeInfoStatus/manual-proof/0000059/`.
 
-If Playwright MCP screenshots are used during later manual proof, capture them in the Playwright output staging directory first and then transfer the retained files into `codeInfoTmp/manual-testing/0000059/7/`. In this local harness workflow, the usual staging path is `/tmp/playwright-output/0000059/7/<filename>` inside the Playwright MCP runtime and the usual host-side staging location is `$CODEINFO_ROOT/playwright-output-local/0000059/7/<filename>`, but `CODEINFO_ROOT` is the harness root, not the target artifact root.
+If Playwright MCP screenshots are used during later manual proof, capture them in the Playwright output staging directory first and then transfer the retained files into `codeInfoTmp/manual-testing/0000059/7/`. In this local harness workflow, the usual host-visible staging location is `$CODEINFO_ROOT/playwright-output-local/0000059/7/<filename>`, but `CODEINFO_ROOT` is the harness root, not the target artifact root.
 
 Later manual proof should cover the full implemented frontend surface for this story, not only one local screen: prove the Codex picker showing endpoint-backed models, the Copilot picker showing endpoint-backed models, a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` but still visible in chat, and any visible warning/result surface that distinguishes same-endpoint repair, same-provider native fallback, or fail-in-place on a resumed/pinned execution when the endpoint becomes unavailable. Treat these Task 7 screenshots and retained notes as the primary durable closeout proof for the re-covered story surfaces, and keep earlier screenshots in the durable bundle only when they still provide unique proof that the final Task 7 capture no longer shows.
 

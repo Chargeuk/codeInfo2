@@ -54,7 +54,9 @@ A typical cycle is:
 - if there are no comments, or every comment is judged invalid or already non-actionable, treat the review cycle as clean and keep the PR open for human inspection;
 - if valid issues exist, fix the small ones immediately, encode larger ones as tasks in the story, close that PR, and loop back into implementation and proof before opening a fresh PR for the next review cycle.
 
-The GitHub integration for this story intentionally uses the simplest operational model. The server image may include the `gh` CLI and use a shared server-side GitHub identity through `GH_TOKEN` or `GITHUB_TOKEN`, with restricted permissions. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date, and ignore closed PRs.
+The GitHub integration for this story intentionally uses the simplest operational model. The server image may include the `gh` CLI and use a repository-specific fine-grained GitHub token loaded from a `.env.local` file in the repository being worked in. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date, and ignore closed PRs.
+
+If the repository being worked in does not provide the expected token value in its `.env.local` file, the GitHub PR and external-review path should not execute for that cycle. The flow should record in the story that external GitHub review was skipped because the repository-specific token was not configured, then continue or complete without treating missing GitHub review comments as implementation feedback.
 
 If the current branch has not yet been pushed, the PR flow should push it automatically to its existing upstream remote so the review loop can continue without human intervention. If that automatic push fails, the flow should not keep guessing about alternate remotes or block forever waiting for help. Instead, it should record in the story that the PR could not be created, stop the external-review path for that cycle, and complete without treating missing GitHub review comments as implementation feedback.
 
@@ -81,8 +83,9 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - The generated PR content explains what work was required, why the implemented changes were chosen, the restriction against behavior changes outside the story scope, and any other brief reviewer-relevant context needed for this review loop.
 - For this story, "review comments" means PR review feedback from other users, including inline review comments and review submissions with reviewer-authored bodies, rather than generic issue-thread discussion.
 - The GitHub comment-fetch step is a retrieval primitive only and does not embed completion policy, implicit waiting, or hidden conditional behavior.
-- The GitHub steps use a shared server-side GitHub identity through `gh` plus `GH_TOKEN` or `GITHUB_TOKEN`, or an equivalent thin wrapper around that same model.
-- The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, and close-PR behavior, and keeps them restricted to that scope.
+- The GitHub steps use `gh` plus a repository-specific fine-grained token loaded from the `.env.local` file in the repository being worked in, or an equivalent thin wrapper around that same model.
+- The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, close-PR, and any required branch push behavior, and keeps them restricted to that scope.
+- If the expected GitHub token value is missing from the worked repository's `.env.local`, the flow skips PR creation and external-review ingestion for that cycle and records a story note explaining why.
 - If the current branch is not yet pushed, the PR creation path pushes automatically to the branch's existing upstream remote.
 - If that automatic push or PR creation fails, the flow records a note in the story explaining that the PR could not be created and that external GitHub review comments were therefore not part of the implementation cycle.
 - If PR creation fails, the flow can complete without attempting the GitHub wait or comment-ingestion steps for that cycle.
@@ -113,6 +116,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - Reusing the existing external-review ingest storage path or ingest flow as the raw-input path for this GitHub review cycle.
 - Editing currently in-use checked-in flow definitions in place under `flows/` as part of this story.
 - Solving every possible stale-PR, duplicate-PR, or multi-actor branch edge case before there is evidence that the first-version branch lookup rule is insufficient.
+- Requiring one shared cross-repository or cross-organization GitHub token for all worked repositories.
 - Guessing alternate remotes, forks, or first-time publication targets when automatic branch push fails.
 - Building a general arbitrary workflow variable system in this story.
 - Removing the existing AI-based yes or no control path for `break` and `continue`.
@@ -172,6 +176,12 @@ None at this time.
    - What the answer is: Save fetched GitHub review comments in a separate transient GitHub-review scratch file, plus only the minimal persisted state needed for resume and later classification.
    - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/review_disposition.md`, `codeinfo_markdown/review_evidence_gate/01-core.md`, `scripts/story_workflow_status.py`, and `scripts/find_minor_fix_revalidation_task.py`, with supporting Node.js timer documentation showing why in-memory-only state is not durable enough across restarts.
    - Why it is the best answer: It keeps the GitHub review stage inspectable and restart-safe without polluting the separate external-review ingest path that this story intentionally leaves alone.
+7. Repository-local GitHub token configuration
+   - The question being addressed: How should the GitHub token be configured when different worked repositories may need different fine-grained tokens?
+   - Why the question matters: Fine-grained tokens are scoped to one owner, so a single shared token does not fit well when the workflow may target personal repositories and organization repositories separately.
+   - What the answer is: The expected fine-grained GitHub token should live in a `.env.local` file in the repository being worked in. If that file or token value is missing, the PR creation and external-review logic does not execute for that cycle, and the story records that external review was skipped because repository-local GitHub credentials were not configured.
+   - Where the answer came from: User direction, plus the repository's harness-vs-target path contract in `AGENTS.md` and `codeinfo_markdown/repository_information.md`, which supports reading target-repository configuration from the worked repository instead of from harness-owned paths.
+   - Why it is the best answer: It lets each repository opt into its own least-privilege GitHub token without forcing one global token to span multiple owners or organizations.
 
 ## Implementation Ideas
 
@@ -186,7 +196,8 @@ None at this time.
   - fetch latest open PR review comments for current branch;
   - close latest open PR for current branch.
 - Generate the PR title and body from current story context and implementation state, following the repository's existing reviewer-summary conventions so the PR explains the intended work, implementation rationale, and the no-out-of-scope-behavior-change rule.
-- Resolve GitHub operations through `gh` inside the server runtime with one shared configured identity from `GH_TOKEN` or `GITHUB_TOKEN`.
+- Resolve GitHub operations through `gh` inside the server runtime using a fine-grained token sourced from the `.env.local` file in the repository being worked in, rather than from one shared cross-repository token.
+- Treat missing repository-local GitHub token configuration as a supported skip path for the GitHub review cycle, with an explicit story note rather than a hidden silent no-op.
 - Before PR creation, push the branch to its configured upstream remote when needed; if that push or PR creation fails, record a story note and route the flow to a clean completion path that skips external-review ingestion for that cycle.
 - Detect repository owner, name, current branch, and current head commit from the selected working repository rather than asking the user to duplicate that information in every workflow step.
 - Treat fetched GitHub review comments as a separate post-internal-review input, not as the raw input for `flows/ingest_external_review_plan.json`.

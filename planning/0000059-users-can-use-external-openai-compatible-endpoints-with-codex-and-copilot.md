@@ -656,7 +656,7 @@ Extend the shared chat discovery contract and the Chat page picker so external C
 1. [ ] Run `npm run build:summary:server` to confirm the server-side discovery and provider bootstrap changes compile cleanly.
 2. [ ] Run `npm run build:summary:client` to confirm the picker-contract changes compile cleanly on the client.
 3. [x] Run `npm run test:summary:server:unit` to prove the route-side discovery/filtering and provider bootstrap behavior.
-4. [x] Run `npm run test:summary:client` to prove endpoint-aware picker identity, duplicate-id handling, and visible-label behavior on the Chat page.
+4. [ ] Run `npm run test:summary:client` to prove endpoint-aware picker identity, duplicate-id handling, and visible-label behavior on the Chat page.
 5. [x] Run `npm run lint` for the final picker/discovery surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 6. [x] Run `npm run format:check` for the final picker/discovery surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
@@ -669,6 +669,7 @@ When the supported main compose stack is available, verify the Chat page picker 
 - Added endpoint-aware `ChatModelInfo`/`ChatProvidersResponse` fields, shared discovery filtering, and client picker identity wiring so duplicate raw ids stay distinguishable end to end.
 - Added endpoint-aware picker, provider, conversation-selection, and resume-identity tests to keep the draft/reuse transition and label formatting explicit.
 - Fixed the restore loop so draft selection is only snapshotted in true draft mode, then passed the repo lint/format checks after resolving one unnecessary hook dependency warning.
+- Implementation-only audit kept all Task 4 subtasks complete, but reopened `Testing` item 4 because the repository only shows targeted Jest runs for the picker-owned files plus one single-file resume test rerun, not the full `npm run test:summary:client` wrapper named by this checklist item.
 ---
 
 ### Task 5. Translate Endpoint Selections Into Runtime Config And Persistence

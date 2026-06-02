@@ -893,6 +893,7 @@ async function executeCodebaseQuestion(
       requestedProvider: runtimeSelection.requestedProvider,
       requestedModel: runtimeSelection.requestedModel,
       resolvedModel: runtimeSelection.executionModel,
+      runtimePath: runtimeSelection.executionPath,
       modelSource:
         requestedProvider === 'codex'
           ? toChatResolutionSource(
@@ -928,6 +929,7 @@ async function executeCodebaseQuestion(
       requestedProvider: runtimeSelection.requestedProvider,
       requestedModel: runtimeSelection.requestedModel,
       resolvedModel: runtimeSelection.executionModel,
+      runtimePath: runtimeSelection.executionPath,
       modelSource:
         requestedProvider === 'codex'
           ? toChatResolutionSource(

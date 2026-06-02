@@ -7,6 +7,7 @@ import test, { afterEach, beforeEach } from 'node:test';
 import {
   ChatDefaultsResolutionError,
   ORDERED_CHAT_PROVIDERS,
+  buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
@@ -140,6 +141,163 @@ test('cross-provider fallback drops from the requested model to the fallback pro
   assert.equal(result.executionModel, 'llama-3.3');
   assert.equal(result.fallbackApplied, true);
   assert.equal(result.decision, 'fallback');
+});
+
+test('endpoint-aware selection keeps the configured endpoint when the requested model exists there', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    endpoint: {
+      endpointId: 'https://alpha.example/v1',
+      available: true,
+      models: ['gpt-5.3-codex', 'gpt-5.1-codex-max'],
+      reason: undefined,
+    },
+    codex: {
+      available: true,
+      models: ['gpt-5.1-codex-max'],
+      reason: undefined,
+    },
+    copilot: {
+      available: true,
+      models: ['gpt-5'],
+      reason: undefined,
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'codex');
+  assert.equal(result.executionModel, 'gpt-5.3-codex');
+  assert.equal(result.executionPath, 'configured_endpoint');
+  assert.equal(result.endpointId, 'https://alpha.example/v1');
+  assert.equal(result.decision, 'selected');
+  assert.equal(result.fallbackApplied, false);
+});
+
+test('endpoint-aware selection repairs to the first selectable model on the same endpoint before broader fallback', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    endpoint: {
+      endpointId: 'https://alpha.example/v1',
+      available: true,
+      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      reason: undefined,
+    },
+    codex: {
+      available: true,
+      models: ['gpt-5.1-codex-max'],
+      reason: undefined,
+    },
+    copilot: {
+      available: true,
+      models: ['gpt-5'],
+      reason: undefined,
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'codex');
+  assert.equal(result.executionModel, 'gpt-5.1-codex-max');
+  assert.equal(result.executionPath, 'same_endpoint_repair');
+  assert.equal(result.endpointId, 'https://alpha.example/v1');
+  assert.equal(result.decision, 'selected');
+  assert.equal(result.fallbackApplied, true);
+});
+
+test('endpoint-aware selection falls back to the same provider native path before cross-provider fallback when the endpoint is unavailable', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    endpoint: {
+      endpointId: 'https://alpha.example/v1',
+      available: false,
+      models: [],
+      reason: 'endpoint unavailable',
+    },
+    codex: {
+      available: true,
+      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      reason: undefined,
+    },
+    copilot: {
+      available: true,
+      models: ['gpt-5'],
+      reason: undefined,
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'codex');
+  assert.equal(result.executionModel, 'gpt-5.1-codex-max');
+  assert.equal(result.executionPath, 'same_provider_native_fallback');
+  assert.equal(result.endpointId, 'https://alpha.example/v1');
+  assert.equal(result.decision, 'fallback');
+  assert.equal(result.fallbackApplied, true);
+});
+
+test('endpoint-aware selection can fail in place when a pinned endpoint becomes unavailable', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    endpoint: {
+      endpointId: 'https://alpha.example/v1',
+      available: false,
+      models: [],
+      reason: 'endpoint unavailable',
+    },
+    failInPlaceOnEndpointUnavailable: true,
+    codex: {
+      available: true,
+      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      reason: undefined,
+    },
+    copilot: {
+      available: true,
+      models: ['gpt-5'],
+      reason: undefined,
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'codex');
+  assert.equal(result.executionModel, 'gpt-5.3-codex');
+  assert.equal(result.executionPath, 'unavailable');
+  assert.equal(result.endpointId, 'https://alpha.example/v1');
+  assert.equal(result.decision, 'unavailable');
+  assert.equal(result.unavailable, true);
+});
+
+test('defaults applied marker payload includes the resolved runtime path', () => {
+  const payload = buildDefaultsAppliedMarkerPayload({
+    surface: '/chat',
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    resolvedModel: 'gpt-5.1-codex-max',
+    modelSource: 'request',
+    runtimePath: 'same_provider_native_fallback',
+    warnings: ['endpoint unavailable'],
+  });
+
+  assert.equal(payload.runtime_path, 'same_provider_native_fallback');
+  assert.equal(payload.warning_count, 1);
+  assert.deepEqual(payload.warnings, ['endpoint unavailable']);
 });
 
 const createProviderHome = async (

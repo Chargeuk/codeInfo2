@@ -44,6 +44,20 @@ export type RuntimeProviderState = {
   reason?: string;
 };
 
+export type RuntimeProviderEndpointState = {
+  endpointId: string;
+  available: boolean;
+  models: string[];
+  reason?: string;
+};
+
+export type RuntimeProviderSelectionPath =
+  | 'configured_endpoint'
+  | 'same_endpoint_repair'
+  | 'same_provider_native_fallback'
+  | 'cross_provider_fallback'
+  | 'unavailable';
+
 export const buildUnavailableRuntimeProviderState = (
   reason?: string,
 ): RuntimeProviderState => ({
@@ -57,11 +71,14 @@ export type RuntimeProviderSelection = {
   requestedModel: string;
   executionProvider: ChatDefaultProvider;
   executionModel: string;
+  executionPath: RuntimeProviderSelectionPath;
+  endpointId?: string;
   fallbackApplied: boolean;
   unavailable: boolean;
   decision: 'selected' | 'fallback' | 'unavailable';
   requestedReason?: string;
   fallbackReason?: string;
+  endpointReason?: string;
 };
 
 export type CodexChatDefaultOverrides = {
@@ -97,6 +114,7 @@ export type DefaultsAppliedMarkerPayload = {
   requested_model: string;
   resolved_model: string;
   model_source: ResolutionSource;
+  runtime_path?: RuntimeProviderSelectionPath;
   codex_model_source?: CodexDefaultSource;
   success: true;
   warning_count: number;
@@ -141,6 +159,7 @@ export const buildDefaultsAppliedMarkerPayload = (params: {
   requestedModel: string;
   resolvedModel: string;
   modelSource: ResolutionSource;
+  runtimePath?: RuntimeProviderSelectionPath;
   codexModelSource?: CodexDefaultSource;
   warnings: string[];
   extras?: Record<string, unknown>;
@@ -150,6 +169,7 @@ export const buildDefaultsAppliedMarkerPayload = (params: {
   requested_model: params.requestedModel,
   resolved_model: params.resolvedModel,
   model_source: params.modelSource,
+  runtime_path: params.runtimePath,
   codex_model_source: params.codexModelSource,
   success: true,
   warning_count: params.warnings.length,
@@ -537,15 +557,44 @@ const selectExecutionModel = (
   return firstSelectableModel(state.models);
 };
 
+const selectEndpointExecutionModel = (
+  endpoint: RuntimeProviderEndpointState,
+  requestedModel: string,
+): { model: string | undefined; repaired: boolean } => {
+  const normalizedRequestedModel = parseModelValue(requestedModel);
+  if (
+    normalizedRequestedModel &&
+    endpoint.models.some(
+      (model) => parseModelValue(model) === normalizedRequestedModel,
+    )
+  ) {
+    return {
+      model: normalizedRequestedModel,
+      repaired: false,
+    };
+  }
+
+  return {
+    model: firstSelectableModel(endpoint.models),
+    repaired: true,
+  };
+};
+
 export const resolveRuntimeProviderSelection = ({
   requestedProvider,
   requestedModel,
+  endpoint,
+  failInPlaceOnEndpointUnavailable = false,
+  allowCrossProviderFallback = true,
   codex,
   copilot,
   lmstudio,
 }: {
   requestedProvider: ChatDefaultProvider;
   requestedModel: string;
+  endpoint?: RuntimeProviderEndpointState;
+  failInPlaceOnEndpointUnavailable?: boolean;
+  allowCrossProviderFallback?: boolean;
   codex: RuntimeProviderState;
   copilot: RuntimeProviderState;
   lmstudio: RuntimeProviderState;
@@ -556,6 +605,48 @@ export const resolveRuntimeProviderSelection = ({
     lmstudio,
   };
   const requestedState = getProviderState(requestedProvider, providerStates);
+  const hasEndpoint = endpoint !== undefined;
+  const endpointId = endpoint?.endpointId;
+  const endpointReason = endpoint?.reason;
+  if (endpoint) {
+    if (endpoint.available) {
+      const endpointModel = selectEndpointExecutionModel(endpoint, requestedModel);
+      if (endpointModel.model) {
+        return {
+          requestedProvider,
+          requestedModel,
+          executionProvider: requestedProvider,
+          executionModel: endpointModel.model,
+          executionPath: endpointModel.repaired
+            ? 'same_endpoint_repair'
+            : 'configured_endpoint',
+          endpointId,
+          fallbackApplied: endpointModel.repaired,
+          unavailable: false,
+          decision: 'selected',
+          requestedReason: requestedState.reason,
+          fallbackReason: endpointModel.repaired ? endpointReason : undefined,
+          endpointReason,
+        };
+      }
+    } else if (failInPlaceOnEndpointUnavailable) {
+      return {
+        requestedProvider,
+        requestedModel,
+        executionProvider: requestedProvider,
+        executionModel: requestedModel,
+        executionPath: 'unavailable',
+        endpointId,
+        fallbackApplied: false,
+        unavailable: true,
+        decision: 'unavailable',
+        requestedReason: endpointReason ?? requestedState.reason,
+        fallbackReason: undefined,
+        endpointReason,
+      };
+    }
+  }
+
   if (requestedState.available) {
     const selectedModel = selectExecutionModel(requestedState, requestedModel);
     if (selectedModel) {
@@ -564,31 +655,40 @@ export const resolveRuntimeProviderSelection = ({
         requestedModel,
         executionProvider: requestedProvider,
         executionModel: selectedModel,
-        fallbackApplied: false,
+        executionPath: 'same_provider_native_fallback',
+        endpointId,
+        fallbackApplied: hasEndpoint,
         unavailable: false,
-        decision: 'selected',
-        requestedReason: requestedState.reason,
+        decision: hasEndpoint ? 'fallback' : 'selected',
+        requestedReason: endpointReason ?? requestedState.reason,
+        fallbackReason: requestedState.reason,
+        endpointReason,
       };
     }
   }
 
-  for (const fallbackProvider of getFallbackProviders(requestedProvider)) {
-    const fallbackState = getProviderState(fallbackProvider, providerStates);
-    const fallbackModel = fallbackState.available
-      ? selectExecutionModel(fallbackState, requestedModel)
-      : undefined;
-    if (fallbackState.available && fallbackModel) {
-      return {
-        requestedProvider,
-        requestedModel,
-        executionProvider: fallbackProvider,
-        executionModel: fallbackModel,
-        fallbackApplied: true,
-        unavailable: false,
-        decision: 'fallback',
-        requestedReason: requestedState.reason,
-        fallbackReason: fallbackState.reason,
-      };
+  if (allowCrossProviderFallback) {
+    for (const fallbackProvider of getFallbackProviders(requestedProvider)) {
+      const fallbackState = getProviderState(fallbackProvider, providerStates);
+      const fallbackModel = fallbackState.available
+        ? selectExecutionModel(fallbackState, requestedModel)
+        : undefined;
+      if (fallbackState.available && fallbackModel) {
+        return {
+          requestedProvider,
+          requestedModel,
+          executionProvider: fallbackProvider,
+          executionModel: fallbackModel,
+          executionPath: 'cross_provider_fallback',
+          endpointId,
+          fallbackApplied: true,
+          unavailable: false,
+          decision: 'fallback',
+          requestedReason: endpointReason ?? requestedState.reason,
+          fallbackReason: fallbackState.reason,
+          endpointReason,
+        };
+      }
     }
   }
 
@@ -597,13 +697,18 @@ export const resolveRuntimeProviderSelection = ({
     requestedModel,
     executionProvider: requestedProvider,
     executionModel: requestedModel,
+    executionPath: 'unavailable',
+    endpointId,
     fallbackApplied: false,
     unavailable: true,
     decision: 'unavailable',
-    requestedReason: requestedState.reason,
-    fallbackReason: getFallbackProviders(requestedProvider)
-      .map((provider) => getProviderState(provider, providerStates).reason)
-      .find((reason) => typeof reason === 'string' && reason.length > 0),
+    requestedReason: endpointReason ?? requestedState.reason,
+    fallbackReason: allowCrossProviderFallback
+      ? getFallbackProviders(requestedProvider)
+          .map((provider) => getProviderState(provider, providerStates).reason)
+          .find((reason) => typeof reason === 'string' && reason.length > 0)
+      : requestedState.reason,
+    endpointReason,
   };
 };
 

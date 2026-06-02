@@ -42,11 +42,16 @@ import {
   updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
+import { resolveOpenAiCompatEndpointRuntimeState } from '../chat/openaiCompatModelDiscovery.js';
 import { resolveCodexCapabilities } from '../codex/capabilityResolver.js';
 import {
   resolveChatDefaults,
+  resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
+  type RuntimeProviderSelectionPath,
 } from '../config/chatDefaults.js';
+import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
+import { type OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
 import { resolveAgentRuntimeConfig } from '../config/runtimeConfig.js';
 import { resolveAgentProviderFallbackOrder } from '../config/startupEnv.js';
@@ -317,6 +322,8 @@ type DirectAgentPreparedExecution = {
   requestedProviderId?: string;
   executionProviderId: ChatProviderId;
   modelId: string;
+  endpointId?: string;
+  runtimePath?: RuntimeProviderSelectionPath;
   runtimeConfig: CodexOptions['config'];
   warnings: string[];
   availability: Awaited<ReturnType<typeof evaluateAgentAvailability>>;
@@ -409,6 +416,7 @@ async function persistDirectAgentConversation(params: {
   providerId: ConversationProvider;
   modelId: string;
   requestedProviderId?: string;
+  endpointId?: string | null;
   title: string;
   source: 'REST' | 'MCP';
   workingFolder?: string;
@@ -420,6 +428,7 @@ async function persistDirectAgentConversation(params: {
     currentFlags: params.existingConversation?.flags,
     workingFolder: params.workingFolder,
     threadId: params.threadId,
+    endpointId: params.endpointId,
   });
   const savedRequestedProviderId =
     params.requestedProviderId?.trim() ||
@@ -559,7 +568,11 @@ async function collectDirectAgentProviderStates(): Promise<
 async function resolveProviderRuntimeConfig(params: {
   agentConfigPath: string;
   providerId: ChatProviderId;
-}): Promise<{ config: CodexOptions['config']; warnings: string[] }> {
+}): Promise<{
+  config: CodexOptions['config'];
+  warnings: string[];
+  endpoint?: OpenAiCompatEndpointConfig;
+}> {
   const resolved = await resolveAgentRuntimeConfig({
     provider: params.providerId,
     agentConfigPath: params.agentConfigPath,
@@ -567,6 +580,7 @@ async function resolveProviderRuntimeConfig(params: {
   return {
     config: resolved.config as CodexOptions['config'],
     warnings: resolved.warnings.map((warning) => warning.message),
+    endpoint: resolved.appMetadata?.codeinfoOpenAiEndpoint,
   };
 }
 
@@ -678,6 +692,7 @@ async function prepareDirectAgentExecution(params: {
   pinnedProviderId?: ConversationProvider;
   pinnedModelId?: string;
   pinnedRequestedProviderId?: string;
+  pinnedEndpointId?: string | null;
   allowFallback: boolean;
 }): Promise<DirectAgentPreparedExecution> {
   let requestedMetadata;
@@ -713,18 +728,66 @@ async function prepareDirectAgentExecution(params: {
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
   });
+  const buildRuntimeSelectionWarning = (params: {
+    executionPath:
+      | 'configured_endpoint'
+      | 'same_endpoint_repair'
+      | 'same_provider_native_fallback'
+      | 'cross_provider_fallback'
+      | 'unavailable';
+    executionProvider: ChatProviderId;
+    requestedModel: string;
+    executionModel: string;
+    endpointId?: string;
+    endpointReason?: string;
+    requestedReason?: string;
+    fallbackReason?: string;
+  }) => {
+    switch (params.executionPath) {
+      case 'same_endpoint_repair':
+        return `Requested model "${params.requestedModel}" was unavailable on endpoint "${params.endpointId ?? 'unknown'}"; using "${params.executionModel}" instead.`;
+      case 'same_provider_native_fallback':
+        return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; falling back to native ${params.executionProvider} model "${params.executionModel}".`;
+      case 'cross_provider_fallback':
+        return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; fell back to provider "${params.executionProvider}" model "${params.executionModel}".`;
+      case 'unavailable':
+        return (
+          params.endpointReason ??
+          params.requestedReason ??
+          params.fallbackReason ??
+          `Endpoint "${params.endpointId ?? 'unknown'}" is unavailable.`
+        );
+      case 'configured_endpoint':
+      default:
+        return undefined;
+    }
+  };
 
   if (params.pinnedProviderId) {
     const providerState = providerStates[params.pinnedProviderId];
-    if (!providerState?.available) {
-      throw toRunAgentError(
-        'PROVIDER_UNAVAILABLE',
-        `Saved provider "${params.pinnedProviderId}" is unavailable: ${providerState?.reason ?? 'provider unavailable'}.`,
-        undefined,
-      );
-    }
+    const providerRuntimeResolution = await resolveProviderRuntimeConfigForExecution({
+      configPath: params.configPath,
+      providerId: params.pinnedProviderId,
+      source: params.source,
+      surface: params.surface,
+    });
+    const endpointState =
+      providerRuntimeResolution.endpoint !== undefined
+        ? await resolveOpenAiCompatEndpointRuntimeState({
+            endpoint: providerRuntimeResolution.endpoint,
+          })
+        : undefined;
+    const requestedModel =
+      params.pinnedModelId ??
+      normalizeModel(
+        (providerRuntimeResolution.config as Record<string, unknown>)?.model,
+      ) ??
+      providerState?.models[0] ??
+      'unknown-model';
     if (
+      !endpointState &&
       params.pinnedModelId &&
+      providerState?.available &&
       providerState.models.length > 0 &&
       !providerState.models.includes(params.pinnedModelId)
     ) {
@@ -734,23 +797,69 @@ async function prepareDirectAgentExecution(params: {
         undefined,
       );
     }
+    const runtimeSelection = resolveRuntimeProviderSelection({
+      requestedProvider: params.pinnedProviderId,
+      requestedModel,
+      endpoint: endpointState,
+      failInPlaceOnEndpointUnavailable: Boolean(
+        params.pinnedEndpointId &&
+          endpointState?.endpointId === params.pinnedEndpointId,
+      ),
+      allowCrossProviderFallback: false,
+      codex: providerStates.codex,
+      copilot: providerStates.copilot,
+      lmstudio: providerStates.lmstudio,
+    });
+    if (runtimeSelection.unavailable) {
+      throw toRunAgentError(
+        'PROVIDER_UNAVAILABLE',
+        runtimeSelection.requestedReason ??
+          providerState?.reason ??
+          `Saved provider "${params.pinnedProviderId}" is unavailable.`,
+        undefined,
+      );
+    }
+
+    const runtimePath = runtimeSelection.executionPath;
+    const endpointId =
+      runtimePath === 'configured_endpoint' ||
+      runtimePath === 'same_endpoint_repair'
+        ? runtimeSelection.endpointId
+        : undefined;
+    const runtimeConfig =
+      runtimeSelection.executionProvider === 'codex' &&
+      endpointId &&
+      providerRuntimeResolution.endpoint
+        ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
+            providerRuntimeResolution.config,
+            providerRuntimeResolution.endpoint,
+          )
+        : providerRuntimeResolution.config;
+    const runtimeWarning = buildRuntimeSelectionWarning({
+      executionPath: runtimeSelection.executionPath,
+      executionProvider: runtimeSelection.executionProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      executionModel: runtimeSelection.executionModel,
+      endpointId: runtimeSelection.endpointId,
+      endpointReason: runtimeSelection.endpointReason,
+      requestedReason: runtimeSelection.requestedReason,
+      fallbackReason: runtimeSelection.fallbackReason,
+    });
     return {
       requestedProviderId: params.pinnedRequestedProviderId,
-      executionProviderId: params.pinnedProviderId,
-      modelId:
-        params.pinnedModelId ?? providerState.models[0] ?? 'unknown-model',
+      executionProviderId: runtimeSelection.executionProvider,
+      modelId: runtimeSelection.executionModel,
+      endpointId,
+      runtimePath,
       runtimeConfig: cloneRuntimeConfigWithModel(
-        (
-          await resolveProviderRuntimeConfigForExecution({
-            configPath: params.configPath,
-            providerId: params.pinnedProviderId,
-            source: params.source,
-            surface: params.surface,
-          })
-        ).config,
-        params.pinnedModelId ?? providerState.models[0] ?? 'unknown-model',
+        runtimeConfig,
+        runtimeSelection.executionModel,
       ),
-      warnings: [],
+      warnings: [
+        ...toAgentLaunchWarnings(availability),
+        ...(runtimeWarning ? [runtimeWarning] : []),
+        ...providerRuntimeResolution.warnings,
+      ],
       availability,
       executionContext,
       repositoryContext: executionContext.repositoryMetadata,
@@ -794,7 +903,11 @@ async function prepareDirectAgentExecution(params: {
     const providerState = providerStates[providerId];
     if (!providerState?.available) continue;
     let providerRuntimeResolution:
-      | { config: CodexOptions['config']; warnings: string[] }
+      | {
+          config: CodexOptions['config'];
+          warnings: string[];
+          endpoint?: OpenAiCompatEndpointConfig;
+        }
       | undefined;
     try {
       providerRuntimeResolution =
@@ -817,31 +930,110 @@ async function prepareDirectAgentExecution(params: {
       lastRuntimeConfigFailure = { providerId, message };
       continue;
     }
-    const requestedModel = normalizeModel(
-      (providerRuntimeResolution.config as Record<string, unknown>)?.model,
-    );
-    const modelId = resolveProviderModelForExecution({
-      providerId,
+    const endpointState = providerRuntimeResolution.endpoint
+      ? await resolveOpenAiCompatEndpointRuntimeState({
+          endpoint: providerRuntimeResolution.endpoint,
+        })
+      : undefined;
+    const requestedModel =
+      resolveProviderModelForExecution({
+        providerId,
+        requestedModel: normalizeModel(
+          (providerRuntimeResolution.config as Record<string, unknown>)?.model,
+        ),
+        providerState,
+      }) ??
+      normalizeModel(
+        (providerRuntimeResolution.config as Record<string, unknown>)?.model,
+      ) ??
+      providerState.models[0] ??
+      'unknown-model';
+    const runtimeSelection = resolveRuntimeProviderSelection({
+      requestedProvider: providerId,
       requestedModel,
-      providerState,
+      endpoint: endpointState,
+      failInPlaceOnEndpointUnavailable: Boolean(
+        params.pinnedEndpointId &&
+          providerRuntimeResolution.endpoint?.endpointId ===
+            params.pinnedEndpointId,
+      ),
+      allowCrossProviderFallback: false,
+      codex: providerStates.codex,
+      copilot: providerStates.copilot,
+      lmstudio: providerStates.lmstudio,
     });
-    if (!modelId) continue;
+    if (runtimeSelection.unavailable) {
+      if (
+        params.pinnedEndpointId &&
+        providerRuntimeResolution.endpoint?.endpointId === params.pinnedEndpointId
+      ) {
+        throw toRunAgentError(
+          'PROVIDER_UNAVAILABLE',
+          runtimeSelection.requestedReason ??
+            providerState.reason ??
+            `Saved provider "${providerId}" is unavailable.`,
+          undefined,
+        );
+      }
+      runtimeWarnings.push(
+        providerId === configuredRequestedProvider
+          ? `Agent could not execute on requested provider "${providerId}" because ${runtimeSelection.requestedReason ?? providerState.reason ?? 'provider unavailable'}.`
+          : `Fallback provider "${providerId}" was skipped because ${runtimeSelection.requestedReason ?? providerState.reason ?? 'provider unavailable'}.`,
+      );
+      lastRuntimeConfigFailure = {
+        providerId,
+        message:
+          runtimeSelection.requestedReason ??
+          providerState.reason ??
+          'provider unavailable',
+      };
+      continue;
+    }
+    const runtimeWarning = buildRuntimeSelectionWarning({
+      executionPath: runtimeSelection.executionPath,
+      executionProvider: runtimeSelection.executionProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      executionModel: runtimeSelection.executionModel,
+      endpointId: runtimeSelection.endpointId,
+      endpointReason: runtimeSelection.endpointReason,
+      requestedReason: runtimeSelection.requestedReason,
+      fallbackReason: runtimeSelection.fallbackReason,
+    });
+    const endpointId =
+      runtimeSelection.executionPath === 'configured_endpoint' ||
+      runtimeSelection.executionPath === 'same_endpoint_repair'
+        ? runtimeSelection.endpointId
+        : undefined;
+    const runtimeConfig =
+      runtimeSelection.executionProvider === 'codex' &&
+      endpointId &&
+      providerRuntimeResolution.endpoint
+        ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
+            providerRuntimeResolution.config,
+            providerRuntimeResolution.endpoint,
+          )
+        : providerRuntimeResolution.config;
+    const fallbackWarning =
+      providerId !== configuredRequestedProvider
+        ? [
+            `Agent will use fallback provider "${runtimeSelection.executionProvider}" because "${configuredRequestedProvider}" could not execute.`,
+          ]
+        : [];
     return {
       requestedProviderId,
-      executionProviderId: providerId,
-      modelId,
+      executionProviderId: runtimeSelection.executionProvider,
+      modelId: runtimeSelection.executionModel,
+      endpointId,
+      runtimePath: runtimeSelection.executionPath,
       runtimeConfig: cloneRuntimeConfigWithModel(
-        providerRuntimeResolution.config,
-        modelId,
+        runtimeConfig,
+        runtimeSelection.executionModel,
       ),
       warnings: mergeWarningMessages(
         toAgentLaunchWarnings(availability),
         runtimeWarnings,
-        providerId !== configuredRequestedProvider
-          ? [
-              `Agent will use fallback provider "${providerId}" because "${configuredRequestedProvider}" could not execute.`,
-            ]
-          : undefined,
+        fallbackWarning,
+        runtimeWarning ? [runtimeWarning] : undefined,
         providerRuntimeResolution.warnings,
       ),
       availability,
@@ -876,6 +1068,7 @@ export async function prepareFlowOwnedAgentExecution(params: {
   pinnedProviderId?: ConversationProvider;
   pinnedModelId?: string;
   pinnedRequestedProviderId?: string;
+  pinnedEndpointId?: string | null;
   allowFallback: boolean;
 }): Promise<DirectAgentPreparedExecution> {
   return prepareDirectAgentExecution({
@@ -993,6 +1186,7 @@ async function ensureAgentConversation(params: {
   title: string;
   source: 'REST' | 'MCP';
   workingFolder?: string;
+  endpointId?: string | null;
   inflightId?: string;
   chatFactory?: typeof getChatInterface;
 }): Promise<void> {
@@ -1010,6 +1204,7 @@ async function ensureAgentConversation(params: {
       flags: buildConversationFlags({
         provider: params.providerId,
         workingFolder: params.workingFolder,
+        endpointId: params.endpointId,
       }),
       lastMessageAt: now,
       archivedAt: null,
@@ -1034,6 +1229,7 @@ async function ensureAgentConversation(params: {
     flags: buildConversationFlags({
       provider: params.providerId,
       workingFolder: params.workingFolder,
+      endpointId: params.endpointId,
     }),
     lastMessageAt: now,
   });
@@ -1517,6 +1713,7 @@ export async function startAgentInstruction(
       surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
       pinnedProviderId: existingConversation?.provider,
       pinnedModelId: existingConversation?.model,
+      pinnedEndpointId: existingConversation?.flags?.endpointId,
       allowFallback: !existingConversation,
     });
     modelId = prepared.modelId;
@@ -1535,6 +1732,7 @@ export async function startAgentInstruction(
         title,
         source: params.source,
         workingFolder: effectiveWorkingFolder,
+        endpointId: prepared.endpointId ?? null,
       });
       if (effectiveWorkingFolder) {
         appendWorkingFolderDecisionLog({
@@ -1700,6 +1898,7 @@ async function prepareDirectCommandBootstrap(params: {
   providerId: ChatProviderId;
   initialModelId: string;
   conversationEnsured: boolean;
+  endpointId?: string | null;
   warnings: string[];
 }> {
   const parsed = await loadAgentCommandFile({
@@ -1710,6 +1909,7 @@ async function prepareDirectCommandBootstrap(params: {
       providerId: 'codex',
       initialModelId: FALLBACK_COMMAND_MODEL_ID,
       conversationEnsured: false,
+      endpointId: undefined,
       warnings: [],
     };
   }
@@ -1751,12 +1951,18 @@ async function prepareDirectCommandBootstrap(params: {
         title,
         source: params.source,
         workingFolder: params.workingFolder,
+        endpointId: undefined,
       });
     }
     return {
       providerId,
       initialModelId,
       conversationEnsured: !existingConversation,
+      endpointId:
+        typeof existingConversation?.flags?.endpointId === 'string' &&
+        existingConversation.flags.endpointId.trim().length > 0
+          ? existingConversation.flags.endpointId.trim()
+          : undefined,
       warnings: [],
     };
   }
@@ -1769,6 +1975,7 @@ async function prepareDirectCommandBootstrap(params: {
     surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.commands.run',
     pinnedProviderId: existingConversation?.provider,
     pinnedModelId: existingConversation?.model,
+    pinnedEndpointId: existingConversation?.flags?.endpointId,
     allowFallback: !existingConversation,
   });
   const initialModelId = prepared.modelId ?? FALLBACK_COMMAND_MODEL_ID;
@@ -1778,6 +1985,7 @@ async function prepareDirectCommandBootstrap(params: {
       providerId: prepared.executionProviderId,
       initialModelId,
       conversationEnsured: false,
+      endpointId: prepared.endpointId ?? null,
       warnings: prepared.warnings,
     };
   }
@@ -1790,12 +1998,14 @@ async function prepareDirectCommandBootstrap(params: {
     title,
     source: params.source,
     workingFolder: params.workingFolder,
+    endpointId: prepared.endpointId ?? null,
   });
 
   return {
     providerId: prepared.executionProviderId,
     initialModelId,
     conversationEnsured: true,
+    endpointId: prepared.endpointId ?? null,
     warnings: prepared.warnings,
   };
 }
@@ -1979,6 +2189,7 @@ export async function startAgentCommand(params: {
         title,
         source: params.source,
         workingFolder: effectiveWorkingFolder,
+        endpointId: bootstrap.endpointId ?? null,
       });
       if (effectiveWorkingFolder) {
         appendWorkingFolderDecisionLog({
@@ -2332,6 +2543,7 @@ export async function runAgentInstructionUnlocked(params: {
       pinnedModelId: existingConversation?.model,
       pinnedRequestedProviderId:
         getSavedRequestedProviderId(existingConversation),
+      pinnedEndpointId: existingConversation?.flags?.endpointId,
       allowFallback: !existingConversation,
     });
     const executionProviderId = preparedExecution.executionProviderId;
@@ -2345,6 +2557,7 @@ export async function runAgentInstructionUnlocked(params: {
       providerId: executionProviderId,
       modelId,
       requestedProviderId: preparedExecution.requestedProviderId,
+      endpointId: preparedExecution.endpointId ?? null,
       title,
       source: params.source,
       workingFolder: effectiveWorkingFolder,

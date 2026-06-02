@@ -15,4 +15,5 @@ export type FlowResumeState = {
   agentProviders?: Record<string, string>;
   agentModels?: Record<string, string>;
   agentRequestedProviders?: Record<string, string>;
+  agentEndpointIds?: Record<string, string>;
 };

@@ -385,6 +385,7 @@ export function createChatProvidersRouter({
         requestedProvider: runtimeSelection.requestedProvider,
         requestedModel: runtimeSelection.requestedModel,
         resolvedModel: runtimeSelection.executionModel,
+        runtimePath: runtimeSelection.executionPath,
         modelSource:
           requestedDefaults.provider === 'codex'
             ? toChatResolutionSource(

@@ -19,6 +19,13 @@ export type OpenAiCompatModelDiscoveryResult = {
   warnings: OpenAiCompatModelDiscoveryWarning[];
 };
 
+export type OpenAiCompatEndpointRuntimeState = {
+  endpointId: string;
+  available: boolean;
+  models: string[];
+  reason?: string;
+};
+
 type DiscoveryEndpointSelection = {
   endpoint: OpenAiCompatEndpointConfig;
   source: 'env' | 'config';
@@ -176,5 +183,32 @@ export async function discoverOpenAiCompatEndpointModels(params: {
       ...warnings,
       ...endpointResults.flatMap((result) => result.warnings),
     ],
+  };
+}
+
+export async function resolveOpenAiCompatEndpointRuntimeState(params: {
+  endpoint: OpenAiCompatEndpointConfig;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}): Promise<OpenAiCompatEndpointRuntimeState> {
+  const discovery = await discoverOpenAiCompatEndpointModels({
+    endpoints: [params.endpoint],
+    fetchImpl: params.fetchImpl,
+    timeoutMs: params.timeoutMs,
+  });
+  const endpointResult = discovery.endpoints[0];
+  const modelIds = endpointResult?.modelIds ?? [];
+  const available = modelIds.length > 0;
+  return {
+    endpointId: params.endpoint.endpointId,
+    available,
+    models: modelIds,
+    ...(available
+      ? {}
+      : {
+          reason:
+            discovery.warnings[0]?.message ??
+            `Failed to discover external models at ${params.endpoint.endpointId}`,
+        }),
   };
 }

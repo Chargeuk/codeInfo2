@@ -29,6 +29,8 @@ CodeInfo2 already supports long-running implementation and review flows, but the
 
 From the user's point of view, a flow such as `flows/implement_next_plan.json` should be able to perform one bounded review cycle without a human manually stitching the steps together. The flow should be able to open a pull request for the current branch, wait for a configured period, fetch the latest open pull request's review comments from other people, classify those comments using the same validity and disposition rules already used by the repository's local and external review flows, and then either stop cleanly or route the findings back through the existing minor-fix and task-up patterns.
 
+The repository also has an important operational constraint: some existing flow files are already in use and must not be edited in place for this story. When the new review-cycle behavior is wired into a real workflow, the implementation must create new flow-definition variants by copying and renaming the relevant in-use flow files, then editing those new variants. This story therefore adds new workflow capabilities and new flow variants, rather than mutating the currently in-use checked-in flows directly.
+
 This story therefore introduces a small set of workflow primitives that stay intentionally thin and composable instead of embedding lots of hidden policy into one giant GitHub step. The new primitives are:
 
 - a first-class `if` step with an optional `else`;
@@ -69,6 +71,9 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, and close-PR behavior, and keeps them restricted to that scope.
 - The first-version PR lookup rule is explicit: use the latest open PR for the current branch by open date and ignore closed PRs.
 - The first-version implementation does not attempt per-user GitHub execution identity or browser-user impersonation.
+- The story does not edit currently in-use flow files in place under `flows/` when wiring in the new review-cycle behavior.
+- When an existing checked-in flow needs the new review-cycle behavior, the implementation creates a copied and renamed flow-definition variant first, then applies the new step composition to that new variant.
+- The first practical review-cycle wiring for this story lands in newly created flow-definition variants rather than by mutating the current `flows/implement_next_plan.json`, `flows/review_plan.json`, or other already in-use flow files directly.
 - A flow can compose the new primitives so that it opens a PR, waits, fetches review comments, classifies them using the existing review-disposition rules, and then either completes cleanly or routes valid issues into the same minor-fix and task-up behavior already used for local or external review findings.
 - If the fetched review set is empty, that review cycle is treated as clean.
 - If fetched review comments exist but all are classified as invalid, stale, or otherwise non-actionable under the existing review-disposition rules, that review cycle is also treated as clean.
@@ -85,6 +90,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - Embedding hidden IF logic directly into the GitHub pull-request comment step.
 - Automatically reopening previously closed PRs or reusing a closed PR for a later review cycle.
 - Replacing the existing local or external review-disposition rules with a brand-new classification system.
+- Editing currently in-use checked-in flow definitions in place under `flows/` as part of this story.
 - Solving every possible stale-PR, duplicate-PR, or multi-actor branch edge case before there is evidence that the first-version branch lookup rule is insufficient.
 - Building a general arbitrary workflow variable system in this story.
 - Removing the existing AI-based yes or no control path for `break` and `continue`.
@@ -104,7 +110,18 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-None. The first-version direction is now fixed: thin workflow primitives, persisted timed wait, shared server-side `gh` identity, latest open PR for the branch by open date, and review classification through the existing local or external review-disposition contract.
+1. Should these new steps work in agent commands too, or should this story add them only to flows first?
+   - Why this is important: This changes the size of the story because flow JSON and agent command JSON use different schemas and runtimes today.
+   - Best Answer: Add these new steps to flows first, and treat agent-command support as a later story unless you explicitly need both now. Local repo precedent allows a flow-only rollout when the story is about flow behavior, and this story's main user outcome is extending implementation and review flows. Story 27 added flow-specific orchestration without requiring matching agent-command support, while Story 61 only added a step to both surfaces because that story said so explicitly.
+   - Where this answer came from: Local repo evidence first: this story's own flow-centered description and implementation ideas in `planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md`; flow-only precedent in `planning/0000027-flows-mode.md`; both-surfaces precedent in `planning/0000061-command-and-flow-user-input-wait-step.md`; and the current agent-command schema in `server/src/agents/commandsSchema.ts`.
+2. Should fetched GitHub review comments go into the existing external review input file, or into a new storage path?
+   - Why this is important: The answer decides whether GitHub review comments reuse the current review-disposition pipeline cleanly or create a second parallel review-input system.
+   - Best Answer: Write the fetched GitHub review comments into the existing external review input markdown file and then reuse the current external-review pipeline. The repo already has a deterministic contract where raw external review comments live in `codeInfoTmp/reviews/<story-number>-external-review-input.md`, evidence writes `codeInfoTmp/reviews/<story-number>-current-review.json`, and the later findings and disposition steps treat that material as candidate review input rather than automatically valid findings. Reusing that contract keeps the adjudication trail, reduces new storage concepts, and still fits GitHub CLI or API retrieval because the fetched review comments can be normalized into the same markdown file shape before review classification.
+   - Where this answer came from: Local repo evidence first: `flows/ingest_external_review_plan.json`, `codeinfo_markdown/external_review_evidence_gate.md`, `codeinfo_markdown/external_review_findings.md`, `codeinfo_markdown/review_disposition.md`, and `codeinfo_markdown/classify_review_disposition.md`. Supporting external evidence: GitHub CLI docs for `gh pr view --comments` and `gh pr create`, plus GitHub Docs guidance that pull requests have review comments and review bodies available through the PR review and comment APIs.
+3. When the wait time ends, should the flow resume by itself, or stay paused until someone resumes it?
+   - Why this is important: Your intended PR-review loop is meant to keep moving without a person babysitting it, so the wait-step resume rule changes whether the story actually meets that goal.
+   - Best Answer: Resume automatically when the timer expires. The repo's current waiting precedent is explicit REST resume for user-input pauses, but that precedent is about waiting for a human to provide content. For a timed review window, forcing a manual resume would break the autonomous review-loop goal described in this story. The implementation should therefore persist the wait state and recover overdue waits after restart, rather than relying on an in-memory timer alone. Node's timer docs reinforce that plain `setTimeout` is only an in-process scheduled callback, so memory-only waiting would not be strong enough here.
+   - Where this answer came from: Local repo evidence first: `planning/0000061-command-and-flow-user-input-wait-step.md`, `planning/0000027-flows-mode.md`, `server/src/routes/flowsRun.ts`, and `server/src/flows/service.ts`. Supporting external evidence: official Node.js timer documentation for `setTimeout()` and timer-promise waits as in-process delayed callbacks rather than durable persisted jobs.
 
 ## Implementation Ideas
 

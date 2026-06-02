@@ -426,6 +426,55 @@ test('copilot models route includes external completions endpoints and filters o
   }
 });
 
+test('copilot models route preserves duplicate raw model ids across distinct endpoint identities', async () => {
+  const firstServer = await startExternalOpenAiCompatServer({
+    models: ['shared-copilot-model'],
+  });
+  const secondServer = await startExternalOpenAiCompatServer({
+    models: ['shared-copilot-model'],
+  });
+  tempExternalServers.push(firstServer, secondServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${firstServer.baseUrl}/v1|completions`,
+      `${secondServer.baseUrl}/v1|completions`,
+    ].join(';'),
+  );
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    const sharedModels = (res.body.models as Array<Record<string, unknown>>).filter(
+      (model) => model.key === 'shared-copilot-model',
+    );
+    assert.equal(sharedModels.length, 2);
+    assert.equal(
+      sharedModels[0]?.endpointId,
+      `${firstServer.baseUrl}/v1`,
+    );
+    assert.equal(
+      sharedModels[1]?.endpointId,
+      `${secondServer.baseUrl}/v1`,
+    );
+    assert.equal(sharedModels[0]?.type, 'copilot');
+    assert.equal(sharedModels[1]?.type, 'copilot');
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('chat providers route keeps same-model-first fallback metadata instead of surfacing the first advertised fallback model', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-providers-copilot-fallback-home-'),

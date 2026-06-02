@@ -862,6 +862,10 @@ test('providers route includes a config-pinned external endpoint that is absent 
 
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(res.body.selectedModel, 'alpha');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
     assert.equal(res.body.providers[0].id, 'codex');
     assert.equal(res.body.providers[0].defaultModel, 'alpha');
     assert.equal(res.body.providers[0].defaultModelSource, 'config');
@@ -910,6 +914,10 @@ test('providers route collapses env-backed and config-backed copies of the same 
 
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(res.body.selectedModel, 'alpha');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
     assert.equal(res.body.providers[0].defaultModel, 'alpha');
     assert.equal(externalServer.requestCount(), 1);
   } finally {

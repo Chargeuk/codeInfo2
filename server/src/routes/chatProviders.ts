@@ -322,6 +322,14 @@ export function createChatProvidersRouter({
       providerMap,
       selectedProvider: runtimeSelection.executionProvider,
       selectedModel: runtimeSelection.executionModel,
+      selectedEndpointId:
+        runtimeSelection.executionProvider === requestedDefaults.provider &&
+        (requestedDefaults.provider === 'codex' ||
+          requestedDefaults.provider === 'copilot')
+          ? externalOpenAiCompatDiscovery.models.find(
+              (model) => model.key === runtimeSelection.executionModel,
+            )?.endpointId
+          : undefined,
       fallbackApplied: runtimeSelection.fallbackApplied,
       compatibility: {
         codexDefaults,

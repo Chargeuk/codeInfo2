@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -884,5 +885,218 @@ describe('Chat shared shell conversation selection', () => {
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
       /gpt-5\.1-codex-max/i,
     );
+  });
+
+  it('keeps the restored endpoint identity local while a conversation is selected and restores the create-mode pair after starting a fresh draft', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      asFetchImplementation(
+        async (url: RequestInfo | URL, opts?: RequestInit) => {
+          const href = typeof url === 'string' ? url : url.toString();
+
+          if (href.includes('/health')) {
+            return mockJsonResponse({ mongoConnected: true });
+          }
+
+          if (href.includes('/chat/providers')) {
+            return mockJsonResponse({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+              selectedProvider: 'codex',
+              selectedModel: 'gpt-5.2',
+              selectedEndpointId: 'https://alpha.example/alt/v1',
+            });
+          }
+
+          if (
+            href.includes('/chat/models') &&
+            href.includes('provider=codex')
+          ) {
+            return mockJsonResponse({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              providerInfo: {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+                defaultModel: 'gpt-5.2',
+              },
+              models: [
+                {
+                  key: 'gpt-5.1-codex-max',
+                  displayName: 'gpt-5.1-codex-max',
+                  type: 'codex',
+                  endpointId: 'https://alpha.example/base/v1',
+                },
+                {
+                  key: 'gpt-5.1-codex-max',
+                  displayName: 'gpt-5.1-codex-max',
+                  type: 'codex',
+                  endpointId: 'https://alpha.example/alt/v1',
+                },
+                {
+                  key: 'gpt-5.2',
+                  displayName: 'gpt-5.2',
+                  type: 'codex',
+                  endpointId: 'https://alpha.example/base/v1',
+                },
+                {
+                  key: 'gpt-5.2',
+                  displayName: 'gpt-5.2',
+                  type: 'codex',
+                  endpointId: 'https://alpha.example/alt/v1',
+                },
+              ],
+            });
+          }
+
+          if (href.includes('/conversations/codex-conv/turns')) {
+            return mockJsonResponse({
+              items: [
+                {
+                  conversationId: 'codex-conv',
+                  role: 'user',
+                  content: 'hello codex',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-12-09T12:00:00.000Z',
+                },
+                {
+                  conversationId: 'codex-conv',
+                  role: 'assistant',
+                  content: 'codex reply',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-12-09T12:00:01.000Z',
+                },
+              ],
+            });
+          }
+
+          if (href.includes('/conversations')) {
+            return mockJsonResponse({
+              items: [
+                {
+                  conversationId: 'codex-conv',
+                  title: 'Codex conversation',
+                  provider: 'codex',
+                  model: 'gpt-5.1-codex-max',
+                  lastMessageAt: '2025-12-09T12:00:02.000Z',
+                  archived: false,
+                },
+              ],
+              nextCursor: undefined,
+            });
+          }
+
+          if (href.includes('/chat') && opts?.method === 'POST') {
+            return mockJsonResponse({
+              status: 'started',
+              conversationId: 'draft-conversation',
+              inflightId: 'i1',
+              provider: 'codex',
+              model: 'gpt-5.2',
+            });
+          }
+
+          return mockJsonResponse({});
+        },
+      ),
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
+      ).toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+      ),
+    );
+
+    const conversationRow = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(conversationRow);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /alpha\.example \/ gpt-5\.1-codex-max \(\/alt\)/i,
+      ),
+    );
+    expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('combobox', { name: /model/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
+      ).toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+      ),
+    );
+    expect(
+      screen.getByRole('combobox', { name: /provider/i }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.getByRole('combobox', { name: /model/i }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
   });
 });

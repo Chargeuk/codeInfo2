@@ -73,6 +73,7 @@ import ComposerSendButton from '../components/workspace/composer/ComposerSendBut
 import ThinkingLevelIcon from '../components/workspace/composer/ThinkingLevelIcon';
 import {
   buildComposerOptionSummary,
+  formatEndpointAwareModelLabel,
   formatComposerModelLabel,
   formatThinkingModeLabel,
   getComposerModelPresentation,
@@ -250,6 +251,7 @@ export default function ChatPage() {
     isEmpty,
     refreshModels,
     refreshProviders,
+    selectedEndpointId,
   } = useChatModel();
   const [agentFlagsDraft, setAgentFlagsDraft] = useState<ChatAgentFlagDraft>(
     {},
@@ -303,6 +305,12 @@ export default function ChatPage() {
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
   const codexDocsLoggedRef = useRef(false);
+  const draftSelectionRef = useRef<{
+    provider?: string;
+    model?: string;
+    endpointId?: string | null;
+  } | null>(null);
+  const previousConversationIdRef = useRef<string | undefined>(undefined);
   const [input, setInput] = useState('');
   const [workingFolder, setWorkingFolder] = useState('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
@@ -820,22 +828,86 @@ export default function ChatPage() {
   );
 
   useEffect(() => {
-    if (!selectedConversation?.conversationId) {
+    if (selectedConversation?.conversationId) {
       return;
     }
 
-    if (resumedProvider) {
-      setProvider(resumedProvider, { source: 'conversation-select' });
+    if (previousConversationIdRef.current) {
+      return;
     }
-    if (resumedModel) {
-      setSelected(resumedModel, { source: 'conversation-select' });
+
+    draftSelectionRef.current = {
+      provider: provider ?? undefined,
+      model: selected ?? undefined,
+      endpointId: selectedEndpointId ?? null,
+    };
+  }, [
+    provider,
+    selected,
+    selectedConversation?.conversationId,
+    selectedEndpointId,
+  ]);
+
+  useEffect(() => {
+    const previousConversationId = previousConversationIdRef.current;
+    previousConversationIdRef.current = selectedConversation?.conversationId;
+
+    if (selectedConversation?.conversationId) {
+      if (resumedProvider) {
+        setProvider(resumedProvider, { source: 'conversation-select' });
+      }
+      if (resumedModel) {
+        const endpointAwareMatch =
+          models.find(
+            (model) =>
+              model.key === resumedModel &&
+              (selectedEndpointId === undefined ||
+                (model.endpointId ?? undefined) ===
+                  (selectedEndpointId ?? undefined)),
+          ) ?? models.find((model) => model.key === resumedModel);
+        setSelected(endpointAwareMatch?.key ?? resumedModel, {
+          source: 'conversation-select',
+          endpointId:
+            endpointAwareMatch?.endpointId ?? selectedEndpointId ?? null,
+        });
+      }
+      return;
+    }
+
+    if (!previousConversationId) {
+      return;
+    }
+
+    const draftSelection = draftSelectionRef.current;
+    if (!draftSelection?.provider || !draftSelection.model) {
+      return;
+    }
+
+    if (draftSelection.provider !== provider) {
+      setProvider(draftSelection.provider, {
+        source: 'conversation-sync',
+      });
+    }
+    if (
+      draftSelection.model !== selected ||
+      (draftSelection.endpointId ?? undefined) !==
+        (selectedEndpointId ?? undefined)
+    ) {
+      setSelected(draftSelection.model, {
+        source: 'conversation-sync',
+        endpointId: draftSelection.endpointId ?? null,
+      });
     }
   }, [
+    models,
     resumedModel,
     resumedProvider,
+    provider,
+    selected,
     selectedConversation?.conversationId,
     setProvider,
     setSelected,
+    selectedEndpointId,
   ]);
 
   useEffect(() => {
@@ -1011,12 +1083,15 @@ export default function ChatPage() {
     });
   };
 
-  const applyModelSelection = (nextModel: string) => {
+  const applyModelSelection = (nextModel: string, nextEndpointId?: string) => {
     if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
-    if (!nextModel || nextModel === selected) {
+    if (
+      !nextModel ||
+      (nextModel === selected && nextEndpointId === selectedEndpointId)
+    ) {
       return;
     }
 
@@ -1026,6 +1101,7 @@ export default function ChatPage() {
     setSelected(nextModel, {
       nextSendOnly: true,
       source: 'model-change',
+      endpointId: nextEndpointId ?? null,
     });
     log('info', 'DEV-0000046:T10:model-next-send-updated', {
       previousModel,
@@ -1114,12 +1190,48 @@ export default function ChatPage() {
     () => getComposerProviderPresentation(provider, selected),
     [provider, selected],
   );
-  const selectedModel = useMemo(
-    () => models.find((model) => model.key === selected),
-    [models, selected],
+  const modelDisplayLabelCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    models.forEach((model) => {
+      const baseLabel = formatEndpointAwareModelLabel(
+        model.displayName,
+        model.endpointId,
+      );
+      counts.set(baseLabel, (counts.get(baseLabel) ?? 0) + 1);
+    });
+    return counts;
+  }, [models]);
+  const getModelDisplayLabel = useCallback(
+    (model: (typeof models)[number]) => {
+      const baseLabel = formatEndpointAwareModelLabel(
+        model.displayName,
+        model.endpointId,
+      );
+      if ((modelDisplayLabelCounts.get(baseLabel) ?? 0) > 1) {
+        return formatEndpointAwareModelLabel(
+          model.displayName,
+          model.endpointId,
+          {
+            includePathHint: true,
+          },
+        );
+      }
+      return baseLabel;
+    },
+    [modelDisplayLabelCounts],
   );
-  const selectedModelDisplayName =
-    selectedModel?.displayName ?? selected ?? 'Select model';
+  const selectedModel = useMemo(
+    () =>
+      models.find(
+        (model) =>
+          model.key === selected &&
+          (model.endpointId ?? undefined) === (selectedEndpointId ?? undefined),
+      ),
+    [models, selected, selectedEndpointId],
+  );
+  const selectedModelDisplayName = selectedModel
+    ? getModelDisplayLabel(selectedModel)
+    : formatEndpointAwareModelLabel(selected, selectedEndpointId);
   const reasoningDescriptor = availableAgentFlags.find(
     (descriptor) => descriptor.key === 'modelReasoningEffort',
   );
@@ -1924,15 +2036,20 @@ export default function ChatPage() {
               provider,
               model.displayName,
             );
+            const isSelectedModel =
+              selected === model.key &&
+              (selectedEndpointId ?? undefined) ===
+                (model.endpointId ?? undefined);
+            const modelLabel = getModelDisplayLabel(model);
 
             return (
               <ListItemButton
-                key={model.key}
+                key={`${model.key}:${model.endpointId ?? ''}`}
                 component="div"
                 role="option"
-                aria-label={model.displayName}
-                aria-selected={selected === model.key}
-                selected={selected === model.key}
+                aria-label={modelLabel}
+                aria-selected={isSelectedModel}
+                selected={isSelectedModel}
                 disabled={
                   isLoading ||
                   isError ||
@@ -1943,14 +2060,14 @@ export default function ChatPage() {
                 }
                 onClick={() => {
                   handleComposerModelClose();
-                  applyModelSelection(model.key);
+                  applyModelSelection(model.key, model.endpointId);
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
                   {presentation.icon}
                 </ListItemIcon>
                 <ListItemText
-                  primary={model.displayName}
+                  primary={modelLabel}
                   secondary={presentation.label}
                 />
               </ListItemButton>

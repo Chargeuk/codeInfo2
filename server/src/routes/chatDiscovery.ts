@@ -241,17 +241,13 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
 
   const models: ChatModelInfo[] = [];
   const liveModels: string[] = [];
-  const seenModelIds = new Set<string>();
   for (const endpoint of discovery.endpoints) {
     for (const modelId of endpoint.modelIds) {
-      if (seenModelIds.has(modelId)) {
-        continue;
-      }
-      seenModelIds.add(modelId);
       models.push({
         key: modelId,
         displayName: modelId,
         type: params.provider,
+        endpointId: endpoint.endpoint.endpointId,
       });
       liveModels.push(modelId);
     }
@@ -503,6 +499,7 @@ export function buildProvidersResponse(params: {
   providerMap: Record<ChatProviderId, ChatProviderInfo>;
   selectedProvider: ChatProviderId;
   selectedModel?: string;
+  selectedEndpointId?: string;
   fallbackApplied?: boolean;
   compatibility?: ChatProvidersResponse['compatibility'];
   codexDefaults?: CodexDefaults;
@@ -512,6 +509,7 @@ export function buildProvidersResponse(params: {
     providers: orderProviders(params.providerMap, params.selectedProvider),
     selectedProvider: params.selectedProvider,
     selectedModel: params.selectedModel,
+    selectedEndpointId: params.selectedEndpointId,
     fallbackApplied: params.fallbackApplied,
     compatibility: params.compatibility,
     codexDefaults: params.codexDefaults,

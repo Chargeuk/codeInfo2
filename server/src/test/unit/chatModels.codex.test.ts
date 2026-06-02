@@ -1070,6 +1070,49 @@ test('codex models route includes external responses endpoints and filters out u
   }
 });
 
+test('codex models route preserves duplicate raw model ids across distinct endpoint identities', async () => {
+  const firstServer = await startExternalOpenAiCompatServer({
+    models: ['shared-model'],
+  });
+  const secondServer = await startExternalOpenAiCompatServer({
+    models: ['shared-model'],
+  });
+  tempExternalServers.push(firstServer, secondServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${firstServer.baseUrl}/v1|responses`,
+      `${secondServer.baseUrl}/v1|responses`,
+    ].join(';'),
+  );
+  env.set('Codex_model_list', 'builtin-a');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const sharedModels = (res.body.models as Array<Record<string, unknown>>).filter(
+      (model) => model.key === 'shared-model',
+    );
+    assert.equal(sharedModels.length, 2);
+    assert.equal(sharedModels[0]?.endpointId, `${firstServer.baseUrl}/v1`);
+    assert.equal(sharedModels[1]?.endpointId, `${secondServer.baseUrl}/v1`);
+    assert.equal(sharedModels[0]?.type, 'codex');
+    assert.equal(sharedModels[1]?.type, 'codex');
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({

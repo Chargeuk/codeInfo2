@@ -12,6 +12,45 @@ const cleanText = (value?: string | null) => {
   return value.replace(/\s+/g, ' ').trim();
 };
 
+const formatEndpointPathHint = (endpointId?: string | null) => {
+  const cleaned = cleanText(endpointId);
+  if (!cleaned) return '';
+
+  try {
+    const url = new URL(cleaned);
+    const path = url.pathname.replace(/\/v1\/?$/i, '').replace(/\/$/, '');
+    return cleanText(path);
+  } catch {
+    return '';
+  }
+};
+
+export const formatEndpointAwareModelLabel = (
+  model?: string | null,
+  endpointId?: string | null,
+  options?: {
+    includePathHint?: boolean;
+  },
+) => {
+  const cleanedModel = cleanText(model);
+  if (!cleanedModel) return 'Select model';
+
+  const cleanedEndpointId = cleanText(endpointId);
+  if (!cleanedEndpointId) return cleanedModel;
+
+  try {
+    const url = new URL(cleanedEndpointId);
+    const host = cleanText(url.host) || cleanedEndpointId;
+    const baseLabel = `${host} / ${cleanedModel}`;
+    if (!options?.includePathHint) return baseLabel;
+
+    const pathHint = formatEndpointPathHint(cleanedEndpointId);
+    return pathHint ? `${baseLabel} (${pathHint})` : baseLabel;
+  } catch {
+    return cleanedModel;
+  }
+};
+
 export const getComposerProviderPresentation = (
   provider?: string | null,
   model?: string | null,

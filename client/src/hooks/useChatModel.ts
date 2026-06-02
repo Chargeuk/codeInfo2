@@ -162,6 +162,36 @@ function isChatModelInfo(value: unknown): value is ChatModelInfo {
   return true;
 }
 
+function isSelectedModelIdentity(
+  model: ChatModelInfo,
+  selected?: string,
+  selectedEndpointId?: string,
+): boolean {
+  return (
+    model.key === selected &&
+    (model.endpointId ?? undefined) === (selectedEndpointId ?? undefined)
+  );
+}
+
+function findSelectedModel(
+  models: ChatModelInfo[],
+  selected?: string,
+  selectedEndpointId?: string,
+): ChatModelInfo | undefined {
+  if (!selected) return undefined;
+
+  const exactMatch = models.find((model) =>
+    isSelectedModelIdentity(model, selected, selectedEndpointId),
+  );
+  if (exactMatch) return exactMatch;
+
+  if (selectedEndpointId === undefined) {
+    return models.find((model) => model.key === selected);
+  }
+
+  return undefined;
+}
+
 function isChatProviderInfo(value: unknown): value is ChatProviderInfo {
   return (
     isRecord(value) &&
@@ -181,6 +211,7 @@ function parseProvidersResponse(payload: unknown):
       providers: ChatProviderInfo[];
       selectedProvider?: ChatProviderId;
       selectedModel?: string;
+      selectedEndpointId?: string;
     } {
   if (Array.isArray(payload)) {
     if (!payload.every(isChatModelInfo)) {
@@ -225,11 +256,25 @@ function parseProvidersResponse(payload: unknown):
     throw new Error('Malformed chat providers response');
   }
 
+  const selectedEndpointId =
+    payload.selectedEndpointId === undefined
+      ? undefined
+      : typeof payload.selectedEndpointId === 'string'
+        ? payload.selectedEndpointId
+        : undefined;
+  if (
+    payload.selectedEndpointId !== undefined &&
+    selectedEndpointId === undefined
+  ) {
+    throw new Error('Malformed chat providers response');
+  }
+
   return {
     kind: 'current',
     providers: payload.providers,
     selectedProvider,
     selectedModel,
+    selectedEndpointId,
   };
 }
 
@@ -437,9 +482,12 @@ export function useChatModel() {
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
   const providerRef = useRef<ChatProviderId | undefined>(undefined);
+  const selectedRef = useRef<string | undefined>(undefined);
+  const selectedEndpointIdRef = useRef<string | undefined>(undefined);
   const bootstrapSelectedModelRef = useRef<{
     provider: ChatProviderId;
     model: string;
+    endpointId?: string;
   } | null>(null);
   const hydratedModelsProviderRef = useRef<ChatProviderId | undefined>(
     undefined,
@@ -459,6 +507,9 @@ export function useChatModel() {
 
   const [models, setModels] = useState<ChatModelInfo[]>([]);
   const [selected, setSelectedState] = useState<string | undefined>();
+  const [selectedEndpointId, setSelectedEndpointIdState] = useState<
+    string | undefined
+  >();
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [available, setAvailable] = useState<boolean>(true);
@@ -475,6 +526,14 @@ export function useChatModel() {
   useEffect(() => {
     providerRef.current = providerState;
   }, [providerState]);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  useEffect(() => {
+    selectedEndpointIdRef.current = selectedEndpointId;
+  }, [selectedEndpointId]);
 
   const setProvider = useCallback(
     (
@@ -519,11 +578,22 @@ export function useChatModel() {
       options?: {
         nextSendOnly?: boolean;
         source?: ModelSelectionSource;
+        endpointId?: string | null;
       },
     ) => {
+      const currentSelected = selectedRef.current;
+      const resolved =
+        typeof nextValue === 'function' ? nextValue(currentSelected) : nextValue;
+      const nextEndpointId =
+        resolved === undefined
+          ? undefined
+          : options?.endpointId !== undefined
+            ? options.endpointId ?? undefined
+            : resolved === currentSelected
+              ? selectedEndpointIdRef.current
+              : undefined;
+
       setSelectedState((current) => {
-        const resolved =
-          typeof nextValue === 'function' ? nextValue(current) : nextValue;
         if (resolved === undefined) {
           return undefined;
         }
@@ -538,6 +608,7 @@ export function useChatModel() {
         }
         return resolved;
       });
+      setSelectedEndpointIdState(nextEndpointId);
     },
     [],
   );
@@ -573,7 +644,12 @@ export function useChatModel() {
         setModels(legacyModels);
         setSelected(
           (prev) => {
-            if (prev && legacyModels.some((m) => m.key === prev)) {
+            if (
+              prev &&
+              legacyModels.some((model) =>
+                isSelectedModelIdentity(model, prev, undefined),
+              )
+            ) {
               return prev;
             }
             return legacyModels[0]?.key;
@@ -602,6 +678,13 @@ export function useChatModel() {
         currentProvider: providerRef.current,
         preferredProvider,
       });
+      const bootstrapEndpointId =
+        preferredProvider &&
+        chosen === preferredProvider &&
+        typeof data.selectedEndpointId === 'string' &&
+        data.selectedEndpointId.trim().length > 0
+          ? data.selectedEndpointId.trim()
+          : undefined;
       bootstrapSelectedModelRef.current =
         preferredProvider &&
         chosen === preferredProvider &&
@@ -610,11 +693,13 @@ export function useChatModel() {
           ? {
               provider: preferredProvider,
               model: data.selectedModel.trim(),
+              endpointId: bootstrapEndpointId,
             }
           : null;
       setProvider(chosen, { source: 'provider-bootstrap' });
       const match = list.find((p) => p.id === chosen);
       setProviderReason(match?.reason);
+      setSelectedEndpointIdState(bootstrapEndpointId);
       setProviderStatus('success');
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
@@ -625,7 +710,10 @@ export function useChatModel() {
       setAvailable(false);
       setToolsAvailable(false);
       setModels([]);
-      setSelected(undefined, { source: 'model-fallback' });
+      setSelected(undefined, {
+        source: 'model-fallback',
+        endpointId: null,
+      });
       setStatus('error');
       setProviderStatus('error');
       setProviderErrorMessage(message);
@@ -758,36 +846,34 @@ export function useChatModel() {
             : undefined,
         );
         setModels(models);
-        setSelected(
-          (prev) => {
-            if (prev && models.some((m) => m.key === prev)) {
-              return prev;
-            }
-            const bootstrapSelectedModel =
-              bootstrapSelectedModelRef.current?.provider === effectiveProvider
-                ? bootstrapSelectedModelRef.current.model
-                : undefined;
-            if (
-              bootstrapSelectedModel &&
-              models.some((model) => model.key === bootstrapSelectedModel)
-            ) {
-              return bootstrapSelectedModel;
-            }
-            const resolvedDefaultModel =
-              typeof data.defaultModel === 'string' &&
-              models.some((model) => model.key === data.defaultModel)
-                ? data.defaultModel
-                : typeof resolvedProviderInfo?.defaultModel === 'string' &&
-                    models.some(
-                      (model) =>
-                        model.key === resolvedProviderInfo.defaultModel,
-                    )
-                  ? resolvedProviderInfo.defaultModel
-                  : undefined;
-            return resolvedDefaultModel ?? models[0]?.key;
-          },
-          { source: 'model-bootstrap' },
+        const currentSelection = findSelectedModel(
+          models,
+          selectedRef.current,
+          selectedEndpointIdRef.current,
         );
+        const bootstrapSelection =
+          bootstrapSelectedModelRef.current?.provider === effectiveProvider
+            ? findSelectedModel(
+                models,
+                bootstrapSelectedModelRef.current.model,
+                bootstrapSelectedModelRef.current.endpointId,
+              )
+            : undefined;
+        const resolvedDefaultSelection =
+          typeof data.defaultModel === 'string'
+            ? findSelectedModel(models, data.defaultModel)
+            : typeof resolvedProviderInfo?.defaultModel === 'string'
+              ? findSelectedModel(models, resolvedProviderInfo.defaultModel)
+              : undefined;
+        const nextSelection =
+          currentSelection ??
+          bootstrapSelection ??
+          resolvedDefaultSelection ??
+          models[0];
+        setSelected(nextSelection?.key, {
+          source: 'model-bootstrap',
+          endpointId: nextSelection?.endpointId ?? null,
+        });
         if (bootstrapSelectedModelRef.current?.provider === effectiveProvider) {
           bootstrapSelectedModelRef.current = null;
         }
@@ -805,6 +891,7 @@ export function useChatModel() {
         setModels([]);
         setSelected(undefined, {
           source: 'model-fallback',
+          endpointId: null,
         });
         setStatus('error');
         setErrorMessage(message);
@@ -845,7 +932,8 @@ export function useChatModel() {
       setCodexDefaults(selectedProvider.compatibility?.codexDefaults);
       setCodexWarnings(selectedProvider.compatibility?.codexWarnings);
       setModels([]);
-      setSelected(undefined, { source: 'model-fallback' });
+      setSelected(undefined, { source: 'model-fallback', endpointId: null });
+      setSelectedEndpointIdState(undefined);
       return;
     }
 
@@ -856,7 +944,8 @@ export function useChatModel() {
     ) {
       hydratedModelsProviderRef.current = undefined;
       setModels([]);
-      setSelected(undefined, { source: 'model-fallback' });
+      setSelected(undefined, { source: 'model-fallback', endpointId: null });
+      setSelectedEndpointIdState(undefined);
       setProviderInfo(undefined);
       setCodexDefaults(undefined);
       setCodexWarnings(undefined);
@@ -891,7 +980,11 @@ export function useChatModel() {
     SelectedModelReasoningCapabilities | undefined
   >(() => {
     if (providerState !== 'codex' || !selected) return undefined;
-    const selectedModel = models.find((model) => model.key === selected);
+    const selectedModel = findSelectedModel(
+      models,
+      selected,
+      selectedEndpointId,
+    );
     if (!selectedModel) return undefined;
     if (selectedModel.type !== 'codex') return undefined;
 
@@ -907,11 +1000,11 @@ export function useChatModel() {
       supportedReasoningEfforts: supported,
       defaultReasoningEffort,
     };
-  }, [models, providerState, selected]);
+  }, [models, providerState, selected, selectedEndpointId]);
 
   const selectedModel = useMemo(
-    () => models.find((model) => model.key === selected),
-    [models, selected],
+    () => findSelectedModel(models, selected, selectedEndpointId),
+    [models, selected, selectedEndpointId],
   );
 
   const agentFlags = useMemo(() => {
@@ -957,6 +1050,7 @@ export function useChatModel() {
     models,
     selected,
     setSelected,
+    selectedEndpointId,
     selectedModelCapabilities,
     status,
     errorMessage,

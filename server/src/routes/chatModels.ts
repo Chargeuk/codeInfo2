@@ -6,7 +6,6 @@ import {
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { resolveCopilotDefaultModel } from '../chat/copilotModelSupport.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -42,6 +41,7 @@ import {
   buildModelsResponse,
   buildProviderInfo,
   orderProviders,
+  resolveOpenAiCompatProviderDiscovery,
   toCompatibilityCodexWarnings,
   toCompatibilityReasoningEfforts,
 } from './chatDiscovery.js';
@@ -226,6 +226,19 @@ export function createChatModelsRouter({
       });
     }
     const provider = parsedProvider.provider ?? 'lmstudio';
+    const externalOpenAiCompatDiscovery =
+      provider === 'codex' || provider === 'copilot'
+        ? await resolveOpenAiCompatProviderDiscovery({
+            provider,
+            codexHome: process.env.CODEX_HOME,
+            copilotHome: process.env.CODEINFO_COPILOT_HOME,
+            env: process.env,
+          })
+        : {
+            models: [],
+            liveModels: [],
+            warnings: [],
+          };
     const detection = getCodexDetection();
     const mcp = await getMcpStatus();
     const capabilities = await codexCapabilityResolver({
@@ -251,6 +264,9 @@ export function createChatModelsRouter({
       warnings: codexConfigWarnings,
     });
     codexWarnings.push(...codexConfigWarnings);
+    if (provider === 'codex') {
+      codexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
+    }
     let requestedDefaults: ReturnType<typeof resolveChatDefaults> | undefined =
       undefined;
     try {
@@ -268,17 +284,51 @@ export function createChatModelsRouter({
     const codexPreferredDefaults = await resolveCodexChatDefaults({
       codexHome: process.env.CODEX_HOME,
     });
+    const codexExternalModels =
+      provider === 'codex' ? externalOpenAiCompatDiscovery.models : [];
+    const codexLiveModels = [
+      ...new Set([
+        ...capabilities.models.map((capability) => capability.model),
+        ...(provider === 'codex'
+          ? externalOpenAiCompatDiscovery.liveModels
+          : []),
+      ]),
+    ];
+    const codexProviderInfo = buildProviderInfo({
+      provider: 'codex',
+      available: detection.available && codexBootstrapHealthy,
+      toolsAvailable: codexToolsAvailable,
+      reason:
+        getProviderBootstrapReason('codex') ??
+        detection.reason ??
+        (mcp.available ? undefined : mcp.reason),
+      codexHome: process.env.CODEX_HOME,
+      warnings: codexWarnings,
+      liveModels: codexLiveModels,
+      agentFlags: buildCodexAgentFlags({
+        capabilities,
+        codexHome: process.env.CODEX_HOME,
+        defaults: codexDefaults,
+      }),
+      compatibility: {
+        codexDefaults,
+        codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
+      },
+    });
     const codexModels = prioritizeModel(
-      capabilities.models.map((capability) => ({
-        key: capability.model,
-        displayName: capability.model,
-        type: 'codex',
-        ...toCompatibilityReasoningEfforts(
-          buildCodexModelFlagOverrides(capability),
-        ),
-        flagOverrides: buildCodexModelFlagOverrides(capability),
-      })),
-      codexPreferredDefaults.values.model,
+      [
+        ...capabilities.models.map((capability) => ({
+          key: capability.model,
+          displayName: capability.model,
+          type: 'codex',
+          ...toCompatibilityReasoningEfforts(
+            buildCodexModelFlagOverrides(capability),
+          ),
+          flagOverrides: buildCodexModelFlagOverrides(capability),
+        })),
+        ...codexExternalModels,
+      ],
+      codexProviderInfo.defaultModel,
     );
 
     baseLogger.info(
@@ -303,36 +353,72 @@ export function createChatModelsRouter({
       toolsReason: mcp.reason,
     });
     const copilotRawModels = readiness.modelsRaw as ModelInfo[];
-    const copilotModelMetadata = resolveCopilotDefaultModel({
-      models: copilotRawModels,
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
-    });
     const copilotAgentFlags = buildCopilotAgentFlags({
       models: copilotRawModels,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
     const { mapped: mappedCopilotModels, ignoredUnsupportedFields } =
       mapCopilotModels(copilotRawModels);
-    const prioritizedCopilotModels = prioritizeModel(
-      mappedCopilotModels.map((model) => {
-        const rawModel = copilotRawModels.find(
-          (entry) => entry.id === model.key,
-        );
-        const flagOverrides = rawModel
-          ? buildCopilotModelFlagOverrides(rawModel)
-          : [];
-        return {
-          ...model,
-          ...toCompatibilityReasoningEfforts(flagOverrides),
-          flagOverrides,
-        };
-      }),
-      copilotModelMetadata.defaultModel,
-    );
+    const copilotExternalModels =
+      provider === 'copilot'
+        ? externalOpenAiCompatDiscovery.models.map((model) => ({
+            ...model,
+            type: 'copilot',
+          }))
+        : [];
+    const copilotLiveModels = [
+      ...new Set([
+        ...mappedCopilotModels.map((model) => model.key),
+        ...(provider === 'copilot'
+          ? externalOpenAiCompatDiscovery.liveModels
+          : []),
+      ]),
+    ];
     const copilotAvailable =
       readiness.available &&
       copilotBootstrapHealthy &&
-      prioritizedCopilotModels.length > 0;
+      copilotLiveModels.length > 0;
+    const copilotWarnings = [
+      ...getProviderBootstrapWarnings('copilot'),
+      ...(readiness.reason ? [readiness.reason] : []),
+      ...copilotAgentFlags.warnings,
+      ...(provider === 'copilot'
+        ? externalOpenAiCompatDiscovery.warnings
+        : []),
+    ];
+    const copilotProviderInfo = buildProviderInfo({
+      provider: 'copilot',
+      available: copilotAvailable,
+      toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
+      reason:
+        getProviderBootstrapReason('copilot') ??
+        (copilotAvailable
+          ? readiness.reason
+          : (readiness.reason ?? COPILOT_MODELS_REASON)),
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      warnings: copilotWarnings,
+      liveModels: copilotLiveModels,
+      agentFlags: copilotAgentFlags.agentFlags,
+    });
+    const prioritizedCopilotModels = prioritizeModel(
+      [
+        ...mappedCopilotModels.map((model) => {
+          const rawModel = copilotRawModels.find(
+            (entry) => entry.id === model.key,
+          );
+          const flagOverrides = rawModel
+            ? buildCopilotModelFlagOverrides(rawModel)
+            : [];
+          return {
+            ...model,
+            ...toCompatibilityReasoningEfforts(flagOverrides),
+            flagOverrides,
+          };
+        }),
+        ...copilotExternalModels,
+      ],
+      copilotProviderInfo.defaultModel,
+    );
     logCopilotModelMapping({
       requestId,
       mappedModelCount: prioritizedCopilotModels.length,
@@ -431,62 +517,8 @@ export function createChatModelsRouter({
     const lmstudioAgentFlags = buildLmStudioAgentFlags({});
 
     const providerMap = {
-      codex: buildProviderInfo({
-        provider: 'codex',
-        available: detection.available && codexBootstrapHealthy,
-        toolsAvailable: codexToolsAvailable,
-        reason:
-          getProviderBootstrapReason('codex') ??
-          detection.reason ??
-          (mcp.available ? undefined : mcp.reason),
-        codexHome: process.env.CODEX_HOME,
-        warnings: codexWarnings,
-        liveModels: capabilities.models.map((capability) => capability.model),
-        agentFlags: buildCodexAgentFlags({
-          capabilities,
-          codexHome: process.env.CODEX_HOME,
-          defaults: codexDefaults,
-        }),
-        compatibility: {
-          codexDefaults,
-          codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
-        },
-      }),
-      copilot: buildProviderInfo({
-        provider: 'copilot',
-        available: copilotAvailable,
-        toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
-        reason:
-          getProviderBootstrapReason('copilot') ??
-          (copilotAvailable
-            ? readiness.reason
-            : (readiness.reason ?? COPILOT_MODELS_REASON)),
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        warnings:
-          copilotAvailable && readiness.reason
-            ? [
-                ...getProviderBootstrapWarnings('copilot'),
-                readiness.reason,
-                ...copilotAgentFlags.warnings,
-              ]
-            : readiness.reason
-              ? [
-                  ...getProviderBootstrapWarnings('copilot'),
-                  readiness.reason,
-                  ...copilotAgentFlags.warnings,
-                ]
-              : [
-                  ...getProviderBootstrapWarnings('copilot'),
-                  ...copilotAgentFlags.warnings,
-                ],
-        modelMetadata: {
-          defaultModel: copilotModelMetadata.defaultModel,
-          defaultModelSource: copilotModelMetadata.defaultModelSource,
-          warnings: copilotModelMetadata.warnings,
-        },
-        liveModels: prioritizedCopilotModels.map((model) => model.key),
-        agentFlags: copilotAgentFlags.agentFlags,
-      }),
+      codex: codexProviderInfo,
+      copilot: copilotProviderInfo,
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',
         available: lmstudioAvailable && lmstudioBootstrapHealthy,

@@ -41,6 +41,7 @@ import {
   getProviderBootstrapReason,
   getProviderBootstrapWarnings,
   isProviderBootstrapHealthy,
+  resolveOpenAiCompatProviderDiscovery,
   toCompatibilityCodexWarnings,
 } from './chatDiscovery.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
@@ -127,6 +128,20 @@ export function createChatProvidersRouter({
               requestedModelSource: requestedDefaults.modelSource,
             })
           : requestedDefaults.model;
+    const externalOpenAiCompatDiscovery =
+      requestedDefaults.provider === 'codex' ||
+      requestedDefaults.provider === 'copilot'
+        ? await resolveOpenAiCompatProviderDiscovery({
+            provider: requestedDefaults.provider,
+            codexHome: process.env.CODEX_HOME,
+            copilotHome: process.env.CODEINFO_COPILOT_HOME,
+            env: process.env,
+          })
+        : {
+            models: [],
+            liveModels: [],
+            warnings: [],
+          };
     const copilotModelMetadata = resolveCopilotDefaultModel({
       models: copilot.modelsRaw,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
@@ -165,7 +180,12 @@ export function createChatProvidersRouter({
       codex: {
         available: codex.available && codexBootstrapHealthy,
         models: prioritizeRuntimeProviderModels(
-          capabilities.models.map((entry) => entry.model),
+          [
+            ...capabilities.models.map((entry) => entry.model),
+            ...(requestedDefaults.provider === 'codex'
+              ? externalOpenAiCompatDiscovery.liveModels
+              : []),
+          ],
           codexRequestedDefaults?.values.model,
           { includeMissingPreferred: true },
         ),
@@ -177,7 +197,12 @@ export function createChatProvidersRouter({
       copilot: {
         available: copilot.available && copilotBootstrapHealthy,
         models: prioritizeRuntimeProviderModels(
-          copilot.models,
+          [
+            ...copilot.models,
+            ...(requestedDefaults.provider === 'copilot'
+              ? externalOpenAiCompatDiscovery.liveModels
+              : []),
+          ],
           copilotModelMetadata.defaultModel,
         ),
         reason: getProviderBootstrapReason('copilot') ?? copilot.reason,
@@ -209,7 +234,26 @@ export function createChatProvidersRouter({
       warnings: codexConfigWarnings,
     });
     codexWarnings.push(...codexConfigWarnings);
+    if (requestedDefaults.provider === 'codex') {
+      codexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
+    }
     const lmstudioAgentFlags = buildLmStudioAgentFlags({});
+    const codexLiveModels = [
+      ...new Set([
+        ...capabilities.models.map((entry) => entry.model),
+        ...(requestedDefaults.provider === 'codex'
+          ? externalOpenAiCompatDiscovery.liveModels
+          : []),
+      ]),
+    ];
+    const copilotLiveModels = [
+      ...new Set([
+        ...copilot.models,
+        ...(requestedDefaults.provider === 'copilot'
+          ? externalOpenAiCompatDiscovery.liveModels
+          : []),
+      ]),
+    ];
     const providerMap = {
       copilot: buildProviderInfo({
         provider: 'copilot',
@@ -223,9 +267,11 @@ export function createChatProvidersRouter({
           ...getProviderBootstrapWarnings('copilot'),
           ...(copilot.reason ? [copilot.reason] : []),
           ...copilotAgentFlags.warnings,
+          ...(requestedDefaults.provider === 'copilot'
+            ? externalOpenAiCompatDiscovery.warnings
+            : []),
         ],
-        liveModels: copilot.models,
-        modelMetadata: copilotModelMetadata,
+        liveModels: copilotLiveModels,
         agentFlags: copilotAgentFlags.agentFlags,
       }),
       lmstudio: buildProviderInfo({
@@ -257,7 +303,7 @@ export function createChatProvidersRouter({
             (mcp.available ? undefined : mcp.reason)),
         codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
-        liveModels: capabilities.models.map((entry) => entry.model),
+        liveModels: codexLiveModels,
         agentFlags: buildCodexAgentFlags({
           capabilities,
           codexHome: process.env.CODEX_HOME,

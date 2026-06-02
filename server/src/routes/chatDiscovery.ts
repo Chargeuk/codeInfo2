@@ -3,6 +3,7 @@ import type {
   ChatAgentFlagDescriptor,
   ChatProviderDefaultsSource,
   ChatProviderId,
+  ChatModelInfo,
   ChatProviderInfo,
   ChatProvidersResponse,
   ChatAgentFlagValue,
@@ -12,6 +13,7 @@ import type {
   CodexModelReasoningEffort,
 } from '@codeinfo2/common';
 import type { ModelInfo } from '@github/copilot-sdk';
+import { discoverOpenAiCompatEndpointModels } from '../chat/openaiCompatModelDiscovery.js';
 import {
   DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
   DEFAULT_LMSTUDIO_MAX_TOKENS,
@@ -28,9 +30,14 @@ import type {
 } from '../codex/capabilityResolver.js';
 import { ORDERED_CHAT_PROVIDERS } from '../config/chatDefaults.js';
 import {
+  type OpenAiCompatEndpointConfig,
+  parseOpenAiCompatEndpointConfig,
+} from '../config/openaiCompatEndpoints.js';
+import {
   getProviderBootstrapStatus,
   loadProviderChatDefaultsSnapshotSync,
 } from '../config/runtimeConfig.js';
+import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 
 const toChoice = (
   value: ChatAgentFlagValue,
@@ -125,6 +132,12 @@ type ProviderConfigModel = {
   warnings: string[];
 };
 
+export type OpenAiCompatProviderDiscoveryResult = {
+  models: ChatModelInfo[];
+  liveModels: string[];
+  warnings: string[];
+};
+
 type BuildProviderInfoParams = ProviderHomeParams & {
   provider: ChatProviderId;
   available: boolean;
@@ -149,6 +162,107 @@ const pickLiveProviderModel = (
   }
   return normalizedModels[0];
 };
+
+const providerSupportsOpenAiCompatEndpoint = (
+  provider: ChatProviderId,
+  endpoint: OpenAiCompatEndpointConfig,
+): boolean =>
+  provider === 'codex'
+    ? endpoint.capabilities.includes('responses')
+    : endpoint.capabilities.includes('completions');
+
+function getProviderChatOpenAiCompatEndpoint(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+  warnings: string[];
+}): OpenAiCompatEndpointConfig | undefined {
+  try {
+    const snapshot = loadProviderChatDefaultsSnapshotSync({
+      provider: params.provider,
+      codexHome: params.codexHome,
+      copilotHome: params.copilotHome,
+      lmstudioHome: params.lmstudioHome,
+    });
+    const rawEndpoint = snapshot.config?.codeinfo_openai_endpoint;
+    if (typeof rawEndpoint !== 'string') {
+      return undefined;
+    }
+    return parseOpenAiCompatEndpointConfig(rawEndpoint, {
+      pathLabel: `${snapshot.chatConfigPath}.codeinfo_openai_endpoint`,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    params.warnings.push(
+      `${params.provider}/chat/config.toml could not be used for external endpoint discovery (${reason}).`,
+    );
+    return undefined;
+  }
+}
+
+export async function resolveOpenAiCompatProviderDiscovery(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+  env?: NodeJS.ProcessEnv;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}): Promise<OpenAiCompatProviderDiscoveryResult> {
+  const warnings: string[] = [];
+  const envResolution = resolveExternalOpenAiCompatEndpoints({
+    env: params.env ?? process.env,
+  });
+  warnings.push(...envResolution.warnings);
+
+  const pinnedEndpoint = getProviderChatOpenAiCompatEndpoint({
+    provider: params.provider,
+    codexHome: params.codexHome,
+    copilotHome: params.copilotHome,
+    lmstudioHome: params.lmstudioHome,
+    warnings,
+  });
+
+  const discovery = await discoverOpenAiCompatEndpointModels({
+    endpoints: envResolution.endpoints.filter((endpoint) =>
+      providerSupportsOpenAiCompatEndpoint(params.provider, endpoint),
+    ),
+    pinnedEndpoint:
+      pinnedEndpoint &&
+      providerSupportsOpenAiCompatEndpoint(params.provider, pinnedEndpoint)
+        ? pinnedEndpoint
+        : undefined,
+    fetchImpl: params.fetchImpl,
+    timeoutMs: params.timeoutMs,
+  });
+
+  warnings.push(...discovery.warnings.map((warning) => warning.message));
+
+  const models: ChatModelInfo[] = [];
+  const liveModels: string[] = [];
+  const seenModelIds = new Set<string>();
+  for (const endpoint of discovery.endpoints) {
+    for (const modelId of endpoint.modelIds) {
+      if (seenModelIds.has(modelId)) {
+        continue;
+      }
+      seenModelIds.add(modelId);
+      models.push({
+        key: modelId,
+        displayName: modelId,
+        type: params.provider,
+      });
+      liveModels.push(modelId);
+    }
+  }
+
+  return {
+    models,
+    liveModels,
+    warnings,
+  };
+}
 
 export function buildCodexCompatibilityDefaults(params: {
   capabilities: CodexCapabilityResolution;

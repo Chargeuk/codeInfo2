@@ -19,6 +19,7 @@ import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
 
@@ -53,6 +54,7 @@ const defaultDetection = {
   reason: 'not detected',
 };
 const tempDirs: string[] = [];
+const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
 
 function createClient(
   models: {
@@ -146,6 +148,9 @@ afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  while (tempExternalServers.length > 0) {
+    await tempExternalServers.pop()!.stop();
+  }
   await Promise.all(
     tempDirs
       .splice(0)
@@ -1012,6 +1017,53 @@ test('lmstudio models route degrades malformed chat defaults to warnings instead
     assert.match(
       (res.body.warnings ?? []).join('\n'),
       /agentFlags resolution/i,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models route includes external responses endpoints and filters out unsupported capability endpoints', async () => {
+  const responsesServer = await startExternalOpenAiCompatServer({
+    models: ['external-alpha'],
+  });
+  const completionsServer = await startExternalOpenAiCompatServer({
+    models: ['external-beta'],
+  });
+  tempExternalServers.push(responsesServer, completionsServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${responsesServer.baseUrl}/v1|responses`,
+      `${completionsServer.baseUrl}/v1|completions`,
+      '',
+    ].join(';'),
+  );
+  env.set('Codex_model_list', 'builtin-a,builtin-b');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.ok(modelKeys.includes('external-alpha'));
+    assert.equal(modelKeys.includes('external-beta'), false);
+    assert.equal(
+      (res.body.models as Array<Record<string, unknown>>).find(
+        (model) => model.key === 'external-alpha',
+      )?.type,
+      'codex',
     );
   } finally {
     await stopServer(server);

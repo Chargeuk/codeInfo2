@@ -21,6 +21,7 @@ import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { TASK5_LOG_MARKER } from '../../providers/copilotReadiness.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   createMockCopilotSdkHarness,
   type MockCopilotSdkHarness,
@@ -59,6 +60,7 @@ const defaultDetection = {
   reason: 'not detected',
 };
 const tempDirs: string[] = [];
+const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
 
 function createClient(
   models: {
@@ -175,6 +177,9 @@ afterEach(async () => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
   __resetProviderBootstrapStatusForTests();
+  while (tempExternalServers.length > 0) {
+    await tempExternalServers.pop()!.stop();
+  }
   await Promise.all(
     tempDirs
       .splice(0)
@@ -818,6 +823,95 @@ test('providers route exposes provider-local default-model ownership without usi
     assert.equal(res.body.providers[0].defaultModelSource, 'config');
     assert.ok(Array.isArray(res.body.providers[0].agentFlags));
     assert.equal(res.body.codexDefaults.sandboxMode, 'danger-full-access');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route includes a config-pinned external endpoint that is absent from the env list for the selected provider', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "alpha"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('Codex_model_list', 'beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(res.body.selectedModel, 'alpha');
+    assert.equal(res.body.providers[0].id, 'codex');
+    assert.equal(res.body.providers[0].defaultModel, 'alpha');
+    assert.equal(res.body.providers[0].defaultModelSource, 'config');
+    assert.equal(externalServer.requestCount(), 1);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route collapses env-backed and config-backed copies of the same normalized endpoint into one discovery pass', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+  });
+  tempExternalServers.push(externalServer);
+  const endpointEntry = `${externalServer.baseUrl}/v1|responses`;
+  await setCodexHome(
+    [
+      'model = "alpha"',
+      `codeinfo_openai_endpoint = "${endpointEntry}"`,
+      '',
+    ].join('\n'),
+  );
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [endpointEntry, endpointEntry].join(';'),
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('Codex_model_list', 'beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(res.body.selectedModel, 'alpha');
+    assert.equal(res.body.providers[0].defaultModel, 'alpha');
+    assert.equal(externalServer.requestCount(), 1);
   } finally {
     await stopServer(server);
   }

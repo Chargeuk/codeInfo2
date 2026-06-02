@@ -141,7 +141,10 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-None at this time.
+1. Should GitHub review scratch live in `codeInfoTmp/reviews/` as JSON, or somewhere else?
+   - Why this is important: The story already requires restart-safe scratch state, but the exact file contract still affects how later steps find and reuse the review input.
+   - Best Answer: Store it as JSON under `codeInfoTmp/reviews/` in a separate GitHub-review handoff file. That matches the repo's existing transient review-artifact patterns, keeps it clearly non-durable, and avoids mixing it with the existing external-review input file.
+   - Where this answer came from: Local repo precedent in `codeinfo_markdown/write_review_no_findings_closeout.md`, `codeinfo_markdown/review_disposition.md`, `scripts/flow_state_utils.py`, and the broader `codeInfoTmp/reviews/<story>-current-review.json` handoff pattern already used by review flows. No external source is needed beyond those repository patterns.
 
 ## Decisions
 

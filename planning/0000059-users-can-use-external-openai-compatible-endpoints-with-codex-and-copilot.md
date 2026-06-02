@@ -671,6 +671,7 @@ When the supported main compose stack is available, verify the Chat page picker 
 - Fixed the restore loop so draft selection is only snapshotted in true draft mode, then passed the repo lint/format checks after resolving one unnecessary hook dependency warning.
 - Implementation-only audit kept all Task 4 subtasks complete, but reopened `Testing` item 4 because the repository only shows targeted Jest runs for the picker-owned files plus one single-file resume test rerun, not the full `npm run test:summary:client` wrapper named by this checklist item.
 - Automated-proof audit confirmed the wrapper-backed build logs and the later full client-suite rerun now support all checked Testing items, so Task 4 closes without adding behavior beyond the approved endpoint-aware picker identity and label work.
+- Manual testing skipped for the Chat page picker surface. Tried: `GET http://localhost:5010/health`, `GET http://localhost:5001`, then `npm run compose:build` for the supported main stack. Observed: both localhost surfaces were down and the compose wrapper failed with `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`. Why fuller proof was not possible: the repository-supported runtime could not be started from this environment, and repairing Docker host access is outside Task 4's implementation scope.
 ---
 
 ### Task 5. Translate Endpoint Selections Into Runtime Config And Persistence

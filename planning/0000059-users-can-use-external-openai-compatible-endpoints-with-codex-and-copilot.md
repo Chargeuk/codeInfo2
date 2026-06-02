@@ -656,7 +656,7 @@ Extend the shared chat discovery contract and the Chat page picker so external C
 1. [x] Run `npm run build:summary:server` to confirm the server-side discovery and provider bootstrap changes compile cleanly.
 2. [x] Run `npm run build:summary:client` to confirm the picker-contract changes compile cleanly on the client.
 3. [x] Run `npm run test:summary:server:unit` to prove the route-side discovery/filtering and provider bootstrap behavior.
-4. [ ] Run `npm run test:summary:client` to prove endpoint-aware picker identity, duplicate-id handling, and visible-label behavior on the Chat page.
+4. [x] Run `npm run test:summary:client` to prove endpoint-aware picker identity, duplicate-id handling, and visible-label behavior on the Chat page.
 5. [x] Run `npm run lint` for the final picker/discovery surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 6. [x] Run `npm run format:check` for the final picker/discovery surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 

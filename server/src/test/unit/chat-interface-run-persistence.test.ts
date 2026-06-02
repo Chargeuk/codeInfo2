@@ -10,7 +10,12 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import type { AppendTurnInput } from '../../mongo/repo.js';
+import {
+  listConversations,
+  updateConversationMeta,
+} from '../../mongo/repo.js';
 import type {
   TurnRuntimeMetadata,
   TurnSource,
@@ -725,6 +730,98 @@ describe('ChatInterface.run persistence', () => {
     } finally {
       memoryConversations.delete('chat-runtime-working-folder');
       memoryTurns.delete('chat-runtime-working-folder');
+    }
+  });
+
+  test('updateConversationMeta stores endpointId separately from the raw model id', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 1,
+      configurable: true,
+    });
+
+    const original = ConversationModel.findByIdAndUpdate;
+    let capturedUpdate: unknown;
+
+    ConversationModel.findByIdAndUpdate = ((
+      _conversationId: unknown,
+      update: unknown,
+    ) => {
+      capturedUpdate = update;
+      return { exec: async () => null } as unknown as ReturnType<
+        typeof ConversationModel.findByIdAndUpdate
+      >;
+    }) as typeof ConversationModel.findByIdAndUpdate;
+
+    try {
+      await updateConversationMeta({
+        conversationId: 'endpoint-conversation',
+        provider: 'codex',
+        model: 'gpt-5.2',
+        flags: {
+          endpointId: 'https://alpha.example/v1',
+          workingFolder: '/repos/working-root',
+        },
+        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+      });
+    } finally {
+      ConversationModel.findByIdAndUpdate = original;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
+    }
+
+    assert.deepEqual(capturedUpdate, {
+      provider: 'codex',
+      model: 'gpt-5.2',
+      flags: {
+        endpointId: 'https://alpha.example/v1',
+        workingFolder: '/repos/working-root',
+      },
+      lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    });
+  });
+
+  test('listConversations reads legacy conversations that do not yet have endpointId', async () => {
+    const originalFind = ConversationModel.find;
+    (ConversationModel as unknown as Record<string, unknown>).find = () => ({
+      sort: () => ({
+        limit: () => ({
+          lean: async () =>
+            [
+              {
+                _id: 'legacy-endpoint-conversation',
+                provider: 'codex',
+                model: 'gpt-5.2',
+                title: 'Legacy endpoint conversation',
+                source: 'REST',
+                flags: {
+                  workingFolder: '/repos/legacy-root',
+                },
+                createdAt: new Date('2025-01-01T00:00:00Z'),
+                updatedAt: new Date('2025-01-01T00:00:00Z'),
+                lastMessageAt: new Date('2025-01-01T00:00:00Z'),
+                archivedAt: null,
+              },
+            ] as unknown[],
+        }),
+      }),
+    });
+
+    try {
+      const { items } = await listConversations({
+        limit: 10,
+        includeArchived: true,
+      });
+
+      assert.equal(items.length, 1);
+      assert.deepEqual(items[0]?.flags, {
+        workingFolder: '/repos/legacy-root',
+      });
+    } finally {
+      (ConversationModel as unknown as Record<string, unknown>).find =
+        originalFind;
     }
   });
 });

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import request from 'supertest';
@@ -8,6 +11,28 @@ import {
   waitForAssistantTurn,
   waitForAssistantTurnCount,
 } from './support/copilotChatHarness.js';
+
+async function withTempCopilotHome(chatToml: string): Promise<{
+  copilotHome: string;
+  cleanup: () => Promise<void>;
+}> {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-copilot-endpoint-'),
+  );
+  const copilotHome = path.join(root, 'copilot');
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    chatToml,
+    'utf8',
+  );
+  return {
+    copilotHome,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
+}
 
 test('copilot resume failures stay explicit instead of silently creating a fresh session', async () => {
   const server = await startCopilotChatServer({
@@ -165,5 +190,65 @@ test('copilot resume-session path preserves the On and Off tool-registration con
     );
   } finally {
     await server.stop();
+  }
+});
+
+test('copilot create-session path builds an OpenAI-compatible provider config from codeinfo_openai_endpoint', async () => {
+  const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const tempHome = await withTempCopilotHome(
+    [
+      'model = "copilot-gpt-5"',
+      'codeinfo_openai_endpoint = "https://alpha.example/v1|responses,completions"',
+      '',
+    ].join('\n'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    'https://alpha.example/v1|responses,completions';
+
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-openai-compat-provider',
+    },
+  });
+
+  try {
+    await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        conversationId: 'copilot-openai-compat',
+        message: 'OpenAI-compatible endpoint please',
+        endpointId: 'https://alpha.example/v1',
+      })
+      .expect(202);
+
+    await waitForAssistantTurn('copilot-openai-compat');
+
+    assert.deepEqual(
+      server.harness.getState().lastCreateSessionConfig?.provider,
+      {
+        type: 'openai',
+        baseUrl: 'https://alpha.example/v1',
+        wireApi: 'responses',
+      },
+    );
+  } finally {
+    await server.stop();
+    if (originalCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = originalCopilotHome;
+    }
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+    await tempHome.cleanup();
   }
 });

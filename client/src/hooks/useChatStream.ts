@@ -227,6 +227,7 @@ function normalizeToolCallId(raw: unknown): string {
 export function useChatStream(
   model?: string,
   provider?: string,
+  endpointId?: string,
   agentFlags?: ChatAgentFlagDraft,
 ) {
   const log = useRef(createLogger('client')).current;
@@ -237,9 +238,10 @@ export function useChatStream(
         channel: 'client-chat',
         provider,
         model,
+        endpointId,
         ...context,
       }),
-    [log, model, provider],
+    [endpointId, log, model, provider],
   );
 
   const [status, setStatus] = useState<Status>('idle');
@@ -1279,6 +1281,7 @@ export function useChatStream(
         blockedByProvider: !effectiveProvider,
         effectiveProvider: effectiveProvider ?? null,
         effectiveModel: effectiveModel ?? null,
+        endpointId: endpointId ?? null,
       });
 
       if (
@@ -1390,6 +1393,7 @@ export function useChatStream(
           body: JSON.stringify({
             provider: effectiveProvider,
             model: effectiveModel,
+            ...(endpointId ? { endpointId } : {}),
             conversationId: currentConversationId,
             inflightId: nextInflightId,
             message: text,
@@ -1474,6 +1478,7 @@ export function useChatStream(
       logWithChannel,
       model,
       provider,
+      endpointId,
       resetInflightState,
       scheduleThinkingTimer,
       rememberSeenInflightId,

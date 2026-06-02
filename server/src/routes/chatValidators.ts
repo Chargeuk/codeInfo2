@@ -39,6 +39,7 @@ export type ChatRequestBody = {
   conversationId?: unknown;
   messages?: unknown;
   provider?: unknown;
+  endpointId?: unknown;
   threadId?: unknown;
   inflightId?: unknown;
   agentFlags?: unknown;
@@ -50,6 +51,7 @@ export type ValidatedChatRequest = {
   message: string;
   conversationId: string;
   provider: Provider;
+  endpointId?: string;
   threadId?: string;
   inflightId?: string;
   working_folder?: string;
@@ -463,6 +465,20 @@ export async function validateChatRequest(
       ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
       : resolvedDefaults.model;
 
+  const rawEndpointId = body.endpointId;
+  let endpointId: string | undefined;
+  if (rawEndpointId !== undefined) {
+    if (typeof rawEndpointId !== 'string' || rawEndpointId.trim().length === 0) {
+      throw new ChatValidationError('endpointId must be a non-empty string');
+    }
+    endpointId = rawEndpointId.trim();
+  }
+  if (endpointId && provider === 'lmstudio') {
+    throw new ChatValidationError(
+      'endpointId is not supported for provider "lmstudio"',
+    );
+  }
+
   const warnings: string[] = [...resolvedDefaults.warnings];
   const bootstrapStatus = getProviderBootstrapStatus(provider);
   if (bootstrapStatus.warnings.length > 0) {
@@ -578,6 +594,7 @@ export async function validateChatRequest(
     message: validatedMessage,
     conversationId,
     provider,
+    endpointId,
     threadId,
     inflightId,
     working_folder,

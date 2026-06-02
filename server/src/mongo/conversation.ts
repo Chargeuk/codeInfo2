@@ -7,6 +7,7 @@ export type ConversationSource = 'REST' | 'MCP';
 export type ConversationFlags = {
   agentFlags?: Record<string, unknown>;
   threadId?: string;
+  endpointId?: string;
   workingFolder?: string;
   flow?: Record<string, unknown>;
   flowChild?: Record<string, unknown>;

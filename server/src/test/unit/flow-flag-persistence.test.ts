@@ -92,6 +92,54 @@ test('buildConversationFlags strips flow-owned metadata when continuation writer
   );
 });
 
+test('buildConversationFlags preserves endpointId across continuation writes while still applying provider-specific sanitization', () => {
+  const currentFlags = {
+    endpointId: ' https://alpha.example/v1 ',
+    flow: {
+      executionId: 'flow-execution-3',
+      stepPath: [2, 3],
+      loopStack: [],
+    },
+    flowChild: {
+      executionId: 'child-execution-3',
+    },
+    workingFolder: '/repos/current-root',
+    threadId: 'codex-thread-3',
+    agentFlags: {
+      sandboxMode: 'workspace-write',
+      toolAccess: 'all',
+    },
+  };
+
+  assert.deepEqual(
+    buildConversationFlags({
+      provider: 'copilot',
+      currentFlags,
+      agentFlags: {
+        sandboxMode: 'workspace-write',
+        toolAccess: 'all',
+      },
+      workingFolder: ' /repos/next-root ',
+      preserveFlowState: true,
+    }),
+    {
+      endpointId: 'https://alpha.example/v1',
+      flow: {
+        executionId: 'flow-execution-3',
+        stepPath: [2, 3],
+        loopStack: [],
+      },
+      flowChild: {
+        executionId: 'child-execution-3',
+      },
+      workingFolder: '/repos/next-root',
+      agentFlags: {
+        toolAccess: 'all',
+      },
+    },
+  );
+});
+
 test('updateConversationFlowState persists flags.flow via the legitimate nested $set writer', async () => {
   const originalReady = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

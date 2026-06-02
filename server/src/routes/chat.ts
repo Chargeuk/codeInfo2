@@ -47,12 +47,19 @@ import {
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
+import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
+import {
+  type OpenAiCompatEndpointConfig,
+  validateOpenAiCompatEndpointConfigForProvider,
+} from '../config/openaiCompatEndpoints.js';
 import {
   RuntimeConfigResolutionError,
   getProviderBootstrapStatus,
+  loadProviderChatDefaultsSnapshotSync,
   materializeRepositoryBackedCodexChatHome,
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
+import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
@@ -130,6 +137,62 @@ const toWebSocketUrl = (value: string) => {
   if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
   return value;
 };
+
+function resolvePinnedOpenAiCompatEndpoint(params: {
+  provider: ChatDefaultProvider;
+  codexHome?: string;
+  copilotHome?: string;
+}): OpenAiCompatEndpointConfig | undefined {
+  try {
+    const snapshot = loadProviderChatDefaultsSnapshotSync({
+      provider: params.provider,
+      codexHome: params.codexHome,
+      copilotHome: params.copilotHome,
+    });
+    const endpoint = snapshot.config?.codeinfo_openai_endpoint;
+    return typeof endpoint === 'object' && endpoint !== null
+      ? (endpoint as OpenAiCompatEndpointConfig)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveOpenAiCompatEndpointForChat(params: {
+  provider: ChatDefaultProvider;
+  endpointId?: string | null;
+  codexHome?: string;
+  copilotHome?: string;
+  env?: NodeJS.ProcessEnv;
+}): OpenAiCompatEndpointConfig | undefined {
+  const normalizedEndpointId = params.endpointId?.trim();
+  if (!normalizedEndpointId) {
+    return undefined;
+  }
+
+  const envResolution = resolveExternalOpenAiCompatEndpoints({
+    env: params.env ?? process.env,
+  });
+  const pinnedEndpoint = resolvePinnedOpenAiCompatEndpoint({
+    provider: params.provider,
+    codexHome: params.codexHome,
+    copilotHome: params.copilotHome,
+  });
+
+  const endpoint = [...envResolution.endpoints, ...(pinnedEndpoint ? [pinnedEndpoint] : [])].find(
+    (entry) => entry.endpointId === normalizedEndpointId,
+  );
+  if (!endpoint) {
+    return undefined;
+  }
+
+  validateOpenAiCompatEndpointConfigForProvider({
+    endpoint,
+    provider: params.provider,
+    pathLabel: 'chat.endpointId',
+  });
+  return endpoint;
+}
 
 const isChatModel = (model: { type?: string; architecture?: string }) => {
   const kind = (model.type ?? '').toLowerCase();
@@ -275,6 +338,7 @@ export function createChatRouter({
       message,
       provider,
       conversationId,
+      endpointId,
       threadId,
       inflightId: requestedInflightId,
       working_folder: requestedWorkingFolder,
@@ -290,6 +354,7 @@ export function createChatRouter({
       conversationId,
       provider,
       model,
+      endpointId,
       providerSource: defaultsResolution.providerSource,
       modelSource: defaultsResolution.modelSource,
       requestedProvider: defaultsResolution.requestedProvider,
@@ -348,6 +413,11 @@ export function createChatRouter({
         ? {
             provider: existingConversation.provider as ChatDefaultProvider,
             model: existingConversation.model,
+            endpointId:
+              typeof existingConversation.flags?.endpointId === 'string' &&
+              existingConversation.flags.endpointId.trim().length > 0
+                ? existingConversation.flags.endpointId.trim()
+                : undefined,
           }
         : null;
     const effectiveRequestedProvider =
@@ -486,6 +556,49 @@ export function createChatRouter({
       copilot: copilotState,
       lmstudio: lmstudioState,
     });
+    const executionProvider = runtimeSelection.executionProvider;
+    const executionModel = runtimeSelection.executionModel;
+
+    const pinnedSelectedEndpoint = resolvePinnedOpenAiCompatEndpoint({
+      provider: executionProvider,
+      codexHome: process.env.CODEX_HOME,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    });
+    const selectedEndpointId =
+      endpointId ??
+      resumedExecutionIdentity?.endpointId ??
+      pinnedSelectedEndpoint?.endpointId ??
+      undefined;
+    let selectedOpenAiCompatEndpoint:
+      | OpenAiCompatEndpointConfig
+      | undefined;
+    try {
+      selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({
+        provider: executionProvider,
+        endpointId: selectedEndpointId,
+        codexHome: process.env.CODEX_HOME,
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        env: process.env,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'endpointId validation failed';
+      return res.status(400).json({
+        status: 'error',
+        code: 'VALIDATION_FAILED',
+        message,
+      });
+    }
+    if (selectedEndpointId && !selectedOpenAiCompatEndpoint) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'VALIDATION_FAILED',
+        message: `endpointId "${selectedEndpointId}" does not match a configured external endpoint for provider "${executionProvider}"`,
+      });
+    }
+
     const responseWarnings = mergeWarningMessages(
       warnings,
       runtimeSelection.decision === 'fallback'
@@ -494,9 +607,6 @@ export function createChatRouter({
           ]
         : undefined,
     );
-
-    const executionProvider = runtimeSelection.executionProvider;
-    const executionModel = runtimeSelection.executionModel;
     if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
       return res.status(503).json({
         status: 'error',
@@ -566,7 +676,10 @@ export function createChatRouter({
     if (executionProvider === 'codex') {
       try {
         const { config } = await resolveChatRuntimeConfig();
-        chatRuntimeConfig = config as CodexOptions['config'];
+        chatRuntimeConfig = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+          config as CodexOptions['config'],
+          selectedOpenAiCompatEndpoint,
+        );
         console.info(T06_SUCCESS_LOG, {
           surface: '/chat',
           provider: 'codex',
@@ -628,9 +741,15 @@ export function createChatRouter({
       'DEV-0000035:T2:provider_fallback_result',
     );
 
+    const existingConversationEndpointId =
+      typeof existingConversation?.flags?.endpointId === 'string' &&
+      existingConversation.flags.endpointId.trim().length > 0
+        ? existingConversation.flags.endpointId.trim()
+        : undefined;
     const shouldResumeCopilotSession =
       existingConversation?.provider === 'copilot' &&
-      existingConversation.model === executionModel;
+      existingConversation.model === executionModel &&
+      existingConversationEndpointId === selectedEndpointId;
     let effectiveWorkingFolder = requestedWorkingFolder;
     try {
       if (!effectiveWorkingFolder && existingConversation) {
@@ -696,6 +815,18 @@ export function createChatRouter({
         currentProvider?: Conversation['provider'],
         currentModel?: Conversation['model'],
       ) => {
+        const currentEndpointId =
+          typeof currentFlags?.endpointId === 'string' &&
+          currentFlags.endpointId.trim().length > 0
+            ? currentFlags.endpointId.trim()
+            : undefined;
+        const persistedEndpointId =
+          endpointId !== undefined
+            ? endpointId
+            : currentProvider === executionProvider &&
+                currentModel === executionModel
+              ? currentEndpointId
+              : null;
         const persistedThreadId =
           threadId ??
           (executionProvider === 'codex' &&
@@ -711,6 +842,7 @@ export function createChatRouter({
           currentFlags,
           agentFlags: effectiveAgentFlags,
           workingFolder: effectiveWorkingFolder,
+          endpointId: persistedEndpointId,
           threadId: persistedThreadId,
           preserveFlowState: false,
         });
@@ -1108,7 +1240,8 @@ export function createChatRouter({
           const activeThreadId =
             threadId ??
             (ensuredConversation.provider === 'codex' &&
-            ensuredConversation.model === executionModel
+            ensuredConversation.model === executionModel &&
+            existingConversationEndpointId === selectedEndpointId
               ? ((ensuredConversation.flags?.threadId as string | undefined) ??
                 null)
               : null) ??
@@ -1123,12 +1256,8 @@ export function createChatRouter({
                 ? { codexHome: repositoryBackedCodexHome }
                 : {}),
               useConfigDefaults: repositoryBackedCodexRun,
-              ...(repositoryBackedCodexRun
-                ? {}
-                : {
-                    runtimeConfig: chatRuntimeConfig,
-                    codexFlags: effectiveCodexFlags,
-                  }),
+              runtimeConfig: chatRuntimeConfig,
+              codexFlags: effectiveCodexFlags,
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
               envOverrides,
@@ -1158,6 +1287,9 @@ export function createChatRouter({
             baseUrl,
             inflightId,
             agentFlags: effectiveAgentFlags,
+            ...(selectedOpenAiCompatEndpoint
+              ? { codeinfoOpenAiEndpoint: selectedOpenAiCompatEndpoint }
+              : {}),
             repositoryContext: executionContext.repositoryMetadata,
             runtime: executionContext.runtime,
             deferInflightCleanup: true,

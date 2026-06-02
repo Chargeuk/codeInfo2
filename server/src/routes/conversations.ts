@@ -81,6 +81,7 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 
 const ALLOWED_CONVERSATION_FLAG_KEYS = new Set([
   'agentFlags',
+  'endpointId',
   'threadId',
   'workingFolder',
 ]);
@@ -143,6 +144,22 @@ const validateConversationFlagsForProvider = (
     ) {
       throw new ConversationFlagsValidationError(
         'flags.threadId must be a non-empty string',
+      );
+    }
+  }
+
+  if (flags.endpointId !== undefined) {
+    if (
+      typeof flags.endpointId !== 'string' ||
+      flags.endpointId.trim().length === 0
+    ) {
+      throw new ConversationFlagsValidationError(
+        'flags.endpointId must be a non-empty string',
+      );
+    }
+    if (provider === 'lmstudio') {
+      throw new ConversationFlagsValidationError(
+        `flags.endpointId is not supported for provider "${provider}"`,
       );
     }
   }

@@ -268,7 +268,7 @@ export default function ChatPage() {
     hydrateHistory,
     hydrateInflightSnapshot,
     handleWsEvent,
-  } = useChatStream(selected, provider, agentFlagsDraft);
+  } = useChatStream(selected, provider, selectedEndpointId, agentFlagsDraft);
 
   const {
     conversations,

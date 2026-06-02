@@ -21,6 +21,9 @@ import {
 } from '../../../chat/memoryPersistence.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
+import {
+  applyCodexOpenAiCompatEndpointToRuntimeConfig,
+} from '../../../config/codexConfig.js';
 import { resetCollectionsForTests } from '../../../ingest/chromaClient.js';
 import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
@@ -2704,5 +2707,46 @@ test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
+  }
+});
+
+test('codebase_question translates codeinfo_openai_endpoint into Codex provider metadata', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const mockCodex = new MockCodex();
+  const expectedConfig = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+    {
+      model: 'gpt-5.3-codex-spark',
+    },
+    {
+      endpointId: 'https://alpha.example/v1',
+      baseUrl: 'https://alpha.example/v1',
+      capabilities: ['responses', 'completions'],
+    },
+  )!;
+  let capturedOptions: CodexOptions | undefined;
+
+  try {
+    const result = await runCodebaseQuestion(
+      { question: 'Use the pinned OpenAI-compatible endpoint' },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return mockCodex;
+        },
+        clientFactory: makeLmStudioClientFactory(),
+        chatRuntimeConfigResolver: async () => ({
+          config: expectedConfig,
+          warnings: [],
+        }),
+      },
+    );
+
+    assert.ok(result.content[0].text);
+    assert.deepEqual(capturedOptions?.config, expectedConfig);
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
   }
 });

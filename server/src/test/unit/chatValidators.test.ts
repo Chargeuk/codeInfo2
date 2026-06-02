@@ -351,6 +351,36 @@ test('stale hidden provider-specific flags fail validation after a provider swit
   );
 });
 
+test('chat request rejects endpointId for non-endpoint-backed LM Studio provider paths', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-endpoint-id',
+        provider: 'lmstudio',
+        endpointId: 'https://alpha.example/v1',
+      }),
+    /endpointId is not supported for provider "lmstudio"/,
+  );
+});
+
+test('chat request rejects a stale endpointId when defaults resolve to LM Studio after a create-mode transition', async () => {
+  setEnv({
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'lmstudio',
+  });
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        message: 'hello',
+        conversationId: 'lmstudio-endpoint-id-default',
+        endpointId: 'https://alpha.example/v1',
+      }),
+    /endpointId is not supported for provider "lmstudio"/,
+  );
+});
+
 test('blank or whitespace-only LM Studio flag values fail validation instead of being trimmed into valid input', async () => {
   await assert.rejects(
     async () =>

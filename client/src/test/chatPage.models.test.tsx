@@ -895,8 +895,14 @@ describe('Chat page models list', () => {
     });
     render(<RouterProvider router={router} />);
 
-    await waitFor(() => expect(screen.getByRole('combobox', { name: /model/i })).not.toHaveAttribute('aria-disabled', 'true'));
-    await userEvent.click(await screen.findByRole('combobox', { name: /model/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /model/i }),
+      ).not.toHaveAttribute('aria-disabled', 'true'),
+    );
+    await userEvent.click(
+      await screen.findByRole('combobox', { name: /model/i }),
+    );
 
     const autoOption = await screen.findByRole('option', { name: /^auto$/i });
     const gptOption = await screen.findByRole('option', { name: /gpt-5\.2/i });

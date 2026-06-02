@@ -534,6 +534,7 @@ Create the shared parser and normalization contract for `CODEINFO_EXTERNAL_OPENA
 - Added parser, env, runtime-config, and agent-config unit coverage for accepted paths, malformed input, duplicate handling, and provider-specific compatibility validation; the agent metadata reader now wraps endpoint parse errors in the repo’s standard runtime-config error shape.
 - Build: `npm run build:summary:server` passed; log: logs/test-summaries/build-server-latest.log.
 - Audit confirmed Task 2 is honestly complete after the wrapper-owned build log and the latest `test:summary:server:unit` log both passed cleanly, so the task status now closes without adding new scope beyond the planned parser and metadata contract.
+- Manual testing assessed as not applicable for this task-scoped pass because Task 2's completed parser and runtime-config validation work has no separate runnable, browser-visible, or network-visible proof surface beyond the automated proof already owned by its wrapper-backed build and server-unit checks.
 
 ---
 

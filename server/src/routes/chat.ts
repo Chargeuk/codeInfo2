@@ -494,13 +494,14 @@ export function createChatRouter({
       }
     }
     const safeBase = scrubBaseUrl(baseUrl);
+    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
 
     const codexDetection = getCodexDetection();
     const codexCapabilities = await codexCapabilityResolver({
       consumer: 'chat_validation',
     });
     const codexPreferredDefaults = await resolveCodexChatDefaults({
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
     });
     const codexState = applyBootstrapStatusToRuntimeProviderState('codex', {
       available: codexDetection.available,
@@ -598,7 +599,7 @@ export function createChatRouter({
 
     const pinnedSelectedEndpoint = resolvePinnedOpenAiCompatEndpoint({
       provider: effectiveRequestedProvider,
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
     const selectedEndpointId =
@@ -613,7 +614,7 @@ export function createChatRouter({
       selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({
         provider: effectiveRequestedProvider,
         endpointId: selectedEndpointId,
-        codexHome: process.env.CODEX_HOME,
+        codexHome,
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         env: process.env,
       });

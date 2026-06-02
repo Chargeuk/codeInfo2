@@ -8,6 +8,7 @@
 //   --feature <path>   repeatable; run only selected feature files.
 //   --scenario <expr>  forwarded to cucumber --name.
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -90,6 +91,21 @@ const normalizeServerPath = (value) => {
   return withoutDotPrefix;
 };
 
+const deriveTargetedStepImports = (features) => {
+  const stepImports = [];
+
+  for (const featurePath of features) {
+    const match = featurePath.match(/^src\/test\/features\/(.+)\.feature$/u);
+    if (!match) return [];
+
+    const candidate = `src/test/steps/${match[1]}.steps.ts`;
+    if (!fs.existsSync(path.join(serverDir, candidate))) return [];
+    stepImports.push(candidate);
+  }
+
+  return [...new Set(stepImports)];
+};
+
 const parseCucumberScenarioCounts = (output) => {
   let scenariosTotal = 0;
   let scenariosPassed = 0;
@@ -144,21 +160,25 @@ const featureArgs =
   options.features.length > 0
     ? options.features.map((file) => normalizeServerPath(file))
     : ['src/test/features/**/*.feature'];
+const targetedStepImports =
+  options.features.length > 0 ? deriveTargetedStepImports(featureArgs) : [];
 const tagsExpression = options.tags
   ? `(${options.tags}) and (not @skip)`
   : 'not @skip';
 
-const cucumberArgs = [
-  ...featureArgs,
-  '--import',
-  'src/test/support/chromaContainer.ts',
-  '--import',
-  'src/test/support/mongoContainer.ts',
-  '--import',
-  'src/test/steps/**/*.ts',
-  '--tags',
-  tagsExpression,
-];
+const cucumberImportArgs =
+  targetedStepImports.length > 0
+    ? targetedStepImports.flatMap((file) => ['--import', file])
+    : [
+        '--import',
+        'src/test/support/chromaContainer.ts',
+        '--import',
+        'src/test/support/mongoContainer.ts',
+        '--import',
+        'src/test/steps/**/*.ts',
+      ];
+
+const cucumberArgs = [...featureArgs, ...cucumberImportArgs, '--tags', tagsExpression];
 if (options.scenario) {
   cucumberArgs.push('--name', options.scenario);
 }

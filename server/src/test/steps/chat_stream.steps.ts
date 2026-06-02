@@ -83,6 +83,11 @@ const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForScenario: string | null = null;
 let namedCopilotScenarioServer: StartedNamedCopilotScenarioServer | null = null;
 let externalServers: ExternalOpenAiCompatServer[] = [];
+let activeConversationId: string | null = null;
+
+function createConversationId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
 
 async function removeDirectoryWithRetry(
   targetPath: string,
@@ -206,6 +211,7 @@ Before(async () => {
   resetStore();
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   externalServers = [];
+  activeConversationId = null;
   tempCodexHomeForScenario = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-stream-codex-home-'),
   );
@@ -249,6 +255,7 @@ After(async () => {
   statusCode = null;
   startResponse = null;
   errorResponse = null;
+  activeConversationId = null;
   if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
     delete process.env.CODEINFO_CODEX_HOME;
   } else {
@@ -337,7 +344,8 @@ Given('chat stream scenario {string}', async (name: string) => {
 });
 
 When('I POST to the chat endpoint with the chat request fixture', async () => {
-  await ensureWsSubscribed('chat-fixture-conv');
+  activeConversationId = createConversationId('chat-fixture-conv');
+  await ensureWsSubscribed(activeConversationId);
 
   const userMessage = Array.isArray(chatRequestFixture.messages)
     ? String(
@@ -354,7 +362,7 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
       provider:
         (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
       model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
-      conversationId: 'chat-fixture-conv',
+      conversationId: activeConversationId,
       message: userMessage,
     }),
   });
@@ -375,7 +383,8 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
 When(
   'I POST to the chat endpoint with the chat request fixture omitting provider and model',
   async () => {
-    await ensureWsSubscribed('chat-fixture-conv');
+    activeConversationId = createConversationId('chat-fixture-conv');
+    await ensureWsSubscribed(activeConversationId);
 
     const userMessage = Array.isArray(chatRequestFixture.messages)
       ? String(
@@ -389,7 +398,7 @@ When(
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        conversationId: 'chat-fixture-conv',
+        conversationId: activeConversationId,
         message: userMessage,
       }),
     });
@@ -546,7 +555,8 @@ Then('tool events are logged to the log store', () => {
 When(
   'I POST to the chat endpoint with a two-message chat history',
   async () => {
-    const conversationId = 'chat-history-conv';
+    const conversationId = createConversationId('chat-history-conv');
+    activeConversationId = conversationId;
     await ensureWsSubscribed(conversationId);
 
     const first = await fetch(`${baseUrl}/chat`, {

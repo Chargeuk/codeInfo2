@@ -74,6 +74,7 @@ export function createChatProvidersRouter({
   const router = Router();
 
   router.get('/providers', async (_req, res) => {
+    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
     const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
     const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
     const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
@@ -111,11 +112,15 @@ export function createChatProvidersRouter({
       toolsReason: mcp.reason,
     });
 
-    const requestedDefaults = resolveChatDefaults({});
+    const requestedDefaults = resolveChatDefaults({
+      codexHome,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+    });
     const codexRequestedDefaults =
       requestedDefaults.provider === 'codex'
         ? await resolveCodexChatDefaults({
-            codexHome: process.env.CODEX_HOME,
+            codexHome,
           })
         : undefined;
     const requestedModel =
@@ -133,7 +138,7 @@ export function createChatProvidersRouter({
       requestedDefaults.provider === 'copilot'
         ? await resolveOpenAiCompatProviderDiscovery({
             provider: requestedDefaults.provider,
-            codexHome: process.env.CODEX_HOME,
+            codexHome,
             copilotHome: process.env.CODEINFO_COPILOT_HOME,
             env: process.env,
           })
@@ -230,7 +235,7 @@ export function createChatProvidersRouter({
     const codexConfigWarnings: string[] = [];
     const codexDefaults = buildCodexCompatibilityDefaults({
       capabilities,
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
       warnings: codexConfigWarnings,
     });
     codexWarnings.push(...codexConfigWarnings);
@@ -301,12 +306,12 @@ export function createChatProvidersRouter({
           : (getProviderBootstrapReason('codex') ??
             codex.reason ??
             (mcp.available ? undefined : mcp.reason)),
-        codexHome: process.env.CODEX_HOME,
+        codexHome,
         warnings: codexWarnings,
         liveModels: codexLiveModels,
         agentFlags: buildCodexAgentFlags({
           capabilities,
-          codexHome: process.env.CODEX_HOME,
+          codexHome,
           defaults: codexDefaults,
         }),
         compatibility: {
@@ -322,14 +327,9 @@ export function createChatProvidersRouter({
       providerMap,
       selectedProvider: runtimeSelection.executionProvider,
       selectedModel: runtimeSelection.executionModel,
-      selectedEndpointId:
-        runtimeSelection.executionProvider === requestedDefaults.provider &&
-        (requestedDefaults.provider === 'codex' ||
-          requestedDefaults.provider === 'copilot')
-          ? externalOpenAiCompatDiscovery.models.find(
-              (model) => model.key === runtimeSelection.executionModel,
-            )?.endpointId
-          : undefined,
+      selectedEndpointId: externalOpenAiCompatDiscovery.models.find(
+        (model) => model.key === runtimeSelection.executionModel,
+      )?.endpointId,
       fallbackApplied: runtimeSelection.fallbackApplied,
       compatibility: {
         codexDefaults,

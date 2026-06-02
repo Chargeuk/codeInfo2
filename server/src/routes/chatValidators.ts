@@ -259,8 +259,9 @@ const resolveCodexAgentFlags = async (params: {
     | undefined;
 }): Promise<Record<string, unknown>> => {
   validateNoUnsupportedAgentFlags('codex', params.rawAgentFlags);
+  const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
   const defaults = await resolveCodexChatDefaults({
-    codexHome: process.env.CODEX_HOME,
+    codexHome,
   });
   const config = loadProviderConfigForAgentFlags('codex');
   const supportedReasoningEfforts =
@@ -457,7 +458,7 @@ export async function validateChatRequest(
   const codexRequestedDefaults =
     provider === 'codex' && requestedModel === undefined
       ? await resolveCodexChatDefaults({
-          codexHome: process.env.CODEX_HOME,
+          codexHome: process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME,
         })
       : undefined;
   const model =

@@ -214,6 +214,7 @@ export function createChatModelsRouter({
   };
 
   router.get('/models', async (req, res) => {
+    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
     const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
     const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
     const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
@@ -230,7 +231,7 @@ export function createChatModelsRouter({
       provider === 'codex' || provider === 'copilot'
         ? await resolveOpenAiCompatProviderDiscovery({
             provider,
-            codexHome: process.env.CODEX_HOME,
+            codexHome,
             copilotHome: process.env.CODEINFO_COPILOT_HOME,
             env: process.env,
           })
@@ -260,7 +261,7 @@ export function createChatModelsRouter({
     const codexConfigWarnings: string[] = [];
     const codexDefaults = buildCodexCompatibilityDefaults({
       capabilities,
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
       warnings: codexConfigWarnings,
     });
     codexWarnings.push(...codexConfigWarnings);
@@ -272,7 +273,7 @@ export function createChatModelsRouter({
     try {
       requestedDefaults = resolveChatDefaults({
         requestProvider: provider,
-        codexHome: process.env.CODEX_HOME,
+        codexHome,
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
       });
@@ -282,7 +283,7 @@ export function createChatModelsRouter({
       }
     }
     const codexPreferredDefaults = await resolveCodexChatDefaults({
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
     });
     const codexExternalModels =
       provider === 'codex' ? externalOpenAiCompatDiscovery.models : [];
@@ -302,12 +303,12 @@ export function createChatModelsRouter({
         getProviderBootstrapReason('codex') ??
         detection.reason ??
         (mcp.available ? undefined : mcp.reason),
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
       warnings: codexWarnings,
       liveModels: codexLiveModels,
       agentFlags: buildCodexAgentFlags({
         capabilities,
-        codexHome: process.env.CODEX_HOME,
+        codexHome,
         defaults: codexDefaults,
       }),
       compatibility: {

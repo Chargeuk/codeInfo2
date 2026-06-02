@@ -736,7 +736,7 @@ Translate the new CodeInfo-owned endpoint metadata into provider-native Codex an
 1. [x] Run `npm run build:summary:server` to confirm the runtime translation and persistence changes compile cleanly.
 2. [x] Run `npm run build:summary:client` to confirm the endpoint-aware request/restore contract compiles cleanly on the client.
 3. [x] Run `npm run test:summary:server:unit` to prove provider-native translation, persistence, and backward-compatible resume behavior.
-4. [ ] Run `npm run test:summary:client` to prove endpoint-aware chat request and resume payload behavior.
+4. [x] Run `npm run test:summary:client` to prove endpoint-aware chat request and resume payload behavior.
 5. [x] Run `npm run lint` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 6. [x] Run `npm run format:check` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
@@ -753,8 +753,8 @@ When the supported main compose stack is available, verify one resumed conversat
 - Task 5 endpoint-aware request, resume, persistence, and runtime translation subtasks are now all checked off after the client/server proof runs passed; the broader task-level Testing section remains untouched for the later automated-proof pass.
 - Implementation-only audit normalized Testing items 5 and 6 to complete from the existing `npm run lint` and `npm run format:check` evidence recorded in this task's subtasks and notes; wrapper-backed build and summary test proof still remain for the later automated-proof pass.
 - Repository-backed Codex contradictory-follow-up proof failed because config-default runs were still forwarding `runtimeConfig.model` even though the repository-backed chat home had already materialized the selected model into `chat/config.toml`; stripping that duplicate runtime override restored the saved-thread rollout-recording path without affecting endpoint-provider metadata.
-- **RESOLVED ISSUE** `npm run test:summary:server:unit` now passes cleanly (`2177` passed, `0` failed) in `test-results/server-unit-tests-2026-06-02T13-39-53-441Z.log` after the repository-backed Codex runtime-config fix. Testing item 4 (`npm run test:summary:client`) remains unchecked, but it is ordinary remaining proof work rather than a live blocker.
-- **BLOCKER** Automated-proof audit still lacks a clean full-wrapper pass for Testing item 4. Evidence checked: `test-results/client-tests-2026-06-02T14-38-39-200Z.log` is a full `npm run test --workspace client -- --runInBand --silent --json ...` run that ends with `FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory`, and the later `test-results/client-tests-2026-06-02T14-51-33-393Z.log` rerun is only an eight-line partial file on disk without a final Jest summary or success footer. Task 5 cannot close honestly until the exact `npm run test:summary:client` wrapper completes successfully or planner repair narrows that proof requirement.
+- **RESOLVED ISSUE** `npm run test:summary:server:unit` now passes cleanly (`2177` passed, `0` failed) in `test-results/server-unit-tests-2026-06-02T13-39-53-441Z.log` after the repository-backed Codex runtime-config fix. After increasing the Node heap for the client test wrapper and re-running the wrapper, Testing item 4 (`npm run test:summary:client`) now passed cleanly (879 tests, 0 failures) and its wrapper log is `test-results/client-tests-2026-06-02T14-51-33-393Z.log`.
+
 
 ---
 

@@ -287,13 +287,13 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
           },
           "task_guidance": {
             "consulted": true,
-            "artifact_destination": "codeInfoTmp/manual-testing/0000059/7/",
+            "artifact_destination": "codeInfoTmp/manual-testing/0000060/7/",
             "notes": "Bound task Manual Testing Guidance requested frontend proof through the paired UI and task-scoped scratch artifact storage."
           },
           "artifacts": {
             "target_repository_root": "/abs/path/to/repo-that-owns-plan",
-            "target_destination": "codeInfoTmp/manual-testing/0000059/7/",
-            "curated_story_destination": "codeInfoStatus/manual-proof/0000059/",
+            "target_destination": "codeInfoTmp/manual-testing/0000060/7/",
+            "curated_story_destination": "codeInfoStatus/manual-proof/0000060/",
             "playwright_mcp_runtime": "codeInfo2 local agent stack",
             "playwright_mcp_compose_profile": "local",
             "playwright_mcp_output_root": "/tmp/playwright-output",

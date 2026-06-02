@@ -1,4 +1,4 @@
-# Story 0000061 - Flow loop control uses wrapper scripts under scripts/flow_control
+# Story 0000062 - Flow loop control uses wrapper scripts under scripts/flow_control
 
 ## Implementation Plan
 
@@ -100,7 +100,7 @@ None. The planning direction is now fixed: use wrapper scripts under `scripts/fl
 
 #### Subtasks
 
-1. [x] Read `AGENTS.md`, this Story 61 plan, `scripts/plan_status.py`, `scripts/story_workflow_status.py`, `scripts/check_current_task_handoff.py`, and `scripts/flow_state_utils.py`, then map the reusable decision seams that belong under `scripts/flow_control/`.
+1. [x] Read `AGENTS.md`, this Story 62 plan, `scripts/plan_status.py`, `scripts/story_workflow_status.py`, `scripts/check_current_task_handoff.py`, and `scripts/flow_state_utils.py`, then map the reusable decision seams that belong under `scripts/flow_control/`.
 2. [x] Create the `scripts/flow_control/` package with shared modules for current-task, story, review, and plan-scope decisions plus common answer-printing helpers.
 3. [x] Add the thin entrypoint scripts for the current-task, story, review, and final plan-scope yes/no gates, keeping stdout limited to the exact answer object.
 4. [x] If needed, make minimal safe changes to existing top-level workflow scripts so the new flow-control package can import reusable helper functions instead of re-parsing subprocess output ad hoc.
@@ -186,13 +186,13 @@ None. The planning direction is now fixed: use wrapper scripts under `scripts/fl
 - Testing complete: the focused Python unit suite passed; the broader `npm run test:summary:server:unit` wrapper failed in unrelated existing server/runtime tests and its log did not reference the new `scripts/flow_control/` files or migrated flow JSON.
 - Repo proof note: repo-wide lint still fails only on unrelated existing client import-order warnings, while `npm run format:check` remains green.
 
-### Task 4. Final Story 61 validation and close-out
+### Task 4. Final Story 62 validation and close-out
 
 - Task Status: `__done__`
 
 #### Subtasks
 
-1. [x] Re-open `AGENTS.md`, this Story 61 plan, the edited `scripts/flow_control/` files, and the migrated flow JSON files, then confirm the final implementation still matches the accepted wrapper-script architecture and fresh-execution prompt contract.
+1. [x] Re-open `AGENTS.md`, this Story 62 plan, the edited `scripts/flow_control/` files, and the migrated flow JSON files, then confirm the final implementation still matches the accepted wrapper-script architecture and fresh-execution prompt contract.
 2. [x] Re-read the retained automated-proof outputs for Tasks 1 through 3 and verify this plan's notes clearly identify the proof homes for wrapper behavior, flow migration, and stale-state regression coverage.
 3. [x] Summarize the final migrated gate set and the exact future-facing reuse seam for eventual native non-LLM loop control.
 4. [x] Run lint-oriented static checks for the full touched surface if the repository provides them for this scope.
@@ -206,7 +206,7 @@ None. The planning direction is now fixed: use wrapper scripts under `scripts/fl
 
 #### Implementation Notes
 
-- Subtask 1 complete: re-opened the repo instructions, Story 61 plan, wrapper modules, and migrated flow JSON after the final edits to confirm the architecture still matches the intended `shared helpers + tiny entrypoints + fresh wrapper prompt` design under `scripts/flow_control/`.
+- Subtask 1 complete: re-opened the repo instructions, Story 62 plan, wrapper modules, and migrated flow JSON after the final edits to confirm the architecture still matches the intended `shared helpers + tiny entrypoints + fresh wrapper prompt` design under `scripts/flow_control/`.
 - Subtask 2 complete: verified the retained proof homes are now explicit in this plan: wrapper smoke commands, focused Python unit tests, flow prompt-contract assertions, JSON parse checks, repo `format:check`, repo `lint` output, and the broader server-unit wrapper summary.
 - Subtask 3 complete: the migrated gate set now covers current-task handoff validity, implementation completion, blocker detection, manual-testing readiness, unchecked-subtask/testing reroute, story completion, review minor-fix/task-up exits, review-loop exits, and final plan-scope completion; the future native non-LLM seam is the shared Python decision modules under `scripts/flow_control/`.
 - Validation complete: `npm run format:check` passed, `npm run lint` failed only on unrelated existing client import-order warnings, and `npm run test:summary:server:unit` failed in unrelated existing server/runtime tests without implicating the new flow-control wrapper surface.

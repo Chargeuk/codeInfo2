@@ -842,7 +842,7 @@ Extend the existing provider fallback logic so new runs can repair or fall back 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This final validation task depends on every earlier story seam because the final proof must cover parsing, discovery, picker behavior, runtime translation, persistence, and endpoint-aware fallback together.
 

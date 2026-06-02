@@ -733,7 +733,7 @@ Translate the new CodeInfo-owned endpoint metadata into provider-native Codex an
 #### Testing
 
 1. [x] Run `npm run build:summary:server` to confirm the runtime translation and persistence changes compile cleanly.
-2. [ ] Run `npm run build:summary:client` to confirm the endpoint-aware request/restore contract compiles cleanly on the client.
+2. [x] Run `npm run build:summary:client` to confirm the endpoint-aware request/restore contract compiles cleanly on the client.
 3. [ ] Run `npm run test:summary:server:unit` to prove provider-native translation, persistence, and backward-compatible resume behavior.
 4. [ ] Run `npm run test:summary:client` to prove endpoint-aware chat request and resume payload behavior.
 5. [x] Run `npm run lint` for the final translation/persistence surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.

@@ -846,6 +846,10 @@ Extend the existing provider fallback logic so new runs can repair or fall back 
 - Git Commits:
 - Notes: This final validation task depends on every earlier story seam because the final proof must cover parsing, discovery, picker behavior, runtime translation, persistence, and endpoint-aware fallback together.
 
+#### Implementation Notes
+- **BLOCKER**: Automated proof for Testing item 4 (Run `npm run test:summary:server:cucumber`) is blocked. Attempted to run the repository cucumber wrapper; the wrapper failed when trying to start required test containers. Logs show repeated errors: "compose start failed Error: Could not find a working container runtime strategy" originating from chroma-compose container startup (server/src/test/support/chromaContainer.ts). This environment lacks a working container runtime (Docker/Podman), which is an external capability required by the wrapper and cannot be provisioned in this automated-proof step. Three attempted local repairs would be needed (install/configure a container runtime, provide a reachable CODEINFO_CHROMA_URL mock, or rework tests to run without containers) but are out of scope for this step. Recommend splitting or deferring container-backed integration tests from automated close-out in environments without container runtime; continue this task on infra-equipped agent or CI.
+
+
 #### Overview
 
 Validate the full story across the repository’s wrapper-first proof path, then update the durable repo documentation and reviewer summary artifacts that changed because of this feature. This task also packages the manual-proof guidance the later manual testing agent will need for the main stack, external endpoint setup, auth-skip boundaries, and artifact locations.

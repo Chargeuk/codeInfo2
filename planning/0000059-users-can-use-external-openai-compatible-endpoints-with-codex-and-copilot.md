@@ -902,8 +902,8 @@ Validate the full story across the repository’s wrapper-first proof path, then
 7. [x] Run `npm run compose:build:summary` to verify the checked-in main stack images still build on the supported Compose path after all story changes land.
 8. [ ] Run `npm run compose:up` so the checked-in main stack is exercised on the normal supported runtime path, and verify the final runtime surfaces stay reachable at `http://localhost:5001` and `http://localhost:5010` with server health still exposed through `http://localhost:5010/health`.
 9. [ ] Run `npm run compose:down` to stop the main stack that was started for final runtime validation.
-10. [x] Run `npm run lint` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-11. [x] Run `npm run format:check` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+10. [ ] Run `npm run lint` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+11. [ ] Run `npm run format:check` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Manual Testing Guidance
 

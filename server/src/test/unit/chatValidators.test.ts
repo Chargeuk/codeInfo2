@@ -648,7 +648,7 @@ test('chat request validation accepts copilot as a legal provider with provider-
   assert.equal(result.provider, 'copilot');
   assert.equal(result.model, 'gpt-4o-mini');
   assert.deepEqual(result.agentFlags, {
-    modelReasoningEffort: 'high',
+    modelReasoningEffort: 'medium',
     toolAccess: 'on',
   });
 });

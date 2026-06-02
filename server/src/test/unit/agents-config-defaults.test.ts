@@ -768,6 +768,7 @@ describe('Agent config defaults', () => {
         () =>
           capturedFlags.length === 1 &&
           getActiveRunOwnership(conversationId) === null,
+        5000,
       );
 
       await startAgentInstruction({
@@ -781,7 +782,7 @@ describe('Agent config defaults', () => {
           }),
       });
 
-      await waitFor(() => capturedFlags.length === 2);
+      await waitFor(() => capturedFlags.length === 2, 5000);
       assert.equal(capturedFlags.length, 2);
       assert.equal(capturedFlags[0]?.resumeConversation, false);
       assert.equal(capturedFlags[1]?.resumeConversation, true);

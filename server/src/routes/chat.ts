@@ -16,7 +16,6 @@ import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
 import {
   normalizeImplicitCopilotRequestedModel,
-  resolveCopilotDefaultModel,
 } from '../chat/copilotModelSupport.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
@@ -475,16 +474,9 @@ export function createChatRouter({
             requestedModelSource: defaultsResolution.modelSource,
           })
         : effectiveRequestedModel;
-    const copilotPreferredModel = resolveCopilotDefaultModel({
-      models: copilotReadiness.modelsRaw as ModelInfo[],
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
-    }).defaultModel;
     const copilotState = applyBootstrapStatusToRuntimeProviderState('copilot', {
       available: copilotReadiness.available,
-      models: prioritizeRuntimeProviderModels(
-        copilotReadiness.models,
-        copilotPreferredModel,
-      ),
+      models: [...copilotReadiness.models],
       reason: copilotReadiness.reason,
     });
     const runtimeSelection = resolveRuntimeProviderSelection({

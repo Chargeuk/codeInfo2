@@ -125,7 +125,18 @@ Because this work touches both harnesses, the story must begin by upgrading the 
 
 ### Questions
 
-None.
+1. If the same endpoint is listed twice, should we keep the first one with a warning, or fail?
+   - Why this is important: Duplicate endpoint entries are easy to create by accident, and the story needs one predictable rule for what happens next.
+   - Best Answer: Keep the first normalized endpoint entry and warn. That matches the repo's normal duplicate-handling pattern: duplicates usually warn and continue instead of failing the whole config. It also keeps the first version lightweight and avoids turning a small config mistake into a hard startup failure.
+   - Where this answer came from: Local repo evidence in [server/src/routes/ingestRoots.ts](/home/dan/code/codeInfo2/server/src/routes/ingestRoots.ts:280), [server/src/flows/repositoryCandidateOrder.ts](/home/dan/code/codeInfo2/server/src/flows/repositoryCandidateOrder.ts:69), [server/src/config/runtimeConfig.ts](/home/dan/code/codeInfo2/server/src/config/runtimeConfig.ts:760), and the duplicate-handling summary from `code_info`.
+2. If the same endpoint comes from both env vars and chat config, should chat show one shared entry or two?
+   - Why this is important: Without a rule here, the picker could show duplicate choices for the same underlying endpoint and make the saved endpoint identity harder to reason about.
+   - Best Answer: Show one shared entry. If the normalized full base URL is the same, it should be treated as the same endpoint identity no matter where it came from. That fits the decisions already made for full-URL identity and keeps the picker simpler.
+   - Where this answer came from: Local repo evidence in this plan's existing Decisions on endpoint identity, the deduplication patterns summarized by `code_info`, and the current repo habit of separating internal identity from display labels.
+3. If a pinned endpoint model is missing, should we pick the first available model there or stop with an error?
+   - Why this is important: The story already says we should repair on the same endpoint, but it does not yet say exactly how to choose that replacement model.
+   - Best Answer: Pick the first selectable model on that same endpoint and warn. That matches the current chat-default fallback pattern, which tries the preferred item first and then chooses the first available replacement while recording that fallback happened.
+   - Where this answer came from: Local repo evidence in [server/src/config/chatDefaults.ts](/home/dan/code/codeInfo2/server/src/config/chatDefaults.ts:477), [server/src/config/chatDefaults.ts](/home/dan/code/codeInfo2/server/src/config/chatDefaults.ts:540), and the fallback-selection summary from `code_info`.
 
 ## Decisions
 

@@ -137,7 +137,18 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-None at this time.
+1. If GitHub review is skipped, should the flow finish as completed with warning, or as plain completed?
+   - Why this is important: This decides whether the run status tells the truth that implementation finished but outside review did not happen.
+   - Best Answer: Finish as completed with warning. The repo already distinguishes supported skip-with-note behavior from hard failure, and skipped external review is not the same thing as a clean reviewed cycle.
+   - Where this answer came from: Local repo precedent in `server/dist/flows/markdownFileResolver.js`, `server/dist/ingest/planScopeResolver.js`, and `codeinfo_markdown/preserve_external_review_adjudication_trail.md`; no external source needed beyond those repository patterns.
+2. Should the flow read only `.env.local`, or also fall back to `.env`?
+   - Why this is important: This decides whether GitHub review is an explicit per-repository opt-in or whether a broader shared env file could turn it on by accident.
+   - Best Answer: Read only `.env.local` for `CODEINFO_PR_TOKEN`. That keeps the contract explicit, matches the repo-local opt-in model already chosen for this story, and avoids silently pulling credentials from a broader file. Node.js does not automatically load `.env.local` unless the app explicitly does so, which makes it important to name one exact file contract here.
+   - Where this answer came from: Local repo precedent in Story 60's existing repository-local token decision plus the harness-vs-target repository contract in `AGENTS.md` and `codeinfo_markdown/repository_information.md`; supporting external evidence from Node.js `process.env` and `process.loadEnvFile()` documentation showing env files are an explicit application behavior, not implicit magic.
+3. When GitHub review is skipped or PR creation fails, should the note go in the plan, the PR summary, or both?
+   - Why this is important: The story already says to record a note, but the exact location needs to be clear so the implementation leaves a reliable trail instead of scattering status across different files.
+   - Best Answer: Put a concise note in the plan immediately, and let the later PR summary reflect it when a PR summary is generated. The plan is the active source of truth during implementation, while the PR summary is a derived closeout artifact and may not exist yet when the skip happens.
+   - Where this answer came from: Local repo precedent in `codeinfo_markdown/preserve_external_review_adjudication_trail.md` and `codeinfo_markdown/create_pr_summary.md`, plus the canonical PR summary location rules in `codeinfo_markdown/task_up/01-shared-contract.md`; supporting GitHub CLI evidence from `gh pr create` docs and DeepWiki that non-interactive PR creation can fail early around push/title/body concerns before any reviewer-facing summary artifact would exist.
 
 ## Decisions
 

@@ -248,6 +248,41 @@ test('endpoint-aware selection falls back to the same provider native path befor
   assert.equal(result.fallbackApplied, true);
 });
 
+test('endpoint-aware selection reaches cross-provider fallback only after the endpoint path and same-provider native path are both unavailable', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    endpoint: {
+      endpointId: 'https://alpha.example/v1',
+      available: false,
+      models: [],
+      reason: 'endpoint unavailable',
+    },
+    codex: {
+      available: false,
+      models: [],
+      reason: 'native codex unavailable',
+    },
+    copilot: {
+      available: true,
+      models: ['copilot-gpt-5'],
+      reason: undefined,
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'copilot');
+  assert.equal(result.executionModel, 'copilot-gpt-5');
+  assert.equal(result.executionPath, 'cross_provider_fallback');
+  assert.equal(result.endpointId, 'https://alpha.example/v1');
+  assert.equal(result.decision, 'fallback');
+  assert.equal(result.fallbackApplied, true);
+});
+
 test('endpoint-aware selection can fail in place when a pinned endpoint becomes unavailable', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',

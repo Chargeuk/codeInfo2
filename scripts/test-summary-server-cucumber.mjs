@@ -186,8 +186,8 @@ if (options.scenario) {
 const cucumberEnv = {
   ...process.env,
   CODEINFO_LOG_FILE_PATH: '../logs/server-cucumber.log',
-  CODEINFO_CHROMA_URL: '',
-  CODEINFO_MONGO_URI: '',
+  CODEINFO_CHROMA_URL: process.env.CODEINFO_CHROMA_URL ?? '',
+  CODEINFO_MONGO_URI: process.env.CODEINFO_MONGO_URI ?? '',
   CODEINFO_PLAYWRIGHT_MCP_URL:
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL ?? 'http://localhost:8932/mcp',
   TS_NODE_FILES: 'true',

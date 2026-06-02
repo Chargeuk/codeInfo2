@@ -542,7 +542,7 @@ Create the shared parser and normalization contract for `CODEINFO_EXTERNAL_OPENA
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -595,6 +595,7 @@ Build the shared server-side discovery helper that probes external endpoints thr
 - Wired `/chat/models` and `/chat/providers` through the shared discovery helper so selected Codex and Copilot flows now include external endpoint models and provider default selection can see config-pinned endpoints.
 - Added route-level unit coverage for Codex and Copilot capability filtering, config-pinned bootstrap, and env/config duplicate collapse.
 - Verified the targeted server unit wrapper passed after the discovery and route changes, then completed the required lint and format checks.
+- Audit confirmed Task 3 is honestly complete after the fresh `npm run build:summary:server` wrapper pass and the existing server-unit wrapper proof, so the task now closes without adding scope beyond the shared discovery helper and route reuse described in this story.
 
 ---
 

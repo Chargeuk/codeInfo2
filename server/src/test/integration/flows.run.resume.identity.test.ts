@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +21,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -398,6 +400,181 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
       delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun keeps resumed child endpoint identity pinned and fails in place when the saved endpoint disappears', async () => {
+  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const prevLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const prevRuntimeCodexHome = process.env.CODEX_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const originalInfo = console.info;
+  const originalError = console.error;
+  const infoLogs: string[] = [];
+  const errorLogs: string[] = [];
+  console.info = (...args: unknown[]) => {
+    infoLogs.push(args.map(String).join(' '));
+  };
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(' '));
+  };
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-endpoint-fail-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  const externalServer = await startExternalOpenAiCompatServer({
+    responseMode: 'transport-failure',
+  });
+  const endpointId = `${externalServer.baseUrl}/v1`;
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.2-codex"',
+      `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.2-codex"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  const conversationId = 'flow-resume-endpoint-fail';
+  const childConversationId = 'agent-conv-resume-endpoint-fail';
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          title: 'Flow: resume-basic',
+          flowName: 'resume-basic',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId: 'resume-execution-endpoint-fail',
+              stepPath: [0],
+              loopStack: [],
+              agentConversations: {
+                'coding_agent:resume-test': childConversationId,
+              },
+              agentEndpointIds: {
+                'coding_agent:resume-test': endpointId,
+              },
+              agentThreads: {},
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          _id: childConversationId,
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          title: 'Flow: resume-basic (resume-test)',
+          agentName: 'coding_agent',
+          source: 'REST',
+          flags: {
+            endpointId,
+            flowChild: {
+              executionId: 'resume-execution-endpoint-fail',
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Conversation,
+      ],
+      run: async ({ conversations }) => {
+        const result = await startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        });
+        assert.equal(result.providerId, 'codex');
+        await waitFor(
+          () =>
+            [...infoLogs, ...errorLogs].some((line) =>
+              line.includes('PROVIDER_UNAVAILABLE'),
+            ),
+          5000,
+        );
+
+        assert.equal(
+          conversations.get(childConversationId)?.flags?.endpointId,
+          endpointId,
+        );
+        assert.equal(conversations.get(childConversationId)?.provider, 'codex');
+        assert.equal(conversations.get(childConversationId)?.model, 'gpt-5.2-codex');
+      },
+    });
+  } finally {
+    console.info = originalInfo;
+    console.error = originalError;
+    await externalServer.stop();
+    if (prevAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
+    }
+    if (prevLegacyAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevLegacyAgentHome;
+    }
+    if (prevCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+    }
+    if (prevRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = prevRuntimeCodexHome;
+    }
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    if (prevCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = prevCompatEndpoints;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
   }
 });
 

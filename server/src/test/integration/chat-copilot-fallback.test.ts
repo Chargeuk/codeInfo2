@@ -18,6 +18,7 @@ import {
 } from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
@@ -298,6 +299,102 @@ test('implicit degraded-bootstrap chat requests fall back at the route and keep 
       process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
     }
     await server.stop();
+  }
+});
+
+test('endpoint-unavailable Copilot chat falls back to the same provider native path before cross-provider fallback', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responseMode: 'transport-failure',
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses,completions`;
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-endpoint-native-fallback',
+    },
+    lmstudioAvailable: true,
+  });
+
+  try {
+    const conversationId = 'copilot-endpoint-native-fallback';
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      endpointId: `${externalServer.baseUrl}/v1`,
+      model: 'missing-copilot-model',
+      conversationId,
+      message: 'Use native Copilot before any cross-provider fallback',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.body.model, 'copilot-gpt-5');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          `Endpoint "${externalServer.baseUrl}/v1" was unavailable; falling back to native copilot model "copilot-gpt-5".`,
+        ),
+      ),
+      true,
+    );
+  } finally {
+    await server.stop();
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('endpoint-aware Copilot chat repairs to the first selectable model on the same endpoint before broader fallback', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-copilot-model', 'endpoint-copilot-model-2'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses,completions`;
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-endpoint-repair',
+    },
+    lmstudioAvailable: true,
+  });
+
+  try {
+    const conversationId = 'copilot-endpoint-repair';
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      endpointId: `${externalServer.baseUrl}/v1`,
+      model: 'missing-copilot-model',
+      conversationId,
+      message: 'Repair to the first selectable model on the endpoint',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.body.model, 'endpoint-copilot-model');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          `Requested model "missing-copilot-model" was unavailable on endpoint "${externalServer.baseUrl}/v1"; using "endpoint-copilot-model" instead.`,
+        ),
+      ),
+      true,
+    );
+  } finally {
+    await server.stop();
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
   }
 });
 

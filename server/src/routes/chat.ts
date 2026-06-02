@@ -36,6 +36,9 @@ import {
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
 import {
+  resolveOpenAiCompatEndpointRuntimeState,
+} from '../chat/openaiCompatModelDiscovery.js';
+import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
@@ -52,9 +55,6 @@ import {
   type OpenAiCompatEndpointConfig,
   validateOpenAiCompatEndpointConfigForProvider,
 } from '../config/openaiCompatEndpoints.js';
-import {
-  resolveOpenAiCompatEndpointRuntimeState,
-} from '../chat/openaiCompatModelDiscovery.js';
 import {
   RuntimeConfigResolutionError,
   getProviderBootstrapStatus,
@@ -148,11 +148,9 @@ const omitCodexRuntimeModelForConfigDefaults = (
     return runtimeConfig;
   }
 
-  const { model: _unusedModel, ...rest } = runtimeConfig as Record<
-    string,
-    unknown
-  >;
-  return rest as CodexOptions['config'];
+  const nextConfig = { ...(runtimeConfig as Record<string, unknown>) };
+  delete nextConfig.model;
+  return nextConfig as CodexOptions['config'];
 };
 
 function resolvePinnedOpenAiCompatEndpoint(params: {
@@ -644,10 +642,28 @@ export function createChatRouter({
             endpoint: selectedOpenAiCompatEndpoint,
           })
         : undefined;
+    const resolvedEndpointUnavailable =
+      selectedEndpointId !== undefined &&
+      (selectedOpenAiCompatEndpointState === undefined ||
+        !selectedOpenAiCompatEndpointState.available);
+    const runtimeEndpointState =
+      selectedOpenAiCompatEndpointState ??
+      (resolvedEndpointUnavailable
+        ? {
+            endpointId: selectedEndpointId,
+            available: false,
+            models: [],
+            reason: `Endpoint "${selectedEndpointId}" is unavailable.`,
+          }
+        : undefined);
+    const runtimeRequestedModel =
+      resolvedEndpointUnavailable && effectiveRequestedProvider === 'codex'
+        ? codexPreferredDefaults.values.model
+        : normalizedRequestedModel;
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: effectiveRequestedProvider,
-      requestedModel: normalizedRequestedModel,
-      endpoint: selectedOpenAiCompatEndpointState,
+      requestedModel: runtimeRequestedModel,
+      endpoint: runtimeEndpointState,
       failInPlaceOnEndpointUnavailable: Boolean(
         resumedExecutionIdentity?.endpointId &&
           resumedExecutionIdentity.endpointId === selectedEndpointId,

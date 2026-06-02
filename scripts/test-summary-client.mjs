@@ -117,7 +117,8 @@ const protocol = createSummaryWrapperProtocol({
 protocol.startHeartbeat();
 
 // Ensure sufficient Node heap for large client test runs when the wrapper spawns npm/jest
-process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || '--max-old-space-size=8192';
+process.env.NODE_OPTIONS =
+  process.env.NODE_OPTIONS || '--max-old-space-size=8192';
 
 const result = await runLoggedCommand({
   cmd: 'npm',

@@ -447,6 +447,7 @@ const parseFlowResumeState = (
   const agentRequestedProviders = normalizeStringMap(
     flow.agentRequestedProviders,
   );
+  const agentEndpointIds = normalizeStringMap(flow.agentEndpointIds);
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {
@@ -480,6 +481,7 @@ const parseFlowResumeState = (
     ...(Object.keys(agentRequestedProviders).length > 0
       ? { agentRequestedProviders }
       : {}),
+    ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
   };
 };
 

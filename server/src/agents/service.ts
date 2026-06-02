@@ -41,8 +41,8 @@ import {
   updateMemoryConversationMeta,
   updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
-import { McpResponder } from '../chat/responders/McpResponder.js';
 import { resolveOpenAiCompatEndpointRuntimeState } from '../chat/openaiCompatModelDiscovery.js';
+import { McpResponder } from '../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../codex/capabilityResolver.js';
 import {
   resolveChatDefaults,
@@ -776,7 +776,14 @@ async function prepareDirectAgentExecution(params: {
         ? await resolveOpenAiCompatEndpointRuntimeState({
             endpoint: providerRuntimeResolution.endpoint,
           })
-        : undefined;
+        : params.pinnedEndpointId
+          ? {
+              endpointId: params.pinnedEndpointId,
+              available: false,
+              models: [],
+              reason: `Endpoint "${params.pinnedEndpointId}" is unavailable.`,
+            }
+          : undefined;
     const requestedModel =
       params.pinnedModelId ??
       normalizeModel(
@@ -802,8 +809,7 @@ async function prepareDirectAgentExecution(params: {
       requestedModel,
       endpoint: endpointState,
       failInPlaceOnEndpointUnavailable: Boolean(
-        params.pinnedEndpointId &&
-          endpointState?.endpointId === params.pinnedEndpointId,
+        params.pinnedEndpointId && !endpointState?.available,
       ),
       allowCrossProviderFallback: false,
       codex: providerStates.codex,
@@ -934,7 +940,14 @@ async function prepareDirectAgentExecution(params: {
       ? await resolveOpenAiCompatEndpointRuntimeState({
           endpoint: providerRuntimeResolution.endpoint,
         })
-      : undefined;
+      : params.pinnedEndpointId
+        ? {
+            endpointId: params.pinnedEndpointId,
+            available: false,
+            models: [],
+            reason: `Endpoint "${params.pinnedEndpointId}" is unavailable.`,
+          }
+        : undefined;
     const requestedModel =
       resolveProviderModelForExecution({
         providerId,
@@ -953,9 +966,7 @@ async function prepareDirectAgentExecution(params: {
       requestedModel,
       endpoint: endpointState,
       failInPlaceOnEndpointUnavailable: Boolean(
-        params.pinnedEndpointId &&
-          providerRuntimeResolution.endpoint?.endpointId ===
-            params.pinnedEndpointId,
+        params.pinnedEndpointId && !endpointState?.available,
       ),
       allowCrossProviderFallback: false,
       codex: providerStates.codex,

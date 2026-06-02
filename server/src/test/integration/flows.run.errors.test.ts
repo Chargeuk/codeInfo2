@@ -47,6 +47,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   closeWs,
   connectWs,
@@ -1619,6 +1620,177 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
     await fs.rm(flowsDir, { recursive: true, force: true });
+  }
+});
+
+test('Task 25 flow starts fall back to the same provider native path before cross-provider fallback when the configured endpoint is unavailable', async () => {
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    responseMode: 'transport-failure',
+  });
+  const endpointId = `${externalServer.baseUrl}/v1`;
+
+  try {
+    await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+      const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+      const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+      const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+      const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+      const agentsHome = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'agents-home-'),
+      );
+      const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+      const copilotHome = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'copilot-home-'),
+      );
+      const agentHome = path.join(agentsHome, 'coding_agent');
+
+      await fs.mkdir(agentHome, { recursive: true });
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+      await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+      await fs.writeFile(
+        path.join(agentHome, 'config.toml'),
+        [
+          'codeinfo_provider = "copilot"',
+          'model = "copilot-gpt-5"',
+          `codeinfo_openai_endpoint = "${endpointId}|responses,completions"`,
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        'model = "gpt-5.3-codex"\n',
+        'utf8',
+      );
+      await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(copilotHome, 'chat', 'config.toml'),
+        'model = "copilot-gpt-5"\n',
+        'utf8',
+      );
+
+      process.env.CODEINFO_AGENT_HOME = agentsHome;
+      process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+      process.env.CODEINFO_COPILOT_HOME = copilotHome;
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses,completions`;
+      __setAgentServiceDepsForTests({
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'gpt-5.3-codex',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-gpt-5'],
+          modelsRaw: [
+            {
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      });
+
+      try {
+        await writeFlowFile({
+          tmpDir,
+          flowName: 'task25-flow-endpoint-native-fallback',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'coding_agent',
+              identifier: 'endpoint-native-fallback',
+              messages: [{ role: 'user', content: ['after'] }],
+            },
+          ],
+        });
+
+        const response = await supertest(baseUrl)
+          .post('/flows/task25-flow-endpoint-native-fallback/run')
+          .send({})
+          .expect(202);
+
+        assert.equal(response.body.status, 'started');
+        assert.equal(response.body.providerId, 'copilot');
+        assert.equal(response.body.modelId, 'copilot-gpt-5');
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes(
+              `Endpoint "${endpointId}" was unavailable; falling back to native copilot model "copilot-gpt-5".`,
+            ),
+          ),
+          true,
+        );
+      } finally {
+        __resetAgentServiceDepsForTests();
+        if (previousAgentHome === undefined) {
+          delete process.env.CODEINFO_AGENT_HOME;
+        } else {
+          process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+        }
+        if (previousLegacyAgentHome === undefined) {
+          delete process.env.CODEINFO_CODEX_AGENT_HOME;
+        } else {
+          process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+        }
+        if (previousCodexHome === undefined) {
+          delete process.env.CODEINFO_CODEX_HOME;
+        } else {
+          process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+        }
+        if (previousCopilotHome === undefined) {
+          delete process.env.CODEINFO_COPILOT_HOME;
+        } else {
+          process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+        }
+        await fs.rm(agentsHome, { recursive: true, force: true });
+        await fs.rm(codexHome, { recursive: true, force: true });
+        await fs.rm(copilotHome, { recursive: true, force: true });
+      }
+    });
+  } finally {
+    await externalServer.stop();
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
   }
 });
 

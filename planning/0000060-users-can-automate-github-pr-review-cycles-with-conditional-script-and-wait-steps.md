@@ -42,6 +42,8 @@ This story therefore introduces a small set of workflow primitives that stay int
 
 The first intended use case is an external-review loop for implementation flows. This is separate from the repository's existing internal review and external-review-ingest flows. It happens only after the normal internal review believes the work is complete enough for outside review. The purpose of this GitHub review pass is not to re-run the whole existing review pipeline against a second copy of the same evidence; it is to inspect outside review comments, reject any comments that would force behavior changes outside the story scope, classify the valid ones, and then feed those valid findings into the same follow-up repair patterns the repository already uses after review.
 
+When the flow opens a PR, it should not rely on a human to type the reviewer summary. The PR creation behavior for this story should generate a reviewer-facing title and body from the current story and implementation context. That generated content should explain what the story is trying to achieve, why the implemented changes were chosen, the rule that behavior outside the story scope must not be changed, and any other brief context a reviewer needs in order to give useful feedback without pulling the flow outside its intended boundaries.
+
 A typical cycle is:
 
 - open a PR for the current branch;
@@ -53,6 +55,10 @@ A typical cycle is:
 - if valid issues exist, fix the small ones immediately, encode larger ones as tasks in the story, close that PR, and loop back into implementation and proof before opening a fresh PR for the next review cycle.
 
 The GitHub integration for this story intentionally uses the simplest operational model. The server image may include the `gh` CLI and use a shared server-side GitHub identity through `GH_TOKEN` or `GITHUB_TOKEN`, with restricted permissions. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date, and ignore closed PRs.
+
+If the current branch has not yet been pushed, the PR flow should push it automatically to its existing upstream remote so the review loop can continue without human intervention. If that automatic push fails, the flow should not keep guessing about alternate remotes or block forever waiting for help. Instead, it should record in the story that the PR could not be created, stop the external-review path for that cycle, and complete without treating missing GitHub review comments as implementation feedback.
+
+Fetched GitHub review comments should also be kept separate from the existing external-review ingest files. They should be stored in their own transient GitHub-review scratch file, plus only the minimum additional persisted state needed for wait/resume and later classification.
 
 This story should remain focused on enabling that review-loop orchestration. It is not trying to build a full GitHub integration platform, a general per-user GitHub auth model, or a fully generic workflow-state store for every future step type.
 
@@ -71,10 +77,15 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - Workflow definitions support a thin GitHub step that opens a pull request for the current branch.
 - Workflow definitions support a thin GitHub step that fetches the latest open pull request's review comments for the current branch.
 - Workflow definitions support a thin GitHub step that closes the latest open pull request for the current branch.
+- The GitHub PR creation behavior generates reviewer-facing PR title and body content from the current story and implementation context rather than requiring every flow to hard-code that text.
+- The generated PR content explains what work was required, why the implemented changes were chosen, the restriction against behavior changes outside the story scope, and any other brief reviewer-relevant context needed for this review loop.
 - For this story, "review comments" means PR review feedback from other users, including inline review comments and review submissions with reviewer-authored bodies, rather than generic issue-thread discussion.
 - The GitHub comment-fetch step is a retrieval primitive only and does not embed completion policy, implicit waiting, or hidden conditional behavior.
 - The GitHub steps use a shared server-side GitHub identity through `gh` plus `GH_TOKEN` or `GITHUB_TOKEN`, or an equivalent thin wrapper around that same model.
 - The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, and close-PR behavior, and keeps them restricted to that scope.
+- If the current branch is not yet pushed, the PR creation path pushes automatically to the branch's existing upstream remote.
+- If that automatic push or PR creation fails, the flow records a note in the story explaining that the PR could not be created and that external GitHub review comments were therefore not part of the implementation cycle.
+- If PR creation fails, the flow can complete without attempting the GitHub wait or comment-ingestion steps for that cycle.
 - The first-version PR lookup rule is explicit: use the latest open PR for the current branch by open date and ignore closed PRs.
 - The first-version implementation does not attempt per-user GitHub execution identity or browser-user impersonation.
 - The story does not edit currently in-use flow files in place under `flows/` when wiring in the new review-cycle behavior.
@@ -88,6 +99,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - The final clean PR is intentionally left open for human review rather than being automatically closed at the end of a clean cycle.
 - The new primitives are structured so they can later be reused by `flows/implement_next_plan.json` and adjacent review or implementation flows without needing a second incompatible step family.
 - When the timed wait window ends, the flow resumes automatically without requiring human intervention.
+- Fetched GitHub review comments are written to a separate transient GitHub-review scratch file rather than to the existing external-review ingest files, and only the minimal extra persisted state needed for resume and classification is stored alongside that scratch path.
 - Automated tests cover the new schema shapes, runtime behavior, persisted wait behavior, Python decision execution path, GitHub step wiring, and the review-loop composition points touched by this story.
 
 ### Out Of Scope
@@ -101,6 +113,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - Reusing the existing external-review ingest storage path or ingest flow as the raw-input path for this GitHub review cycle.
 - Editing currently in-use checked-in flow definitions in place under `flows/` as part of this story.
 - Solving every possible stale-PR, duplicate-PR, or multi-actor branch edge case before there is evidence that the first-version branch lookup rule is insufficient.
+- Guessing alternate remotes, forks, or first-time publication targets when automatic branch push fails.
 - Building a general arbitrary workflow variable system in this story.
 - Removing the existing AI-based yes or no control path for `break` and `continue`.
 - Expanding the GitHub integration into issue management, labels, assignees, or merge automation unless directly required by the thin PR-review cycle described here.
@@ -119,18 +132,7 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 ### Questions
 
-1. Should the PR step build the title and body from the current story, or should every flow write them out explicitly?
-   - Why this is important: `gh pr create` needs non-interactive title and body input, and this decision affects whether the new PR step stays thin and reusable or forces every flow to repeat reviewer-facing text.
-   - Best Answer: Build the title and body automatically from the current story and branch context, using the repository's existing PR-summary conventions rather than forcing every flow to duplicate that text. That keeps flow JSON smaller, keeps reviewer-facing content aligned with the active plan, and avoids a second parallel summary-authoring contract inside flows.
-   - Where this answer came from: Local repo precedent in `codeinfo_markdown/create_pr_summary.md`, `codeinfo_markdown/task_up/01-shared-contract.md`, and `planning/0000055-pr-summary.md`; supporting external evidence from the GitHub CLI manual for `gh pr create`, which requires non-interactive `--title`, `--body`, or `--body-file` input when prompts are not allowed.
-2. If the branch is not pushed yet, should the PR step push it automatically or fail?
-   - Why this is important: The story's review loop is supposed to run without human intervention, but `gh pr create` otherwise prompts the user about pushing or forking when the branch is not already available remotely.
-   - Best Answer: Push automatically only to the branch's existing upstream remote, and fail clearly if no upstream is configured. That preserves unattended flow execution for the normal branch workflow while avoiding unsafe guessing about forks, remotes, or first-time branch publication targets.
-   - Where this answer came from: Local repo precedent in `AGENTS.md` branch workflow and non-interactive git guidance; supporting external evidence from the GitHub CLI manual and DeepWiki coverage of `gh pr create`, which note that the command otherwise prompts about pushing or forking when the branch is not fully pushed.
-3. Should fetched GitHub review comments be saved in a separate scratch file, or only kept in flow memory?
-   - Why this is important: The later classification and repair steps need restart-safe review input, but this GitHub review stage must stay separate from the existing external-review ingest files.
-   - Best Answer: Save the fetched GitHub review comments in a separate transient GitHub-review scratch file, plus only the minimal additional state needed for resume. That keeps the stage inspectable and restart-safe, matches the repository's existing transient review handoff pattern, and avoids polluting the current external-review ingest path that this story explicitly does not reuse.
-   - Where this answer came from: Local repo precedent in `codeinfo_markdown/review_disposition.md`, `codeinfo_markdown/review_evidence_gate/01-core.md`, `scripts/story_workflow_status.py`, `scripts/find_minor_fix_revalidation_task.py`, and the existing transient review-handoff conventions referenced throughout the planning docs; supporting external evidence from Node.js timer documentation showing that in-process timers alone are not durable across restarts.
+None at this time.
 
 ## Decisions
 
@@ -152,6 +154,24 @@ This story should remain focused on enabling that review-loop orchestration. It 
    - What the answer is: Resume automatically when the timer expires.
    - Where the answer came from: User direction, plus local waiting-state precedent in `planning/0000061-command-and-flow-user-input-wait-step.md`, `planning/0000027-flows-mode.md`, `server/src/routes/flowsRun.ts`, and `server/src/flows/service.ts`, and the supporting Node.js timer docs that show plain timers are only in-process callbacks.
    - Why it is the best answer: Manual resume would break the autonomous review-loop goal, so the story needs persisted wait state plus automatic continuation when the review window ends.
+4. PR content generation
+   - The question being addressed: Should the PR step build the title and body from the current story, or should every flow write them out explicitly?
+   - Why the question matters: `gh pr create` needs non-interactive title and body input, and this decision controls whether the review loop produces useful reviewer context without making every flow duplicate large summary text.
+   - What the answer is: The PR step should generate reviewer-facing title and body content from the current story and implementation context. That content should explain what is required, why the implemented changes were chosen, the restriction against making behavior changes outside the story scope, and any other brief reviewer-relevant context.
+   - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/create_pr_summary.md`, `codeinfo_markdown/task_up/01-shared-contract.md`, and `planning/0000055-pr-summary.md`, with supporting `gh pr create` documentation showing that non-interactive PR creation must supply title and body content explicitly.
+   - Why it is the best answer: It keeps the flow authoring surface smaller while still producing a reviewable PR description that reinforces the story boundaries external reviewers should respect.
+5. Auto-push and PR failure handling
+   - The question being addressed: If the branch is not pushed yet, should the PR step push it automatically or fail?
+   - Why the question matters: The review loop is supposed to run unattended, but pushing to the wrong remote or waiting forever for input would make the automation unsafe or brittle.
+   - What the answer is: Push automatically to the existing upstream remote. If that push or the later PR creation fails, record a note in the story that the PR could not be created and that external comments were not taken into account for that cycle, then complete without continuing through the GitHub review path.
+   - Where the answer came from: User direction, plus local repo precedent in `AGENTS.md` around branch workflow and non-interactive git usage, with supporting GitHub CLI documentation and DeepWiki notes showing that `gh pr create` otherwise falls back to interactive push or fork prompts.
+   - Why it is the best answer: It preserves unattended execution in the normal case while failing safely and visibly instead of guessing at alternate remotes or leaving the story in an ambiguous half-reviewed state.
+6. GitHub review scratch storage
+   - The question being addressed: Should fetched GitHub review comments be saved in a separate scratch file, or only kept in flow memory?
+   - Why the question matters: Later classification steps need restart-safe input, but this GitHub review stage must stay distinct from the repository's existing external-review ingest files.
+   - What the answer is: Save fetched GitHub review comments in a separate transient GitHub-review scratch file, plus only the minimal persisted state needed for resume and later classification.
+   - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/review_disposition.md`, `codeinfo_markdown/review_evidence_gate/01-core.md`, `scripts/story_workflow_status.py`, and `scripts/find_minor_fix_revalidation_task.py`, with supporting Node.js timer documentation showing why in-memory-only state is not durable enough across restarts.
+   - Why it is the best answer: It keeps the GitHub review stage inspectable and restart-safe without polluting the separate external-review ingest path that this story intentionally leaves alone.
 
 ## Implementation Ideas
 
@@ -165,9 +185,12 @@ This story should remain focused on enabling that review-loop orchestration. It 
   - open PR for current branch;
   - fetch latest open PR review comments for current branch;
   - close latest open PR for current branch.
+- Generate the PR title and body from current story context and implementation state, following the repository's existing reviewer-summary conventions so the PR explains the intended work, implementation rationale, and the no-out-of-scope-behavior-change rule.
 - Resolve GitHub operations through `gh` inside the server runtime with one shared configured identity from `GH_TOKEN` or `GITHUB_TOKEN`.
+- Before PR creation, push the branch to its configured upstream remote when needed; if that push or PR creation fails, record a story note and route the flow to a clean completion path that skips external-review ingestion for that cycle.
 - Detect repository owner, name, current branch, and current head commit from the selected working repository rather than asking the user to duplicate that information in every workflow step.
 - Treat fetched GitHub review comments as a separate post-internal-review input, not as the raw input for `flows/ingest_external_review_plan.json`.
+- Persist fetched GitHub review comments in a dedicated transient GitHub-review scratch file plus the minimum extra resume metadata, rather than only in memory and rather than in the existing external-review ingest files.
 - Add a lighter-weight GitHub-review validity and classification seam that rejects requests outside story scope, then hands valid findings into the same minor-fix and task-up repair patterns already used after review.
 - Use the new `if` step to express the clean-review versus more-work-needed branch explicitly instead of hiding that rule inside one GitHub step.
 - If classification finds valid issues, reuse the existing minor-fix and task-up flow ideas so the external-review cycle behaves like the repository's current review discipline rather than a parallel process.

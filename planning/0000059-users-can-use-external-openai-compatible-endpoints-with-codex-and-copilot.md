@@ -603,7 +603,7 @@ Build the shared server-side discovery helper that probes external endpoints thr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`, `Task 3`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -670,6 +670,7 @@ When the supported main compose stack is available, verify the Chat page picker 
 - Added endpoint-aware picker, provider, conversation-selection, and resume-identity tests to keep the draft/reuse transition and label formatting explicit.
 - Fixed the restore loop so draft selection is only snapshotted in true draft mode, then passed the repo lint/format checks after resolving one unnecessary hook dependency warning.
 - Implementation-only audit kept all Task 4 subtasks complete, but reopened `Testing` item 4 because the repository only shows targeted Jest runs for the picker-owned files plus one single-file resume test rerun, not the full `npm run test:summary:client` wrapper named by this checklist item.
+- Automated-proof audit confirmed the wrapper-backed build logs and the later full client-suite rerun now support all checked Testing items, so Task 4 closes without adding behavior beyond the approved endpoint-aware picker identity and label work.
 ---
 
 ### Task 5. Translate Endpoint Selections Into Runtime Config And Persistence

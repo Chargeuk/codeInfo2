@@ -54,7 +54,7 @@ A typical cycle is:
 - if there are no comments, or every comment is judged invalid or already non-actionable, treat the review cycle as clean and keep the PR open for human inspection;
 - if valid issues exist, fix the small ones immediately, encode larger ones as tasks in the story, close that PR, and loop back into implementation and proof before opening a fresh PR for the next review cycle.
 
-The GitHub integration for this story intentionally uses the simplest operational model. The server image may include the `gh` CLI and use a repository-specific fine-grained GitHub token loaded from a `.env.local` file in the repository being worked in. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date, and ignore closed PRs.
+The GitHub integration for this story intentionally uses the simplest operational model. The server image may include the `gh` CLI and use a repository-specific fine-grained GitHub token loaded from a `.env.local` file in the repository being worked in for GitHub PR API operations. Normal git credentials in the worked repository remain the preferred path for git fetch and push behavior when they are already configured. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date, and ignore closed PRs.
 
 If the repository being worked in does not provide the expected token value in its `.env.local` file, the GitHub PR and external-review path should not execute for that cycle. The flow should record in the story that external GitHub review was skipped because the repository-specific token was not configured, then continue or complete without treating missing GitHub review comments as implementation feedback.
 
@@ -83,10 +83,11 @@ This story should remain focused on enabling that review-loop orchestration. It 
 - The generated PR content explains what work was required, why the implemented changes were chosen, the restriction against behavior changes outside the story scope, and any other brief reviewer-relevant context needed for this review loop.
 - For this story, "review comments" means PR review feedback from other users, including inline review comments and review submissions with reviewer-authored bodies, rather than generic issue-thread discussion.
 - The GitHub comment-fetch step is a retrieval primitive only and does not embed completion policy, implicit waiting, or hidden conditional behavior.
-- The GitHub steps use `gh` plus a repository-specific fine-grained token loaded from the `.env.local` file in the repository being worked in, or an equivalent thin wrapper around that same model.
-- The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, close-PR, and any required branch push behavior, and keeps them restricted to that scope.
+- The GitHub steps use `gh` plus a repository-specific fine-grained token loaded from the `.env.local` file in the repository being worked in for PR API operations, or an equivalent thin wrapper around that same model.
+- The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, and close-PR behavior, and keeps them restricted to that scope.
 - If the expected GitHub token value is missing from the worked repository's `.env.local`, the flow skips PR creation and external-review ingestion for that cycle and records a story note explaining why.
-- If the current branch is not yet pushed, the PR creation path pushes automatically to the branch's existing upstream remote.
+- Normal git credentials remain the preferred auth path for branch fetch and push behavior when they are already configured in the worked repository.
+- If the current branch is not yet pushed, the PR creation path pushes automatically to the branch's existing upstream remote using the repository's normal git credentials when available.
 - If that automatic push or PR creation fails, the flow records a note in the story explaining that the PR could not be created and that external GitHub review comments were therefore not part of the implementation cycle.
 - If PR creation fails, the flow can complete without attempting the GitHub wait or comment-ingestion steps for that cycle.
 - The first-version PR lookup rule is explicit: use the latest open PR for the current branch by open date and ignore closed PRs.
@@ -167,7 +168,7 @@ None at this time.
 5. Auto-push and PR failure handling
    - The question being addressed: If the branch is not pushed yet, should the PR step push it automatically or fail?
    - Why the question matters: The review loop is supposed to run unattended, but pushing to the wrong remote or waiting forever for input would make the automation unsafe or brittle.
-   - What the answer is: Push automatically to the existing upstream remote. If that push or the later PR creation fails, record a note in the story that the PR could not be created and that external comments were not taken into account for that cycle, then complete without continuing through the GitHub review path.
+   - What the answer is: Push automatically to the existing upstream remote, using the repository's normal git credentials when they are available. If that push or the later PR creation fails, record a note in the story that the PR could not be created and that external comments were not taken into account for that cycle, then complete without continuing through the GitHub review path.
    - Where the answer came from: User direction, plus local repo precedent in `AGENTS.md` around branch workflow and non-interactive git usage, with supporting GitHub CLI documentation and DeepWiki notes showing that `gh pr create` otherwise falls back to interactive push or fork prompts.
    - Why it is the best answer: It preserves unattended execution in the normal case while failing safely and visibly instead of guessing at alternate remotes or leaving the story in an ambiguous half-reviewed state.
 6. GitHub review scratch storage
@@ -179,7 +180,7 @@ None at this time.
 7. Repository-local GitHub token configuration
    - The question being addressed: How should the GitHub token be configured when different worked repositories may need different fine-grained tokens?
    - Why the question matters: Fine-grained tokens are scoped to one owner, so a single shared token does not fit well when the workflow may target personal repositories and organization repositories separately.
-   - What the answer is: The expected fine-grained GitHub token should live in a `.env.local` file in the repository being worked in. If that file or token value is missing, the PR creation and external-review logic does not execute for that cycle, and the story records that external review was skipped because repository-local GitHub credentials were not configured.
+   - What the answer is: The expected fine-grained GitHub token should live in a `.env.local` file in the repository being worked in and should be used for GitHub PR API operations, not as the default replacement for normal git push and pull credentials. If that file or token value is missing, the PR creation and external-review logic does not execute for that cycle, and the story records that external review was skipped because repository-local GitHub credentials were not configured.
    - Where the answer came from: User direction, plus the repository's harness-vs-target path contract in `AGENTS.md` and `codeinfo_markdown/repository_information.md`, which supports reading target-repository configuration from the worked repository instead of from harness-owned paths.
    - Why it is the best answer: It lets each repository opt into its own least-privilege GitHub token without forcing one global token to span multiple owners or organizations.
 
@@ -196,9 +197,9 @@ None at this time.
   - fetch latest open PR review comments for current branch;
   - close latest open PR for current branch.
 - Generate the PR title and body from current story context and implementation state, following the repository's existing reviewer-summary conventions so the PR explains the intended work, implementation rationale, and the no-out-of-scope-behavior-change rule.
-- Resolve GitHub operations through `gh` inside the server runtime using a fine-grained token sourced from the `.env.local` file in the repository being worked in, rather than from one shared cross-repository token.
+- Resolve GitHub operations through `gh` inside the server runtime using a fine-grained token sourced from the `.env.local` file in the repository being worked in for PR API calls, rather than from one shared cross-repository token.
 - Treat missing repository-local GitHub token configuration as a supported skip path for the GitHub review cycle, with an explicit story note rather than a hidden silent no-op.
-- Before PR creation, push the branch to its configured upstream remote when needed; if that push or PR creation fails, record a story note and route the flow to a clean completion path that skips external-review ingestion for that cycle.
+- Prefer the repository's normal git credentials for fetch and push behavior. Before PR creation, push the branch to its configured upstream remote when needed; if that push or PR creation fails, record a story note and route the flow to a clean completion path that skips external-review ingestion for that cycle.
 - Detect repository owner, name, current branch, and current head commit from the selected working repository rather than asking the user to duplicate that information in every workflow step.
 - Treat fetched GitHub review comments as a separate post-internal-review input, not as the raw input for `flows/ingest_external_review_plan.json`.
 - Persist fetched GitHub review comments in a dedicated transient GitHub-review scratch file plus the minimum extra resume metadata, rather than only in memory and rather than in the existing external-review ingest files.

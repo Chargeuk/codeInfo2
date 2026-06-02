@@ -583,7 +583,7 @@ Build the shared server-side discovery helper that probes external endpoints thr
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the new production and test discovery helpers compile cleanly.
+1. [x] Run `npm run build:summary:server` to confirm the new production and test discovery helpers compile cleanly.
 2. [x] Run `npm run test:summary:server:unit` to prove one-probe-per-endpoint behavior, ordering, partial failures, and route-facing discovery filtering through the server wrapper.
 3. [x] Run `npm run lint` for the final discovery-helper surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [x] Run `npm run format:check` for the final discovery-helper surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.

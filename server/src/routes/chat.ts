@@ -608,8 +608,8 @@ export function createChatRouter({
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
     const selectedEndpointId =
-      endpointId ??
       resumedExecutionIdentity?.endpointId ??
+      endpointId ??
       pinnedSelectedEndpoint?.endpointId ??
       undefined;
     let selectedOpenAiCompatEndpoint:

@@ -1366,6 +1366,91 @@ test('pinned Codex chat fails in place when the saved endpoint later becomes una
   }
 });
 
+test('resumed Codex chat ignores a contradictory request endpointId when a saved endpoint pin exists', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const savedEndpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const requestEndpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${savedEndpointServer.baseUrl}/v1|responses;${requestEndpointServer.baseUrl}/v1|responses`;
+
+  const conversationId = 'conv-codex-saved-endpoint-wins';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved endpoint identity',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-saved-endpoint',
+      endpointId: `${savedEndpointServer.baseUrl}/v1`,
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new MockCodex('thread-saved-endpoint');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          endpointId: `${requestEndpointServer.baseUrl}/v1`,
+          message: 'Keep the saved endpoint pin',
+        }),
+      )
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-endpoint');
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(savedEndpointServer.requestCount(), 1);
+    assert.equal(requestEndpointServer.requestCount(), 0);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      `${savedEndpointServer.baseUrl}/v1`,
+    );
+  } finally {
+    await savedEndpointServer.stop();
+    await requestEndpointServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('resumed contradictory provider-model input cannot rewrite saved execution identity', async () => {
   setCodexDetection({
     available: true,

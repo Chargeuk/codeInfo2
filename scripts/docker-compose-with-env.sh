@@ -11,15 +11,16 @@ DOCKER_BIN="${CODEINFO_DOCKER_BIN:-docker}"
 # - The server container needs Docker socket access for Testcontainers.
 # - UID/GID and socket-group behavior differ by host/runtime.
 #
-# macOS (Docker Desktop):
+# Docker Desktop:
 # - The active socket may be exposed via Docker context/DOCKER_HOST or
 #   ~/.docker/run/docker.sock, not always /var/run/docker.sock.
 # - Even when host-side socket metadata looks non-root, the mounted socket can
 #   appear inside Linux containers as root:root with mode 660.
-# - Because Compose user/group values are decided on the mac host, host-side
-#   gid checks are not always enough to predict container-side socket access.
+# - Because Compose user/group values are decided on the host, host-side gid
+#   checks are not always enough to predict container-side socket access.
 # - For reliability, this script defaults to running services as root on macOS
-#   (opt-out available) so Docker-in-container flows (Testcontainers) work.
+#   (opt-out available), and normalizes the container-visible socket group to
+#   root on Docker Desktop so non-root Linux runtimes still reach the daemon.
 #
 # WSL/Linux:
 # - The socket is typically /var/run/docker.sock with a non-root group
@@ -420,6 +421,12 @@ docker_server_platform_name() {
   docker_cmd version --format '{{.Server.Platform.Name}}' 2>/dev/null || true
 }
 
+docker_server_operating_system() {
+  local info_json
+  info_json="$(docker_info_json)"
+  printf '%s' "${info_json}" | docker_info_field "OperatingSystem"
+}
+
 docker_info_field() {
   local field_name="$1"
 
@@ -466,9 +473,8 @@ ensure_host_network_environment_supported() {
       ;;
   esac
 
-  local info_json operating_system desktop_version operating_system_lc
-  info_json="$(docker_info_json)"
-  operating_system="$(printf '%s' "${info_json}" | docker_info_field "OperatingSystem")"
+  local operating_system desktop_version operating_system_lc
+  operating_system="$(docker_server_operating_system)"
   desktop_version="$(docker_desktop_version)"
   operating_system_lc="$(printf '%s' "${operating_system}" | tr '[:upper:]' '[:lower:]')"
 
@@ -734,10 +740,20 @@ ensure_repo_bind_mount_dirs_for_profile
 
 SOCKET_PATH="$(resolve_docker_socket)"
 SOCKET_GID="$(stat -c %g "${SOCKET_PATH}" 2>/dev/null || stat -f %g "${SOCKET_PATH}" 2>/dev/null || echo 0)"
+CONTAINER_SOCKET_GID="${SOCKET_GID}"
 HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
+DOCKER_OPERATING_SYSTEM="$(docker_server_operating_system)"
+DOCKER_OPERATING_SYSTEM_LC="$(printf '%s' "${DOCKER_OPERATING_SYSTEM}" | tr '[:upper:]' '[:lower:]')"
 
 DOCKER_UID="$(id -u)"
 DOCKER_GID="$(id -g)"
+
+# Docker Desktop sockets can be user-owned on the host yet still appear as
+# root:root 660 inside Linux containers, so the container runtime needs the
+# root group even when the host socket gid is non-zero.
+if [[ "${DOCKER_OPERATING_SYSTEM_LC}" == *"docker desktop"* ]]; then
+  CONTAINER_SOCKET_GID=0
+fi
 
 # macOS default:
 # - Force compose service user to root unless explicitly disabled.
@@ -756,7 +772,7 @@ fi
 
 export CODEINFO_DOCKER_UID="${DOCKER_UID}"
 export CODEINFO_DOCKER_GID="${DOCKER_GID}"
-export CODEINFO_DOCKER_SOCK_GID="${SOCKET_GID}"
+export CODEINFO_DOCKER_SOCK_GID="${CONTAINER_SOCKET_GID}"
 export CODEINFO_DOCKER_SOCKET_PATH="${SOCKET_PATH}"
 export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="$(resolve_runtime_codeinfo_config_dir)"
 export CODEINFO_HOST_CODEX_HOME="$(resolve_host_codex_home_dir)"

@@ -309,6 +309,14 @@ test('compose wrapper exports the resolved docker socket path for Linux Docker D
     /export CODEINFO_DOCKER_SOCKET_PATH="\$\{SOCKET_PATH\}"/u,
   );
   assert.match(
+    composeWrapper,
+    /if \[\[ "\$\{DOCKER_OPERATING_SYSTEM_LC\}" == \*"docker desktop"\* \]\]; then\s+  CONTAINER_SOCKET_GID=0\s+fi/u,
+  );
+  assert.match(
+    composeWrapper,
+    /export CODEINFO_DOCKER_SOCK_GID="\$\{CONTAINER_SOCKET_GID\}"/u,
+  );
+  assert.match(
     localCompose,
     /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );

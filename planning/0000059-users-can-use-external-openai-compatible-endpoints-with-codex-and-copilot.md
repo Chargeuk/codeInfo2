@@ -918,6 +918,12 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 - `Context7 /openai/codex` - use if the Codex runtime translation contract needs confirmation while preserving saved endpoint identity on resumed executions.
 - `Context7 /github/copilot-sdk` - use if Copilot custom-provider execution translation needs confirmation while preserving the existing fail-in-place contract.
 
+#### Risk Ownership
+
+- Blocker family: `product or story seam` on the saved-endpoint producer-consumer chain through `server/src/agents/service.ts`, `server/src/flows/service.ts`, persisted `flags.endpointId`, and persisted flow child `endpointId`. This task owns restoring the approved saved-endpoint precedence on the normal resume callers rather than on a helper-only branch that the default path never reaches.
+- Exact ordering invariant: stale flow resumes must be rejected by `ensureFlowChildConversationOwnership()` before any `ensureFlowAgentConversation()` work or equivalent persisted child provider/model/`endpointId` mutation runs. Adjacent happy-path and rejection-path assertions are not enough; one combined rejected replay proof must show both the rejection boundary and the unchanged persisted child record afterward.
+- Shared baseline boundary: this task’s proof stays on targeted server wrappers. If a broader compose or Docker failure appears before these server wrappers can launch, stop at that boundary and hand the interruption back to Task 7 or Task 10 instead of broadening this task into wrapper or runtime repair.
+
 #### Subtasks
 
 1. [ ] Inspect the pinned-resume branch in `server/src/agents/service.ts` and the flow resume helpers in `server/src/flows/service.ts`, including the current `pinnedEndpointId` precedence branch, the persisted writer/reader chain for `flags.endpointId` and flow child endpoint state, and the `ensureFlowAgentState()` / `ensureFlowChildConversationOwnership()` ordering seam. Stop once you can point to one concrete saved-endpoint precedence branch, one concrete persisted reader that consumes that saved identity on resume, and one concrete pre-ownership mutation branch that must change, or confirm those seams already moved and a different adjacent branch now owns the defect.
@@ -978,6 +984,12 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 #### Documentation Locations
 
 - `Context7 /microsoft/playwright` - use if Playwright API details are needed while extending the existing mobile selector/dialog proof path.
+
+#### Risk Ownership
+
+- Blocker family: `proof or test harness seam` on the mobile browser proof surfaces. `e2e/chat-provider-history.spec.ts` owns restored-history and fresh-after-history mobile selector state, while `e2e/chat.spec.ts` owns the outgoing `/chat` payload propagation from the active mobile provider/model dialog path.
+- Exact interleaving invariant: the proof must reopen endpoint-backed history on mobile, transition into a fresh conversation, and then prove that the next send uses the fresh conversation’s visible provider/model/`endpointId` state rather than any hidden restored selection left behind by the prior conversation. Separate restored-history and send-path happy-path assertions are not sufficient unless one scenario exercises that mixed ordering end to end.
+- Shared baseline boundary: Docker, Compose, and default wrapper reachability stay on Task 7. If `npm run test:summary:e2e` cannot launch Playwright, cannot start the checked-in main stack, or cannot reach the default `/chat` launcher before task-owned assertions begin, stop at that wrapper boundary and return the interruption to Task 7 instead of mutating mobile product scope.
 
 #### Subtasks
 
@@ -1054,6 +1066,12 @@ For review pass `0000059-20260603T104219Z-90176d8f`, this task is also the one f
 - Review cycle: `0000059-rc-20260603T112617Z-90176d8f`
 - Review-created tasks revalidated here: `Task 8`, `Task 9`
 - Inline minor findings revalidated here: none for this active review cycle
+
+#### Risk Ownership
+
+- Blocker family: `shared wrapper or baseline seam` for the final automated revalidation path. This task owns the story-level proof sequence through `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`, but Task 7 remains the prerequisite owner for Docker-daemon access or compose-readiness failures that stop those wrappers before story-owned assertions can begin.
+- Blocker family: `manual or runtime environment seam` for final human-visible proof. The supported stack is the checked-in main compose stack with `server/.env` and `server/.env.local`, mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, client `http://localhost:5001`, server `http://localhost:5010`, server health `http://localhost:5010/health`, and retained artifacts under `codeInfoTmp/manual-testing/0000059/10/` after any Playwright staging handoff.
+- Final producer-consumer invariant: before closeout, one readback pass must map each current review finding to a surviving automated proof owner and confirm the final README, structural ledger, and PR summary still describe the same shipped endpoint identity, fallback, resume, and proof contract that the final wrappers and manual artifacts validate.
 
 #### Affected Repositories
 

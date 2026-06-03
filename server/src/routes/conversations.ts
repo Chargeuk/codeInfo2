@@ -45,6 +45,7 @@ import {
   type AppendTurnInput,
   type ConversationSummary,
 } from '../mongo/repo.js';
+import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
 import {
   appendWorkingFolderDecisionLog,
   getWorkingFolderClientMessage,
@@ -92,6 +93,14 @@ class ConversationFlagsValidationError extends Error {
     this.name = 'ConversationFlagsValidationError';
   }
 }
+
+const normalizeEndpointIdValidationMessage = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(
+    /^RUNTIME_CONFIG_INVALID:\s*flags\.endpointId:\s*/,
+    '',
+  );
+};
 
 const validateConversationFlagsForProvider = (
   provider: 'lmstudio' | 'codex' | 'copilot',
@@ -160,6 +169,15 @@ const validateConversationFlagsForProvider = (
     if (provider === 'lmstudio') {
       throw new ConversationFlagsValidationError(
         `flags.endpointId is not supported for provider "${provider}"`,
+      );
+    }
+    try {
+      normalizeOpenAiCompatEndpointId(flags.endpointId, {
+        pathLabel: 'flags.endpointId',
+      });
+    } catch (error) {
+      throw new ConversationFlagsValidationError(
+        `flags.endpointId is invalid: ${normalizeEndpointIdValidationMessage(error)}`,
       );
     }
   }
@@ -705,15 +723,28 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     const conversationId = crypto.randomUUID();
 
     try {
+      const sanitizedFlags = sanitizeConversationFlagsForProvider(
+        provider,
+        flags,
+        {
+          preserveFlowState: true,
+        },
+      );
+      if (typeof sanitizedFlags.endpointId === 'string') {
+        sanitizedFlags.endpointId = normalizeOpenAiCompatEndpointId(
+          sanitizedFlags.endpointId,
+          {
+            pathLabel: 'flags.endpointId',
+          },
+        );
+      }
       await createConversation({
         conversationId,
         provider,
         model,
         title: title ?? 'Untitled conversation',
         source: source ?? 'REST',
-        flags: sanitizeConversationFlagsForProvider(provider, flags, {
-          preserveFlowState: true,
-        }),
+        flags: sanitizedFlags,
         lastMessageAt: new Date(),
       });
       res.status(201).json({ conversationId });

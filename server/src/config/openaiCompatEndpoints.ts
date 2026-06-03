@@ -103,6 +103,14 @@ function normalizeBaseUrl(value: string, pathLabel: string): string {
   return parsed.toString();
 }
 
+export function normalizeOpenAiCompatEndpointId(
+  value: string,
+  params: ParseEndpointPathLabel = {},
+): string {
+  const pathLabel = params.pathLabel ?? 'endpointId';
+  return normalizeBaseUrl(value, pathLabel);
+}
+
 function normalizeCapabilities(
   value: string,
   pathLabel: string,

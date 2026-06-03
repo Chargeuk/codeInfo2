@@ -853,7 +853,7 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 #### Task Exit Criteria
 
 - One Docker access path supported by the repo wrappers is available to the session that will run the remaining proof: authorized access to `/var/run/docker.sock`, a supported rootless Docker socket, or a real Docker Desktop per-user socket selected through `DOCKER_HOST`.
-- The repo's e2e compose build path reaches the Docker daemon without the earlier permission-denied failure.
+- The repo's checked-in main compose build path reaches the Docker daemon through the supported summary wrapper without the earlier permission-denied failure.
 - The same branch and worktree can be handed back to Task 10 without requiring Story 59 product-code changes or unsafe socket-permission hacks.
 
 #### Documentation Locations
@@ -868,7 +868,7 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 
 #### Testing
 
-1. [ ] Run `npm run compose:e2e:build` to prove the e2e compose path can reach the Docker daemon from the chosen session without the earlier `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock` failure.
+1. [ ] Run `npm run compose:build:summary` to prove the checked-in main compose build path can reach the Docker daemon from the chosen session without the earlier `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock` failure. Let Task 10 own the later `compose:up`, `compose:down`, and broad `test:summary:e2e` story proof after this runtime prerequisite is restored.
 
 #### Implementation Notes
 

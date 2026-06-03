@@ -934,15 +934,18 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 
 #### Proof Mapping
 
-- Saved endpoint precedence on the direct-agent resume path.
-  Implementation files: `server/src/agents/service.ts`, including the persisted `flags.endpointId` reader and the direct-agent conversation write surface that must not rewrite the saved endpoint on rejected resumes.
-  Proof owner: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, with `server/src/test/unit/agents-router-run.test.ts` only when helper-level selection behavior changes.
-- Saved endpoint precedence on the flow-owned resume path.
+- Requirement: pinned or resumed direct-agent execution keeps the saved endpoint authoritative over mutable current config state.
+  Implementation files: `server/src/agents/service.ts`, including the persisted `flags.endpointId` reader, the direct-agent resume selection branch, and the direct-agent conversation write surface.
+  Proof owner: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, using a dedicated persisted conversation or execution fixture that resumes through the normal direct-agent path.
+- Requirement: direct-agent resume fails in place when the saved endpoint and current config endpoint diverge, without silently rewriting the saved endpoint identity back into conversation state.
+  Implementation files: `server/src/agents/service.ts`, including the saved-versus-current endpoint comparison branch and any rejection-path writer guard that preserves the persisted conversation record.
+  Proof owner: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, with `server/src/test/unit/agents-router-run.test.ts` only if a helper-owned selection branch changes and the integration file can no longer isolate that comparison cleanly.
+- Requirement: the normal flow-owned resume caller rebuilds state from the same persisted child `endpointId` that the existing writer stores today.
   Implementation files: `server/src/flows/service.ts`, including the resume-state rebuild, the persisted child endpoint reader, and the shared execution-helper handoff.
-  Proof owner: `server/src/test/integration/flows.run.resume.identity.test.ts`.
-- Ownership-before-mutation ordering for stale flow replays.
-  Implementation files: `server/src/flows/service.ts`, including `ensureFlowAgentState()`, `ensureFlowChildConversationOwnership()`, the existing child-conversation write path, and the unchanged persisted record that must survive a rejected replay.
-  Proof owner: `server/src/test/integration/flows.run.resume.identity.test.ts`, capturing the pre-existing child conversation state before rejection and asserting it stays unchanged afterward.
+  Proof owner: `server/src/test/integration/flows.run.resume.identity.test.ts`, using a flow-owned resume fixture that already carries persisted child endpoint state.
+- Requirement: stale flow replays reject before any existing child conversation provider/model/`endpointId` mutation runs.
+  Implementation files: `server/src/flows/service.ts`, including `ensureFlowAgentState()`, `ensureFlowChildConversationOwnership()`, `ensureFlowAgentConversation()`, and the existing child-conversation write path.
+  Proof owner: `server/src/test/integration/flows.run.resume.identity.test.ts`, with one combined rejected-replay scenario that captures the pre-existing child record, awaits rejection, and then asserts the persisted child record stayed unchanged afterward.
 
 #### Testing
 
@@ -998,19 +1001,19 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 
 #### Proof Mapping
 
-- Mobile restored-selection after reopening endpoint-backed history.
-  Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/hooks/useChatModel.ts`.
-  Proof owner: `e2e/chat-provider-history.spec.ts`.
-- Mobile fresh-after-history default selection on a new conversation.
-  Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationList.tsx`.
-  Proof owner: `e2e/chat-provider-history.spec.ts`.
-- Mixed restored-history versus fresh-conversation mobile state does not leak a stale hidden selection into the next `/chat` submission.
+- Requirement: reopening endpoint-backed history on mobile shows the correct visible provider/model selection on the active mobile affordance, not only on desktop footer controls.
+  Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and `client/src/hooks/useChatModel.ts`.
+  Proof owner: `e2e/chat-provider-history.spec.ts`, on the mobile history-reopen path and the active mobile top-bar or dialog surface that owns the visible selection.
+- Requirement: starting a fresh conversation after mobile history restore returns the surface to the expected fresh-conversation default instead of keeping a stale restored endpoint selection active.
+  Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and `client/src/components/chat/ConversationList.tsx`.
+  Proof owner: `e2e/chat-provider-history.spec.ts`, in the same history-to-fresh transition that proves the visible default state after restore.
+- Requirement: the mixed mobile restored-history-then-fresh-conversation path does not leak a hidden stale selection into the next `/chat` submission.
   Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the ChatPage-owned provider/model dialog surfaces.
-  Proof owner: `e2e/chat.spec.ts`, using the mobile restored-history-then-fresh-conversation transition before send.
-- Mobile endpoint-backed send path preserves the visible selection and outgoing `endpointId`.
+  Proof owner: `e2e/chat.spec.ts`, using one worker-safe restored-history-then-fresh-conversation scenario with dedicated mocked conversation ids, route handlers, and payload capture.
+- Requirement: the active mobile provider/model dialog path preserves the visible selection and sends the matching `endpointId` in the outgoing `/chat` payload.
   Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, the ChatPage-owned provider/model dialog surfaces, and any minimal selector support on the mobile workspace components.
-  Proof owner: `e2e/chat.spec.ts`.
-- Default wrapper reachability for the mobile endpoint proofs.
+  Proof owner: `e2e/chat.spec.ts`, asserting both the visible mobile selection before send and the outgoing request payload after send.
+- Requirement: the mobile endpoint proofs remain reachable through the repository-supported default wrapper path rather than only through a targeted helper or manual launch route.
   Implementation surface: the repository-supported `npm run test:summary:e2e` path, with compose build/up readiness owned by the existing Task 7 baseline handoff when Playwright cannot launch.
   Proof owner: `Testing` items 1 and 2 in this task, with baseline failures handed back to Task 7 rather than normalized into mobile-product work.
 
@@ -1076,21 +1079,21 @@ For review pass `0000059-20260603T104219Z-90176d8f`, this task is also the one f
 
 #### Proof Mapping
 
-- Final server-side contract for endpoint identity, fallback, persistence, and resume behavior.
+- Requirement: the final server-side contract still covers endpoint identity, `/v1/models` discovery, duplicate handling, fallback ordering, persistence compatibility, saved-endpoint precedence, and resumed fail-in-place behavior on the final story head.
   Implementation files: `server/src/routes/chat.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and the supporting config/discovery seams already changed by Story 59.
-  Proof owner: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, and the wrapper-backed server testing items in this task.
-- Final browser-visible desktop and mobile chat surface contract, including the inline-resolved affordance and endpoint-selection fixes.
+  Proof owner: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, and `Testing` items 1, 3, and 4 in this task.
+- Requirement: the final browser-visible desktop and mobile chat surfaces keep the correct visible provider, model, endpoint, history, and warning state for create mode, resumed history, fresh-after-history reset, and endpoint warning or fallback cases.
   Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`.
-  Proof owner: `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, and the final manual screenshot views named in this task’s `Manual Testing Guidance`.
-- Final documentation and reviewer-closeout contract for the shipped Story 59 behavior.
-  Implementation files: `README.md`, `projectStructure.md`, `codeInfoStatus/pr-summaries/0000059-pr-summary.md`.
-  Proof owner: Subtasks 4, 5, 6, and 12 in this task, plus the final readback in Subtask 19 that confirms those artifacts still describe the same endpoint identity, fallback, resume, and proof contract validated by the wrapper-backed testing items below.
-- Default wrapper and supported-stack reachability for the final story head.
+  Proof owner: `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `Testing` item 6 in this task, and the final manual screenshot views named in this task’s `Manual Testing Guidance`.
+- Requirement: users who do not configure external endpoints still reach the normal supported stack, healthy server routes, and coherent default chat behavior after all Story 59 changes land.
   Implementation surface: the repository-supported build, e2e, compose build, compose up, compose down, and `/health` reachability path for the checked-in main stack.
-  Proof owner: the wrapper-backed `Testing` items in this task, with Task 7 remaining the prerequisite owner for Docker/runtime baseline access when the stack cannot start.
-- Review-cycle revalidation coverage for serious review-created work.
+  Proof owner: `Testing` items 1, 2, 6, 7, 8, and 9 in this task, with Task 7 remaining the prerequisite owner for Docker/runtime baseline access when the stack cannot start.
+- Requirement: final documentation and reviewer-closeout artifacts describe the same shipped endpoint identity, fallback, resume, auth-boundary, and proof contract that the final wrappers validate.
+  Implementation files: `README.md`, `projectStructure.md`, `codeInfoStatus/pr-summaries/0000059-pr-summary.md`.
+  Proof owner: Subtasks 4, 5, 6, and 12 in this task, plus Subtask 19 as the final readback that cross-checks those artifacts against the final proof owners.
+- Requirement: review pass `0000059-20260603T104219Z-90176d8f` is revalidated end to end, with Findings `finding-1`, `finding-2`, and `finding-3` each mapped to a surviving proof owner on the final story head.
   Implementation surface: the current `Code Review Findings` block for `finding-1`, `finding-2`, and `finding-3`.
-  Proof owner: Subtask 19, the e2e and compose testing items in this task, and the final manual screenshot bundle for the re-covered visual surfaces.
+  Proof owner: Subtask 19, `Testing` items 3, 4, 6, 8, and 9 in this task, and the final manual screenshot bundle for the re-covered visual surfaces.
 
 #### Subtasks
 

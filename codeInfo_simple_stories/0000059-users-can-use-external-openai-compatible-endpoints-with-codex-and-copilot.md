@@ -45,14 +45,14 @@ This story extends the existing `Codex` and `Copilot` experience so teams can po
 - Repair the supported Docker and Compose access path that the final browser and runtime proof depends on.
 - Keep this runtime prerequisite separate so later story validation can use the normal wrapper-backed stack.
 
-8. [codeInfo2] - Restore resume endpoint authority and flow ownership guards
+8. [codeInfo2] - Restore Resume Endpoint Authority And Flow Ownership Guards
 - Tighten the resume server and flow seams so saved endpoint identity stays authoritative on resumed work.
 - Add focused proof for saved-endpoint precedence and stale-replay rejection before mutation.
 
-9. [codeInfo2] - Complete mobile endpoint Playwright coverage for the chat surface
+9. [codeInfo2] - Complete Mobile Endpoint Playwright Coverage For The Chat Surface
 - Extend the mobile chat browser proof for restored history, fresh-conversation reset, and endpoint-backed send behavior.
 - Keep the proof on the normal chat surface instead of a one-off manual-only route.
 
-10. [codeInfo2] - Final story validation, documentation, and close-out
+10. [codeInfo2] - Final Story Validation, Documentation, And Close-Out
 - Finish the README, structural traceability, and reviewer summary for the shipped external-endpoint contract.
-- Re-run the final story proof bundle, including the review-created findings block, full browser proof, and Compose-backed runtime validation.
+- Re-run the final story proof bundle, including the review-created findings block, inline review fixes, full browser proof, and Compose-backed runtime validation.

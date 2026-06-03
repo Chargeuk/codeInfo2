@@ -1065,6 +1065,9 @@ For review pass `0000059-20260603T021207Z-a359dc88`, this task is also the one f
 - Final browser-visible desktop and mobile chat surface contract, including the inline-resolved affordance and endpoint-selection fixes.
   Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`.
   Proof owner: `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, and the final manual screenshot views named in this task’s `Manual Testing Guidance`.
+- Final documentation and reviewer-closeout contract for the shipped Story 59 behavior.
+  Implementation files: `README.md`, `projectStructure.md`, `codeInfoStatus/pr-summaries/0000059-pr-summary.md`.
+  Proof owner: Subtasks 4, 5, 6, and 12 in this task, plus the final readback in Subtask 19 that confirms those artifacts still describe the same endpoint identity, fallback, resume, and proof contract validated by the wrapper-backed testing items below.
 - Default wrapper and supported-stack reachability for the final story head.
   Implementation surface: the repository-supported build, e2e, compose build, compose up, compose down, and `/health` reachability path for the checked-in main stack.
   Proof owner: the wrapper-backed `Testing` items in this task, with Task 7 remaining the prerequisite owner for Docker/runtime baseline access when the stack cannot start.

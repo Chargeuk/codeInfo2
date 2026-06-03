@@ -8,7 +8,10 @@ import {
   normalizeServerPath,
 } from './test-summary-server-cucumber-imports.mjs';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 const serverDir = path.join(rootDir, 'server');
 
 test('targeted feature imports keep global support hooks and add matching step files', () => {

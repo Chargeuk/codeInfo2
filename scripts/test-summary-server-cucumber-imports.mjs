@@ -34,7 +34,9 @@ export const deriveTargetedStepImports = (serverDir, features) => {
 };
 
 export const buildCucumberImportArgs = (serverDir, features) => {
-  const normalizedFeatures = features.map((feature) => normalizeServerPath(feature));
+  const normalizedFeatures = features.map((feature) =>
+    normalizeServerPath(feature),
+  );
   const targetedStepImports =
     normalizedFeatures.length > 0
       ? deriveTargetedStepImports(serverDir, normalizedFeatures)

@@ -22,6 +22,7 @@ import {
   resolveCopilotRuntimeAgentFlags,
   resolveLmStudioRuntimeAgentFlags,
 } from '../chat/providerRuntimeFlags.js';
+import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
 import {
   getAdvertisedRepositoryIdentityPaths,
   listIngestedRepositories,
@@ -45,7 +46,6 @@ import {
   type AppendTurnInput,
   type ConversationSummary,
 } from '../mongo/repo.js';
-import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
 import {
   appendWorkingFolderDecisionLog,
   getWorkingFolderClientMessage,

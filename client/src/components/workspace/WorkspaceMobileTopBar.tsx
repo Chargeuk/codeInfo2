@@ -10,6 +10,7 @@ type WorkspaceMobileTopBarProps = {
   onConversationsClick: () => void;
   onNewClick?: () => void;
   newButtonLabel?: string;
+  newButtonDisabled?: boolean;
   onMenuClick: () => void;
 };
 
@@ -19,6 +20,7 @@ export default function WorkspaceMobileTopBar({
   onConversationsClick,
   onNewClick,
   newButtonLabel = 'New conversation',
+  newButtonDisabled = false,
   onMenuClick,
 }: WorkspaceMobileTopBarProps) {
   const [conversationsExpanded, setConversationsExpanded] = useState(false);
@@ -123,6 +125,7 @@ export default function WorkspaceMobileTopBar({
           <IconButton
             aria-label={newButtonLabel}
             onClick={onNewClick}
+            disabled={newButtonDisabled}
             size="small"
             data-testid="workspace-mobile-new-action"
             sx={{ flexShrink: 0, pointerEvents: 'auto' }}

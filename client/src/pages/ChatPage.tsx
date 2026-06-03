@@ -1028,6 +1028,9 @@ export default function ChatPage() {
     nextProvider?: string;
   }) => {
     const resetReason = options?.reason ?? 'new-conversation';
+    if (providerLocked && resetReason === 'new-conversation') {
+      return;
+    }
     if (nextSendContextLocked && resetReason === 'model-change') {
       return;
     }
@@ -2243,6 +2246,7 @@ export default function ChatPage() {
                   iconOnly
                   ariaLabel="Reset chat draft"
                   onClick={() => handleNewConversation()}
+                  disabled={providerLocked}
                   data-testid="chat-new-conversation-trigger"
                 />
               </span>
@@ -2568,6 +2572,7 @@ export default function ChatPage() {
         onConversationsClick={() => setMobileConversationsOpen(true)}
         onNewClick={() => handleNewConversation()}
         newButtonLabel="New conversation"
+        newButtonDisabled={providerLocked}
         onMenuClick={() => setMobileAppMenuOpen(true)}
       />
       <Box

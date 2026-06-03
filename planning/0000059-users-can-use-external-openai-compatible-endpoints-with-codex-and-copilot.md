@@ -901,7 +901,7 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 
 - Pinned or resumed direct-agent execution prefers the saved endpoint identity over mutable current config state and fails in place when the saved endpoint and current config diverge.
 - Flow-owned resume paths gate child-conversation writes on execution ownership first, so stale resumes cannot rewrite provider, model, or `endpointId` before rejection.
-- Targeted server proof covers both the saved-endpoint precedence seam and the pre-mutation ownership seam on the real resume surfaces.
+- Targeted server proof covers both the saved-endpoint precedence seam and the pre-mutation ownership seam on the real resume surfaces, with one focused proof home for the direct-agent resume path and one focused proof home for the flow-owned resume path.
 
 #### Addresses Findings
 
@@ -915,17 +915,19 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 
 #### Subtasks
 
-1. [ ] Inspect `server/src/agents/service.ts` and `server/src/flows/service.ts` on the persisted resume seams named by Findings `finding-2` and `finding-7`, then pin down where current config endpoint state or child-conversation writes still outrank saved execution identity. Purpose: keep the repair constrained to the exact saved-endpoint and ownership seams the review endorsed instead of widening into unrelated runtime cleanup.
-2. [ ] Update `server/src/agents/service.ts` so pinned or resumed direct-agent execution prefers the saved `pinnedEndpointId` over the current config endpoint, fails in place when the saved endpoint and current config disagree, and does not silently rewrite saved endpoint identity during resume. Preserve the approved runtime contract rather than adopting any broader external-review remedy that would change user-visible behavior beyond Story 59.
-3. [ ] Update `server/src/flows/service.ts` so flow-owned resume execution passes saved endpoint authority through the shared execution helper and performs the child ownership gate before any provider/model/endpoint mutation can rewrite an existing child conversation. Purpose: restore the persisted execution-ownership precondition instead of allowing stale replays to mutate live child state before rejection.
-4. [ ] Extend the nearest focused server proof homes in `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and any adjacent flow ownership proof seam needed by the implementation so the saved-endpoint precedence and pre-mutation ownership gate are both covered where the real resume paths execute.
+1. [ ] Inspect the pinned-resume branch in `server/src/agents/service.ts` and the flow resume helpers in `server/src/flows/service.ts`, including the current `pinnedEndpointId` precedence branch and the `ensureFlowAgentState()` / `ensureFlowChildConversationOwnership()` ordering seam. Stop once you can point to one concrete saved-endpoint precedence branch and one concrete pre-ownership mutation branch that must change, or confirm those two seams already moved and a different adjacent branch now owns the defect.
+2. [ ] Update the direct-agent resume helper in `server/src/agents/service.ts` so a saved `pinnedEndpointId` remains authoritative on pinned or resumed execution, the helper fails in place when the saved endpoint and the current config endpoint diverge, and resumed execution never silently rewrites the saved endpoint identity back into conversation state. Preserve the approved fail-in-place contract rather than adopting any broader external-review remedy that would change user-visible behavior beyond Story 59.
+3. [ ] Update the flow-owned runtime resolution seam in `server/src/flows/service.ts` so saved child endpoint identity stays authoritative when resume state is rebuilt and passed into the shared execution helper. Keep the flow-owned path aligned with the direct-agent saved-endpoint contract instead of letting current config endpoint state retake ownership during resume.
+4. [ ] Reorder the flow child-conversation write path in `server/src/flows/service.ts` so `ensureFlowChildConversationOwnership()` runs before any persisted provider/model/`endpointId` mutation for an existing child conversation. The stopping rule for this subtask is explicit: a stale execution must be rejected before `ensureFlowAgentConversation()` or any in-memory resume-state update can rewrite the child conversation’s runtime identity.
+5. [ ] Extend the focused proof homes that already own these seams: add a direct-agent saved-endpoint precedence regression in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, add the paired flow resume precedence and stale-replay ownership regressions in `server/src/test/integration/flows.run.resume.identity.test.ts`, and update `server/src/test/unit/agents-router-run.test.ts` or another adjacent unit seam only when a smaller helper-level assertion is needed to keep the implementation diagnosis local. Do not widen proof into unrelated provider-fallback stories that Task 6 already closed.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired agent and flow resume seams compile cleanly before broader proof.
-2. [ ] Run `npm run test:summary:server:unit` to prove the saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper.
-3. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-4. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+1. [ ] Run `npm run build:summary:server` to confirm the repaired agent and flow resume seams compile cleanly before proof.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` to prove the saved-endpoint precedence regression on the direct-agent resume path through the repository’s supported server wrapper.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove both the flow-owned saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper.
+4. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Implementation Notes
 
@@ -947,7 +949,7 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 
 - Endpoint-backed restored-selection coverage runs through the mobile chat affordances as well as the desktop footer controls.
 - One endpoint-backed send-path proof exercises the mobile provider/model dialog path before `/chat` launch and confirms `endpointId` remains in the outgoing payload.
-- The browser-proof titles and assertions match the actual mobile endpoint-backed surfaces instead of implying desktop-only coverage.
+- The browser-proof titles and assertions match the actual mobile endpoint-backed surfaces instead of implying desktop-only coverage, and each new assertion names the specific mobile affordance it is re-covering.
 
 #### Addresses Findings
 
@@ -959,14 +961,15 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 
 #### Subtasks
 
-1. [ ] Inspect `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the mobile picker/dialog owners in `client/src/pages/ChatPage.tsx` to pin down the exact endpoint-backed mobile seams still missing from browser proof. Purpose: keep the repair bounded to the endorsed mobile gap instead of reopening unrelated desktop coverage.
-2. [ ] Update `e2e/chat-provider-history.spec.ts` so the restored endpoint-backed selection assertions also run through the mobile top-bar, overlay, and dialog path while preserving the existing desktop coverage and endpoint-aware label contract already owned by `client/src/components/workspace/composer/composerFormatting.ts`.
-3. [ ] Update the selected endpoint-backed send-path proof in `e2e/chat.spec.ts` or the nearest existing chat send spec so the mobile provider/model dialog path is exercised before send and the outgoing `/chat` payload still proves `endpointId` propagation through `client/src/hooks/useChatStream.ts`.
-4. [ ] Keep any proof-only helper, fixture, or label changes aligned with the already approved endpoint-backed contract and record any required support-file updates in implementation notes after completion, without converting this proof gap into a broader product cleanup task.
+1. [ ] Inspect the existing desktop endpoint-backed scenarios in `e2e/chat-provider-history.spec.ts` and `e2e/chat.spec.ts`, then map each one to the specific mobile affordance that should mirror it in `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the ChatPage-owned provider/model dialogs. Stop once you can name which mobile affordance owns restored selection after history reopen, new-conversation reset after history reopen, and endpoint-backed send before `/chat` launch.
+2. [ ] Update `e2e/chat-provider-history.spec.ts` so the mobile path proves the same endpoint-backed restored-selection contract as the desktop path: open the mobile conversations affordance, restore the endpoint-backed history conversation, assert the visible provider/model selection through the mobile top-bar or dialog surface, then start a fresh conversation and confirm the expected endpoint-backed default selection still appears on the mobile surface.
+3. [ ] Update the endpoint-backed send-path proof in `e2e/chat.spec.ts` so it uses the mobile provider/model dialog path before send, confirms the visible selected provider/model on that mobile surface, and then asserts the outgoing `/chat` payload still carries the expected `endpointId` through `client/src/hooks/useChatStream.ts`.
+4. [ ] Add or refine only the smallest proof-support selectors or helper hooks needed to make those mobile assertions stable, keeping them aligned with the existing chat workspace behavior instead of introducing test-only product logic. If a helper or selector change is needed, keep it on the existing mobile workspace surfaces rather than creating a parallel proof-only UI seam.
+5. [ ] Keep any proof-only fixture, route-stubbing, or label updates aligned with the already approved endpoint-backed contract and record any support-file changes in implementation notes after completion, without converting this proof gap into a broader product cleanup task.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` to prove the mobile restored-selection coverage through the repository’s supported e2e wrapper.
+1. [ ] Run `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` to prove the mobile restored-selection and fresh-after-history endpoint coverage through the repository’s supported e2e wrapper.
 2. [ ] Run `npm run test:summary:e2e -- --file e2e/chat.spec.ts` to prove the mobile endpoint-backed send-path coverage through the repository’s supported e2e wrapper.
 3. [ ] Run `npm run lint` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [ ] Run `npm run format:check` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.

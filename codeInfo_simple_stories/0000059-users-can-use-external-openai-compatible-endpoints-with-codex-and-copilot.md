@@ -17,11 +17,11 @@ This story extends the existing `Codex` and `Copilot` experience so teams can po
 
 # Tasks
 
-1. [codeInfo2] - Upgrade the Codex and Copilot SDK baseline before feature work
+1. [codeInfo2] - Upgrade Codex and Copilot SDK baselines before story work
 - Update the package versions and version guards for the Codex and Copilot runtime seams.
 - Re-check the existing harness proof so endpoint work starts from a current supported baseline.
 
-2. [codeInfo2] - Parse and normalize external endpoint configuration
+2. [codeInfo2] - Parse and normalize external endpoint config inputs
 - Add the shared parser for `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` and `codeinfo_openai_endpoint`.
 - Extend validation so malformed, blank, and duplicate endpoint entries are handled consistently.
 
@@ -55,4 +55,4 @@ This story extends the existing `Codex` and `Copilot` experience so teams can po
 
 10. [codeInfo2] - Final story validation, documentation, and close-out
 - Finish the README, structural traceability, and reviewer summary for the shipped external-endpoint contract.
-- Re-run the final story proof bundle, including the review-created findings block and the final browser and Compose-backed validation steps.
+- Re-run the final story proof bundle, including the review-created findings block, full browser proof, and Compose-backed runtime validation.

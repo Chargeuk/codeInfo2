@@ -891,7 +891,7 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 - Task Dependencies: `Task 6`
 - Task Status: `__to_do__`
 - Git Commits:
-- Notes: This review-created task owns the serious resume-authority defects from review pass `0000059-20260603T021207Z-a359dc88` without widening Story 59 beyond restoring the approved saved-endpoint and ownership behavior.
+- Notes: This review-created task owns the serious resume-authority defects from review pass `0000059-20260603T021207Z-a359dc88` without widening Story 59 beyond restoring the approved saved-endpoint and ownership behavior. Highest-risk invariant: the saved endpoint producer (`flags.endpointId` and flow child endpoint state) must remain authoritative all the way through the normal resume path, and stale flow replays must fail before any persisted child-conversation mutation occurs.
 
 #### Overview
 
@@ -900,7 +900,9 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 #### Task Exit Criteria
 
 - Pinned or resumed direct-agent execution prefers the saved endpoint identity over mutable current config state and fails in place when the saved endpoint and current config diverge.
+- The normal direct-agent and flow-owned resume callers still surface the saved endpoint contract through the same persisted producer-consumer chain that writes `flags.endpointId` and flow child endpoint state today; the repair must not depend on a helper-only path that the default callers never use.
 - Flow-owned resume paths gate child-conversation writes on execution ownership first, so stale resumes cannot rewrite provider, model, or `endpointId` before rejection.
+- A stale flow replay that is rejected for ownership mismatch leaves the previously stored child conversation provider, model, and `endpointId` unchanged after the failure path completes.
 - Targeted server proof covers both the saved-endpoint precedence seam and the pre-mutation ownership seam on the real resume surfaces, with one focused proof home for the direct-agent resume path and one focused proof home for the flow-owned resume path.
 
 #### Addresses Findings
@@ -919,15 +921,16 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 2. [ ] Update the direct-agent resume helper in `server/src/agents/service.ts` so a saved `pinnedEndpointId` remains authoritative on pinned or resumed execution, the helper fails in place when the saved endpoint and the current config endpoint diverge, and resumed execution never silently rewrites the saved endpoint identity back into conversation state. Preserve the approved fail-in-place contract rather than adopting any broader external-review remedy that would change user-visible behavior beyond Story 59.
 3. [ ] Update the flow-owned runtime resolution seam in `server/src/flows/service.ts` so saved child endpoint identity stays authoritative when resume state is rebuilt and passed into the shared execution helper. Keep the flow-owned path aligned with the direct-agent saved-endpoint contract instead of letting current config endpoint state retake ownership during resume.
 4. [ ] Reorder the flow child-conversation write path in `server/src/flows/service.ts` so `ensureFlowChildConversationOwnership()` runs before any persisted provider/model/`endpointId` mutation for an existing child conversation. The stopping rule for this subtask is explicit: a stale execution must be rejected before `ensureFlowAgentConversation()` or any in-memory resume-state update can rewrite the child conversation’s runtime identity.
-5. [ ] Extend the focused proof homes that already own these seams: add a direct-agent saved-endpoint precedence regression in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, add the paired flow resume precedence and stale-replay ownership regressions in `server/src/test/integration/flows.run.resume.identity.test.ts`, and update `server/src/test/unit/agents-router-run.test.ts` or another adjacent unit seam only when a smaller helper-level assertion is needed to keep the implementation diagnosis local. Do not widen proof into unrelated provider-fallback stories that Task 6 already closed.
+5. [ ] Extend the focused proof homes that already own these seams: add a direct-agent saved-endpoint precedence regression in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, add a flow resume saved-endpoint precedence regression in `server/src/test/integration/flows.run.resume.identity.test.ts`, and add a stale-replay ownership regression that captures the pre-existing child conversation state before the rejected replay and asserts that provider/model/`endpointId` remain unchanged afterward. Update `server/src/test/unit/agents-router-run.test.ts` or another adjacent unit seam only when a smaller helper-level assertion is needed to keep the implementation diagnosis local. Do not widen proof into unrelated provider-fallback stories that Task 6 already closed.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` to confirm the repaired agent and flow resume seams compile cleanly before proof.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` to prove the saved-endpoint precedence regression on the direct-agent resume path through the repository’s supported server wrapper.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove both the flow-owned saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper.
-4. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/agents-router-run.test.ts` only if the implementation adds or changes helper-level selection behavior that needs a narrower proof home than the two integration files above.
+5. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Implementation Notes
 
@@ -939,7 +942,7 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 - Task Dependencies: `Task 7`, `Task 8`
 - Task Status: `__to_do__`
 - Git Commits:
-- Notes: This review-created task owns the remaining browser-proof gap from review pass `0000059-20260603T021207Z-a359dc88` and must extend existing endpoint-backed mock-chat coverage to the mobile selector and dialog surfaces without changing approved chat behavior.
+- Notes: This review-created task owns the remaining browser-proof gap from review pass `0000059-20260603T021207Z-a359dc88` and must extend existing endpoint-backed mock-chat coverage to the mobile selector and dialog surfaces without changing approved chat behavior. Highest-risk invariant: the mobile proofs must reach the normal endpoint-backed `/chat` launcher through the repository’s supported e2e wrapper path, while any compose or Docker startup failure before Playwright launches remains shared baseline ownership on Task 7 rather than a mobile UI regression.
 
 #### Overview
 
@@ -950,6 +953,7 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 - Endpoint-backed restored-selection coverage runs through the mobile chat affordances as well as the desktop footer controls.
 - One endpoint-backed send-path proof exercises the mobile provider/model dialog path before `/chat` launch and confirms `endpointId` remains in the outgoing payload.
 - The browser-proof titles and assertions match the actual mobile endpoint-backed surfaces instead of implying desktop-only coverage, and each new assertion names the specific mobile affordance it is re-covering.
+- The mobile restored-selection and send-path assertions run through the repository’s supported `npm run test:summary:e2e` path rather than only a helper-level or manually injected route.
 
 #### Addresses Findings
 
@@ -965,7 +969,7 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 2. [ ] Update `e2e/chat-provider-history.spec.ts` so the mobile path proves the same endpoint-backed restored-selection contract as the desktop path: open the mobile conversations affordance, restore the endpoint-backed history conversation, assert the visible provider/model selection through the mobile top-bar or dialog surface, then start a fresh conversation and confirm the expected endpoint-backed default selection still appears on the mobile surface.
 3. [ ] Update the endpoint-backed send-path proof in `e2e/chat.spec.ts` so it uses the mobile provider/model dialog path before send, confirms the visible selected provider/model on that mobile surface, and then asserts the outgoing `/chat` payload still carries the expected `endpointId` through `client/src/hooks/useChatStream.ts`.
 4. [ ] Add or refine only the smallest proof-support selectors or helper hooks needed to make those mobile assertions stable, keeping them aligned with the existing chat workspace behavior instead of introducing test-only product logic. If a helper or selector change is needed, keep it on the existing mobile workspace surfaces rather than creating a parallel proof-only UI seam.
-5. [ ] Keep any proof-only fixture, route-stubbing, or label updates aligned with the already approved endpoint-backed contract and record any support-file changes in implementation notes after completion, without converting this proof gap into a broader product cleanup task.
+5. [ ] Keep any proof-only fixture, route-stubbing, or label updates aligned with the already approved endpoint-backed contract and record any support-file changes in implementation notes after completion, without converting this proof gap into a broader product cleanup task. If the targeted e2e wrapper fails before Playwright launches because compose build/up cannot reach Docker or the main stack never becomes ready, stop the task-owned diagnosis there and hand the failure back to Task 7’s runtime/baseline owner instead of broadening this task into wrapper repair.
 
 #### Testing
 
@@ -973,6 +977,12 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 2. [ ] Run `npm run test:summary:e2e -- --file e2e/chat.spec.ts` to prove the mobile endpoint-backed send-path coverage through the repository’s supported e2e wrapper.
 3. [ ] Run `npm run lint` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [ ] Run `npm run format:check` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+If later manual validation is useful after the automated proof lands, use the checked-in main stack rather than `codeinfo:local`: start from `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down`. Those wrappers load `server/.env` and `server/.env.local`, and the supported human-proof surfaces remain `http://localhost:5001` for the client and `http://localhost:5010` for the server, with health at `http://localhost:5010/health`.
+
+For retained mobile proof artifacts, capture any Playwright MCP screenshots to a relative staging path first so they land under `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host, then transfer only the final retained files into `codeInfoTmp/manual-testing/0000059/9/`. If runtime handoff details are needed for the active artifact source, fallback runtime, or destination contract, inspect the current runtime handoff JSON by meaning rather than by exact property names. If screenshot transfer is still blocked, record that limitation honestly in the retained notes instead of treating it as a reason to halt the proof loop.
 
 #### Implementation Notes
 

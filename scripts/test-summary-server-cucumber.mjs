@@ -178,7 +178,12 @@ const cucumberImportArgs =
         'src/test/steps/**/*.ts',
       ];
 
-const cucumberArgs = [...featureArgs, ...cucumberImportArgs, '--tags', tagsExpression];
+const cucumberArgs = [
+  ...featureArgs,
+  ...cucumberImportArgs,
+  '--tags',
+  tagsExpression,
+];
 if (options.scenario) {
   cucumberArgs.push('--name', options.scenario);
 }

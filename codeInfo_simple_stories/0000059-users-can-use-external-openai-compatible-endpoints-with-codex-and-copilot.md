@@ -42,17 +42,17 @@ This story extends the existing `Codex` and `Copilot` experience so teams can po
 - Preserve fail-in-place behavior for pinned or resumed chat, agent, and flow executions.
 
 7. [codeInfo2] - Restore Docker-backed proof runtime access
-- Repair the supported Docker and Compose access path that the final browser and runtime proof depends on.
-- Keep this runtime prerequisite separate so later story validation can use the normal wrapper-backed stack.
+- Restore one supported Docker access path for the current session so the repository’s main Compose summary build can reach the daemon.
+- Keep this runtime prerequisite separate from product work so later story validation can reuse the normal wrapper-backed stack honestly.
 
 8. [codeInfo2] - Restore Resume Endpoint Authority And Flow Ownership Guards
-- Tighten the resume server and flow seams so saved endpoint identity stays authoritative on resumed work.
-- Add focused proof for saved-endpoint precedence and stale-replay rejection before mutation.
+- Tighten the direct-agent and flow resume seams so saved endpoint identity stays authoritative on resumed work.
+- Add focused server proof for saved-endpoint precedence and for stale flow replay rejection before any child-conversation mutation.
 
 9. [codeInfo2] - Complete Mobile Endpoint Playwright Coverage For The Chat Surface
-- Extend the mobile chat browser proof for restored history, fresh-conversation reset, and endpoint-backed send behavior.
-- Keep the proof on the normal chat surface instead of a one-off manual-only route.
+- Extend the mobile chat browser proof for restored history, fresh-conversation reset, and endpoint-backed send behavior on the top bar, overlay, and picker dialog surfaces.
+- Prove stale restored endpoint state does not leak into the next `/chat` submission unless the user explicitly reselects an endpoint-backed choice.
 
 10. [codeInfo2] - Final Story Validation, Documentation, And Close-Out
 - Finish the README, structural traceability, and reviewer summary for the shipped external-endpoint contract.
-- Re-run the final story proof bundle, including the current review-created findings block, full browser proof, and Compose-backed runtime validation.
+- Re-run the final story proof bundle for the current review-created findings block, including server, client, browser, and main Compose-backed runtime validation.

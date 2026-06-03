@@ -13,7 +13,7 @@
 
 # Description
 
-This story extends the existing `Codex` and `Copilot` experience so teams can point chat and agent flows at external OpenAI-compatible `/v1` endpoints without learning provider-native wiring. It adds a simple repository-owned configuration contract, surfaces compatible external models in chat, preserves saved conversation identity, and keeps fallback behavior clear so self-hosted or remote model gateways fit into the current product flow instead of replacing it.
+This story extends the existing `Codex` and `Copilot` experience so teams can point chat and agent flows at external OpenAI-compatible `/v1` endpoints without learning provider-native wiring. It adds a simple repository-owned configuration contract, surfaces compatible external models in chat, preserves saved conversation identity, keeps fallback behavior clear, and closes the remaining resume and mobile-proof gaps so self-hosted or remote model gateways fit into the current product flow instead of replacing it.
 
 # Tasks
 
@@ -46,12 +46,12 @@ This story extends the existing `Codex` and `Copilot` experience so teams can po
 - Keep this runtime prerequisite separate from product work so later story validation can reuse the normal wrapper-backed stack honestly.
 
 8. [codeInfo2] - Restore Resume Endpoint Authority And Flow Ownership Guards
-- Tighten the direct-agent and flow resume seams so saved endpoint identity stays authoritative on resumed work.
+- Tighten the direct-agent resume branch and the flow-owned resume reader so saved endpoint identity stays authoritative on resumed work.
 - Add focused server proof for saved-endpoint precedence and for stale flow replay rejection before any child-conversation mutation.
 
 9. [codeInfo2] - Complete Mobile Endpoint Playwright Coverage For The Chat Surface
 - Extend the mobile chat browser proof for restored history, fresh-conversation reset, and endpoint-backed send behavior on the top bar, overlay, and picker dialog surfaces.
-- Prove stale restored endpoint state does not leak into the next `/chat` submission unless the user explicitly reselects an endpoint-backed choice.
+- Prove the mixed restored-history-then-fresh mobile path does not leak stale endpoint state into the next `/chat` submission unless the user explicitly reselects an endpoint-backed choice.
 
 10. [codeInfo2] - Final Story Validation, Documentation, And Close-Out
 - Finish the README, structural traceability, and reviewer summary for the shipped external-endpoint contract.

@@ -60,6 +60,19 @@ test('rejects fragment-bearing variants even when the base URL is otherwise vali
   );
 });
 
+test('rejects credential-bearing endpoint URLs even when the base URL is otherwise valid', () => {
+  assert.throws(
+    () =>
+      parseOpenAiCompatEndpointConfig(
+        'https://user:secret@example.com/v1|responses',
+        {
+          pathLabel: 'codeinfo_openai_endpoint',
+        },
+      ),
+    /RUNTIME_CONFIG_INVALID: codeinfo_openai_endpoint: credentials are not allowed on OpenAI-compatible endpoint URLs/,
+  );
+});
+
 test('rejects unsupported capability names', () => {
   assert.throws(
     () =>

@@ -83,6 +83,13 @@ function normalizeBaseUrl(value: string, pathLabel: string): string {
     );
   }
 
+  if (parsed.username.length > 0 || parsed.password.length > 0) {
+    throw makeInvalidEndpointError(
+      pathLabel,
+      'credentials are not allowed on OpenAI-compatible endpoint URLs',
+    );
+  }
+
   if (!/\/v1\/?$/.test(parsed.pathname)) {
     throw makeInvalidEndpointError(
       pathLabel,

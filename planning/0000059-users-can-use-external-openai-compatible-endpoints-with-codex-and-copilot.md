@@ -1053,6 +1053,10 @@ For review pass `0000059-20260603T021207Z-a359dc88`, this task is also the one f
 - Review-created tasks revalidated here: `Task 8`, `Task 9`
 - Inline minor findings revalidated here: `finding-1`, `finding-3`, `finding-4`, `finding-6`, `finding-8`
 
+#### Affected Repositories
+
+- `Current Repository` - all review-created server, client, Playwright, and compose-backed regression proof for Story `0000059` remains in this repository; no additional repository proof is required for the current review-created findings block.
+
 #### Proof Mapping
 
 - Final server-side contract for endpoint identity, fallback, persistence, and resume behavior.
@@ -1094,7 +1098,7 @@ For review pass `0000059-20260603T021207Z-a359dc88`, this task is also the one f
 
 1. [x] Run `npm run build:summary:server` to confirm the final server parser, discovery, runtime translation, persistence, validator, and fallback surfaces compile cleanly before broader proof.
 2. [x] Run `npm run build:summary:client` to confirm the final chat picker, restored-selection, and endpoint-aware payload surfaces compile cleanly on the client before browser proof.
-3. [x] Run `npm run test:summary:server:unit` to prove the task-owned server unit and `node:test` integration files from Tasks 1 through 6, including parser, discovery, validator, persistence, runtime translation, fallback, and resumed fail-in-place behavior.
+3. [x] Run `npm run test:summary:server:unit` to prove the task-owned server unit and `node:test` integration files from Tasks 1 through 6 plus the final review-created server proof homes in `server/src/test/integration/agents-run-client-conversation-id.test.ts` and `server/src/test/integration/flows.run.resume.identity.test.ts`, covering parser, discovery, validator, persistence, runtime translation, fallback, saved-endpoint precedence, stale-replay pre-mutation ordering, and resumed fail-in-place behavior.
 4. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature --feature server/src/test/features/chat_stream.feature` to prove the task-owned feature-level contract in `server/src/test/features/chat_models.feature` and `server/src/test/features/chat_stream.feature`, along with their step files, through the repository’s supported targeted Cucumber wrapper path. Purpose: keep Story 59 close-out ownership on the chat feature seam that this story actually changed, instead of blocking final validation on unrelated ingest baseline failures already proven to sit outside the task-owned files.
 5. [x] Run `npm run test:summary:client` to prove the task-owned client unit files for picker identity, stale-state exclusion, restored endpoint identity, and endpoint-aware send payload behavior.
 6. [ ] Run `npm run test:summary:e2e` to prove the task-owned browser-visible chat flows in `e2e/chat-provider-history.spec.ts` and the selected chat send spec updated for this story, using the repository’s supported mock-chat Playwright workflow rather than a live-provider dependency.

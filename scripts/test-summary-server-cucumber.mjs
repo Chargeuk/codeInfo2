@@ -8,7 +8,6 @@
 //   --feature <path>   repeatable; run only selected feature files.
 //   --scenario <expr>  forwarded to cucumber --name.
 
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +16,10 @@ import {
   createSummaryWrapperProtocol,
   runLoggedCommand,
 } from './summary-wrapper-protocol.mjs';
+import {
+  buildCucumberImportArgs,
+  normalizeServerPath,
+} from './test-summary-server-cucumber-imports.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -79,33 +82,6 @@ for (let i = 0; i < args.length; i += 1) {
   process.exit(1);
 }
 
-const normalizeServerPath = (value) => {
-  if (path.isAbsolute(value)) return value;
-  const normalized = value.replace(/\\/g, '/');
-  const withoutDotPrefix = normalized.startsWith('./')
-    ? normalized.slice(2)
-    : normalized;
-  if (withoutDotPrefix.startsWith('server/')) {
-    return withoutDotPrefix.slice('server/'.length);
-  }
-  return withoutDotPrefix;
-};
-
-const deriveTargetedStepImports = (features) => {
-  const stepImports = [];
-
-  for (const featurePath of features) {
-    const match = featurePath.match(/^src\/test\/features\/(.+)\.feature$/u);
-    if (!match) return [];
-
-    const candidate = `src/test/steps/${match[1]}.steps.ts`;
-    if (!fs.existsSync(path.join(serverDir, candidate))) return [];
-    stepImports.push(candidate);
-  }
-
-  return [...new Set(stepImports)];
-};
-
 const parseCucumberScenarioCounts = (output) => {
   let scenariosTotal = 0;
   let scenariosPassed = 0;
@@ -160,23 +136,11 @@ const featureArgs =
   options.features.length > 0
     ? options.features.map((file) => normalizeServerPath(file))
     : ['src/test/features/**/*.feature'];
-const targetedStepImports =
-  options.features.length > 0 ? deriveTargetedStepImports(featureArgs) : [];
 const tagsExpression = options.tags
   ? `(${options.tags}) and (not @skip)`
   : 'not @skip';
 
-const cucumberImportArgs =
-  targetedStepImports.length > 0
-    ? targetedStepImports.flatMap((file) => ['--import', file])
-    : [
-        '--import',
-        'src/test/support/chromaContainer.ts',
-        '--import',
-        'src/test/support/mongoContainer.ts',
-        '--import',
-        'src/test/steps/**/*.ts',
-      ];
+const cucumberImportArgs = buildCucumberImportArgs(serverDir, featureArgs);
 
 const cucumberArgs = [
   ...featureArgs,

@@ -939,12 +939,11 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired agent and flow resume seams compile cleanly before proof.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` to prove the saved-endpoint precedence regression on the direct-agent resume path through the repository’s supported server wrapper.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove both the flow-owned saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/agents-router-run.test.ts` only if the implementation adds or changes helper-level selection behavior that needs a narrower proof home than the two integration files above.
-5. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-6. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` to prove the saved-endpoint precedence regression on the direct-agent resume path through the repository’s supported server wrapper. Let Task 10 own the broader final server build and full regression pass for the review-created findings block.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove both the flow-owned saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper. Let Task 10 own the broader final server build and full regression pass for the review-created findings block.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/agents-router-run.test.ts` only if the implementation adds or changes helper-level selection behavior that needs a narrower proof home than the two integration files above.
+4. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Implementation Notes
 
@@ -1006,8 +1005,8 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` to prove the mobile restored-selection and fresh-after-history endpoint coverage through the repository’s supported e2e wrapper.
-2. [ ] Run `npm run test:summary:e2e -- --file e2e/chat.spec.ts` to prove the mobile endpoint-backed send-path coverage through the repository’s supported e2e wrapper.
+1. [ ] Run `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` to prove the mobile restored-selection and fresh-after-history endpoint coverage through the repository’s supported e2e wrapper. Let Task 10 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
+2. [ ] Run `npm run test:summary:e2e -- --file e2e/chat.spec.ts` to prove the mobile endpoint-backed send-path coverage through the repository’s supported e2e wrapper. Let Task 10 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
 3. [ ] Run `npm run lint` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [ ] Run `npm run format:check` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 

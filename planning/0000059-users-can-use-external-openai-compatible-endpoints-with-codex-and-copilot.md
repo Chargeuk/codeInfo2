@@ -882,8 +882,8 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 
 ## Code Review Findings
 
-- Review pass: `0000059-20260603T072205Z-01f354af`
-- Review cycle: `0000059-rc-20260603T081912Z-3a5c696e`
+- Review pass: `0000059-20260603T104219Z-90176d8f`
+- Review cycle: `0000059-rc-20260603T112617Z-90176d8f`
 - Comparison context: local `HEAD` versus resolved base `origin/main@ba38bc6acbf87d487841b2e912a41fce3233414d` from the stored review handoff, with remote fetch status `success`.
 - No inline-resolved minor findings are recorded for this active review cycle.
 - Remaining task-up findings encoded below: `finding-1`, `finding-2`, and `finding-3`.
@@ -894,7 +894,7 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 - Task Dependencies: `Task 6`
 - Task Status: `__to_do__`
 - Git Commits:
-- Notes: This review-created task owns the serious resume-authority defects from review pass `0000059-20260603T072205Z-01f354af` without widening Story 59 beyond restoring the approved saved-endpoint and ownership behavior. Highest-risk invariant: the saved endpoint producer (`flags.endpointId` and flow child endpoint state) must remain authoritative all the way through the normal resume path, and stale flow replays must fail before any persisted child-conversation mutation occurs.
+- Notes: This review-created task owns the serious resume-authority defects from review pass `0000059-20260603T104219Z-90176d8f` without widening Story 59 beyond restoring the approved saved-endpoint and ownership behavior. Highest-risk invariant: the saved endpoint producer (`flags.endpointId` and flow child endpoint state) must remain authoritative all the way through the normal resume path, and stale flow replays must fail before any persisted child-conversation mutation occurs.
 
 #### Overview
 
@@ -957,7 +957,7 @@ Repair the persisted-identity and replay-ownership seams that still let resumed 
 - Task Dependencies: `Task 7`, `Task 8`
 - Task Status: `__to_do__`
 - Git Commits:
-- Notes: This review-created task owns the remaining browser-proof gap from review pass `0000059-20260603T072205Z-01f354af` and must extend existing endpoint-backed mock-chat coverage to the mobile selector and dialog surfaces without changing approved chat behavior. Highest-risk invariant: the mobile proofs must reach the normal endpoint-backed `/chat` launcher through the repository’s supported e2e wrapper path, while any compose or Docker startup failure before Playwright launches remains shared baseline ownership on Task 7 rather than a mobile UI regression.
+- Notes: This review-created task owns the remaining browser-proof gap from review pass `0000059-20260603T104219Z-90176d8f` and must extend existing endpoint-backed mock-chat coverage to the mobile selector and dialog surfaces without changing approved chat behavior. Highest-risk invariant: the mobile proofs must reach the normal endpoint-backed `/chat` launcher through the repository’s supported e2e wrapper path, while any compose or Docker startup failure before Playwright launches remains shared baseline ownership on Task 7 rather than a mobile UI regression.
 
 #### Overview
 
@@ -1028,19 +1028,19 @@ For retained mobile proof artifacts, capture any Playwright MCP screenshots to a
 - Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`, `Task 7`, `Task 8`, `Task 9`
 - Task Status: `__to_do__`
 - Git Commits:
-- Notes: This final validation task now owns the shared final revalidation pass for review cycle `0000059-rc-20260603T081912Z-3a5c696e`, including the serious review-created work in Tasks 8 and 9 for review pass `0000059-20260603T072205Z-01f354af`. It still depends on Task 7's Docker-access runtime handoff because the remaining automated proof runs through the repo's Docker-backed wrappers.
+- Notes: This final validation task now owns the shared final revalidation pass for review cycle `0000059-rc-20260603T112617Z-90176d8f`, including the serious review-created work in Tasks 8 and 9 for review pass `0000059-20260603T104219Z-90176d8f`. It still depends on Task 7's Docker-access runtime handoff because the remaining automated proof runs through the repo's Docker-backed wrappers.
 
 #### Overview
 
 Validate the full story across the repository’s wrapper-first proof path, then update the durable repo documentation and reviewer summary artifacts that changed because of this feature. This task also packages the manual-proof guidance the later manual testing agent will need for the main stack, external endpoint setup, auth-skip boundaries, and artifact locations.
-For review pass `0000059-20260603T072205Z-01f354af`, this task is also the one final revalidation owner for Findings `finding-1`, `finding-2`, and `finding-3`. The browser-visible close-out seam for this task is the chat workspace in `client/src/pages/ChatPage.tsx`: the provider combobox, endpoint-aware model combobox, conversation-history rehydration, and warning surfaces must be validated from the supported runtime instead of inferred only from lower-level tests or transcript text.
+For review pass `0000059-20260603T104219Z-90176d8f`, this task is also the one final revalidation owner for Findings `finding-1`, `finding-2`, and `finding-3`. The browser-visible close-out seam for this task is the chat workspace in `client/src/pages/ChatPage.tsx`: the provider combobox, endpoint-aware model combobox, conversation-history rehydration, and warning surfaces must be validated from the supported runtime instead of inferred only from lower-level tests or transcript text.
 
 #### Task Exit Criteria
 
 - Every in-scope Acceptance Criterion is mapped to final automated proof, and the final runnable stack still behaves coherently for users who do not configure external endpoints.
 - README, structural traceability, and the reviewer-facing close-out summary all describe the final shipped contract rather than the pre-story behavior.
 - The final desktop and mobile chat surfaces keep the correct visible provider, model, and endpoint state for create mode, resumed history, and endpoint warning or fallback cases, with Task 10 proof artifacts tied to those exact UI seams.
-- Review pass `0000059-20260603T072205Z-01f354af` is revalidated end to end: Tasks 8 and 9 land cleanly, and Findings `finding-1`, `finding-2`, and `finding-3` are covered by final wrapper-first proof on the final story head.
+- Review pass `0000059-20260603T104219Z-90176d8f` is revalidated end to end: Tasks 8 and 9 land cleanly, and Findings `finding-1`, `finding-2`, and `finding-3` are covered by final wrapper-first proof on the final story head.
 
 #### Documentation Locations
 
@@ -1050,8 +1050,8 @@ For review pass `0000059-20260603T072205Z-01f354af`, this task is also the one f
 
 #### Review Cycle Coverage
 
-- Review pass: `0000059-20260603T072205Z-01f354af`
-- Review cycle: `0000059-rc-20260603T081912Z-3a5c696e`
+- Review pass: `0000059-20260603T104219Z-90176d8f`
+- Review cycle: `0000059-rc-20260603T112617Z-90176d8f`
 - Review-created tasks revalidated here: `Task 8`, `Task 9`
 - Inline minor findings revalidated here: none for this active review cycle
 
@@ -1097,7 +1097,7 @@ For review pass `0000059-20260603T072205Z-01f354af`, this task is also the one f
 16. [x] Update `server/src/routes/chat.ts` so pinned/defaulted `codeinfo_openai_endpoint` values are parsed from the raw config string with the same endpoint parser used by `server/src/routes/chatDiscovery.ts` before runtime selection runs. Purpose: restore same-endpoint repair for defaulted endpoint-backed chat requests instead of leaving `missing-codex-model` on the native path because the pinned endpoint was never materialized.
 17. [x] Update `server/src/test/steps/chat_models.steps.ts` so the duplicate-model Cucumber assertion proves endpoint-backed duplicates by `(key, endpointId)` instead of binding to the first row that matches the raw model id. Purpose: keep Task 10’s `/chat/models` proof aligned with the already-proved duplicate-endpoint contract without forcing the production route to hide or reorder duplicate raw model ids.
 18. [x] Update `server/src/test/steps/chat_stream.steps.ts` and `server/src/test/features/chat_stream.feature` so the `external-endpoint-native-failure` scenario disables later fallback providers and proves the real `PROVIDER_UNAVAILABLE` path without weakening the shared runtime-selection contract that still allows cross-provider fallback after both same-provider paths fail. Purpose: keep Task 10’s feature-level proof aligned with the story’s accepted fallback order instead of encoding a stricter runtime behavior than Tasks 6 and the Acceptance Criteria allow.
-19. [ ] Re-open the `Code Review Findings` block for review pass `0000059-20260603T072205Z-01f354af`, then walk the final proof bundle file by file before closing the story: confirm `server/src/test/integration/agents-run-client-conversation-id.test.ts` still covers Finding `finding-1`, confirm `server/src/test/integration/flows.run.resume.identity.test.ts` still covers Finding `finding-2`, and confirm `e2e/chat-provider-history.spec.ts` plus `e2e/chat.spec.ts` still cover Finding `finding-3`. If any finding no longer has an obvious final proof owner, stop closeout there and record the gap in `Implementation Notes` before marking the story complete. Purpose: keep this task as the single final revalidation owner for the active review cycle instead of splitting review-loop closeout across separate paths.
+19. [ ] Re-open the `Code Review Findings` block for review pass `0000059-20260603T104219Z-90176d8f`, then walk the final proof bundle file by file before closing the story: confirm `server/src/test/integration/agents-run-client-conversation-id.test.ts` still covers Finding `finding-1`, confirm `server/src/test/integration/flows.run.resume.identity.test.ts` still covers Finding `finding-2`, and confirm `e2e/chat-provider-history.spec.ts` plus `e2e/chat.spec.ts` still cover Finding `finding-3`. If any finding no longer has an obvious final proof owner, stop closeout there and record the gap in `Implementation Notes` before marking the story complete. Purpose: keep this task as the single final revalidation owner for the active review cycle instead of splitting review-loop closeout across separate paths.
 
 #### Testing
 
@@ -1142,4 +1142,4 @@ If a Codex or Copilot manual-proof step reaches an auth-dependent surface and re
 - Preflight visual refinement clarified the Task 10 browser-proof seams in `client/src/pages/ChatPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`, `client/src/hooks/useChatModel.ts`, and `client/src/hooks/useChatStream.ts`; no code was changed in this step.
 - Preflight visual refinement clarified the remaining mobile browser-proof seams in `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the ChatPage-owned mobile provider/model dialogs; no code was changed in this step.
 - **RESOLVED ISSUE** Planner repair split the Docker-daemon access blocker into prerequisite Task 7 after repeated no-progress proof passes showed the failure happens before any story-owned Playwright or compose proof starts. Task 10 now waits on Task 7 for runtime access and keeps ownership only of the remaining story proof items 6, 8, and 9.
-- Planner repair aligned review-created Tasks 8 and 9 with unresolved task-required Findings `finding-1`, `finding-2`, and `finding-3`, then promoted this renumbered Task 10 into the single final revalidation owner for review cycle `0000059-rc-20260603T081912Z-3a5c696e` so the implementation loop will finish the current review work before story closeout.
+- Planner repair refreshed the review-created block to track review pass `0000059-20260603T104219Z-90176d8f` and review cycle `0000059-rc-20260603T112617Z-90176d8f`, keeping Tasks 8 and 9 as the serious finding owners and Task 10 as the single final revalidation owner for the active review loop.

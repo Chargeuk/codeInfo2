@@ -55,4 +55,4 @@ This story extends the existing `Codex` and `Copilot` experience so teams can po
 
 10. [codeInfo2] - Final Story Validation, Documentation, And Close-Out
 - Finish the README, structural traceability, and reviewer summary for the shipped external-endpoint contract.
-- Re-run the final story proof bundle, including the review-created findings block, inline review fixes, full browser proof, and Compose-backed runtime validation.
+- Re-run the final story proof bundle, including the current review-created findings block, full browser proof, and Compose-backed runtime validation.

@@ -57,10 +57,7 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
-  assert.doesNotMatch(
-    mainPlaywright,
-    /\n\s+profiles:\n\s+- local/u,
-  );
+  assert.doesNotMatch(mainPlaywright, /\n\s+profiles:\n\s+- local/u);
   assert.match(mainPlaywright, /'8932'/u);
 
   const localServer = getServiceBlock(localCompose, 'server');
@@ -158,6 +155,23 @@ test('compose services that need Copilot state inject CODEINFO_COPILOT_HOME=/app
     const serverBlock = getServiceBlock(compose, 'server');
     assert.match(serverBlock, /CODEINFO_COPILOT_HOME=\/app\/copilot/u);
   }
+});
+
+test('local compose defaults to Mongo 8.2.9 through the checkout override seam', () => {
+  const localCompose = readRepoFile('docker-compose.local.yml');
+  const mongoContainerSupport = readRepoFile(
+    'server/src/test/support/mongoContainer.ts',
+  );
+
+  const localMongo = getServiceBlock(localCompose, 'mongo');
+  assert.match(
+    localMongo,
+    /image: \$\{CODEINFO_LOCAL_MONGO_IMAGE:-mongo:8\.2\.9\}/u,
+  );
+  assert.match(
+    mongoContainerSupport,
+    /process\.env\.CODEINFO_LOCAL_MONGO_IMAGE \?\? 'mongo:8\.2\.9'/u,
+  );
 });
 
 test('compose services publish CODEINFO_AGENT_HOME as the preferred runtime contract', () => {
@@ -281,10 +295,7 @@ test('compose wrapper normalizes host Codex-home mounts when HOME resolves to a 
     composeWrapper,
     /default_host_codex_home="\$\{HOME:-\}\/\.codex"/u,
   );
-  assert.match(
-    composeWrapper,
-    /\/app\/\* \| \/workspace\/\*/u,
-  );
+  assert.match(composeWrapper, /\/app\/\* \| \/workspace\/\*/u);
   assert.match(
     composeWrapper,
     /fallback_host_codex_home="\$\{repo_root\}\/codex"/u,

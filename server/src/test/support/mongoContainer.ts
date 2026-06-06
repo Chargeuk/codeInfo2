@@ -14,6 +14,7 @@ import { IngestFileModel } from '../../mongo/ingestFile.js';
 let container: StartedTestContainer | null = null;
 let containerPromise: Promise<StartedTestContainer> | null = null;
 let stopping = false;
+const localMongoImage = process.env.CODEINFO_LOCAL_MONGO_IMAGE ?? 'mongo:8.2.9';
 
 process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
 process.env.TESTCONTAINERS_HOST_OVERRIDE ??= 'host.docker.internal';
@@ -23,7 +24,7 @@ async function ensureMongoContainer() {
   if (containerPromise) return containerPromise;
 
   const start = async () => {
-    const started = await new GenericContainer('mongo:8')
+    const started = await new GenericContainer(localMongoImage)
       .withExposedPorts(27017)
       .withWaitStrategy(Wait.forLogMessage(/Waiting for connections/))
       .withStartupTimeout(120_000)

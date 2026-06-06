@@ -65,7 +65,8 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   assert.doesNotMatch(localServer, /\n\s+ports:/u);
 
   const localClient = getServiceBlock(localCompose, 'client');
-  assert.match(localClient, /'5501:5001'/u);
+  assert.match(localClient, /network_mode: host/u);
+  assert.doesNotMatch(localClient, /\n\s+ports:/u);
   const localMongo = getServiceBlock(localCompose, 'mongo');
   assert.match(localMongo, /27417:27017/u);
   const localChroma = getServiceBlock(localCompose, 'chroma');

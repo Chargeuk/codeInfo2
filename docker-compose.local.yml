@@ -87,7 +87,7 @@ services:
       timeout: 5s
       retries: 5
     extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      - 'host.docker.internal:127.0.0.1'
 
   client:
     container_name: codeinfo2-client-local
@@ -121,7 +121,7 @@ services:
       timeout: 5s
       retries: 5
     extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      - 'host.docker.internal:127.0.0.1'
 
   mongo:
     container_name: 'mongo_db_CodeInfo-local'
@@ -217,7 +217,7 @@ services:
     volumes:
       - ./playwright-output-local:/tmp/playwright-output
     extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      - 'host.docker.internal:127.0.0.1'
 
 networks:
   internal:

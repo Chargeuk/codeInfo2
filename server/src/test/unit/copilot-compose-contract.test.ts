@@ -158,17 +158,29 @@ test('compose services that need Copilot state inject CODEINFO_COPILOT_HOME=/app
   }
 });
 
-test('local compose defaults to Mongo 8.2.9 through the checkout override seam', () => {
+test('compose files keep the checked-in Mongo 8.2.9 override seams aligned with the local test support defaults', () => {
+  const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
   const mongoContainerSupport = readRepoFile(
     'server/src/test/support/mongoContainer.ts',
   );
+
+  const mainMongo = getServiceBlock(mainCompose, 'mongo');
+  assert.match(mainMongo, /image: \$\{CODEINFO_MONGO_IMAGE:-mongo:8\.2\.9\}/u);
 
   const localMongo = getServiceBlock(localCompose, 'mongo');
   assert.match(
     localMongo,
     /image: \$\{CODEINFO_LOCAL_MONGO_IMAGE:-mongo:8\.2\.9\}/u,
   );
+
+  const e2eMongo = getServiceBlock(e2eCompose, 'mongo-e2e');
+  assert.match(
+    e2eMongo,
+    /image: \$\{CODEINFO_E2E_MONGO_IMAGE:-mongo:8\.2\.9\}/u,
+  );
+
   assert.match(
     mongoContainerSupport,
     /process\.env\.CODEINFO_LOCAL_MONGO_IMAGE \?\? 'mongo:8\.2\.9'/u,

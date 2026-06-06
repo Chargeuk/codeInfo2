@@ -114,7 +114,7 @@ services:
 
   mongo:
     container_name: 'mongo_db_CodeInfo'
-    image: mongo:8
+    image: ${CODEINFO_MONGO_IMAGE:-mongo:8.2.9}
     command: ['mongod', '--replSet', 'rs0', '--bind_ip_all', '--port', '27017']
     ports:
       - 27517:27017

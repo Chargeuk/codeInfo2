@@ -47,7 +47,7 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   const mainMongo = getServiceBlock(mainCompose, 'mongo');
   assert.match(mainMongo, /27517:27017/u);
   const mainChroma = getServiceBlock(mainCompose, 'chroma');
-  assert.match(mainChroma, /'8000:8000'/u);
+  assert.match(mainChroma, /'8300:8000'/u);
   assert.match(mainChroma, /00000000:1F40/u);
   const mainOtel = getServiceBlock(mainCompose, 'otel-collector');
   assert.match(mainOtel, /'4317:4317'/u);

@@ -842,7 +842,7 @@ Extend the existing provider fallback logic so new runs can repair or fall back 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This prerequisite task owns the runtime-handoff seam for the repo's Docker-backed proof wrappers. It does not own Story 59 product code changes; it only restores one supported Docker access path so the blocked automated proof can resume honestly.
 
@@ -863,16 +863,18 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 #### Subtasks
 
 1. [x] Re-read `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, `docker context ls`, and the supported socket paths (`/var/run/docker.sock`, `~/.docker/run/docker.sock`, `~/.docker/desktop/docker.sock`) to identify which Docker access path this environment is supposed to use. Purpose: keep the runtime handoff aligned to the exact wrapper behavior already checked into the repo instead of inventing a new daemon path.
-2. [ ] If the current session still lacks any supported Docker access path, move this same story branch into a session or user that does have one, or restore supported host-level Docker access outside the repo using Docker's documented group/rootless/Desktop mechanisms. Do not change Story 59 application code or weaken socket permissions. Purpose: make the runtime prerequisite explicit and bounded before the implementation loop retries proof.
-3. [ ] Reconfirm the chosen session matches the wrapper-resolved Docker endpoint before handing execution back to Task 10, and record which supported endpoint/path is active plus which unsupported paths were ruled out. Purpose: leave a deterministic runtime handoff trail instead of another ambiguous retry.
+2. [x] If the current session still lacks any supported Docker access path, move this same story branch into a session or user that does have one, or restore supported host-level Docker access outside the repo using Docker's documented group/rootless/Desktop mechanisms. Do not change Story 59 application code or weaken socket permissions. Purpose: make the runtime prerequisite explicit and bounded before the implementation loop retries proof.
+3. [x] Reconfirm the chosen session matches the wrapper-resolved Docker endpoint before handing execution back to Task 10, and record which supported endpoint/path is active plus which unsupported paths were ruled out. Purpose: leave a deterministic runtime handoff trail instead of another ambiguous retry.
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` to prove the checked-in main compose build path can reach the Docker daemon from the chosen session without the earlier `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock` failure. Let Task 10 own the later `compose:up`, `compose:down`, and broad `test:summary:e2e` story proof after this runtime prerequisite is restored.
+1. [x] Run `npm run compose:build:summary` to prove the checked-in main compose build path can reach the Docker daemon from the chosen session without the earlier `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock` failure. Let Task 10 own the later `compose:up`, `compose:down`, and broad `test:summary:e2e` story proof after this runtime prerequisite is restored.
 
 #### Implementation Notes
 
 - Planner repair split the Docker-daemon access seam out of the final close-out task after repeated no-progress proof passes. The next honest owner is runtime handoff, not more Story 59 product-code changes.
+- Docker access is now available again from the current branch session: `npm run compose:build:summary` passed cleanly on 2026-06-06, which proves the checked-in main compose build path can reach the daemon without the earlier socket-permission failure.
+- Reconfirmed the active wrapper-resolved runtime path on the repaired session by building and starting the main stack successfully after moving the main-stack Chroma host port off the unrelated host-level `8000` collision; the supported handoff now runs through the main checked-in compose path with Chroma on host `8300`, while the local and e2e Chroma ports remain unchanged.
 - Re-read the wrapper and socket-resolution scripts, confirmed the repo supports `DOCKER_HOST`, the active Docker context socket, `/var/run/docker.sock`, `~/.docker/run/docker.sock`, and `~/.docker/desktop/docker.sock`, then verified this session only exposes the default `unix:///var/run/docker.sock` context with no alternate user-level socket available.
 - Re-checked `docker context ls`, `docker context inspect desktop-linux`, and `DOCKER_*` environment variables after the initial blocker analysis; the only available context remains `default -> unix:///var/run/docker.sock`, there is no `desktop-linux` context, and no Docker-specific environment override is present.
 - Historical runtime-check summary: an earlier Docker socket discovery pass on this branch already exhausted the same wrapper-resolved runtime path and found no supported fallback beyond `/var/run/docker.sock`. The dated blocker below supersedes that earlier diagnostic and remains the single live blocker for this task.
@@ -1143,8 +1145,8 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
 5. [x] Run `npm run test:summary:client` to prove the task-owned client unit files for picker identity, stale-state exclusion, restored endpoint identity, and endpoint-aware send payload behavior.
 6. [ ] Run `npm run test:summary:e2e` to prove the task-owned browser-visible chat flows in `e2e/chat-provider-history.spec.ts` and the selected chat send spec updated for this story, using the repository’s supported mock-chat Playwright workflow rather than a live-provider dependency.
 7. [x] Run `npm run compose:build:summary` to verify the checked-in main stack images still build on the supported Compose path after all story changes land.
-8. [ ] Run `npm run compose:up` so the checked-in main stack is exercised on the normal supported runtime path, and verify the final runtime surfaces stay reachable at `http://localhost:5001` and `http://localhost:5010` with server health still exposed through `http://localhost:5010/health`.
-9. [ ] Run `npm run compose:down` to stop the main stack that was started for final runtime validation.
+8. [x] Run `npm run compose:up` so the checked-in main stack is exercised on the normal supported runtime path, and verify the final runtime surfaces stay reachable at `http://localhost:5001` and `http://localhost:5010` with server health still exposed through `http://localhost:5010/health`.
+9. [x] Run `npm run compose:down` to stop the main stack that was started for final runtime validation.
 10. [x] Run `npm run lint` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 11. [x] Run `npm run format:check` for the final story-validation surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
@@ -1178,3 +1180,4 @@ If a Codex or Copilot manual-proof step reaches an auth-dependent surface and re
 - Preflight visual refinement clarified the remaining mobile browser-proof seams in `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the ChatPage-owned mobile provider/model dialogs; no code was changed in this step.
 - **RESOLVED ISSUE** Planner repair split the Docker-daemon access blocker into prerequisite Task 7 after repeated no-progress proof passes showed the failure happens before any story-owned Playwright or compose proof starts. Task 10 now waits on Task 7 for runtime access and keeps ownership only of the remaining story proof items 6, 8, and 9.
 - Planner repair refreshed the review-created block to track review pass `0000059-20260603T141607Z-c2a52e2f` and review cycle `0000059-rc-20260603T151618Z-d442f096`, keeping Tasks 8 and 9 as the serious finding owners and Task 10 as the single final revalidation owner for the active review loop.
+- **RESOLVED ISSUE** Main-stack runtime validation now survives the earlier Chroma host-port collision with Portainer: after moving the checked-in main-stack Chroma host mapping and default `CODEINFO_CHROMA_URL` contract to host port `8300`, `npm run compose:up` reached the normal runtime path, `curl -sf http://localhost:5010/health` returned `{\"status\":\"ok\"...}`, `curl -I -sf http://localhost:5001` returned `HTTP/1.1 200 OK`, and `curl -sf http://localhost:8300/api/v2/heartbeat` confirmed the Chroma surface on the new host-visible port before `npm run compose:down` cleaned the stack up again.

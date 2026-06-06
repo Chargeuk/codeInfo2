@@ -45,7 +45,7 @@ let lastResponse: { status: number; body: unknown } | null = null;
 setDefaultTimeout(20_000);
 
 async function vectorsState() {
-  const chromaUrl = process.env.CODEINFO_CHROMA_URL ?? 'http://localhost:8000';
+  const chromaUrl = process.env.CODEINFO_CHROMA_URL ?? 'http://localhost:8300';
   const normalized = chromaUrl.includes('://')
     ? chromaUrl
     : `http://${chromaUrl}`;

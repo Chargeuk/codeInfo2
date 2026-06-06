@@ -206,6 +206,7 @@ Use this document for API contracts, protocol details, and advanced runtime beha
   - REST API plus classic `POST /mcp`: `http://host.docker.internal:5010`
   - dedicated chat MCP listener: `http://host.docker.internal:5011`
   - dedicated agents MCP listener: `http://host.docker.internal:5012`
+  - Chroma vector store: `http://host.docker.internal:8300`
   - Playwright MCP control URL: `http://host.docker.internal:8932/mcp`
   - local manual-debug Chrome DevTools discovery: `http://host.docker.internal:9222`
 - E2E keeps the same split on host-visible addresses:

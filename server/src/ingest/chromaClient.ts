@@ -15,7 +15,7 @@ import {
 
 function getChromaUrl(): string {
   const raw = process.env.CODEINFO_CHROMA_URL;
-  if (!raw || raw.trim() === '') return 'http://localhost:8000';
+  if (!raw || raw.trim() === '') return 'http://localhost:8300';
   return raw;
 }
 type MinimalCollection = {

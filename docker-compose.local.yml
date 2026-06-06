@@ -102,14 +102,12 @@ services:
         VITE_CODEINFO_LOG_MAX_BYTES: 32768
         CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
     image: codeinfo2-client-local
-    ports:
-      - '5501:5001'
-    networks:
-      - internal
+    network_mode: host
     env_file:
       - client/.env
       - client/.env.local
     environment:
+      - PORT=5501
       - VITE_CODEINFO_API_URL=${VITE_CODEINFO_API_URL:-http://host.docker.internal:5510}
       - VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
       - VITE_CODEINFO_LOG_FORWARD_ENABLED=true
@@ -118,7 +116,7 @@ services:
       server:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5001']
+      test: ['CMD', 'curl', '-f', 'http://localhost:5501']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -127,7 +125,7 @@ services:
 
   mongo:
     container_name: 'mongo_db_CodeInfo-local'
-    image: mongo:8
+    image: ${CODEINFO_LOCAL_MONGO_IMAGE:-mongo:8.2.9}
     command: ['mongod', '--replSet', 'rs0', '--bind_ip_all', '--port', '27017']
     ports:
       - 27417:27017

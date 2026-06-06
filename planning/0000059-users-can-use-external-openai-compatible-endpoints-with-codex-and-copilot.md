@@ -1061,7 +1061,7 @@ For retained mobile proof artifacts, capture any Playwright MCP screenshots to a
 - Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`, `Task 7`, `Task 8`, `Task 9`
 - Task Status: `__to_do__`
 - Git Commits:
-- Notes: This final validation task now owns the shared final revalidation pass for review cycle `0000059-rc-20260603T151618Z-d442f096`, including the serious review-created work in Tasks 8 and 9 for review pass `0000059-20260603T141607Z-c2a52e2f`. It still depends on Task 7's Docker-access runtime handoff because the remaining automated proof runs through the repo's Docker-backed wrappers.
+- Notes: This final validation task now owns the shared final revalidation pass for review cycle `0000059-rc-20260603T151618Z-d442f096`, including the serious review-created work in Tasks 8 and 9 for review pass `0000059-20260603T141607Z-c2a52e2f`. The remaining automated proof runs through the repo's Docker-backed wrappers; if those wrappers regress at the baseline/runtime level, treat that as runtime handoff ownership rather than new Story 59 product work.
 
 #### Overview
 
@@ -1074,7 +1074,7 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
 - README, structural traceability, and the reviewer-facing close-out summary all describe the final shipped contract rather than the pre-story behavior.
 - The final desktop and mobile chat surfaces keep the correct visible provider, model, and endpoint state for create mode, resumed history, and endpoint warning or fallback cases, with Task 10 proof artifacts tied to those exact UI seams.
 - Review pass `0000059-20260603T141607Z-c2a52e2f` is revalidated end to end: Tasks 8 and 9 land cleanly, and Findings `finding-1`, `finding-2`, and `finding-3` are covered by final wrapper-first proof on the final story head.
-- The checked-in main stack either reaches `http://localhost:5001`, `http://localhost:5010`, and `/health` through the normal compose wrappers, or it stops cleanly at Task 7's documented Docker/runtime prerequisite without hiding a baseline failure inside story-owned product proof.
+- The checked-in main stack reaches `http://localhost:5001`, `http://localhost:5010`, and `/health` through the normal compose wrappers. If a new baseline/runtime regression prevents startup, record it explicitly as a wrapper/runtime regression instead of normalizing it into story-owned product proof.
 
 #### Documentation Locations
 
@@ -1091,7 +1091,7 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
 
 #### Risk Ownership
 
-- Blocker family: `shared wrapper or baseline seam` for the final automated revalidation path. This task owns the story-level proof sequence through `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`, but Task 7 remains the prerequisite owner for Docker-daemon access or compose-readiness failures that stop those wrappers before story-owned assertions can begin.
+- Blocker family: `shared wrapper or baseline seam` for the final automated revalidation path. This task owns the story-level proof sequence through `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`. If a new Docker-daemon or compose-readiness regression stops those wrappers before story-owned assertions begin, record it as a baseline/runtime regression and stop there rather than broadening this task into runtime repair.
 - Blocker family: `manual or runtime environment seam` for final human-visible proof. The supported stack is the checked-in main compose stack with `server/.env` and `server/.env.local`, mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, client `http://localhost:5001`, server `http://localhost:5010`, server health `http://localhost:5010/health`, and retained artifacts under `codeInfoTmp/manual-testing/0000059/10/` after any Playwright staging handoff.
 - Final producer-consumer invariant: before closeout, one readback pass must map each current review finding to a surviving automated proof owner and confirm the final README, structural ledger, and PR summary still describe the same shipped endpoint identity, fallback, resume, and proof contract that the final wrappers and manual artifacts validate.
 
@@ -1109,10 +1109,10 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
   Proof owner: `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `Testing` item 6 in this task, and the final manual screenshot views named in this task’s `Manual Testing Guidance`.
 - Requirement: users who do not configure external endpoints still reach the normal supported stack, healthy server routes, and coherent default chat behavior after all Story 59 changes land.
   Implementation surface: the repository-supported build, e2e, compose build, compose up, compose down, and `/health` reachability path for the checked-in main stack.
-  Proof owner: `Testing` items 1, 2, 6, 7, 8, and 9 in this task, with Task 7 remaining the prerequisite owner for Docker/runtime baseline access when the stack cannot start.
-- Requirement: the default compose-backed launcher and teardown path remains reachable through the checked-in main stack wrappers, while any pre-assertion Docker or compose-readiness failure stays visibly owned by Task 7 instead of being normalized into story-owned application proof.
+  Proof owner: `Testing` items 1, 2, 6, 7, 8, and 9 in this task, with any new baseline/runtime startup regression recorded explicitly rather than normalized into Story 59 application proof.
+- Requirement: the default compose-backed launcher and teardown path remains reachable through the checked-in main stack wrappers, while any pre-assertion Docker or compose-readiness failure is recorded explicitly as a baseline/runtime regression instead of being normalized into story-owned application proof.
   Implementation surface: `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, the compose wrapper commands, and the checked-in `server/.env` plus `server/.env.local` stack inputs.
-  Proof owner: `Testing` items 7, 8, and 9 in this task, plus wrapper summary output and `/health` reachability on the running stack.
+  Proof owner: `Testing` items 7, 8, and 9 in this task, with any new baseline/runtime startup regression recorded explicitly rather than normalized into Story 59 application proof.
 - Requirement: final documentation and reviewer-closeout artifacts describe the same shipped endpoint identity, fallback, resume, auth-boundary, and proof contract that the final wrappers validate.
   Implementation files: `README.md`, `projectStructure.md`, `codeInfoStatus/pr-summaries/0000059-pr-summary.md`.
   Proof owner: Subtasks 4, 5, 6, and 12 in this task, plus Subtask 19 as the final readback that cross-checks those artifacts against the final proof owners.

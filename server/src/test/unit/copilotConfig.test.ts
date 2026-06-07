@@ -5,6 +5,7 @@ import test, { mock } from 'node:test';
 
 import {
   CopilotManagedJsonArtifactError,
+  getCopilotCacheDirForHome,
   buildCopilotClientOptions,
   ensureCopilotBaseConfigSeeded,
   ensureCopilotAuthHomeCompatibility,
@@ -53,16 +54,20 @@ test('keeps the seeded Copilot chat defaults path separate from the runtime conf
 });
 
 test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath together', () => {
+  const home = path.resolve('./tmp/copilot-home');
   const resolved = buildCopilotClientOptions({
     copilotHome: './tmp/copilot-home',
     cliPath: '/usr/local/bin/copilot',
   });
 
-  assert.equal(resolved.copilotHome, path.resolve('./tmp/copilot-home'));
+  assert.equal(resolved.copilotHome, home);
+  assert.equal(resolved.clientOptions.env?.COPILOT_HOME, home);
+  assert.equal(resolved.clientOptions.env?.HOME, home);
   assert.equal(
-    resolved.clientOptions.env?.COPILOT_HOME,
-    path.resolve('./tmp/copilot-home'),
+    resolved.clientOptions.env?.XDG_CACHE_HOME,
+    getCopilotCacheDirForHome(home),
   );
+  assert.equal(resolved.clientOptions.env?.XDG_CONFIG_HOME, home);
   assert.equal(resolved.clientOptions.cliPath, '/usr/local/bin/copilot');
   assert.deepEqual(resolved.clientOptions.cliArgs, ['--allow-all-paths']);
   assert.equal(resolved.cliMode, 'cliPath');

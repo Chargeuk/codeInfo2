@@ -127,17 +127,25 @@ test('main stays image-baked while local host-network compose exposes the live d
     entrypoint,
     /export HOME="\$runtime_home"\nexport CODEX_HOME="\$\{CODEX_HOME:-\$\{CODEINFO_CODEX_HOME:-\$runtime_home\}\}"/u,
   );
-  assert.match(entrypoint, /mkdir -p "\$\{HOME\}\/\.agents\/skills"/u);
+  assert.match(
+    entrypoint,
+    /prepare_runtime_tree "\$\{HOME\}" "\.agents" "\.agents\/skills" "\.cache"/u,
+  );
+  assert.match(
+    entrypoint,
+    /prepare_runtime_tree "\$\{copilot_home\}" "\.cache" "\.cache\/copilot" "chat"/u,
+  );
+  assert.match(
+    entrypoint,
+    /prepare_runtime_tree "\$\{lmstudio_home\}" "\.cache"/u,
+  );
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+networks:/u);
   assert.match(mainPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
-  assert.doesNotMatch(
-    mainPlaywright,
-    /\n\s+profiles:\n\s+- local/u,
-  );
+  assert.doesNotMatch(mainPlaywright, /\n\s+profiles:\n\s+- local/u);
   assert.match(mainPlaywright, /'8932'/u);
   assert.match(
     mainPlaywright,
@@ -232,17 +240,17 @@ test('checked-in env and README keep the documented host Codex-home fallback con
   const mainCompose = readRepoFile('docker-compose.yml');
   const e2eCompose = readRepoFile('docker-compose.e2e.yml');
 
-  assert.doesNotMatch(
-    serverEnv,
-    /^CODEINFO_HOST_CODEX_HOME=\.\/codex$/mu,
-  );
+  assert.doesNotMatch(serverEnv, /^CODEINFO_HOST_CODEX_HOME=\.\/codex$/mu);
   assert.doesNotMatch(e2eEnv, /^CODEINFO_HOST_CODEX_HOME=\.\/codex$/mu);
+  assert.match(readme, /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}/u);
   assert.match(
-    readme,
-    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}/u,
+    mainCompose,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
   );
-  assert.match(mainCompose, /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u);
-  assert.match(e2eCompose, /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u);
+  assert.match(
+    e2eCompose,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
+  );
 });
 
 test('checked-in default launcher awaits provider bootstrap before listen instead of firing it off in the background', () => {
@@ -260,7 +268,9 @@ test('checked-in default launcher awaits provider bootstrap before listen instea
 
 test('checked-in default launcher keeps listening reachable after degraded provider bootstrap is recorded', () => {
   const indexSource = readRepoFile('server/src/index.ts');
-  const runtimeConfigSource = readRepoFile('server/src/config/runtimeConfig.ts');
+  const runtimeConfigSource = readRepoFile(
+    'server/src/config/runtimeConfig.ts',
+  );
 
   assert.match(
     runtimeConfigSource,

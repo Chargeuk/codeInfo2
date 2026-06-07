@@ -10,12 +10,34 @@ runtime_uid="${CODEINFO_RUNTIME_UID:-1000}"
 runtime_gid="${CODEINFO_RUNTIME_GID:-1000}"
 runtime_supplementary_gids="${CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS:-}"
 runtime_home="${CODEINFO_CODEX_HOME:-${HOME:-/app/codex}}"
+copilot_home="${CODEINFO_COPILOT_HOME:-/app/copilot}"
+lmstudio_home="${CODEINFO_LMSTUDIO_HOME:-/app/lmstudio}"
 
 export HOME="$runtime_home"
 export CODEX_HOME="${CODEX_HOME:-${CODEINFO_CODEX_HOME:-$runtime_home}}"
 
-mkdir -p "${HOME}/.agents/skills"
-chmod 777 "${HOME}" "${HOME}/.agents" "${HOME}/.agents/skills" 2>/dev/null || true
+prepare_runtime_tree() {
+  runtime_tree_root="$1"
+  shift
+
+  mkdir -p "$runtime_tree_root"
+  for runtime_tree_child in "$@"; do
+    mkdir -p "${runtime_tree_root}/${runtime_tree_child}"
+  done
+
+  if [ "$(id -u)" = "0" ]; then
+    chown -R "${runtime_uid}:${runtime_gid}" "$runtime_tree_root" 2>/dev/null || true
+  fi
+
+  chmod 775 "$runtime_tree_root" 2>/dev/null || true
+  for runtime_tree_child in "$@"; do
+    chmod 775 "${runtime_tree_root}/${runtime_tree_child}" 2>/dev/null || true
+  done
+}
+
+prepare_runtime_tree "${HOME}" ".agents" ".agents/skills" ".cache"
+prepare_runtime_tree "${copilot_home}" ".cache" ".cache/copilot" "chat"
+prepare_runtime_tree "${lmstudio_home}" ".cache"
 
 case "$runtime_uid" in
   '' | *[!0-9]*)

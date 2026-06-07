@@ -1344,11 +1344,8 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired `/chat` route and persistence surface still compile cleanly before targeted proof.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` to prove the repaired `/chat` route still returns stable conflict semantics and preserves persisted state on the loser path.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the repaired write boundary still preserves the intended `workingFolder` and `endpointId` flag contract.
-4. [ ] Run `npm run lint` for the repaired `/chat` route and persistence surface and fix any issues found.
-5. [ ] Run `npm run format:check` for the repaired `/chat` route and persistence surface and fix any issues found.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` to prove the repaired `/chat` route still returns stable conflict semantics and preserves persisted state on the loser path.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the repaired write boundary still preserves the intended `workingFolder` and `endpointId` flag contract.
 
 #### Implementation Notes
 
@@ -1415,13 +1412,9 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired `/chat/models` producer surface compiles cleanly before targeted proof.
-2. [ ] Run `npm run build:summary:client` to confirm the repaired shared response-shape and client selection surfaces compile cleanly before targeted proof.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` to prove the repaired `/chat/models` payload preserves endpoint-aware default-selection metadata on the server/shared seam.
-4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature` to prove the endpoint-backed `/chat/models` contract still holds on the feature-owned route surface.
-5. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx` to prove the client fallback-selection path restores the correct endpoint-backed default when duplicate raw ids exist.
-6. [ ] Run `npm run lint` for the repaired `/chat/models` response and client selection surface and fix any issues found.
-7. [ ] Run `npm run format:check` for the repaired `/chat/models` response and client selection surface and fix any issues found.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` to prove the repaired `/chat/models` payload preserves endpoint-aware default-selection metadata on the server/shared seam.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature` to prove the endpoint-backed `/chat/models` contract still holds on the feature-owned route surface.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx` to prove the client fallback-selection path restores the correct endpoint-backed default when duplicate raw ids exist and clears stale reuse-mode endpoint state before fresh-draft submission.
 
 #### Implementation Notes
 
@@ -1437,7 +1430,7 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 #### Overview
 
-Re-run the relevant wrapper-first regression proof for the current review-created findings block after Tasks 12 and 13 land, and confirm that the same story head still covers the inline-resolved minor fixes from this active review cycle. This task owns current-repository server, client, and browser-visible regression proof for the repaired chat route and endpoint-aware selection seams. Compose and broader runtime-stack revalidation are not separate new gates for this review-created block unless Tasks 12 or 13 widen into runtime-stack wiring, because the current unresolved review findings are limited to route, persistence, shared response-shape, and client selection behavior inside the current repository.
+Re-run the relevant wrapper-first regression proof for the current review-created findings block after Tasks 12 and 13 land, and confirm that the same story head still covers the inline-resolved minor fixes from this active review cycle. This task is the one broad regression owner for the current repository in this review-created block: it owns the shared build wrappers, the full server and client regression wrappers, the browser-visible wrapper pass, the script-level guard proof that broad wrappers do not reach, and the final lint and format checks. Compose and broader runtime-stack revalidation are not separate new gates for this review-created block unless Tasks 12 or 13 widen into runtime-stack wiring, because the current unresolved review findings are limited to route, persistence, shared response-shape, and client selection behavior inside the current repository.
 
 #### Task Exit Criteria
 

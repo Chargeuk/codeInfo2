@@ -36,6 +36,19 @@ test.afterEach(() => {
   delete process.env.CODEINFO_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC;
 });
 
+const runtimeConfigWithMcpServers = {
+  mcp_servers: {
+    code_info: {
+      command: 'npx',
+      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+      tool_timeout_sec: 1800,
+    },
+    deepwiki: {
+      url: 'https://mcp.deepwiki.com/mcp',
+    },
+  },
+};
+
 test('ChatInterfaceCopilot create-session path maps streamed events into ChatInterface events', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-create-session',
@@ -45,7 +58,12 @@ test('ChatInterfaceCopilot create-session path maps streamed events into ChatInt
 
   await chat.run(
     'Hello from Copilot',
-    { provider: 'copilot', skipPersistence: true, resumeConversation: false },
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: false,
+      runtimeConfig: runtimeConfigWithMcpServers,
+    },
     'copilot-conversation-1',
     'copilot-gpt-5',
   );
@@ -58,6 +76,20 @@ test('ChatInterfaceCopilot create-session path maps streamed events into ChatInt
     harness.getState().lastCreateSessionConfig?.sessionId,
     'copilot-conversation-1',
   );
+  assert.deepEqual(harness.getState().lastCreateSessionConfig?.mcpServers, {
+    code_info: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+      tools: ['*'],
+      timeout: 1_800_000,
+    },
+    deepwiki: {
+      type: 'http',
+      url: 'https://mcp.deepwiki.com/mcp',
+      tools: ['*'],
+    },
+  });
 });
 
 test('ChatInterfaceCopilot resume path keeps event mapping aligned with create', async () => {
@@ -69,7 +101,12 @@ test('ChatInterfaceCopilot resume path keeps event mapping aligned with create',
 
   await chat.run(
     'Resume this thread',
-    { provider: 'copilot', skipPersistence: true, resumeConversation: true },
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: true,
+      runtimeConfig: runtimeConfigWithMcpServers,
+    },
     'copilot-conversation-2',
     'copilot-gpt-5',
   );
@@ -92,9 +129,23 @@ test('ChatInterfaceCopilot resume path keeps event mapping aligned with create',
   );
   assert.equal(toolRequest?.name, 'read_file');
   assert.equal(toolResult?.name, 'read_file');
+  assert.deepEqual(harness.getState().lastResumeSession?.config.mcpServers, {
+    code_info: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+      tools: ['*'],
+      timeout: 1_800_000,
+    },
+    deepwiki: {
+      type: 'http',
+      url: 'https://mcp.deepwiki.com/mcp',
+      tools: ['*'],
+    },
+  });
 });
 
-test('ChatInterfaceCopilot create-session keeps built-in tools available while registering custom tools', async () => {
+test('ChatInterfaceCopilot create-session forwards MCP servers without registering custom SDK tools', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-create-permission',
     createSessionEvents: [createSessionIdleEvent()],
@@ -103,7 +154,12 @@ test('ChatInterfaceCopilot create-session keeps built-in tools available while r
 
   await chat.run(
     'Need permissions',
-    { provider: 'copilot', skipPersistence: true, resumeConversation: false },
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: false,
+      runtimeConfig: runtimeConfigWithMcpServers,
+    },
     'copilot-conversation-3',
     'copilot-gpt-5',
   );
@@ -115,17 +171,25 @@ test('ChatInterfaceCopilot create-session keeps built-in tools available while r
       { sessionId: 'copilot-conversation-3' } as never,
     );
   assert.deepEqual(result, { kind: 'approve-once' });
-  assert.deepEqual(
-    harness
-      .getState()
-      .lastCreateSessionConfig?.tools?.map((tool) => tool.name)
-      .sort(),
-    ['ListIngestedRepositories', 'VectorSearch'],
-  );
+  assert.equal(harness.getState().lastCreateSessionConfig?.tools, undefined);
   assert.equal(
     harness.getState().lastCreateSessionConfig?.availableTools,
     undefined,
   );
+  assert.deepEqual(harness.getState().lastCreateSessionConfig?.mcpServers, {
+    code_info: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+      tools: ['*'],
+      timeout: 1_800_000,
+    },
+    deepwiki: {
+      type: 'http',
+      url: 'https://mcp.deepwiki.com/mcp',
+      tools: ['*'],
+    },
+  });
   assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 7_200_000);
 });
 
@@ -173,7 +237,12 @@ test('ChatInterfaceCopilot resume path keeps permissions allowed through the res
 
   await chat.run(
     'Resume with permissions',
-    { provider: 'copilot', skipPersistence: true, resumeConversation: true },
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: true,
+      runtimeConfig: runtimeConfigWithMcpServers,
+    },
     'copilot-conversation-4',
     'copilot-gpt-5',
   );
@@ -185,17 +254,25 @@ test('ChatInterfaceCopilot resume path keeps permissions allowed through the res
       { sessionId: 'copilot-conversation-5' } as never,
     );
   assert.deepEqual(result, { kind: 'approve-once' });
-  assert.deepEqual(
-    harness
-      .getState()
-      .lastResumeSession?.config.tools?.map((tool) => tool.name)
-      .sort(),
-    ['ListIngestedRepositories', 'VectorSearch'],
-  );
+  assert.equal(harness.getState().lastResumeSession?.config.tools, undefined);
   assert.equal(
     harness.getState().lastResumeSession?.config.availableTools,
     undefined,
   );
+  assert.deepEqual(harness.getState().lastResumeSession?.config.mcpServers, {
+    code_info: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+      tools: ['*'],
+      timeout: 1_800_000,
+    },
+    deepwiki: {
+      type: 'http',
+      url: 'https://mcp.deepwiki.com/mcp',
+      tools: ['*'],
+    },
+  });
 });
 
 test('ChatInterfaceCopilot resume-session removes all tools when toolAccess is off', async () => {

@@ -167,7 +167,6 @@ export function createChatProvidersRouter({
         models: prioritizeRuntimeProviderModels(
           capabilities.models.map((entry) => entry.model),
           codexRequestedDefaults?.values.model,
-          { includeMissingPreferred: true },
         ),
         reason:
           getProviderBootstrapReason('codex') ??

@@ -5,7 +5,6 @@ import {
   CopilotLifecycle,
   type CopilotLifecycleOptions,
 } from './copilotLifecycle.js';
-import { createCopilotTools } from './copilotTools.js';
 import { ChatInterface } from './interfaces/ChatInterface.js';
 import {
   ChatInterfaceCodex,
@@ -52,9 +51,6 @@ const providerMap: Record<string, ProviderFactory> = {
           cwd: deps?.copilotCwd,
           env: deps?.copilotEnv,
         }),
-      {
-        toolsFactory: () => createCopilotTools(),
-      },
     ),
   lmstudio: (deps) =>
     new ChatInterfaceLMStudio(

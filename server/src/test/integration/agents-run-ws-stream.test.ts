@@ -41,6 +41,10 @@ import {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const getMcpServerKeys = (
+  mcpServers: Record<string, unknown> | undefined,
+): string[] => Object.keys(mcpServers ?? {}).sort();
+
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
@@ -325,7 +329,9 @@ test('Agents run passes inflightId into chat.run(...) flags', async () => {
 });
 
 test('direct Copilot agent runs forward envOverrides into the Copilot runtime environment', async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-copilot-env-'));
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-copilot-env-'),
+  );
   const agentsHome = path.join(tempRoot, 'agents');
   const agentHome = path.join(agentsHome, 'coding_agent');
   const codexHome = path.join(tempRoot, 'codex-home');
@@ -336,7 +342,16 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    'codeinfo_provider = "copilot"\nmodel = "copilot-model"\n',
+    [
+      'codeinfo_provider = "copilot"',
+      'model = "copilot-model"',
+      '',
+      '[mcp_servers.code_info]',
+      'command = "npx"',
+      'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp"]',
+      'tool_timeout_sec = 1800',
+      '',
+    ].join('\n'),
     'utf8',
   );
   await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
@@ -349,16 +364,25 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(copilotHome, 'chat', 'config.toml'),
-    'model = "copilot-model"\n',
+    [
+      'model = "copilot-model"',
+      '',
+      '[mcp_servers.context7]',
+      'command = "npx"',
+      'args = ["-y", "@upstash/context7-mcp"]',
+      '',
+    ].join('\n'),
     'utf8',
   );
 
   const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousAgentsMcpPort = process.env.CODEINFO_AGENTS_MCP_PORT;
   process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
   process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_AGENTS_MCP_PORT = '5020';
 
   const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
   const harness = createMockCopilotSdkHarness({
@@ -406,11 +430,22 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
 
     assert.equal(result.providerId, 'copilot');
     assert.equal(capturedOptions.length, 1);
-    assert.equal(
-      capturedOptions[0]?.env?.CODEINFO_ROOT,
-      '/tmp/codeinfo-root',
-    );
+    assert.equal(capturedOptions[0]?.env?.CODEINFO_ROOT, '/tmp/codeinfo-root');
     assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
+    assert.deepEqual(
+      getMcpServerKeys(harness.getState().lastCreateSessionConfig?.mcpServers),
+      ['code_info'],
+    );
+    assert.deepEqual(
+      harness.getState().lastCreateSessionConfig?.mcpServers?.code_info,
+      {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5020/mcp'],
+        tools: ['*'],
+        timeout: 1_800_000,
+      },
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.clear();
@@ -418,6 +453,11 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
     process.env.CODEINFO_AGENT_HOME = previousAgentHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    if (previousAgentsMcpPort === undefined) {
+      delete process.env.CODEINFO_AGENTS_MCP_PORT;
+    } else {
+      process.env.CODEINFO_AGENTS_MCP_PORT = previousAgentsMcpPort;
+    }
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

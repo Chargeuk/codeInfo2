@@ -269,6 +269,7 @@ test('a stale saved path yields to a newer saved working folder before a flow re
         repos: [],
         lockedModelId: null,
       }),
+      findConversationById: async (id) => memoryConversations.get(id) ?? null,
       updateConversationWorkingFolder: async (params) => {
         if (
           !updateHookUsed &&

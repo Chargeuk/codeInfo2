@@ -53,6 +53,7 @@ import {
   getProviderBootstrapStatus,
   materializeRepositoryBackedCodexChatHome,
   resolveChatRuntimeConfig,
+  type RuntimeTomlConfig,
 } from '../config/runtimeConfig.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
@@ -569,15 +570,20 @@ export function createChatRouter({
       warningCount: responseWarningsWithAgentFlags.length,
       defaultsResolution,
     });
-    let chatRuntimeConfig: CodexOptions['config'];
+    let chatRuntimeConfig: RuntimeTomlConfig | undefined;
 
-    if (executionProvider === 'codex') {
+    if (executionProvider === 'codex' || executionProvider === 'copilot') {
       try {
-        const { config } = await resolveChatRuntimeConfig();
-        chatRuntimeConfig = config as CodexOptions['config'];
+        const { config } = await resolveChatRuntimeConfig({
+          provider: executionProvider,
+          ...(executionProvider === 'copilot'
+            ? { copilotHome: process.env.CODEINFO_COPILOT_HOME }
+            : {}),
+        });
+        chatRuntimeConfig = config;
         console.info(T06_SUCCESS_LOG, {
           surface: '/chat',
-          provider: 'codex',
+          provider: executionProvider,
           hasModel: typeof config.model === 'string',
         });
       } catch (error) {
@@ -1176,6 +1182,7 @@ export function createChatRouter({
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
                   resumeConversation: shouldResumeCopilotSession,
+                  runtimeConfig: chatRuntimeConfig,
                   workingDirectoryOverride:
                     executionContext.workingDirectoryOverride,
                 }

@@ -88,6 +88,15 @@ import type {
 } from '../mongo/turn.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  knownRepositoryPathsAvailable,
+  knownRepositoryPathsUnavailable,
+  restoreSavedWorkingFolder,
+  validateRequestedWorkingFolder,
+} from '../workingFolders/state.js';
+import { publishUserTurn } from '../ws/server.js';
 
 const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   const pendingCancel = getPendingConversationCancel(conversationId);
@@ -98,15 +107,6 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
     pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
   };
 };
-import {
-  appendWorkingFolderDecisionLog,
-  getConversationRecordType,
-  knownRepositoryPathsAvailable,
-  knownRepositoryPathsUnavailable,
-  restoreSavedWorkingFolder,
-  validateRequestedWorkingFolder,
-} from '../workingFolders/state.js';
-import { publishUserTurn } from '../ws/server.js';
 
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
@@ -997,9 +997,25 @@ const ensureAgentState = async (params: {
     const existingConversation = await getConversation(existing.conversationId);
     const requestedProviderIdToUse =
       typeof params.requestedProviderId === 'string' &&
-      params.requestedProviderId.trim()
+        params.requestedProviderId.trim()
         ? params.requestedProviderId.trim()
         : getSavedRequestedProviderId(existingConversation);
+    const savedEndpointId =
+      typeof existingConversation?.flags?.endpointId === 'string' &&
+      existingConversation.flags.endpointId.trim().length > 0
+        ? existingConversation.flags.endpointId.trim()
+        : undefined;
+    if (savedEndpointId && !existing.endpointId) {
+      existing.endpointId = savedEndpointId;
+    }
+    const endpointIdToUse =
+      params.endpointId !== undefined ? params.endpointId : savedEndpointId;
+
+    await ensureFlowChildConversationOwnership({
+      conversationId: existing.conversationId,
+      agentType: params.agentType,
+      executionId: params.executionId,
+    });
 
     await ensureFlowAgentConversation({
       conversationId: existing.conversationId,
@@ -1010,15 +1026,10 @@ const ensureAgentState = async (params: {
       providerId: params.providerId,
       modelId: params.modelId,
       requestedProviderId: requestedProviderIdToUse,
-      endpointId: params.endpointId ?? null,
+      endpointId: endpointIdToUse ?? null,
       customTitle: params.customTitle,
       source: params.source,
       workingFolder: params.workingFolder,
-    });
-    await ensureFlowChildConversationOwnership({
-      conversationId: existing.conversationId,
-      agentType: params.agentType,
-      executionId: params.executionId,
     });
     existing.workingFolder = params.workingFolder;
     existing.providerId = params.providerId;
@@ -1031,6 +1042,8 @@ const ensureAgentState = async (params: {
       } else if (params.endpointId.trim()) {
         existing.endpointId = params.endpointId.trim();
       }
+    } else if (savedEndpointId && !existing.endpointId) {
+      existing.endpointId = savedEndpointId;
     }
     return { state: existing, isNew: false };
   }
@@ -3156,32 +3169,31 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const agentState = runtimeState.get(
-      getAgentKey(params.agentType, params.identifier),
+  const agentState = runtimeState.get(
+    getAgentKey(params.agentType, params.identifier),
+  );
+  if (agentState?.conversationId) {
+    const persistedConversation = await getConversation(
+      agentState.conversationId,
     );
-    if (
-      agentState?.conversationId &&
-      (!agentState.providerId || !agentState.modelId)
-    ) {
-      const persistedConversation = await getConversation(
-        agentState.conversationId,
-      );
-      if (persistedConversation?.agentName === params.agentType) {
+    if (persistedConversation?.agentName === params.agentType) {
+      const savedEndpointId =
+        typeof persistedConversation.flags?.endpointId === 'string' &&
+        persistedConversation.flags.endpointId.trim().length > 0
+          ? persistedConversation.flags.endpointId.trim()
+          : undefined;
+      if (!agentState.providerId || !agentState.modelId) {
         agentState.providerId = persistedConversation.provider;
         agentState.modelId = persistedConversation.model;
         agentState.requestedProviderId = getSavedRequestedProviderId(
           persistedConversation,
         );
-        const savedEndpointId =
-          typeof persistedConversation.flags?.endpointId === 'string' &&
-          persistedConversation.flags.endpointId.trim().length > 0
-            ? persistedConversation.flags.endpointId.trim()
-            : undefined;
-        if (savedEndpointId) {
-          agentState.endpointId = savedEndpointId;
-        }
+      }
+      if (savedEndpointId) {
+        agentState.endpointId = savedEndpointId;
       }
     }
+  }
 
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,

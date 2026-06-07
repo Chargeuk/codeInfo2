@@ -771,6 +771,19 @@ async function prepareDirectAgentExecution(params: {
       source: params.source,
       surface: params.surface,
     });
+    const configuredEndpointId =
+      providerRuntimeResolution.endpoint?.endpointId?.trim() || undefined;
+    if (
+      params.pinnedEndpointId &&
+      configuredEndpointId &&
+      configuredEndpointId !== params.pinnedEndpointId
+    ) {
+      throw toRunAgentError(
+        'PROVIDER_UNAVAILABLE',
+        `Saved endpoint "${params.pinnedEndpointId}" does not match configured endpoint "${configuredEndpointId}" for provider "${params.pinnedProviderId}".`,
+        undefined,
+      );
+    }
     const endpointState =
       providerRuntimeResolution.endpoint !== undefined
         ? await resolveOpenAiCompatEndpointRuntimeState({

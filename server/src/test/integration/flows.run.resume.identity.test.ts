@@ -14,6 +14,10 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {
@@ -22,6 +26,10 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import {
+  __resetFlowResumeTestDepsForTests,
+  __setFlowResumeTestDepsForTests,
+} from '../../flows/service.js';
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -127,6 +135,48 @@ const getFlowChildExecutionId = (conversationId: string) => {
   };
   assert.equal(typeof flags.flowChild?.executionId, 'string');
   return flags.flowChild?.executionId as string;
+};
+
+const snapshotFlowChildConversation = (
+  conversation: Conversation | null | undefined,
+) => ({
+  provider: conversation?.provider,
+  model: conversation?.model,
+  endpointId: conversation?.flags?.endpointId,
+  flowChildExecutionId: (
+    (conversation?.flags ?? {}) as {
+      flowChild?: { executionId?: string };
+    }
+  ).flowChild?.executionId,
+});
+
+const writeFlowResumeAgentHome = async (params: {
+  agentsHome: string;
+  codexHome: string;
+  endpointId: string;
+  modelId: string;
+}) => {
+  const agentHome = path.join(params.agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(params.codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      `model = "${params.modelId}"`,
+      `codeinfo_openai_endpoint = "${params.endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(params.codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(params.codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(params.codexHome, 'chat', 'config.toml'),
+    `model = "${params.modelId}"\n`,
+    'utf8',
+  );
 };
 
 const buildApp = () => {
@@ -531,7 +581,11 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
         );
 
         assert.equal(
-          conversations.get(childConversationId)?.flags?.endpointId,
+          (
+            conversations.get(conversationId)?.flags as
+              | { flow?: { agentEndpointIds?: Record<string, string> } }
+              | undefined
+          )?.flow?.agentEndpointIds?.['coding_agent:resume-test'],
           endpointId,
         );
         assert.equal(conversations.get(childConversationId)?.provider, 'codex');
@@ -571,6 +625,587 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
       delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
     } else {
       process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = prevCompatEndpoints;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 9 resumes flow-owned child execution from the saved child endpoint identity', async () => {
+  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const prevRuntimeCodexHome = process.env.CODEX_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-child-endpoint-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['flow-current-model'],
+  });
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const childConversationId = 'agent-conv-flow-endpoint-success';
+  const conversationId = 'flow-conv-flow-endpoint-success';
+  const capturedFlags: Array<Record<string, unknown>> = [];
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      _message: string,
+      flags: Record<string, unknown>,
+      conversation: string,
+      _model: string,
+    ) {
+      void _message;
+      void _model;
+      capturedFlags.push({ ...flags });
+      this.emit('thread', { type: 'thread', threadId: conversation });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', { type: 'complete', threadId: conversation });
+    }
+  }
+
+  await writeFlowResumeAgentHome({
+    agentsHome,
+    codexHome,
+    endpointId,
+    modelId: 'flow-current-model',
+  });
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'flow-current-model',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  __setFlowResumeTestDepsForTests({
+    ensureFlowChildConversationOwnership: async () => ({
+      needsExecutionIdBackfill: false,
+    }),
+  });
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'flow-current-model',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-flow-endpoint-success',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentProviders: {
+          'coding_agent:resume-test': 'codex',
+        },
+        agentModels: {
+          'coding_agent:resume-test': 'flow-current-model',
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'flow-saved-model',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      endpointId,
+      flowChild: {
+        executionId: 'resume-execution-flow-endpoint-success',
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName: 'resume-basic',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+    });
+
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'flow-current-model');
+    assert.equal(
+      capturedFlags.at(-1)?.endpointId,
+      endpointId,
+    );
+  } finally {
+    __resetFlowResumeTestDepsForTests();
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
+    await externalServer.stop();
+    if (prevAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
+    }
+    if (prevAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    }
+    if (prevCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+    }
+    if (prevRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = prevRuntimeCodexHome;
+    }
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    if (prevCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        prevCompatEndpoints;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 9 rejects stale flow replay before mutating the existing child conversation in memory', async () => {
+  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const prevRuntimeCodexHome = process.env.CODEX_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-stale-memory-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['flow-current-model'],
+  });
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const childConversationId = 'agent-conv-flow-stale-memory';
+  const conversationId = 'flow-conv-flow-stale-memory';
+
+  await writeFlowResumeAgentHome({
+    agentsHome,
+    codexHome,
+    endpointId,
+    modelId: 'flow-current-model',
+  });
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'flow-current-model',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  __setFlowResumeTestDepsForTests({
+    ensureFlowChildConversationOwnership: async () => {
+      throw new Error('stale replay rejected before child mutation');
+    },
+  });
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'flow-current-model',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-flow-stale-memory',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentProviders: {
+          'coding_agent:resume-test': 'codex',
+        },
+        agentModels: {
+          'coding_agent:resume-test': 'flow-current-model',
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'flow-saved-model',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      endpointId,
+      flowChild: {
+        executionId: 'resume-execution-flow-stale-memory',
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  const beforeChild = snapshotFlowChildConversation(
+    memoryConversations.get(childConversationId),
+  );
+
+  try {
+    await assert.rejects(
+      () =>
+        startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) => {
+        assert.equal(
+          (error as { message?: string }).message,
+          'stale replay rejected before child mutation',
+        );
+        return true;
+      },
+    );
+
+    assert.deepEqual(
+      snapshotFlowChildConversation(memoryConversations.get(childConversationId)),
+      beforeChild,
+    );
+  } finally {
+    __resetFlowResumeTestDepsForTests();
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
+    await externalServer.stop();
+    if (prevAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
+    }
+    if (prevAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    }
+    if (prevCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+    }
+    if (prevRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = prevRuntimeCodexHome;
+    }
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    if (prevCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        prevCompatEndpoints;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 9 rejects stale flow replay before mutating the existing child conversation in Mongo', async () => {
+  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const prevRuntimeCodexHome = process.env.CODEX_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-stale-mongo-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['flow-current-model'],
+  });
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const childConversationId = 'agent-conv-flow-stale-mongo';
+  const conversationId = 'flow-conv-flow-stale-mongo';
+
+  await writeFlowResumeAgentHome({
+    agentsHome,
+    codexHome,
+    endpointId,
+    modelId: 'flow-current-model',
+  });
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  __setFlowResumeTestDepsForTests({
+    ensureFlowChildConversationOwnership: async () => {
+      throw new Error('stale replay rejected before child mutation');
+    },
+  });
+
+  const seededFlowConversation: Conversation = {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'flow-current-model',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-flow-stale-mongo',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentProviders: {
+          'coding_agent:resume-test': 'codex',
+        },
+        agentModels: {
+          'coding_agent:resume-test': 'flow-current-model',
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const seededChildConversation: Conversation = {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'flow-saved-model',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      endpointId,
+      flowChild: {
+        executionId: 'resume-execution-flow-stale-mongo',
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const beforeChild = snapshotFlowChildConversation(seededChildConversation);
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [seededFlowConversation, seededChildConversation],
+      run: async ({ conversations }) => {
+        await assert.rejects(
+          () =>
+            startFlowRun({
+              flowName: 'resume-basic',
+              conversationId,
+              resumeStepPath: [0],
+              source: 'REST',
+              chatFactory: () => new MinimalChat(),
+            }),
+          (error: unknown) => {
+            assert.equal(
+              (error as { message?: string }).message,
+              'stale replay rejected before child mutation',
+            );
+            return true;
+          },
+        );
+
+        assert.deepEqual(
+          snapshotFlowChildConversation(conversations.get(childConversationId)),
+          beforeChild,
+        );
+      },
+    });
+  } finally {
+    __resetFlowResumeTestDepsForTests();
+    await externalServer.stop();
+    if (prevAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
+    }
+    if (prevAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    }
+    if (prevCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+    }
+    if (prevRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = prevRuntimeCodexHome;
+    }
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    if (prevCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        prevCompatEndpoints;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.rm(agentsHome, { recursive: true, force: true });

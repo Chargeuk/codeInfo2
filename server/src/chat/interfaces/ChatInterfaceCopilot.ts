@@ -119,6 +119,21 @@ const resolveCopilotSendAndWaitTimeoutMs = (
   return effectiveSeconds * 1000;
 };
 
+const disableCopilotMcpServerTools = (
+  mcpServers: Record<string, MCPServerConfig> | undefined,
+): Record<string, MCPServerConfig> | undefined => {
+  if (!mcpServers) return undefined;
+
+  const normalized = Object.create(null) as Record<string, MCPServerConfig>;
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    normalized[serverName] = {
+      ...serverConfig,
+      tools: [],
+    };
+  }
+  return normalized;
+};
+
 export class ChatInterfaceCopilot extends ChatInterface {
   private readonly hooksFactory: NonNullable<
     ChatInterfaceCopilotOptions['hooksFactory']
@@ -144,9 +159,13 @@ export class ChatInterfaceCopilot extends ChatInterface {
     mcpServers?: Record<string, MCPServerConfig>;
   } {
     const runtimeFlags = resolveCopilotRuntimeAgentFlags(flags.agentFlags);
+    const rawMcpServers = buildCopilotMcpServers(flags.runtimeConfig);
     return {
       runtimeFlags,
-      mcpServers: buildCopilotMcpServers(flags.runtimeConfig),
+      mcpServers:
+        runtimeFlags.toolAccess === 'off'
+          ? disableCopilotMcpServerTools(rawMcpServers)
+          : rawMcpServers,
     };
   }
 

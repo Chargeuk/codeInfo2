@@ -2,9 +2,16 @@ import type { MCPServerConfig } from '@github/copilot-sdk';
 import type { RuntimeTomlConfig } from '../config/runtimeConfig.js';
 
 type TomlRecord = Record<string, unknown>;
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const isRecord = (value: unknown): value is TomlRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isUnsafeObjectKey = (value: string): boolean =>
+  UNSAFE_OBJECT_KEYS.has(value);
+
+const createSafeRecord = <T>(): Record<string, T> =>
+  Object.create(null) as Record<string, T>;
 
 const normalizeString = (
   value: unknown,
@@ -45,8 +52,13 @@ const normalizeStringRecord = (
       `copilot mcp server "${serverName}" field "${field}" must be a table`,
     );
   }
-  const normalized: Record<string, string> = {};
+  const normalized = createSafeRecord<string>();
   for (const [key, entryValue] of Object.entries(value)) {
+    if (isUnsafeObjectKey(key)) {
+      throw new Error(
+        `copilot mcp server "${serverName}" field "${field}.${key}" uses a reserved key`,
+      );
+    }
     if (typeof entryValue !== 'string') {
       throw new Error(
         `copilot mcp server "${serverName}" field "${field}.${key}" must be a string`,
@@ -145,8 +157,11 @@ export function buildCopilotMcpServers(
   const rawServers = runtimeConfig?.mcp_servers;
   if (!isRecord(rawServers)) return undefined;
 
-  const normalized: Record<string, MCPServerConfig> = {};
+  const normalized = createSafeRecord<MCPServerConfig>();
   for (const [serverName, rawDefinition] of Object.entries(rawServers)) {
+    if (isUnsafeObjectKey(serverName)) {
+      throw new Error(`copilot mcp server "${serverName}" uses a reserved key`);
+    }
     if (!isRecord(rawDefinition)) {
       throw new Error(`copilot mcp server "${serverName}" must be a table`);
     }

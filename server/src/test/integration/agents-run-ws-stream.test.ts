@@ -45,6 +45,16 @@ const getMcpServerKeys = (
   mcpServers: Record<string, unknown> | undefined,
 ): string[] => Object.keys(mcpServers ?? {}).sort();
 
+const getMcpServerTools = (
+  mcpServers: Record<string, { tools?: string[] }> | undefined,
+): Record<string, string[] | undefined> =>
+  Object.fromEntries(
+    Object.entries(mcpServers ?? {}).map(([name, config]) => [
+      name,
+      config.tools,
+    ]),
+  );
+
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
@@ -366,6 +376,7 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
     path.join(copilotHome, 'chat', 'config.toml'),
     [
       'model = "copilot-model"',
+      'tool_access = "off"',
       '',
       '[mcp_servers.context7]',
       'command = "npx"',
@@ -442,8 +453,14 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
         type: 'stdio',
         command: 'npx',
         args: ['-y', 'mcp-remote', 'http://localhost:5020/mcp'],
-        tools: ['*'],
+        tools: [],
         timeout: 1_800_000,
+      },
+    );
+    assert.deepEqual(
+      getMcpServerTools(harness.getState().lastCreateSessionConfig?.mcpServers),
+      {
+        code_info: [],
       },
     );
   } finally {

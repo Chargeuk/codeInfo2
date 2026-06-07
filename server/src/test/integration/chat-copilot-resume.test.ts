@@ -9,6 +9,16 @@ import {
   waitForAssistantTurnCount,
 } from './support/copilotChatHarness.js';
 
+const getMcpServerTools = (
+  mcpServers: Record<string, { tools?: string[] }> | undefined,
+): Record<string, string[] | undefined> =>
+  Object.fromEntries(
+    Object.entries(mcpServers ?? {}).map(([name, config]) => [
+      name,
+      config.tools,
+    ]),
+  );
+
 test('copilot resume failures stay explicit instead of silently creating a fresh session', async () => {
   const server = await startCopilotChatServer({
     scenario: {
@@ -145,6 +155,17 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       server.harness.getState().lastCreateSessionConfig?.availableTools,
       [],
     );
+    assert.deepEqual(
+      getMcpServerTools(
+        server.harness.getState().lastCreateSessionConfig?.mcpServers,
+      ),
+      {
+        code_info: [],
+        context7: [],
+        deepwiki: [],
+        mui: [],
+      },
+    );
 
     await request(server.httpServer)
       .post('/chat')
@@ -170,6 +191,17 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
     assert.deepEqual(
       server.harness.getState().lastResumeSession?.config.availableTools,
       [],
+    );
+    assert.deepEqual(
+      getMcpServerTools(
+        server.harness.getState().lastResumeSession?.config.mcpServers,
+      ),
+      {
+        code_info: [],
+        context7: [],
+        deepwiki: [],
+        mui: [],
+      },
     );
   } finally {
     await server.stop();

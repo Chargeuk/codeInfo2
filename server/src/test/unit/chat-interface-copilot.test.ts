@@ -10,6 +10,9 @@ import {
   type MockCopilotSdkHarness,
 } from '../support/mockCopilotSdk.js';
 
+const toComparableJson = (value: unknown) =>
+  JSON.parse(JSON.stringify(value)) as unknown;
+
 const collectEvents = (chat: ChatInterfaceCopilot) => {
   const emitted: ChatEvent[] = [];
   for (const eventName of [
@@ -76,20 +79,23 @@ test('ChatInterfaceCopilot create-session path maps streamed events into ChatInt
     harness.getState().lastCreateSessionConfig?.sessionId,
     'copilot-conversation-1',
   );
-  assert.deepEqual(harness.getState().lastCreateSessionConfig?.mcpServers, {
-    code_info: {
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
-      tools: ['*'],
-      timeout: 1_800_000,
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastCreateSessionConfig?.mcpServers),
+    {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: ['*'],
+        timeout: 1_800_000,
+      },
+      deepwiki: {
+        type: 'http',
+        url: 'https://mcp.deepwiki.com/mcp',
+        tools: ['*'],
+      },
     },
-    deepwiki: {
-      type: 'http',
-      url: 'https://mcp.deepwiki.com/mcp',
-      tools: ['*'],
-    },
-  });
+  );
 });
 
 test('ChatInterfaceCopilot resume path keeps event mapping aligned with create', async () => {
@@ -129,20 +135,23 @@ test('ChatInterfaceCopilot resume path keeps event mapping aligned with create',
   );
   assert.equal(toolRequest?.name, 'read_file');
   assert.equal(toolResult?.name, 'read_file');
-  assert.deepEqual(harness.getState().lastResumeSession?.config.mcpServers, {
-    code_info: {
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
-      tools: ['*'],
-      timeout: 1_800_000,
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastResumeSession?.config.mcpServers),
+    {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: ['*'],
+        timeout: 1_800_000,
+      },
+      deepwiki: {
+        type: 'http',
+        url: 'https://mcp.deepwiki.com/mcp',
+        tools: ['*'],
+      },
     },
-    deepwiki: {
-      type: 'http',
-      url: 'https://mcp.deepwiki.com/mcp',
-      tools: ['*'],
-    },
-  });
+  );
 });
 
 test('ChatInterfaceCopilot create-session forwards MCP servers without registering custom SDK tools', async () => {
@@ -176,20 +185,23 @@ test('ChatInterfaceCopilot create-session forwards MCP servers without registeri
     harness.getState().lastCreateSessionConfig?.availableTools,
     undefined,
   );
-  assert.deepEqual(harness.getState().lastCreateSessionConfig?.mcpServers, {
-    code_info: {
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
-      tools: ['*'],
-      timeout: 1_800_000,
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastCreateSessionConfig?.mcpServers),
+    {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: ['*'],
+        timeout: 1_800_000,
+      },
+      deepwiki: {
+        type: 'http',
+        url: 'https://mcp.deepwiki.com/mcp',
+        tools: ['*'],
+      },
     },
-    deepwiki: {
-      type: 'http',
-      url: 'https://mcp.deepwiki.com/mcp',
-      tools: ['*'],
-    },
-  });
+  );
   assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 7_200_000);
 });
 
@@ -211,6 +223,7 @@ test('ChatInterfaceCopilot create-session removes all tools when toolAccess is o
         modelReasoningEffort: 'high',
         toolAccess: 'off',
       },
+      runtimeConfig: runtimeConfigWithMcpServers,
     },
     'copilot-conversation-4',
     'copilot-gpt-5',
@@ -225,6 +238,23 @@ test('ChatInterfaceCopilot create-session removes all tools when toolAccess is o
   assert.deepEqual(
     harness.getState().lastCreateSessionConfig?.availableTools,
     [],
+  );
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastCreateSessionConfig?.mcpServers),
+    {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: [],
+        timeout: 1_800_000,
+      },
+      deepwiki: {
+        type: 'http',
+        url: 'https://mcp.deepwiki.com/mcp',
+        tools: [],
+      },
+    },
   );
 });
 
@@ -259,20 +289,23 @@ test('ChatInterfaceCopilot resume path keeps permissions allowed through the res
     harness.getState().lastResumeSession?.config.availableTools,
     undefined,
   );
-  assert.deepEqual(harness.getState().lastResumeSession?.config.mcpServers, {
-    code_info: {
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
-      tools: ['*'],
-      timeout: 1_800_000,
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastResumeSession?.config.mcpServers),
+    {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: ['*'],
+        timeout: 1_800_000,
+      },
+      deepwiki: {
+        type: 'http',
+        url: 'https://mcp.deepwiki.com/mcp',
+        tools: ['*'],
+      },
     },
-    deepwiki: {
-      type: 'http',
-      url: 'https://mcp.deepwiki.com/mcp',
-      tools: ['*'],
-    },
-  });
+  );
 });
 
 test('ChatInterfaceCopilot resume-session removes all tools when toolAccess is off', async () => {
@@ -292,6 +325,7 @@ test('ChatInterfaceCopilot resume-session removes all tools when toolAccess is o
         modelReasoningEffort: 'low',
         toolAccess: 'off',
       },
+      runtimeConfig: runtimeConfigWithMcpServers,
     },
     'copilot-conversation-6',
     'copilot-gpt-5',
@@ -305,6 +339,23 @@ test('ChatInterfaceCopilot resume-session removes all tools when toolAccess is o
   assert.deepEqual(
     harness.getState().lastResumeSession?.config.availableTools,
     [],
+  );
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastResumeSession?.config.mcpServers),
+    {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: [],
+        timeout: 1_800_000,
+      },
+      deepwiki: {
+        type: 'http',
+        url: 'https://mcp.deepwiki.com/mcp',
+        tools: [],
+      },
+    },
   );
 });
 

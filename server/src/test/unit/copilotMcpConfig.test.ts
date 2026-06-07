@@ -3,6 +3,9 @@ import test from 'node:test';
 
 import { buildCopilotMcpServers } from '../../chat/copilotMcpConfig.js';
 
+const toComparableJson = (value: unknown) =>
+  JSON.parse(JSON.stringify(value)) as unknown;
+
 test('buildCopilotMcpServers maps local and remote runtime MCP definitions into the Copilot SDK shape', () => {
   const result = buildCopilotMcpServers({
     mcp_servers: {
@@ -35,7 +38,8 @@ test('buildCopilotMcpServers maps local and remote runtime MCP definitions into 
     },
   });
 
-  assert.deepEqual(result, {
+  assert.equal(Object.getPrototypeOf(result), null);
+  assert.deepEqual(toComparableJson(result), {
     context7: {
       type: 'stdio',
       command: 'npx',
@@ -113,5 +117,54 @@ test('buildCopilotMcpServers rejects malformed MCP definitions', () => {
         },
       }),
     /field "type" must be "http" or "sse"/u,
+  );
+});
+
+test('buildCopilotMcpServers rejects reserved keys in MCP server maps', () => {
+  const reservedServerMap = Object.create(null) as Record<string, unknown>;
+  reservedServerMap['__proto__'] = {
+    command: 'npx',
+    args: ['-y', 'reserved-server'],
+  };
+
+  assert.throws(
+    () =>
+      buildCopilotMcpServers({
+        mcp_servers: reservedServerMap,
+      }),
+    /uses a reserved key/u,
+  );
+
+  const reservedHeaders = Object.create(null) as Record<string, unknown>;
+  reservedHeaders['__proto__'] = 'blocked';
+
+  assert.throws(
+    () =>
+      buildCopilotMcpServers({
+        mcp_servers: {
+          broken: {
+            url: 'https://example.com/mcp',
+            http_headers: reservedHeaders,
+          },
+        },
+      }),
+    /field "http_headers\.__proto__" uses a reserved key/u,
+  );
+
+  const reservedEnv = Object.create(null) as Record<string, unknown>;
+  reservedEnv['constructor'] = 'blocked';
+
+  assert.throws(
+    () =>
+      buildCopilotMcpServers({
+        mcp_servers: {
+          broken: {
+            command: 'npx',
+            args: ['-y', 'reserved-env'],
+            env: reservedEnv,
+          },
+        },
+      }),
+    /field "env\.constructor" uses a reserved key/u,
   );
 });

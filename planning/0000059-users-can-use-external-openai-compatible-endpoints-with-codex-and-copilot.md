@@ -1275,3 +1275,164 @@ If a Codex or Copilot manual-proof step reaches an auth-dependent surface and re
 - Review pass `0000059-20260607T101345Z-9dfe9788`; finding `finding-5`; repository `current_repository`; client Codex compatibility state now prefers the canonical nested compatibility payload over stale legacy top-level add-ons; changed files `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.codexDefaults.test.tsx`; commit `1daf7b0ad9961e1f59f73aa3322ddfe957261406`; targeted proof `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx` passed (7/7); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Review pass `0000059-20260607T101345Z-9dfe9788`; finding `finding-6`; repository `current_repository`; the targeted Cucumber import helper now rejects crafted feature paths that would escape the intended step-definition subtree; changed files `scripts/test-summary-server-cucumber-imports.mjs`, `scripts/test-summary-server-cucumber-imports.test.mjs`; commit `09606b6985eced7b5a5ff9e8b515361323eb559b`; targeted proof `node --test scripts/test-summary-server-cucumber-imports.test.mjs` passed (4/4); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Review pass `0000059-20260607T101345Z-9dfe9788`; finding `finding-8`; repository `current_repository`; the resumed-flow proof now waits on the test-owned execute callback instead of polling with a timer after flow start; changed files `server/src/test/integration/flows.run.resume.identity.test.ts`; commit `2ff80717e59ca278f7151b6fa574526cdd59bdeb`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` passed (15/15); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
+
+## Code Review Findings
+
+- Review pass: `0000059-20260607T101345Z-9dfe9788`
+- Review cycle: `0000059-rc-20260607T101345Z-9dfe9788`
+- Comparison context: local `HEAD` versus resolved base `origin/main@1c270a345a5fb8cfceea4ec610aa1e5ed1348451` from the stored review handoff, with remote fetch status `success`.
+- Confidence note: the stored handoff still carries an older `head_commit`, but the current review artifacts, resolved-inline minor audit trail, and current branch state all confirm this remains the active review cycle for Story `0000059`.
+- Inline-resolved minor findings already handled in this same active review cycle and covered again by the final revalidation task below: `finding-2`, `finding-3`, `finding-5`, `finding-6`, `finding-8`.
+- Remaining task-up findings encoded below: `finding-1`, `finding-4`, and `finding-7`.
+
+### Task 12. Repair /chat Conflict Authority And Fresh-State Persistence
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 11`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs the two serious `/chat` route defects from review pass `0000059-20260607T101345Z-9dfe9788` without widening Story 59 beyond restoring the approved route and persistence behavior. The required constraint is to preserve existing user-visible provider and endpoint behavior while making active-run conflict authority and persisted conversation flag freshness honest again.
+
+#### Overview
+
+Repair the `/chat` route so an already active conversation exposes the stable `RUN_IN_PROGRESS` conflict before provider bootstrap or endpoint discovery can mask it, and so the later persistence write cannot replay a stale pre-bootstrap `flags` snapshot over fresher endpoint or working-folder state. Keep the repair inside the current repository and inside the existing chat route contract rather than broadening provider-selection behavior or reopening unrelated conversation-edit semantics.
+
+#### Task Exit Criteria
+
+- A second `/chat` request against a conversation with an active run reaches the conflict authority path before pre-lock provider readiness, endpoint discovery, or bootstrap failures can change the returned error family.
+- The `/chat` persistence path no longer rebuilds a whole `flags` payload from a stale pre-bootstrap snapshot when a fresher conversation edit has already succeeded during the bootstrap window.
+- Any persistence repair keeps the current approved endpoint and working-folder behavior intact; it restores freshness and ordering only, not a broader product redesign.
+- Targeted proof directly covers both the conflict-precedence seam and the stale-flag non-clobber seam on the real `/chat` route surface.
+
+#### Addresses Findings
+
+- `finding-1` - The `/chat` route can mask an active-run conflict behind pre-lock provider or endpoint bootstrap failures.
+- `finding-7` - The `/chat` persistence path can overwrite fresher conversation flags from a stale pre-bootstrap snapshot.
+
+#### Owner Map
+
+- Route lifecycle and conflict-ordering seam: `server/src/routes/chat.ts`
+- Conversation metadata write and merge seam: `server/src/routes/chat.ts`, `server/src/mongo/repo.ts`
+- Route-level proof owner: `server/src/test/integration/chat-codex.test.ts`
+- Persistence helper support proof owner when needed: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-open the `/chat` route lifecycle around conversation lookup, provider bootstrap, endpoint discovery, lock acquisition, and later conversation metadata writes, then record one short owner map in `Implementation Notes` that names the exact conflict-authority seam and the exact stale-flag write seam before changing code.
+2. [ ] Repair the `/chat` conflict-ordering path in `server/src/routes/chat.ts` so an already active conversation resolves through the `RUN_IN_PROGRESS` authority path before later provider readiness or endpoint bootstrap failures can mask it, while preserving the existing approved provider-selection behavior for non-conflict requests.
+3. [ ] Repair the `/chat` metadata persistence path so later writes preserve fresher conversation flag edits instead of replaying a stale pre-bootstrap `flags` snapshot. Keep the fix bounded to the existing route and persistence seam, and preserve the approved endpoint and working-folder behavior instead of widening story scope into broader conversation-edit redesign.
+4. [ ] Refresh the route-owned proof homes so the reviewed invariants are asserted directly on the `/chat` surface: one proof for conflict precedence and one proof for stale-flag non-clobber after the long bootstrap window.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` to prove the repaired `/chat` route still returns stable conflict semantics and preserves persisted state on the loser path.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove any extracted or helper-owned persistence merge behavior still preserves the intended working-folder and endpoint flag contract.
+3. [ ] Run `npm run lint` for the repaired `/chat` route and persistence surface and fix any issues found.
+4. [ ] Run `npm run format:check` for the repaired `/chat` route and persistence surface and fix any issues found.
+
+#### Implementation Notes
+
+- None yet.
+
+### Task 13. Restore Endpoint Identity On The /chat/models Default-Selection Path
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 11`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs the serious endpoint-identity producer-consumer drift from review pass `0000059-20260607T101345Z-9dfe9788`. The constraint from the stored review outcome is to fix the underlying identity loss while preserving approved Story 59 behavior, not to widen scope into a new model-selection contract or a broader user-facing redesign.
+
+#### Overview
+
+Repair the `/chat/models` default-selection path so endpoint identity survives from the server and shared response shape into the client’s fallback selection logic even when duplicate raw model ids exist across endpoint-backed choices. Keep the repair honest across the current repository’s server, shared, and client seams, and preserve the approved endpoint-backed picker behavior rather than reinterpreting the model-selection contract.
+
+#### Task Exit Criteria
+
+- The `/chat/models` producer-consumer seam preserves enough identity for the client to restore the configured endpoint-backed default even when duplicate raw model ids exist.
+- The client fallback-selection path no longer snaps to the wrong endpoint-backed model when current selection is cleared during refresh or provider switching.
+- The repair stays inside the existing approved Story 59 endpoint-backed picker contract and does not broaden model-selection behavior beyond restoring endpoint identity.
+- Targeted proof covers the server/shared response shape and the client fallback-selection consumer path directly.
+
+#### Addresses Findings
+
+- `finding-4` - The `/chat/models` default-selection path drops endpoint identity and can snap duplicate raw model ids back to the wrong endpoint-backed default.
+
+#### Owner Map
+
+- Server discovery and normalized response seam: `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`
+- Shared response shape seam: `common/src/lmstudio.ts`
+- Client default-selection seam: `client/src/hooks/useChatModel.ts`
+- Server proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`
+- Client proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-open the server, shared, and client producer-consumer seams for `/chat/models`, then record one short owner map in `Implementation Notes` that names exactly where endpoint identity is lost today and which response field will remain authoritative after the repair.
+2. [ ] Repair the server and shared `/chat/models` response path so the default-selection contract preserves endpoint identity instead of collapsing to a bare raw model id when endpoint-backed duplicates exist.
+3. [ ] Repair the client fallback-selection path in `client/src/hooks/useChatModel.ts` so refresh and provider-switch recovery choose the correct endpoint-backed default from the repaired response shape instead of snapping to the wrong duplicate raw id.
+4. [ ] Refresh the server and client proof homes so duplicate-id endpoint-backed defaults are asserted directly on the repaired producer-consumer seam rather than inferred from adjacent picker behavior.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` to prove the repaired `/chat/models` payload preserves endpoint-aware default-selection metadata on the server/shared seam.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature` to prove the endpoint-backed `/chat/models` contract still holds on the feature-owned route surface.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx` to prove the client fallback-selection path restores the correct endpoint-backed default when duplicate raw ids exist.
+4. [ ] Run `npm run lint` for the repaired `/chat/models` response and client selection surface and fix any issues found.
+5. [ ] Run `npm run format:check` for the repaired `/chat/models` response and client selection surface and fix any issues found.
+
+#### Implementation Notes
+
+- None yet.
+
+### Task 14. Final Revalidation For Review Cycle 0000059-rc-20260607T101345Z-9dfe9788
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 12`, `Task 13`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260607T101345Z-9dfe9788`. It must revalidate the serious review-created findings from review pass `0000059-20260607T101345Z-9dfe9788` and also re-cover the already resolved inline minor findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8` so this cycle does not split close-out ownership across two final tasks.
+
+#### Overview
+
+Re-run the relevant wrapper-first regression proof for the current review-created findings block after Tasks 12 and 13 land, and confirm that the same story head still covers the inline-resolved minor fixes from this active review cycle. This task owns current-repository server, client, and browser-visible regression proof for the repaired chat route and endpoint-aware selection seams. Compose and broader runtime-stack revalidation are not separate new gates for this review-created block unless Tasks 12 or 13 widen into runtime-stack wiring, because the current unresolved review findings are limited to route, persistence, shared response-shape, and client selection behavior inside the current repository.
+
+#### Task Exit Criteria
+
+- Review pass `0000059-20260607T101345Z-9dfe9788` has fresh proof on the story head for `finding-1`, `finding-4`, and `finding-7`.
+- The same final proof pass still covers the inline-resolved minor findings from this review cycle: `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8`.
+- The current repository’s relevant server, client, and browser-visible regression wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
+- Final `Implementation Notes` map each current-cycle finding to its surviving proof owner on the repaired story head.
+
+#### Addresses Findings
+
+- Serious review-created findings for review pass `0000059-20260607T101345Z-9dfe9788`: `finding-1`, `finding-4`, `finding-7`
+- Inline-resolved minor findings revalidated here for the same review cycle: `finding-2`, `finding-3`, `finding-5`, `finding-6`, `finding-8`
+
+#### Owner Map
+
+- Server build and unit/integration wrapper owner: `npm run build:summary:server`, `npm run test:summary:server:unit`
+- Feature-level route proof owner: `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature`
+- Client build and unit wrapper owner: `npm run build:summary:client`, `npm run test:summary:client`
+- Browser-visible proof owner: `npm run test:summary:e2e`
+- Final hygiene proof owner: `npm run lint`, `npm run format:check`
+
+#### Subtasks
+
+1. [ ] Re-open the current-cycle `Code Review Findings` block plus `## Minor Review Fixes`, then record one explicit proof-owner mapping in `Implementation Notes` for `finding-1`, `finding-4`, `finding-7`, `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8` before closing the cycle.
+2. [ ] Refresh any test fixtures, route assertions, shared response-shape expectations, or client selection assertions needed so the final wrapper-owned proof surfaces still assert the repaired invariants directly on the story head after Tasks 12 and 13 land.
+3. [ ] Confirm that compose/runtime-stack revalidation remains not applicable for this review-created block unless the implementation widened into those seams, and record that decision honestly in `Implementation Notes` before closing the task.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired server route and persistence surfaces compile cleanly before broader proof.
+2. [ ] Run `npm run build:summary:client` to confirm the repaired shared response-shape and client selection surfaces compile cleanly before broader proof.
+3. [ ] Run `npm run test:summary:server:unit` to prove the repaired server route, persistence, and inline-resolved minor server proof homes on the story head.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature` to prove the endpoint-aware `/chat/models` route contract on the feature-owned surface after the producer-consumer repair.
+5. [ ] Run `npm run test:summary:client` to prove the repaired client model-selection seam and the inline-resolved client minor proof homes on the story head.
+6. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the story head.
+7. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+8. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+
+#### Implementation Notes
+
+- None yet.

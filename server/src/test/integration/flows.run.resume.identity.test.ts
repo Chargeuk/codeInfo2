@@ -8,6 +8,10 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -15,9 +19,9 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
 import {
-  __resetAgentServiceDepsForTests,
-  __setAgentServiceDepsForTests,
-} from '../../agents/service.js';
+  __resetFlowResumeTestDepsForTests,
+  __setFlowResumeTestDepsForTests,
+} from '../../flows/service.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {
@@ -26,10 +30,6 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
-import {
-  __resetFlowResumeTestDepsForTests,
-  __setFlowResumeTestDepsForTests,
-} from '../../flows/service.js';
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();

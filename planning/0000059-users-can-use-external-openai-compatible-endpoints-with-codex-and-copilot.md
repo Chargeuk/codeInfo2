@@ -1021,8 +1021,8 @@ Repair two existing resume regressions only: the direct-agent resume path must k
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` to prove the saved-endpoint precedence regression on the direct-agent resume path through the repository’s supported server wrapper. Let Task 11 own the broader final server build and full regression pass for the review-created findings block.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove both the flow-owned saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper. Let Task 11 own the broader final server build and full regression pass for the review-created findings block.
-3. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-4. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+3. [x] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [x] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Implementation Notes
 
@@ -1030,6 +1030,8 @@ Repair two existing resume regressions only: the direct-agent resume path must k
 - Flow resume now reads the saved child endpoint before ownership checks and rejects stale replays before child mutation; the targeted stale-replay memory and Mongo proofs passed after the ownership order was tightened.
 - The latest implementation pass stayed inside `server/src/agents/service.ts`, `server/src/flows/service.ts`, and the two integration proof files, so no helper-owned `agents-router-run` unit seam changed and Subtask 6 closed as not needed.
 - **RESOLVED ISSUE** Deep blocker repair for Subtask 5 found two task-owned issues: `runFlowInstruction()` was not forwarding the resolved flow-owned `endpointId` into `chat.run()` flags, and the success proof asserted on `capturedFlags` before the resumed step had actually reached `chat.execute()`. Forwarding `endpointId` from the resolved flow agent state and waiting for the resumed execution in `server/src/test/integration/flows.run.resume.identity.test.ts` closed the flow-success proof gap; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` then passed 15/15 tests on `test-results/server-unit-tests-2026-06-07T01-57-09-675Z.log`.
+- `npm run lint` passed after reordering imports in `server/src/test/integration/flows.run.resume.identity.test.ts` to satisfy ESLint's import-order rule.
+- `npm run format:check` passed after the lint-only import reordering; no additional formatting changes were needed.
 
 ### Task 10. Complete Mobile Endpoint Playwright Coverage For The Chat Surface
 

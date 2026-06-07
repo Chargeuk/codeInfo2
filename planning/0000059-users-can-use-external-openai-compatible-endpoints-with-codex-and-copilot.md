@@ -138,6 +138,8 @@ The branch work also proved a set of repository-owned runtime seams that need to
 
 - Prefer deterministic automated proof first by mocking or fixture-driving external endpoint discovery where possible, because the story contract does not require a live internet dependency to prove the parsing and model-filtering behavior.
 - If later manual proof uses live external endpoints, use explicit `/v1` base URLs in the environment and record which harness surface was exercised for each retained artifact.
+- For the repository-owned main-stack manual proof default, use `http://192.168.1.3:1234/v1` with exposed model `google/gemma-4-26b-a4b-qat`, because this endpoint/model combination has already completed the story's simple chat proof through both harnesses in the checked-in compose runtime.
+- When later manual proof uses that live endpoint-backed default, manually test both `Copilot` and `Codex` chat surfaces rather than treating one successful provider run as sufficient story proof.
 - If later manual proof covers direct runtime-config selection, include at least one proof case where a chat or agent config uses `codeinfo_openai_endpoint` without the same endpoint appearing in `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`.
 - If later manual proof covers chat picker behavior, include at least one proof case where a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` still appears in the picker with a `host / model` label.
 - If later manual proof covers same-host endpoints, include at least one proof case where two different full base URLs on the same host remain distinct internally and only gain a short path hint when their `host / model` labels would otherwise collide.

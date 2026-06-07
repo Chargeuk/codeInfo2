@@ -63,13 +63,13 @@ This story extends the current `Codex` and `Copilot` experience so teams can poi
 - Re-run the broad story proof bundle across server, client, browser, and checked-in runtime validation.
 
 12. [codeInfo2] - Repair `/chat` conflict authority and fresh-state persistence
-- Move the active-run conflict decision earlier on the real `/chat` route so bootstrap failures cannot mask it.
-- Repair the later metadata merge so stale pre-bootstrap state cannot overwrite fresher persisted endpoint or working-folder values.
+- Move the real `/chat` conflict decision ahead of provider bootstrap so active runs always return `RUN_IN_PROGRESS` first.
+- Merge late conversation metadata writes without replaying stale `endpointId` or `workingFolder` values over fresher saved state.
 
 13. [codeInfo2] - Restore endpoint identity on the `/chat/models` default-selection path
-- Preserve endpoint-aware model identity from the server response through the shared shape into the client’s default-selection logic.
-- Clear or exclude stale reuse-mode endpoint state before a fresh draft can submit with the wrong duplicate-id selection.
+- Carry authoritative endpoint-aware default-selection identity from `/chat/providers` and `/chat/models` through the shared model shape.
+- Restore the right duplicate-id endpoint choice on the client and clear stale reuse-mode identity before fresh-draft submission.
 
 14. [codeInfo2] - Final revalidation for the current review cycle
 - Re-run the wrapper-first review-cycle proof for the serious review findings and the inline-resolved minor fixes on the story head.
-- Own the final broad regression proof across server, client, browser, script, and checked-in main-stack smoke validation for this review cycle.
+- Own the final broad regression proof across server, client, browser, script guard, and checked-in main-stack smoke validation for this cycle.

@@ -515,7 +515,6 @@ export function createChatRouter({
         effectiveRequestedProvider === 'codex'
           ? effectiveRequestedModel
           : codexPreferredDefaults.values.model,
-        { includeMissingPreferred: true },
       ),
       reason: codexDetection.reason ?? 'codex unavailable',
     });

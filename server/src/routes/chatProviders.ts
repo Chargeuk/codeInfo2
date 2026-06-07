@@ -220,7 +220,6 @@ export function createChatProvidersRouter({
               : []),
           ],
           codexRequestedDefaults?.values.model,
-          { includeMissingPreferred: true },
         ),
         reason:
           getProviderBootstrapReason('codex') ??

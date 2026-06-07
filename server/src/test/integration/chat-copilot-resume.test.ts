@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import request from 'supertest';
 
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   startCopilotChatServer,
   waitForAssistantTurn,
@@ -197,16 +198,19 @@ test('copilot create-session path builds an OpenAI-compatible provider config fr
   const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+  });
   const tempHome = await withTempCopilotHome(
     [
       'model = "copilot-gpt-5"',
-      'codeinfo_openai_endpoint = "https://alpha.example/v1|responses,completions"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses,completions"`,
       '',
     ].join('\n'),
   );
   process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    'https://alpha.example/v1|responses,completions';
+    `${externalServer.baseUrl}/v1|responses,completions`;
 
   const server = await startCopilotChatServer({
     scenario: {
@@ -222,7 +226,7 @@ test('copilot create-session path builds an OpenAI-compatible provider config fr
         model: 'copilot-gpt-5',
         conversationId: 'copilot-openai-compat',
         message: 'OpenAI-compatible endpoint please',
-        endpointId: 'https://alpha.example/v1',
+        endpointId: `${externalServer.baseUrl}/v1`,
       })
       .expect(202);
 
@@ -232,12 +236,13 @@ test('copilot create-session path builds an OpenAI-compatible provider config fr
       server.harness.getState().lastCreateSessionConfig?.provider,
       {
         type: 'openai',
-        baseUrl: 'https://alpha.example/v1',
+        baseUrl: `${externalServer.baseUrl}/v1`,
         wireApi: 'responses',
       },
     );
   } finally {
     await server.stop();
+    await externalServer.stop();
     if (originalCopilotHome === undefined) {
       delete process.env.CODEINFO_COPILOT_HOME;
     } else {

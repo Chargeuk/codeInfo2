@@ -750,9 +750,18 @@ export function useChatModel() {
 
         const data = parseModelsResponse(await res.json());
         const rawModels = data.models;
+        const resolvedProviderInfo =
+          data.providerInfo ??
+          data.providers?.find((entry) => entry.id === effectiveProvider);
+        const resolvedCompatibility =
+          data.compatibility ?? resolvedProviderInfo?.compatibility;
+        const resolvedCodexDefaults =
+          resolvedCompatibility?.codexDefaults ?? data.codexDefaults;
+        const resolvedCodexWarnings =
+          resolvedCompatibility?.codexWarnings ?? data.codexWarnings;
         const codexDefaultEffort =
-          typeof data.codexDefaults?.modelReasoningEffort === 'string'
-            ? data.codexDefaults.modelReasoningEffort
+          typeof resolvedCodexDefaults?.modelReasoningEffort === 'string'
+            ? resolvedCodexDefaults.modelReasoningEffort
             : '';
         const models =
           effectiveProvider === 'codex'
@@ -818,32 +827,23 @@ export function useChatModel() {
                 };
               })
             : rawModels;
-        if (data.codexDefaults) {
-          const hasWarnings = Boolean(data.codexWarnings?.length);
+        if (resolvedCodexDefaults) {
+          const hasWarnings = Boolean(resolvedCodexWarnings?.length);
           console.info('[codex-models-response] codexDefaults received', {
             hasWarnings,
-            codexDefaults: data.codexDefaults,
+            codexDefaults: resolvedCodexDefaults,
           });
         }
         setAvailable(Boolean(data.available));
         setToolsAvailable(Boolean(data.toolsAvailable));
         setProviderReason(data.reason);
         hydratedModelsProviderRef.current = effectiveProvider;
-        const resolvedProviderInfo =
-          data.providerInfo ??
-          data.providers?.find((entry) => entry.id === effectiveProvider);
         setProviderInfo(resolvedProviderInfo);
         setCodexDefaults(
-          effectiveProvider === 'codex'
-            ? (data.codexDefaults ??
-                resolvedProviderInfo?.compatibility?.codexDefaults)
-            : undefined,
+          effectiveProvider === 'codex' ? resolvedCodexDefaults : undefined,
         );
         setCodexWarnings(
-          effectiveProvider === 'codex'
-            ? (data.codexWarnings ??
-                resolvedProviderInfo?.compatibility?.codexWarnings)
-            : undefined,
+          effectiveProvider === 'codex' ? resolvedCodexWarnings : undefined,
         );
         setModels(models);
         const currentSelection = findSelectedModel(

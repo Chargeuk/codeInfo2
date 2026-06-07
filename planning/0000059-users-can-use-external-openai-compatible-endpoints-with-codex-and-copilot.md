@@ -1370,6 +1370,7 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 - The `/chat/models` producer-consumer seam preserves enough identity for the client to restore the configured endpoint-backed default even when duplicate raw model ids exist.
 - The client fallback-selection path no longer snaps to the wrong endpoint-backed model when current selection is cleared during refresh or provider switching.
+- While an existing conversation stays active in reuse mode, its restored endpoint-backed selection remains the local authority; once the user returns to a fresh draft, that restored reuse-mode identity is cleared or excluded so hidden or disabled stale endpoint state cannot drive fresh create-mode selection or submission.
 - The repair stays inside the existing approved Story 59 endpoint-backed picker contract and does not broaden model-selection behavior beyond restoring endpoint identity.
 - Targeted proof covers the server/shared response shape and the client fallback-selection consumer path directly.
 
@@ -1389,7 +1390,7 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 - Server discovery and normalized response seam: `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`
 - Shared response shape seam: `common/src/lmstudio.ts`
-- Client default-selection seam: `client/src/hooks/useChatModel.ts`
+- Client default-selection and create-vs-reuse state seam: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`
 - Server proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`
 - Client proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 
@@ -1399,15 +1400,18 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
   Implementation files: `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`
   Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`
 - Requirement: client refresh and provider-switch fallback restore the correct endpoint-backed default instead of snapping to the first duplicate raw model id.
-  Implementation files: `client/src/hooks/useChatModel.ts`
+  Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`
+  Proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- Requirement: mixed create-vs-reuse state retains restored endpoint identity only while the reused conversation remains active, then clears or excludes that stale reuse-mode state when the user returns to a fresh draft so hidden endpoint state cannot steer fresh create-mode selection or submission.
+  Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`
   Proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`, and `client/src/hooks/useChatModel.ts`, then record one short owner map in `Implementation Notes` that names where endpoint identity is lost today, which response field or paired field set will become authoritative after the repair, and which adjacent consumers must remain compatible.
-2. [ ] Patch the `/chat/models` producer-consumer seam across `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`, and `client/src/hooks/useChatModel.ts` so endpoint-backed defaults keep their identity through the normal `/chat/providers` plus `/chat/models?provider=codex` bootstrap path and the client fallback-selection path when duplicate raw model ids exist. Preserve the approved endpoint-backed picker behavior instead of introducing a broader selection redesign.
+1. [ ] Re-open `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, and `client/src/pages/ChatPage.tsx`, then record one short owner map in `Implementation Notes` that names where endpoint identity is lost today, which response field or paired field set will become authoritative after the repair, where create-vs-reuse mode currently keeps restored endpoint state alive, and which adjacent consumers must remain compatible.
+2. [ ] Patch the `/chat/models` producer-consumer seam across `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, and `client/src/pages/ChatPage.tsx` so endpoint-backed defaults keep their identity through the normal `/chat/providers` plus `/chat/models?provider=codex` bootstrap path, the client fallback-selection path, and the create-vs-reuse mode switch when duplicate raw model ids exist. Preserve restored endpoint identity while an existing conversation stays active, but clear or exclude that stale reuse-mode identity when returning to a fresh draft so it cannot steer fresh create-mode selection or submission.
 3. [ ] Refresh the server proof surfaces in `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts` so they assert the duplicate-id endpoint-backed default path directly on the `/chat/providers` plus `/chat/models` route flow: provider bootstrap preserves the selected endpoint, the route payload carries the authoritative default-selection identity, and duplicate raw ids remain distinct instead of collapsing back to the first matching raw id.
-4. [ ] Refresh `client/src/test/chatPage.provider.conversationSelection.test.tsx` so the client proof explicitly covers clearing current selection, reloading duplicate-id endpoint-backed choices, preserving the selected endpoint across the refresh path, and restoring the configured endpoint-backed default instead of the first duplicate raw id.
+4. [ ] Refresh `client/src/test/chatPage.provider.conversationSelection.test.tsx` so the client proof explicitly covers clearing current selection, reloading duplicate-id endpoint-backed choices, preserving the selected endpoint across the refresh path, preserving restored endpoint identity while an existing conversation remains active, and then clearing or excluding that stale reuse-mode identity when the user returns to a fresh draft so the configured endpoint-backed default is restored instead of the first duplicate raw id or any hidden stale endpoint state.
 
 #### Testing
 
@@ -1474,7 +1478,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 #### Subtasks
 
 1. [ ] Re-open the current-cycle `Code Review Findings` block plus `## Minor Review Fixes`, then record one explicit proof-owner mapping in `Implementation Notes` for `finding-1`, `finding-4`, `finding-7`, `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8`, including which proofs are broad-wrapper-owned versus targeted-only.
-2. [ ] Refresh the final proof surfaces that Tasks 12 and 13 changed so the story head still proves all current-cycle invariants directly: `/chat` conflict-before-bootstrap plus stale-flag preservation, `/chat/models` producer-consumer endpoint identity plus duplicate-id default restoration, the Copilot fail-in-place and malformed-endpoint minors, the Codex compatibility-precedence minor, the flow-resume callback-owned proof minor, and the script-level import-guard minor.
+2. [ ] Refresh the final proof surfaces that Tasks 12 and 13 changed so the story head still proves all current-cycle invariants directly: `/chat` conflict-before-bootstrap plus stale-flag preservation, `/chat/models` producer-consumer endpoint identity plus duplicate-id default restoration across cleared selection, active reused conversation state, and return-to-fresh-draft state, the Copilot fail-in-place and malformed-endpoint minors, the Codex compatibility-precedence minor, the flow-resume callback-owned proof minor, and the script-level import-guard minor.
 3. [ ] Re-open the broad wrapper list plus the targeted `scripts/test-summary-server-cucumber-imports.test.mjs` proof and record the execution boundary in `Implementation Notes`: which failures count as task-owned assertion failures, which failures are shared baseline or harness interruptions, and why compose/runtime-stack revalidation still remains not applicable unless Tasks 12 or 13 widen into those seams.
 
 #### Testing

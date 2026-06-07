@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { logPlaywrightCopilotScenarioRegistration } from './support/copilotFakeScenario';
+import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -463,7 +464,7 @@ test('fresh chat after selecting history ignores restored resume-only provider s
   expect(chatBodies[0]?.conversationId).not.toBe('history-1');
 });
 
-test('endpoint-backed history selection keeps the stored endpoint identity pinned while the conversation is selected', async ({
+test('mobile endpoint-backed history selection through the conversations overlay keeps the restored endpoint visible after the overlay closes', async ({
   page,
 }) => {
   if (!useMockChat) {
@@ -471,6 +472,7 @@ test('endpoint-backed history selection keeps the stored endpoint identity pinne
   }
 
   const mockWs = await installMockChatWs(page);
+  await page.setViewportSize({ width: 390, height: 844 });
 
   await page.route('**/chat/providers*', (route) =>
     route.fulfill({
@@ -644,6 +646,10 @@ test('endpoint-backed history selection keeps the stored endpoint identity pinne
   await page.goto(`${baseUrl}/chat`);
   await hideMcpOverlay(page);
 
+  await page.getByRole('button', { name: 'Open conversations' }).click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeVisible();
   await page.getByTestId('conversation-refresh').click();
   const historyConversationRow = page.locator(
     '[data-testid="conversation-row"]',
@@ -655,6 +661,9 @@ test('endpoint-backed history selection keeps the stored endpoint identity pinne
     timeout: 20000,
   });
   await historyConversationRow.click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeHidden();
   await expect(page.getByTestId('provider-select')).toContainText(
     /OpenAI Codex/i,
   );
@@ -663,7 +672,7 @@ test('endpoint-backed history selection keeps the stored endpoint identity pinne
   );
 });
 
-test('fresh chat after endpoint-backed history restores the create-mode endpoint pair', async ({
+test('mobile fresh conversation after endpoint-backed history restores the create-mode endpoint pair', async ({
   page,
 }) => {
   if (!useMockChat) {
@@ -672,6 +681,7 @@ test('fresh chat after endpoint-backed history restores the create-mode endpoint
 
   const mockWs = await installMockChatWs(page);
   const chatBodies: Array<Record<string, unknown>> = [];
+  await page.setViewportSize({ width: 390, height: 844 });
 
   await page.route('**/chat/providers*', (route) =>
     route.fulfill({
@@ -846,6 +856,10 @@ test('fresh chat after endpoint-backed history restores the create-mode endpoint
   await page.goto(`${baseUrl}/chat`);
   await hideMcpOverlay(page);
 
+  await page.getByRole('button', { name: 'Open conversations' }).click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeVisible();
   await page.getByTestId('conversation-refresh').click();
   const historyConversationRow = page.locator(
     '[data-testid="conversation-row"]',
@@ -857,6 +871,9 @@ test('fresh chat after endpoint-backed history restores the create-mode endpoint
     timeout: 20000,
   });
   await historyConversationRow.click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeHidden();
   await expect(page.getByTestId('provider-select')).toContainText(
     /OpenAI Codex/i,
   );

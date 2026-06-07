@@ -1267,3 +1267,7 @@ If a Codex or Copilot manual-proof step reaches an auth-dependent surface and re
 - `npm run format:check` now passes cleanly on the final story-validation surface.
 - `npm run build:summary:server` passed cleanly on the final story head with no warnings, confirming the server-side validation surface compiles before broader proof continues.
 - `npm run build:summary:client` passed cleanly after raising the client build chunk-size warning threshold above the current final bundle size, removing the persistent warning from the final closeout wrapper.
+
+## Minor Review Fixes
+
+- Review pass `0000059-20260607T101345Z-9dfe9788`; finding `finding-2`; repository `current_repository`; malformed Copilot `/chat` endpoint pins now fail validation instead of silently degrading to native success; changed files `server/src/routes/chat.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`; commit `446a5b261696152faad915c915afe5b2707225ca`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-resume.test.ts` passed (4/4); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`

@@ -1314,6 +1314,7 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 - Ordering invariant: once a conversation already has an active run, the conflict-owned `RUN_IN_PROGRESS` path must win before later provider readiness, endpoint discovery, or runtime bootstrap can change the returned error family.
 - Freshness invariant: the route must not rebuild a full `flags` payload from a stale pre-bootstrap snapshot when a fresher `workingFolder` or `endpointId` edit has already landed during the bootstrap window.
 - Scope guard: this task restores the approved conflict and persistence behavior only. It must not widen Story 59 into a broader conversation-edit redesign or a new provider-selection contract.
+- Blocker family: `product or story seam`, because the repair lives on the real `/chat` lifecycle and persistence boundary. Keep proof on route-owned surfaces, and treat any unrelated wrapper or runtime outage that appears before those assertions run as a separate baseline interruption rather than as a reason to widen this task.
 
 #### Owner Map
 
@@ -1339,7 +1340,7 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 1. [ ] Re-open the exact `/chat` sequence around `existingConversation` lookup, resumed endpoint restoration, provider readiness work, endpoint discovery, lock acquisition, and the later `updateConversationMeta()` or equivalent write boundary. Record one short owner map in `Implementation Notes` that names the exact pre-lock conflict seam, the exact stale-flag source fields, and the exact later write boundary before changing code.
 2. [ ] Repair the `/chat` conflict-ordering path in `server/src/routes/chat.ts` so an already active conversation resolves through the `RUN_IN_PROGRESS` authority path before later provider readiness or endpoint bootstrap failures can mask it. Preserve the existing approved provider-selection behavior for non-conflict requests, and do not move the authority check into a helper-only branch the real `/chat` route does not use.
 3. [ ] Repair the `/chat` metadata persistence path so later writes preserve fresher `endpointId` and `workingFolder` edits instead of replaying a stale pre-bootstrap `flags` snapshot. Keep the fix bounded to the existing route and persistence seam, update only the fields this run actually owns, and preserve the approved endpoint and working-folder behavior instead of widening story scope into broader conversation-edit redesign.
-4. [ ] Refresh `server/src/test/integration/chat-codex.test.ts` so the route-owned proof covers both repaired invariants directly: one scenario where an active lock still returns `RUN_IN_PROGRESS` even when the later bootstrap path would have failed, and one scenario that reads the persisted conversation record after the loser path to prove provider, model, and `flags` stayed unchanged.
+4. [ ] Refresh `server/src/test/integration/chat-codex.test.ts` so the route-owned proof covers both repaired invariants directly: one scenario where an active lock still returns `RUN_IN_PROGRESS` even when the later bootstrap path would have failed, and one scenario that reads the persisted conversation record after the loser path to prove provider, model, and `flags` stayed unchanged. In the conflict-ordering scenario, use the same request shape that would have encountered the later bootstrap failure if the lock boundary were still too late, so adjacent happy-path or failure-only proof cannot mask the ordering defect.
 5. [ ] Refresh `server/src/test/unit/chat-interface-run-persistence.test.ts` or one adjacent route-owned proof seam so the repaired write boundary compares persisted state before and after the late `/chat` metadata update, proving that a fresher `endpointId` or `workingFolder` edit survives the repaired write path.
 
 #### Testing
@@ -1382,6 +1383,8 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 - Identity invariant: the authoritative default-selection identity must survive from the `/chat/models` producer through the shared response shape into the client fallback-selection consumer even when duplicate raw model ids exist.
 - Scope guard: this task restores the approved endpoint-backed picker behavior only. It must not widen Story 59 into a new model-selection contract or a broader user-facing redesign.
 - Compatibility guard: the repaired response shape must preserve existing endpoint-backed model entries and provider metadata instead of breaking adjacent consumers that already rely on those payloads.
+- Default-path guard: the repaired identity must be reachable on the normal `/chat/providers` plus `/chat/models?provider=codex` bootstrap path and the client refresh path after current selection is cleared, not only in isolated helper fixtures.
+- Blocker family: `product or story seam`, because this is a real producer-consumer contract repair across server, shared response shape, and client state. Any later browser or wrapper issue is downstream proof, not a reason to widen the contract fix itself.
 
 #### Owner Map
 
@@ -1405,7 +1408,7 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 1. [ ] Re-open the server, shared, and client producer-consumer seams for `/chat/models`, then record one short owner map in `Implementation Notes` that names exactly where endpoint identity is lost today, which field or paired field set will become authoritative after the repair, and which adjacent consumers must remain compatible.
 2. [ ] Repair the server and shared `/chat/models` response path so the default-selection contract preserves endpoint identity instead of collapsing to a bare raw model id when endpoint-backed duplicates exist. Keep the fix on the producer-consumer seam and preserve the approved endpoint-backed picker behavior rather than introducing a broader selection redesign.
 3. [ ] Repair the client fallback-selection path in `client/src/hooks/useChatModel.ts` so refresh and provider-switch recovery choose the correct endpoint-backed default from the repaired response shape instead of snapping to the wrong duplicate raw id. Prefer exact endpoint-backed identity over raw-id-only fallback when both are available.
-4. [ ] Refresh `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts` so the server/shared seam asserts endpoint-aware default-selection identity directly on the `/chat/models` route surface.
+4. [ ] Refresh `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts` so the server/shared seam asserts endpoint-aware default-selection identity directly on the `/chat/providers` plus `/chat/models` route flow, including the duplicate-id endpoint-backed default path rather than only isolated model-entry assertions.
 5. [ ] Refresh `client/src/test/chatPage.provider.conversationSelection.test.tsx` so the client proof explicitly covers clearing current selection, reloading duplicate-id endpoint-backed choices, and restoring the configured endpoint-backed default instead of the first duplicate raw id.
 
 #### Testing
@@ -1446,6 +1449,12 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - Serious review-created findings for review pass `0000059-20260607T101345Z-9dfe9788`: `finding-1`, `finding-4`, `finding-7`
 - Inline-resolved minor findings revalidated here for the same review cycle: `finding-2`, `finding-3`, `finding-5`, `finding-6`, `finding-8`
 
+#### Risk Ownership
+
+- Blocker family: `shared wrapper or baseline seam` for broad wrapper startup, long-running runtimes, browser harness, and image-backed proof surfaces; `proof or test harness seam` for the script-level import-guard proof and any final assertion wiring needed to keep current-cycle findings mapped to the right proof homes.
+- Baseline boundary: this task owns story-head regression proof only. If `build:summary:*`, `test:summary:*`, or `test:summary:e2e` fails before the repaired story-owned assertions run because of a shared harness, image, port, or runtime outage, record that interruption honestly and stop at the baseline boundary instead of reopening Tasks 12 or 13 as wrapper-repair work.
+- Runtime-surface guard: when browser-visible or later manual follow-up is needed, use the repository-supported stack and artifact handoff paths rather than inventing ad hoc runtime setup during close-out.
+
 #### Owner Map
 
 - Server build and unit/integration wrapper owner: `npm run build:summary:server`, `npm run test:summary:server:unit`
@@ -1469,7 +1478,8 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 1. [ ] Re-open the current-cycle `Code Review Findings` block plus `## Minor Review Fixes`, then record one explicit proof-owner mapping in `Implementation Notes` for `finding-1`, `finding-4`, `finding-7`, `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8` before closing the cycle.
 2. [ ] Refresh any route assertions, shared response-shape expectations, client selection assertions, and script-level proof expectations needed so the final proof surfaces still assert the repaired invariants directly on the story head after Tasks 12 and 13 land.
 3. [ ] Re-open the current-cycle minor-fix proof homes and confirm that each one is either naturally re-covered by the broad wrappers below or explicitly re-covered by a targeted automated step in this task. Record any non-broad targeted proof owner that still had to remain in `Implementation Notes` before closing the cycle.
-4. [ ] Confirm that compose/runtime-stack revalidation remains not applicable for this review-created block unless the implementation widened into those seams, and record that decision honestly in `Implementation Notes` before closing the task.
+4. [ ] Re-open the broad wrapper list and mark which failures would count as task-owned assertion failures versus shared baseline or harness interruptions before rerunning proof. Record that boundary in `Implementation Notes` so later close-out does not retry unrelated wrapper outages as product work.
+5. [ ] Confirm that compose/runtime-stack revalidation remains not applicable for this review-created block unless the implementation widened into those seams, and record that decision honestly in `Implementation Notes` before closing the task.
 
 #### Testing
 
@@ -1482,6 +1492,12 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 7. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the story head.
 8. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
 9. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+
+#### Manual Testing Guidance
+
+If a later human or manual-testing-agent follow-up is still needed after the automated proof above, use the checked-in main stack rather than a local development variant: `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down`. That supported stack loads `server/.env` plus `server/.env.local` through the repository wrapper, serves the client at `http://localhost:5001`, serves the server at `http://localhost:5010`, and exposes readiness through `http://localhost:5010/health`.
+
+Store retained manual-proof artifacts for this review-cycle close-out under `codeInfoTmp/manual-testing/0000059/14/` and do not commit them. If Playwright MCP screenshots are used, capture them first under a relative staging path such as `0000059/14/<filename>` in the Playwright output directory, then transfer the retained files from `$CODEINFO_ROOT/playwright-output-local/0000059/14/` into the repository artifact destination. If that staging or transfer path still fails, record the limitation honestly in the retained notes instead of blocking close-out on the screenshot handoff alone.
 
 #### Implementation Notes
 

@@ -1489,6 +1489,7 @@ const runFlowInstruction = async (params: {
   agentConversationId: string;
   providerId: ConversationProvider;
   modelId: string;
+  endpointId?: string | null;
   runtimeConfig: CodexOptions['config'];
   threadId?: string;
   systemPrompt?: string;
@@ -1634,6 +1635,7 @@ const runFlowInstruction = async (params: {
         params.instruction,
         {
           provider: params.providerId,
+          endpointId: params.endpointId ?? undefined,
           inflightId: params.inflightId,
           threadId: params.threadId,
           useConfigDefaults: true,
@@ -3291,6 +3293,7 @@ async function runFlowUnlocked(params: {
         agentConversationId: agentState.conversationId,
         providerId: runtime.providerId,
         modelId,
+        endpointId: agentState.endpointId ?? runtime.endpointId ?? null,
         runtimeConfig: runtime.runtimeConfig,
         threadId: agentState.threadId,
         systemPrompt,

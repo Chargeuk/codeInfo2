@@ -797,10 +797,9 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
 
     assert.equal(result.providerId, 'codex');
     assert.equal(result.modelId, 'flow-current-model');
-    assert.equal(
-      capturedFlags.at(-1)?.endpointId,
-      endpointId,
-    );
+    await waitFor(() => capturedFlags.length === 1);
+    assert.equal(capturedFlags.length, 1);
+    assert.equal(capturedFlags[0]?.endpointId, endpointId);
   } finally {
     __resetFlowResumeTestDepsForTests();
     __resetAgentServiceDepsForTests();

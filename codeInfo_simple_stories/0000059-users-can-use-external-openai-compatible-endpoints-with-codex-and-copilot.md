@@ -72,4 +72,4 @@ This story extends the current `Codex` and `Copilot` experience so teams can poi
 
 14. [codeInfo2] - Final revalidation for the current review cycle
 - Re-run the wrapper-first review-cycle proof for the serious review findings and the inline-resolved minor fixes on the story head.
-- Own the final broad regression proof across server, client, browser, script guard, and checked-in main-stack smoke validation for this cycle.
+- Own the final broad regression and checked-in runtime closeout proof across server, client, browser, script guard, and main-stack smoke validation for this cycle.

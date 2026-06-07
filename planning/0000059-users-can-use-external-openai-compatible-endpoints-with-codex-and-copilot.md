@@ -862,7 +862,7 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 
 - One Docker access path supported by the repo wrappers is available to the session that will run the remaining proof: authorized access to `/var/run/docker.sock`, a supported rootless Docker socket, or a real Docker Desktop per-user socket selected through `DOCKER_HOST`.
 - The repo's checked-in main compose build path reaches the Docker daemon through the supported summary wrapper without the earlier permission-denied failure.
-- The same branch and worktree can be handed back to Task 10 without requiring Story 59 product-code changes or unsafe socket-permission hacks.
+- The same branch and worktree can be handed back to Task 11 without requiring Story 59 product-code changes or unsafe socket-permission hacks.
 
 #### Documentation Locations
 
@@ -872,11 +872,11 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 
 1. [x] Re-read `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, `docker context ls`, and the supported socket paths (`/var/run/docker.sock`, `~/.docker/run/docker.sock`, `~/.docker/desktop/docker.sock`) to identify which Docker access path this environment is supposed to use. Purpose: keep the runtime handoff aligned to the exact wrapper behavior already checked into the repo instead of inventing a new daemon path.
 2. [x] If the current session still lacks any supported Docker access path, move this same story branch into a session or user that does have one, or restore supported host-level Docker access outside the repo using Docker's documented group/rootless/Desktop mechanisms. Do not change Story 59 application code or weaken socket permissions. Purpose: make the runtime prerequisite explicit and bounded before the implementation loop retries proof.
-3. [x] Reconfirm the chosen session matches the wrapper-resolved Docker endpoint before handing execution back to Task 10, and record which supported endpoint/path is active plus which unsupported paths were ruled out. Purpose: leave a deterministic runtime handoff trail instead of another ambiguous retry.
+3. [x] Reconfirm the chosen session matches the wrapper-resolved Docker endpoint before handing execution back to Task 11, and record which supported endpoint/path is active plus which unsupported paths were ruled out. Purpose: leave a deterministic runtime handoff trail instead of another ambiguous retry.
 
 #### Testing
 
-1. [x] Run `npm run compose:build:summary` to prove the checked-in main compose build path can reach the Docker daemon from the chosen session without the earlier `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock` failure. Let Task 10 own the later `compose:up`, `compose:down`, and broad `test:summary:e2e` story proof after this runtime prerequisite is restored.
+1. [x] Run `npm run compose:build:summary` to prove the checked-in main compose build path can reach the Docker daemon from the chosen session without the earlier `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock` failure. Let Task 11 own the later `compose:up`, `compose:down`, and broad `test:summary:e2e` story proof after this runtime prerequisite is restored.
 
 #### Implementation Notes
 
@@ -893,6 +893,51 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 - **RESOLVED ISSUE** Fresh re-check in this pass again found only the default `unix:///var/run/docker.sock` endpoint and the same permission-denied `docker info` failure, so Subtask 2 remained blocked at the time. This repeated note is now historical because the task later resumed in a session that could present a supported Docker daemon path.
 - **RESOLVED ISSUE** Fresh repository, `code_info`, Context7, DeepWiki, and targeted web research showed that the right fix was runtime handoff, not more Story 59 code changes. Repository precedents were explicit: this repo routes `npm run test:summary:e2e` through `scripts/test-summary-e2e.mjs`, which always performs compose build and compose up before Playwright runs, and `scripts/docker-compose-with-env.sh` resolves Docker access only through supported endpoints: an explicit `DOCKER_HOST` Unix socket, the active Docker context endpoint, `/var/run/docker.sock`, `~/.docker/run/docker.sock`, or `~/.docker/desktop/docker.sock`. That wrapper also already contains its own non-mac socket-gid fallback that forces container UID/GID to root when the resolved socket group is `0`, which means the checked-in repo had already exhausted its built-in socket-ownership adaptation and still could not fix a host session that failed before the daemon connection opened. Fresh `code_info` pattern research again found no indexed cross-repository runtime-handling variant beyond `codeInfo2` itself, so this repo's own wrapper and plan precedents remained the controlling local evidence rather than one implementation option among several. The local evidence at the time matched that seam exactly: `docker context ls` exposed only the default `unix:///var/run/docker.sock` endpoint, `id` showed this session as `uid=1000(node) gid=1000(node) groups=1000(node)` with no extra groups, `docker info --format '{{.ServerVersion}} {{.DockerRootDir}}'` failed with `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`, `env | rg '^DOCKER'` returned no Docker-specific override, and `find /run /var/run "$HOME/.docker" -maxdepth 3 -type s -name 'docker.sock'` found no rootless or Docker Desktop per-user socket. Official Docker precedents confirmed the supported fixes. Docker's Linux post-install docs say `/var/run/docker.sock` is root-owned by default, the supported non-root path is to add the user to the `docker` group, then log out/log back in or run `newgrp docker`, and that the `docker` group grants root-level privileges. Docker's rootless docs show the supported client path is a rootless daemon socket exposed through `DOCKER_HOST=unix:///run/user/<uid>/docker.sock` or the `rootless` context. Docker Desktop for Linux docs and the Docker docs repo confirm Desktop uses a per-user socket at `~/.docker/desktop/docker.sock`, creates a `desktop-linux` context, and direct-connect SDK/tools should export `DOCKER_HOST` to that socket when they cannot rely on the CLI context alone. Targeted issue-resolution research for this exact error matches how other engineers resolve it in practice: when using rootful Docker, they restore actual `docker` group membership and re-evaluate the current shell session; otherwise they move to a real rootless daemon/context or a real Desktop socket/context. Those were the proper fixes. Rejected alternatives were not suitable: `chmod 666 /var/run/docker.sock` or similar permission weakening is an unsafe anti-pattern, bypassing the repo wrappers would hide rather than solve the supported runtime contract, and mutating Story 59 product code cannot manufacture missing host-level daemon permission. This historical blocker analysis is now resolved because the branch later ran in a session with working Docker access, `npm run compose:build:summary` passed, and the main-stack compose path completed successfully.
 
+### Task 8. Capture Branch-Only Runtime Seam Changes In The Story Plan
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 7`
+- Task Status: `__done__`
+- Git Commits:
+- Notes: This branch-only documentation task records the reviewed runtime and environment changes that were required to prove Story 59 honestly on this machine and in the checked-in Compose surfaces. It does not introduce new product behavior beyond those already-landed runtime seams; it makes the plan acknowledge them explicitly and ties them to the branch history and focused proof that already ran.
+
+#### Overview
+
+Add one completed task to the story plan that captures the branch-only runtime seam changes which were required to make Story 59 provable on the supported local and main Compose environments. The purpose of this task is to keep those reviewed environment and runtime changes visible in the plan instead of leaving them implicit in git history or scattered implementation notes.
+
+#### Task Exit Criteria
+
+- The plan contains one explicit completed task that lists each branch-only runtime seam change introduced during Story 59 work on this branch.
+- The task records the focused proof already run for those runtime seam changes, including the targeted compose-contract and Copilot runtime tests that passed.
+- The task's subtasks, testing checklist, and implementation notes are all fully updated to the current branch state so later reviewers can tell which runtime changes were already completed and validated.
+
+#### Subtasks
+
+1. [x] Record the main-stack Chroma host-port change from `8000` to `8300` in `docker-compose.yml` so the checked-in main stack no longer collides with the unrelated host-level service that blocked honest Compose validation on this machine.
+2. [x] Record the main-stack Mongo image override seam in `docker-compose.yml` so `CODEINFO_MONGO_IMAGE` can temporarily align the main stack with the local-stack Mongo version without permanently changing the checked-in default `mongo:8.2.9`.
+3. [x] Record the e2e Mongo image override seam in `docker-compose.e2e.yml` so `CODEINFO_E2E_MONGO_IMAGE` can temporarily align the e2e stack with the same downgraded Mongo version when that proof surface needs it.
+4. [x] Record the tracked `.env.e2e` machine-specific override that pins `CODEINFO_E2E_MONGO_IMAGE=mongo:7.0.34` on this branch so the repo-owned e2e proof surface can use the same Mongo line as the repaired local stack on this machine.
+5. [x] Record the `compose:local` host-network loopback override in `docker-compose.local.yml` so host-networked local services resolve `host.docker.internal` to `127.0.0.1` instead of Docker's bridge gateway when they need host-side helpers such as the Git credential forwarder on plain Docker Engine Linux.
+6. [x] Record the Copilot runtime-home isolation change in `server/src/config/copilotConfig.ts` so Copilot subprocesses use `/app/copilot` as `HOME`, `COPILOT_HOME`, `XDG_CACHE_HOME`, and `XDG_CONFIG_HOME` instead of sharing the Codex home and failing under `/app/codex/.cache/copilot`.
+7. [x] Record the startup writable-tree preparation change in `server/entrypoint.sh` so Codex, Copilot, and LM Studio provider homes and cache directories are created and made writable before privileges drop under both bind-mounted and named-volume Compose shapes.
+8. [x] Record the focused regression-proof updates in `server/src/test/unit/copilot-compose-contract.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, and `server/src/test/unit/host-network-compose-contract.test.ts` so the branch-only runtime seams above stay locked in by checked-in tests instead of relying only on manual runtime memory.
+
+#### Testing
+
+1. [x] Run `node --test --test-concurrency=1 src/test/unit/copilot-compose-contract.test.ts` to prove the local compose contract reflects the host-network client shape and the main/local/e2e Mongo seams after the branch-only runtime updates.
+2. [x] Run `npm run build --workspace server` to prove the Copilot runtime-home and entrypoint changes still build cleanly in the server workspace after isolating provider homes and cache roots.
+3. [x] Run `node --test --test-concurrency=1 src/test/unit/copilotConfig.test.ts` to prove the Copilot subprocess env now uses the Copilot-specific `HOME`, `XDG_CACHE_HOME`, and `XDG_CONFIG_HOME` values.
+4. [x] Run `node --test --test-concurrency=1 src/test/unit/host-network-compose-contract.test.ts` to prove the entrypoint runtime-tree preparation contract now covers the Codex, Copilot, and LM Studio writable homes required by this branch.
+
+#### Implementation Notes
+
+- Added this task after the branch had already accumulated runtime-seam fixes that were necessary to keep Story 59 testable on real Ubuntu and Compose environments. The missing plan coverage was documentation debt, not a new product-code requirement.
+- The main-stack Chroma host-port move to `8300` was required because the checked-in host `8000` port conflicted with another service on this machine and prevented honest main-stack startup validation.
+- The main and e2e Mongo override seams were added so this machine could temporarily align those stacks with the repaired local Mongo `7.0.34` runtime while still keeping the checked-in default at `mongo:8.2.9` for other environments.
+- The local host-network `host.docker.internal -> 127.0.0.1` override was added because host-networked services on plain Docker Engine Linux could not reliably reach host-side helpers such as `gcf-server` through the bridge-gateway meaning of `host.docker.internal`.
+- Copilot runtime isolation moved Copilot subprocess `HOME` and XDG roots under `/app/copilot`, and startup now prepares writable runtime trees for Codex, Copilot, and LM Studio before privileges drop. That resolved the observed `EACCES` cache-directory failure under `/app/codex/.cache/copilot/pkg/linux-x64`.
+- Focused validation for these runtime changes passed through `node --test --test-concurrency=1 src/test/unit/copilot-compose-contract.test.ts`, `npm run build --workspace server`, `node --test --test-concurrency=1 src/test/unit/copilotConfig.test.ts`, and `node --test --test-concurrency=1 src/test/unit/host-network-compose-contract.test.ts`. A longer wrapper-first `npm run test:summary:server:unit` run had previously emitted healthy wait heartbeats without a final completion record, so this task records only the focused proof that was actually confirmed complete.
+
 ## Code Review Findings
 
 - Review pass: `0000059-20260603T141607Z-c2a52e2f`
@@ -901,7 +946,7 @@ Restore a supported Docker daemon access path for this branch and worktree befor
 - No inline-resolved minor findings are recorded for this active review cycle.
 - Remaining task-up findings encoded below: `finding-1`, `finding-2`, and `finding-3`.
 
-### Task 8. Restore Resume Endpoint Authority And Flow Ownership Guards
+### Task 9. Restore Resume Endpoint Authority And Flow Ownership Guards
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 6`
@@ -936,7 +981,7 @@ Repair two existing resume regressions only: the direct-agent resume path must k
 
 - Blocker family: `product or story seam` on the saved-endpoint producer-consumer chain through `server/src/agents/service.ts`, `server/src/flows/service.ts`, persisted `flags.endpointId`, and persisted flow child `endpointId`. This task owns restoring the approved saved-endpoint precedence on the normal resume callers rather than on a helper-only branch that the default path never reaches.
 - Exact ordering invariant: stale flow resumes must be rejected by `ensureFlowChildConversationOwnership()` before any `ensureFlowAgentConversation()` work or equivalent persisted child provider/model/`endpointId` mutation runs. Adjacent happy-path and rejection-path assertions are not enough; one combined rejected replay proof must show both the rejection boundary and the unchanged persisted child record afterward.
-- Shared baseline boundary: this task’s proof stays on targeted server wrappers. If a broader compose or Docker failure appears before these server wrappers can launch, stop at that boundary and hand the interruption back to Task 7 or Task 10 instead of broadening this task into wrapper or runtime repair.
+- Shared baseline boundary: this task’s proof stays on targeted server wrappers. If a broader compose or Docker failure appears before these server wrappers can launch, stop at that boundary and hand the interruption back to Task 7 or Task 11 instead of broadening this task into wrapper or runtime repair.
 
 #### Owner Map
 
@@ -974,8 +1019,8 @@ Repair two existing resume regressions only: the direct-agent resume path must k
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` to prove the saved-endpoint precedence regression on the direct-agent resume path through the repository’s supported server wrapper. Let Task 10 own the broader final server build and full regression pass for the review-created findings block.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove both the flow-owned saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper. Let Task 10 own the broader final server build and full regression pass for the review-created findings block.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` to prove the saved-endpoint precedence regression on the direct-agent resume path through the repository’s supported server wrapper. Let Task 11 own the broader final server build and full regression pass for the review-created findings block.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove both the flow-owned saved-endpoint precedence and pre-mutation ownership gates through the repository’s supported server wrapper. Let Task 11 own the broader final server build and full regression pass for the review-created findings block.
 3. [ ] Run `npm run lint` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [ ] Run `npm run format:check` for the repaired resume-authority surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
@@ -983,10 +1028,10 @@ Repair two existing resume regressions only: the direct-agent resume path must k
 
 - Starts empty.
 
-### Task 9. Complete Mobile Endpoint Playwright Coverage For The Chat Surface
+### Task 10. Complete Mobile Endpoint Playwright Coverage For The Chat Surface
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 7`, `Task 8`
+- Task Dependencies: `Task 7`, `Task 9`
 - Task Status: `__to_do__`
 - Git Commits:
 - Notes: This review-created task owns the remaining browser-proof gap from review pass `0000059-20260603T141607Z-c2a52e2f` and must extend existing endpoint-backed mock-chat coverage to the mobile selector and dialog surfaces without changing approved chat behavior. Highest-risk invariant: the mobile proofs must reach the normal endpoint-backed `/chat` launcher through the repository’s supported e2e wrapper path, while any compose or Docker startup failure before Playwright launches remains shared baseline ownership on Task 7 rather than a mobile UI regression.
@@ -1035,7 +1080,7 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
   Proof owner: `e2e/chat-provider-history.spec.ts`, in the same history-to-fresh transition that proves the visible bootstrap default state after restore.
 - Requirement: the mixed mobile restored-history-then-fresh-conversation path does not leak a hidden stale restored `endpointId` into the next `/chat` submission, and the proof title or inline description names that exact ordering-sensitive claim instead of implying a generic send-path happy case.
   Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the ChatPage-owned provider/model dialog surfaces.
-  Proof owner: `e2e/chat.spec.ts`, using one worker-safe restored-history-then-fresh-conversation scenario with dedicated mocked conversation ids, route handlers, and payload capture, while Task 10 revalidates the existing server-side contradictory-payload guard on the final story head.
+  Proof owner: `e2e/chat.spec.ts`, using one worker-safe restored-history-then-fresh-conversation scenario with dedicated mocked conversation ids, route handlers, and payload capture, while Task 11 revalidates the existing server-side contradictory-payload guard on the final story head.
 - Requirement: the active mobile provider/model dialog path preserves the visible selection and sends the matching `endpointId` in the outgoing `/chat` payload.
   Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, the ChatPage-owned provider/model dialog surfaces, and any minimal selector support on the mobile workspace components.
   Proof owner: `e2e/chat.spec.ts`, asserting both the visible mobile selection before send and the outgoing request payload after send.
@@ -1048,8 +1093,8 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` to prove the mobile restored-selection and fresh-after-history endpoint coverage through the repository’s supported e2e wrapper. Let Task 10 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
-2. [ ] Run `npm run test:summary:e2e -- --file e2e/chat.spec.ts` to prove the mobile endpoint-backed send-path coverage through the repository’s supported e2e wrapper. Let Task 10 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
+1. [ ] Run `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` to prove the mobile restored-selection and fresh-after-history endpoint coverage through the repository’s supported e2e wrapper. Let Task 11 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
+2. [ ] Run `npm run test:summary:e2e -- --file e2e/chat.spec.ts` to prove the mobile endpoint-backed send-path coverage through the repository’s supported e2e wrapper. Let Task 11 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
 3. [ ] Run `npm run lint` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 4. [ ] Run `npm run format:check` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
@@ -1063,13 +1108,13 @@ For retained mobile proof artifacts, capture any Playwright MCP screenshots to a
 
 - Starts empty.
 
-### Task 10. Final Story Validation, Documentation, And Close-Out
+### Task 11. Final Story Validation, Documentation, And Close-Out
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`, `Task 7`, `Task 8`, `Task 9`
+- Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`, `Task 7`, `Task 8`, `Task 9`, `Task 10`
 - Task Status: `__to_do__`
 - Git Commits:
-- Notes: This final validation task now owns the shared final revalidation pass for review cycle `0000059-rc-20260603T151618Z-d442f096`, including the serious review-created work in Tasks 8 and 9 for review pass `0000059-20260603T141607Z-c2a52e2f`. The remaining automated proof runs through the repo's Docker-backed wrappers; if those wrappers regress at the baseline/runtime level, treat that as runtime handoff ownership rather than new Story 59 product work.
+- Notes: This final validation task now owns the shared final revalidation pass for review cycle `0000059-rc-20260603T151618Z-d442f096`, including the serious review-created work in Tasks 9 and 10 for review pass `0000059-20260603T141607Z-c2a52e2f`. The remaining automated proof runs through the repo's Docker-backed wrappers; if those wrappers regress at the baseline/runtime level, treat that as runtime handoff ownership rather than new Story 59 product work.
 
 #### Overview
 
@@ -1080,8 +1125,8 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
 
 - Every in-scope Acceptance Criterion is mapped to final automated proof, and the final runnable stack still behaves coherently for users who do not configure external endpoints.
 - README, structural traceability, and the reviewer-facing close-out summary all describe the final shipped contract rather than the pre-story behavior.
-- The final desktop and mobile chat surfaces keep the correct visible provider, model, and endpoint state for create mode, resumed history, and endpoint warning or fallback cases, with Task 10 proof artifacts tied to those exact UI seams.
-- Review pass `0000059-20260603T141607Z-c2a52e2f` is revalidated end to end: Tasks 8 and 9 land cleanly, and Findings `finding-1`, `finding-2`, and `finding-3` are covered by final wrapper-first proof on the final story head.
+- The final desktop and mobile chat surfaces keep the correct visible provider, model, and endpoint state for create mode, resumed history, and endpoint warning or fallback cases, with Task 11 proof artifacts tied to those exact UI seams.
+- Review pass `0000059-20260603T141607Z-c2a52e2f` is revalidated end to end: Tasks 9 and 10 land cleanly, and Findings `finding-1`, `finding-2`, and `finding-3` are covered by final wrapper-first proof on the final story head.
 - The checked-in main stack reaches `http://localhost:5001`, `http://localhost:5010`, and `/health` through the normal compose wrappers. If a new baseline/runtime regression prevents startup, record it explicitly as a wrapper/runtime regression instead of normalizing it into story-owned product proof.
 
 #### Documentation Locations
@@ -1094,13 +1139,13 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
 
 - Review pass: `0000059-20260603T141607Z-c2a52e2f`
 - Review cycle: `0000059-rc-20260603T151618Z-d442f096`
-- Review-created tasks revalidated here: `Task 8`, `Task 9`
+- Review-created tasks revalidated here: `Task 9`, `Task 10`
 - Inline minor findings revalidated here: none for this active review cycle
 
 #### Risk Ownership
 
 - Blocker family: `shared wrapper or baseline seam` for the final automated revalidation path. This task owns the story-level proof sequence through `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`. If a new Docker-daemon or compose-readiness regression stops those wrappers before story-owned assertions begin, record it as a baseline/runtime regression and stop there rather than broadening this task into runtime repair.
-- Blocker family: `manual or runtime environment seam` for final human-visible proof. The supported stack is the checked-in main compose stack with `server/.env` and `server/.env.local`, mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, client `http://localhost:5001`, server `http://localhost:5010`, server health `http://localhost:5010/health`, and retained artifacts under `codeInfoTmp/manual-testing/0000059/10/` after any Playwright staging handoff.
+- Blocker family: `manual or runtime environment seam` for final human-visible proof. The supported stack is the checked-in main compose stack with `server/.env` and `server/.env.local`, mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, client `http://localhost:5001`, server `http://localhost:5010`, server health `http://localhost:5010/health`, and retained artifacts under `codeInfoTmp/manual-testing/0000059/11/` after any Playwright staging handoff.
 - Final producer-consumer invariant: before closeout, one readback pass must map each current review finding to a surviving automated proof owner and confirm the final README, structural ledger, and PR summary still describe the same shipped endpoint identity, fallback, resume, and proof contract that the final wrappers and manual artifacts validate.
 
 #### Affected Repositories
@@ -1132,7 +1177,7 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
 
 1. [x] Re-read the full story and trace Tasks 2 and 3 against the `Description`, `Acceptance Criteria`, `Out Of Scope`, `Message Contracts And Storage Shapes`, and `Risk And Invariant Matrix`. Confirm the final server proof still covers parser behavior, endpoint identity, `/v1/models` discovery, duplicate handling, bounded probe fan-out, and default-path route reachability without widening scope beyond chat-only endpoint selection. Purpose: make the final validation pass start with the server discovery contract rather than one broad story-wide check.
 2. [x] Re-read the full story and trace Tasks 4 and 5 against the same story sections, focusing on picker identity, `selectedEndpointId`, request payload shape, persisted `flags.endpointId`, backward-compatible conversation reads, and the rule that external endpoint identity stays separate from the raw model string. Purpose: make the final validation pass explicitly confirm the client and persistence contracts before wrapper runs begin.
-3. [x] Re-read the full story and trace Tasks 6, 8, and 9 against the same story sections, focusing on endpoint-aware fallback ordering, fail-in-place behavior, unchanged LM Studio and Agents-page scope, Cucumber coverage, e2e coverage, and the normal supported Compose path. Purpose: keep the final validation checklist executable instead of leaving scope-boundary and default-path checks implied.
+3. [x] Re-read the full story and trace Tasks 6, 9, and 10 against the same story sections, focusing on endpoint-aware fallback ordering, fail-in-place behavior, unchanged LM Studio and Agents-page scope, Cucumber coverage, e2e coverage, and the normal supported Compose path. Purpose: keep the final validation checklist executable instead of leaving scope-boundary and default-path checks implied.
 4. [x] Update `README.md` with the final `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` format, explicit `/v1` requirement, duplicate-handling rule, and chat-only picker scope for external endpoints. Purpose: keep the repository’s primary operator/developer doc aligned with the shipped endpoint discovery contract.
 5. [x] Update `README.md` with the final `codeinfo_openai_endpoint` usage on `codex/chat/config.toml`, `copilot/chat/config.toml`, and `codeinfo_agents/<agent>/config.toml`, plus the persisted `endpointId` and unchanged auth/readiness boundaries. Purpose: document the final repository-owned config contract and its runtime limits.
 6. [x] Update `projectStructure.md` with the Story `0000059` structural change ledger, including every new helper or test file added during this story and the final implementation traceability summary for the changed server, client, common, and plan files. Purpose: keep the repository’s structural ledger honest about any new tracked files introduced by this story.
@@ -1146,8 +1191,8 @@ For review pass `0000059-20260603T141607Z-c2a52e2f`, this task is also the one f
 14. [x] Normalize the task-owned format-sensitive sources before final wrapper execution: keep wrapping, spacing, and markdown formatting stable across `README.md`, `projectStructure.md`, `codeInfoStatus/pr-summaries/0000059-pr-summary.md`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/steps/chat_stream.steps.ts`, `e2e/chat-provider-history.spec.ts`, and `e2e/chat.spec.ts` so the repository-owned format-check wrapper can validate the final story head without leaving formatting repair implied.
 15. [x] Update `server/src/routes/chatProviders.ts` so `/chat/providers` returns the resolved selected endpoint identity from the runtime-selection result or pinned parsed endpoint instead of inferring `selectedEndpointId` from the first discovery row whose `model.key` matches the selected model. Purpose: restore the config-pinned picker-bootstrap contract already proved in `server/src/test/unit/chatProviders.test.ts` without letting discovery order choose the endpoint.
 16. [x] Update `server/src/routes/chat.ts` so pinned/defaulted `codeinfo_openai_endpoint` values are parsed from the raw config string with the same endpoint parser used by `server/src/routes/chatDiscovery.ts` before runtime selection runs. Purpose: restore same-endpoint repair for defaulted endpoint-backed chat requests instead of leaving `missing-codex-model` on the native path because the pinned endpoint was never materialized.
-17. [x] Update `server/src/test/steps/chat_models.steps.ts` so the duplicate-model Cucumber assertion proves endpoint-backed duplicates by `(key, endpointId)` instead of binding to the first row that matches the raw model id. Purpose: keep Task 10’s `/chat/models` proof aligned with the already-proved duplicate-endpoint contract without forcing the production route to hide or reorder duplicate raw model ids.
-18. [x] Update `server/src/test/steps/chat_stream.steps.ts` and `server/src/test/features/chat_stream.feature` so the `external-endpoint-native-failure` scenario disables later fallback providers and proves the real `PROVIDER_UNAVAILABLE` path without weakening the shared runtime-selection contract that still allows cross-provider fallback after both same-provider paths fail. Purpose: keep Task 10’s feature-level proof aligned with the story’s accepted fallback order instead of encoding a stricter runtime behavior than Tasks 6 and the Acceptance Criteria allow.
+17. [x] Update `server/src/test/steps/chat_models.steps.ts` so the duplicate-model Cucumber assertion proves endpoint-backed duplicates by `(key, endpointId)` instead of binding to the first row that matches the raw model id. Purpose: keep Task 11’s `/chat/models` proof aligned with the already-proved duplicate-endpoint contract without forcing the production route to hide or reorder duplicate raw model ids.
+18. [x] Update `server/src/test/steps/chat_stream.steps.ts` and `server/src/test/features/chat_stream.feature` so the `external-endpoint-native-failure` scenario disables later fallback providers and proves the real `PROVIDER_UNAVAILABLE` path without weakening the shared runtime-selection contract that still allows cross-provider fallback after both same-provider paths fail. Purpose: keep Task 11’s feature-level proof aligned with the story’s accepted fallback order instead of encoding a stricter runtime behavior than Tasks 6 and the Acceptance Criteria allow.
 19. [ ] Re-open the `Code Review Findings` block for review pass `0000059-20260603T141607Z-c2a52e2f`, then do one final file-by-file readback before closing the story. Check the proof owners in this order: `server/src/test/integration/agents-run-client-conversation-id.test.ts` for Finding `finding-1`; `server/src/test/integration/flows.run.resume.identity.test.ts` for Finding `finding-2`; `e2e/chat-provider-history.spec.ts` plus `e2e/chat.spec.ts` for Finding `finding-3`; and `server/src/test/unit/chatValidators.test.ts` for the contradictory stale-payload rejection guard behind the mobile fresh-after-history mixed-state seam. For each proof file, verify the surviving scenario title, inline description, and assertions still match the claimed invariant on the story head: fail-in-place saved-endpoint precedence for `finding-1`, ownership-before-mutation plus unchanged-after-rejection for `finding-2`, mobile restore-plus-fresh mixed-state exclusion and mobile launcher reachability for `finding-3`, and stale `endpointId` rejection after create-mode reset for the validator guard. The output of this subtask is one explicit yes-or-no mapping from each current finding to its final proof owner on the story head. If any finding no longer has an obvious proof owner or the surviving proof semantics no longer match the finding claim, stop closeout there and record the missing mapping in `Implementation Notes` before marking the story complete. Purpose: keep this task as the single final revalidation owner for the active review cycle instead of splitting review-loop closeout across separate paths.
 
 #### Testing
@@ -1172,13 +1217,13 @@ For browser-visible proof, treat `client/src/pages/ChatPage.tsx` as the primary 
 
 This story’s live external endpoint is not part of the checked-in Compose stack. When later manual proof needs a real endpoint, configure `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` to point at an already running external or local OpenAI-compatible `/v1` service outside the checked-in compose services, then exercise the Codex and Copilot chat pickers against that live endpoint from the main stack. The main stack already mounts the repo-owned `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs plus the existing Codex and Copilot runtime homes; provider access comes from whatever auth state is already present in those mounted homes or seed directories, not from checked-in secrets in this plan.
 
-Store task-level manual proof artifacts in `codeInfoTmp/manual-testing/0000059/10/` and do not commit them. Useful retained artifacts for this story include `proof-01-codex-picker.png`, `proof-02-copilot-picker.png`, `proof-03-config-pinned-endpoint.png`, `proof-04-resumed-endpoint-warning.png`, `support-console.txt`, and `support-server-log.txt`. Later story closeout should promote the curated durable bundle into `codeInfoStatus/manual-proof/0000059/`.
+Store task-level manual proof artifacts in `codeInfoTmp/manual-testing/0000059/11/` and do not commit them. Useful retained artifacts for this story include `proof-01-codex-picker.png`, `proof-02-copilot-picker.png`, `proof-03-config-pinned-endpoint.png`, `proof-04-resumed-endpoint-warning.png`, `support-console.txt`, and `support-server-log.txt`. Later story closeout should promote the curated durable bundle into `codeInfoStatus/manual-proof/0000059/`.
 
 Map the retained screenshots to the visible seams explicitly: `proof-01-codex-picker.png` should show the Codex picker with endpoint-backed labels visible in the model control, `proof-02-copilot-picker.png` should show the same surface for Copilot, `proof-03-config-pinned-endpoint.png` should show that a config-pinned endpoint remains selected even when absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`, and `proof-04-resumed-endpoint-warning.png` should show the transcript or warning surface that distinguishes same-endpoint repair, same-provider native fallback, or fail-in-place behavior on a resumed or pinned execution.
 
-If Playwright MCP screenshots are used during later manual proof, capture them in the Playwright output staging directory first and then transfer the retained files into `codeInfoTmp/manual-testing/0000059/10/`. In this local harness workflow, the usual host-visible staging location is `$CODEINFO_ROOT/playwright-output-local/0000059/10/<filename>`, but `CODEINFO_ROOT` is the harness root, not the target artifact root.
+If Playwright MCP screenshots are used during later manual proof, capture them in the Playwright output staging directory first and then transfer the retained files into `codeInfoTmp/manual-testing/0000059/11/`. In this local harness workflow, the usual host-visible staging location is `$CODEINFO_ROOT/playwright-output-local/0000059/11/<filename>`, but `CODEINFO_ROOT` is the harness root, not the target artifact root.
 
-Later manual proof should cover the full implemented frontend surface for this story, not only one local screen: prove the Codex picker showing endpoint-backed models, the Copilot picker showing endpoint-backed models, a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` but still visible in chat, and any visible warning/result surface that distinguishes same-endpoint repair, same-provider native fallback, or fail-in-place on a resumed/pinned execution when the endpoint becomes unavailable. Treat these Task 10 screenshots and retained notes as the primary durable closeout proof for the re-covered story surfaces, and keep earlier screenshots in the durable bundle only when they still provide unique proof that the final Task 10 capture no longer shows.
+Later manual proof should cover the full implemented frontend surface for this story, not only one local screen: prove the Codex picker showing endpoint-backed models, the Copilot picker showing endpoint-backed models, a config-pinned endpoint that is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` but still visible in chat, and any visible warning/result surface that distinguishes same-endpoint repair, same-provider native fallback, or fail-in-place on a resumed/pinned execution when the endpoint becomes unavailable. Treat these Task 11 screenshots and retained notes as the primary durable closeout proof for the re-covered story surfaces, and keep earlier screenshots in the durable bundle only when they still provide unique proof that the final Task 11 capture no longer shows.
 
 If Playwright MCP screenshot transfer fails after using the normal staging path and host-visible handoff path, record that limitation honestly in the retained proof notes and continue the proof pass with the best available evidence instead of blocking closeout on the transfer problem alone.
 
@@ -1189,10 +1234,10 @@ If a Codex or Copilot manual-proof step reaches an auth-dependent surface and re
 - Added the final README contract sections for external endpoint discovery and runtime config usage, plus the story 0000059 structural ledger and reviewer-facing PR summary artifact.
 - Expanded the Cucumber and Playwright story coverage with endpoint-aware discovery, picker-bootstrap, fallback, fail-in-place, history, and send-path scenarios so the final close-out proof has story-owned homes.
 - Completed the final lint and format checks after normalizing the step-file import order; the remaining plan-level automated-proof wrappers now depend on Task 7 restoring one supported Docker daemon access path.
-- **RESOLVED ISSUE** Focused Task 10 verification `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature --feature server/src/test/features/chat_stream.feature` passed 22/22 scenarios in `test-results/server-cucumber-tests-2026-06-02T20-40-58-238Z.log`, which closes the implementation blocker for the route- and picker-surface fixes without yet marking the Docker-backed wrapper proof complete.
-- Preflight visual refinement clarified the Task 10 browser-proof seams in `client/src/pages/ChatPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`, `client/src/hooks/useChatModel.ts`, and `client/src/hooks/useChatStream.ts`; no code was changed in this step.
+- **RESOLVED ISSUE** Focused Task 11 verification `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature --feature server/src/test/features/chat_stream.feature` passed 22/22 scenarios in `test-results/server-cucumber-tests-2026-06-02T20-40-58-238Z.log`, which closes the implementation blocker for the route- and picker-surface fixes without yet marking the Docker-backed wrapper proof complete.
+- Preflight visual refinement clarified the Task 11 browser-proof seams in `client/src/pages/ChatPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`, `client/src/hooks/useChatModel.ts`, and `client/src/hooks/useChatStream.ts`; no code was changed in this step.
 - Preflight visual refinement clarified the remaining mobile browser-proof seams in `client/src/components/workspace/WorkspaceMobileTopBar.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the ChatPage-owned mobile provider/model dialogs; no code was changed in this step.
-- **RESOLVED ISSUE** Planner repair split the Docker-daemon access blocker into prerequisite Task 7 after repeated no-progress proof passes showed the failure happens before any story-owned Playwright or compose proof starts. Task 10 now waits on Task 7 for runtime access and keeps ownership only of the remaining story proof items 6, 8, and 9.
-- Planner repair refreshed the review-created block to track review pass `0000059-20260603T141607Z-c2a52e2f` and review cycle `0000059-rc-20260603T151618Z-d442f096`, keeping Tasks 8 and 9 as the serious finding owners and Task 10 as the single final revalidation owner for the active review loop.
+- **RESOLVED ISSUE** Planner repair split the Docker-daemon access blocker into prerequisite Task 7 after repeated no-progress proof passes showed the failure happens before any story-owned Playwright or compose proof starts. Task 11 now waits on Task 7 for runtime access and keeps ownership only of the remaining story proof items 6, 8, and 9.
+- Planner repair refreshed the review-created block to track review pass `0000059-20260603T141607Z-c2a52e2f` and review cycle `0000059-rc-20260603T151618Z-d442f096`, keeping Tasks 9 and 10 as the serious finding owners and Task 11 as the single final revalidation owner for the active review loop.
 - **RESOLVED ISSUE** Main-stack runtime validation now survives the earlier Chroma host-port collision with Portainer: after moving the checked-in main-stack Chroma host mapping and default `CODEINFO_CHROMA_URL` contract to host port `8300`, `npm run compose:up` reached the normal runtime path, `curl -sf http://localhost:5010/health` returned `{\"status\":\"ok\"...}`, `curl -I -sf http://localhost:5001` returned `HTTP/1.1 200 OK`, and `curl -sf http://localhost:8300/api/v2/heartbeat` confirmed the Chroma surface on the new host-visible port before `npm run compose:down` cleaned the stack up again.
-- Reset Task 10's testing checkboxes to open status after Docker/runtime access and push access were restored, so the final close-out now reruns the full validation sequence from a known-good environment instead of inheriting stale completed marks from earlier passes.
+- Reset Task 11's testing checkboxes to open status after Docker/runtime access and push access were restored, so the final close-out now reruns the full validation sequence from a known-good environment instead of inheriting stale completed marks from earlier passes.

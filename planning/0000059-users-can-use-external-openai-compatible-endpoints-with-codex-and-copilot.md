@@ -1101,8 +1101,8 @@ Extend the endpoint-backed Playwright coverage so the same restored-selection an
 
 1. [x] Run `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` to prove the mobile restored-selection and fresh-after-history endpoint coverage through the repository’s supported e2e wrapper. Let Task 11 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
 2. [x] Run `npm run test:summary:e2e -- --file e2e/chat.spec.ts` to prove the mobile endpoint-backed send-path coverage through the repository’s supported e2e wrapper. Let Task 11 own the broader full-suite e2e rerun and compose-backed final regression pass for the whole review-created findings block.
-3. [ ] Run `npm run lint` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
-4. [ ] Run `npm run format:check` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+3. [x] Run `npm run lint` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
+4. [x] Run `npm run format:check` for the updated browser-proof surface and fix any issues found, using any supported auto-fix path before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -1115,6 +1115,8 @@ For retained mobile proof artifacts, capture any Playwright MCP screenshots to a
 - Preflight visual refinement pass inspected the supported mobile Chat surface on the checked-in main stack and clarified the current visible seams: the top-bar `Open conversations` / `New conversation` actions, the `Conversations` overlay, and the dedicated mobile `Provider` / `Model` dialogs. No code was changed in this step.
 - Task 10 mobile proof coverage now uses the existing mobile overlay and dialog locators rather than adding new proof-only selector seams; the browser coverage was rewritten in `e2e/chat-provider-history.spec.ts` and `e2e/chat.spec.ts` to exercise the mobile history-reopen, fresh-conversation reset, and mobile send-path flows directly.
 - `npm run test:summary:e2e -- --file e2e/chat-provider-history.spec.ts` and `npm run test:summary:e2e -- --file e2e/chat.spec.ts` both completed successfully through the repository wrapper path, validating the mobile history and send-path proofs on the current story head.
+- `npm run lint` passed for the updated mobile proof surface with no code changes required in this pass.
+- `npm run format:check` passed with the committed task state and no formatting changes were needed.
 
 ### Task 11. Final Story Validation, Documentation, And Close-Out
 

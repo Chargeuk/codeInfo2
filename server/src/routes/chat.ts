@@ -689,8 +689,7 @@ export function createChatRouter({
         resumedExecutionIdentity?.endpointId &&
           resumedExecutionIdentity.endpointId === selectedEndpointId,
       ),
-      allowCrossProviderFallback:
-        !explicitProviderSelected || effectiveRequestedProvider !== 'lmstudio',
+      allowCrossProviderFallback: !explicitProviderSelected,
       codex: codexState,
       copilot: copilotState,
       lmstudio: lmstudioState,

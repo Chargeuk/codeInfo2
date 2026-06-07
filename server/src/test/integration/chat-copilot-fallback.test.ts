@@ -79,6 +79,38 @@ async function hasBootstrappedRuntime(runtimeHome: string) {
   }
 }
 
+function createMockCodexFactory() {
+  const createThread = (threadId: string) => ({
+    id: threadId,
+    runStreamed: async () => ({
+      events: (async function* () {
+        yield { type: 'thread.started', thread_id: threadId };
+        yield {
+          type: 'item.updated',
+          item: { type: 'agent_message', text: 'Hello from Codex' },
+        };
+        yield {
+          type: 'item.completed',
+          item: { type: 'agent_message', text: 'Hello from Codex fallback' },
+        };
+        yield {
+          type: 'turn.completed',
+          usage: {
+            input_tokens: 1,
+            cached_input_tokens: 0,
+            output_tokens: 2,
+          },
+        };
+      })(),
+    }),
+  });
+
+  return () => ({
+    startThread: () => createThread('codex-fallback-thread'),
+    resumeThread: (threadId: string) => createThread(threadId),
+  });
+}
+
 test('copilot chat fails on the selected explicit provider before unrelated LM Studio fallback probing can run', async () => {
   let lmstudioProbeCount = 0;
   const server = await startCopilotChatServer({
@@ -116,6 +148,53 @@ test('copilot chat fails on the selected explicit provider before unrelated LM S
   } finally {
     await server.stop();
   }
+});
+
+test('explicit copilot chat requests return PROVIDER_UNAVAILABLE instead of falling back to codex', async () => {
+  memoryConversations.clear();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.post('/mcp', (_req, res) => {
+    res.json({ result: { ok: true } });
+  });
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [],
+          },
+        }) as never,
+      codexFactory: createMockCodexFactory(),
+      copilotLifecycleFactory: () =>
+        createMockCopilotSdkHarness({
+          name: 'copilot-explicit-no-cross-provider-fallback',
+          startError: new Error('copilot unavailable'),
+        }).createLifecycle(),
+    }),
+  );
+
+  const response = await request(app).post('/chat').send({
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    conversationId: 'copilot-explicit-no-cross-provider-fallback',
+    message: 'Do not silently switch to Codex',
+  });
+
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+  assert.equal(
+    memoryConversations.get('copilot-explicit-no-cross-provider-fallback'),
+    undefined,
+  );
 });
 
 test('copilot chat still falls back automatically when provider resolution is omitted and runtime selection must recover', async () => {

@@ -10,10 +10,11 @@
 6. Users can keep older saved conversations working while newer endpoint-backed conversations store the raw model id and endpoint identity separately.
 7. Users can rely on new runs trying same-endpoint repair and same-provider fallback before broader provider fallback, while pinned or resumed runs fail in place instead of silently moving to a different endpoint or provider.
 8. Users keep the current `LM Studio` and `Agents` page behavior for this story; the external model picker change applies only to `Codex` and `Copilot` chat.
+9. Review-backed runtime validation for this story keeps the checked-in Chroma host port, Mongo override seams, host-network loopback resolution, and provider-home permission fixes that were needed to prove the feature on real Compose environments.
 
 # Description
 
-This story extends the existing `Codex` and `Copilot` experience so teams can point chat and agent flows at external OpenAI-compatible `/v1` endpoints without learning provider-native wiring. It adds a simple repository-owned configuration contract, surfaces compatible external models in chat, preserves saved conversation identity, keeps fallback behavior clear, and closes the remaining resume and mobile-proof gaps so self-hosted or remote model gateways fit into the current product flow instead of replacing it.
+This story extends the existing `Codex` and `Copilot` experience so teams can point chat and agent flows at external OpenAI-compatible `/v1` endpoints without learning provider-native wiring. It adds a simple repository-owned configuration contract, surfaces compatible external models in chat, preserves saved conversation identity, keeps fallback behavior clear, and closes the remaining resume and mobile-proof gaps so self-hosted or remote model gateways fit into the current product flow instead of replacing it. The accepted outcome for this branch also includes the runtime-seam fixes that made the feature provable in the repository’s real Compose environments: the main-stack Chroma host-port move, main/e2e Mongo override seams, local host-network loopback resolution for host helpers, and isolated writable Copilot runtime homes and caches.
 
 # Tasks
 

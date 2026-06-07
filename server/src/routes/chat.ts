@@ -159,23 +159,19 @@ function resolvePinnedOpenAiCompatEndpoint(params: {
   codexHome?: string;
   copilotHome?: string;
 }): OpenAiCompatEndpointConfig | undefined {
-  try {
-    const snapshot = loadProviderChatDefaultsSnapshotSync({
-      provider: params.provider,
-      codexHome: params.codexHome,
-      copilotHome: params.copilotHome,
-    });
-    const rawEndpoint = snapshot.config?.codeinfo_openai_endpoint;
-    if (typeof rawEndpoint !== 'string') {
-      return undefined;
-    }
-
-    return parseOpenAiCompatEndpointConfig(rawEndpoint, {
-      pathLabel: `${snapshot.chatConfigPath}.codeinfo_openai_endpoint`,
-    });
-  } catch {
+  const snapshot = loadProviderChatDefaultsSnapshotSync({
+    provider: params.provider,
+    codexHome: params.codexHome,
+    copilotHome: params.copilotHome,
+  });
+  const rawEndpoint = snapshot.config?.codeinfo_openai_endpoint;
+  if (typeof rawEndpoint !== 'string') {
     return undefined;
   }
+
+  return parseOpenAiCompatEndpointConfig(rawEndpoint, {
+    pathLabel: `${snapshot.chatConfigPath}.codeinfo_openai_endpoint`,
+  });
 }
 
 function resolveOpenAiCompatEndpointForChat(params: {
@@ -601,11 +597,31 @@ export function createChatRouter({
       reason: copilotReadiness.reason,
     });
 
-    const pinnedSelectedEndpoint = resolvePinnedOpenAiCompatEndpoint({
-      provider: effectiveRequestedProvider,
-      codexHome,
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
-    });
+    let pinnedSelectedEndpoint: OpenAiCompatEndpointConfig | undefined;
+    try {
+      pinnedSelectedEndpoint = resolvePinnedOpenAiCompatEndpoint({
+        provider: effectiveRequestedProvider,
+        codexHome,
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'endpoint pin validation failed';
+      if (
+        (error instanceof RuntimeConfigResolutionError &&
+          (error.code === 'RUNTIME_CONFIG_INVALID' ||
+            error.code === 'RUNTIME_CONFIG_VALIDATION_FAILED')) ||
+        message.startsWith('RUNTIME_CONFIG_INVALID:') ||
+        message.startsWith('RUNTIME_CONFIG_VALIDATION_FAILED:')
+      ) {
+        return res.status(400).json({
+          status: 'error',
+          code: 'VALIDATION_FAILED',
+          message,
+        });
+      }
+      throw error;
+    }
     const selectedEndpointId =
       resumedExecutionIdentity?.endpointId ??
       endpointId ??

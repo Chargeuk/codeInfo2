@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import request from 'supertest';
 
+import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   startCopilotChatServer,
@@ -253,6 +254,55 @@ test('copilot create-session path builds an OpenAI-compatible provider config fr
     } else {
       process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
         originalCompatEndpoints;
+    }
+    await tempHome.cleanup();
+  }
+});
+
+test('copilot chat rejects malformed pinned endpoint defaults instead of silently degrading to native success', async () => {
+  const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempHome = await withTempCopilotHome(
+    [
+      'model = "copilot-gpt-5"',
+      'codeinfo_openai_endpoint = "https://alpha.example|responses,completions"',
+      '',
+    ].join('\n'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-malformed-openai-compat-pin',
+    },
+  });
+
+  try {
+    const response = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        conversationId: 'copilot-malformed-openai-compat',
+        message: 'Do not swallow malformed pinned endpoints',
+      })
+      .expect(400);
+
+    assert.equal(response.body.code, 'VALIDATION_FAILED');
+    assert.match(
+      String(response.body.message),
+      /codeinfo_openai_endpoint: the endpoint path must end at \/v1/u,
+    );
+    assert.equal(
+      memoryConversations.get('copilot-malformed-openai-compat'),
+      undefined,
+    );
+    assert.equal(server.harness.getState().lastCreateSessionConfig, undefined);
+  } finally {
+    await server.stop();
+    if (originalCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = originalCopilotHome;
     }
     await tempHome.cleanup();
   }

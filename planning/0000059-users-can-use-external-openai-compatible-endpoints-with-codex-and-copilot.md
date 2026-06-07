@@ -950,7 +950,7 @@ Add one completed task to the story plan that captures the branch-only runtime s
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 6`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task owns the serious resume-authority defects from review pass `0000059-20260603T141607Z-c2a52e2f` without widening Story 59 beyond restoring the approved saved-endpoint and ownership behavior. Highest-risk invariant: the saved endpoint producer (`flags.endpointId` and flow child endpoint state) must remain authoritative all the way through the normal resume path, and stale flow replays must fail before any persisted child-conversation mutation occurs.
 

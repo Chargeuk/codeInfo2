@@ -1038,7 +1038,7 @@ Repair two existing resume regressions only: the direct-agent resume path must k
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 7`, `Task 9`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task owns the remaining browser-proof gap from review pass `0000059-20260603T141607Z-c2a52e2f` and must extend existing endpoint-backed mock-chat coverage to the mobile selector and dialog surfaces without changing approved chat behavior. Highest-risk invariant: the mobile proofs must reach the normal endpoint-backed `/chat` launcher through the repository’s supported e2e wrapper path, while any compose or Docker startup failure before Playwright launches remains shared baseline ownership on Task 7 rather than a mobile UI regression.
 

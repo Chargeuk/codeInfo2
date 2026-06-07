@@ -1032,6 +1032,7 @@ Repair two existing resume regressions only: the direct-agent resume path must k
 - **RESOLVED ISSUE** Deep blocker repair for Subtask 5 found two task-owned issues: `runFlowInstruction()` was not forwarding the resolved flow-owned `endpointId` into `chat.run()` flags, and the success proof asserted on `capturedFlags` before the resumed step had actually reached `chat.execute()`. Forwarding `endpointId` from the resolved flow agent state and waiting for the resumed execution in `server/src/test/integration/flows.run.resume.identity.test.ts` closed the flow-success proof gap; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` then passed 15/15 tests on `test-results/server-unit-tests-2026-06-07T01-57-09-675Z.log`.
 - `npm run lint` passed after reordering imports in `server/src/test/integration/flows.run.resume.identity.test.ts` to satisfy ESLint's import-order rule.
 - `npm run format:check` passed after the lint-only import reordering; no additional formatting changes were needed.
+- Manual testing was assessed as not applicable for Task 9 because the completed work is limited to server-side resume-authority and ownership-ordering seams already covered by targeted wrapper proof, and the task does not own a separate runnable browser-visible or operator-facing manual proof surface.
 
 ### Task 10. Complete Mobile Endpoint Playwright Coverage For The Chat Surface
 

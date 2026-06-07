@@ -1434,13 +1434,14 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 #### Overview
 
-Re-run the relevant wrapper-first regression proof for the current review-created findings block after Tasks 12 and 13 land, and confirm that the same story head still covers the inline-resolved minor fixes from this active review cycle. This task is the one broad regression owner for the current repository in this review-created block: it owns the shared build wrappers, the full server and client regression wrappers, the browser-visible wrapper pass, the script-level guard proof that broad wrappers do not reach, and the final lint and format checks. Compose and broader runtime-stack revalidation are not separate new gates for this review-created block unless Tasks 12 or 13 widen into runtime-stack wiring, because the current unresolved review findings are limited to route, persistence, shared response-shape, and client selection behavior inside the current repository.
+Re-run the relevant wrapper-first regression proof for the current review-created findings block after Tasks 12 and 13 land, and confirm that the same story head still covers the inline-resolved minor fixes from this active review cycle. This task is the one broad regression owner for the current repository in this review-created block: it owns the shared build wrappers, the full server and client regression wrappers, the browser-visible wrapper pass, the script-level guard proof that broad wrappers do not reach, and one automated smoke pass through the checked-in main compose stack. That smoke pass must prove the repaired story head still reaches the repository-supported runtime surfaces at `http://localhost:5001` and `http://localhost:5010/health` without broadening this review cycle into auth-dependent or external-endpoint live setup that belongs to later manual proof.
 
 #### Task Exit Criteria
 
 - Review pass `0000059-20260607T101345Z-9dfe9788` has fresh proof on the story head for `finding-1`, `finding-4`, and `finding-7`.
 - The same final proof pass still covers the inline-resolved minor findings from this review cycle: `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8`.
 - The current repository’s relevant server, client, and browser-visible regression wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
+- The checked-in main stack still builds, starts, serves `http://localhost:5001` plus `http://localhost:5010/health`, and shuts down cleanly on the repaired story head through the repository-supported compose wrappers.
 - Final `Implementation Notes` map each current-cycle finding to its surviving proof owner on the repaired story head.
 
 #### Addresses Findings
@@ -1451,15 +1452,16 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 #### Risk Ownership
 
 - Blocker family: `shared wrapper or baseline seam` for broad wrapper startup, long-running runtimes, browser harness, and image-backed proof surfaces; `proof or test harness seam` for the script-level import-guard proof and any final assertion wiring needed to keep current-cycle findings mapped to the right proof homes.
-- Baseline boundary: this task owns story-head regression proof only. If `build:summary:*`, `test:summary:*`, or `test:summary:e2e` fails before the repaired story-owned assertions run because of a shared harness, image, port, or runtime outage, record that interruption honestly and stop at the baseline boundary instead of reopening Tasks 12 or 13 as wrapper-repair work.
-- Runtime-surface guard: when browser-visible or later manual follow-up is needed, use the repository-supported stack and artifact handoff paths rather than inventing ad hoc runtime setup during close-out.
+- Baseline boundary: this task owns story-head regression proof only. If `build:summary:*`, `test:summary:*`, `compose:build:summary`, `compose:up`, or `test:summary:e2e` fails before the repaired story-owned assertions run because of a shared harness, image, port, or runtime outage, record that interruption honestly and stop at the baseline boundary instead of reopening Tasks 12 or 13 as wrapper-repair work.
+- Runtime-surface guard: use the repository-supported main compose stack and its health surfaces for automated smoke proof, and use the same stack plus the documented artifact handoff paths for any later manual follow-up rather than inventing ad hoc runtime setup during close-out.
 
 #### Owner Map
 
 - Server build and unit/integration wrapper owner: `npm run build:summary:server`, `npm run test:summary:server:unit`
-- Feature-level route proof owner: `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature`
+- Feature-level route proof owner: `npm run test:summary:server:cucumber`
 - Client build and unit wrapper owner: `npm run build:summary:client`, `npm run test:summary:client`
 - Browser-visible proof owner: `npm run test:summary:e2e`
+- Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
 - Script-level minor proof owner: `node --test scripts/test-summary-server-cucumber-imports.test.mjs`
 - Final hygiene proof owner: `npm run lint`, `npm run format:check`
 
@@ -1476,19 +1478,22 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 1. [ ] Re-open the current-cycle `Code Review Findings` block plus `## Minor Review Fixes`, then record one explicit proof-owner mapping in `Implementation Notes` for `finding-1`, `finding-4`, `finding-7`, `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8`. Name the exact proof home for each finding and mark whether that proof is targeted-only (`scripts/test-summary-server-cucumber-imports.test.mjs`) or broad-wrapper-owned (`test:summary:server:unit`, `test:summary:server:cucumber`, `test:summary:client`, or `test:summary:e2e`).
 2. [ ] Refresh the final proof surfaces that Tasks 12 and 13 changed so each current-cycle invariant has an explicit surviving assertion on the story head: `server/src/test/integration/chat-codex.test.ts` plus `server/src/test/unit/chat-interface-run-persistence.test.ts` for `/chat` conflict-before-bootstrap and stale-write preservation; `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx` for endpoint identity, duplicate-id default restoration, cleared-selection refresh, active reused conversation state, and return-to-fresh-draft state; `server/src/test/integration/chat-copilot-fallback.test.ts`, `client/src/test/chatPage.codexDefaults.test.tsx`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `scripts/test-summary-server-cucumber-imports.test.mjs` for the inline-resolved minor findings.
-3. [ ] Re-open the broad wrapper list plus the targeted `scripts/test-summary-server-cucumber-imports.test.mjs` proof and record the execution boundary in `Implementation Notes`: which failures count as task-owned assertion failures, which failures are shared baseline or harness interruptions, why `node --test scripts/test-summary-server-cucumber-imports.test.mjs` stays outside the broad wrappers, and why compose/runtime-stack revalidation still remains not applicable unless Tasks 12 or 13 widen into those seams.
+3. [ ] Re-open the broad wrapper list, the checked-in main-stack smoke path, and the targeted `scripts/test-summary-server-cucumber-imports.test.mjs` proof and record the execution boundary in `Implementation Notes`: which failures count as task-owned assertion failures, which failures are shared baseline or harness interruptions, why `node --test scripts/test-summary-server-cucumber-imports.test.mjs` stays outside the broad wrappers, and why the compose-backed smoke pass stops at the supported `http://localhost:5001` and `http://localhost:5010/health` surfaces instead of widening into auth-dependent or external-endpoint live setup.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` to confirm the repaired server route and persistence surfaces compile cleanly before broader proof.
 2. [ ] Run `npm run build:summary:client` to confirm the repaired shared response-shape and client selection surfaces compile cleanly before broader proof.
-3. [ ] Run `npm run test:summary:server:unit` to prove the repaired server route, persistence, and inline-resolved minor server proof homes on the story head.
-4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature` to prove the endpoint-aware `/chat/models` route contract on the feature-owned surface after the producer-consumer repair.
-5. [ ] Run `npm run test:summary:client` to prove the repaired client model-selection seam and the inline-resolved client minor proof homes on the story head.
-6. [ ] Run `node --test scripts/test-summary-server-cucumber-imports.test.mjs` to re-cover the inline-resolved script-level path-traversal guard from `finding-6`, because that proof home is not naturally owned by the broad server wrappers above.
-7. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the story head.
-8. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-9. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head on the repository-supported compose path.
+4. [ ] Run `npm run test:summary:server:unit` to prove the repaired server route, persistence, and inline-resolved minor server proof homes on the story head.
+5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the full server feature-wrapper surface on the repaired story head, including the endpoint-aware `/chat/models` route contract that Task 13 changed.
+6. [ ] Run `npm run test:summary:client` to prove the repaired client model-selection seam and the inline-resolved client minor proof homes on the story head.
+7. [ ] Run `node --test scripts/test-summary-server-cucumber-imports.test.mjs` to re-cover the inline-resolved script-level path-traversal guard from `finding-6`, because that proof home is not naturally owned by the broad server wrappers above.
+8. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the story head.
+9. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is proven on the supported main runtime surfaces rather than only through targeted wrappers.
+10. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+11. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+12. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Manual Testing Guidance
 

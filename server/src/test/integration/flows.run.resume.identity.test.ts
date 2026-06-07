@@ -654,6 +654,12 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
   const childConversationId = 'agent-conv-flow-endpoint-success';
   const conversationId = 'flow-conv-flow-endpoint-success';
   const capturedFlags: Array<Record<string, unknown>> = [];
+  let resolveFirstExecute:
+    | ((flags: Record<string, unknown>) => void)
+    | undefined;
+  const firstExecute = new Promise<Record<string, unknown>>((resolve) => {
+    resolveFirstExecute = resolve;
+  });
 
   class TrackingChat extends ChatInterface {
     async execute(
@@ -665,6 +671,8 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
       void _message;
       void _model;
       capturedFlags.push({ ...flags });
+      resolveFirstExecute?.({ ...flags });
+      resolveFirstExecute = undefined;
       this.emit('thread', { type: 'thread', threadId: conversation });
       this.emit('final', { type: 'final', content: 'ok' });
       this.emit('complete', { type: 'complete', threadId: conversation });
@@ -797,8 +805,9 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
 
     assert.equal(result.providerId, 'codex');
     assert.equal(result.modelId, 'flow-current-model');
-    await waitFor(() => capturedFlags.length === 1);
+    const executedFlags = await firstExecute;
     assert.equal(capturedFlags.length, 1);
+    assert.equal(executedFlags.endpointId, endpointId);
     assert.equal(capturedFlags[0]?.endpointId, endpointId);
   } finally {
     __resetFlowResumeTestDepsForTests();

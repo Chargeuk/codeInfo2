@@ -1318,11 +1318,11 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 
 #### Owner Map
 
-- Route lifecycle, metadata reader, and conflict-ordering seam: `server/src/routes/chat.ts`
-- Conversation metadata write and merge seam: `server/src/routes/chat.ts`, `server/src/mongo/repo.ts`
-- Lock-owner mutation and loser-path non-cleanup boundary: `server/src/routes/chat.ts`
+- Route lifecycle, metadata reader, and conflict-ordering seam: `server/src/routes/chat.ts`, centered on `ensureConversation()` and `buildRuntimeConversationFlags()`
+- Conversation metadata write and merge seam: `server/src/routes/chat.ts`, `server/src/mongo/repo.ts`, centered on `updateConversationMeta()`
+- Lock-owner mutation and loser-path non-cleanup boundary: `server/src/routes/chat.ts`, including the active-run branch that decides whether the loser request can mutate or clean up anything
 - Route-level proof owner: `server/src/test/integration/chat-codex.test.ts`
-- Persistence helper support proof owner when needed: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- Persistence write-boundary proof owner: `server/src/test/unit/chat-interface-run-persistence.test.ts`
 
 #### Proof Mapping
 
@@ -1334,18 +1334,18 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
   Proof owner: `server/src/test/integration/chat-codex.test.ts`, using direct post-request reads of the persisted conversation record.
 - Requirement: later `/chat` metadata writes preserve fresher `endpointId` and `workingFolder` edits instead of replaying a stale pre-bootstrap snapshot.
   Implementation files: `server/src/routes/chat.ts`, `server/src/mongo/repo.ts`
-  Proof owner: `server/src/test/unit/chat-interface-run-persistence.test.ts` or one adjacent route-owned proof that compares the persisted record before and after the repaired write boundary.
+  Proof owner: `server/src/test/unit/chat-interface-run-persistence.test.ts`, comparing the persisted record before and after the repaired write boundary.
 - Requirement: the losing `/chat` request does not partially persist stale metadata, clear fresher values, or perform cleanup that belongs to the lock owner while the winning request still owns the active run lifecycle.
   Implementation files: `server/src/routes/chat.ts`, `server/src/mongo/repo.ts`
   Proof owner: `server/src/test/integration/chat-codex.test.ts` for the exact loser-path ordering boundary, with `server/src/test/unit/chat-interface-run-persistence.test.ts` covering the repaired write shape.
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/routes/chat.ts` and record one short owner map in `Implementation Notes` that names the exact pre-lock conflict seam, the stale `flags` source fields read before bootstrap, the reader surface that consumes persisted conversation metadata on resumed `/chat` requests, the later `updateConversationMeta()` or equivalent write boundary this task will change, and which side of the active-run lifecycle is allowed to persist or clean up metadata.
+1. [ ] Re-open `server/src/routes/chat.ts` and record one short owner map in `Implementation Notes` that names the exact pre-lock conflict seam inside `ensureConversation()`, the stale `currentFlags` and `existing.flags` values read before bootstrap, the resumed-request reader surface that restores `endpointId`, `workingFolder`, and `threadId`, the later `updateConversationMeta()` write boundary this task will change, and which side of the active-run lifecycle is allowed to persist or clean up metadata.
 2. [ ] Patch the active-run conflict branch in `server/src/routes/chat.ts` so the production `/chat` handler returns `RUN_IN_PROGRESS` before later provider readiness, endpoint discovery, or bootstrap failures can mask that conflict. Keep this change on the real request path that currently reaches the later bootstrap branch, and do not widen provider-selection or conversation-edit behavior while moving the conflict decision earlier.
-3. [ ] Patch the later metadata write boundary in `server/src/routes/chat.ts` and any directly owned helper it uses, such as `updateConversationMeta()`, so the repaired write reads and merges the freshest persisted `endpointId` and `workingFolder` values instead of replaying the stale pre-bootstrap `flags` snapshot. Preserve the loser-path boundary while doing this work: the losing request must not partially persist stale metadata, clear fresher values, or perform cleanup that belongs to the lock owner.
+3. [ ] Patch the late metadata write boundary in `server/src/routes/chat.ts` and `server/src/mongo/repo.ts`, centered on `updateConversationMeta()`, so the repaired write merges the freshest persisted `endpointId`, `workingFolder`, and `threadId` values instead of replaying the stale pre-bootstrap `currentFlags` snapshot over `existing.flags`. Preserve the loser-path boundary while doing this work: the losing request must not partially persist stale metadata, clear fresher values, or perform cleanup that belongs to the lock owner.
 4. [ ] Refresh the route-owned proof in `server/src/test/integration/chat-codex.test.ts` so the file contains one explicitly named conflict-before-bootstrap scenario rather than only a generic `409 RUN_IN_PROGRESS` title. That proof must drive the same request shape that would have hit the later bootstrap failure if the lock boundary were still too late, and the same titled scenario must assert the combined invariant that the loser request returns `RUN_IN_PROGRESS`, never surfaces the later bootstrap error family, and leaves provider, model, and `flags` unchanged on the persisted conversation record.
-5. [ ] Refresh `server/src/test/unit/chat-interface-run-persistence.test.ts` or one adjacent proof seam by adding, renaming, or splitting a dedicated stale-snapshot merge test instead of overloading the existing `updateConversationMeta stores endpointId separately from the raw model id` semantics. The planned proof must compare persisted state before and after the late `/chat` metadata update, proving that a fresher `endpointId` edit survives, a fresher `workingFolder` edit survives, and no unrelated `flags` key is clobbered by the repaired merge path.
+5. [ ] Refresh `server/src/test/unit/chat-interface-run-persistence.test.ts` by adding, renaming, or splitting a dedicated stale-snapshot merge test instead of overloading the existing `updateConversationMeta stores endpointId separately from the raw model id` semantics. The planned proof must compare persisted state before and after the late `/chat` metadata update, proving that a fresher `endpointId` edit survives, a fresher `workingFolder` edit survives, and no unrelated `flags` key is clobbered by the repaired merge path.
 
 #### Testing
 
@@ -1390,9 +1390,9 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 #### Owner Map
 
-- Server discovery and normalized response seam: `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`
-- Shared response shape seam: `common/src/lmstudio.ts`
-- Client default-selection and create-vs-reuse state seam: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`
+- Server discovery and normalized response seam: `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, centered on `buildProviderModelMetadata()`, `buildProviderInfo()`, and `buildModelsResponse()`
+- Shared response shape seam: `common/src/lmstudio.ts`, including `ChatModelInfo.endpointId`, `ChatProvidersResponse.selectedEndpointId`, `ChatModelsResponse.defaultModel`, and `ChatModelsResponse.defaultModelSource`
+- Client default-selection and create-vs-reuse state seam: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, centered on `parseProvidersResponse()`, `parseModelsResponse()`, `findSelectedModel()`, `selectedEndpointIdRef`, `draftSelectionRef`, and `previousConversationIdRef`
 - Server proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`
 - Client proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 
@@ -1410,9 +1410,9 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, and `client/src/pages/ChatPage.tsx`, then record one short owner map in `Implementation Notes` that names where endpoint identity is lost today, which response field or paired field set will become authoritative after the repair, where create-vs-reuse mode currently keeps restored endpoint state alive, and which adjacent consumers must remain compatible.
-2. [ ] Patch the server-to-shared producer seam across `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, and `common/src/lmstudio.ts` so the `/chat/providers` bootstrap response, the `/chat/models?provider=codex` payload, and the shared normalized model shape all carry the same authoritative endpoint-aware default-selection identity when duplicate raw model ids exist.
-3. [ ] Patch the client consumer seam in `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx` so the fallback-selection helper restores the endpoint-backed default from that authoritative identity, keeps restored endpoint identity while an existing conversation stays active, and clears or excludes stale reuse-mode identity when the user returns to a fresh draft.
+1. [ ] Re-open `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, and `client/src/pages/ChatPage.tsx`, then record one short owner map in `Implementation Notes` that names where endpoint identity is lost today, which response fields become authoritative after the repair (`selectedEndpointId`, `defaultModel`, `defaultModelSource`, and `ChatModelInfo.endpointId`), where create-vs-reuse mode currently keeps restored endpoint state alive, and which adjacent consumers must remain compatible.
+2. [ ] Patch the server-to-shared producer seam across `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, and `common/src/lmstudio.ts` so `buildProviderModelMetadata()`, `buildProviderInfo()`, and `buildModelsResponse()` emit one consistent endpoint-aware identity contract across `/chat/providers`, `/chat/models?provider=codex`, `selectedEndpointId`, `defaultModel`, `defaultModelSource`, and `ChatModelInfo.endpointId` when duplicate raw model ids exist.
+3. [ ] Patch the client consumer seam in `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx` so `parseProvidersResponse()`, `parseModelsResponse()`, and `findSelectedModel()` restore the endpoint-backed default from that authoritative identity, keep restored endpoint identity in `selectedEndpointIdRef` while an existing conversation stays active, and clear or exclude stale reuse-mode identity when `draftSelectionRef` and `previousConversationIdRef` return the user to a fresh draft.
 4. [ ] Refresh the server proof surfaces in `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts` so the duplicate-id endpoint-backed default path has explicitly named proof instead of hiding under scenario titles that only claim endpoint discovery or picker visibility. Add, rename, or split one unit test and one feature scenario so they directly claim the `/chat/providers` plus `/chat/models` invariant: provider bootstrap preserves the selected endpoint, the route payload carries the authoritative default-selection identity, and duplicate raw ids remain distinct instead of collapsing back to the first matching raw id.
 5. [ ] Refresh `client/src/test/chatPage.provider.conversationSelection.test.tsx` so the client proof explicitly covers clearing current selection, reloading duplicate-id endpoint-backed choices, preserving the selected endpoint across the refresh path, preserving restored endpoint identity while an existing conversation remains active, and then clearing or excluding that stale reuse-mode identity when the user returns to a fresh draft so the configured endpoint-backed default is restored instead of the first duplicate raw id or any hidden stale endpoint state. If any reused conversation-selection test title would become misleading after that change, rename or split it so duplicate-id fallback and reuse-mode stale-state claims remain explicit, and use deterministic refresh or selection boundaries rather than elapsed-time assumptions when proving that hidden stale state has not yet leaked into the fresh-draft path.
 

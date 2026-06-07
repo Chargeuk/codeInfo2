@@ -1123,7 +1123,7 @@ For retained mobile proof artifacts, capture any Playwright MCP screenshots to a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`, `Task 2`, `Task 3`, `Task 4`, `Task 5`, `Task 6`, `Task 7`, `Task 8`, `Task 9`, `Task 10`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task now owns the shared final revalidation pass for review cycle `0000059-rc-20260603T151618Z-d442f096`, including the serious review-created work in Tasks 9 and 10 for review pass `0000059-20260603T141607Z-c2a52e2f`. The remaining automated proof runs through the repo's Docker-backed wrappers; if those wrappers regress at the baseline/runtime level, treat that as runtime handoff ownership rather than new Story 59 product work.
 

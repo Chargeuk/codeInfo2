@@ -923,6 +923,7 @@ describe('Chat shared shell conversation selection', () => {
               provider: 'codex',
               available: true,
               toolsAvailable: true,
+              selectedEndpointId: 'https://alpha.example/alt/v1',
               providerInfo: {
                 id: 'codex',
                 label: 'OpenAI Codex',

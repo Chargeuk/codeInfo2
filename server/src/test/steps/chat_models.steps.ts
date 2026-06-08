@@ -265,6 +265,22 @@ Given('chat models scenario {string}', async (name: string) => {
     return;
   }
 
+  if (name === 'external-endpoint-picker-bootstrap-duplicate-ids') {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    await startExternalEndpointModelsScenario({
+      discoveredModels: ['shared-model'],
+      pinnedModels: ['shared-model'],
+      pinnedEndpointAbsentFromEnv: true,
+    });
+    await startLegacyModelsServer();
+    return;
+  }
+
   if (isNamedCopilotScenario(name)) {
     namedCopilotScenarioServer = await startNamedCopilotScenarioServer({
       scenarioName: name,
@@ -319,6 +335,25 @@ Then(
 
 Then(
   'the chat providers response selected endpoint is {string}',
+  (endpoint: string) => {
+    assert(response?.body, 'expected response body');
+    const selectedEndpointId = String(
+      (response.body as Record<string, unknown>).selectedEndpointId ?? '',
+    );
+    if (endpoint === 'discovered endpoint') {
+      assert.equal(selectedEndpointId, discoveredEndpointId);
+      return;
+    }
+    if (endpoint === 'pinned endpoint') {
+      assert.equal(selectedEndpointId, pinnedEndpointId);
+      return;
+    }
+    assert.equal(selectedEndpointId, endpoint);
+  },
+);
+
+Then(
+  'the chat models response selected endpoint is {string}',
   (endpoint: string) => {
     assert(response?.body, 'expected response body');
     const selectedEndpointId = String(

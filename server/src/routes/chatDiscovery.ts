@@ -136,6 +136,7 @@ export type OpenAiCompatProviderDiscoveryResult = {
   models: ChatModelInfo[];
   liveModels: string[];
   warnings: string[];
+  selectedEndpointId?: string;
 };
 
 type BuildProviderInfoParams = ProviderHomeParams & {
@@ -257,6 +258,7 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
     models,
     liveModels,
     warnings,
+    selectedEndpointId: discovery.selectedEndpointId,
   };
 }
 
@@ -525,6 +527,7 @@ export function buildModelsResponse(params: {
   models: ChatModelsResponse['models'];
   providers: ChatProviderInfo[];
   providerInfo: ChatProviderInfo;
+  selectedEndpointId?: string;
   compatibility?: ChatModelsResponse['compatibility'];
   codexDefaults?: CodexDefaults;
   codexWarnings?: string[];
@@ -538,6 +541,7 @@ export function buildModelsResponse(params: {
     providers: params.providers,
     providerInfo: params.providerInfo,
     agentFlags: params.providerInfo.agentFlags,
+    selectedEndpointId: params.selectedEndpointId,
     defaultModel: params.providerInfo.defaultModel,
     defaultModelSource: params.providerInfo.defaultModelSource,
     warnings: params.providerInfo.warnings,

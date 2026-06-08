@@ -156,6 +156,7 @@ export type ChatModelsResponse = {
   providerInfo?: ChatProviderInfo;
   providers?: ChatProviderInfo[];
   agentFlags?: ChatAgentFlagDescriptor[];
+  selectedEndpointId?: string;
   defaultModel?: string;
   defaultModelSource?: ChatProviderDefaultsSource;
   warnings?: string[];

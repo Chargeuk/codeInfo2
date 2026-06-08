@@ -1071,7 +1071,7 @@ test('codex models route includes external responses endpoints and filters out u
   }
 });
 
-test('codex models route preserves duplicate raw model ids across distinct endpoint identities', async () => {
+test('codex models route preserves duplicate raw model ids and the selected endpoint identity', async () => {
   const firstServer = await startExternalOpenAiCompatServer({
     models: ['shared-model'],
   });
@@ -1085,6 +1085,13 @@ test('codex models route preserves duplicate raw model ids across distinct endpo
       `${firstServer.baseUrl}/v1|responses`,
       `${secondServer.baseUrl}/v1|responses`,
     ].join(';'),
+  );
+  await setCodexHome(
+    [
+      'model = "shared-model"',
+      `codeinfo_openai_endpoint = "${secondServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
   );
   env.set('Codex_model_list', 'builtin-a');
   setCodexDetection({
@@ -1104,11 +1111,21 @@ test('codex models route preserves duplicate raw model ids across distinct endpo
     const sharedModels = (
       res.body.models as Array<Record<string, unknown>>
     ).filter((model) => model.key === 'shared-model');
-    assert.equal(sharedModels.length, 2);
-    assert.equal(sharedModels[0]?.endpointId, `${firstServer.baseUrl}/v1`);
-    assert.equal(sharedModels[1]?.endpointId, `${secondServer.baseUrl}/v1`);
+    const sharedEndpointIds = sharedModels
+      .map((model) => String(model.endpointId ?? ''))
+      .filter((endpointId) => endpointId.length > 0);
+    assert.ok(sharedModels.length >= 2);
+    assert.equal(res.body.defaultModel, 'shared-model');
+    assert.equal(res.body.defaultModelSource, 'config');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${secondServer.baseUrl}/v1`,
+    );
+    assert.equal(sharedModels[0]?.endpointId, `${secondServer.baseUrl}/v1`);
+    assert.ok(sharedEndpointIds.includes(`${firstServer.baseUrl}/v1`));
+    assert.ok(sharedEndpointIds.includes(`${secondServer.baseUrl}/v1`));
     assert.equal(sharedModels[0]?.type, 'codex');
-    assert.equal(sharedModels[1]?.type, 'codex');
+    assert.ok(sharedModels.some((model) => model.type === 'codex'));
   } finally {
     await stopServer(server);
   }

@@ -867,8 +867,7 @@ export default function ChatPage() {
           ) ?? models.find((model) => model.key === resumedModel);
         setSelected(endpointAwareMatch?.key ?? resumedModel, {
           source: 'conversation-select',
-          endpointId:
-            endpointAwareMatch?.endpointId ?? selectedEndpointId ?? null,
+          endpointId: endpointAwareMatch?.endpointId ?? null,
         });
       }
       return;

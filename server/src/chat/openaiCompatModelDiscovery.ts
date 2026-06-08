@@ -17,6 +17,7 @@ export type OpenAiCompatModelDiscoveryWarning = {
 export type OpenAiCompatModelDiscoveryResult = {
   endpoints: OpenAiCompatModelDiscoveryEndpointResult[];
   warnings: OpenAiCompatModelDiscoveryWarning[];
+  selectedEndpointId?: string;
 };
 
 export type OpenAiCompatEndpointRuntimeState = {
@@ -183,6 +184,7 @@ export async function discoverOpenAiCompatEndpointModels(params: {
       ...warnings,
       ...endpointResults.flatMap((result) => result.warnings),
     ],
+    selectedEndpointId: params.pinnedEndpoint?.endpointId,
   };
 }
 

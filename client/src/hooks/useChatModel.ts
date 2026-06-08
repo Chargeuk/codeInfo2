@@ -297,6 +297,13 @@ function parseModelsResponse(payload: unknown): ChatModelsResponse {
   }
 
   if (
+    payload.selectedEndpointId !== undefined &&
+    typeof payload.selectedEndpointId !== 'string'
+  ) {
+    throw new Error('Malformed chat models response');
+  }
+
+  if (
     payload.codexWarnings !== undefined &&
     !isStringArray(payload.codexWarnings)
   ) {
@@ -861,18 +868,28 @@ export function useChatModel() {
             : undefined;
         const resolvedDefaultSelection =
           typeof data.defaultModel === 'string'
-            ? findSelectedModel(models, data.defaultModel)
+            ? findSelectedModel(
+                models,
+                data.defaultModel,
+                data.selectedEndpointId,
+              )
             : typeof resolvedProviderInfo?.defaultModel === 'string'
-              ? findSelectedModel(models, resolvedProviderInfo.defaultModel)
+              ? findSelectedModel(
+                  models,
+                  resolvedProviderInfo.defaultModel,
+                  data.selectedEndpointId,
+                )
               : undefined;
         const nextSelection =
           currentSelection ??
           bootstrapSelection ??
           resolvedDefaultSelection ??
           models[0];
+        const nextSelectedEndpointId =
+          nextSelection?.endpointId ?? data.selectedEndpointId ?? undefined;
         setSelected(nextSelection?.key, {
           source: 'model-bootstrap',
-          endpointId: nextSelection?.endpointId ?? null,
+          endpointId: nextSelectedEndpointId ?? null,
         });
         if (bootstrapSelectedModelRef.current?.provider === effectiveProvider) {
           bootstrapSelectedModelRef.current = null;

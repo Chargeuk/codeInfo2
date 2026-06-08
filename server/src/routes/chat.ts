@@ -500,6 +500,74 @@ export function createChatRouter({
     const safeBase = scrubBaseUrl(baseUrl);
     const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
 
+    const preflightRunLockResponse = (() => {
+      if (tryAcquireConversationLock(conversationId)) {
+        return null;
+      }
+
+      if (
+        typeof requestedInflightId === 'string' &&
+        requestedInflightId.length > 0
+      ) {
+        const activeInflight = getInflight(conversationId);
+        if (
+          activeInflight?.inflightId === requestedInflightId &&
+          activeInflight.finalStatus
+        ) {
+          return res.status(409).json(
+            buildCompletedReplayResponse({
+              conversationId,
+              inflightId: requestedInflightId,
+              finalStatus: activeInflight.finalStatus,
+            }),
+          );
+        }
+
+        const completedReplay = getCompletedInflight({
+          conversationId,
+          inflightId: requestedInflightId,
+        });
+        if (completedReplay) {
+          return res.status(409).json(
+            buildCompletedReplayResponse({
+              conversationId,
+              inflightId: requestedInflightId,
+              finalStatus: completedReplay.finalStatus,
+            }),
+          );
+        }
+      }
+
+      return res.status(409).json({
+        status: 'error',
+        code: 'RUN_IN_PROGRESS',
+        message: 'Conversation already has an active run.',
+      });
+    })();
+    if (preflightRunLockResponse) {
+      return preflightRunLockResponse;
+    }
+
+    const ownership = getActiveRunOwnership(conversationId);
+    if (!ownership) {
+      releaseConversationLockFn(conversationId);
+      baseLogger.error(
+        {
+          requestId,
+          conversationId,
+        },
+        'chat.run.ownership_missing_after_lock',
+      );
+      return res.status(500).json({
+        status: 'error',
+        code: 'RUN_STATE_UNAVAILABLE',
+        message: 'Conversation run ownership could not be resolved.',
+      });
+    }
+    const { runToken } = ownership;
+    let backgroundRunStarted = false;
+    try {
+
     const codexDetection = getCodexDetection();
     const codexCapabilities = await codexCapabilityResolver({
       consumer: 'chat_validation',
@@ -978,11 +1046,13 @@ export function createChatRouter({
           return created;
         }
 
+        const latestConversation =
+          (await loadExistingConversation()) ?? existing;
         const updated: Conversation = {
           ...existing,
           provider: executionProvider,
           model: executionModel,
-          flags: buildRuntimeConversationFlags(existing.flags),
+          flags: buildRuntimeConversationFlags(latestConversation.flags),
           source: existing.source ?? 'REST',
           lastMessageAt: now,
           updatedAt: now,
@@ -1014,11 +1084,13 @@ export function createChatRouter({
         return created;
       }
 
+      const latestConversation =
+        (await loadExistingConversation()) ?? existing;
       await updateConversationMeta({
         conversationId,
         provider: executionProvider,
         model: executionModel,
-        flags: buildRuntimeConversationFlags(existing.flags),
+        flags: buildRuntimeConversationFlags(latestConversation.flags),
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)
@@ -1060,406 +1132,304 @@ export function createChatRouter({
       });
     }
 
-    if (!tryAcquireConversationLock(conversationId)) {
-      if (
-        typeof requestedInflightId === 'string' &&
-        requestedInflightId.length > 0
-      ) {
-        const activeInflight = getInflight(conversationId);
-        if (
-          activeInflight?.inflightId === requestedInflightId &&
-          activeInflight.finalStatus
-        ) {
-          return res.status(409).json(
-            buildCompletedReplayResponse({
-              conversationId,
-              inflightId: requestedInflightId,
-              finalStatus: activeInflight.finalStatus,
-            }),
-          );
-        }
+      const inflightId =
+        typeof requestedInflightId === 'string' && requestedInflightId.length > 0
+          ? requestedInflightId
+          : crypto.randomUUID();
 
-        const completedReplay = getCompletedInflight({
-          conversationId,
-          inflightId: requestedInflightId,
+      const completedReplay = getCompletedInflight({
+        conversationId,
+        inflightId,
+      });
+      if (completedReplay) {
+        releaseConversationLockFn(conversationId, runToken);
+        return res.status(409).json(
+          buildCompletedReplayResponse({
+            conversationId,
+            inflightId,
+            finalStatus: completedReplay.finalStatus,
+          }),
+        );
+      }
+
+      const ensuredConversation = await ensureConversation();
+      if (!ensuredConversation) {
+        releaseConversationLockFn(conversationId, runToken);
+        return res.status(410).json({
+          status: 'error',
+          code: 'CONVERSATION_ARCHIVED',
+          message: 'Conversation is archived and must be restored before use.',
         });
-        if (completedReplay) {
-          return res.status(409).json(
-            buildCompletedReplayResponse({
+      }
+
+      if (requestedWorkingFolder) {
+        appendWorkingFolderDecisionLog({
+          conversationId,
+          recordType: getConversationRecordType(ensuredConversation),
+          surface: 'chat_run',
+          action: 'save',
+          decisionReason: 'request_value_persisted',
+          workingFolder: requestedWorkingFolder,
+        });
+      }
+
+      if (repositoryBackedCodexRun) {
+        try {
+          const materializedRuntimeHome =
+            await materializeRepositoryBackedCodexChatHome({
               conversationId,
-              inflightId: requestedInflightId,
-              finalStatus: completedReplay.finalStatus,
-            }),
-          );
+              overrides: {
+                model: executionModel,
+                sandbox_mode:
+                  typeof effectiveCodexFlags.sandboxMode === 'string'
+                    ? effectiveCodexFlags.sandboxMode
+                    : undefined,
+                approval_policy:
+                  typeof effectiveCodexFlags.approvalPolicy === 'string'
+                    ? effectiveCodexFlags.approvalPolicy
+                    : undefined,
+                model_reasoning_effort:
+                  typeof effectiveCodexFlags.modelReasoningEffort === 'string'
+                    ? effectiveCodexFlags.modelReasoningEffort
+                    : undefined,
+                model_reasoning_summary:
+                  typeof effectiveCodexFlags.modelReasoningSummary === 'string'
+                    ? effectiveCodexFlags.modelReasoningSummary
+                    : undefined,
+                model_verbosity:
+                  typeof effectiveCodexFlags.modelVerbosity === 'string'
+                    ? effectiveCodexFlags.modelVerbosity
+                    : undefined,
+                network_access_enabled:
+                  typeof effectiveCodexFlags.networkAccessEnabled === 'boolean'
+                    ? effectiveCodexFlags.networkAccessEnabled
+                    : undefined,
+                web_search_mode:
+                  typeof effectiveCodexFlags.webSearchMode === 'string'
+                    ? effectiveCodexFlags.webSearchMode
+                    : undefined,
+              },
+            });
+          repositoryBackedCodexHome = materializedRuntimeHome.runtimeCodexHome;
+        } catch (error) {
+          const code =
+            error instanceof RuntimeConfigResolutionError
+              ? error.code
+              : 'RUNTIME_CONFIG_VALIDATION_FAILED';
+          console.error(`${T06_ERROR_LOG} surface=/chat code=${code}`);
+          releaseConversationLockFn(conversationId, runToken);
+          return res.status(500).json({
+            status: 'error',
+            code,
+            message:
+              error instanceof Error
+                ? error.message
+                : 'repository-backed chat runtime config materialization failed',
+          });
         }
       }
 
-      return res.status(409).json({
-        status: 'error',
-        code: 'RUN_IN_PROGRESS',
-        message: 'Conversation already has an active run.',
+      createInflight({
+        conversationId,
+        inflightId,
+        provider: executionProvider,
+        model: executionModel,
+        source: 'REST',
+        userTurn: { content: message, createdAt: now.toISOString() },
       });
-    }
 
-    const ownership = getActiveRunOwnership(conversationId);
-    if (!ownership) {
-      releaseConversationLockFn(conversationId);
-      baseLogger.error(
-        {
-          requestId,
+      const consumePendingChatStop = () => {
+        const boundPending = bindPendingConversationCancelToInflight({
           conversationId,
-        },
-        'chat.run.ownership_missing_after_lock',
-      );
-      return res.status(500).json({
-        status: 'error',
-        code: 'RUN_STATE_UNAVAILABLE',
-        message: 'Conversation run ownership could not be resolved.',
+          runToken,
+          inflightId,
+        });
+        if (!boundPending.ok) {
+          return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
+        }
+
+        const pendingCancel = consumePendingConversationCancel({
+          conversationId,
+          runToken,
+          inflightId,
+        });
+        if (!pendingCancel) return false;
+
+        return abortInflight({ conversationId, inflightId }).ok;
+      };
+
+      consumePendingChatStop();
+
+      publishUserTurn({
+        conversationId,
+        inflightId,
+        content: message,
+        createdAt: now.toISOString(),
       });
-    }
-    const { runToken } = ownership;
 
-    const inflightId =
-      typeof requestedInflightId === 'string' && requestedInflightId.length > 0
-        ? requestedInflightId
-        : crypto.randomUUID();
+      let chat: ChatInterface;
+      try {
+        chat = chatFactory(executionProvider, {
+          clientFactory,
+          codexFactory,
+          toolFactory,
+          ...(executionProvider === 'copilot'
+            ? {
+                copilotLifecycle:
+                  copilotLifecycleFactory?.({
+                    env: { ...process.env, ...envOverrides },
+                  }) ??
+                  new CopilotLifecycle({
+                    env: { ...process.env, ...envOverrides },
+                  }),
+              }
+            : {}),
+        });
+      } catch (err) {
+        releaseConversationLockFn(conversationId, runToken);
+        cleanupInflight({ conversationId, inflightId });
 
-    const completedReplay = getCompletedInflight({
-      conversationId,
-      inflightId,
-    });
-    if (completedReplay) {
-      releaseConversationLockFn(conversationId, runToken);
-      return res.status(409).json(
-        buildCompletedReplayResponse({
+        if (err instanceof UnsupportedProviderError) {
+          return res.status(400).json({
+            status: 'error',
+            code: 'UNSUPPORTED_PROVIDER',
+            message: err.message,
+          });
+        }
+        throw err;
+      }
+
+      const bridge = attachChatStreamBridge({
+        conversationId,
+        inflightId,
+        provider: executionProvider,
+        model: executionModel,
+        requestId,
+        chat,
+      });
+
+      append({
+        level: 'info',
+        message: 'chat.run.started',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          provider: executionProvider,
+          model: executionModel,
           conversationId,
           inflightId,
-          finalStatus: completedReplay.finalStatus,
-        }),
+        },
+      });
+      baseLogger.info(
+        {
+          requestId,
+          provider: executionProvider,
+          model: executionModel,
+          conversationId,
+          inflightId,
+        },
+        'chat.run.started',
       );
-    }
 
-    const ensuredConversation = await ensureConversation();
-    if (!ensuredConversation) {
-      releaseConversationLockFn(conversationId, runToken);
-      return res.status(410).json({
-        status: 'error',
-        code: 'CONVERSATION_ARCHIVED',
-        message: 'Conversation is archived and must be restored before use.',
-      });
-    }
-
-    if (requestedWorkingFolder) {
-      appendWorkingFolderDecisionLog({
+      // Respond immediately; execution continues in the background.
+      res.status(202).json({
+        status: 'started',
         conversationId,
-        recordType: getConversationRecordType(ensuredConversation),
-        surface: 'chat_run',
-        action: 'save',
-        decisionReason: 'request_value_persisted',
-        workingFolder: requestedWorkingFolder,
-      });
-    }
-
-    if (repositoryBackedCodexRun) {
-      try {
-        const materializedRuntimeHome =
-          await materializeRepositoryBackedCodexChatHome({
-            conversationId,
-            overrides: {
-              model: executionModel,
-              sandbox_mode:
-                typeof effectiveCodexFlags.sandboxMode === 'string'
-                  ? effectiveCodexFlags.sandboxMode
-                  : undefined,
-              approval_policy:
-                typeof effectiveCodexFlags.approvalPolicy === 'string'
-                  ? effectiveCodexFlags.approvalPolicy
-                  : undefined,
-              model_reasoning_effort:
-                typeof effectiveCodexFlags.modelReasoningEffort === 'string'
-                  ? effectiveCodexFlags.modelReasoningEffort
-                  : undefined,
-              model_reasoning_summary:
-                typeof effectiveCodexFlags.modelReasoningSummary === 'string'
-                  ? effectiveCodexFlags.modelReasoningSummary
-                  : undefined,
-              model_verbosity:
-                typeof effectiveCodexFlags.modelVerbosity === 'string'
-                  ? effectiveCodexFlags.modelVerbosity
-                  : undefined,
-              network_access_enabled:
-                typeof effectiveCodexFlags.networkAccessEnabled === 'boolean'
-                  ? effectiveCodexFlags.networkAccessEnabled
-                  : undefined,
-              web_search_mode:
-                typeof effectiveCodexFlags.webSearchMode === 'string'
-                  ? effectiveCodexFlags.webSearchMode
-                  : undefined,
-            },
-          });
-        repositoryBackedCodexHome = materializedRuntimeHome.runtimeCodexHome;
-      } catch (error) {
-        const code =
-          error instanceof RuntimeConfigResolutionError
-            ? error.code
-            : 'RUNTIME_CONFIG_VALIDATION_FAILED';
-        console.error(`${T06_ERROR_LOG} surface=/chat code=${code}`);
-        releaseConversationLockFn(conversationId, runToken);
-        return res.status(500).json({
-          status: 'error',
-          code,
-          message:
-            error instanceof Error
-              ? error.message
-              : 'repository-backed chat runtime config materialization failed',
-        });
-      }
-    }
-
-    createInflight({
-      conversationId,
-      inflightId,
-      provider: executionProvider,
-      model: executionModel,
-      source: 'REST',
-      userTurn: { content: message, createdAt: now.toISOString() },
-    });
-
-    const consumePendingChatStop = () => {
-      const boundPending = bindPendingConversationCancelToInflight({
-        conversationId,
-        runToken,
         inflightId,
-      });
-      if (!boundPending.ok) {
-        return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
-      }
-
-      const pendingCancel = consumePendingConversationCancel({
-        conversationId,
-        runToken,
-        inflightId,
-      });
-      if (!pendingCancel) return false;
-
-      return abortInflight({ conversationId, inflightId }).ok;
-    };
-
-    consumePendingChatStop();
-
-    publishUserTurn({
-      conversationId,
-      inflightId,
-      content: message,
-      createdAt: now.toISOString(),
-    });
-
-    let chat: ChatInterface;
-    try {
-      chat = chatFactory(executionProvider, {
-        clientFactory,
-        codexFactory,
-        toolFactory,
-        ...(executionProvider === 'copilot'
-          ? {
-              copilotLifecycle:
-                copilotLifecycleFactory?.({
-                  env: { ...process.env, ...envOverrides },
-                }) ??
-                new CopilotLifecycle({
-                  env: { ...process.env, ...envOverrides },
-                }),
-            }
-          : {}),
-      });
-    } catch (err) {
-      releaseConversationLockFn(conversationId, runToken);
-      cleanupInflight({ conversationId, inflightId });
-
-      if (err instanceof UnsupportedProviderError) {
-        return res.status(400).json({
-          status: 'error',
-          code: 'UNSUPPORTED_PROVIDER',
-          message: err.message,
-        });
-      }
-      throw err;
-    }
-
-    const bridge = attachChatStreamBridge({
-      conversationId,
-      inflightId,
-      provider: executionProvider,
-      model: executionModel,
-      requestId,
-      chat,
-    });
-
-    append({
-      level: 'info',
-      message: 'chat.run.started',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      requestId,
-      context: {
         provider: executionProvider,
         model: executionModel,
-        conversationId,
-        inflightId,
-      },
-    });
-    baseLogger.info(
-      {
-        requestId,
-        provider: executionProvider,
-        model: executionModel,
-        conversationId,
-        inflightId,
-      },
-      'chat.run.started',
-    );
+        warnings: responseWarningsWithAgentFlags,
+      });
+      backgroundRunStarted = true;
 
-    // Respond immediately; execution continues in the background.
-    res.status(202).json({
-      status: 'started',
-      conversationId,
-      inflightId,
-      provider: executionProvider,
-      model: executionModel,
-      warnings: responseWarningsWithAgentFlags,
-    });
+      void (async () => {
+        let runError: unknown;
+        try {
+          consumePendingChatStop();
 
-    void (async () => {
-      let runError: unknown;
-      try {
-        consumePendingChatStop();
+          if (executionProvider === 'codex') {
+            const activeThreadId =
+              threadId ??
+              (ensuredConversation.provider === 'codex' &&
+              ensuredConversation.model === executionModel &&
+              existingConversationEndpointId === selectedEndpointId
+                ? ((ensuredConversation.flags?.threadId as string | undefined) ??
+                  null)
+                : null) ??
+              null;
+            const codexChatRuntimeConfig = chatRuntimeConfig as
+              | CodexOptions['config']
+              | undefined;
+            const codexRuntimeConfig = repositoryBackedCodexRun
+              ? omitCodexRuntimeModelForConfigDefaults(codexChatRuntimeConfig)
+              : codexChatRuntimeConfig;
 
-        if (executionProvider === 'codex') {
-          const activeThreadId =
-            threadId ??
-            (ensuredConversation.provider === 'codex' &&
-            ensuredConversation.model === executionModel &&
-            existingConversationEndpointId === selectedEndpointId
-              ? ((ensuredConversation.flags?.threadId as string | undefined) ??
-                null)
-              : null) ??
-            null;
-          const codexChatRuntimeConfig = chatRuntimeConfig as
-            | CodexOptions['config']
-            | undefined;
-          const codexRuntimeConfig = repositoryBackedCodexRun
-            ? omitCodexRuntimeModelForConfigDefaults(codexChatRuntimeConfig)
-            : codexChatRuntimeConfig;
+            await chat.run(
+              message,
+              {
+                provider: 'codex',
+                threadId: activeThreadId,
+                ...(repositoryBackedCodexHome
+                  ? { codexHome: repositoryBackedCodexHome }
+                  : {}),
+                useConfigDefaults: repositoryBackedCodexRun,
+                runtimeConfig: codexRuntimeConfig,
+                codexFlags: effectiveCodexFlags,
+                workingDirectoryOverride:
+                  executionContext.workingDirectoryOverride,
+                envOverrides,
+                requestId,
+                inflightId,
+                repositoryContext: executionContext.repositoryMetadata,
+                runtime: executionContext.runtime,
+                deferInflightCleanup: true,
+                signal: getInflight(conversationId)?.abortController.signal,
+                source: 'REST',
+              },
+              conversationId,
+              executionModel,
+            );
+            return;
+          }
+
+          const historyForRun = shouldUseMemoryPersistence()
+            ? await loadTurnsChronological()
+            : undefined;
 
           await chat.run(
             message,
             {
-              provider: 'codex',
-              threadId: activeThreadId,
-              ...(repositoryBackedCodexHome
-                ? { codexHome: repositoryBackedCodexHome }
-                : {}),
-              useConfigDefaults: repositoryBackedCodexRun,
-              runtimeConfig: codexRuntimeConfig,
-              codexFlags: effectiveCodexFlags,
-              workingDirectoryOverride:
-                executionContext.workingDirectoryOverride,
-              envOverrides,
+              provider: executionProvider,
               requestId,
+              baseUrl,
               inflightId,
+              agentFlags: effectiveAgentFlags,
+              ...(executionUsesEndpoint && selectedOpenAiCompatEndpoint
+                ? { codeinfoOpenAiEndpoint: selectedOpenAiCompatEndpoint }
+                : {}),
               repositoryContext: executionContext.repositoryMetadata,
               runtime: executionContext.runtime,
               deferInflightCleanup: true,
               signal: getInflight(conversationId)?.abortController.signal,
+              envOverrides,
+              history: historyForRun,
+              ...(executionProvider === 'copilot'
+                ? {
+                    copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
+                    resumeConversation: shouldResumeCopilotSession,
+                    runtimeConfig: chatRuntimeConfig,
+                    workingDirectoryOverride:
+                      executionContext.workingDirectoryOverride,
+                  }
+                : {}),
               source: 'REST',
             },
             conversationId,
             executionModel,
           );
-          return;
-        }
-
-        const historyForRun = shouldUseMemoryPersistence()
-          ? await loadTurnsChronological()
-          : undefined;
-
-        await chat.run(
-          message,
-          {
-            provider: executionProvider,
-            requestId,
-            baseUrl,
-            inflightId,
-            agentFlags: effectiveAgentFlags,
-            ...(executionUsesEndpoint && selectedOpenAiCompatEndpoint
-              ? { codeinfoOpenAiEndpoint: selectedOpenAiCompatEndpoint }
-              : {}),
-            repositoryContext: executionContext.repositoryMetadata,
-            runtime: executionContext.runtime,
-            deferInflightCleanup: true,
-            signal: getInflight(conversationId)?.abortController.signal,
-            envOverrides,
-            history: historyForRun,
-            ...(executionProvider === 'copilot'
-              ? {
-                  copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
-                  resumeConversation: shouldResumeCopilotSession,
-                  runtimeConfig: chatRuntimeConfig,
-                  workingDirectoryOverride:
-                    executionContext.workingDirectoryOverride,
-                }
-              : {}),
-            source: 'REST',
-          },
-          conversationId,
-          executionModel,
-        );
-      } catch (err) {
-        runError = err;
-        baseLogger.error(
-          {
-            requestId,
-            provider: executionProvider,
-            model: executionModel,
-            conversationId,
-            inflightId,
-            err,
-          },
-          'chat run failed',
-        );
-      } finally {
-        bridge.cleanup();
-        const inflightState = getInflight(conversationId);
-        const activeInflight =
-          inflightState && inflightState.inflightId === inflightId
-            ? inflightState
-            : undefined;
-        const cancelled = Boolean(
-          activeInflight?.abortController.signal.aborted,
-        );
-        const errorMessage =
-          runError instanceof Error ? runError.message : undefined;
-
-        bridge.finalize({
-          fallback: {
-            status: cancelled ? 'stopped' : 'failed',
-            threadId: null,
-            ...(cancelled || !errorMessage
-              ? {}
-              : {
-                  error: {
-                    code: 'PROVIDER_ERROR',
-                    message: errorMessage,
-                  },
-                }),
-          },
-        });
-
-        try {
-          if (activeInflight) {
-            cleanupInflightFn({ conversationId, inflightId });
-          }
-        } catch (cleanupError) {
+        } catch (err) {
+          runError = err;
           baseLogger.error(
             {
               requestId,
@@ -1467,21 +1437,70 @@ export function createChatRouter({
               model: executionModel,
               conversationId,
               inflightId,
-              cleanupError,
+              err,
             },
-            'chat cleanup failed; falling back to direct runtime cleanup',
+            'chat run failed',
           );
-          cleanupInflight({ conversationId, inflightId });
         } finally {
-          cleanupPendingConversationCancel({
-            conversationId,
-            runToken,
-            inflightId,
+          bridge.cleanup();
+          const inflightState = getInflight(conversationId);
+          const activeInflight =
+            inflightState && inflightState.inflightId === inflightId
+              ? inflightState
+              : undefined;
+          const cancelled = Boolean(
+            activeInflight?.abortController.signal.aborted,
+          );
+          const errorMessage =
+            runError instanceof Error ? runError.message : undefined;
+
+          bridge.finalize({
+            fallback: {
+              status: cancelled ? 'stopped' : 'failed',
+              threadId: null,
+              ...(cancelled || !errorMessage
+                ? {}
+                : {
+                    error: {
+                      code: 'PROVIDER_ERROR',
+                      message: errorMessage,
+                    },
+                  }),
+            },
           });
-          releaseConversationLockFn(conversationId, runToken);
+
+          try {
+            if (activeInflight) {
+              cleanupInflightFn({ conversationId, inflightId });
+            }
+          } catch (cleanupError) {
+            baseLogger.error(
+              {
+                requestId,
+                provider: executionProvider,
+                model: executionModel,
+                conversationId,
+                inflightId,
+                cleanupError,
+              },
+              'chat cleanup failed; falling back to direct runtime cleanup',
+            );
+            cleanupInflight({ conversationId, inflightId });
+          } finally {
+            cleanupPendingConversationCancel({
+              conversationId,
+              runToken,
+              inflightId,
+            });
+            releaseConversationLockFn(conversationId, runToken);
+          }
         }
+      })();
+    } finally {
+      if (!backgroundRunStarted) {
+        releaseConversationLockFn(conversationId, runToken);
       }
-    })();
+    }
   });
 
   return router;

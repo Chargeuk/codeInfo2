@@ -740,9 +740,15 @@ describe('ChatInterface.run persistence', () => {
       configurable: true,
     });
 
+    const originalFindById = ConversationModel.findById;
     const original = ConversationModel.findByIdAndUpdate;
     let capturedUpdate: unknown;
 
+    ConversationModel.findById = ((_conversationId: unknown) => ({
+      lean: () => ({
+        exec: async () => null,
+      }),
+    })) as unknown as typeof ConversationModel.findById;
     ConversationModel.findByIdAndUpdate = ((
       _conversationId: unknown,
       update: unknown,
@@ -765,6 +771,7 @@ describe('ChatInterface.run persistence', () => {
         lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
       });
     } finally {
+      ConversationModel.findById = originalFindById;
       ConversationModel.findByIdAndUpdate = original;
       Object.defineProperty(mongoose.connection, 'readyState', {
         value: originalReady,
@@ -780,6 +787,83 @@ describe('ChatInterface.run persistence', () => {
         workingFolder: '/repos/working-root',
       },
       lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    });
+  });
+
+  test('updateConversationMeta preserves fresher endpointId and workingFolder values when merging a stale snapshot', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 1,
+      configurable: true,
+    });
+
+    const originalFindById = ConversationModel.findById;
+    const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+    let capturedUpdate: unknown;
+
+    ConversationModel.findById = ((conversationId: unknown) => ({
+      lean: () => ({
+        exec: async () =>
+          ({
+            _id: conversationId,
+            provider: 'codex',
+            model: 'gpt-5.2',
+            flags: {
+              endpointId: 'https://fresh.example/v1',
+              workingFolder: '/repos/fresh-root',
+              threadId: 'thread-fresh',
+              flow: { status: 'running' },
+            },
+          }) as never,
+      }),
+    })) as unknown as typeof ConversationModel.findById;
+
+    ConversationModel.findByIdAndUpdate = ((
+      _conversationId: unknown,
+      update: unknown,
+    ) => {
+      capturedUpdate = update;
+      return { exec: async () => null } as unknown as ReturnType<
+        typeof ConversationModel.findByIdAndUpdate
+      >;
+    }) as typeof ConversationModel.findByIdAndUpdate;
+
+    try {
+      await updateConversationMeta({
+        conversationId: 'stale-snapshot-conversation',
+        provider: 'codex',
+        model: 'gpt-5.2',
+        flags: {
+          requestedProviderId: 'codex',
+          agentFlags: {
+            modelReasoningEffort: 'high',
+          },
+        },
+        lastMessageAt: new Date('2025-02-02T00:00:00.000Z'),
+      });
+    } finally {
+      ConversationModel.findById = originalFindById;
+      ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
+    }
+
+    assert.deepEqual(capturedUpdate, {
+      provider: 'codex',
+      model: 'gpt-5.2',
+      flags: {
+        endpointId: 'https://fresh.example/v1',
+        workingFolder: '/repos/fresh-root',
+        requestedProviderId: 'codex',
+        threadId: 'thread-fresh',
+        flow: { status: 'running' },
+        agentFlags: {
+          modelReasoningEffort: 'high',
+        },
+      },
+      lastMessageAt: new Date('2025-02-02T00:00:00.000Z'),
     });
   });
 

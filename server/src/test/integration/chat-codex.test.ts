@@ -1882,12 +1882,13 @@ test('POST /chat persists turns without WS subscribers (run continues)', async (
   assert.ok(turns.some((t) => t.role === 'assistant'));
 });
 
-test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', async () => {
+test('POST /chat returns RUN_IN_PROGRESS before codex readiness failure can mask the active run', async () => {
   setCodexDetection({
-    available: true,
-    authPresent: true,
-    configPresent: true,
+    available: false,
+    authPresent: false,
+    configPresent: false,
     cliPath: '/usr/bin/codex',
+    reason: 'codex bootstrap degraded',
   });
   const app = express();
   app.use(express.json());
@@ -1895,8 +1896,6 @@ test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', asyn
     '/chat',
     createChatRouter({
       clientFactory: dummyClientFactory,
-      codexFactory: () => new MockCodex('thread-lock'),
-      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
     }),
   );
 

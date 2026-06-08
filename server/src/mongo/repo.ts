@@ -36,6 +36,10 @@ const repoReadyTimestamp = new Date().toISOString();
 export const DEV_0000048_T4_WORKING_FOLDER_STATE_STORED =
   'DEV_0000048_T4_WORKING_FOLDER_STATE_STORED';
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 append({
   level: 'info',
   message: '0000020 ingest_files repo helpers ready',
@@ -56,6 +60,25 @@ function toConversationEvent(doc: Conversation): ConversationEventSummary {
     lastMessageAt: doc.lastMessageAt,
     archived: doc.archivedAt != null,
     flags: doc.flags ?? {},
+  };
+}
+
+function mergeConversationMetaFlags(params: {
+  provider: ConversationProvider;
+  currentFlags?: Record<string, unknown> | null;
+  nextFlags?: Record<string, unknown> | null;
+}): Record<string, unknown> {
+  const currentFlags = isPlainObject(params.currentFlags)
+    ? { ...params.currentFlags }
+    : {};
+  const nextFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.nextFlags,
+  );
+
+  return {
+    ...currentFlags,
+    ...nextFlags,
   };
 }
 
@@ -140,16 +163,21 @@ export async function createConversation(
 export async function updateConversationMeta(
   input: UpdateConversationMetaInput,
 ): Promise<Conversation | null> {
+  const existing = await ConversationModel.findById(input.conversationId)
+    .lean()
+    .exec();
   const update: Partial<Conversation> = {} as Partial<Conversation>;
 
   if (input.title !== undefined) update.title = input.title;
   if (input.provider !== undefined) update.provider = input.provider;
   if (input.model !== undefined) update.model = input.model;
   if (input.flags !== undefined) {
-    update.flags = sanitizeConversationFlagsForProvider(
-      input.provider ?? 'codex',
-      input.flags,
-    );
+    update.flags = mergeConversationMetaFlags({
+      provider:
+        input.provider ?? existing?.provider ?? ('codex' as ConversationProvider),
+      currentFlags: existing?.flags ?? null,
+      nextFlags: input.flags,
+    });
   }
   if (input.lastMessageAt !== undefined)
     update.lastMessageAt = input.lastMessageAt;

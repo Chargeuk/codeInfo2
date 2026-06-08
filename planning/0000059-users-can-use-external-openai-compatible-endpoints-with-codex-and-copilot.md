@@ -1580,7 +1580,7 @@ Treat the latest Task 14 screenshots and retained notes as the primary durable c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 14`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260608T155357Z-e960c572`. It must restore the story-locked readiness boundary for Codex and Copilot without widening Story 59 into a broader provider-selection redesign.
 

@@ -215,6 +215,14 @@ type FreshRunRetryOwnershipRecord = {
   launchSignature: string;
 };
 
+type FreshRunRetryOwnershipCompletionRecord = {
+  result: FlowRunStartResult;
+  launchSignature: string;
+  completedAt: number;
+};
+
+const FRESH_RUN_RETRY_OWNERSHIP_COMPLETION_WINDOW_MS = 10 * 60 * 1000;
+
 type FreshRunRetryOwnershipLaunch = {
   flowName: string;
   source: 'REST' | 'MCP';
@@ -226,6 +234,11 @@ type FreshRunRetryOwnershipLaunch = {
 const freshRunRetryOwnershipByKey = new Map<
   string,
   FreshRunRetryOwnershipRecord
+>();
+
+const freshRunRetryOwnershipCompletedByKey = new Map<
+  string,
+  FreshRunRetryOwnershipCompletionRecord
 >();
 
 const makeFreshRunRetryOwnershipKey = (params: {
@@ -274,16 +287,41 @@ const rememberFreshRunRetryOwnership = (params: {
   });
 };
 
-const getFreshRunRetryOwnership = (params: {
+const rememberFreshRunRetryOwnershipCompletion = (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  result: FlowRunStartResult;
+  launch: FreshRunRetryOwnershipLaunch;
+}) => {
+  freshRunRetryOwnershipCompletedByKey.set(
+    makeFreshRunRetryOwnershipKey(params),
+    {
+      result: cloneFlowRunStartResult(params.result),
+      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
+        params.launch,
+      ),
+      completedAt: Date.now(),
+    },
+  );
+};
+
+const getFreshRunRetryOwnershipCompletion = (params: {
   flowName: string;
   sourceId?: string;
   retryOwnershipId: string;
   launch: FreshRunRetryOwnershipLaunch;
-}): FreshRunRetryOwnershipRecord | null => {
-  const record = freshRunRetryOwnershipByKey.get(
-    makeFreshRunRetryOwnershipKey(params),
-  );
+}): FreshRunRetryOwnershipCompletionRecord | null => {
+  const key = makeFreshRunRetryOwnershipKey(params);
+  const record = freshRunRetryOwnershipCompletedByKey.get(key);
   if (!record) return null;
+  if (
+    Date.now() - record.completedAt >
+    FRESH_RUN_RETRY_OWNERSHIP_COMPLETION_WINDOW_MS
+  ) {
+    freshRunRetryOwnershipCompletedByKey.delete(key);
+    return null;
+  }
   if (
     record.launchSignature !==
     makeFreshRunRetryOwnershipLaunchSignature(params.launch)
@@ -294,9 +332,42 @@ const getFreshRunRetryOwnership = (params: {
     );
   }
   return {
-    runToken: record.runToken,
     result: cloneFlowRunStartResult(record.result),
     launchSignature: record.launchSignature,
+    completedAt: record.completedAt,
+  };
+};
+
+const getFreshRunRetryOwnership = (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}): FreshRunRetryOwnershipRecord | null => {
+  const key = makeFreshRunRetryOwnershipKey(params);
+  const launchSignature = makeFreshRunRetryOwnershipLaunchSignature(
+    params.launch,
+  );
+  const activeRecord = freshRunRetryOwnershipByKey.get(key);
+  if (activeRecord) {
+    if (activeRecord.launchSignature !== launchSignature) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'retryOwnershipId already belongs to a different fresh-run launch',
+      );
+    }
+    return {
+      runToken: activeRecord.runToken,
+      result: cloneFlowRunStartResult(activeRecord.result),
+      launchSignature: activeRecord.launchSignature,
+    };
+  }
+  const completedRecord = getFreshRunRetryOwnershipCompletion(params);
+  if (!completedRecord) return null;
+  return {
+    runToken: key,
+    result: cloneFlowRunStartResult(completedRecord.result),
+    launchSignature: completedRecord.launchSignature,
   };
 };
 
@@ -328,6 +399,7 @@ export function __setFlowServiceDepsForTests(
 export function __resetFlowServiceDepsForTests() {
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
   freshRunRetryOwnershipByKey.clear();
+  freshRunRetryOwnershipCompletedByKey.clear();
 }
 
 const toFlowRunError = (
@@ -4902,6 +4974,20 @@ export async function startFlowRun(
         params.releaseConversationLockFn ?? releaseConversationLock;
       const released = releaseConversationLockFn(conversationId, runToken);
       if (retryOwnershipId && !resumeStepPath) {
+        rememberFreshRunRetryOwnershipCompletion({
+          flowName,
+          sourceId,
+          retryOwnershipId,
+          launch: retryOwnershipLaunch,
+          result: {
+            flowName,
+            conversationId,
+            inflightId,
+            providerId,
+            modelId,
+            ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
+          },
+        });
         clearFreshRunRetryOwnership({
           flowName,
           sourceId,

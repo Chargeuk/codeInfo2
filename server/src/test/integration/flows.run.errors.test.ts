@@ -2162,8 +2162,83 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
   });
 });
 
-test('contradictory retryOwnershipId fresh-run payload is rejected before mutating accepted launch state', async () => {
-  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+test('in-flight retryOwnershipId dedupe returns the same fresh-run launch while the first run is still active', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-ownership-inflight-dedupe',
+      steps: [makeLlmStep()],
+    });
+
+    const firstResult = await startFlowRun({
+      flowName: 'retry-ownership-inflight-dedupe',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new DelayedMinimalChat(100),
+    });
+    subscribeConversation(ws, firstResult.conversationId);
+
+    const secondResult = await startFlowRun({
+      flowName: 'retry-ownership-inflight-dedupe',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new DelayedMinimalChat(100),
+    });
+
+    assert.deepEqual(secondResult, firstResult);
+    await waitForFlowFinal({
+      ws,
+      conversationId: firstResult.conversationId,
+      status: 'ok',
+    });
+    const turns = await waitForTurns(
+      firstResult.conversationId,
+      (items) => items.length >= 2,
+    );
+    assert.equal(turns.length, 2);
+  });
+});
+
+test('completed retryOwnershipId replay reuses the earlier fresh-run launch after inflight cleanup', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-ownership-post-complete-replay',
+      steps: [makeLlmStep()],
+    });
+
+    const firstResult = await startFlowRun({
+      flowName: 'retry-ownership-post-complete-replay',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
+    });
+    subscribeConversation(ws, firstResult.conversationId);
+    await waitForFlowFinal({
+      ws,
+      conversationId: firstResult.conversationId,
+      status: 'ok',
+    });
+    await waitForConversationUnlocked(firstResult.conversationId);
+
+    const replayResult = await startFlowRun({
+      flowName: 'retry-ownership-post-complete-replay',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.deepEqual(replayResult, firstResult);
+    await delay(150);
+    assert.equal(
+      (memoryTurns.get(firstResult.conversationId) ?? []).length,
+      2,
+    );
+  });
+});
+
+test('completed retryOwnershipId replay rejects a contradictory fresh-run launch after the earlier result has been accepted', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
     await writeFlowFile({
       tmpDir,
       flowName: 'retry-ownership-contradiction',
@@ -2176,21 +2251,15 @@ test('contradictory retryOwnershipId fresh-run payload is rejected before mutati
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       customTitle: acceptedTitle,
-      chatFactory: () => new DelayedMinimalChat(100),
+      chatFactory: () => new MinimalChat(),
     });
-    const secondResult = await startFlowRun({
-      flowName: 'retry-ownership-contradiction',
-      source: 'REST',
-      retryOwnershipId: 'fresh-run-retry-1',
-      customTitle: acceptedTitle,
-      chatFactory: () => new DelayedMinimalChat(100),
+    subscribeConversation(ws, firstResult.conversationId);
+    await waitForFlowFinal({
+      ws,
+      conversationId: firstResult.conversationId,
+      status: 'ok',
     });
-
-    assert.deepEqual(secondResult, firstResult);
-    assert.equal(
-      memoryConversations.get(firstResult.conversationId)?.title,
-      acceptedTitle,
-    );
+    await waitForConversationUnlocked(firstResult.conversationId);
 
     const conflictingResponse = await supertest(baseUrl)
       .post('/flows/retry-ownership-contradiction/run')
@@ -2205,6 +2274,56 @@ test('contradictory retryOwnershipId fresh-run payload is rejected before mutati
     assert.equal(
       memoryConversations.get(firstResult.conversationId)?.title,
       acceptedTitle,
+    );
+  });
+});
+
+test('distinct retryOwnershipId values still launch a fresh run after the earlier completion barrier is written', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-ownership-new-request',
+      steps: [makeLlmStep()],
+    });
+
+    const firstResult = await startFlowRun({
+      flowName: 'retry-ownership-new-request',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      customTitle: 'First Fresh Request',
+      chatFactory: () => new MinimalChat(),
+    });
+    subscribeConversation(ws, firstResult.conversationId);
+    await waitForFlowFinal({
+      ws,
+      conversationId: firstResult.conversationId,
+      status: 'ok',
+    });
+    await waitForConversationUnlocked(firstResult.conversationId);
+
+    const secondResult = await startFlowRun({
+      flowName: 'retry-ownership-new-request',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-2',
+      customTitle: 'Second Fresh Request',
+      chatFactory: () => new MinimalChat(),
+    });
+    subscribeConversation(ws, secondResult.conversationId);
+    await waitForFlowFinal({
+      ws,
+      conversationId: secondResult.conversationId,
+      status: 'ok',
+    });
+    await waitForConversationUnlocked(secondResult.conversationId);
+
+    assert.notEqual(secondResult.conversationId, firstResult.conversationId);
+    assert.equal(
+      (memoryTurns.get(firstResult.conversationId) ?? []).length,
+      2,
+    );
+    assert.equal(
+      (memoryTurns.get(secondResult.conversationId) ?? []).length,
+      2,
     );
   });
 });

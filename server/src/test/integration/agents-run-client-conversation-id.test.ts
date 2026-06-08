@@ -2892,9 +2892,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
 
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-  const copilotHome = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'copilot-home-'),
-  );
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
   const agentHome = path.join(agentsHome, 'coding_agent');
   const endpointId = `${externalServer.baseUrl}/v1`;
   const conversationId = 'task9-direct-endpoint-success';
@@ -3006,9 +3004,15 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
 
     assert.equal(result.providerId, 'codex');
     assert.equal(result.modelId, 'gpt-5.2-codex');
-    assert.equal(memoryConversations.get(conversationId)?.flags?.endpointId, endpointId);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      endpointId,
+    );
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
-    assert.equal(memoryConversations.get(conversationId)?.model, 'gpt-5.2-codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     await externalServer.stop();
@@ -3067,9 +3071,7 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
 
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-  const copilotHome = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'copilot-home-'),
-  );
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
   const agentHome = path.join(agentsHome, 'coding_agent');
   const endpointId = `${externalServer.baseUrl}/v1`;
   const conversationId = 'task9-direct-endpoint-clears-stale-thread';
@@ -3162,9 +3164,11 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
     async execute(
       _message: string,
       flags: Record<string, unknown>,
-      _conversationId: string,
-      _model: string,
+      conversationId: string,
+      model: string,
     ) {
+      void conversationId;
+      void model;
       this.capturedFlags = { ...flags };
       throw new Error('failed before replacement thread creation');
     }
@@ -3200,13 +3204,19 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
     );
 
     assert.equal(failingChat.capturedFlags?.threadId, undefined);
-    assert.equal(memoryConversations.get(conversationId)?.flags?.endpointId, endpointId);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      endpointId,
+    );
     assert.equal(
       memoryConversations.get(conversationId)?.flags?.threadId,
       undefined,
     );
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
-    assert.equal(memoryConversations.get(conversationId)?.model, 'gpt-5.2-codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     await externalServer.stop();
@@ -3265,9 +3275,7 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
 
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-  const copilotHome = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'copilot-home-'),
-  );
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
   const agentHome = path.join(agentsHome, 'coding_agent');
   const currentEndpointId = `${externalServer.baseUrl}/v1`;
   const savedEndpointId = 'https://saved-endpoint.example/v1';
@@ -3390,7 +3398,10 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
       savedEndpointId,
     );
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
-    assert.equal(memoryConversations.get(conversationId)?.model, 'gpt-5.2-codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     await externalServer.stop();
@@ -3449,9 +3460,7 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
 
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-  const copilotHome = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'copilot-home-'),
-  );
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
   const agentHome = path.join(agentsHome, 'coding_agent');
   const endpointId = `${externalServer.baseUrl}/v1`;
   const conversationId = 'task24-direct-endpoint-fail-in-place';
@@ -3573,9 +3582,15 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
       .expect(503);
 
     assert.equal(response.body.error, 'provider_unavailable');
-    assert.equal(memoryConversations.get(conversationId)?.flags?.endpointId, endpointId);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      endpointId,
+    );
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
-    assert.equal(memoryConversations.get(conversationId)?.model, 'gpt-5.2-codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     await externalServer.stop();

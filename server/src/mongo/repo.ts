@@ -36,10 +36,6 @@ const repoReadyTimestamp = new Date().toISOString();
 export const DEV_0000048_T4_WORKING_FOLDER_STATE_STORED =
   'DEV_0000048_T4_WORKING_FOLDER_STATE_STORED';
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 append({
   level: 'info',
   message: '0000020 ingest_files repo helpers ready',
@@ -176,7 +172,9 @@ export async function updateConversationMeta(
   if (input.flags !== undefined) {
     update.flags = mergeConversationMetaFlags({
       provider:
-        input.provider ?? existing?.provider ?? ('codex' as ConversationProvider),
+        input.provider ??
+        existing?.provider ??
+        ('codex' as ConversationProvider),
       currentFlags: existing?.flags ?? null,
       nextFlags: input.flags,
     });

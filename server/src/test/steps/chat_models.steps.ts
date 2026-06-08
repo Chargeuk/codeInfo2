@@ -371,7 +371,9 @@ Then(
   },
 );
 
-Then('the chat models body matches the normalized mock models fixture', () => {
+Then(
+  'the chat models body matches the mock models fixture ignoring provider metadata',
+  () => {
   assert(response, 'expected response');
   const body = response.body as Record<string, unknown>;
   const normalized = {
@@ -385,7 +387,8 @@ Then('the chat models body matches the normalized mock models fixture', () => {
     providers: undefined,
   };
   assert.deepStrictEqual(normalized, expected);
-});
+  },
+);
 
 Then(
   'the chat models response includes provider-neutral providers metadata',

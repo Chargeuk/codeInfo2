@@ -2500,6 +2500,7 @@ export async function runAgentInstructionUnlocked(params: {
                   ? {
                       copilotModels: preparedExecution.copilotModels,
                       resumeConversation: shouldResumeCopilotSession,
+                      runtimeConfig: preparedExecution.runtimeConfig,
                       workingDirectoryOverride:
                         preparedExecution.workingDirectoryOverride,
                     }

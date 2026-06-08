@@ -1333,6 +1333,7 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
   copilotHome?: string;
   lmstudioHome?: string;
   runtimeConfigPath: string;
+  runtimeConfigRequired?: boolean;
 }): Promise<RuntimeConfigValidationResult> {
   const provider = params.provider ?? 'codex';
   const { providerHome, baseConfigPath, repoLocalConfigPath } =
@@ -1347,14 +1348,14 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       readAndNormalizeRuntimeTomlConfig(repoLocalConfigPath),
       readAndNormalizeRuntimeTomlConfig(baseConfigPath),
       readAndNormalizeRuntimeTomlConfig(params.runtimeConfigPath, {
-        required: true,
+        required: params.runtimeConfigRequired ?? true,
       }),
     ]);
-    const mergeResult = mergeRuntimeConfigLayers([
-      repoLocalConfig,
-      baseConfig,
-      runtimeConfig!,
-    ]);
+    const mergeResult = mergeRuntimeConfigLayers(
+      [repoLocalConfig, baseConfig, runtimeConfig].filter(
+        (config): config is RuntimeTomlConfig => config !== undefined,
+      ),
+    );
     const metadataWarnings: RuntimeConfigWarning[] = [];
     const stripped = stripAppOwnedRuntimeMetadata({
       config: mergeResult.merged,
@@ -1444,6 +1445,7 @@ export async function resolveChatRuntimeConfig(params?: {
     copilotHome: provider === 'copilot' ? providerHome : params?.copilotHome,
     lmstudioHome: provider === 'lmstudio' ? providerHome : params?.lmstudioHome,
     runtimeConfigPath: chatConfigPath,
+    runtimeConfigRequired: provider === 'codex',
   });
 }
 

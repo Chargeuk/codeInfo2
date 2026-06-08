@@ -689,7 +689,7 @@
                   "label": "Exit Task-Up Path After Encoding Review Findings",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Answer yes after the task-up path has either encoded unresolved review findings into the plan or recorded why that path cannot continue. Reply as JSON {\"answer\":\"yes\"}.",
+                  "question": "Reply with the following exact JSON only: {\"answer\":\"yes\"}",
                   "breakOn": "yes"
                 }
               ]

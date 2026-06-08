@@ -367,6 +367,12 @@ test('implicit degraded-bootstrap chat requests fall back at the route and keep 
       true,
     );
     assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('Endpoint "unknown"'),
+      ),
+      false,
+    );
+    assert.equal(
       memoryConversations.get('copilot-bootstrap-fallback')?.provider,
       'lmstudio',
     );

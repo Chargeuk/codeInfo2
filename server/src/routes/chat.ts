@@ -228,15 +228,23 @@ const buildRuntimeSelectionWarning = (params: {
     case 'same_endpoint_repair':
       return `Requested model "${params.requestedModel}" was unavailable on endpoint "${params.endpointId ?? 'unknown'}"; using "${params.executionModel}" instead.`;
     case 'same_provider_native_fallback':
+      if (!params.endpointId) {
+        return `Requested provider "${params.requestedProvider}" was unavailable; using native ${params.executionProvider} model "${params.executionModel}".`;
+      }
       return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; falling back to native ${params.executionProvider} model "${params.executionModel}".`;
     case 'cross_provider_fallback':
+      if (!params.endpointId) {
+        return `Requested provider "${params.requestedProvider}" was unavailable; fell back to provider "${params.executionProvider}" model "${params.executionModel}".`;
+      }
       return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; fell back to provider "${params.executionProvider}" model "${params.executionModel}".`;
     case 'unavailable':
       return (
         params.endpointReason ??
         params.requestedReason ??
         params.fallbackReason ??
-        `Endpoint "${params.endpointId ?? 'unknown'}" is unavailable.`
+        (params.endpointId
+          ? `Endpoint "${params.endpointId}" is unavailable.`
+          : `Provider "${params.requestedProvider}" is unavailable.`)
       );
     case 'configured_endpoint':
     default:

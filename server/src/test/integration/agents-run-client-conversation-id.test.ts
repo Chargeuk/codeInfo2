@@ -2526,6 +2526,12 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
       ),
       true,
     );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('Endpoint "unknown"'),
+      ),
+      false,
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.clear();

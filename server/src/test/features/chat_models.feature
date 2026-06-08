@@ -41,6 +41,20 @@ Feature: Chat models endpoint
     And the chat models response includes model "gpt-5.1-codex-max" on endpoint "discovered endpoint"
     And the chat models response includes provider-neutral providers metadata
 
+  Scenario: Native-normalized Codex default clears stale selected endpoint
+    Given chat models scenario "external-endpoint-native-default-clears-stale-endpoint"
+    When I request chat providers
+    Then the chat providers response status code is 200
+    And the chat providers response selected provider is "codex"
+    And the chat providers response selected endpoint is "none"
+    When I request chat models for provider "codex"
+    Then the chat models response status code is 200
+    And the chat models response provider is "codex"
+    And the chat models field "defaultModel" equals "builtin-a"
+    And the chat models list includes model "builtin-a"
+    And the chat models response selected endpoint is "none"
+    And the chat models response includes provider-neutral providers metadata
+
   Scenario: Config-pinned external endpoint stays visible in picker bootstrap
     Given chat models scenario "external-endpoint-picker-bootstrap"
     When I request chat providers

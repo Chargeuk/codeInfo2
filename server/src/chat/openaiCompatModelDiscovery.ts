@@ -184,7 +184,15 @@ export async function discoverOpenAiCompatEndpointModels(params: {
       ...warnings,
       ...endpointResults.flatMap((result) => result.warnings),
     ],
-    selectedEndpointId: params.pinnedEndpoint?.endpointId,
+    selectedEndpointId:
+      params.pinnedEndpoint &&
+      endpointResults.some(
+        (result) =>
+          result.endpoint.endpointId === params.pinnedEndpoint?.endpointId &&
+          result.modelIds.length > 0,
+      )
+        ? params.pinnedEndpoint.endpointId
+        : undefined,
   };
 }
 

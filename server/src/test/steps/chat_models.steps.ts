@@ -38,6 +38,7 @@ const TASK17_LOG_MARKER = 'story.0000051.task17.cucumber_scenarios_registered';
 const ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+const ORIGINAL_CODEX_MODEL_LIST = process.env.Codex_model_list;
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -124,6 +125,7 @@ async function startExternalEndpointModelsScenario(params: {
   discoveredModels: string[];
   pinnedModels?: string[];
   pinnedEndpointAbsentFromEnv?: boolean;
+  codexConfigModel?: string;
 }) {
   const discoveredServer = await startExternalOpenAiCompatServer({
     models: params.discoveredModels,
@@ -148,7 +150,7 @@ async function startExternalEndpointModelsScenario(params: {
     );
     await writeCodexChatConfig({
       home: tempCodexHomeForScenario,
-      model: params.pinnedModels[0] ?? 'gpt-5.1-codex-max',
+      model: params.codexConfigModel ?? params.pinnedModels[0] ?? 'gpt-5.1-codex-max',
       endpointId: pinnedEndpointId,
     });
     process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
@@ -160,7 +162,7 @@ async function startExternalEndpointModelsScenario(params: {
   );
   await writeCodexChatConfig({
     home: tempCodexHomeForScenario,
-    model: params.discoveredModels[0] ?? 'gpt-5.1-codex-max',
+    model: params.codexConfigModel ?? params.discoveredModels[0] ?? 'gpt-5.1-codex-max',
     endpointId: discoveredEndpointId,
   });
   process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
@@ -228,6 +230,11 @@ After(async () => {
   } else {
     process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
   }
+  if (ORIGINAL_CODEX_MODEL_LIST === undefined) {
+    delete process.env.Codex_model_list;
+  } else {
+    process.env.Codex_model_list = ORIGINAL_CODEX_MODEL_LIST;
+  }
   if (server) {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
@@ -244,6 +251,24 @@ Given('chat models scenario {string}', async (name: string) => {
     });
     await startExternalEndpointModelsScenario({
       discoveredModels: ['gpt-5.1-codex-max', 'gpt-5.2'],
+    });
+    await startLegacyModelsServer();
+    return;
+  }
+
+  if (name === 'external-endpoint-native-default-clears-stale-endpoint') {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    process.env.Codex_model_list = 'builtin-a,builtin-b';
+    await startExternalEndpointModelsScenario({
+      discoveredModels: ['external-alpha'],
+      pinnedModels: ['external-beta'],
+      pinnedEndpointAbsentFromEnv: true,
+      codexConfigModel: 'builtin-a',
     });
     await startLegacyModelsServer();
     return;
@@ -340,6 +365,10 @@ Then(
     const selectedEndpointId = String(
       (response.body as Record<string, unknown>).selectedEndpointId ?? '',
     );
+    if (endpoint === 'none' || endpoint === 'absent') {
+      assert.equal(selectedEndpointId, '');
+      return;
+    }
     if (endpoint === 'discovered endpoint') {
       assert.equal(selectedEndpointId, discoveredEndpointId);
       return;
@@ -359,6 +388,10 @@ Then(
     const selectedEndpointId = String(
       (response.body as Record<string, unknown>).selectedEndpointId ?? '',
     );
+    if (endpoint === 'none' || endpoint === 'absent') {
+      assert.equal(selectedEndpointId, '');
+      return;
+    }
     if (endpoint === 'discovered endpoint') {
       assert.equal(selectedEndpointId, discoveredEndpointId);
       return;

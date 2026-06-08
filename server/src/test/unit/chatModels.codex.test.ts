@@ -1131,6 +1131,47 @@ test('codex models route preserves duplicate raw model ids and the selected endp
   }
 });
 
+test('codex models route clears stale endpoint identity when the default normalizes back to native', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['shared-model'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "builtin-a"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set('Codex_model_list', 'builtin-a,builtin-b');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.defaultModel, 'builtin-a');
+    assert.equal(res.body.defaultModelSource, 'config');
+    assert.equal(res.body.selectedEndpointId, undefined);
+    const nativeModel = (res.body.models as Array<Record<string, unknown>>).find(
+      (model) => model.key === 'builtin-a',
+    );
+    assert.ok(nativeModel);
+    assert.equal(nativeModel?.endpointId, undefined);
+    assert.equal(nativeModel?.type, 'codex');
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({

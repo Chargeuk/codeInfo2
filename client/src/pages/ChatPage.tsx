@@ -188,6 +188,58 @@ const readConversationEndpointId = (flags: unknown): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
+const resolveSelectedModelSelection = (
+  models: Array<{ key: string; endpointId?: string }>,
+  selected?: string,
+  selectedEndpointId?: string,
+): { model?: { key: string; endpointId?: string }; endpointId?: string } => {
+  if (!selected) {
+    return {};
+  }
+
+  const exactMatch =
+    selectedEndpointId !== undefined
+      ? models.find(
+          (model) =>
+            model.key === selected &&
+            (model.endpointId ?? undefined) === selectedEndpointId,
+        )
+      : undefined;
+  if (exactMatch) {
+    return {
+      model: exactMatch,
+      endpointId: exactMatch.endpointId ?? undefined,
+    };
+  }
+
+  if (selectedEndpointId !== undefined) {
+    const nativeMatch = models.find(
+      (model) =>
+        model.key === selected &&
+        (model.endpointId ?? undefined) === undefined,
+    );
+    if (nativeMatch) {
+      return {
+        model: nativeMatch,
+        endpointId: undefined,
+      };
+    }
+  }
+
+  const keyedMatch = models.find((model) => model.key === selected);
+  if (!keyedMatch) {
+    return {};
+  }
+
+  return {
+    model: keyedMatch,
+    endpointId:
+      selectedEndpointId === undefined
+        ? keyedMatch.endpointId ?? undefined
+        : undefined,
+  };
+};
+
 type ComposerInfoEntry = {
   key: string;
   label: string;
@@ -264,6 +316,10 @@ export default function ChatPage() {
   const [agentFlagsDraft, setAgentFlagsDraft] = useState<ChatAgentFlagDraft>(
     {},
   );
+  const selectedModelSelection = useMemo(
+    () => resolveSelectedModelSelection(models, selected, selectedEndpointId),
+    [models, selected, selectedEndpointId],
+  );
   const {
     messages,
     status,
@@ -276,7 +332,13 @@ export default function ChatPage() {
     hydrateHistory,
     hydrateInflightSnapshot,
     handleWsEvent,
-  } = useChatStream(selected, provider, selectedEndpointId, agentFlagsDraft);
+  } = useChatStream(
+    selected,
+    provider,
+    selectedEndpointId,
+    agentFlagsDraft,
+    selectedModelSelection.endpointId,
+  );
 
   const {
     conversations,
@@ -870,16 +932,14 @@ export default function ChatPage() {
         setProvider(resumedProvider, { source: 'conversation-select' });
       }
       if (resumedModel) {
-        const endpointAwareMatch =
-          models.find(
-            (model) =>
-              model.key === resumedModel &&
-              (model.endpointId ?? undefined) === restoredEndpointIdentity,
-          ) ?? models.find((model) => model.key === resumedModel);
-        setSelected(endpointAwareMatch?.key ?? resumedModel, {
+        const resolvedSelection = resolveSelectedModelSelection(
+          models,
+          resumedModel,
+          restoredEndpointIdentity,
+        );
+        setSelected(resolvedSelection.model?.key ?? resumedModel, {
           source: 'conversation-select',
-          endpointId:
-            resumedEndpointId ?? endpointAwareMatch?.endpointId ?? null,
+          endpointId: resolvedSelection.endpointId ?? null,
         });
       }
       return;
@@ -904,9 +964,14 @@ export default function ChatPage() {
       (draftSelection.endpointId ?? undefined) !==
         (selectedEndpointId ?? undefined)
     ) {
+      const resolvedSelection = resolveSelectedModelSelection(
+        models,
+        draftSelection.model,
+        draftSelection.endpointId ?? undefined,
+      );
       setSelected(draftSelection.model, {
         source: 'conversation-sync',
-        endpointId: draftSelection.endpointId ?? null,
+        endpointId: resolvedSelection.endpointId ?? null,
       });
     }
   }, [
@@ -1235,15 +1300,7 @@ export default function ChatPage() {
     },
     [modelDisplayLabelCounts],
   );
-  const selectedModel = useMemo(
-    () =>
-      models.find(
-        (model) =>
-          model.key === selected &&
-          (model.endpointId ?? undefined) === (selectedEndpointId ?? undefined),
-      ),
-    [models, selected, selectedEndpointId],
-  );
+  const selectedModel = selectedModelSelection.model;
   const selectedModelDisplayName = selectedModel
     ? getModelDisplayLabel(selectedModel)
     : formatEndpointAwareModelLabel(selected, selectedEndpointId);

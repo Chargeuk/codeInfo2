@@ -887,7 +887,7 @@ describe('Chat shared shell conversation selection', () => {
     );
   });
 
-  it('keeps the restored endpoint identity local while a conversation is selected and restores the create-mode pair after starting a fresh draft', async () => {
+  it('keeps the restored endpoint identity local while a conversation is selected and restores the native create-mode pair after starting a fresh draft', async () => {
     const user = userEvent.setup();
 
     mockFetch.mockImplementation(
@@ -911,7 +911,7 @@ describe('Chat shared shell conversation selection', () => {
               ],
               selectedProvider: 'codex',
               selectedModel: 'gpt-5.2',
-              selectedEndpointId: 'https://alpha.example/alt/v1',
+              selectedEndpointId: 'https://alpha.example/stale/v1',
             });
           }
 
@@ -923,7 +923,7 @@ describe('Chat shared shell conversation selection', () => {
               provider: 'codex',
               available: true,
               toolsAvailable: true,
-              selectedEndpointId: 'https://alpha.example/alt/v1',
+              selectedEndpointId: 'https://alpha.example/stale/v1',
               providerInfo: {
                 id: 'codex',
                 label: 'OpenAI Codex',
@@ -932,6 +932,11 @@ describe('Chat shared shell conversation selection', () => {
                 defaultModel: 'gpt-5.2',
               },
               models: [
+                {
+                  key: 'gpt-5.2',
+                  displayName: 'gpt-5.2',
+                  type: 'codex',
+                },
                 {
                   key: 'gpt-5.1-codex-max',
                   displayName: 'gpt-5.1-codex-max',
@@ -995,6 +1000,9 @@ describe('Chat shared shell conversation selection', () => {
                   title: 'Codex conversation',
                   provider: 'codex',
                   model: 'gpt-5.1-codex-max',
+                  flags: {
+                    endpointId: 'https://alpha.example/alt/v1',
+                  },
                   lastMessageAt: '2025-12-09T12:00:02.000Z',
                   archived: false,
                 },
@@ -1042,8 +1050,11 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+        /gpt-5\.2/i,
       ),
+    );
+    expect(screen.getByTestId('model-select')).not.toHaveTextContent(
+      /alpha\.example/i,
     );
 
     const conversationRow = await screen.findByTestId('conversation-row');
@@ -1090,8 +1101,11 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+        /gpt-5\.2/i,
       ),
+    );
+    expect(screen.getByTestId('model-select')).not.toHaveTextContent(
+      /alpha\.example/i,
     );
     expect(
       screen.getByRole('combobox', { name: /provider/i }),

@@ -173,23 +173,51 @@ function isSelectedModelIdentity(
   );
 }
 
-function findSelectedModel(
+function resolveSelectedModelSelection(
   models: ChatModelInfo[],
   selected?: string,
   selectedEndpointId?: string,
-): ChatModelInfo | undefined {
-  if (!selected) return undefined;
+): { model?: ChatModelInfo; endpointId?: string } {
+  if (!selected) {
+    return {};
+  }
 
   const exactMatch = models.find((model) =>
     isSelectedModelIdentity(model, selected, selectedEndpointId),
   );
-  if (exactMatch) return exactMatch;
-
-  if (selectedEndpointId === undefined) {
-    return models.find((model) => model.key === selected);
+  if (exactMatch) {
+    return {
+      model: exactMatch,
+      endpointId: exactMatch.endpointId ?? undefined,
+    };
   }
 
-  return undefined;
+  if (selectedEndpointId !== undefined) {
+    const nativeMatch = models.find(
+      (model) =>
+        model.key === selected &&
+        (model.endpointId ?? undefined) === undefined,
+    );
+    if (nativeMatch) {
+      return {
+        model: nativeMatch,
+        endpointId: undefined,
+      };
+    }
+  }
+
+  const keyedMatch = models.find((model) => model.key === selected);
+  if (!keyedMatch) {
+    return {};
+  }
+
+  return {
+    model: keyedMatch,
+    endpointId:
+      selectedEndpointId === undefined
+        ? keyedMatch.endpointId ?? undefined
+        : undefined,
+  };
 }
 
 function isChatProviderInfo(value: unknown): value is ChatProviderInfo {
@@ -853,14 +881,14 @@ export function useChatModel() {
           effectiveProvider === 'codex' ? resolvedCodexWarnings : undefined,
         );
         setModels(models);
-        const currentSelection = findSelectedModel(
+        const currentSelection = resolveSelectedModelSelection(
           models,
           selectedRef.current,
           selectedEndpointIdRef.current,
         );
         const bootstrapSelection =
           bootstrapSelectedModelRef.current?.provider === effectiveProvider
-            ? findSelectedModel(
+            ? resolveSelectedModelSelection(
                 models,
                 bootstrapSelectedModelRef.current.model,
                 bootstrapSelectedModelRef.current.endpointId,
@@ -868,26 +896,30 @@ export function useChatModel() {
             : undefined;
         const resolvedDefaultSelection =
           typeof data.defaultModel === 'string'
-            ? findSelectedModel(
+            ? resolveSelectedModelSelection(
                 models,
                 data.defaultModel,
                 data.selectedEndpointId,
               )
             : typeof resolvedProviderInfo?.defaultModel === 'string'
-              ? findSelectedModel(
+              ? resolveSelectedModelSelection(
                   models,
                   resolvedProviderInfo.defaultModel,
                   data.selectedEndpointId,
                 )
               : undefined;
         const nextSelection =
-          currentSelection ??
-          bootstrapSelection ??
-          resolvedDefaultSelection ??
-          models[0];
-        const nextSelectedEndpointId =
-          nextSelection?.endpointId ?? data.selectedEndpointId ?? undefined;
-        setSelected(nextSelection?.key, {
+          currentSelection.model
+            ? currentSelection
+            : bootstrapSelection?.model
+              ? bootstrapSelection
+              : resolvedDefaultSelection?.model
+                ? resolvedDefaultSelection
+                : models[0]
+                  ? { model: models[0], endpointId: models[0].endpointId }
+                  : undefined;
+        const nextSelectedEndpointId = nextSelection?.endpointId ?? undefined;
+        setSelected(nextSelection?.model?.key, {
           source: 'model-bootstrap',
           endpointId: nextSelectedEndpointId ?? null,
         });
@@ -997,11 +1029,11 @@ export function useChatModel() {
     SelectedModelReasoningCapabilities | undefined
   >(() => {
     if (providerState !== 'codex' || !selected) return undefined;
-    const selectedModel = findSelectedModel(
+    const selectedModel = resolveSelectedModelSelection(
       models,
       selected,
       selectedEndpointId,
-    );
+    ).model;
     if (!selectedModel) return undefined;
     if (selectedModel.type !== 'codex') return undefined;
 
@@ -1020,7 +1052,8 @@ export function useChatModel() {
   }, [models, providerState, selected, selectedEndpointId]);
 
   const selectedModel = useMemo(
-    () => findSelectedModel(models, selected, selectedEndpointId),
+    () =>
+      resolveSelectedModelSelection(models, selected, selectedEndpointId).model,
     [models, selected, selectedEndpointId],
   );
 

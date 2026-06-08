@@ -1616,21 +1616,28 @@ Repair the shared runtime-selection seam so a healthy external OpenAI-compatible
 - Flow-owned or resumed execution caller seam: `server/src/flows/service.ts`
 - Proof owners: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`
 
-#### Proof Mapping
+#### Requirement-To-Proof Mapping
 
-- Requirement: endpoint-backed Codex/Copilot execution still fails closed when provider readiness is degraded, even if the external endpoint itself is healthy.
+- Requirement: endpoint-backed Codex/Copilot execution still fails closed on `/chat` when provider readiness is degraded, even if the external endpoint itself is healthy.
   Implementation files: `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`
   Proof owners: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`
-- Requirement: the same restored readiness contract holds on direct-agent and resumed or flow-owned execution, not only on the `/chat` route.
-  Implementation files: `server/src/config/chatDefaults.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`
-  Proof owners: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`
+- Requirement: the same restored readiness contract still blocks direct-agent execution when the caller re-enters with degraded provider bootstrap state.
+  Implementation files: `server/src/config/chatDefaults.ts`, `server/src/agents/service.ts`
+  Proof owners: `server/src/test/integration/agents-run-client-conversation-id.test.ts`
+- Requirement: the same restored readiness contract still blocks resumed or flow-owned execution when replayed work sees degraded provider readiness alongside a healthy endpoint.
+  Implementation files: `server/src/config/chatDefaults.ts`, `server/src/flows/service.ts`
+  Proof owners: `server/src/test/integration/flows.run.resume.identity.test.ts`
+- Requirement: the repaired selector still authorizes endpoint-backed execution on the normal ready path instead of turning degraded-state protection into a blanket endpoint disable.
+  Implementation files: `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`
+  Proof owners: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`
 
 #### Subtasks
 
 1. [ ] Re-open `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`, then record one short owner map in `Implementation Notes` that names the exact endpoint-first branch currently authorizing execution before readiness is checked, which callers still feed degraded provider state into that branch, and which ready-versus-blocked outcomes must remain unchanged after the repair.
 2. [ ] Patch `resolveRuntimeProviderSelection()` so the Codex and Copilot endpoint-backed execution branches cannot return `configured_endpoint`, `same_endpoint_repair`, or any equivalent endpoint-backed authorization path until the existing provider-readiness boundary has already been satisfied. Keep the decision inside the shared production helper rather than duplicating partial caller-side guards.
 3. [ ] Patch `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` only as needed so each caller passes the same degraded-versus-ready provider state into `resolveRuntimeProviderSelection()` and none of them can still reach endpoint-backed authorization through stale helper assumptions or caller-local fallback branches.
-4. [ ] Refresh `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts` so they explicitly name the degraded-bootstrap-plus-healthy-endpoint contradiction and prove blocked execution on `/chat`, direct-agent, and resumed or flow-owned paths instead of only implying that invariant through generic fallback or active-run scenarios.
+4. [ ] Refresh `server/src/test/unit/config.chatDefaults.test.ts` and `server/src/test/integration/chat-codex.test.ts` so they separately prove the `/chat` blocked path for degraded-bootstrap-plus-healthy-endpoint state and the still-allowed ready path that keeps approved endpoint-backed execution reachable.
+5. [ ] Refresh `server/src/test/integration/agents-run-client-conversation-id.test.ts` and `server/src/test/integration/flows.run.resume.identity.test.ts` so they separately prove the degraded direct-agent and resumed-or-flow-owned blocked paths instead of only implying that invariant through generic fallback or active-run scenarios.
 
 #### Testing
 
@@ -1681,17 +1688,20 @@ Repair the producer-consumer contract spanning endpoint discovery, `/chat/provid
 - Client bootstrap and send seams: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`
 - Proof owners: `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatSendPayload.test.tsx`
 
-#### Proof Mapping
+#### Requirement-To-Proof Mapping
 
 - Requirement: `/chat/providers` and `/chat/models` no longer pair a native default model with a stale selected endpoint id when the pinned external endpoint is unavailable for that default.
   Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`
   Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`
-- Requirement: client bootstrap, refresh, and `/chat` submission do not reattach a stale endpoint id to a native model after the server has normalized the default back to native.
-  Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`
-  Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatSendPayload.test.tsx`
-- Requirement: the repaired contract still preserves endpoint-aware duplicate raw-model-id behavior for genuinely endpoint-backed selections rather than collapsing them back to the first matching native or endpointless model.
+- Requirement: client bootstrap and refresh state no longer reattach stale endpoint identity after the server has normalized the selected/default model back to native.
+  Implementation files: `client/src/hooks/useChatModel.ts`
+  Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- Requirement: `/chat` submission omits `selectedEndpointId` when the authoritative selected model source is native, even if stale draft or bootstrap state previously carried an external endpoint id.
+  Implementation files: `client/src/hooks/useChatStream.ts`
+  Proof owners: `client/src/test/chatSendPayload.test.tsx`
+- Requirement: duplicate raw model ids remain endpoint-aware for genuinely endpoint-backed selections rather than collapsing back to the first matching native or endpointless model.
   Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts`, `server/src/routes/chatModels.ts`, `client/src/hooks/useChatModel.ts`
-  Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+  Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 
 #### Subtasks
 
@@ -1699,7 +1709,8 @@ Repair the producer-consumer contract spanning endpoint discovery, `/chat/provid
 2. [ ] Patch the server-side discovery and route producer seams so `selectedEndpointId`, `selectedModel`, and any default-selection companion fields are only carried forward together when they still describe the same selected/default model source, while preserving the approved endpoint-aware duplicate-id behavior for genuinely endpoint-backed models.
 3. [ ] Patch `client/src/hooks/useChatModel.ts` so bootstrap normalization clears stale endpoint identity from selected-model state, refresh state, and restored draft state whenever the authoritative selected model has already been normalized back to a native Codex or Copilot source.
 4. [ ] Patch `client/src/hooks/useChatStream.ts` so send-payload assembly omits `selectedEndpointId` whenever the selected model source is endpointless, even if earlier bootstrap or draft state still carries a stale external endpoint id.
-5. [ ] Refresh `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatSendPayload.test.tsx` so the native-default-plus-stale-endpoint contradiction, duplicate-id endpoint-backed preservation, and native-send payload omission are each direct named claims instead of implied side effects of broader picker or route scenarios.
+5. [ ] Refresh `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts` so the native-default-plus-stale-endpoint contradiction and duplicate-id endpoint-backed preservation are separate named server-side claims on the discovery and route surfaces.
+6. [ ] Refresh `client/src/test/chatPage.provider.conversationSelection.test.tsx` and `client/src/test/chatSendPayload.test.tsx` so the bootstrap stale-endpoint clearing invariant and the native-send payload omission invariant are proved separately instead of riding along as side effects of broader picker scenarios.
 
 #### Testing
 
@@ -1747,12 +1758,18 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 - Fresh-run retry seam: `server/src/flows/service.ts`, centered on `startFlowRun()` and the retry-ownership lifecycle
 - Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
 
-#### Proof Mapping
+#### Requirement-To-Proof Mapping
 
-- Requirement: a retry of the same fresh flow request after ambiguous completion returns the existing result instead of launching new work.
+- Requirement: a retry of the same fresh flow request after ambiguous completion returns the existing result instead of launching new work or duplicate side effects.
   Implementation files: `server/src/flows/service.ts`
   Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
-- Requirement: the repaired barrier still distinguishes a true new request from a replay of the same logical request.
+- Requirement: a true new request still launches a fresh flow and is not collapsed into the earlier completed run just because some request fields overlap.
+  Implementation files: `server/src/flows/service.ts`
+  Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
+- Requirement: contradictory payloads for the same retry-ownership key still reject instead of being silently merged by the new post-completion barrier.
+  Implementation files: `server/src/flows/service.ts`
+  Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
+- Requirement: the existing in-flight dedupe behavior still works while the post-completion barrier is layered after owner-record cleanup.
   Implementation files: `server/src/flows/service.ts`
   Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
 
@@ -1761,7 +1778,7 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 1. [ ] Re-open `server/src/flows/service.ts` and record one short owner map in `Implementation Notes` that names where retry ownership is created, where it is cleared today, what exact post-completion replay window currently goes unguarded, and what constitutes a legitimate new launch versus a duplicate replay of the same logical request.
 2. [ ] Patch the fresh-flow retry-ownership seam so a completed run leaves behind a bounded replay barrier or equivalent durable completion record keyed to the same logical request, allowing post-completion retries to collapse into the earlier result without launching duplicate work while still allowing a truly new request to proceed.
 3. [ ] Preserve the current in-flight dedupe and contradictory-payload rejection branches in `server/src/flows/service.ts` while layering the post-completion barrier after owner-record cleanup; do not replace those branches with a broader cache that would silently merge distinct logical requests.
-4. [ ] Refresh `server/src/test/integration/flows.run.errors.test.ts` so one proof path names the post-completion replay contradiction and proves that the earlier result is reused without duplicate side effects, while a second path still proves the existing true-new-request and contradictory-payload branches diverge correctly.
+4. [ ] Refresh `server/src/test/integration/flows.run.errors.test.ts` so it carries separate named cases for the post-completion replay contradiction, true-new-request divergence, contradictory-payload rejection, and preserved in-flight dedupe behavior instead of bundling those invariants into one broad retry scenario.
 
 #### Testing
 
@@ -1817,7 +1834,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - Script-level import-guard owner for inline-resolved Finding `9`: `node --test scripts/test-summary-server-cucumber-imports.test.mjs`
 - Final hygiene proof owner: `npm run lint`, `npm run format:check`
 
-#### Proof Mapping
+#### Requirement-To-Proof Mapping
 
 - Finding `1`: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`
 - Finding `2`: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`
@@ -1831,12 +1848,18 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - Finding `10`: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts`
 - Finding `11`: `server/src/test/features/chat_stream.feature` and `server/src/test/steps/chat_stream.steps.ts`
 - Finding `12`: `server/src/test/integration/chat-tools-wire.test.ts`
+- Final wrapper reachability for the repaired server surfaces: implementation files from Findings `1`, `8`, `3`, `4`, `5`, `6`, `9`, `10`, `11`, and `12`; proof owners `npm run build:summary:server`, `npm run test:summary:server:unit`, and `npm run test:summary:server:cucumber`
+- Final wrapper reachability for the repaired client surfaces: implementation files from Findings `2` and `7`; proof owners `npm run build:summary:client`, `npm run test:summary:client`, and `npm run test:summary:e2e`
+- Final checked-in main-stack smoke boundary for the repaired story head: implementation surfaces from the current repository runtime path; proof owners `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, and `npm run compose:down`
+- Final hygiene boundary for the repaired story head: repository-wide Story 59 changes; proof owners `npm run lint` and `npm run format:check`
 
 #### Subtasks
 
 1. [ ] Re-open this current-cycle `Code Review Findings` block plus `## Minor Review Fixes`, then record one explicit proof-owner mapping in `Implementation Notes` for Findings `1`, `2`, `8`, `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12`. Name the exact proof home for each finding and mark whether that proof is targeted-only or broad-wrapper-owned.
-2. [ ] Refresh reused proof titles and assertion wording in the final proof homes for Findings `1`, `2`, and `8` specifically where the repaired claim changed: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `client/src/test/chatSendPayload.test.tsx`, and `server/src/test/integration/flows.run.errors.test.ts`. Keep the already explicit inline-minor proof wording for Findings `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12` honest rather than renaming them into generic regression buckets.
-3. [ ] Re-open the wrapper owners named in this task, `node --test scripts/test-summary-server-cucumber-imports.test.mjs`, and the checked-in main-stack smoke path, then record one execution-boundary note in `Implementation Notes` that distinguishes task-owned assertion failures from shared baseline or harness interruptions, explains why the script-level import guard remains its own proof home even after standard validation wiring, and states why the smoke pass stops at `http://localhost:5001` and `http://localhost:5010/health` instead of widening into auth-dependent or live external-endpoint setup.
+2. [ ] Refresh the final proof homes for Finding `1` in `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts` so blocked degraded-state paths and still-allowed ready paths remain separately named on the final story head.
+3. [ ] Refresh the final proof homes for Finding `2` in `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatSendPayload.test.tsx` so native-default normalization, stale-endpoint clearing, native-send omission, and duplicate-id preservation remain separately named on the final story head.
+4. [ ] Refresh the final proof home for Finding `8` in `server/src/test/integration/flows.run.errors.test.ts` so post-completion replay reuse, true-new-request divergence, contradictory-payload rejection, and preserved in-flight dedupe remain separately named on the final story head.
+5. [ ] Re-open the wrapper owners named in this task, `node --test scripts/test-summary-server-cucumber-imports.test.mjs`, and the checked-in main-stack smoke path, then record one execution-boundary note in `Implementation Notes` that distinguishes task-owned assertion failures from shared baseline or harness interruptions, explains why the script-level import guard remains its own proof home even after standard validation wiring, and states why the smoke pass stops at `http://localhost:5001` and `http://localhost:5010/health` instead of widening into auth-dependent or live external-endpoint setup.
 
 #### Testing
 

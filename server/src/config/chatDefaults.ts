@@ -608,6 +608,23 @@ export const resolveRuntimeProviderSelection = ({
   const hasEndpoint = endpoint !== undefined;
   const endpointId = endpoint?.endpointId;
   const endpointReason = endpoint?.reason;
+  if (endpoint?.available && !requestedState.available) {
+    return {
+      requestedProvider,
+      requestedModel,
+      executionProvider: requestedProvider,
+      executionModel: requestedModel,
+      executionPath: 'unavailable',
+      endpointId,
+      fallbackApplied: false,
+      unavailable: true,
+      decision: 'unavailable',
+      requestedReason: requestedState.reason ?? endpointReason,
+      fallbackReason: undefined,
+      endpointReason,
+    };
+  }
+
   if (endpoint) {
     if (endpoint.available) {
       const endpointModel = selectEndpointExecutionModel(endpoint, requestedModel);

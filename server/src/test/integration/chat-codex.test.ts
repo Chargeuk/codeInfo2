@@ -1875,6 +1875,60 @@ test('explicit codex request returns PROVIDER_UNAVAILABLE when codex is unavaila
   assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
+test('explicit Codex /chat requests fail closed when bootstrap is degraded even if the external endpoint is healthy', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+    warnings: ['codex bootstrap degraded warning'],
+  });
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses`;
+
+  const mockCodex = new MockCodex('thread-codex-bootstrap-degraded');
+  const codexFactory = () => mockCodex;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          endpointId: `${externalServer.baseUrl}/v1`,
+          model: 'gpt-5.1-codex-max',
+        }),
+      );
+    assert.equal(response.status, 503);
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(String(response.body.message), /codex bootstrap degraded/i);
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(mockCodex.lastResumeOptions, undefined);
+  } finally {
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('explicit lmstudio request returns PROVIDER_UNAVAILABLE when lmstudio is unavailable', async () => {
   setCodexDetection({
     available: true,

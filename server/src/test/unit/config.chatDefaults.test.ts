@@ -12,7 +12,11 @@ import {
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
 } from '../../config/chatDefaults.js';
-import { ensureChatRuntimeConfigBootstrapped } from '../../config/runtimeConfig.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+  ensureChatRuntimeConfigBootstrapped,
+} from '../../config/runtimeConfig.js';
 
 const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
@@ -42,6 +46,7 @@ afterEach(async () => {
       .splice(0)
       .map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
+  __resetProviderBootstrapStatusForTests();
 });
 
 test('explicit values win', () => {
@@ -176,6 +181,47 @@ test('endpoint-aware selection keeps the configured endpoint when the requested 
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'selected');
   assert.equal(result.fallbackApplied, false);
+});
+
+test('endpoint-aware selection fails closed when the provider bootstrap is degraded even if the endpoint is healthy', () => {
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+  });
+
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    endpoint: {
+      endpointId: 'https://alpha.example/v1',
+      available: true,
+      models: ['gpt-5.3-codex', 'gpt-5.1-codex-max'],
+      reason: undefined,
+    },
+    codex: {
+      available: false,
+      models: ['gpt-5.1-codex-max'],
+      reason: 'codex bootstrap degraded',
+    },
+    copilot: {
+      available: true,
+      models: ['gpt-5'],
+      reason: undefined,
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'codex');
+  assert.equal(result.executionModel, 'gpt-5.3-codex');
+  assert.equal(result.executionPath, 'unavailable');
+  assert.equal(result.endpointId, 'https://alpha.example/v1');
+  assert.equal(result.decision, 'unavailable');
+  assert.equal(result.unavailable, true);
+  assert.equal(result.requestedReason, 'codex bootstrap degraded');
 });
 
 test('endpoint-aware selection repairs to the first selectable model on the same endpoint before broader fallback', () => {

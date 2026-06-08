@@ -52,8 +52,11 @@ import {
 } from '../config/chatDefaults.js';
 import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
 import { type OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
-import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
-import { resolveAgentRuntimeConfig } from '../config/runtimeConfig.js';
+import {
+  RuntimeConfigResolutionError,
+  getProviderBootstrapStatus,
+  resolveAgentRuntimeConfig,
+} from '../config/runtimeConfig.js';
 import { resolveAgentProviderFallbackOrder } from '../config/startupEnv.js';
 import {
   buildRepositoryCandidateLookupSummary,
@@ -577,6 +580,23 @@ async function collectDirectAgentProviderStates(): Promise<
   };
 }
 
+const applyBootstrapStatusToDirectAgentProviderState = (
+  provider: ChatProviderId,
+  state: DirectAgentProviderState,
+): DirectAgentProviderState => {
+  const bootstrapStatus = getProviderBootstrapStatus(provider);
+  if (bootstrapStatus.healthy) {
+    return state;
+  }
+  return {
+    ...state,
+    available: false,
+    reason:
+      bootstrapStatus.reason ??
+      `Provider "${provider}" is unavailable because startup bootstrap degraded.`,
+  };
+};
+
 async function resolveProviderRuntimeConfig(params: {
   agentConfigPath: string;
   providerId: ChatProviderId;
@@ -737,6 +757,20 @@ async function prepareDirectAgentExecution(params: {
     context: availabilityContext,
   });
   const providerStates = await collectDirectAgentProviderStates();
+  const runtimeProviderStates = {
+    codex: applyBootstrapStatusToDirectAgentProviderState(
+      'codex',
+      providerStates.codex,
+    ),
+    copilot: applyBootstrapStatusToDirectAgentProviderState(
+      'copilot',
+      providerStates.copilot,
+    ),
+    lmstudio: applyBootstrapStatusToDirectAgentProviderState(
+      'lmstudio',
+      providerStates.lmstudio,
+    ),
+  };
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
   });
@@ -785,7 +819,7 @@ async function prepareDirectAgentExecution(params: {
   };
 
   if (params.pinnedProviderId) {
-    const providerState = providerStates[params.pinnedProviderId];
+    const providerState = runtimeProviderStates[params.pinnedProviderId];
     const providerRuntimeResolution = await resolveProviderRuntimeConfigForExecution({
       configPath: params.configPath,
       providerId: params.pinnedProviderId,
@@ -846,9 +880,9 @@ async function prepareDirectAgentExecution(params: {
         params.pinnedEndpointId && !endpointState?.available,
       ),
       allowCrossProviderFallback: false,
-      codex: providerStates.codex,
-      copilot: providerStates.copilot,
-      lmstudio: providerStates.lmstudio,
+      codex: runtimeProviderStates.codex,
+      copilot: runtimeProviderStates.copilot,
+      lmstudio: runtimeProviderStates.lmstudio,
     });
     if (runtimeSelection.unavailable) {
       throw toRunAgentError(
@@ -942,7 +976,8 @@ async function prepareDirectAgentExecution(params: {
 
   for (const providerId of executionOrder) {
     const providerState = providerStates[providerId];
-    if (!providerState?.available) continue;
+    const runtimeProviderState = runtimeProviderStates[providerId];
+    if (!runtimeProviderState?.available) continue;
     let providerRuntimeResolution:
       | {
           config: CodexOptions['config'];
@@ -989,7 +1024,7 @@ async function prepareDirectAgentExecution(params: {
         requestedModel: normalizeModel(
           (providerRuntimeResolution.config as Record<string, unknown>)?.model,
         ),
-        providerState,
+        providerState: runtimeProviderState,
       }) ??
       normalizeModel(
         (providerRuntimeResolution.config as Record<string, unknown>)?.model,
@@ -1004,9 +1039,9 @@ async function prepareDirectAgentExecution(params: {
         params.pinnedEndpointId && !endpointState?.available,
       ),
       allowCrossProviderFallback: false,
-      codex: providerStates.codex,
-      copilot: providerStates.copilot,
-      lmstudio: providerStates.lmstudio,
+      codex: runtimeProviderStates.codex,
+      copilot: runtimeProviderStates.copilot,
+      lmstudio: runtimeProviderStates.lmstudio,
     });
     if (runtimeSelection.unavailable) {
       if (

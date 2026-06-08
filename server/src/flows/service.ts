@@ -56,6 +56,7 @@ import { formatReingestPrestartReason } from '../ingest/reingestError.js';
 import { executeReingestRequest } from '../ingest/reingestExecution.js';
 import type { ReingestResult } from '../ingest/reingestService.js';
 import { runReingestRepository } from '../ingest/reingestService.js';
+import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -3196,6 +3197,12 @@ async function runFlowUnlocked(params: {
       }
     }
   }
+  const providerBootstrapReady =
+    agentState?.providerId !== undefined
+      ? getProviderBootstrapStatus(
+          agentState.providerId as ConversationProvider,
+        ).healthy
+      : true;
 
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
@@ -3208,7 +3215,9 @@ async function runFlowUnlocked(params: {
         | undefined,
       pinnedModelId: agentState?.modelId,
       pinnedRequestedProviderId: agentState?.requestedProviderId,
-      pinnedEndpointId: agentState?.endpointId,
+      pinnedEndpointId: providerBootstrapReady
+        ? agentState?.endpointId
+        : undefined,
       allowFallback: !agentState?.providerId,
     });
   };

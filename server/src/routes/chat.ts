@@ -681,6 +681,11 @@ export function createChatRouter({
       models: [...copilotReadiness.models],
       reason: copilotReadiness.reason,
     });
+    const runtimeProviderStates = {
+      codex: codexState,
+      copilot: copilotState,
+      lmstudio: lmstudioState,
+    };
 
     let pinnedSelectedEndpoint: OpenAiCompatEndpointConfig | undefined;
     try {
@@ -773,9 +778,9 @@ export function createChatRouter({
           resumedExecutionIdentity.endpointId === selectedEndpointId,
       ),
       allowCrossProviderFallback: !explicitProviderSelected,
-      codex: codexState,
-      copilot: copilotState,
-      lmstudio: lmstudioState,
+      codex: runtimeProviderStates.codex,
+      copilot: runtimeProviderStates.copilot,
+      lmstudio: runtimeProviderStates.lmstudio,
     });
     const executionProvider = runtimeSelection.executionProvider;
     const executionModel = runtimeSelection.executionModel;

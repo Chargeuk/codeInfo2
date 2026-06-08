@@ -1451,6 +1451,111 @@ test('resumed Codex chat ignores a contradictory request endpointId when a saved
   }
 });
 
+test('adding endpoint identity to a saved Codex thread clears the stale thread before a replacement thread exists', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  class FailingBeforeThreadCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      class FailingBeforeThread extends MockThread {
+        override async runStreamed(): Promise<{
+          events: AsyncGenerator<ThreadEvent>;
+        }> {
+          async function* generator(): AsyncGenerator<ThreadEvent> {
+            yield {
+              type: 'error',
+              message: 'failed before replacement thread creation',
+            } as ThreadEvent;
+          }
+
+          return { events: generator() };
+        }
+      }
+
+      return new FailingBeforeThread(this.id);
+    }
+  }
+
+  const endpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${endpointServer.baseUrl}/v1|responses`;
+
+  const conversationId = 'conv-codex-stale-thread-cleared-on-endpoint-add';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved thread without endpoint identity',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-saved-endpoint',
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new FailingBeforeThreadCodex(
+    'thread-never-created-for-new-endpoint',
+  );
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          endpointId: `${endpointServer.baseUrl}/v1`,
+          message: 'Use the newly selected endpoint',
+        }),
+      )
+      .expect(202);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, undefined);
+    assert.ok(mockCodex.lastStartOptions);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      `${endpointServer.baseUrl}/v1`,
+    );
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.threadId,
+      undefined,
+    );
+  } finally {
+    await endpointServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('resumed contradictory provider-model input cannot rewrite saved execution identity', async () => {
   setCodexDetection({
     available: true,

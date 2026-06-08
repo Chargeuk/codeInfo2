@@ -998,14 +998,16 @@ export function createChatRouter({
           currentFlags.endpointId.trim().length > 0
             ? currentFlags.endpointId.trim()
             : undefined;
-        const persistedEndpointId = executionUsesEndpoint
-          ? (selectedEndpointId ?? currentEndpointId ?? null)
-          : null;
+        const nextEndpointId = executionUsesEndpoint
+          ? (selectedEndpointId ?? currentEndpointId ?? undefined)
+          : undefined;
+        const persistedEndpointId = nextEndpointId ?? null;
         const persistedThreadId =
           threadId ??
           (executionProvider === 'codex' &&
           existingConversation?.provider === 'codex' &&
           existingConversation?.model === executionModel &&
+          currentEndpointId === nextEndpointId &&
           typeof currentFlags?.threadId === 'string' &&
           currentFlags.threadId.trim()
             ? currentFlags.threadId.trim()

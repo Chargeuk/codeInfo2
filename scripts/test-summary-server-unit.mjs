@@ -15,6 +15,7 @@ import {
   createSummaryWrapperProtocol,
   runLoggedCommand,
 } from './summary-wrapper-protocol.mjs';
+import { DEFAULT_SERVER_UNIT_TEST_FILES } from './test-summary-server-unit-files.mjs';
 import { buildServerUnitWrapperEnv } from './test-summary-server-unit-env.mjs';
 
 const rootDir = path.resolve(
@@ -118,16 +119,10 @@ const buildResult = await runLoggedCommand({
   bannerPrefix: '',
 });
 
-const defaultFiles = [
-  '../scripts/test-summary-server-unit-env.test.mjs',
-  'src/test/unit/*.test.ts',
-  'src/test/integration/*.test.ts',
-  'src/test/mcp2/**/*.test.ts',
-];
 const unitFiles =
   options.files.length > 0
     ? options.files.map((file) => normalizeServerPath(file))
-    : defaultFiles;
+    : DEFAULT_SERVER_UNIT_TEST_FILES;
 
 const testArgs = ['--test', '--test-concurrency=1'];
 if (options.testName) {

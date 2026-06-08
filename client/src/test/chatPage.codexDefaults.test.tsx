@@ -1,3 +1,4 @@
+import type { CodexDefaults } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -33,13 +34,13 @@ const routes = [
 ];
 
 // Intentionally not matching server defaults to prove the UI uses the server response.
-const defaultCodexDefaults = {
+const defaultCodexDefaults: CodexDefaults = {
   sandboxMode: 'read-only',
   approvalPolicy: 'never',
   modelReasoningEffort: 'medium',
   networkAccessEnabled: false,
   webSearchEnabled: false,
-} as const;
+};
 
 const defaultCodexModels = [
   {
@@ -52,8 +53,8 @@ const defaultCodexModels = [
 ] satisfies Array<Record<string, unknown>>;
 
 function mockCodexReady(options?: {
-  codexDefaults?: typeof defaultCodexDefaults;
-  compatibilityCodexDefaults?: typeof defaultCodexDefaults;
+  codexDefaults?: CodexDefaults;
+  compatibilityCodexDefaults?: CodexDefaults;
   compatibilityCodexWarnings?: string[];
   includeDefaults?: boolean;
   codexModels?: Array<Record<string, unknown>>;

@@ -440,7 +440,8 @@ export async function clearLockedModel(options?: {
     if (
       errorName.includes('ChromaNotFoundError') ||
       message.includes('ChromaNotFoundError') ||
-      message.includes('requested resource could not be found')
+      message.includes('requested resource could not be found') ||
+      message.includes('Missing metadata segment')
     ) {
       baseLogger.info('clearLockedModel skipped; collection missing');
       return;

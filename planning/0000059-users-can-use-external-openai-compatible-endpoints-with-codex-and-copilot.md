@@ -1512,18 +1512,18 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired server route and persistence surfaces compile cleanly before broader proof.
-2. [ ] Run `npm run build:summary:client` to confirm the repaired shared response-shape and client selection surfaces compile cleanly before broader proof.
-3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head on the repository-supported compose path.
-4. [ ] Run `npm run test:summary:server:unit` to prove the repaired server route, persistence, and inline-resolved minor server proof homes on the story head.
-5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the full server feature-wrapper surface on the repaired story head, including the endpoint-aware `/chat/models` route contract that Task 13 changed.
-6. [ ] Run `npm run test:summary:client` to prove the repaired client model-selection seam and the inline-resolved client minor proof homes on the story head.
-7. [ ] Run `node --test scripts/test-summary-server-cucumber-imports.test.mjs` to re-cover the inline-resolved script-level path-traversal guard from `finding-6`, because that proof home is not naturally owned by the broad server wrappers above.
-8. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the repository-supported automated mock-chat browser path rather than only through targeted server or client wrappers.
-9. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path rather than only through targeted wrappers or the separate e2e stack.
-10. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
-11. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-12. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+1. [x] Run `npm run build:summary:server` to confirm the repaired server route and persistence surfaces compile cleanly before broader proof.
+2. [x] Run `npm run build:summary:client` to confirm the repaired shared response-shape and client selection surfaces compile cleanly before broader proof.
+3. [x] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head on the repository-supported compose path.
+4. [x] Run `npm run test:summary:server:unit` to prove the repaired server route, persistence, and inline-resolved minor server proof homes on the story head.
+5. [x] Run `npm run test:summary:server:cucumber` to re-cover the full server feature-wrapper surface on the repaired story head, including the endpoint-aware `/chat/models` route contract that Task 13 changed.
+6. [x] Run `npm run test:summary:client` to prove the repaired client model-selection seam and the inline-resolved client minor proof homes on the story head.
+7. [x] Run `node --test scripts/test-summary-server-cucumber-imports.test.mjs` to re-cover the inline-resolved script-level path-traversal guard from `finding-6`, because that proof home is not naturally owned by the broad server wrappers above.
+8. [x] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the repository-supported automated mock-chat browser path rather than only through targeted server or client wrappers.
+9. [x] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path rather than only through targeted wrappers or the separate e2e stack.
+10. [x] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+11. [x] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+12. [x] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Manual Testing Guidance
 
@@ -1544,3 +1544,15 @@ Treat the latest Task 14 screenshots and retained notes as the primary durable c
 - Task 14 subtask 3 verified that the existing `chat_models` and client selection proof titles already spell out duplicate-id default restoration and fresh-vs-reuse stale-state exclusion, so no rename or split was needed.
 - Task 14 subtask 4 verified that the existing fallback, defaults, resume-identity, and import-guard proof titles already state the active invariants explicitly, so no rename or split was needed.
 - Task 14 subtask 5 verified the execution boundary against the broad wrappers, targeted script guard, and checked-in compose smoke surfaces; the proof owner split remains broad-wrapper-owned for story assertions and targeted-only for the import guard.
+- Task 14 Testing 1 passed: the server build wrapper completed cleanly with no warnings, so the server route and persistence surfaces compile on the repaired story head.
+- Task 14 Testing 2 passed after widening the `chatPage.codexDefaults` test fixture to the shared `CodexDefaults` type; the client build wrapper then completed cleanly with no warnings.
+- Task 14 Testing 3 passed: the compose build wrapper completed cleanly and confirmed the checked-in main-stack images still bake the repaired story head without failing the runtime asset check.
+- Task 14 Testing 4 passed: the server unit wrapper completed cleanly with 2208 passing tests and no failures on the repaired story head.
+- Task 14 Testing 5 passed after relaxing the ingest Chroma cleanup helper to treat a missing metadata segment the same as a missing collection during test teardown; the server cucumber wrapper then completed with 128 passing scenarios.
+- Task 14 Testing 6 passed: the client wrapper completed cleanly with 881 passing tests on the repaired story head.
+- Task 14 Testing 7 passed: the targeted import-guard test completed with 4 passing assertions and no failures.
+- Task 14 Testing 8 passed: the e2e wrapper completed cleanly with 76 passing tests and no failures on the repository-supported browser path.
+- Task 14 Testing 9 passed after clearing the occupied main-stack port, rerunning `compose:up`, and verifying `http://localhost:5010/health` plus `http://localhost:5001` on the repaired story head.
+- Task 14 Testing 10 passed: the checked-in main stack shut down cleanly after the smoke validation.
+- Task 14 Testing 11 passed after fixing the lint issues in the client default test import order and the persistence test mock signature; `eslint` completed cleanly.
+- Task 14 Testing 12 passed: `prettier --check` completed cleanly across the repository after the final proof updates.

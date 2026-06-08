@@ -744,16 +744,13 @@ describe('ChatInterface.run persistence', () => {
     const original = ConversationModel.findByIdAndUpdate;
     let capturedUpdate: unknown;
 
-    ConversationModel.findById = ((_conversationId: unknown) => ({
+    ConversationModel.findById = (() => ({
       lean: () => ({
         exec: async () => null,
       }),
     })) as unknown as typeof ConversationModel.findById;
-    ConversationModel.findByIdAndUpdate = ((
-      _conversationId: unknown,
-      update: unknown,
-    ) => {
-      capturedUpdate = update;
+    ConversationModel.findByIdAndUpdate = ((...args: unknown[]) => {
+      capturedUpdate = args[1];
       return { exec: async () => null } as unknown as ReturnType<
         typeof ConversationModel.findByIdAndUpdate
       >;

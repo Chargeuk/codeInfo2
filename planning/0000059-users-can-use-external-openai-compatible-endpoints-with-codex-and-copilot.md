@@ -1580,7 +1580,7 @@ Treat the latest Task 14 screenshots and retained notes as the primary durable c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 14`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260608T155357Z-e960c572`. It must restore the story-locked readiness boundary for Codex and Copilot without widening Story 59 into a broader provider-selection redesign.
 
@@ -1652,7 +1652,8 @@ Repair the shared runtime-selection seam so a healthy external OpenAI-compatible
 - Task 15 subtask 3 now normalizes the runtime provider states before selection in the route, direct-agent, and flow-owned paths, and the flow-owned path drops the saved endpoint pin from the local caller surface when bootstrap is degraded so the helper cannot be reached through an endpoint shortcut.
 - Task 15 subtask 4 added an explicit `/chat` proof that healthy external endpoints cannot override degraded bootstrap readiness, while preserving the ready-path coverage already present in the selector and chat integration tests.
 - Task 15 subtask 5 added explicit degraded direct-agent and resumed flow-owned blocked-path proofs; the targeted server wrapper over `config.chatDefaults.test.ts`, `chat-codex.test.ts`, `agents-run-client-conversation-id.test.ts`, and `flows.run.resume.identity.test.ts` passed with 110 tests total and no failures.
-- Task 15 audit normalized the testing checklist from repository evidence: commit `5e6c9177e3e83fe1c87306f74a9135aad27f7923` changed the planned selector and proof-owner files, and `test-results/server-unit-tests-2026-06-08T21-19-27-701Z.log` shows the targeted wrapper run passed all 110 tests across the four task-owned proof files. The task remains `__in_progress__` because this audit pass only confirms implementation-side completion evidence.
+- Task 15 audit normalized the testing checklist from repository evidence: commit `5e6c9177e3e83fe1c87306f74a9135aad27f7923` changed the planned selector and proof-owner files, and `test-results/server-unit-tests-2026-06-08T21-19-27-701Z.log` shows the targeted wrapper run passed all 110 tests across the four task-owned proof files.
+- Task 15 automated-proof audit confirmed the implementation and targeted wrapper proof are both complete, no live blocker remains, and the restored fail-closed readiness behavior stays inside Story 59 scope without widening endpoint selection behavior. The task is now `__done__`; any broader cross-story validation remains owned by the later shared final revalidation task.
 
 ### Task 16. Repair Native-Default Versus Endpoint Selection Identity Drift Across Discovery And Submission
 

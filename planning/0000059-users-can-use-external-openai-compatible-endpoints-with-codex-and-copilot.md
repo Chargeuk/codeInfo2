@@ -1641,9 +1641,9 @@ Repair the shared runtime-selection seam so a healthy external OpenAI-compatible
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts` to prove the shared selector still enforces the restored Codex/Copilot readiness gate.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` to prove `/chat` still fails closed before endpoint-backed execution when provider readiness is degraded.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove the same readiness gate still holds for direct-agent and resumed or flow-owned execution.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts` to prove the shared selector still enforces the restored Codex/Copilot readiness gate.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` to prove `/chat` still fails closed before endpoint-backed execution when provider readiness is degraded.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove the same readiness gate still holds for direct-agent and resumed or flow-owned execution.
 
 #### Implementation Notes
 
@@ -1652,6 +1652,7 @@ Repair the shared runtime-selection seam so a healthy external OpenAI-compatible
 - Task 15 subtask 3 now normalizes the runtime provider states before selection in the route, direct-agent, and flow-owned paths, and the flow-owned path drops the saved endpoint pin from the local caller surface when bootstrap is degraded so the helper cannot be reached through an endpoint shortcut.
 - Task 15 subtask 4 added an explicit `/chat` proof that healthy external endpoints cannot override degraded bootstrap readiness, while preserving the ready-path coverage already present in the selector and chat integration tests.
 - Task 15 subtask 5 added explicit degraded direct-agent and resumed flow-owned blocked-path proofs; the targeted server wrapper over `config.chatDefaults.test.ts`, `chat-codex.test.ts`, `agents-run-client-conversation-id.test.ts`, and `flows.run.resume.identity.test.ts` passed with 110 tests total and no failures.
+- Task 15 audit normalized the testing checklist from repository evidence: commit `5e6c9177e3e83fe1c87306f74a9135aad27f7923` changed the planned selector and proof-owner files, and `test-results/server-unit-tests-2026-06-08T21-19-27-701Z.log` shows the targeted wrapper run passed all 110 tests across the four task-owned proof files. The task remains `__in_progress__` because this audit pass only confirms implementation-side completion evidence.
 
 ### Task 16. Repair Native-Default Versus Endpoint Selection Identity Drift Across Discovery And Submission
 

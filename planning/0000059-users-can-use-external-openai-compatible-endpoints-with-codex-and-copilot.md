@@ -1451,7 +1451,7 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 12`, `Task 13`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260607T101345Z-9dfe9788`. It must revalidate the serious review-created findings from review pass `0000059-20260607T101345Z-9dfe9788` and also re-cover the already resolved inline minor findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-8` so this cycle does not split close-out ownership across two final tasks.
 

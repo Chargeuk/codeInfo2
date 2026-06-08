@@ -1566,3 +1566,260 @@ Treat the latest Task 14 screenshots and retained notes as the primary durable c
 - Task 14 Testing 10 passed: the checked-in main stack shut down cleanly after the smoke validation.
 - Task 14 Testing 11 passed after fixing the lint issues in the client default test import order and the persistence test mock signature; `eslint` completed cleanly.
 - Task 14 Testing 12 passed: `prettier --check` completed cleanly across the repository after the final proof updates.
+
+## Code Review Findings
+
+- Review pass: `0000059-20260608T155357Z-e960c572`
+- Review cycle: `0000059-rc-20260608T182732Z-e960c572`
+- Comparison context: local `HEAD` versus resolved base `origin/main@88f01984bf41500111ce1ee98e0aee2418fd9602` from the stored review handoff, with remote fetch status `success`.
+- Confidence note: the stored handoff compared Story 59 code head `e960c57285669047451674f08ef47e9c127fde7c` against `origin/main`; the current branch now only adds review-loop documentation commits after that review pass, so the findings basis remains the stored local-HEAD-vs-resolved-base comparison rather than a new rediscovered diff.
+- Inline-resolved minor findings already handled in this same active review cycle and revalidated by the fresh final task below: `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, `12`.
+- Remaining task-up findings encoded below: `1`, `2`, and `8`.
+
+### Task 15. Reinstate Codex And Copilot Readiness Gating Before Endpoint-Backed Execution
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 14`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs Finding `1` from review pass `0000059-20260608T155357Z-e960c572`. It must restore the story-locked readiness boundary for Codex and Copilot without widening Story 59 into a broader provider-selection redesign.
+
+#### Overview
+
+Repair the shared runtime-selection seam so a healthy external OpenAI-compatible endpoint cannot bypass the existing Codex/Copilot auth-readiness gate on immediate `/chat` execution, direct-agent execution, or resumed/flow-owned execution. The task must preserve approved Story 59 behavior: endpoint-backed execution remains allowed only when the selected provider is actually ready, while degraded bootstrap or inactive auth must still block Codex/Copilot work instead of being silently repaired by endpoint health alone.
+
+#### Task Exit Criteria
+
+- Codex and Copilot endpoint-backed execution still requires the existing provider-readiness gate before any runtime-selection branch authorizes execution.
+- `/chat`, direct-agent execution, and resumed/flow-owned execution all enforce the same restored readiness contract instead of diverging by caller.
+- The repaired selector no longer returns endpoint-backed execution paths when the provider state is unavailable, inactive, or otherwise degraded in the exact scenarios this story said must still fail closed.
+- The repair stays inside approved Story 59 scope by restoring the locked readiness behavior rather than changing unrelated fallback rules, endpoint discovery semantics, or user-facing provider-selection behavior.
+
+#### Addresses Findings
+
+- `1` - endpoint-backed selection bypasses the required Codex/Copilot auth-readiness gate in immediate and deferred execution paths.
+
+#### Risk Ownership
+
+- Admission-vs-execution guard: the same readiness contract must hold at request admission, direct-agent execution, and flow-owned replay or resume entry points.
+- Scope guard: restore the locked readiness boundary only. Do not widen this task into a broader provider-selection redesign or a new user-facing fallback contract.
+- Shared-helper seam: the selector fix is only complete when every current caller that passes endpoint runtime state through the helper preserves the same blocked-versus-allowed decision.
+
+#### Owner Map
+
+- Shared readiness selector seam: `server/src/config/chatDefaults.ts`, centered on `resolveRuntimeProviderSelection()`
+- `/chat` runtime-selection caller seam: `server/src/routes/chat.ts`
+- Direct-agent caller seam: `server/src/agents/service.ts`
+- Flow-owned or resumed execution caller seam: `server/src/flows/service.ts`
+- Proof owners: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`
+
+#### Proof Mapping
+
+- Requirement: endpoint-backed Codex/Copilot execution still fails closed when provider readiness is degraded, even if the external endpoint itself is healthy.
+  Implementation files: `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`
+  Proof owners: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`
+- Requirement: the same restored readiness contract holds on direct-agent and resumed or flow-owned execution, not only on the `/chat` route.
+  Implementation files: `server/src/config/chatDefaults.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`
+  Proof owners: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-open `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`, then record one short owner map in `Implementation Notes` that names the exact endpoint-first branch currently authorizing execution before readiness is checked, which callers still feed degraded provider state into that branch, and which ready-versus-blocked outcomes must remain unchanged after the repair.
+2. [ ] Patch the shared selector and its current callers so Codex and Copilot endpoint-backed execution cannot return `configured_endpoint` or equivalent repair paths before the existing provider-readiness boundary has actually been satisfied. Keep the fix on the real production selection path rather than adding a side-channel check that other callers can miss.
+3. [ ] Refresh the route-owned and execution-owned proof surfaces so they explicitly cover the degraded-bootstrap-plus-healthy-endpoint contradiction on `/chat`, direct agents, and resumed or flow-owned execution. Rename or split any reused test title that would still read like a generic fallback or active-run scenario after the repaired readiness invariant becomes the real claim.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts` to prove the shared selector still enforces the restored Codex/Copilot readiness gate.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` to prove `/chat` still fails closed before endpoint-backed execution when provider readiness is degraded.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts` to prove the same readiness gate still holds for direct-agent and resumed or flow-owned execution.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 16. Repair Native-Default Versus Endpoint Selection Identity Drift Across Discovery And Submission
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 14`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs Finding `2` from review pass `0000059-20260608T155357Z-e960c572`. It must fix the underlying endpoint/model identity mismatch while preserving the approved Story 59 endpoint-backed picker contract instead of widening scope into a new user-facing selection model.
+
+#### Overview
+
+Repair the producer-consumer contract spanning endpoint discovery, `/chat/providers`, `/chat/models`, client bootstrap selection, and `/chat` submission so a native default model cannot be paired with a stale external `selectedEndpointId`. When the server normalizes the default back to a native Codex or Copilot model, the client must stop treating that model as endpoint-backed, and the repaired contract must keep duplicate-id endpoint-backed behavior intact without silently reintroducing the stale pinned endpoint into submission payloads.
+
+#### Task Exit Criteria
+
+- Discovery and route payloads no longer expose a stale endpoint selection alongside a native default model when the pinned external endpoint has no live model backing the chosen default.
+- Client bootstrap and refresh logic no longer reattach a stale endpoint id to a selected model that has no endpoint identity of its own.
+- `/chat` submission preserves approved Story 59 endpoint-backed picker behavior: endpoint ids are only sent when they actually belong to the selected model source.
+- The repair preserves the existing user-facing picker contract instead of broadening Story 59 into a new selection workflow or a new fallback product rule.
+
+#### Addresses Findings
+
+- `2` - discovery can pair a native default model with a stale external `selectedEndpointId`, and the client then submits that mixed identity.
+
+#### Risk Ownership
+
+- Producer-consumer contract: discovery, route responses, client bootstrap, and send payload generation must all agree on the same authoritative endpoint/model identity.
+- Scope guard: repair the stale mixed identity only. Do not widen this task into a redesign of endpoint discovery, picker defaults, or broader provider-fallback behavior.
+- Duplicate-id guard: the fix must preserve the approved endpoint-backed duplicate raw model id behavior rather than solving the mismatch by collapsing endpoint-aware identity.
+
+#### Owner Map
+
+- Discovery seam: `server/src/chat/openaiCompatModelDiscovery.ts`
+- Route producer seams: `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`
+- Client bootstrap and send seams: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`
+- Proof owners: `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatSendPayload.test.tsx`
+
+#### Proof Mapping
+
+- Requirement: `/chat/providers` and `/chat/models` no longer pair a native default model with a stale selected endpoint id when the pinned external endpoint is unavailable for that default.
+  Implementation files: `server/src/chat/openaiCompatModelDiscovery.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`
+  Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`
+- Requirement: client bootstrap, refresh, and `/chat` submission do not reattach a stale endpoint id to a native model after the server has normalized the default back to native.
+  Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`
+  Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatSendPayload.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-open `server/src/chat/openaiCompatModelDiscovery.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, `client/src/hooks/useChatModel.ts`, and `client/src/hooks/useChatStream.ts`, then record one short owner map in `Implementation Notes` that names where stale endpoint identity is still preserved today after native-default normalization and which response or client fields must become authoritative after the repair.
+2. [ ] Patch the server-side discovery and route producer seams so `selectedEndpointId` is only carried forward when it still matches the selected/default model source, while preserving the approved endpoint-aware duplicate-id behavior for genuinely endpoint-backed models.
+3. [ ] Patch the client bootstrap and send seams so a selected model without endpoint identity cannot inherit a stale external endpoint id from bootstrap state, refresh state, or old draft state before `/chat` submission.
+4. [ ] Refresh the server and client proof surfaces so the contradictory native-default-plus-stale-endpoint case is a direct named claim rather than an implied side effect of broader picker or route scenarios.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` to prove the server-side discovery and route payloads no longer pair a native default with a stale endpoint id.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_models.feature` to prove the route-owned `/chat/models` behavior still matches the repaired identity contract on the feature surface.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx --file client/src/test/chatSendPayload.test.tsx` to prove client bootstrap and `/chat` submission no longer send a stale endpoint id with a native model.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 17. Add A Durable Post-Completion Replay Barrier For Fresh Flow Retry Ownership
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 14`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs Finding `8` from review pass `0000059-20260608T155357Z-e960c572`. It must stop duplicate fresh-flow launches after ambiguous completion without widening Story 59 into a new flow product contract or unrelated lifecycle redesign.
+
+#### Overview
+
+Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId` cannot launch a second full flow after the first run has already completed but the caller retries because the earlier result was lost, delayed, or otherwise ambiguous. The task must add a durable post-completion barrier or equivalent bounded replay-memory seam that preserves the approved current behavior for real new flow launches while preventing duplicate side effects, duplicate child-agent work, and duplicate provider calls on replay of the same logical request.
+
+#### Task Exit Criteria
+
+- A completed fresh flow run still leaves behind enough replay barrier state for the same `retryOwnershipId` to collapse into the earlier result instead of launching a second run.
+- The repair covers the contradiction where the first run already committed side effects but the caller retries after losing the original response.
+- The task remains bounded to the fresh-flow retry-ownership seam and does not broaden Story 59 into a new product-level retry API or unrelated lifecycle redesign.
+
+#### Addresses Findings
+
+- `8` - fresh flow retry ownership has no post-completion replay barrier, so the same logical retry can run twice after an ambiguous success.
+
+#### Risk Ownership
+
+- Completion barrier: the repaired seam must survive past the first run's completion long enough to recognize a same-request replay without blocking legitimate new runs.
+- Scope guard: preserve the existing external flow contract. Do not widen this task into unrelated replay taxonomy or broader queue redesign.
+- Side-effect guard: the repair is only complete when a post-completion retry no longer launches a second flow with new child work, persistence, or provider calls.
+
+#### Owner Map
+
+- Fresh-run retry seam: `server/src/flows/service.ts`, centered on `startFlowRun()` and the retry-ownership lifecycle
+- Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
+
+#### Proof Mapping
+
+- Requirement: a retry of the same fresh flow request after ambiguous completion returns the existing result instead of launching new work.
+  Implementation files: `server/src/flows/service.ts`
+  Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
+- Requirement: the repaired barrier still distinguishes a true new request from a replay of the same logical request.
+  Implementation files: `server/src/flows/service.ts`
+  Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-open `server/src/flows/service.ts` and record one short owner map in `Implementation Notes` that names where retry ownership is created, where it is cleared today, what exact post-completion replay window currently goes unguarded, and what constitutes a legitimate new launch versus a duplicate replay of the same logical request.
+2. [ ] Patch the fresh-flow retry-ownership seam so a completed run leaves behind a bounded replay barrier or equivalent durable completion record keyed to the same logical request, allowing post-completion retries to collapse into the earlier result without launching duplicate work.
+3. [ ] Refresh the replay proof in `server/src/test/integration/flows.run.errors.test.ts` so it directly covers the post-completion contradiction instead of only the current in-flight dedupe and contradictory-payload cases.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` to prove the same `retryOwnershipId` no longer launches a second fresh flow after ambiguous completion.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 18. Final Revalidation For Review Cycle 0000059-rc-20260608T182732Z-e960c572
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 15`, `Task 16`, `Task 17`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260608T182732Z-e960c572`. It must revalidate the serious review-created findings from review pass `0000059-20260608T155357Z-e960c572` and also re-cover the already resolved inline minor findings `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12` so this cycle does not split close-out ownership across separate final tasks.
+
+#### Overview
+
+Re-run the relevant wrapper-first regression proof for the current review-created findings block after Tasks 15, 16, and 17 land, and confirm that the same story head still covers the inline-resolved minor fixes from this active review cycle. This task is the one broad regression owner for the current repository in this review-created block: it owns the relevant server, client, browser-visible, script-level, and checked-in main-stack smoke proof for review pass `0000059-20260608T155357Z-e960c572`.
+
+#### Task Exit Criteria
+
+- Review pass `0000059-20260608T155357Z-e960c572` has fresh proof on the story head for Findings `1`, `2`, and `8`.
+- The same final proof pass still covers the inline-resolved minor findings from this review cycle: `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12`.
+- The current repository’s relevant server, client, browser-visible, and compose-backed smoke wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
+- Final `Implementation Notes` map each current-cycle finding to its surviving proof owner on the repaired story head.
+
+#### Addresses Findings
+
+- Serious review-created findings for review pass `0000059-20260608T155357Z-e960c572`: `1`, `2`, `8`
+- Inline-resolved minor findings revalidated here for the same review cycle: `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, `12`
+
+#### Affected Repositories
+
+- `Current Repository` - owns the repaired selector, discovery, flow replay, client bootstrap, browser-visible chat surface, and checked-in main-stack runtime proof for this review-created findings block.
+
+#### Owner Map
+
+- Server build and unit/integration wrapper owners: `npm run build:summary:server`, `npm run test:summary:server:unit`
+- Feature-level route proof owner: `npm run test:summary:server:cucumber`
+- Client build and unit wrapper owners: `npm run build:summary:client`, `npm run test:summary:client`
+- Browser-visible proof owner: `npm run test:summary:e2e`
+- Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Final hygiene proof owner: `npm run lint`, `npm run format:check`
+
+#### Proof Mapping
+
+- Finding `1`: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`
+- Finding `2`: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`
+- Finding `8`: `server/src/test/integration/flows.run.errors.test.ts`
+- Inline-resolved minor Findings `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12`: the same broad server, client, feature, script-level, browser-visible, and smoke surfaces that already carried those repaired claims on this review cycle’s story head.
+
+#### Subtasks
+
+1. [ ] Re-open this current-cycle `Code Review Findings` block plus `## Minor Review Fixes`, then record one explicit proof-owner mapping in `Implementation Notes` for Findings `1`, `2`, `8`, `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12`. Name the exact proof home for each finding and mark whether that proof is targeted-only or broad-wrapper-owned.
+2. [ ] Refresh any reused proof title or assertion wording that would still claim only generic fallback, generic discovery, or generic flow retry behavior after the repaired Findings `1`, `2`, and `8` invariants become the real claims on the final story head.
+3. [ ] Re-open the broad wrapper list and the checked-in main-stack smoke path, then record the execution boundary in `Implementation Notes`: which failures count as task-owned assertion failures, which failures are shared baseline or harness interruptions, and why the smoke pass stops at the supported `http://localhost:5001` and `http://localhost:5010/health` surfaces instead of widening into auth-dependent or live external-endpoint setup.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired server selector, route, and flow replay surfaces compile cleanly before broader proof.
+2. [ ] Run `npm run build:summary:client` to confirm the repaired discovery/bootstrap consumer surfaces compile cleanly before broader proof.
+3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head.
+4. [ ] Run `npm run test:summary:server:unit` to prove the repaired server selector, discovery, replay, and inline-resolved minor server proof homes on the story head.
+5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the full server feature-wrapper surface on the repaired story head, including the endpoint-aware `/chat/models` contract and the explicit `chat_stream` proof-honesty repairs already recorded inline.
+6. [ ] Run `npm run test:summary:client` to prove the repaired client bootstrap, send, and inline-resolved client minor proof homes on the story head.
+7. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the repository-supported automated mock-chat browser path.
+8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path.
+9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+
+#### Implementation Notes
+
+- Pending.

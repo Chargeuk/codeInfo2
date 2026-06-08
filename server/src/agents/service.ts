@@ -423,11 +423,23 @@ async function persistDirectAgentConversation(params: {
   threadId?: string | null;
 }): Promise<Conversation> {
   const now = new Date();
+  const currentEndpointId =
+    typeof params.existingConversation?.flags?.endpointId === 'string' &&
+    params.existingConversation.flags.endpointId.trim().length > 0
+      ? params.existingConversation.flags.endpointId.trim()
+      : undefined;
+  const nextEndpointId = params.endpointId?.trim() || undefined;
+  const persistedThreadId =
+    params.providerId === 'codex' &&
+    params.threadId?.trim() &&
+    currentEndpointId === nextEndpointId
+      ? params.threadId.trim()
+      : null;
   const flags = buildConversationFlags({
     provider: params.providerId,
     currentFlags: params.existingConversation?.flags,
     workingFolder: params.workingFolder,
-    threadId: params.threadId,
+    threadId: persistedThreadId,
     endpointId: params.endpointId,
   });
   const savedRequestedProviderId =

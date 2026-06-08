@@ -1753,6 +1753,7 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 - Completion barrier: the repaired seam must survive past the first run's completion long enough to recognize a same-request replay without blocking legitimate new runs.
 - Scope guard: preserve the existing external flow contract. Do not widen this task into unrelated replay taxonomy or broader queue redesign.
 - Side-effect guard: the repair is only complete when a post-completion retry no longer launches a second flow with new child work, persistence, or provider calls.
+- Persistence-surface guard: the new completion barrier must name its writer, its replay-time reader, how partial or in-progress state is distinguished from completed state, and who is allowed to clear the bounded replay record after the duplicate-replay window closes.
 - Existing-dedupe guard: the repaired post-completion barrier must not break the current in-flight dedupe behavior or the contradictory-payload rejection behavior already covered by the existing retry-ownership proof.
 - Interleaving-proof guard: adjacent before/after success proof is not sufficient here; the repaired task must own the exact post-completion replay ordering where the first run has already committed side effects, the caller has not accepted the earlier result, and the same `retryOwnershipId` re-enters after the in-flight owner record has been cleared.
 - Blocker family: `product or story seam`, because this is a real flow lifecycle repair in the production retry seam rather than a wrapper-only or harness-only defect.
@@ -1776,13 +1777,16 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 - Requirement: the existing in-flight dedupe behavior still works while the post-completion barrier is layered after owner-record cleanup.
   Implementation files: `server/src/flows/service.ts`
   Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
+- Requirement: the completion barrier writer, replay-time reader, partial-state handling, and bounded cleanup ownership stay aligned so a retry cannot observe an in-progress record as completed, and cleanup cannot erase the replay barrier before the duplicate-replay window is over.
+  Implementation files: `server/src/flows/service.ts`
+  Proof owner: `server/src/test/integration/flows.run.errors.test.ts`
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/flows/service.ts` and record one short owner map in `Implementation Notes` that names where retry ownership is created, where it is cleared today, what exact post-completion replay window currently goes unguarded, and what constitutes a legitimate new launch versus a duplicate replay of the same logical request.
+1. [ ] Re-open `server/src/flows/service.ts` and record one short owner map in `Implementation Notes` that names where retry ownership is created, where it is cleared today, what exact post-completion replay window currently goes unguarded, which code path will write the new completion barrier, which code path will read it on replay, how partial or in-progress state is distinguished from completed state, and what constitutes a legitimate new launch versus a duplicate replay of the same logical request.
 2. [ ] Patch the fresh-flow retry-ownership seam so a completed run leaves behind a bounded replay barrier or equivalent durable completion record keyed to the same logical request, allowing post-completion retries to collapse into the earlier result without launching duplicate work while still allowing a truly new request to proceed.
 3. [ ] Preserve the current in-flight dedupe and contradictory-payload rejection branches in `server/src/flows/service.ts` while layering the post-completion barrier after owner-record cleanup; do not replace those branches with a broader cache that would silently merge distinct logical requests.
-4. [ ] Refresh `server/src/test/integration/flows.run.errors.test.ts` so it carries separate named cases for the post-completion replay contradiction, true-new-request divergence, contradictory-payload rejection, and preserved in-flight dedupe behavior instead of bundling those invariants into one broad retry scenario.
+4. [ ] Refresh `server/src/test/integration/flows.run.errors.test.ts` so it carries separate named cases for the post-completion replay contradiction, true-new-request divergence, contradictory-payload rejection, preserved in-flight dedupe behavior, and bounded cleanup ordering of the completion barrier instead of bundling those invariants into one broad retry scenario.
 
 #### Testing
 
@@ -1882,7 +1886,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 #### Manual Testing Guidance
 
-If a later human or manual-testing-agent follow-up is still needed after the automated proof above, use the checked-in main stack rather than a local development variant: `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down`. Treat `http://localhost:5001`, `http://localhost:5010`, and `http://localhost:5010/health` as the supported manual revalidation surfaces for this review cycle.
+If a later human or manual-testing-agent follow-up is still needed after the automated proof above, use the checked-in main stack rather than a local development variant: `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down`. Treat the checked-in `docker-compose.yml` stack plus the repository wrapper env loading (`server/.env` and `server/.env.local`) as the supported runtime contract for this review cycle. Use the mounted proof catalogs under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` as the supported seed/setup source rather than ad hoc local edits, and treat `http://localhost:5001`, `http://localhost:5010`, and `http://localhost:5010/health` as the supported manual revalidation surfaces.
 
 Store retained manual-proof artifacts for this review-cycle close-out under `codeInfoTmp/manual-testing/0000059/18/` and do not commit them. If Playwright MCP screenshots are used, capture them first under a relative staging path such as `0000059/18/<filename>` in the Playwright output directory; in this local harness workflow, an artifact written inside the screenshot-producing Playwright runtime under `/tmp/playwright-output/0000059/18/<filename>` will normally appear on the host at `$CODEINFO_ROOT/playwright-output-local/0000059/18/<filename>`, and should then be transferred into `codeInfoTmp/manual-testing/0000059/18/`.
 

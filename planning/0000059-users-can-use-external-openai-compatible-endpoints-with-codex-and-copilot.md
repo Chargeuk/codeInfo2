@@ -1368,7 +1368,7 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 11`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs the serious endpoint-identity producer-consumer drift from review pass `0000059-20260607T101345Z-9dfe9788`. The constraint from the stored review outcome is to fix the underlying identity loss while preserving approved Story 59 behavior, not to widen scope into a new model-selection contract or a broader user-facing redesign.
 

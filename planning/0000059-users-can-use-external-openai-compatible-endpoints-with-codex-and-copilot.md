@@ -1660,7 +1660,7 @@ Repair the shared runtime-selection seam so a healthy external OpenAI-compatible
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 14`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `2` from review pass `0000059-20260608T155357Z-e960c572`. It must fix the underlying endpoint/model identity mismatch while preserving the approved Story 59 endpoint-backed picker contract instead of widening scope into a new user-facing selection model.
 

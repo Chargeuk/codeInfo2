@@ -180,6 +180,14 @@ const readConversationAgentFlags = (
   return flags.agentFlags;
 };
 
+const readConversationEndpointId = (flags: unknown): string | undefined => {
+  if (!isRecord(flags) || typeof flags.endpointId !== 'string') {
+    return undefined;
+  }
+  const trimmed = flags.endpointId.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 type ComposerInfoEntry = {
   key: string;
   label: string;
@@ -823,6 +831,9 @@ export default function ChatPage() {
 
   const resumedProvider = selectedConversation?.provider?.trim() || undefined;
   const resumedModel = selectedConversation?.model?.trim() || undefined;
+  const resumedEndpointId = readConversationEndpointId(
+    selectedConversation?.flags,
+  );
   const resumedExecutionIdentityLocked = Boolean(
     selectedConversation?.conversationId && resumedProvider && resumedModel,
   );
@@ -851,6 +862,8 @@ export default function ChatPage() {
   useEffect(() => {
     const previousConversationId = previousConversationIdRef.current;
     previousConversationIdRef.current = selectedConversation?.conversationId;
+    const restoredEndpointIdentity =
+      resumedEndpointId ?? selectedEndpointId ?? undefined;
 
     if (selectedConversation?.conversationId) {
       if (resumedProvider) {
@@ -861,13 +874,13 @@ export default function ChatPage() {
           models.find(
             (model) =>
               model.key === resumedModel &&
-              (selectedEndpointId === undefined ||
-                (model.endpointId ?? undefined) ===
-                  (selectedEndpointId ?? undefined)),
+              (model.endpointId ?? undefined) ===
+                restoredEndpointIdentity,
           ) ?? models.find((model) => model.key === resumedModel);
         setSelected(endpointAwareMatch?.key ?? resumedModel, {
           source: 'conversation-select',
-          endpointId: endpointAwareMatch?.endpointId ?? null,
+          endpointId:
+            resumedEndpointId ?? endpointAwareMatch?.endpointId ?? null,
         });
       }
       return;
@@ -900,6 +913,7 @@ export default function ChatPage() {
   }, [
     models,
     resumedModel,
+    resumedEndpointId,
     resumedProvider,
     provider,
     selected,

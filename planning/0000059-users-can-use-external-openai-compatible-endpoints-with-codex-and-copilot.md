@@ -926,10 +926,10 @@ Add one completed task to the story plan that captures the branch-only runtime s
 
 #### Testing
 
-1. [x] Run `node --test --test-concurrency=1 src/test/unit/copilot-compose-contract.test.ts` to prove the local compose contract reflects the host-network client shape and the main/local/e2e Mongo seams after the branch-only runtime updates.
-2. [x] Run `npm run build --workspace server` to prove the Copilot runtime-home and entrypoint changes still build cleanly in the server workspace after isolating provider homes and cache roots.
-3. [x] Run `node --test --test-concurrency=1 src/test/unit/copilotConfig.test.ts` to prove the Copilot subprocess env now uses the Copilot-specific `HOME`, `XDG_CACHE_HOME`, and `XDG_CONFIG_HOME` values.
-4. [x] Run `node --test --test-concurrency=1 src/test/unit/host-network-compose-contract.test.ts` to prove the entrypoint runtime-tree preparation contract now covers the Codex, Copilot, and LM Studio writable homes required by this branch.
+1. [x] Re-cover `server/src/test/unit/copilot-compose-contract.test.ts` through the repository-supported server-unit wrapper path (`npm run test:summary:server:unit`) so the local compose contract still reflects the host-network client shape plus the main/local/e2e Mongo seams after the branch-only runtime updates.
+2. [x] Re-cover the Copilot runtime-home and entrypoint build surface through `npm run build:summary:server` so the isolated provider-home changes still compile on the repository’s normal server build path.
+3. [x] Re-cover `server/src/test/unit/copilotConfig.test.ts` through the repository-supported server-unit wrapper path (`npm run test:summary:server:unit`) so Copilot subprocess env still uses the Copilot-specific `HOME`, `XDG_CACHE_HOME`, and `XDG_CONFIG_HOME` values.
+4. [x] Re-cover `server/src/test/unit/host-network-compose-contract.test.ts` through the repository-supported server-unit wrapper path (`npm run test:summary:server:unit`) so the entrypoint runtime-tree preparation contract still covers the Codex, Copilot, and LM Studio writable homes required by this branch.
 
 #### Implementation Notes
 
@@ -1879,7 +1879,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 6. [ ] Run `npm run test:summary:client` to prove the repaired client bootstrap, send, and inline-resolved client minor proof homes on the story head.
 7. [ ] Run `node --test scripts/test-summary-server-cucumber-imports.test.mjs` to re-cover the script-level import-guard proof home for inline-resolved Finding `9`, because that proof should stay explicit even though the broader server-unit path also now covers it.
 8. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the repository-supported automated mock-chat browser path.
-9. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path.
+9. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior is still owned by Testing steps 4 through 8 rather than by the health surfaces alone.
 10. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
 11. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
 12. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.

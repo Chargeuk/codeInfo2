@@ -1605,6 +1605,8 @@ Repair the shared runtime-selection seam so a healthy external OpenAI-compatible
 - Scope guard: restore the locked readiness boundary only. Do not widen this task into a broader provider-selection redesign or a new user-facing fallback contract.
 - Shared-helper seam: the selector fix is only complete when every current caller that passes endpoint runtime state through the helper preserves the same blocked-versus-allowed decision.
 - Preserved-behavior guard: the repair must not turn degraded bootstrap into a silent native fallback or a broader endpoint-health override, because Story 59 explicitly kept the existing fail-closed readiness behavior for unavailable Codex and Copilot sessions.
+- Ordering-proof guard: happy-path readiness proof is not enough here; the repaired task must still prove the exact contradiction where provider bootstrap is degraded while the external endpoint stays healthy, because that interleaving is the bypass this finding exposed.
+- Blocker family: `product or story seam`, because this task restores a story-locked readiness contract on the real execution path rather than repairing a wrapper or harness.
 
 #### Owner Map
 
@@ -1669,6 +1671,8 @@ Repair the producer-consumer contract spanning endpoint discovery, `/chat/provid
 - Scope guard: repair the stale mixed identity only. Do not widen this task into a redesign of endpoint discovery, picker defaults, or broader provider-fallback behavior.
 - Duplicate-id guard: the fix must preserve the approved endpoint-backed duplicate raw model id behavior rather than solving the mismatch by collapsing endpoint-aware identity.
 - Submission guard: once the server has normalized the selected default back to native, the client must not silently reattach a stale endpoint id during bootstrap, refresh, or send-payload assembly.
+- Default-path guard: the repaired identity contract must be proven on the normal `/chat/providers` plus `/chat/models` bootstrap path and the default `/chat` submission path, not only in isolated helper fixtures or hand-built payloads.
+- Blocker family: `product or story seam`, because this task owns a cross-surface producer-consumer repair that must stay within the approved Story 59 picker behavior.
 
 #### Owner Map
 
@@ -1735,6 +1739,8 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 - Scope guard: preserve the existing external flow contract. Do not widen this task into unrelated replay taxonomy or broader queue redesign.
 - Side-effect guard: the repair is only complete when a post-completion retry no longer launches a second flow with new child work, persistence, or provider calls.
 - Existing-dedupe guard: the repaired post-completion barrier must not break the current in-flight dedupe behavior or the contradictory-payload rejection behavior already covered by the existing retry-ownership proof.
+- Interleaving-proof guard: adjacent before/after success proof is not sufficient here; the repaired task must own the exact post-completion replay ordering where the first run has already committed side effects, the caller has not accepted the earlier result, and the same `retryOwnershipId` re-enters after the in-flight owner record has been cleared.
+- Blocker family: `product or story seam`, because this is a real flow lifecycle repair in the production retry seam rather than a wrapper-only or harness-only defect.
 
 #### Owner Map
 
@@ -1792,6 +1798,14 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 #### Affected Repositories
 
 - `Current Repository` - owns the repaired selector, discovery, flow replay, client bootstrap, browser-visible chat surface, and checked-in main-stack runtime proof for this review-created findings block.
+
+#### Risk Ownership
+
+- Proof-owner mapping guard: this task is only complete when each serious finding (`1`, `2`, and `8`) and each inline-resolved minor finding (`3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12`) is mapped to an explicit surviving proof home on the final story head rather than being assumed covered by a broad wrapper.
+- Shared wrapper or baseline seam: `npm run build:summary:*`, `npm run test:summary:*`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run test:summary:e2e` can fail for baseline or harness reasons unrelated to the repaired Story 59 assertions; when that happens, this task must record the interruption honestly instead of reopening Tasks 15 through 17 as wrapper-repair work.
+- Proof or test harness seam: the targeted import-guard proof for Finding `9` remains a distinct proof home even though standard validation now also reaches it; the task must preserve that explicit harness ownership rather than assuming the broad server-unit wrapper alone is enough.
+- Manual or runtime environment seam: if later manual follow-up is still needed, it must rely on the supported main stack, its readiness surfaces, the mounted proof catalogs, and the documented screenshot staging and transfer path rather than inventing ad hoc runtime setup or assuming the app-under-test runtime owns Playwright artifacts.
+- Scope guard: this task revalidates current-story repairs only. It must not widen into live external-endpoint product exploration, auth-dependent setup, or unrelated wrapper cleanup beyond honest baseline-boundary reporting.
 
 #### Owner Map
 

@@ -1660,7 +1660,7 @@ Repair the shared runtime-selection seam so a healthy external OpenAI-compatible
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 14`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `2` from review pass `0000059-20260608T155357Z-e960c572`. It must fix the underlying endpoint/model identity mismatch while preserving the approved Story 59 endpoint-backed picker contract instead of widening scope into a new user-facing selection model.
 
@@ -1736,6 +1736,7 @@ Repair the producer-consumer contract spanning endpoint discovery, `/chat/provid
 - Server repair complete: discovery and route producer seams now only preserve `selectedEndpointId` when it still matches the selected model source, which keeps endpoint-backed duplicate raw ids intact while clearing stale native-default endpoint identity.
 - Client repair complete: `useChatModel`, `ChatPage`, and `useChatStream` now treat stale endpoint identity as excluded from the active native selection and payload path, while keeping the host-prefixed row when the restored conversation is genuinely endpoint-backed.
 - Proof complete: targeted server unit, server cucumber, and client tests all passed after the identity and picker-state repairs, including the compact mobile send path.
+- Task 16 automated-proof audit confirmed the implementation and targeted proof are both complete, no live blocker remains, and the repaired native-versus-endpoint identity contract stays inside Story 59 scope without widening the picker workflow. The task is now `__done__`; any broader cross-story validation remains owned by the later shared final revalidation task.
 
 ### Task 17. Add A Durable Post-Completion Replay Barrier For Fresh Flow Retry Ownership
 

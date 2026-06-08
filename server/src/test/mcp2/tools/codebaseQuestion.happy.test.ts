@@ -379,6 +379,9 @@ async function withTempCopilotHome(chatToml: string): Promise<{
   };
 }
 
+const toComparableJson = (value: unknown) =>
+  JSON.parse(JSON.stringify(value)) as unknown;
+
 class CapturingChat extends ChatInterface {
   lastFlags?: Record<string, unknown>;
 
@@ -1733,7 +1736,16 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
 test('codebase_question normalizes implicit Copilot defaults and omits reasoning for models that do not support it', async () => {
   const originalHome = process.env.CODEINFO_COPILOT_HOME;
   const tempHome = await withTempCopilotHome(
-    ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'),
+    [
+      'model = "copilot-gpt-5"',
+      'reasoning_effort = "high"',
+      'tool_access = "off"',
+      '',
+      '[mcp_servers.code_info]',
+      'command = "npx"',
+      'args = ["-y", "mcp-remote", "http://localhost:5010/mcp"]',
+      '',
+    ].join('\n'),
   );
   process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
   const harness = createMockCopilotSdkHarness({
@@ -1779,6 +1791,21 @@ test('codebase_question normalizes implicit Copilot defaults and omits reasoning
     assert.equal(
       harness.getState().lastCreateSessionConfig?.reasoningEffort,
       undefined,
+    );
+    assert.deepEqual(
+      harness.getState().lastCreateSessionConfig?.availableTools,
+      [],
+    );
+    assert.deepEqual(
+      toComparableJson(harness.getState().lastCreateSessionConfig?.mcpServers),
+      {
+        code_info: {
+          type: 'stdio',
+          command: 'npx',
+          args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+          tools: [],
+        },
+      },
     );
   } finally {
     if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;

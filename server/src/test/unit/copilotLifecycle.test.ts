@@ -156,12 +156,28 @@ test('copilot lifecycle injects configDir without dropping create-session tool c
     reasoningEffort: 'high',
     tools: [{ name: 'VectorSearch', handler: async () => 'ok' }],
     availableTools: ['VectorSearch'],
+    mcpServers: {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: ['*'],
+      },
+    },
     onPermissionRequest,
   });
 
   assert.equal(capturedConfig?.configDir, lifecycle.configDir);
   assert.equal(capturedConfig?.reasoningEffort, 'high');
   assert.deepEqual(capturedConfig?.availableTools, ['VectorSearch']);
+  assert.deepEqual(capturedConfig?.mcpServers, {
+    code_info: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+      tools: ['*'],
+    },
+  });
   assert.notEqual(capturedConfig?.onPermissionRequest, undefined);
   assert.notEqual(capturedConfig?.onPermissionRequest, onPermissionRequest);
   const permissionResult = await capturedConfig?.onPermissionRequest?.(
@@ -192,6 +208,14 @@ test('copilot lifecycle preserves resume-session tool and permission config whil
     reasoningEffort: 'medium',
     tools: [{ name: 'ListIngestedRepositories', handler: async () => 'ok' }],
     availableTools: ['ListIngestedRepositories'],
+    mcpServers: {
+      code_info: {
+        type: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+        tools: ['*'],
+      },
+    },
     onPermissionRequest,
   });
 
@@ -200,5 +224,13 @@ test('copilot lifecycle preserves resume-session tool and permission config whil
   assert.deepEqual(capturedResume?.availableTools, [
     'ListIngestedRepositories',
   ]);
+  assert.deepEqual(capturedResume?.mcpServers, {
+    code_info: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+      tools: ['*'],
+    },
+  });
   assert.equal(capturedResume?.onPermissionRequest, onPermissionRequest);
 });

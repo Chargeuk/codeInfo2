@@ -36,6 +36,16 @@ async function withTempCopilotHome(chatToml: string): Promise<{
   };
 }
 
+const getMcpServerTools = (
+  mcpServers: Record<string, { tools?: string[] }> | undefined,
+): Record<string, string[] | undefined> =>
+  Object.fromEntries(
+    Object.entries(mcpServers ?? {}).map(([name, config]) => [
+      name,
+      config.tools,
+    ]),
+  );
+
 test('copilot resume failures stay explicit instead of silently creating a fresh session', async () => {
   const server = await startCopilotChatServer({
     scenario: {
@@ -83,7 +93,7 @@ test('copilot resume failures stay explicit instead of silently creating a fresh
   }
 });
 
-test('copilot resume-session path preserves the On and Off tool-registration contract', async () => {
+test('copilot resume-session path uses MCP-configured servers instead of custom SDK tools', async () => {
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-tool-access',
@@ -104,15 +114,19 @@ test('copilot resume-session path preserves the On and Off tool-registration con
       });
     await waitForAssistantTurn('copilot-tool-access-on');
 
-    assert.deepEqual(
-      server.harness
-        .getState()
-        .lastCreateSessionConfig?.tools?.map((tool) => tool.name),
-      ['ListIngestedRepositories', 'VectorSearch'],
+    assert.equal(
+      server.harness.getState().lastCreateSessionConfig?.tools,
+      undefined,
     );
     assert.equal(
       server.harness.getState().lastCreateSessionConfig?.availableTools,
       undefined,
+    );
+    assert.deepEqual(
+      Object.keys(
+        server.harness.getState().lastCreateSessionConfig?.mcpServers ?? {},
+      ).sort(),
+      ['code_info', 'context7', 'deepwiki', 'mui'],
     );
 
     await request(server.httpServer)
@@ -132,15 +146,19 @@ test('copilot resume-session path preserves the On and Off tool-registration con
       server.harness.getState().lastResumeSession?.sessionId,
       'copilot-tool-access-on',
     );
-    assert.deepEqual(
-      server.harness
-        .getState()
-        .lastResumeSession?.config.tools?.map((tool) => tool.name),
-      ['ListIngestedRepositories', 'VectorSearch'],
+    assert.equal(
+      server.harness.getState().lastResumeSession?.config.tools,
+      undefined,
     );
     assert.equal(
       server.harness.getState().lastResumeSession?.config.availableTools,
       undefined,
+    );
+    assert.deepEqual(
+      Object.keys(
+        server.harness.getState().lastResumeSession?.config.mcpServers ?? {},
+      ).sort(),
+      ['code_info', 'context7', 'deepwiki', 'mui'],
     );
 
     await request(server.httpServer)
@@ -163,6 +181,17 @@ test('copilot resume-session path preserves the On and Off tool-registration con
     assert.deepEqual(
       server.harness.getState().lastCreateSessionConfig?.availableTools,
       [],
+    );
+    assert.deepEqual(
+      getMcpServerTools(
+        server.harness.getState().lastCreateSessionConfig?.mcpServers,
+      ),
+      {
+        code_info: [],
+        context7: [],
+        deepwiki: [],
+        mui: [],
+      },
     );
 
     await request(server.httpServer)
@@ -189,6 +218,17 @@ test('copilot resume-session path preserves the On and Off tool-registration con
     assert.deepEqual(
       server.harness.getState().lastResumeSession?.config.availableTools,
       [],
+    );
+    assert.deepEqual(
+      getMcpServerTools(
+        server.harness.getState().lastResumeSession?.config.mcpServers,
+      ),
+      {
+        code_info: [],
+        context7: [],
+        deepwiki: [],
+        mui: [],
+      },
     );
   } finally {
     await server.stop();

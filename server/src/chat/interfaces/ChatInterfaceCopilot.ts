@@ -1,5 +1,6 @@
 import {
   approveAll,
+  type MCPServerConfig,
   type CopilotSession,
   type ModelInfo,
   type PermissionHandler,
@@ -8,9 +9,9 @@ import {
   type SessionEvent,
   type SessionEventHandler,
   type SystemMessageConfig,
-  type Tool,
 } from '@github/copilot-sdk';
 import type { OpenAiCompatEndpointConfig } from '../../config/openaiCompatEndpoints.js';
+import type { RuntimeTomlConfig } from '../../config/runtimeConfig.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import type { TurnSummary } from '../../mongo/repo.js';
@@ -19,6 +20,7 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { CopilotLifecycle } from '../copilotLifecycle.js';
+import { buildCopilotMcpServers } from '../copilotMcpConfig.js';
 import { copilotModelSupportsReasoningEffort } from '../copilotModelSupport.js';
 import {
   resolveCopilotRuntimeAgentFlags,
@@ -37,6 +39,7 @@ type CopilotRunFlags = {
   history?: TurnSummary[];
   resumeConversation?: boolean;
   copilotModels?: ModelInfo[];
+  runtimeConfig?: RuntimeTomlConfig;
 };
 
 type OpenAiCompatProviderConfig = {
@@ -56,20 +59,11 @@ type CopilotSessionLike = Pick<
 type CopilotSessionHooks = Parameters<CopilotSession['registerHooks']>[0];
 
 type SessionPhase = 'create' | 'resume';
-
 type ChatInterfaceCopilotOptions = {
   hooksFactory?: (
     phase: SessionPhase,
     flags: CopilotRunFlags,
   ) => CopilotSessionHooks | undefined;
-  toolsFactory?: (
-    phase: SessionPhase,
-    flags: CopilotRunFlags,
-  ) =>
-    | {
-        tools: Tool[];
-      }
-    | undefined;
   permissionHandler?: PermissionHandler;
 };
 
@@ -146,13 +140,24 @@ const buildOpenAiCompatProviderConfig = (
   wireApi: resolveOpenAiCompatWireApi(endpoint),
 });
 
+const disableCopilotMcpServerTools = (
+  mcpServers: Record<string, MCPServerConfig> | undefined,
+): Record<string, MCPServerConfig> | undefined => {
+  if (!mcpServers) return undefined;
+
+  const normalized = Object.create(null) as Record<string, MCPServerConfig>;
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    normalized[serverName] = {
+      ...serverConfig,
+      tools: [],
+    };
+  }
+  return normalized;
+};
+
 export class ChatInterfaceCopilot extends ChatInterface {
   private readonly hooksFactory: NonNullable<
     ChatInterfaceCopilotOptions['hooksFactory']
-  >;
-
-  private readonly toolsFactory: NonNullable<
-    ChatInterfaceCopilotOptions['toolsFactory']
   >;
 
   private readonly permissionHandler: PermissionHandler;
@@ -167,24 +172,21 @@ export class ChatInterfaceCopilot extends ChatInterface {
       (() => ({
         onSessionStart: async () => undefined,
       }));
-    this.toolsFactory = options.toolsFactory ?? (() => undefined);
     this.permissionHandler = options.permissionHandler ?? approveAll;
   }
 
   private resolveSessionFlags(flags: CopilotRunFlags): {
     runtimeFlags: CopilotRuntimeAgentFlags;
-    toolConfig?: ReturnType<
-      NonNullable<ChatInterfaceCopilotOptions['toolsFactory']>
-    >;
+    mcpServers?: Record<string, MCPServerConfig>;
   } {
-    const phase: SessionPhase = flags.resumeConversation ? 'resume' : 'create';
     const runtimeFlags = resolveCopilotRuntimeAgentFlags(flags.agentFlags);
+    const rawMcpServers = buildCopilotMcpServers(flags.runtimeConfig);
     return {
       runtimeFlags,
-      toolConfig:
+      mcpServers:
         runtimeFlags.toolAccess === 'off'
-          ? undefined
-          : this.toolsFactory(phase, flags),
+          ? disableCopilotMcpServerTools(rawMcpServers)
+          : rawMcpServers,
     };
   }
 
@@ -195,7 +197,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
     onEvent?: SessionEventHandler,
   ): SessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
-    const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
+    const { runtimeFlags, mcpServers } = this.resolveSessionFlags(typedFlags);
     const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
       ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
       : true;
@@ -212,9 +214,9 @@ export class ChatInterfaceCopilot extends ChatInterface {
       configDir: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
-      tools: toolConfig?.tools,
       ...(onEvent ? { onEvent } : {}),
       ...(runtimeFlags.toolAccess === 'off' ? { availableTools: [] } : {}),
+      ...(mcpServers ? { mcpServers } : {}),
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
         : {}),
@@ -238,7 +240,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
     onEvent?: SessionEventHandler,
   ): ResumeSessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
-    const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
+    const { runtimeFlags, mcpServers } = this.resolveSessionFlags(typedFlags);
     const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
       ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
       : true;
@@ -254,9 +256,9 @@ export class ChatInterfaceCopilot extends ChatInterface {
       configDir: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),
-      tools: toolConfig?.tools,
       ...(onEvent ? { onEvent } : {}),
       ...(runtimeFlags.toolAccess === 'off' ? { availableTools: [] } : {}),
+      ...(mcpServers ? { mcpServers } : {}),
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
         : {}),

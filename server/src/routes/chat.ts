@@ -62,6 +62,7 @@ import {
   loadProviderChatDefaultsSnapshotSync,
   materializeRepositoryBackedCodexChatHome,
   resolveChatRuntimeConfig,
+  type RuntimeTomlConfig,
 } from '../config/runtimeConfig.js';
 import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
@@ -773,20 +774,26 @@ export function createChatRouter({
       runtimeSelection.executionPath === 'configured_endpoint' ||
       runtimeSelection.executionPath === 'same_endpoint_repair';
 
-    let chatRuntimeConfig: CodexOptions['config'];
+    let chatRuntimeConfig: RuntimeTomlConfig | undefined;
 
-    if (executionProvider === 'codex') {
+    if (executionProvider === 'codex' || executionProvider === 'copilot') {
       try {
-        const { config } = await resolveChatRuntimeConfig();
-        chatRuntimeConfig = executionUsesEndpoint
-          ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
-              config as CodexOptions['config'],
-              selectedOpenAiCompatEndpoint,
-            )
-          : (config as CodexOptions['config']);
+        const { config } = await resolveChatRuntimeConfig({
+          provider: executionProvider,
+          ...(executionProvider === 'copilot'
+            ? { copilotHome: process.env.CODEINFO_COPILOT_HOME }
+            : {}),
+        });
+        chatRuntimeConfig =
+          executionProvider === 'codex' && executionUsesEndpoint
+            ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
+                config as CodexOptions['config'],
+                selectedOpenAiCompatEndpoint,
+              )
+            : config;
         console.info(T06_SUCCESS_LOG, {
           surface: '/chat',
-          provider: 'codex',
+          provider: executionProvider,
           hasModel: typeof config.model === 'string',
         });
       } catch (error) {
@@ -1396,6 +1403,7 @@ export function createChatRouter({
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
                   resumeConversation: shouldResumeCopilotSession,
+                  runtimeConfig: chatRuntimeConfig,
                   workingDirectoryOverride:
                     executionContext.workingDirectoryOverride,
                 }

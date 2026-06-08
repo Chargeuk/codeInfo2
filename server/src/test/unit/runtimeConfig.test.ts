@@ -1999,6 +1999,30 @@ describe('runtimeConfig deterministic resolver failures', () => {
     }
   });
 
+  it('treats a missing Copilot chat config as an empty overlay and still resolves base config', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-runtime-home-'),
+    );
+    const copilotHome = path.join(tempRoot, 'copilot');
+    try {
+      await fs.mkdir(copilotHome, { recursive: true });
+      await fs.writeFile(
+        path.join(copilotHome, 'config.toml'),
+        'model = "copilot-gpt-5"\n',
+        'utf8',
+      );
+
+      const resolved = await resolveChatRuntimeConfig({
+        provider: 'copilot',
+        copilotHome,
+      });
+
+      assert.equal(resolved.config.model, 'copilot-gpt-5');
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('hard-fails invalid chat TOML with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');

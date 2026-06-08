@@ -54,6 +54,7 @@ import {
 import {
   RuntimeConfigResolutionError,
   resolveChatRuntimeConfig,
+  type RuntimeTomlConfig,
 } from '../../config/runtimeConfig.js';
 import {
   getAdvertisedRepositoryIdentityPaths,
@@ -967,7 +968,7 @@ async function executeCodebaseQuestion(
   const executionProvider = runtimeSelection.executionProvider;
   const executionModel = runtimeSelection.executionModel;
   const codexDefaults = codexCapabilities.defaults;
-  let chatRuntimeConfig: CodexOptions['config'] | undefined;
+  let chatRuntimeConfig: RuntimeTomlConfig | undefined;
   const resolvedConversationId =
     conversationId ?? `${executionProvider}-thread-${Date.now()}`;
 
@@ -1083,7 +1084,9 @@ async function executeCodebaseQuestion(
       knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
         async () =>
           (
-            await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
+            await (
+              deps.listIngestedRepositoriesFn ?? listIngestedRepositories
+            )()
           ).repos.flatMap((repo) =>
             getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
               path.resolve(entry),
@@ -1107,10 +1110,12 @@ async function executeCodebaseQuestion(
               if (updatedWorkingFolder) {
                 return updatedWorkingFolder;
               }
-              const currentConversation = await getConversation(_conversationId);
+              const currentConversation =
+                await getConversation(_conversationId);
               const currentWorkingFolder =
                 currentConversation?.flags?.workingFolder?.trim();
-              const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+              const trimmedExpectedWorkingFolder =
+                expectedWorkingFolder?.trim();
               if (
                 !trimmedExpectedWorkingFolder ||
                 currentWorkingFolder === trimmedExpectedWorkingFolder
@@ -1183,13 +1188,21 @@ async function executeCodebaseQuestion(
     CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,
   };
 
-  if (executionProvider === 'codex') {
+  if (executionProvider === 'codex' || executionProvider === 'copilot') {
     const runtimeConfigResolver =
       deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
     try {
-      const { config } = await runtimeConfigResolver();
-      chatRuntimeConfig = config as CodexOptions['config'];
+      const { config } = await runtimeConfigResolver(
+        executionProvider === 'copilot'
+          ? {
+              provider: 'copilot',
+              copilotHome: process.env.CODEINFO_COPILOT_HOME,
+            }
+          : undefined,
+      );
+      chatRuntimeConfig = config;
       if (
+        executionProvider === 'codex' &&
         pinSavedConversationExecutionIdentity &&
         isRecord(chatRuntimeConfig) &&
         chatRuntimeConfig.model !== executionModel
@@ -1354,6 +1367,7 @@ async function executeCodebaseQuestion(
                   resumeConversation:
                     mutableConversation?.provider === 'copilot' &&
                     mutableConversation.model === executionModel,
+                  runtimeConfig: chatRuntimeConfig,
                   workingDirectoryOverride:
                     executionContext.workingDirectoryOverride,
                 }

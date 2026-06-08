@@ -4,7 +4,8 @@ Feature: chat streaming endpoint
     Given chat stream scenario "chat-fixture"
     When I POST to the chat endpoint with the chat request fixture
     Then the chat stream status code is 202
-    And I can subscribe via WebSocket and receive an inflight snapshot and a final event
+    When I wait for the WebSocket inflight snapshot and final event
+    Then the WebSocket stream includes an inflight snapshot and a final event
 
   Scenario: Provider unavailable returns existing 503 error envelope
     Given chat stream scenario "chat-error"
@@ -17,7 +18,8 @@ Feature: chat streaming endpoint
     Given chat stream scenario "chat-tools"
     When I POST to the chat endpoint with the chat request fixture
     Then the chat stream status code is 202
-    And the streamed events include tool request and result events
+    When I wait for streamed tool request and result events
+    Then the streamed events include tool request and result events
     And tool events are logged to the log store
 
   Scenario: chat history is passed to LM Studio
@@ -110,11 +112,13 @@ Feature: chat streaming endpoint
     When I POST to the chat endpoint with provider "copilot" and model "copilot-gpt-5"
     Then the chat stream status code is 202
     And the chat start response provider is "copilot"
-    And I can subscribe via WebSocket and receive an inflight snapshot and a final event
+    When I wait for the WebSocket inflight snapshot and final event
+    Then the WebSocket stream includes an inflight snapshot and a final event
     And the Copilot Cucumber registration log records scenario "copilot-happy-path"
 
   Scenario: Copilot streamed failure scenario surfaces the documented error path
     Given chat stream scenario "copilot-stream-error"
     When I POST to the chat endpoint with provider "copilot" and model "copilot-gpt-5"
     Then the chat stream status code is 202
-    And the WebSocket stream includes a failed final event "copilot fake scenario failed"
+    When I wait for the WebSocket failed final event "copilot fake scenario failed"
+    Then the WebSocket stream includes a failed final event "copilot fake scenario failed"

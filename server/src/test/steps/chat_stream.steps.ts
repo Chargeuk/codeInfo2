@@ -431,48 +431,54 @@ Then('the chat stream status code is {int}', (status: number) => {
   }
 });
 
+When('I wait for the WebSocket inflight snapshot and final event', async () => {
+  assert.ok(startResponse);
+  await ensureWsSubscribed(startResponse.conversationId);
+
+  const snapshot = await waitForEvent({
+    ws: ws as WebSocket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'inflight_snapshot' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflight?.inflightId === startResponse?.inflightId
+      );
+    },
+  });
+  received.push(snapshot);
+
+  const final = await waitForEvent({
+    ws: ws as WebSocket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'turn_final' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflightId === startResponse?.inflightId
+      );
+    },
+    timeoutMs: 4000,
+  });
+  received.push(final);
+});
+
 Then(
-  'I can subscribe via WebSocket and receive an inflight snapshot and a final event',
-  async () => {
-    assert.ok(startResponse);
-    await ensureWsSubscribed(startResponse.conversationId);
-
-    const snapshot = await waitForEvent({
-      ws: ws as WebSocket,
-      predicate: (event: unknown): event is WsEvent => {
-        const e = event as WsEvent;
-        return (
-          e?.type === 'inflight_snapshot' &&
-          e.conversationId === startResponse?.conversationId &&
-          e.inflight?.inflightId === startResponse?.inflightId
-        );
-      },
-    });
-    received.push(snapshot);
-
-    const final = await waitForEvent({
-      ws: ws as WebSocket,
-      predicate: (event: unknown): event is WsEvent => {
-        const e = event as WsEvent;
-        return (
-          e?.type === 'turn_final' &&
-          e.conversationId === startResponse?.conversationId &&
-          e.inflightId === startResponse?.inflightId
-        );
-      },
-      timeoutMs: 4000,
-    });
-    received.push(final);
+  'the WebSocket stream includes an inflight snapshot and a final event',
+  () => {
+    const snapshot = received.find((event) => event.type === 'inflight_snapshot');
+    const final = received.find((event) => event.type === 'turn_final');
+    assert(snapshot, 'expected inflight snapshot event');
+    assert(final, 'expected final turn event');
   },
 );
 
-Then(
-  'the WebSocket stream includes a failed final event {string}',
+When(
+  'I wait for the WebSocket failed final event {string}',
   async (message: string) => {
     assert.ok(startResponse);
     await ensureWsSubscribed(startResponse.conversationId);
-
-    await waitForEvent({
+    const final = await waitForEvent({
       ws: ws as WebSocket,
       predicate: (event: unknown): event is WsEvent => {
         const e = event as WsEvent;
@@ -486,14 +492,26 @@ Then(
       },
       timeoutMs: 4000,
     });
+    received.push(final);
   },
 );
 
-Then('the streamed events include tool request and result events', async () => {
+Then(
+  'the WebSocket stream includes a failed final event {string}',
+  (message: string) => {
+    const failedFinal = received.find(
+      (event) =>
+        event.type === 'turn_final' &&
+        event.status === 'failed' &&
+        (event.error?.message ?? '').includes(message),
+    );
+    assert(failedFinal, 'expected failed final event');
+  },
+);
+
+When('I wait for streamed tool request and result events', async () => {
   assert.ok(startResponse);
   await ensureWsSubscribed(startResponse.conversationId);
-
-  const seen = new Set<string>();
 
   const snapshot = await waitForEvent({
     ws: ws as WebSocket,
@@ -506,14 +524,8 @@ Then('the streamed events include tool request and result events', async () => {
       );
     },
   });
-
-  (snapshot.inflight?.toolEvents ?? []).forEach((tool) => {
-    const type = (tool as { type?: string }).type;
-    if (type) seen.add(type);
-  });
   received.push(snapshot);
 
-  // Also wait for at least one live tool_event so this scenario asserts WS streaming.
   const firstTool = await waitForEvent({
     ws: ws as WebSocket,
     predicate: (event: unknown): event is WsEvent => {
@@ -523,14 +535,26 @@ Then('the streamed events include tool request and result events', async () => {
         e.conversationId === startResponse?.conversationId &&
         e.inflightId === startResponse?.inflightId
       );
-    },
-    timeoutMs: 4000,
+      },
+      timeoutMs: 4000,
   });
   received.push(firstTool);
-  if (firstTool.event?.type) seen.add(firstTool.event.type);
 
-  // If we didn't see both request/result yet, wait a bit longer.
-  while (!(seen.has('tool-request') && seen.has('tool-result'))) {
+  const seenTypes = () => {
+    const seen = new Set<string>();
+    for (const event of received) {
+      (event.inflight?.toolEvents ?? []).forEach((tool) => {
+        const type = (tool as { type?: string }).type;
+        if (type) seen.add(type);
+      });
+      if (event.type === 'tool_event' && event.event?.type) {
+        seen.add(event.event.type);
+      }
+    }
+    return seen;
+  };
+
+  while (!(seenTypes().has('tool-request') && seenTypes().has('tool-result'))) {
     const next = await waitForEvent({
       ws: ws as WebSocket,
       predicate: (event: unknown): event is WsEvent => {
@@ -544,7 +568,19 @@ Then('the streamed events include tool request and result events', async () => {
       timeoutMs: 4000,
     });
     received.push(next);
-    if (next.event?.type) seen.add(next.event.type);
+  }
+});
+
+Then('the streamed events include tool request and result events', () => {
+  const seen = new Set<string>();
+  for (const event of received) {
+    (event.inflight?.toolEvents ?? []).forEach((tool) => {
+      const type = (tool as { type?: string }).type;
+      if (type) seen.add(type);
+    });
+    if (event.type === 'tool_event' && event.event?.type) {
+      seen.add(event.event.type);
+    }
   }
 
   assert(seen.has('tool-request'), 'tool-request missing');

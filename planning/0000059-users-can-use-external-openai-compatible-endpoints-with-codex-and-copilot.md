@@ -1743,7 +1743,7 @@ Repair the producer-consumer contract spanning endpoint discovery, `/chat/provid
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 14`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `8` from review pass `0000059-20260608T155357Z-e960c572`. It must stop duplicate fresh-flow launches after ambiguous completion without widening Story 59 into a new flow product contract or unrelated lifecycle redesign.
 

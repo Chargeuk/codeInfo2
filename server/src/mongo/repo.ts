@@ -68,9 +68,11 @@ function mergeConversationMetaFlags(params: {
   currentFlags?: Record<string, unknown> | null;
   nextFlags?: Record<string, unknown> | null;
 }): Record<string, unknown> {
-  const currentFlags = isPlainObject(params.currentFlags)
-    ? { ...params.currentFlags }
-    : {};
+  const currentFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.currentFlags,
+    { preserveFlowState: true },
+  );
   const nextFlags = sanitizeConversationFlagsForProvider(
     params.provider,
     params.nextFlags,

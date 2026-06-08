@@ -1289,7 +1289,7 @@ If a Codex or Copilot manual-proof step reaches an auth-dependent surface and re
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 11`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs the two serious `/chat` route defects from review pass `0000059-20260607T101345Z-9dfe9788` without widening Story 59 beyond restoring the approved route and persistence behavior. The required constraint is to preserve existing user-visible provider and endpoint behavior while making active-run conflict authority and persisted conversation flag freshness honest again.
 

@@ -1743,7 +1743,7 @@ Repair the producer-consumer contract spanning endpoint discovery, `/chat/provid
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 14`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `8` from review pass `0000059-20260608T155357Z-e960c572`. It must stop duplicate fresh-flow launches after ambiguous completion without widening Story 59 into a new flow product contract or unrelated lifecycle redesign.
 
@@ -1810,6 +1810,7 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 - Owner map: retry ownership is created in `startFlowRun()` before the async flow launches, remains live through the in-flight window, and is now copied into a separate completed barrier before the inflight record is cleared in `finally`; replay reads the active map first, then the bounded completed map, with separate maps distinguishing in-flight versus completed state and a distinct launch signature rejecting contradictory reuse.
 - Fresh-flow retry ownership now keeps a bounded completion record after the run finishes, so a same-signature replay returns the earlier accepted launch result instead of launching a second run, while distinct retry ids still start fresh runs.
 - Targeted proof passed: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` completed successfully with 35/35 passing, covering the split in-flight, post-completion, contradiction, and true-new-request cases.
+- Task 17 automated-proof audit confirmed the implementation and targeted proof are both complete, no live blocker remains, and the repaired fresh-flow retry barrier stays inside Story 59 scope without widening the external flow contract. The task is now `__done__`; any broader cross-story validation remains owned by the later shared final revalidation task.
 
 ### Task 18. Final Revalidation For Review Cycle 0000059-rc-20260608T182732Z-e960c572
 

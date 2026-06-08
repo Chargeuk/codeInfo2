@@ -142,6 +142,7 @@ async function setCodexHome(chatToml?: string) {
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
 });
 
 afterEach(async () => {
@@ -1100,9 +1101,9 @@ test('codex models route preserves duplicate raw model ids across distinct endpo
       .get('/chat/models?provider=codex')
       .expect(200);
 
-    const sharedModels = (res.body.models as Array<Record<string, unknown>>).filter(
-      (model) => model.key === 'shared-model',
-    );
+    const sharedModels = (
+      res.body.models as Array<Record<string, unknown>>
+    ).filter((model) => model.key === 'shared-model');
     assert.equal(sharedModels.length, 2);
     assert.equal(sharedModels[0]?.endpointId, `${firstServer.baseUrl}/v1`);
     assert.equal(sharedModels[1]?.endpointId, `${secondServer.baseUrl}/v1`);

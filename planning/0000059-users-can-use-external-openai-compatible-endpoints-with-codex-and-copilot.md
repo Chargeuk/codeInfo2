@@ -1329,6 +1329,9 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 - Requirement: an already active `/chat` conversation returns the stable `RUN_IN_PROGRESS` conflict even when later provider readiness or endpoint bootstrap would otherwise fail first.
   Implementation files: `server/src/routes/chat.ts`
   Proof owner: `server/src/test/integration/chat-codex.test.ts`, using a locked conversation fixture that would otherwise traverse the repaired bootstrap path.
+- Requirement: once the active-run conflict exists, the same `/chat` request path never leaks the later provider-readiness, endpoint-discovery, or bootstrap error family instead of `RUN_IN_PROGRESS`.
+  Implementation files: `server/src/routes/chat.ts`
+  Proof owner: `server/src/test/integration/chat-codex.test.ts`, using the same conflict-before-bootstrap scenario to assert the negative error-family boundary directly instead of only the final status code.
 - Requirement: the loser path leaves persisted provider, model, and `flags` state unchanged until the lock owner can mutate that record.
   Implementation files: `server/src/routes/chat.ts`
   Proof owner: `server/src/test/integration/chat-codex.test.ts`, using direct post-request reads of the persisted conversation record.
@@ -1341,7 +1344,7 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/routes/chat.ts` and record one short owner map in `Implementation Notes` that names the exact pre-lock conflict seam inside `ensureConversation()`, the stale `currentFlags` and `existing.flags` values read before bootstrap, the resumed-request reader surface that restores `endpointId`, `workingFolder`, and `threadId`, the later `updateConversationMeta()` write boundary this task will change, and which side of the active-run lifecycle is allowed to persist or clean up metadata.
+1. [x] Re-open `server/src/routes/chat.ts` and record one short owner map in `Implementation Notes` that names the exact pre-lock conflict seam inside `ensureConversation()`, the stale `currentFlags` and `existing.flags` values read before bootstrap, the resumed-request reader surface that restores `endpointId`, `workingFolder`, and `threadId`, the later `updateConversationMeta()` write boundary this task will change, and which side of the active-run lifecycle is allowed to persist or clean up metadata.
 2. [ ] Patch the active-run conflict branch in `server/src/routes/chat.ts` so the production `/chat` handler returns `RUN_IN_PROGRESS` before later provider readiness, endpoint discovery, or bootstrap failures can mask that conflict. Keep this change on the real request path that currently reaches the later bootstrap branch, and do not widen provider-selection or conversation-edit behavior while moving the conflict decision earlier.
 3. [ ] Patch the late metadata write boundary in `server/src/routes/chat.ts` and `server/src/mongo/repo.ts`, centered on `updateConversationMeta()`, so the repaired write merges the freshest persisted `endpointId`, `workingFolder`, and `threadId` values instead of replaying the stale pre-bootstrap `currentFlags` snapshot over `existing.flags`. Preserve the loser-path boundary while doing this work: the losing request must not partially persist stale metadata, clear fresher values, or perform cleanup that belongs to the lock owner.
 4. [ ] Refresh the route-owned proof in `server/src/test/integration/chat-codex.test.ts` so the file contains one explicitly named conflict-before-bootstrap scenario rather than only a generic `409 RUN_IN_PROGRESS` title. That proof must drive the same request shape that would have hit the later bootstrap failure if the lock boundary were still too late, and the same titled scenario must assert the combined invariant that the loser request returns `RUN_IN_PROGRESS`, never surfaces the later bootstrap error family, and leaves provider, model, and `flags` unchanged on the persisted conversation record.
@@ -1354,7 +1357,7 @@ Repair the `/chat` route so an already active conversation exposes the stable `R
 
 #### Implementation Notes
 
-- None yet.
+- Re-read the route and persistence seams: the conflict decision currently happens after provider/bootstrap preparation, and the late metadata write still feeds `updateConversationMeta()` from the pre-bootstrap `existing.flags` snapshot.
 
 ### Task 13. Restore Endpoint Identity On The /chat/models Default-Selection Path
 
@@ -1401,12 +1404,18 @@ Repair the `/chat/models` default-selection path so endpoint identity survives f
 - Requirement: the `/chat/models` producer-consumer seam preserves enough endpoint-aware default-selection identity for duplicate raw model ids to remain distinct.
   Implementation files: `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`
   Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`
+- Requirement: duplicate raw model ids do not collapse back to the first matching endpoint-backed entry when the normalized `/chat/providers` plus `/chat/models` payload is rebuilt after refresh.
+  Implementation files: `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `common/src/lmstudio.ts`
+  Proof owners: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, using one duplicate-id route contract scenario that keeps the selected endpoint and default-selection identity together.
 - Requirement: client refresh and provider-switch fallback restore the correct endpoint-backed default instead of snapping to the first duplicate raw model id.
   Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`
   Proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 - Requirement: mixed create-vs-reuse state retains restored endpoint identity only while the reused conversation remains active, then clears or excludes that stale reuse-mode state when the user returns to a fresh draft so hidden endpoint state cannot steer fresh create-mode selection or submission.
   Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`
   Proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- Requirement: once the user returns from reuse mode to a fresh draft, hidden or disabled stale endpoint identity no longer influences create-mode selection or submission even when duplicate raw model ids and preserved local draft state still exist.
+  Implementation files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`
+  Proof owner: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, using a deterministic refresh-and-return-to-fresh-draft scenario that proves the stale reuse-mode identity stays excluded from the fresh path.
 
 #### Subtasks
 

@@ -76,14 +76,17 @@ test('targeted feature imports reject crafted paths that would escape the step-d
     ]),
     [],
   );
-  assert.deepEqual(buildCucumberImportArgs(tempServerDir, [
-    'src/test/features/../../../scripts/escape.feature',
-  ]), [
-    '--import',
-    'src/test/support/chromaContainer.ts',
-    '--import',
-    'src/test/support/mongoContainer.ts',
-    '--import',
-    'src/test/steps/**/*.ts',
-  ]);
+  assert.deepEqual(
+    buildCucumberImportArgs(tempServerDir, [
+      'src/test/features/../../../scripts/escape.feature',
+    ]),
+    [
+      '--import',
+      'src/test/support/chromaContainer.ts',
+      '--import',
+      'src/test/support/mongoContainer.ts',
+      '--import',
+      'src/test/steps/**/*.ts',
+    ],
+  );
 });

@@ -14,9 +14,7 @@ import {
 import { buildConversationFlags } from '../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
-import {
-  normalizeImplicitCopilotRequestedModel,
-} from '../chat/copilotModelSupport.js';
+import { normalizeImplicitCopilotRequestedModel } from '../chat/copilotModelSupport.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
   abortInflight,
@@ -35,9 +33,7 @@ import {
   memoryConversations,
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
-import {
-  resolveOpenAiCompatEndpointRuntimeState,
-} from '../chat/openaiCompatModelDiscovery.js';
+import { resolveOpenAiCompatEndpointRuntimeState } from '../chat/openaiCompatModelDiscovery.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -196,9 +192,10 @@ function resolveOpenAiCompatEndpointForChat(params: {
     copilotHome: params.copilotHome,
   });
 
-  const endpoint = [...envResolution.endpoints, ...(pinnedEndpoint ? [pinnedEndpoint] : [])].find(
-    (entry) => entry.endpointId === normalizedEndpointId,
-  );
+  const endpoint = [
+    ...envResolution.endpoints,
+    ...(pinnedEndpoint ? [pinnedEndpoint] : []),
+  ].find((entry) => entry.endpointId === normalizedEndpointId);
   if (!endpoint) {
     return undefined;
   }
@@ -212,7 +209,12 @@ function resolveOpenAiCompatEndpointForChat(params: {
 }
 
 const buildRuntimeSelectionWarning = (params: {
-  executionPath: 'configured_endpoint' | 'same_endpoint_repair' | 'same_provider_native_fallback' | 'cross_provider_fallback' | 'unavailable';
+  executionPath:
+    | 'configured_endpoint'
+    | 'same_endpoint_repair'
+    | 'same_provider_native_fallback'
+    | 'cross_provider_fallback'
+    | 'unavailable';
   requestedProvider: ChatDefaultProvider;
   executionProvider: ChatDefaultProvider;
   requestedModel: string;
@@ -607,7 +609,9 @@ export function createChatRouter({
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'endpoint pin validation failed';
+        error instanceof Error
+          ? error.message
+          : 'endpoint pin validation failed';
       if (
         (error instanceof RuntimeConfigResolutionError &&
           (error.code === 'RUNTIME_CONFIG_INVALID' ||
@@ -628,9 +632,7 @@ export function createChatRouter({
       endpointId ??
       pinnedSelectedEndpoint?.endpointId ??
       undefined;
-    let selectedOpenAiCompatEndpoint:
-      | OpenAiCompatEndpointConfig
-      | undefined;
+    let selectedOpenAiCompatEndpoint: OpenAiCompatEndpointConfig | undefined;
     try {
       selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({
         provider: effectiveRequestedProvider,
@@ -641,9 +643,7 @@ export function createChatRouter({
       });
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : 'endpointId validation failed';
+        error instanceof Error ? error.message : 'endpointId validation failed';
       return res.status(400).json({
         status: 'error',
         code: 'VALIDATION_FAILED',
@@ -931,7 +931,7 @@ export function createChatRouter({
             ? currentFlags.endpointId.trim()
             : undefined;
         const persistedEndpointId = executionUsesEndpoint
-          ? selectedEndpointId ?? currentEndpointId ?? null
+          ? (selectedEndpointId ?? currentEndpointId ?? null)
           : null;
         const persistedThreadId =
           threadId ??
@@ -1018,9 +1018,7 @@ export function createChatRouter({
         conversationId,
         provider: executionProvider,
         model: executionModel,
-        flags: buildRuntimeConversationFlags(
-          existing.flags,
-        ),
+        flags: buildRuntimeConversationFlags(existing.flags),
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)
@@ -1346,9 +1344,12 @@ export function createChatRouter({
                 null)
               : null) ??
             null;
+          const codexChatRuntimeConfig = chatRuntimeConfig as
+            | CodexOptions['config']
+            | undefined;
           const codexRuntimeConfig = repositoryBackedCodexRun
-            ? omitCodexRuntimeModelForConfigDefaults(chatRuntimeConfig)
-            : chatRuntimeConfig;
+            ? omitCodexRuntimeModelForConfigDefaults(codexChatRuntimeConfig)
+            : codexChatRuntimeConfig;
 
           await chat.run(
             message,

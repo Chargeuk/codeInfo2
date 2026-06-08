@@ -124,6 +124,7 @@ async function stopServer(server: { httpServer: http.Server }) {
 beforeEach(() => {
   resetMcpStatusCache();
   __resetProviderBootstrapStatusForTests();
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
 });
 
 afterEach(async () => {
@@ -456,18 +457,12 @@ test('copilot models route preserves duplicate raw model ids across distinct end
       .get('/chat/models?provider=copilot')
       .expect(200);
 
-    const sharedModels = (res.body.models as Array<Record<string, unknown>>).filter(
-      (model) => model.key === 'shared-copilot-model',
-    );
+    const sharedModels = (
+      res.body.models as Array<Record<string, unknown>>
+    ).filter((model) => model.key === 'shared-copilot-model');
     assert.equal(sharedModels.length, 2);
-    assert.equal(
-      sharedModels[0]?.endpointId,
-      `${firstServer.baseUrl}/v1`,
-    );
-    assert.equal(
-      sharedModels[1]?.endpointId,
-      `${secondServer.baseUrl}/v1`,
-    );
+    assert.equal(sharedModels[0]?.endpointId, `${firstServer.baseUrl}/v1`);
+    assert.equal(sharedModels[1]?.endpointId, `${secondServer.baseUrl}/v1`);
     assert.equal(sharedModels[0]?.type, 'copilot');
     assert.equal(sharedModels[1]?.type, 'copilot');
   } finally {

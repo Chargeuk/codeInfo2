@@ -451,6 +451,19 @@ export function createChatRouter({
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
+    const getCompletedReplayResponse = (inflightId: string) => {
+      const completedReplay = getCompletedInflight({
+        conversationId,
+        inflightId,
+      });
+      return completedReplay
+        ? buildCompletedReplayResponse({
+            conversationId,
+            inflightId,
+            finalStatus: completedReplay.finalStatus,
+          })
+        : null;
+    };
     const loadExistingConversation = async (): Promise<Conversation | null> =>
       shouldUseMemoryPersistence()
         ? (memoryConversations.get(conversationId) ?? null)
@@ -491,18 +504,11 @@ export function createChatRouter({
       typeof requestedInflightId === 'string' &&
       requestedInflightId.length > 0
     ) {
-      const completedReplay = getCompletedInflight({
-        conversationId,
-        inflightId: requestedInflightId,
-      });
-      if (completedReplay) {
-        return res.status(409).json(
-          buildCompletedReplayResponse({
-            conversationId,
-            inflightId: requestedInflightId,
-            finalStatus: completedReplay.finalStatus,
-          }),
-        );
+      const completedReplayResponse = getCompletedReplayResponse(
+        requestedInflightId,
+      );
+      if (completedReplayResponse) {
+        return res.status(409).json(completedReplayResponse);
       }
     }
     const safeBase = scrubBaseUrl(baseUrl);
@@ -1132,6 +1138,19 @@ export function createChatRouter({
       );
     });
 
+    if (
+      typeof requestedInflightId === 'string' &&
+      requestedInflightId.length > 0
+    ) {
+      const completedReplayResponse = getCompletedReplayResponse(
+        requestedInflightId,
+      );
+      if (completedReplayResponse) {
+        releaseConversationLockFn(conversationId, runToken);
+        return res.status(409).json(completedReplayResponse);
+      }
+    }
+
     if (runtimeSelection.unavailable) {
       const message =
         runtimeSelection.requestedReason ?? 'provider unavailable';
@@ -1147,19 +1166,10 @@ export function createChatRouter({
           ? requestedInflightId
           : crypto.randomUUID();
 
-      const completedReplay = getCompletedInflight({
-        conversationId,
-        inflightId,
-      });
-      if (completedReplay) {
+      const completedReplayResponse = getCompletedReplayResponse(inflightId);
+      if (completedReplayResponse) {
         releaseConversationLockFn(conversationId, runToken);
-        return res.status(409).json(
-          buildCompletedReplayResponse({
-            conversationId,
-            inflightId,
-            finalStatus: completedReplay.finalStatus,
-          }),
-        );
+        return res.status(409).json(completedReplayResponse);
       }
 
       const ensuredConversation = await ensureConversation();

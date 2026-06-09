@@ -2355,3 +2355,159 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - `npm run format:check` passed cleanly on the repaired final story head, closing the final hygiene gate for this review cycle.
 - Implementation-plus-proof audit: the checked Task 22 proof claims are supported by on-disk wrapper evidence, including `test-results/server-unit-tests-2026-06-09T14-40-54-870Z.log` (`2227/2227` passed), `test-results/server-cucumber-tests-2026-06-09T15-17-06-357Z.log` (`129/129` passed), `test-results/client-tests-2026-06-09T15-24-14-160Z.log` (`887/887` passed), and `logs/test-summaries/e2e-tests-latest.log` (`76` expected, `0` unexpected), plus the current build and compose summary logs. No unchecked subtasks, unchecked automated testing, or live blockers remain, and this audit found no story-caused preserved-behavior drift beyond the approved Story 59 scope, so Task 22 is complete.
 - Manual full-story proof reran on a freshly restarted checked-in main stack because no supported freshness marker proved reuse, then returned that stack to its prior stopped state with `npm run compose:down`. The repaired story head still exposed the supported new-conversation chat state as native `codex` / `gpt-5.3-codex`, restored endpoint-backed Codex and Copilot histories with `192.168.1.3:1234 / google/gemma-4-26b-a4b-qat`, restored native Codex history with `gpt-5.3-codex`, preserved the reset-to-fresh-draft boundary after returning from endpoint-backed history, and kept browser console or network sanity limited to non-blocking accessibility issues plus successful `200`/`304` chat data requests. The same pass also re-proved the Task 21 replay seam on the final story head by launching `POST /flows/smoke/run` with `retryOwnershipId` `task22-manual-retry-1`, observing a completed two-turn conversation, restarting the stack, and confirming the same request returned the same `conversationId` and `inflightId` with no duplicate turns after restart. Scratch proof for this pass is stored under `codeInfoTmp/manual-testing/0000059/22/`, including `proof-01-new-conversation-desktop.png`, `proof-02-codex-endpoint-history-desktop.png`, `proof-03-reset-fresh-draft-desktop.png`, `proof-04-copilot-endpoint-history-desktop.png`, `proof-05-native-codex-history-desktop.png`, `proof-06-new-conversation-mobile.png`, and the supporting health, provider, flow, conversation, and replay JSON captures. Playwright screenshot staging was attempted per the task guidance, but the active Playwright runtime could not create the requested nested staging path and did not expose a usable bound output path from this session, so the retained screenshots were captured directly with Chrome DevTools instead; these latest Task 22 screenshots supersede earlier scratch screenshots for the same re-covered story-owned chat surfaces, and no additional subtasks were needed.
+
+## Code Review Findings
+
+- Review pass: `0000059-20260609T163848Z-7744b884`
+- Review cycle: `0000059-rc-20260609T173931Z-de51b749`
+- Comparison context: local `HEAD` versus resolved base `origin/main@88f01984bf41500111ce1ee98e0aee2418fd9602` from the stored review handoff, with comparison rule `local_head_vs_resolved_base` and remote fetch status `success`.
+- Confidence note: the stored review handoff compared current Story 59 head `7744b8841c631211a1bec962e53a82386e9ab70d` against `origin/main`; this block encodes the unresolved task-required finding from the stored review disposition state rather than a newly rediscovered diff.
+- Inline-resolved minor findings already recorded for this same active review cycle and revalidated by the fresh final task below: `none`.
+- Remaining task-up findings encoded below: `1`.
+
+### Task 23. Prevent Intervening Writes From Reapplying Stale Conversation Flags
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 22`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T163848Z-7744b884`. It must stop `updateConversationMeta()` from writing a stale read-merge-write snapshot back over newer conversation flags without widening Story 59 into a broader metadata or runtime-contract redesign.
+
+#### Overview
+
+Repair the shared conversation metadata write seam so a caller that read flags earlier cannot later overwrite fresher `endpointId`, `threadId`, `workingFolder`, or flow-owned metadata after another writer has already updated the same conversation. The fix must preserve the current Story 59 behavior for `/chat`, agent, flow, and codebase-question callers while replacing the stale full-object write path with an ownership-safe or version-safe update contract that does not silently reapply older intent after a fresher write has already won.
+
+#### Task Exit Criteria
+
+- `updateConversationMeta()` no longer writes a precomputed stale full `flags` snapshot back over a newer intervening write.
+- The repaired helper still supports the current Story 59 caller-owned metadata behavior for `/chat`, agent, flow, and codebase-question writers without widening into a new public persistence API.
+- The retained proof directly exercises an intervening-write contradiction case instead of proving only single-snapshot merge math.
+- The repair stays bounded to the shared conversation metadata persistence seam and any one-step same-repository caller adjustments required to preserve the intended helper contract.
+
+#### Addresses Findings
+
+- `1` - `updateConversationMeta()` can overwrite newer conversation flags after an intervening write because it reads, pre-merges, and then writes a stale full `flags` snapshot without an ownership or version guard.
+
+#### Risk Ownership
+
+- Shared-helper guard: the repair must close the stale read-merge-write overwrite window in `server/src/mongo/repo.ts` without creating a second inconsistent write path in direct callers.
+- Caller-contract guard: preserve current Story 59 behavior for `endpointId`, `threadId`, `workingFolder`, and flow-owned flags across `/chat`, agent, flow, and codebase-question writers instead of redefining which surface owns those fields.
+- Scope guard: do not widen this task into a new metadata API, queue contract, or unrelated persistence redesign.
+- Proof-honesty guard: retained proof must show a newer intervening write survives a later stale writer rather than passing only because both writes shared one snapshot.
+
+#### Owner Map
+
+- Shared metadata-write seam: `server/src/mongo/repo.ts`
+- Direct caller seams to preserve: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
+- Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` and one additional focused server proof file only if the helper change alone cannot prove caller behavior honestly
+
+#### Requirement-To-Proof Mapping
+
+- Requirement: a later stale metadata writer cannot overwrite a newer intervening `flags` write on the same conversation.
+  Implementation files or surfaces: `server/src/mongo/repo.ts`
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- Requirement: the repaired helper still preserves Story 59 caller behavior for endpoint identity, thread identity, working-folder state, and flow-owned flags across the changed direct callers.
+  Implementation files or surfaces: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` plus one focused same-repository server proof file only if the caller contract cannot be shown honestly from the shared helper test alone
+- Requirement: the repair does not silently broaden into a new public persistence contract or a user-facing behavior change outside approved Story 59 scope.
+  Implementation files or surfaces: this review-created findings block, the helper seam, and any one-step caller follow-up retained by the repair
+  Proof owners: Task 23 `Implementation Notes`, `npm run test:summary:server:unit`
+
+#### Subtasks
+
+1. [ ] Re-open `server/src/mongo/repo.ts` plus the direct `flags` writers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts`, then record one short owner note in `Implementation Notes` naming which caller-owned flag surfaces must keep newer state authoritative when writes race and which helper seam will own the stale-write protection.
+2. [ ] Repair `updateConversationMeta()` in `server/src/mongo/repo.ts` so it no longer writes a precomputed stale full `flags` object after an intervening write. Keep current Story 59 behavior for `endpointId`, `threadId`, `workingFolder`, and flow-owned flags intact; if one changed direct caller still needs a bounded companion adjustment to follow the repaired helper contract honestly, keep that adjustment in the same repository and record it in `Implementation Notes`.
+3. [ ] Extend `server/src/test/unit/chat-interface-run-persistence.test.ts` with an intervening-write contradiction case that proves a newer flag update survives a later stale writer. Add one additional focused same-repository server proof file only if the helper-level proof cannot honestly show the preserved caller behavior through the repaired seam.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired conversation metadata write seam still compiles cleanly on the Story 59 head.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the intervening-write contradiction case and the repaired shared helper contract directly.
+
+#### Implementation Notes
+
+- Review constraint: the repair must address the shared metadata overwrite race while preserving approved Story 59 endpoint and conversation behavior; it must not reinterpret the story as permission to redesign metadata ownership or broaden user-facing fallback behavior.
+
+### Task 24. Final Revalidation For Review Cycle 0000059-rc-20260609T173931Z-de51b749
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 23`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T173931Z-de51b749`. It must revalidate the current review-created finding block for review pass `0000059-20260609T163848Z-7744b884` and also cover any inline-resolved minor fixes already recorded for this same active review cycle.
+
+#### Overview
+
+Re-run the relevant wrapper-first regression proof for the current review-created findings block after Task 23 lands, and confirm that the same story head still covers the repaired conversation metadata persistence seam plus any inline-resolved minor fixes already recorded for this review cycle. This task is the one broad regression owner for the current repository in this review-created block: it owns the relevant server, client, browser-visible chat, checked-in main-stack smoke, and hygiene proof on the repaired final story head.
+
+#### Task Exit Criteria
+
+- Review pass `0000059-20260609T163848Z-7744b884` has fresh proof on the story head for Finding `1`.
+- The same final proof pass also covers any inline-resolved minor fixes recorded for this active review cycle; none are currently recorded, and the task must keep that explicit if it remains true.
+- The current repository's relevant server, client, browser-visible chat, compose-backed smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
+- Final `Implementation Notes` map the current-cycle review-created finding block to its surviving proof owners on the repaired story head, including which browser-visible coverage remains broad-wrapper-owned versus client-wrapper-owned only.
+
+#### Addresses Findings
+
+- Review-created finding for review pass `0000059-20260609T163848Z-7744b884`: `1`
+- Inline-resolved minor findings revalidated here for the same review cycle: `none currently recorded`
+
+#### Affected Repositories
+
+- `Current Repository` - owns the repaired conversation metadata persistence seam, the direct caller proof surfaces that consume it, the browser-visible chat proof surface, and the checked-in main-stack runtime proof for this review-created findings block.
+
+#### Risk Ownership
+
+- Proof-owner mapping guard: this task is only complete when review-created Finding `1` is mapped to an explicit surviving proof home on the final story head rather than assumed covered by a broad wrapper.
+- Shared wrapper or baseline seam: `npm run build:summary:*`, `npm run test:summary:*`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run test:summary:e2e` can fail for baseline or harness reasons unrelated to the repaired Story 59 assertions; when that happens, this task must record the interruption honestly instead of reopening Task 23 as wrapper-repair work.
+- Browser-visible scope guard: the repository-supported `npm run test:summary:e2e` path remains the broad browser-visible owner only for the chat history and send surfaces; this task must not widen into unrelated auth-dependent or provider-picker redesign work.
+- Runtime-boundary guard: the checked-in main-stack smoke remains a runtime-boundary proof only; it must not be misused as the only evidence for server, client, or browser-visible behavior that has dedicated wrapper proof homes elsewhere in this task.
+
+#### Owner Map
+
+- Server build and automated proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
+- Client build and unit wrapper owners: `npm run build:summary:client`, `npm run test:summary:client`
+- Browser-visible chat proof owner: `npm run test:summary:e2e`
+- Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Final hygiene proof owner: `npm run lint`, `npm run format:check`
+
+#### Requirement-To-Proof Mapping
+
+- Requirement: review-created Finding `1` remains mapped to explicit surviving proof homes on the final story head rather than assumed covered implicitly by a broad wrapper.
+  Implementation files or surfaces: this review-created findings block, `server/src/test/unit/chat-interface-run-persistence.test.ts`, and any additional focused proof file retained by Task 23
+  Proof owners: Task 24 `Implementation Notes`, `npm run test:summary:server:unit`
+- Requirement: the repaired conversation metadata persistence seam still passes full repository-supported regression proof on the final story head after Task 23 lands.
+  Implementation files or surfaces: `server/src/mongo/repo.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
+  Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
+- Requirement: the repaired story head still preserves the client-owned endpoint identity, working-folder parity, and repository-supported browser-visible chat surfaces that Story 59 already owns.
+  Implementation files or surfaces: retained client proof-owner files touched by Story 59, `scripts/test-summary-e2e.mjs`
+  Proof owners: `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e`
+- Requirement: the checked-in main-stack runtime path remains reachable through the default compose wrapper path, wrapper-owned env-file loading, mounted proof roots as the manual proof seed or setup source, readiness checks, and teardown order instead of only through targeted or stale local-runtime routes.
+  Implementation files or surfaces: `scripts/docker-compose-with-env.sh`, `docker-compose.yml`
+  Proof owners: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Requirement: lint and format hygiene stay green on the repaired final story head so final proof is not hiding residual repository-surface regressions.
+  Implementation files or surfaces: repository-wide final Story 59 head
+  Proof owners: `npm run lint`, `npm run format:check`
+
+#### Subtasks
+
+1. [ ] Re-open this review-created findings block plus the retained proof-owner files touched by Task 23, then record one explicit proof-owner mapping in `Implementation Notes` for review-created Finding `1`, any inline-resolved minor fixes recorded later in this same review cycle, and the Story 59 browser-visible chat boundaries that remain broad-wrapper-owned on the final story head.
+2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that names which wrapper or smoke step owns each baseline boundary for this review-created block and that env-file loading remains owned by the compose wrapper path.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired conversation metadata seam compiles cleanly on the final story head.
+2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
+3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
+4. [ ] Run `npm run test:summary:server:unit` to prove the repaired conversation metadata persistence seam and its focused proof owners still hold on the final story head.
+5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
+6. [ ] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the shared metadata fix.
+7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
+8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
+9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+
+#### Implementation Notes
+
+- Review task role: final revalidation owner for review cycle `0000059-rc-20260609T173931Z-de51b749`.

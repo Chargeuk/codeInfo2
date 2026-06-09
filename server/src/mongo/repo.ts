@@ -133,6 +133,11 @@ export interface UpdateConversationMetaInput {
   lastMessageAt?: Date;
 }
 
+export type UpdateConversationMetaOutcome =
+  | { outcome: 'applied'; conversation: Conversation }
+  | { outcome: 'not_found' }
+  | { outcome: 'retry_exhausted'; conversation: Conversation };
+
 export interface UpdateConversationWorkingFolderInput {
   conversationId: string;
   workingFolder?: string | null;
@@ -192,11 +197,11 @@ export async function createConversation(
 
 export async function updateConversationMeta(
   input: UpdateConversationMetaInput,
-): Promise<Conversation | null> {
+): Promise<UpdateConversationMetaOutcome> {
   const existing = await ConversationModel.findById(input.conversationId)
     .lean()
     .exec();
-  if (!existing) return null;
+  if (!existing) return { outcome: 'not_found' };
 
   const buildUpdate = (current: Conversation): Partial<Conversation> => {
     const update: Partial<Conversation> = {} as Partial<Conversation>;
@@ -235,17 +240,17 @@ export async function updateConversationMeta(
     ).exec();
     if (updated) {
       emitConversationUpsert(toConversationEvent(updated));
-      return updated;
+      return { outcome: 'applied', conversation: updated };
     }
 
     const refreshed = await ConversationModel.findById(input.conversationId)
       .lean()
       .exec();
-    if (!refreshed) return null;
+    if (!refreshed) return { outcome: 'not_found' };
     current = refreshed;
   }
 
-  return current;
+  return { outcome: 'retry_exhausted', conversation: current };
 }
 
 export async function updateConversationThreadId({

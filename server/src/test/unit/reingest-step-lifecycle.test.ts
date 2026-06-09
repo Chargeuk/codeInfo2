@@ -152,7 +152,7 @@ const buildHarness = (params?: {
         storage: 'mongo',
         ...(input as unknown as Record<string, unknown>),
       });
-      return null;
+      return { outcome: 'not_found' };
     },
     markInflightPersisted: (input) => {
       order.push(`markInflightPersisted:${input.role}`);

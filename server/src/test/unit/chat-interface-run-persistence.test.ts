@@ -11,7 +11,11 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
-import { ConversationModel, type ConversationProvider } from '../../mongo/conversation.js';
+import {
+  ConversationModel,
+  type Conversation,
+  type ConversationProvider,
+} from '../../mongo/conversation.js';
 import type { AppendTurnInput } from '../../mongo/repo.js';
 import {
   listConversations,
@@ -957,6 +961,194 @@ describe('ChatInterface.run persistence', () => {
       },
       lastMessageAt: new Date('2025-02-02T00:00:00.000Z'),
     });
+  });
+
+  test('updateConversationMeta returns retry_exhausted after repeated intervening writers keep advancing updatedAt', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 1,
+      configurable: true,
+    });
+
+    const originalFindById = ConversationModel.findById;
+    const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+    const capturedCalls: Array<{ filter: unknown; update: unknown }> = [];
+
+    const conversationId = 'retry-exhausted-conversation';
+    const staleFlags = {
+      endpointId: 'https://stale.example/v1',
+      workingFolder: '/repos/stale-root',
+      threadId: 'thread-stale',
+      flow: { status: 'queued' },
+      agentFlags: { modelReasoningEffort: 'low' },
+    };
+    const winnerFlags = [
+      {
+        endpointId: 'https://winner-1.example/v1',
+        workingFolder: '/repos/winner-1-root',
+        threadId: 'thread-winner-1',
+        flow: { status: 'running' },
+        agentFlags: { modelReasoningEffort: 'medium' },
+      },
+      {
+        endpointId: 'https://winner-2.example/v1',
+        workingFolder: '/repos/winner-2-root',
+        threadId: 'thread-winner-2',
+        flow: { status: 'running' },
+        agentFlags: { modelReasoningEffort: 'high' },
+      },
+      {
+        endpointId: 'https://winner-3.example/v1',
+        workingFolder: '/repos/winner-3-root',
+        threadId: 'thread-winner-3',
+        flow: { status: 'running' },
+        agentFlags: { modelReasoningEffort: 'veryHigh' },
+      },
+      {
+        endpointId: 'https://winner-4.example/v1',
+        workingFolder: '/repos/winner-4-root',
+        threadId: 'thread-winner-4',
+        flow: { status: 'running' },
+        agentFlags: { modelReasoningEffort: 'extreme' },
+      },
+    ] as const;
+    const updatedAtValues = [
+      new Date('2025-02-02T00:00:00.000Z'),
+      new Date('2025-02-03T00:00:00.000Z'),
+      new Date('2025-02-04T00:00:00.000Z'),
+      new Date('2025-02-05T00:00:00.000Z'),
+    ];
+    let stateIndex = 0;
+    let storedConversation = buildConversationDoc({
+      conversationId,
+      provider: 'codex',
+      model: 'gpt-5.2',
+      flags: staleFlags,
+      lastMessageAt: updatedAtValues[0],
+      updatedAt: updatedAtValues[0],
+    }) as Conversation;
+
+    ConversationModel.findById = ((returnedConversationId: unknown) => ({
+      lean: () => ({
+        exec: async () =>
+          ({
+            ...(storedConversation as unknown as Record<string, unknown>),
+            _id: returnedConversationId,
+          }) as never,
+      }),
+    })) as unknown as typeof ConversationModel.findById;
+
+    ConversationModel.findOneAndUpdate = ((
+      filter: unknown,
+      update: unknown,
+    ) => {
+      capturedCalls.push({ filter, update });
+      if (stateIndex < winnerFlags.length - 1) {
+        stateIndex += 1;
+        storedConversation = buildConversationDoc({
+          conversationId,
+          provider: 'codex',
+          model: 'gpt-5.2',
+          flags: winnerFlags[stateIndex],
+          lastMessageAt: updatedAtValues[stateIndex],
+          updatedAt: updatedAtValues[stateIndex],
+        }) as Conversation;
+      }
+      return {
+        exec: async () => null,
+      } as unknown as ReturnType<typeof ConversationModel.findOneAndUpdate>;
+    }) as typeof ConversationModel.findOneAndUpdate;
+
+    try {
+      const outcome = await updateConversationMeta({
+        conversationId,
+        provider: 'codex',
+        model: 'gpt-5.2',
+        flags: staleFlags,
+        lastMessageAt: updatedAtValues[0],
+      });
+
+      assert.equal(outcome.outcome, 'retry_exhausted');
+      assert.deepEqual(outcome.conversation.flags, winnerFlags[3]);
+      assert.deepEqual(outcome.conversation.updatedAt, updatedAtValues[3]);
+    } finally {
+      ConversationModel.findById = originalFindById;
+      ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
+    }
+
+    assert.equal(capturedCalls.length, 3);
+    assert.deepEqual(capturedCalls[0]?.filter, {
+      _id: conversationId,
+      updatedAt: updatedAtValues[0],
+    });
+    assert.deepEqual(capturedCalls[0]?.update, {
+      provider: 'codex',
+      model: 'gpt-5.2',
+      flags: staleFlags,
+      lastMessageAt: updatedAtValues[0],
+    });
+    assert.deepEqual(capturedCalls[1]?.filter, {
+      _id: conversationId,
+      updatedAt: updatedAtValues[1],
+    });
+    assert.deepEqual(capturedCalls[1]?.update, {
+      provider: 'codex',
+      model: 'gpt-5.2',
+      flags: winnerFlags[1],
+      lastMessageAt: updatedAtValues[0],
+    });
+    assert.deepEqual(capturedCalls[2]?.filter, {
+      _id: conversationId,
+      updatedAt: updatedAtValues[2],
+    });
+    assert.deepEqual(capturedCalls[2]?.update, {
+      provider: 'codex',
+      model: 'gpt-5.2',
+      flags: winnerFlags[2],
+      lastMessageAt: updatedAtValues[0],
+    });
+    assert.deepEqual(storedConversation.flags, winnerFlags[3]);
+    assert.deepEqual(storedConversation.updatedAt, updatedAtValues[3]);
+  });
+
+  test('updateConversationMeta returns not_found distinctly from retry_exhausted when the conversation is missing', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 1,
+      configurable: true,
+    });
+
+    const originalFindById = ConversationModel.findById;
+    ConversationModel.findById = (() => ({
+      lean: () => ({
+        exec: async () => null,
+      }),
+    })) as unknown as typeof ConversationModel.findById;
+
+    try {
+      const outcome = await updateConversationMeta({
+        conversationId: 'missing-conversation',
+        provider: 'codex',
+        model: 'gpt-5.2',
+        flags: {
+          endpointId: 'https://missing.example/v1',
+          workingFolder: '/repos/missing-root',
+        },
+        lastMessageAt: new Date('2025-02-06T00:00:00.000Z'),
+      });
+
+      assert.deepEqual(outcome, { outcome: 'not_found' });
+    } finally {
+      ConversationModel.findById = originalFindById;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
+    }
   });
 
   test('updateConversationMeta drops stale Codex-only flags when provider switches to Copilot', async () => {

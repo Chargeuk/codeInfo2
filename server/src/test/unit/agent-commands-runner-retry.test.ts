@@ -24,7 +24,7 @@ async function writeCommandFile(params: {
   return filePath;
 }
 
-test('command runner retries transient reconnect errors and succeeds', async () => {
+test('command runner retries transient reconnect errors with upstream cause text and succeeds', async () => {
   const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
   delete process.env.FLOW_AND_COMMAND_RETRIES;
   const tmpDir = await fs.mkdtemp(
@@ -50,7 +50,9 @@ test('command runner retries transient reconnect errors and succeeds', async () 
         ?.instruction;
       seenInstructions.push(instruction ?? '');
       if (attempt <= 4) {
-        throw new Error('Reconnecting... 1/5');
+        throw new Error(
+          'Reconnecting... 2/5 (stream disconnected before completion: websocket closed by server before response.completed)',
+        );
       }
       assert.equal(
         typeof instruction === 'string',

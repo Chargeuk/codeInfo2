@@ -296,6 +296,9 @@ export default function AgentsPage() {
   }, [log]);
 
   const handleOpenDirPicker = () => {
+    if (workingFolderDisabledRef.current) {
+      return;
+    }
     log('info', 'DEV-0000028[T5] agents folder picker opened', {
       source: 'agents',
     });
@@ -366,6 +369,10 @@ export default function AgentsPage() {
   );
 
   const handlePickDir = (path: string) => {
+    if (workingFolderDisabledRef.current) {
+      setDirPickerOpen(false);
+      return;
+    }
     log('info', 'DEV-0000028[T5] agents folder picker picked', { path });
     setWorkingFolder(path);
     setDirPickerOpen(false);
@@ -375,6 +382,15 @@ export default function AgentsPage() {
   const handleCloseDirPicker = () => {
     log('info', 'DEV-0000028[T5] agents folder picker cancelled');
     setDirPickerOpen(false);
+  };
+
+  const handleClearDirPicker = () => {
+    setDirPickerOpen(false);
+    if (workingFolderDisabledRef.current) {
+      return;
+    }
+    setWorkingFolder('');
+    void commitWorkingFolder('picker', '');
   };
 
   const handleDeviceAuthOpen = () => {
@@ -1860,6 +1876,13 @@ export default function AgentsPage() {
   }, [isWorkingFolderDisabled]);
 
   useEffect(() => {
+    if (!isWorkingFolderDisabled || !dirPickerOpen) {
+      return;
+    }
+    setDirPickerOpen(false);
+  }, [dirPickerOpen, isWorkingFolderDisabled]);
+
+  useEffect(() => {
     preserveEmptyWorkingFolderRestoreRef.current =
       startPending ||
       isRunActive ||
@@ -2171,6 +2194,7 @@ export default function AgentsPage() {
       dirPickerOpen={dirPickerOpen}
       onCloseDirPicker={handleCloseDirPicker}
       onPickDir={handlePickDir}
+      onClearDirPicker={handleClearDirPicker}
       deviceAuthOpen={deviceAuthOpen}
       inputRef={inputRef}
       agentInfoDisabled={agentInfoDisabled}

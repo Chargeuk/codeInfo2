@@ -194,6 +194,25 @@ function emitWsEvent(event: Record<string, unknown>) {
   });
 }
 
+function emitInflightSnapshot(payload: {
+  conversationId: string;
+  inflightId: string | null;
+}) {
+  emitWsEvent({
+    protocolVersion: 'v1',
+    type: 'inflight_snapshot',
+    conversationId: payload.conversationId,
+    seq: 1,
+    inflight: {
+      inflightId: payload.inflightId ?? '',
+      assistantText: '',
+      assistantThink: '',
+      toolEvents: [],
+      startedAt: '2025-01-01T00:00:00.000Z',
+    },
+  });
+}
+
 async function selectFirstConversation() {
   const rows = await screen.findAllByTestId('conversation-row');
   await userEvent.click(rows[0]);
@@ -2733,6 +2752,34 @@ describe('Flows page run/resume controls', () => {
     await waitFor(() =>
       expect(screen.getByTestId('flow-working-folder')).toBeDisabled(),
     );
+  });
+
+  it('closes an already-open flow directory picker when the working folder locks', async () => {
+    const user = userEvent.setup();
+    setupFlowsRunHarness();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForFlowTitle('Flow: daily');
+    await selectFirstConversation();
+
+    await user.click(screen.getByTestId('flow-working-folder-picker'));
+    expect(
+      await screen.findByRole('dialog', { name: /choose folder…/i }),
+    ).toBeInTheDocument();
+
+    emitInflightSnapshot({
+      conversationId: 'flow-1',
+      inflightId: 'flow-inflight-1',
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: /choose folder…/i }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue('');
   });
 
   it('disables working-folder persistence affordances when persistence is unavailable', async () => {

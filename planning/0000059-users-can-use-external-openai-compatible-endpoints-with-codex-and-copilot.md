@@ -2160,7 +2160,7 @@ When screenshots are captured for this task, capture the current final state of 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T110644Z-42513a6f`. It must make the fresh-flow `retryOwnershipId` completion barrier durable across restart or worker replacement without widening Story 59 into a broader flow-contract redesign.
 

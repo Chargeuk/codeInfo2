@@ -438,6 +438,58 @@ test('stopping the parent flow stops the running child subflow', async () => {
   }
 });
 
+test('pending parent stop prevents launching a new child subflow', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-stop-before-launch-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-never-started',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-stop-before-launch',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Child',
+          flowName: 'child-never-started',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-stop-before-launch',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(250),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
+      },
+    });
+
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'stopped',
+    );
+    assert.equal(finalAssistant?.content, 'Stopped');
+
+    const childFlowConversations = Array.from(
+      memoryConversations.values(),
+    ).filter((conversation) => conversation.flowName === 'child-never-started');
+    assert.equal(childFlowConversations.length, 0);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resume reattaches to an already running child subflow instead of launching a second child run', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-'),

@@ -3823,6 +3823,30 @@ async function runFlowUnlocked(params: {
     let childConversationId = resumedConversationId;
     let childRunToken = resumedRunToken;
 
+    const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
+      if (childConversationId && childRunToken) return false;
+      const pendingCancel = consumePendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+      });
+      if (!pendingCancel) return false;
+
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return true;
+    };
+
+    if (await stopSubflowBeforeLaunch()) {
+      return 'stopped';
+    }
+
     createInflight({
       conversationId: params.conversationId,
       inflightId: stepInflightId,

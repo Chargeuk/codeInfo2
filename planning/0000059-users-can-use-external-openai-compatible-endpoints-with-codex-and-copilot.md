@@ -2560,7 +2560,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 24`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `12019965`
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T204743Z-be606c98`. The fix target is the silent-loss defect after exhausted optimistic retries, not the reviewer's broader remedy suggestion. Preserve approved Story 59 endpoint, thread, working-folder, and flow metadata behavior while making the exhausted path explicit and non-success-shaped for shared callers.
 
@@ -2649,6 +2649,7 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 - Validation note: `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` passed with `22/22` tests after the helper contract change and the required test-double adaptation.
 - Audit note: implementation evidence on `12019965` supports the helper change, the focused persistence proof, and the test-double follow-up, but this audit reopened `npm run build:summary:server` because the repository evidence available on disk showed the targeted unit wrapper run rather than a separate `build:summary:server` wrapper execution.
 - `npm run build:summary:server` now passes on the Story 59 head, so the final unchecked testing item for task 25 is complete and the repaired helper still compiles cleanly after the explicit exhausted-retry contract change.
+- Automated-proof audit: the production caller files stayed unchanged, the only code-path contract change remained scoped to `server/src/mongo/repo.ts`, and the build-plus-focused-unit wrapper evidence now makes Task 25 honestly complete without widening Story 59 behavior.
 
 ### Task 26. Final Revalidation For Review Cycle 0000059-rc-20260609T214316Z-d1783561
 

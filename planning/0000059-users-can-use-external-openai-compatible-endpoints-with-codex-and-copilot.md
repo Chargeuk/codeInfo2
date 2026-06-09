@@ -1948,7 +1948,7 @@ Treat Task 18 screenshots as proof of the final repaired state for the visual su
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `3` from review pass `0000059-20260609T033518Z-376c0288`. It must make completed `/chat` replay results durable across restart or worker replacement while preserving the approved Story 59 `/chat` request contract rather than widening scope into a new retry API or unrelated replay redesign.
 

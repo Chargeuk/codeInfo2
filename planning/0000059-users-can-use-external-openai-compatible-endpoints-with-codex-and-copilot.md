@@ -2067,7 +2067,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 #### Owner Map
 
-- Server build and unit wrapper owners: `npm run build:summary:server`, `npm run test:summary:server:unit`
+- Server build and automated proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
 - Client build and unit wrapper owners: `npm run build:summary:client`, `npm run test:summary:client`
 - Browser-visible chat proof owner: `npm run test:summary:e2e`
 - Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
@@ -2080,7 +2080,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - Finding `2`: `server/src/test/unit/chat-interface-run-persistence.test.ts` plus the broad `npm run test:summary:server:unit` wrapper.
 - Finding `4`: `client/src/test/chatPage.workingFolder.test.tsx` plus the broad `npm run test:summary:client` wrapper. This proof home must state whether the locked or disabled working-folder value is retained only as local display state or excluded from the outgoing chat submission payload when the surface switches modes.
 - Finding `5`: `client/src/test/flowsPage.run.test.tsx` and `client/src/test/agentsPage.workingFolderPicker.test.tsx` plus the broad `npm run test:summary:client` wrapper. These proof homes must keep mixed-state run paths explicit so a stale remembered or hidden working-folder value does not leak into a new or differently locked run payload.
-- Final wrapper reachability for the repaired server surfaces: implementation files from Finding `3` and inline-resolved Finding `2`; proof owners `npm run build:summary:server` and `npm run test:summary:server:unit`.
+- Final wrapper reachability for the repaired server surfaces: implementation files from Finding `3` and inline-resolved Finding `2`; proof owners `npm run build:summary:server`, `npm run test:summary:server:unit`, and `npm run test:summary:server:cucumber`.
 - Final wrapper reachability for the repaired client surfaces: implementation files from inline-resolved Findings `1`, `4`, and `5`; proof owners `npm run build:summary:client`, `npm run test:summary:client`, and `npm run test:summary:e2e` for the supported chat-only browser-visible surface.
 - Final checked-in main-stack smoke boundary for the repaired story head: current repository runtime path; proof owners `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, and `npm run compose:down`.
 - Final hygiene boundary for the repaired story head: repository-wide Story 59 changes for this review cycle; proof owners `npm run lint` and `npm run format:check`.
@@ -2096,14 +2096,15 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 1. [ ] Run `npm run build:summary:server` to confirm the repaired `/chat` replay and persisted metadata server surfaces compile cleanly before broader proof.
 2. [ ] Run `npm run build:summary:client` to confirm the repaired resumed-identity and working-folder client surfaces compile cleanly before broader proof.
-3. [ ] Run `npm run test:summary:server:unit` to prove the repaired `/chat` durable replay seam and the inline-resolved server persistence fix still hold on the final story head.
-4. [ ] Run `npm run test:summary:client` to prove the repaired resumed endpoint identity and working-folder lock parity surfaces still hold on the final story head.
-5. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving the flow and agent working-folder dialogs as client-wrapper-owned proof homes.
-6. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head.
-7. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior is still owned by Testing steps 3 through 5 rather than by the health surfaces alone.
-8. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
-9. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-10. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head before the broader automated proof below.
+4. [ ] Run `npm run test:summary:server:unit` to prove the repaired `/chat` durable replay seam and the inline-resolved server persistence fix still hold on the final story head.
+5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head. Treat this as broad server route-contract proof for the current repository rather than as the primary task-local proof for Finding `3`, which remains owned by Task 19’s targeted server-unit wrapper step.
+6. [ ] Run `npm run test:summary:client` to prove the repaired resumed endpoint identity and working-folder lock parity surfaces still hold on the final story head.
+7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving the flow and agent working-folder dialogs as client-wrapper-owned proof homes.
+8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
+9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Manual Testing Guidance
 

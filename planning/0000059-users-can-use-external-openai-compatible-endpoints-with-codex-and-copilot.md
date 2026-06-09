@@ -2038,7 +2038,7 @@ Repair the `/chat` completed-replay seam so a caller-owned `inflightId` can stil
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 19`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T050126Z-8ccf6dc6`. It must revalidate the serious review-created finding from review pass `0000059-20260609T033518Z-376c0288` and also re-cover the already resolved inline minor findings `1`, `2`, `4`, and `5` so this cycle does not split close-out ownership across separate final tasks.
 
@@ -2144,3 +2144,4 @@ When screenshots are captured for this task, capture the current final state of 
 - Compose teardown: `npm run compose:down` passed cleanly after the smoke validation, confirming the repository-supported stack shuts down cleanly on the checked-in path.
 - Lint: `npm run lint` passed cleanly after removing the stray unused `user` setup in `client/src/test/chatSendPayload.test.tsx`.
 - Format check: `npm run format:check` passed cleanly on the repaired final story head with no additional formatting changes required.
+- Audit on 2026-06-09 verified that Task 20's proof pass completed all retained wrapper, smoke, and hygiene owners with no live blocker and no story-caused user-facing behavior drift beyond the approved Story 59 surfaces. The only code changes in the proof commit were test-support fixes needed to keep the existing client proofs compiling and lint-clean, so this final revalidation task is now `__done__`.

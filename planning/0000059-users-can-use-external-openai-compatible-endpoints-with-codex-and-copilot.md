@@ -2249,7 +2249,7 @@ Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 21`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T120631Z-47ba57d5`. It must revalidate the current review-created finding block for review pass `0000059-20260609T110644Z-42513a6f` and also cover any inline-resolved minor fixes already recorded for this same active review cycle.
 
@@ -2353,3 +2353,4 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - `npm run compose:down` completed cleanly after smoke validation, returning the checked-in main stack to its stopped state without reopening implementation scope.
 - `npm run lint` passed cleanly on the repaired final story head, keeping the final hygiene proof owner green before the last format check.
 - `npm run format:check` passed cleanly on the repaired final story head, closing the final hygiene gate for this review cycle.
+- Implementation-plus-proof audit: the checked Task 22 proof claims are supported by on-disk wrapper evidence, including `test-results/server-unit-tests-2026-06-09T14-40-54-870Z.log` (`2227/2227` passed), `test-results/server-cucumber-tests-2026-06-09T15-17-06-357Z.log` (`129/129` passed), `test-results/client-tests-2026-06-09T15-24-14-160Z.log` (`887/887` passed), and `logs/test-summaries/e2e-tests-latest.log` (`76` expected, `0` unexpected), plus the current build and compose summary logs. No unchecked subtasks, unchecked automated testing, or live blockers remain, and this audit found no story-caused preserved-behavior drift beyond the approved Story 59 scope, so Task 22 is complete.

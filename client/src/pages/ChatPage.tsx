@@ -322,8 +322,9 @@ export default function ChatPage() {
   const [agentFlagsDraft, setAgentFlagsDraft] = useState<ChatAgentFlagDraft>(
     {},
   );
-  const [lockedSubmissionEndpointId, setLockedSubmissionEndpointId] =
-    useState<string | undefined>(undefined);
+  const [lockedSubmissionEndpointId, setLockedSubmissionEndpointId] = useState<
+    string | undefined
+  >(undefined);
   const selectedModelSelection = useMemo(
     () =>
       resolveSelectedModelSelection(models, selected, selectedEndpointId, {
@@ -958,7 +959,7 @@ export default function ChatPage() {
           source: 'conversation-select',
           endpointId:
             resolvedSelection.endpointId ??
-            (resumedEndpointId ? restoredEndpointIdentity ?? null : null),
+            (resumedEndpointId ? (restoredEndpointIdentity ?? null) : null),
         });
       }
       return;

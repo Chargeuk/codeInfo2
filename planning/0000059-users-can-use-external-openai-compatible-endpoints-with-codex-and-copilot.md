@@ -2225,7 +2225,7 @@ Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` 
 #### Testing
 
 1. [x] Run `npm run build:summary:server` to confirm the repaired fresh-flow replay seam compiles cleanly before proof.
-2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` to prove the fresh-flow `retryOwnershipId` writer and reader stay compatible after process-local cache loss, and that contradictory retries, partial-state retries, and cleanup-owner retirement boundaries still take the correct path.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` to prove the fresh-flow `retryOwnershipId` writer and reader stay compatible after process-local cache loss, and that contradictory retries, partial-state retries, and cleanup-owner retirement boundaries still take the correct path.
 
 #### Implementation Notes
 
@@ -2236,6 +2236,7 @@ Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` 
 - Validation: `npm run build:summary:server` passed after the durable completion marker and bounded test-only cache-loss helper were added, confirming the server story head still compiles cleanly before the proof-title refresh.
 - Validation: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts --test-name "durable retryOwnershipId replay reuses the accepted launch after completed-cache loss"` passed after the replay boundary was switched to the websocket-final/readback path and the completion writer preserved the durable marker through later flow-state saves.
 - Proof split: `server/src/test/integration/flows.run.basic.test.ts` now owns the durable completed replay after explicit completion-cache loss via `__resetFreshRunRetryOwnershipCompletionForTests()`, while `server/src/test/integration/flows.run.errors.test.ts` keeps the same-process in-flight path, same-process completed replay, contradictory replay rejection, and cleanup/partial-state boundaries explicit.
+- Implementation-only audit: the code changes, owner map, and retained proof files are present on disk, so all implementation subtasks stay complete. The broader two-file server unit wrapper remains open because the latest repository evidence only shows the single `--test-name "durable retryOwnershipId replay reuses the accepted launch after completed-cache loss"` proof run, not the full task-level replay boundary pass yet.
 
 ### Task 22. Final Revalidation For Review Cycle 0000059-rc-20260609T120631Z-47ba57d5
 

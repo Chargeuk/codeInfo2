@@ -2199,7 +2199,7 @@ test('in-flight retryOwnershipId dedupe returns the same fresh-run launch while 
   });
 });
 
-test('completed retryOwnershipId replay reuses the earlier fresh-run launch after inflight cleanup', async () => {
+test('same-process completed retryOwnershipId replay reuses the earlier fresh-run launch after inflight cleanup', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,

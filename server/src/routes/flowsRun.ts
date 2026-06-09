@@ -166,6 +166,7 @@ export function createFlowsRunRouter(
         flowName,
         customTitleProvided: Boolean(parsedBody.customTitle),
         customTitleLength: parsedBody.customTitle?.length ?? 0,
+        retryOwnershipIdProvided: Boolean(parsedBody.retryOwnershipId),
       },
       'flows.run.custom_title.validated',
     );

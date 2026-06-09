@@ -2408,10 +2408,13 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 
 - Requirement: a later stale metadata writer cannot overwrite a newer intervening `flags` write on the same conversation.
   Implementation files or surfaces: `server/src/mongo/repo.ts`
-  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, including the deterministic older-reader/newer-writer/later-stale-writer contradiction case added by this task
 - Requirement: the repaired helper still preserves Story 59 caller behavior for endpoint identity, thread identity, working-folder state, and flow-owned flags across the changed direct callers.
   Implementation files or surfaces: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
   Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` plus one focused same-repository server proof file only if the caller contract cannot be shown honestly from the shared helper test alone
+- Requirement: any deterministic test-only setup seam needed to force the stale-reader/newer-writer/later-stale-writer ordering remains local to the persistence proof owner and does not leak into shipped production behavior.
+  Implementation files or surfaces: `server/src/test/unit/chat-interface-run-persistence.test.ts` and its existing nearby test support surface only if one is needed
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` and the exact nearby test-support file updated to stage the ordering, if any
 - Requirement: the repair does not silently broaden into a new public persistence contract or a user-facing behavior change outside approved Story 59 scope.
   Implementation files or surfaces: this review-created findings block, the helper seam, and any one-step caller follow-up retained by the repair
   Proof owners: Task 23 `Implementation Notes`, `npm run test:summary:server:unit`
@@ -2495,6 +2498,12 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - Requirement: lint and format hygiene stay green on the repaired final story head so final proof is not hiding residual repository-surface regressions.
   Implementation files or surfaces: repository-wide final Story 59 head
   Proof owners: `npm run lint`, `npm run format:check`
+- Requirement: this task remains the one final revalidation owner for review cycle `0000059-rc-20260609T173931Z-de51b749`, and the final notes keep `inline-resolved minor findings: none` explicit unless later same-cycle work changes that fact.
+  Implementation files or surfaces: this review-created findings block and Task 24 `Implementation Notes`
+  Proof owners: Task 24 `Implementation Notes`
+- Requirement: any later manual follow-up can use the supported main-stack runtime, mounted proof roots, readiness surfaces, and artifact destination without discovering those facts by failure.
+  Implementation files or surfaces: `scripts/docker-compose-with-env.sh`, `docker-compose.yml`, `manual_testing/codeinfo_agents`, `manual_testing/codex_agents`, and Task 24 `Manual Testing Guidance`
+  Proof owners: Task 24 `Manual Testing Guidance`, Task 24 `Implementation Notes`
 
 #### Subtasks
 

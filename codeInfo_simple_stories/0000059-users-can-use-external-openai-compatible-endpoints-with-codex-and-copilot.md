@@ -10,11 +10,11 @@
 6. Users can keep older saved conversations working while newer endpoint-backed conversations store the raw model id and endpoint identity separately.
 7. Users can rely on new runs trying same-endpoint repair and same-provider fallback before broader provider fallback, while pinned or resumed runs fail in place instead of silently moving to a different endpoint or provider.
 8. Users keep the current `LM Studio` and `Agents` page behavior for this story; the external model picker change applies only to `Codex` and `Copilot` chat.
-9. The final shipped story includes the review hardening needed for `/chat` conflict timing, persisted metadata freshness, endpoint-aware default selection, and final wrapper-backed revalidation.
+9. The final shipped story includes the review hardening needed for endpoint identity, replay durability, readiness gating, mixed-state picker behavior, and final wrapper-backed revalidation.
 
 # Description
 
-This story extends the current `Codex` and `Copilot` experience so teams can point chat and agent flows at external OpenAI-compatible `/v1` endpoints without learning provider-native wiring. It adds a simple repository-owned configuration contract, discovers compatible external models for chat, preserves endpoint identity through saved and resumed work, keeps fallback behavior predictable, records the runtime seams needed for supported proof, and closes the late review issues needed to ship the feature with honest automated validation.
+This story lets teams keep using the existing `Codex` and `Copilot` chat and agent flows while pointing them at external OpenAI-compatible `/v1` endpoints through a simple CodeInfo-owned config contract. It adds endpoint parsing, model discovery, runtime translation, fallback and resume protections, and the review-driven hardening needed to ship the feature with honest server, client, browser, and runtime proof.
 
 # Tasks
 
@@ -70,9 +70,9 @@ This story extends the current `Codex` and `Copilot` experience so teams can poi
 - Carry authoritative endpoint-aware default-selection identity from `/chat/providers` and `/chat/models` through the shared model shape.
 - Restore the right duplicate-id endpoint choice on the client and clear stale reuse-mode identity before fresh-draft submission.
 
-14. [codeInfo2] - Final revalidation for the current review cycle
+14. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260607T101345Z-9dfe9788`
 - Re-run the wrapper-first review-cycle proof for the serious review findings and the inline-resolved minor fixes on the story head.
-- Own the final broad regression and checked-in runtime closeout proof across server, client, browser, script guard, and main-stack smoke validation for this cycle.
+- Own the final broad regression and checked-in runtime closeout proof across server, client, browser, script guard, and main-stack smoke validation for that cycle.
 
 15. [codeInfo2] - Reinstate Codex and Copilot readiness gating before endpoint-backed execution
 - Restore the shared readiness gate so a healthy external endpoint cannot bypass missing or degraded provider readiness on `/chat`, direct-agent, or flow-owned execution.
@@ -86,6 +86,14 @@ This story extends the current `Codex` and `Copilot` experience so teams can poi
 - Add the bounded replay barrier that returns the earlier result when the same logical retry re-enters after ambiguous completion.
 - Preserve the existing in-flight dedupe and contradictory-payload rejection behavior while proving the post-completion ordering boundary directly.
 
-18. [codeInfo2] - Final revalidation for the latest review cycle
-- Re-run the broad wrapper-first regression proof for the latest serious review findings and the inline-resolved minor fixes on the repaired story head.
-- Own the final server, client, browser, script-guard, and checked-in main-stack smoke validation for the latest review-created findings block.
+18. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260608T182732Z-e960c572`
+- Re-run the broad wrapper-first regression proof for the serious review findings and the inline-resolved minor fixes on the repaired story head.
+- Own the final server, client, browser, script-guard, and checked-in main-stack smoke validation for that review-created findings block.
+
+19. [codeInfo2] - Make `/chat` completed replay results durable across restart boundaries
+- Update the `/chat` replay route, inflight registry, and persisted turn metadata so the same `inflightId` can reuse a completed result after cache loss.
+- Prove the durable replay path, contradiction rejection, partial-state handling, and late-completed ordering on the targeted server proof files.
+
+20. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260609T050126Z-8ccf6dc6`
+- Re-run the final broad proof for the latest review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
+- Re-cover the inline-resolved minor fixes and the new durable `/chat` replay behavior on the repaired story head.

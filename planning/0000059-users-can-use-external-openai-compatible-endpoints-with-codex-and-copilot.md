@@ -2444,7 +2444,7 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T173931Z-de51b749`. It must revalidate the current review-created finding block for review pass `0000059-20260609T163848Z-7744b884` and also cover any inline-resolved minor fixes already recorded for this same active review cycle.
 
@@ -2537,6 +2537,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - `Implementation Notes` keep the proof-owner buckets explicit: the focused server proof home remains the shared metadata contradiction test, the broad server/client wrapper owners still cover endpoint and working-folder behavior, and the browser-visible chat surfaces remain broad-wrapper-owned on the final story head.
 - `Implementation Notes` also keep the runtime boundary explicit: `scripts/docker-compose-with-env.sh` owns env-file loading, `docker-compose.yml` is the supported checked-in main-stack route, and the smoke step is only a runtime-boundary proof rather than a replacement for the dedicated server, client, and browser proof owners.
 - Manual follow-up guidance remains explicit: the supported stack is the checked-in main `docker-compose.yml` route through `scripts/docker-compose-with-env.sh`, the mounted proof roots stay under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, the readiness ports stay `5001` and `5010`, and the durable artifact destination stays `codeInfoTmp/manual-testing/0000059/24/`.
+- Audit closeout: repository evidence now shows the full Task 24 automated proof pass completed on the Story 59 head with no remaining unchecked work, no live blocker, and no story-caused preserved-behavior regression, so this final revalidation task can move to `__done__` before later manual follow-up is considered.
 
 #### Manual Testing Guidance
 

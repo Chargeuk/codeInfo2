@@ -2513,26 +2513,30 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 #### Subtasks
 
-1. [ ] Re-open this review-created findings block plus the retained proof-owner files touched by Task 23, then record one explicit proof-owner mapping in `Implementation Notes` with three buckets: the focused server proof home for Finding `1`, the broad server or client wrapper proof homes that still cover Story 59 endpoint and working-folder behavior after Task 23 lands, and the browser-visible chat surfaces that remain broad-wrapper-owned on the final story head. State explicitly that inline-resolved minor findings for this review cycle are still `none` if that remains true at execution time.
-2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that names which wrapper or smoke step owns each baseline boundary for this review-created block, that env-file loading remains owned by the compose wrapper path, that runtime-boundary smoke does not replace the dedicated server, client, or browser proof owners above, and that the checked-in main-stack route remains the supported default path instead of a local-stack or targeted-launch substitute.
+1. [x] Re-open this review-created findings block plus the retained proof-owner files touched by Task 23, then record one explicit proof-owner mapping in `Implementation Notes` with three buckets: the focused server proof home for Finding `1`, the broad server or client wrapper proof homes that still cover Story 59 endpoint and working-folder behavior after Task 23 lands, and the browser-visible chat surfaces that remain broad-wrapper-owned on the final story head. State explicitly that inline-resolved minor findings for this review cycle are still `none` if that remains true at execution time.
+2. [x] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that names which wrapper or smoke step owns each baseline boundary for this review-created block, that env-file loading remains owned by the compose wrapper path, that runtime-boundary smoke does not replace the dedicated server, client, or browser proof owners above, and that the checked-in main-stack route remains the supported default path instead of a local-stack or targeted-launch substitute.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired conversation metadata seam compiles cleanly on the final story head.
-2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
-3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
-4. [ ] Run `npm run test:summary:server:unit` to prove the repaired conversation metadata persistence seam and its focused proof owners still hold on the final story head.
-5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
-6. [ ] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the shared metadata fix.
-7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
-8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
-9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
-10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+1. [x] Run `npm run build:summary:server` to confirm the repaired conversation metadata seam compiles cleanly on the final story head.
+2. [x] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
+3. [x] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
+4. [x] Run `npm run test:summary:server:unit` to prove the repaired conversation metadata persistence seam and its focused proof owners still hold on the final story head.
+5. [x] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
+6. [x] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the shared metadata fix.
+7. [x] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
+8. [x] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
+9. [x] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [x] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [x] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Implementation Notes
 
-- Review task role: final revalidation owner for review cycle `0000059-rc-20260609T173931Z-de51b749`.
+- `npm run build:summary:server`, `npm run build:summary:client`, `npm run compose:build:summary`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:up`, `npm run compose:down`, `npm run lint`, and `npm run format:check` all passed on the repaired final story head, confirming the proof-owner map and runtime boundary notes are backed by the story head now under review.
+- The earlier parallel wrapper failures in this turn were load noise: rerunning `npm run test:summary:client` and `npm run test:summary:server:cucumber` one at a time produced clean passes on the same repaired final story head, so the proof remains intact and the broad-wrapper owners still hold.
+- `Implementation Notes` keep the proof-owner buckets explicit: the focused server proof home remains the shared metadata contradiction test, the broad server/client wrapper owners still cover endpoint and working-folder behavior, and the browser-visible chat surfaces remain broad-wrapper-owned on the final story head.
+- `Implementation Notes` also keep the runtime boundary explicit: `scripts/docker-compose-with-env.sh` owns env-file loading, `docker-compose.yml` is the supported checked-in main-stack route, and the smoke step is only a runtime-boundary proof rather than a replacement for the dedicated server, client, and browser proof owners.
+- Manual follow-up guidance remains explicit: the supported stack is the checked-in main `docker-compose.yml` route through `scripts/docker-compose-with-env.sh`, the mounted proof roots stay under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, the readiness ports stay `5001` and `5010`, and the durable artifact destination stays `codeInfoTmp/manual-testing/0000059/24/`.
 
 #### Manual Testing Guidance
 

@@ -620,10 +620,7 @@ describe('GET /flows', () => {
     const ingestedRoot = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-ingested-canonical-'),
     );
-    const hostAliasPath = path.join(
-      '/host-alias',
-      path.basename(ingestedRoot),
-    );
+    const hostAliasPath = path.join('/host-alias', path.basename(ingestedRoot));
     await writeFlowFile(
       path.join(ingestedRoot, 'flows'),
       'canonical-release',

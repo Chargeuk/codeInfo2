@@ -3887,7 +3887,9 @@ test('flow run rejects unsafe flow-owned agentType values before runtime fallbac
       'utf8',
     );
 
-    const response = await supertest(baseUrl).post(`/flows/${flowName}/run`).send({});
+    const response = await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({});
 
     assert.equal(response.status, 400);
     assert.equal(response.body.error, 'invalid_request');
@@ -3917,7 +3919,9 @@ test('flow run rejects unsafe flow-owned commandName values before runtime fallb
       'utf8',
     );
 
-    const response = await supertest(baseUrl).post(`/flows/${flowName}/run`).send({});
+    const response = await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({});
 
     assert.equal(response.status, 400);
     assert.equal(response.body.error, 'invalid_request');

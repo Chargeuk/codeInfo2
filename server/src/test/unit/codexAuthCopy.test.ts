@@ -118,7 +118,10 @@ test('does not copy when /host/codex is a duplicate runtime mount alias', () => 
     ensureCodexAuthFromHost({ containerHome, hostHome, logger });
 
     assert.equal(copyCalls.length, 0);
-    assert.equal(fs.readFileSync(containerAuth, 'utf8'), '{"token":"container"}');
+    assert.equal(
+      fs.readFileSync(containerAuth, 'utf8'),
+      '{"token":"container"}',
+    );
   } finally {
     mock.restoreAll();
   }

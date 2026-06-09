@@ -193,10 +193,7 @@ test('missing host auth leaves the runtime home untouched without cleanup', () =
   try {
     ensureCodexAuthFromHost({ containerHome, hostHome, logger });
 
-    assert.equal(
-      fs.existsSync(path.join(containerHome, 'auth.json')),
-      false,
-    );
+    assert.equal(fs.existsSync(path.join(containerHome, 'auth.json')), false);
     assert.equal(unlinkCalls.length, 0);
     assert.equal(rmCalls.length, 0);
     assert.equal(renameCalls.length, 0);

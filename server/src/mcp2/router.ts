@@ -125,7 +125,8 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
             requestId: requestIdText,
             context: {
               tool: name,
-              error: err instanceof Error ? err.stack ?? err.message : String(err),
+              error:
+                err instanceof Error ? (err.stack ?? err.message) : String(err),
             },
           });
           // Also write to stderr so test harness captures the raw exception for diagnosis

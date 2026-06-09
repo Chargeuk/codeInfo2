@@ -1059,7 +1059,11 @@ test('story57 explicit-provider LM Studio MCP codebase_question keeps the saved 
 
     const response = await toolCallPromise;
     assert.equal(calls.length, 1, JSON.stringify({ response, calls }, null, 2));
-    assert.equal(calls[0]?.model, 'm', JSON.stringify({ response, calls }, null, 2));
+    assert.equal(
+      calls[0]?.model,
+      'm',
+      JSON.stringify({ response, calls }, null, 2),
+    );
     assert.ok(
       (response as { result?: unknown }).result,
       JSON.stringify({ response, calls }, null, 2),
@@ -1484,7 +1488,8 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
   const providerThreadId = 'codex-thread-fresh-saved-789';
   const savedModel = 'gpt-5.3-codex';
   const selectedRepo = '/data/story55-manual-proof/queued-repo';
-  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const advertisedHostPath =
+    '/home/d_a_s/code/story55-manual-proof/queued-repo';
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
   const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
@@ -2072,7 +2077,8 @@ test('MCP codebase_question keeps Copilot provider parity after startup re-norma
 
 test('saved Copilot and LM Studio conversations keep the stored provider and repair omitted-model follow-up calls on the streamed websocket path', async () => {
   resetStore();
-  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const advertisedHostPath =
+    '/home/d_a_s/code/story55-manual-proof/queued-repo';
   const cases = [
     {
       conversationId: 'mcp-ws-saved-copilot-follow-up',
@@ -2496,9 +2502,15 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
       ).result.content[0].text,
     );
     assert.equal(calls.length, 1);
-    assert.equal(replayAfterCacheClearPayload.conversationId, firstPayload.conversationId);
+    assert.equal(
+      replayAfterCacheClearPayload.conversationId,
+      firstPayload.conversationId,
+    );
     assert.equal(replayAfterCacheClearPayload.modelId, firstPayload.modelId);
-    assert.deepEqual(replayAfterCacheClearPayload.segments, firstPayload.segments);
+    assert.deepEqual(
+      replayAfterCacheClearPayload.segments,
+      firstPayload.segments,
+    );
     assert.equal(replayAfterCacheClearPayload.replay?.replayId, replayId);
     assert.equal(replayAfterCacheClearPayload.replay?.status, 'completed');
 

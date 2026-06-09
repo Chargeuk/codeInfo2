@@ -178,7 +178,8 @@ test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any con
   assert.equal(first.status, 202);
 
   await waitForChatPersistence(conversationId, 2);
-  const persistedConversationBeforeReplay = memoryConversations.get(conversationId);
+  const persistedConversationBeforeReplay =
+    memoryConversations.get(conversationId);
   assert.ok(persistedConversationBeforeReplay);
 
   const replay = await request(app).post('/chat').send({
@@ -210,7 +211,8 @@ test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any con
   );
   assert.equal(persistedTurns[0]?.content, 'hello');
   assert.equal(persistedTurns[1]?.content, 'done');
-  const persistedConversationAfterReplay = memoryConversations.get(conversationId);
+  const persistedConversationAfterReplay =
+    memoryConversations.get(conversationId);
   assert.ok(persistedConversationAfterReplay);
   assert.equal(
     persistedConversationAfterReplay?.provider,

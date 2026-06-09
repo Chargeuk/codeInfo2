@@ -5,7 +5,7 @@ type SharedTranscriptSurfaceProps = {
   children: ReactNode;
 };
 
-export const sharedTranscriptSurfaceSx = {
+const sharedTranscriptSurfaceSx = {
   flex: '1 1 0%',
   minHeight: 0,
   height: '100%',
@@ -14,7 +14,7 @@ export const sharedTranscriptSurfaceSx = {
   overflow: 'hidden',
 } as const;
 
-export const sharedTranscriptSurfaceStyle: CSSProperties = {
+const sharedTranscriptSurfaceStyle: CSSProperties = {
   flexGrow: 1,
   flexShrink: 1,
   flexBasis: '0%',

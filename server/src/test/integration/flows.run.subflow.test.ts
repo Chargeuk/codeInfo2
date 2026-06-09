@@ -1,0 +1,426 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test, { afterEach, beforeEach } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
+import { startFlowRun } from '../../flows/service.js';
+import type { Conversation } from '../../mongo/conversation.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+class SubflowChat extends ChatInterface {
+  constructor(private readonly slowDelayMs: number) {
+    super();
+  }
+
+  async execute(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    const signal = (flags as { signal?: AbortSignal }).signal;
+    const abortIfNeeded = () => {
+      if (!signal?.aborted) return false;
+      this.emit('error', { type: 'error', message: 'aborted' });
+      return true;
+    };
+
+    if (abortIfNeeded()) return;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+
+    if (message.includes('slow child')) {
+      await delay(this.slowDelayMs);
+      if (abortIfNeeded()) return;
+    }
+
+    if (message.includes('child fail')) {
+      this.emit('error', { type: 'error', message: 'child failed' });
+      return;
+    }
+
+    if (abortIfNeeded()) return;
+    this.emit('final', { type: 'final', content: 'child ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const waitFor = async (
+  predicate: () => boolean,
+  timeoutMs = 5000,
+): Promise<void> => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return;
+    await delay(20);
+  }
+  throw new Error('Timed out waiting for condition');
+};
+
+const waitForAssistantStatus = async (
+  conversationId: string,
+  status: 'ok' | 'failed' | 'stopped',
+  timeoutMs = 5000,
+) => {
+  await waitFor(() => {
+    const turns = memoryTurns.get(conversationId) ?? [];
+    return turns.some(
+      (turn) => turn.role === 'assistant' && turn.status === status,
+    );
+  }, timeoutMs);
+  const turns = memoryTurns.get(conversationId) ?? [];
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const turn = turns[index];
+    if (turn?.role === 'assistant' && turn.status === status) {
+      return turn;
+    }
+  }
+  return undefined;
+};
+
+const waitForActiveSubflow = async (conversationId: string) => {
+  await waitFor(() => {
+    const conversation = memoryConversations.get(conversationId);
+    return Boolean(
+      (
+        conversation?.flags as
+          | { flow?: { activeSubflow?: unknown } }
+          | undefined
+      )?.flow?.activeSubflow,
+    );
+  });
+  const conversation = memoryConversations.get(conversationId);
+  return ((
+    conversation?.flags as {
+      flow?: { activeSubflow?: Record<string, unknown> };
+    }
+  )?.flow?.activeSubflow ?? null) as Record<string, unknown> | null;
+};
+
+const writeFlowFile = async (params: {
+  tmpDir: string;
+  flowName: string;
+  steps: unknown[];
+}) => {
+  await fs.writeFile(
+    path.join(params.tmpDir, `${params.flowName}.json`),
+    JSON.stringify(
+      {
+        description: params.flowName,
+        steps: params.steps,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+};
+
+const llmStep = (content: string) => ({
+  type: 'llm' as const,
+  label: 'Child Step',
+  agentType: 'planning_agent',
+  identifier: 'planner',
+  messages: [{ role: 'user' as const, content: [content] }],
+});
+
+const findChildFlowConversation = (params: {
+  parentConversationId: string;
+  childFlowName: string;
+}) =>
+  Array.from(memoryConversations.values()).find(
+    (conversation) =>
+      conversation._id !== params.parentConversationId &&
+      conversation.flowName === params.childFlowName,
+  );
+
+let previousAgentsHome: string | undefined;
+let previousFlowsDir: string | undefined;
+
+beforeEach(() => {
+  previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  previousFlowsDir = process.env.FLOWS_DIR;
+  installDeterministicCodexAvailabilityBootstrap();
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  memoryConversations.clear();
+  memoryTurns.clear();
+});
+
+afterEach(async () => {
+  resetDeterministicCodexAvailabilityBootstrap();
+  if (previousAgentsHome === undefined) {
+    delete process.env.CODEINFO_CODEX_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+  }
+  if (previousFlowsDir === undefined) {
+    delete process.env.FLOWS_DIR;
+  } else {
+    process.env.FLOWS_DIR = previousFlowsDir;
+  }
+  memoryConversations.clear();
+  memoryTurns.clear();
+});
+
+test('subflow step launches a child flow, waits for completion, and uses the generated child title', async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-ok-'));
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-ok',
+      steps: [llmStep('child ok')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-ok',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Child',
+          flowName: 'child-ok',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-ok',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(150),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const childConversation = findChildFlowConversation({
+      parentConversationId: result.conversationId,
+      childFlowName: 'child-ok',
+    });
+    assert.ok(childConversation);
+    assert.notEqual(childConversation?._id, result.conversationId);
+    assert.equal(childConversation?.title, 'Parent Review-Run Child');
+
+    const parentTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.ok(
+      parentTurns.some(
+        (turn) =>
+          turn.role === 'user' && turn.content === 'Run subflow child-ok',
+      ),
+    );
+    assert.ok(
+      parentTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          turn.content === 'Completed subflow Parent Review-Run Child',
+      ),
+    );
+
+    const parentConversation = memoryConversations.get(result.conversationId);
+    assert.equal(
+      (
+        parentConversation?.flags as
+          | { flow?: { activeSubflow?: unknown } }
+          | undefined
+      )?.flow?.activeSubflow,
+      undefined,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('subflow step mirrors child failure onto the parent flow', async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-fail-'));
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-fail',
+      steps: [llmStep('child fail')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-fail',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Broken Child',
+          flowName: 'child-fail',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-fail',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(150),
+    });
+
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'failed',
+    );
+    assert.equal(
+      finalAssistant?.content,
+      'Subflow Parent Review-Run Broken Child failed',
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('stopping the parent flow stops the running child subflow', async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-slow',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-stop',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Slow Child',
+          flowName: 'child-slow',
+        },
+      ],
+    });
+
+    let parentRunToken: string | undefined;
+    const result = await startFlowRun({
+      flowName: 'parent-stop',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(250),
+      onOwnershipReady: ({ runToken }) => {
+        parentRunToken = runToken;
+      },
+    });
+
+    const activeSubflow = await waitForActiveSubflow(result.conversationId);
+    assert.ok(activeSubflow);
+    assert.ok(parentRunToken);
+
+    registerPendingConversationCancel({
+      conversationId: result.conversationId,
+      runToken: parentRunToken as string,
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'stopped');
+    await waitForAssistantStatus(
+      String(activeSubflow?.conversationId),
+      'stopped',
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resume reattaches to an already running child subflow instead of launching a second child run', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-resume-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-resume',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-resume',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Slow Child',
+          flowName: 'child-resume',
+        },
+      ],
+    });
+
+    const childStart = await startFlowRun({
+      flowName: 'child-resume',
+      customTitle: 'Resume Parent-Run Slow Child',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(180),
+    });
+
+    const parentConversationId = 'resume-parent-conversation';
+    const now = new Date();
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Parent',
+      flowName: 'parent-resume',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-parent-execution',
+          stepPath: [],
+          loopStack: [],
+          activeSubflow: {
+            stepPath: [0],
+            flowName: 'child-resume',
+            conversationId: childStart.conversationId,
+            inflightId: childStart.inflightId,
+            title: 'Resume Parent-Run Slow Child',
+          },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-resume',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(180),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    await waitForAssistantStatus(parentConversationId, 'ok');
+
+    const childFlowConversations = Array.from(
+      memoryConversations.values(),
+    ).filter((conversation) => conversation.flowName === 'child-resume');
+    assert.equal(childFlowConversations.length, 1);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});

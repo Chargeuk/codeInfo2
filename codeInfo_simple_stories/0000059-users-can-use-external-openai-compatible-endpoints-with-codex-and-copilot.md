@@ -9,7 +9,7 @@
 5. New runs keep the intended fallback behavior: try the pinned endpoint first, repair within the same provider when possible, and only fall back more broadly when the same-provider path cannot run.
 6. Pinned or resumed conversations and executions do not silently drift to a different provider or endpoint when their saved endpoint later becomes unavailable.
 7. Older saved conversations still open normally, while newer endpoint-backed conversations keep endpoint identity separate from the raw model id.
-8. Final hardening keeps newer conversation metadata from being overwritten by stale writers and closes the story with full automated revalidation on the checked-in runtime path.
+8. Final hardening keeps newer conversation metadata from being overwritten by stale writers, makes exhausted metadata retries explicit to callers, and closes the story with full automated revalidation on the checked-in runtime path.
 
 # Description
 
@@ -112,3 +112,11 @@ This story lets the existing `Codex` and `Copilot` chat and agent surfaces use e
 24. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260609T173931Z-de51b749`
 - Re-run the final broad regression proof for the latest review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
 - Re-cover the stale-metadata overwrite repair and keep the final manual-proof handoff aligned to the checked-in main stack.
+
+25. [codeInfo2] - Preserve caller metadata intent when `updateConversationMeta()` exhausts optimistic retries
+- Repair the shared metadata helper so failed retry exhaustion no longer returns a success-shaped result when the write never lands.
+- Add focused server proof for the exhausted-retry path, the preserved winning state, and any direct caller seam that must surface the new outcome.
+
+26. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260609T214316Z-d1783561`
+- Re-run the full broad regression proof for the current review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
+- Keep this cycle as the one final revalidation owner for the latest metadata retry hardening and its checked-in runtime closeout proof.

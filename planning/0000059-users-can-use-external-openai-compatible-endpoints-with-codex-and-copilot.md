@@ -1817,7 +1817,7 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 15`, `Task 16`, `Task 17`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260608T182732Z-e960c572`. It must revalidate the serious review-created findings from review pass `0000059-20260608T155357Z-e960c572` and also re-cover the already resolved inline minor findings `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12` so this cycle does not split close-out ownership across separate final tasks.
 
@@ -1928,3 +1928,4 @@ Treat Task 18 screenshots as proof of the final repaired state for the visual su
 - Format check passed after Prettier normalized the three lint-related files touched during the final hygiene pass.
 - Re-read the server unit, integration, feature, and client/e2e proof surfaces for the final story head; the surviving test and scenario titles already keep the requested invariants explicit, so no renames were required in this pass.
 - Re-read `scripts/test-summary-server-cucumber-imports.test.mjs`, `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`; the import guard remains a distinct targeted proof home, and the smoke boundary stays fixed at `http://localhost:5001` plus `http://localhost:5010/health`.
+- Audit confirmed Task 18 is honestly complete on the current story head: all subtasks and automated Testing items are checked, the final wrapper artifacts passed without a surviving live blocker, and no new story-scope behavior drift was introduced while reconciling the client selection helper and fresh-run replay expectations during the proof pass.

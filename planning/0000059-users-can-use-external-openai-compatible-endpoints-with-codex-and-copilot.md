@@ -2369,7 +2369,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 22`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T163848Z-7744b884`. It must stop `updateConversationMeta()` from writing a stale read-merge-write snapshot back over newer conversation flags without widening Story 59 into a broader metadata or runtime-contract redesign.
 
@@ -2437,6 +2437,7 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 - The direct `/chat`, agent, flow, and codebase-question callers continue to own their existing metadata fields; the stale-write guard stays centralized in `server/src/mongo/repo.ts` instead of being duplicated into each caller.
 - `server/src/test/unit/chat-interface-run-persistence.test.ts` now contains the deterministic older-reader/newer-writer/later-stale-writer contradiction proof, including the preserved field set and version-guarded retry sequence.
 - `npm run build:summary:server` passed on the Story 59 head, confirming the repaired shared metadata write seam still compiles cleanly after the stale-write guard change.
+- Audit closeout: repository evidence now shows both Task 23 automated proof steps completed on the Story 59 head with no remaining implementation-side work or story-caused preserved-behavior regression, so this task can move to `__done__`.
 
 ### Task 24. Final Revalidation For Review Cycle 0000059-rc-20260609T173931Z-de51b749
 

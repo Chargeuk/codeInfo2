@@ -1948,7 +1948,7 @@ Treat Task 18 screenshots as proof of the final repaired state for the visual su
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `3` from review pass `0000059-20260609T033518Z-376c0288`. It must make completed `/chat` replay results durable across restart or worker replacement while preserving the approved Story 59 `/chat` request contract rather than widening scope into a new retry API or unrelated replay redesign.
 
@@ -2031,6 +2031,7 @@ Repair the `/chat` completed-replay seam so a caller-owned `inflightId` can stil
 - Preserved ordering without widening scope: same-process inflight dedupe still wins first, the post-lock replay check still runs before provider-unavailable bootstrap exits, and the durable completed replay sits behind those seams instead of replacing them. No new production test seam was needed because the existing `__resetCompletedInflightForTests()` helper already clears only the completed same-process cache for proof.
 - Refreshed `server/src/test/integration/conversations.turns.test.ts` and `server/src/test/integration/chat-tools-wire.test.ts` so the cache-loss replay title is explicit, the completed-cache reset path is exercised directly, contradictory stale retries still reject on the stable completed route contract, and a fresh inflight id still starts a new run.
 - **RESOLVED ISSUE** `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/integration/chat-tools-wire.test.ts` passed on 2026-06-09 after the durable replay patch. That proof retired the live blocker because the Task 19 server seam, cache-reset proof, and late-ordering coverage now exist in the bound owner files instead of only in blocker prose.
+- Audit on 2026-06-09 verified the durable replay route change, the refreshed owner tests, and the targeted server wrapper proof from `f9270308`, found no live blocker or story-caused user-facing behavior drift beyond the approved Story 59 replay repair, and marked Task 19 `__done__`. Broader regression and later manual-validation coverage remain owned by Task 20 rather than this repair task.
 
 ### Task 20. Final Revalidation For Review Cycle 0000059-rc-20260609T050126Z-8ccf6dc6
 

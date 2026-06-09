@@ -581,6 +581,7 @@ async function ensureConversation(
         ...(existing.flags ?? {}),
         ...(flags ?? {}),
       }),
+      replaceFlags: true,
       lastMessageAt: now,
     });
     return;

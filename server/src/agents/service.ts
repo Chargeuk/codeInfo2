@@ -503,6 +503,7 @@ async function persistDirectAgentConversation(params: {
       provider: params.providerId,
       model: params.modelId,
       flags,
+      replaceFlags: true,
       lastMessageAt: now,
     });
   }

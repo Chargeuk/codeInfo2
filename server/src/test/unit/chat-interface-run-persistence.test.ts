@@ -4,6 +4,7 @@ import { afterEach, describe, test } from 'node:test';
 import express from 'express';
 import mongoose from 'mongoose';
 import request from 'supertest';
+import { buildConversationFlags } from '../../chat/agentFlags.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -943,6 +944,101 @@ describe('ChatInterface.run persistence', () => {
         },
       },
       lastMessageAt: new Date('2025-03-03T00:00:00.000Z'),
+    });
+  });
+
+  test('updateConversationMeta replaceFlags clears stale endpointId and threadId on Mongo-backed writes', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 1,
+      configurable: true,
+    });
+
+    const originalFindById = ConversationModel.findById;
+    const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+    let capturedUpdate: unknown;
+
+    ConversationModel.findById = ((conversationId: unknown) => ({
+      lean: () => ({
+        exec: async () =>
+          ({
+            _id: conversationId,
+            provider: 'codex',
+            model: 'gpt-5.2',
+            flags: {
+              endpointId: 'https://alpha.example/v1',
+              requestedProviderId: 'codex',
+              workingFolder: '/repos/current-root',
+              threadId: 'codex-thread-stale',
+              flow: { status: 'running' },
+              agentFlags: {
+                sandboxMode: 'read-only',
+                approvalPolicy: 'never',
+              },
+            },
+          }) as never,
+      }),
+    })) as unknown as typeof ConversationModel.findById;
+
+    ConversationModel.findByIdAndUpdate = ((
+      _conversationId: unknown,
+      update: unknown,
+    ) => {
+      capturedUpdate = update;
+      return { exec: async () => null } as unknown as ReturnType<
+        typeof ConversationModel.findByIdAndUpdate
+      >;
+    }) as typeof ConversationModel.findByIdAndUpdate;
+
+    try {
+      await updateConversationMeta({
+        conversationId: 'replace-flags-conversation',
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        flags: buildConversationFlags({
+          provider: 'copilot',
+          currentFlags: {
+            endpointId: 'https://alpha.example/v1',
+            requestedProviderId: 'codex',
+            workingFolder: '/repos/current-root',
+            threadId: 'codex-thread-stale',
+            flow: { status: 'running' },
+            agentFlags: {
+              sandboxMode: 'read-only',
+              approvalPolicy: 'never',
+            },
+          },
+          agentFlags: {
+            modelReasoningEffort: 'medium',
+          },
+          workingFolder: '/repos/current-root',
+          endpointId: null,
+          threadId: null,
+          preserveFlowState: false,
+        }),
+        replaceFlags: true,
+        lastMessageAt: new Date('2025-04-04T00:00:00.000Z'),
+      });
+    } finally {
+      ConversationModel.findById = originalFindById;
+      ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
+    }
+
+    assert.deepEqual(capturedUpdate, {
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+      flags: {
+        requestedProviderId: 'codex',
+        workingFolder: '/repos/current-root',
+        agentFlags: {
+          modelReasoningEffort: 'medium',
+        },
+      },
+      lastMessageAt: new Date('2025-04-04T00:00:00.000Z'),
     });
   });
 

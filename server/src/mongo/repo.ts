@@ -63,15 +63,22 @@ function mergeConversationMetaFlags(params: {
   provider: ConversationProvider;
   currentFlags?: Record<string, unknown> | null;
   nextFlags?: Record<string, unknown> | null;
+  replaceFlags?: boolean;
 }): Record<string, unknown> {
+  const nextFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.nextFlags,
+    { preserveFlowState: true },
+  );
+
+  if (params.replaceFlags === true) {
+    return nextFlags;
+  }
+
   const currentFlags = sanitizeConversationFlagsForProvider(
     params.provider,
     params.currentFlags,
     { preserveFlowState: true },
-  );
-  const nextFlags = sanitizeConversationFlagsForProvider(
-    params.provider,
-    params.nextFlags,
   );
 
   return {
@@ -98,6 +105,7 @@ export interface UpdateConversationMetaInput {
   provider?: ConversationProvider;
   model?: string;
   flags?: Record<string, unknown>;
+  replaceFlags?: boolean;
   lastMessageAt?: Date;
 }
 
@@ -177,6 +185,7 @@ export async function updateConversationMeta(
         ('codex' as ConversationProvider),
       currentFlags: existing?.flags ?? null,
       nextFlags: input.flags,
+      replaceFlags: input.replaceFlags,
     });
   }
   if (input.lastMessageAt !== undefined)

@@ -946,6 +946,7 @@ const ensureFlowAgentConversation = async (params: {
       provider: params.providerId,
       model: params.modelId,
       flags: nextFlags,
+      replaceFlags: true,
       lastMessageAt: now,
     });
     if (params.workingFolder) {

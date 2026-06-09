@@ -1112,6 +1112,7 @@ export function createChatRouter({
         provider: executionProvider,
         model: executionModel,
         flags: buildRuntimeConversationFlags(latestConversation.flags),
+        replaceFlags: true,
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)

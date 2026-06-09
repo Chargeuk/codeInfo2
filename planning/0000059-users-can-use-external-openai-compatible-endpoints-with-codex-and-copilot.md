@@ -2656,7 +2656,7 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T214316Z-d1783561`. It must revalidate the current review-created findings block for review pass `0000059-20260609T204743Z-be606c98` and also state explicitly that this active review cycle has no inline-resolved minor findings to re-cover unless later same-cycle work changes that fact.
 

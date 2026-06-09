@@ -2636,7 +2636,7 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired shared metadata persistence seam still compiles cleanly on the Story 59 head.
+1. [x] Run `npm run build:summary:server` to confirm the repaired shared metadata persistence seam still compiles cleanly on the Story 59 head.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the exhaustion-path contradiction and the explicit exhausted-retry contract at the shared helper seam.
 3. [x] If Subtask 4 added one caller proof file, rerun `npm run test:summary:server:unit` with both `--file server/src/test/unit/chat-interface-run-persistence.test.ts` and the exact second `--file` chosen for the changed caller seam so the shared helper contract and the caller-visible exhausted outcome are proved together on the same wrapper path. Not applicable here because Subtask 4 did not add a caller proof file.
 
@@ -2648,6 +2648,7 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 - Exhaustion proof: `server/src/test/unit/chat-interface-run-persistence.test.ts` now stages three intervening writers that keep advancing `updatedAt` until the helper reaches its retry ceiling, then asserts the `retry_exhausted` outcome, the final concurrent-winner snapshot, and the distinct `not_found` shape.
 - Validation note: `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` passed with `22/22` tests after the helper contract change and the required test-double adaptation.
 - Audit note: implementation evidence on `12019965` supports the helper change, the focused persistence proof, and the test-double follow-up, but this audit reopened `npm run build:summary:server` because the repository evidence available on disk showed the targeted unit wrapper run rather than a separate `build:summary:server` wrapper execution.
+- `npm run build:summary:server` now passes on the Story 59 head, so the final unchecked testing item for task 25 is complete and the repaired helper still compiles cleanly after the explicit exhausted-retry contract change.
 
 ### Task 26. Final Revalidation For Review Cycle 0000059-rc-20260609T214316Z-d1783561
 

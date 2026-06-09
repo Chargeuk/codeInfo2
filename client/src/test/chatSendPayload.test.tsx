@@ -357,7 +357,6 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
     model?: string;
     endpointId?: string;
   };
-  const user = userEvent.setup();
   let chatBody: ChatBody | null = null;
 
   mockFetch.mockImplementation(
@@ -475,7 +474,6 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
     endpointId?: string;
   };
   const restoreMatchMedia = setMatchMedia(true);
-  const user = userEvent.setup();
   let chatBody: ChatBody | null = null;
 
   mockFetch.mockImplementation(
@@ -570,9 +568,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
 
     const providerButton = screen.getByTestId('provider-select');
     expect(providerButton).toHaveAttribute('aria-label', 'Provider');
-    expect(providerButton).not.toHaveTextContent(
-      /OpenAI Codex/i,
-    );
+    expect(providerButton).not.toHaveTextContent(/OpenAI Codex/i);
 
     const modelButton = screen.getByTestId('model-select');
     expect(modelButton).toHaveAttribute('aria-label', 'Model');
@@ -584,7 +580,9 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
     });
 
     const input = await screen.findByTestId('chat-input');
-    fireEvent.change(input, { target: { value: 'Hello mobile stale endpoint' } });
+    fireEvent.change(input, {
+      target: { value: 'Hello mobile stale endpoint' },
+    });
     await waitFor(() =>
       expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
     );

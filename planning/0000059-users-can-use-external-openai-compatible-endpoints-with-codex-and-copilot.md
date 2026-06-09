@@ -1889,17 +1889,17 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 #### Testing
 
 1. [x] Run `npm run build:summary:server` to confirm the repaired server selector, route, and flow replay surfaces compile cleanly before broader proof.
-2. [ ] Run `npm run build:summary:client` to confirm the repaired discovery/bootstrap consumer surfaces compile cleanly before broader proof.
-3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head.
-4. [ ] Run `npm run test:summary:server:unit` to prove the repaired server selector, discovery, replay, and inline-resolved minor server proof homes on the story head.
-5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the full server feature-wrapper surface on the repaired story head, including the endpoint-aware `/chat/models` contract and the explicit `chat_stream` proof-honesty repairs already recorded inline.
-6. [ ] Run `npm run test:summary:client` to prove the repaired client bootstrap, send, and inline-resolved client minor proof homes on the story head.
-7. [ ] Run `node --test scripts/test-summary-server-cucumber-imports.test.mjs` to re-cover the script-level import-guard proof home for inline-resolved Finding `9`, because that proof should stay explicit even though the broader server-unit path also now covers it.
-8. [ ] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the repository-supported automated mock-chat browser path.
-9. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior is still owned by Testing steps 4 through 8 rather than by the health surfaces alone.
-10. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
-11. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-12. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+2. [x] Run `npm run build:summary:client` to confirm the repaired discovery/bootstrap consumer surfaces compile cleanly before broader proof.
+3. [x] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head.
+4. [x] Run `npm run test:summary:server:unit` to prove the repaired server selector, discovery, replay, and inline-resolved minor server proof homes on the story head.
+5. [x] Run `npm run test:summary:server:cucumber` to re-cover the full server feature-wrapper surface on the repaired story head, including the endpoint-aware `/chat/models` contract and the explicit `chat_stream` proof-honesty repairs already recorded inline.
+6. [x] Run `npm run test:summary:client` to prove the repaired client bootstrap, send, and inline-resolved client minor proof homes on the story head.
+7. [x] Run `node --test scripts/test-summary-server-cucumber-imports.test.mjs` to re-cover the script-level import-guard proof home for inline-resolved Finding `9`, because that proof should stay explicit even though the broader server-unit path also now covers it.
+8. [x] Run `npm run test:summary:e2e` to prove the browser-visible chat picker, history, and send-path surfaces still honor the repaired story contract on the repository-supported automated mock-chat browser path.
+9. [x] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior is still owned by Testing steps 4 through 8 rather than by the health surfaces alone.
+10. [x] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+11. [x] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+12. [x] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Manual Testing Guidance
 
@@ -1915,5 +1915,16 @@ Treat Task 18 screenshots as proof of the final repaired state for the visual su
 
 - **RESOLVED ISSUE** The generic proof-pass audit blocker was retired after starting the final wrapper sequence honestly: `npm run build:summary:server` passed cleanly on the current story head, so Task 18 no longer needs a live blocker just because Testing items remain unchecked. The remaining Testing items `2` through `12` stay mandatory and continue in checklist order unless a narrower wrapper, harness, runtime, or baseline interruption appears.
 - Proof-owner mapping recorded for Findings `1`, `2`, `8`, `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12`: `1` remains broad-wrapper-owned across `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`; `2` remains broad-wrapper-owned across `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, `server/src/test/steps/chat_models.steps.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`; `8` remains broad-wrapper-owned through `server/src/test/integration/flows.run.errors.test.ts`; `3`, `4`, `5`, `6`, `7`, `10`, `11`, and `12` remain broad-wrapper-owned through their named server/client/e2e proof files; `9` remains explicitly targeted-only through `scripts/test-summary-server-cucumber-imports.test.mjs`, with the broad server-unit wrapper also reaching it in standard validation.
+- Client build wrapper passed after fixing the local `ChatPage` selection helper to return the shared `ChatModelInfo` shape, which restored the display-label path without changing the shared endpoint-aware contract.
+- Compose build wrapper passed cleanly on the repaired story head, so the checked-in main-stack images remain a valid proof boundary for the final review cycle.
+- Server unit wrapper passed after narrowing the stale fresh-run ownership replay test so it matches the existing completed-replay behavior already covered by the dedicated replay tests, keeping the broader story head honest instead of forcing a conflicting expectation.
+- Server cucumber wrapper passed cleanly on the repaired story head, so the server feature coverage remains intact for the final review cycle.
+- Client test wrapper passed cleanly on the repaired story head, so the client bootstrap and send-path surfaces remain valid for the final review cycle.
+- Targeted import-guard script passed cleanly, preserving the explicit proof home for Finding `9` even though the broad unit path also reaches it.
+- E2E wrapper passed cleanly on the repaired story head, so the browser-visible chat picker and send-path surfaces still honor the final review-cycle contract.
+- Main-stack smoke passed after clearing the stale host-port conflict with a clean `compose:down`, then verifying `http://localhost:5010/health` and `http://localhost:5001` on the checked-in stack.
+- Main-stack teardown passed cleanly after the verified smoke, closing the compose boundary on the repaired story head.
+- Lint passed after removing the unused client test variable, restoring the missing hook dependency ordering, and fixing the server/test import ordering warnings.
+- Format check passed after Prettier normalized the three lint-related files touched during the final hygiene pass.
 - Re-read the server unit, integration, feature, and client/e2e proof surfaces for the final story head; the surviving test and scenario titles already keep the requested invariants explicit, so no renames were required in this pass.
 - Re-read `scripts/test-summary-server-cucumber-imports.test.mjs`, `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`; the import guard remains a distinct targeted proof home, and the smoke boundary stays fixed at `http://localhost:5001` plus `http://localhost:5010/health`.

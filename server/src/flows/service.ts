@@ -52,11 +52,11 @@ import {
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import { formatReingestPrestartReason } from '../ingest/reingestError.js';
 import { executeReingestRequest } from '../ingest/reingestExecution.js';
 import type { ReingestResult } from '../ingest/reingestService.js';
 import { runReingestRepository } from '../ingest/reingestService.js';
-import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,

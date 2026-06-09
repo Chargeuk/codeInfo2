@@ -1049,9 +1049,7 @@ describe('Chat shared shell conversation selection', () => {
       ).toBeInTheDocument(),
     );
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.2/i,
-      ),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5\.2/i),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
       /alpha\.example/i,
@@ -1100,9 +1098,7 @@ describe('Chat shared shell conversation selection', () => {
       ),
     );
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.2/i,
-      ),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5\.2/i),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
       /alpha\.example/i,

@@ -1489,7 +1489,7 @@ export function useChatStream(
       logWithChannel,
       model,
       provider,
-      endpointId,
+      submissionEndpointId,
       resetInflightState,
       scheduleThinkingTimer,
       rememberSeenInflightId,

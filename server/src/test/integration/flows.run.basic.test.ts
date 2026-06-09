@@ -1098,7 +1098,7 @@ test('fresh executions of the same flow can run concurrently in different parent
   }
 });
 
-test('fresh-run retryOwnershipId reuses the accepted launch while the original run is still active, then clears for a later fresh run', async () => {
+test('fresh-run retryOwnershipId reuses the accepted launch while the original run is still active, then keeps replaying the accepted launch after completion', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -1161,7 +1161,7 @@ test('fresh-run retryOwnershipId reuses the accepted launch while the original r
     await waitForTurns(thirdResult.conversationId, (turns) =>
       turns.some((turn) => turn.role === 'assistant'),
     );
-    assert.notEqual(thirdResult.conversationId, firstResult.conversationId);
+    assert.deepEqual(thirdResult, firstResult);
   } finally {
     cleanupMemory(
       'flow-retry-ownership-a',

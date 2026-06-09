@@ -1,4 +1,5 @@
 import {
+  type ChatModelInfo,
   type ChatAgentFlagDescriptor,
   type ChatAgentFlagKey,
   type ChatAgentFlagValue,
@@ -189,10 +190,10 @@ const readConversationEndpointId = (flags: unknown): string | undefined => {
 };
 
 const resolveSelectedModelSelection = (
-  models: Array<{ key: string; endpointId?: string }>,
+  models: ChatModelInfo[],
   selected?: string,
   selectedEndpointId?: string,
-): { model?: { key: string; endpointId?: string }; endpointId?: string } => {
+): { model?: ChatModelInfo; endpointId?: string } => {
   if (!selected) {
     return {};
   }
@@ -215,8 +216,7 @@ const resolveSelectedModelSelection = (
   if (selectedEndpointId !== undefined) {
     const nativeMatch = models.find(
       (model) =>
-        model.key === selected &&
-        (model.endpointId ?? undefined) === undefined,
+        model.key === selected && (model.endpointId ?? undefined) === undefined,
     );
     if (nativeMatch) {
       return {
@@ -235,7 +235,7 @@ const resolveSelectedModelSelection = (
     model: keyedMatch,
     endpointId:
       selectedEndpointId === undefined
-        ? keyedMatch.endpointId ?? undefined
+        ? (keyedMatch.endpointId ?? undefined)
         : undefined,
   };
 };

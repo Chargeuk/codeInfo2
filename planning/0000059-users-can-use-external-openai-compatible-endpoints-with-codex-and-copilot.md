@@ -2038,7 +2038,7 @@ Repair the `/chat` completed-replay seam so a caller-owned `inflightId` can stil
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 19`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T050126Z-8ccf6dc6`. It must revalidate the serious review-created finding from review pass `0000059-20260609T033518Z-376c0288` and also re-cover the already resolved inline minor findings `1`, `2`, `4`, and `5` so this cycle does not split close-out ownership across separate final tasks.
 

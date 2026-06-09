@@ -2174,6 +2174,7 @@ Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` 
 - The repair keeps legitimate in-flight ownership, contradictory retry rejection, and truly new flow-run divergence distinct instead of collapsing them into one generic replay path.
 - The durable replay reader never treats partial, in-progress, or cleanup-incomplete flow state as a completed replay result.
 - The retained proof directly exercises the durable post-completion path rather than passing only because the same process-local maps stayed warm.
+- The retained proof names the cache-loss or restart-style replay claim explicitly enough that a later audit can distinguish durable completed-result reuse from same-process map reuse.
 - The repair stays bounded to the fresh-flow `retryOwnershipId` replay seam and does not widen Story 59 into unrelated flow architecture or runtime-contract redesign.
 
 #### Addresses Findings
@@ -2209,11 +2210,11 @@ Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` 
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/mongo/conversation.ts`, and `server/src/routes/flowsRun.ts`, then record one short owner map in `Implementation Notes` that names where fresh-flow `retryOwnershipId` ownership is created today, where the completed same-process replay cache is checked, and which persisted state can carry a durable completed barrier without widening the approved Story 59 flow contract.
-2. [ ] Patch the fresh-flow replay seam so the normal retry path writes or exposes one durable completion marker tied to the same logical request and `retryOwnershipId`, and so the same default flow-run path reuses or rejects against that persisted completed result before launching fresh work after process-local cache loss.
-3. [ ] Keep the existing ownership and contradiction boundaries explicit while adding the durable completed-result path: legitimate in-flight work must still block duplicate live launches, contradictory retries must still reject, and truly new runs must still create fresh work.
-4. [ ] If the current server test support cannot deterministically clear or bypass only the completed same-process retry cache without weakening production behavior, add one bounded test-only helper seam under the existing server test-support surface so proof can exercise the persisted completed-replay path directly after cache loss.
-5. [ ] Refresh the retained flow replay proofs so they carry separate named claims for same-process ownership, durable completed replay reuse after cache loss or restart-style recovery, contradictory retry rejection, and the boundary where partial or failed persistence must not be reused as a completed replay result.
+1. [ ] Re-open `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/mongo/conversation.ts`, and `server/src/routes/flowsRun.ts`, then record one short owner map in `Implementation Notes` that names where fresh-flow `retryOwnershipId` ownership is admitted today, where the completed same-process replay cache is checked, which persisted fields already identify the same logical request, and which read/write seam can carry a durable completed barrier without widening the approved Story 59 flow contract.
+2. [ ] Patch the completed-result writer path in `server/src/flows/service.ts` plus the owning persistence seam in `server/src/flows/flowState.ts` and `server/src/mongo/conversation.ts` so one completed fresh-flow run persists the minimum durable replay marker keyed to the same logical request and `retryOwnershipId`, without redefining the accepted flow request schema or adding a broader public retry contract.
+3. [ ] Patch the default retry read path in `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` so the execution order stays explicit after cache loss: live in-flight ownership still blocks duplicate launches first, contradictory retries still reject second, and only then may the durable completed-result path reuse the earlier success instead of launching fresh work.
+4. [ ] If the current server test support cannot deterministically clear or bypass only the completed same-process replay cache while keeping production behavior unchanged, add one bounded test-only helper seam under the existing server test-support surface so proof can force the persisted completed-replay path directly after cache loss.
+5. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` so one retained scenario proves durable completed replay reuse after cache loss or restart-style recovery, and update `server/src/test/integration/flows.run.errors.test.ts` so separate retained scenarios prove contradictory retry rejection and the rule that partial or failed persistence must not be reused as a completed replay result.
 
 #### Testing
 
@@ -2238,6 +2239,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - The same final proof pass also covers any inline-resolved minor fixes recorded for this active review cycle; none are currently recorded, and the task must keep that explicit if it remains true.
 - The current repository's relevant server, client, browser-visible chat, compose-backed smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
 - Final `Implementation Notes` map the current-cycle review-created finding block to its surviving proof owners on the repaired story head, including which browser-visible coverage remains broad-wrapper-owned versus client-wrapper-owned only.
+- If later manual proof is still useful for the browser-visible chat surface, this task leaves optional screenshot-staging guidance for fresh final-state proof rather than relying on older scratch screenshots by default.
 
 #### Addresses Findings
 
@@ -2265,9 +2267,10 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 #### Subtasks
 
-1. [ ] Re-open this review-created findings block and record one explicit proof-owner mapping in `Implementation Notes` for review-created Finding `1`, plus any inline-resolved minor fixes that may have been recorded later in this same review cycle.
-2. [ ] Re-open the retained server and client proof-owner files touched by Task 21 only when a retained assertion title or proof-home note still needs clarification on the repaired final story head.
-3. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that distinguishes task-owned assertion failures from shared baseline or harness interruptions for this review-created block.
+1. [ ] Re-open this review-created findings block and record one explicit proof-owner mapping in `Implementation Notes` for review-created Finding `1`, plus any inline-resolved minor fixes that may have been recorded later in this same review cycle, naming which proof homes are targeted server-only versus broad wrapper-owned on the final story head.
+2. [ ] Re-open only the retained proof-owner files touched by Task 21 when a scenario title, assertion name, or proof-home note still needs clarification on the repaired final story head, and keep any such wording refresh bounded to the files that now own the final proof claim.
+3. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that distinguishes task-owned assertion failures from shared baseline or harness interruptions for this review-created block and names which wrapper or smoke step owns that boundary.
+4. [ ] If browser-visible chat surfaces still need later manual confirmation after the automated pass, leave one optional manual-proof handoff note that names the final-state screenshot set to recapture for this repaired story head and the staging or transfer convention for those screenshots, without turning that later manual proof into a blocking checklist item.
 
 #### Testing
 
@@ -2282,3 +2285,10 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
 10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
 11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+
+#### Manual Testing Guidance
+
+- If later manual proof re-covers the browser-visible chat surface, capture a fresh final-state screenshot set for the repaired story head instead of treating older scratch screenshots as durable closeout proof by default. The preferred set is the supported new-conversation chat state, endpoint-backed Codex history, endpoint-backed Copilot history, native Codex history, and one mobile new-conversation view when those surfaces still match the story-owned chat scope.
+- Stage any Playwright MCP screenshots under a relative path such as `0000059/22/proof-01-new-conversation-desktop.png` inside the Playwright runtime output first; in this local harness workflow that should then appear under `$CODEINFO_ROOT/playwright-output-local/0000059/22/` on the host before any later transfer into `codeInfoTmp/manual-testing/0000059/22/`.
+- If runtime handoff JSON is needed to confirm the artifact source, fallback runtime, or destination details, inspect that JSON by meaning rather than exact property names.
+- If screenshot staging or transfer is blocked, record that limitation honestly in `Implementation Notes` and preserve the rest of the manual-proof result instead of reopening implementation work on that basis alone.

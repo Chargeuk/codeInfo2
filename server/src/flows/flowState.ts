@@ -12,7 +12,7 @@ export type FlowResumeState = {
     stepPath: number[];
     flowName: string;
     conversationId: string;
-    inflightId: string;
+    runToken: string;
     title?: string;
   };
   workingFolder?: string;

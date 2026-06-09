@@ -47,6 +47,13 @@ class SubflowChat extends ChatInterface {
       if (abortIfNeeded()) return;
     }
 
+    if (message.includes('slow child fail')) {
+      await delay(this.slowDelayMs);
+      if (abortIfNeeded()) return;
+      this.emit('error', { type: 'error', message: 'child failed' });
+      return;
+    }
+
     if (message.includes('child fail')) {
       this.emit('error', { type: 'error', message: 'child failed' });
       return;
@@ -113,6 +120,19 @@ const waitForActiveSubflow = async (conversationId: string) => {
       flow?: { activeSubflow?: Record<string, unknown> };
     }
   )?.flow?.activeSubflow ?? null) as Record<string, unknown> | null;
+};
+
+const waitForConversationAssistantStatus = async (
+  conversationId: string,
+  status: 'ok' | 'failed' | 'stopped',
+  timeoutMs = 5000,
+) => {
+  await waitFor(() => {
+    const turns = memoryTurns.get(conversationId) ?? [];
+    return turns.some(
+      (turn) => turn.role === 'assistant' && turn.status === status,
+    );
+  }, timeoutMs);
 };
 
 const writeFlowFile = async (params: {
@@ -291,6 +311,76 @@ test('subflow step mirrors child failure onto the parent flow', async () => {
   }
 });
 
+test('subflow waits for the full child flow and can fail on a later child step', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-fail-later-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-fail-later',
+      steps: [llmStep('child ok'), llmStep('slow child fail')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-fail-later',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Later Failure',
+          flowName: 'child-fail-later',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-fail-later',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(160),
+    });
+
+    const childConversation = await waitFor(() => {
+      const found = findChildFlowConversation({
+        parentConversationId: result.conversationId,
+        childFlowName: 'child-fail-later',
+      });
+      return Boolean(found);
+    }).then(() =>
+      findChildFlowConversation({
+        parentConversationId: result.conversationId,
+        childFlowName: 'child-fail-later',
+      }),
+    );
+
+    assert.ok(childConversation?._id);
+    await waitForConversationAssistantStatus(
+      String(childConversation?._id),
+      'ok',
+    );
+    await delay(40);
+    const parentTurnsWhileChildContinues =
+      memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      parentTurnsWhileChildContinues.some((turn) => turn.role === 'assistant'),
+      false,
+    );
+
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'failed',
+    );
+    assert.equal(
+      finalAssistant?.content,
+      'Subflow Parent Review-Run Later Failure failed',
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('stopping the parent flow stops the running child subflow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
   process.env.FLOWS_DIR = tmpDir;
@@ -299,7 +389,7 @@ test('stopping the parent flow stops the running child subflow', async () => {
     await writeFlowFile({
       tmpDir,
       flowName: 'child-slow',
-      steps: [llmStep('slow child')],
+      steps: [llmStep('child ok'), llmStep('slow child')],
     });
     await writeFlowFile({
       tmpDir,
@@ -327,6 +417,11 @@ test('stopping the parent flow stops the running child subflow', async () => {
     const activeSubflow = await waitForActiveSubflow(result.conversationId);
     assert.ok(activeSubflow);
     assert.ok(parentRunToken);
+
+    await waitForConversationAssistantStatus(
+      String(activeSubflow?.conversationId),
+      'ok',
+    );
 
     registerPendingConversationCancel({
       conversationId: result.conversationId,
@@ -367,12 +462,17 @@ test('resume reattaches to an already running child subflow instead of launching
       ],
     });
 
+    let childRunToken: string | undefined;
     const childStart = await startFlowRun({
       flowName: 'child-resume',
       customTitle: 'Resume Parent-Run Slow Child',
       source: 'REST',
       chatFactory: () => new SubflowChat(180),
+      onOwnershipReady: ({ runToken }) => {
+        childRunToken = runToken;
+      },
     });
+    assert.ok(childRunToken);
 
     const parentConversationId = 'resume-parent-conversation';
     const now = new Date();
@@ -392,7 +492,7 @@ test('resume reattaches to an already running child subflow instead of launching
             stepPath: [0],
             flowName: 'child-resume',
             conversationId: childStart.conversationId,
-            inflightId: childStart.inflightId,
+            runToken: childRunToken as string,
             title: 'Resume Parent-Run Slow Child',
           },
           agentConversations: {},
@@ -420,6 +520,73 @@ test('resume reattaches to an already running child subflow instead of launching
       memoryConversations.values(),
     ).filter((conversation) => conversation.flowName === 'child-resume');
     assert.equal(childFlowConversations.length, 1);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resumed parent flow uses its persisted conversation title for new subflow titles', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-persisted-title-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-title',
+      steps: [llmStep('child ok')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-title',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Child',
+          flowName: 'child-title',
+        },
+      ],
+    });
+
+    const parentConversationId = 'persisted-title-parent';
+    const now = new Date();
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Persisted Parent Title',
+      flowName: 'parent-title',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'persisted-title-execution',
+          stepPath: [],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-title',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+    });
+
+    await waitForAssistantStatus(resumed.conversationId, 'ok');
+    const childConversation = findChildFlowConversation({
+      parentConversationId,
+      childFlowName: 'child-title',
+    });
+    assert.equal(childConversation?.title, 'Persisted Parent Title-Run Child');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

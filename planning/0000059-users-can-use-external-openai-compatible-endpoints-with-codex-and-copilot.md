@@ -2444,7 +2444,7 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T173931Z-de51b749`. It must revalidate the current review-created finding block for review pass `0000059-20260609T163848Z-7744b884` and also cover any inline-resolved minor fixes already recorded for this same active review cycle.
 

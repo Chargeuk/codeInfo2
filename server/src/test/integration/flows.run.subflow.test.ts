@@ -503,6 +503,82 @@ test('stopping the parent flow stops the running child subflow', async () => {
   }
 });
 
+test('parent stop stays stopped even if the child reports ok after cancel', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-sticky-parent-stop-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-fast-ok',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-sticky-stop',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Fast Child',
+          flowName: 'child-fast-ok',
+        },
+        llmStep('should not run'),
+      ],
+    });
+
+    let parentRunToken: string | undefined;
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-sticky-stop',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(10, ({ message }) => {
+          executions.push(message);
+        }),
+      onOwnershipReady: ({ runToken }) => {
+        parentRunToken = runToken;
+      },
+    });
+
+    const activeSubflow = await waitForActiveSubflow(result.conversationId);
+    assert.ok(activeSubflow);
+    assert.ok(parentRunToken);
+
+    await waitForConversationAssistantStatus(
+      String(activeSubflow?.conversationId),
+      'ok',
+    );
+    const parentTurnsBeforeStop = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      parentTurnsBeforeStop.some((turn) => turn.role === 'assistant'),
+      false,
+    );
+
+    registerPendingConversationCancel({
+      conversationId: result.conversationId,
+      runToken: parentRunToken as string,
+    });
+
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'stopped',
+    );
+    assert.equal(
+      finalAssistant?.content,
+      'Stopped subflow Parent Review-Run Fast Child',
+    );
+    assert.equal(
+      executions.some((message) => message.includes('should not run')),
+      false,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('pending parent stop prevents launching a new child subflow', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-before-launch-'),

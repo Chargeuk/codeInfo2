@@ -3925,12 +3925,14 @@ async function runFlowUnlocked(params: {
       await persistRuntimeResumeState(lastCompletedStepPath);
 
       let terminalStatus: TurnStatus;
+      let parentStopRequested = false;
       while (true) {
         const parentPendingCancel = consumePendingConversationCancel({
           conversationId: params.conversationId,
           runToken: params.runToken,
         });
         if (parentPendingCancel) {
+          parentStopRequested = true;
           requestActiveSubflowStop({
             conversationId: childConversationId,
             runToken: childRunToken,
@@ -3942,7 +3944,7 @@ async function runFlowUnlocked(params: {
           runToken: childRunToken,
         });
         if (childStatus) {
-          terminalStatus = childStatus;
+          terminalStatus = parentStopRequested ? 'stopped' : childStatus;
           break;
         }
 

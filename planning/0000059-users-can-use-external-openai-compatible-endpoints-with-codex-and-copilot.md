@@ -2382,6 +2382,7 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 - `updateConversationMeta()` no longer writes a precomputed stale full `flags` snapshot back over a newer intervening write.
 - The repaired helper still supports the current Story 59 caller-owned metadata behavior for `/chat`, agent, flow, and codebase-question writers without widening into a new public persistence API.
 - The retained proof directly exercises an intervening-write contradiction case instead of proving only single-snapshot merge math.
+- The retained proof explicitly checks that a newer `endpointId`, `threadId`, `workingFolder`, or flow-owned flag survives a later stale writer rather than being reintroduced from the older snapshot.
 - The repair stays bounded to the shared conversation metadata persistence seam and any one-step same-repository caller adjustments required to preserve the intended helper contract.
 
 #### Addresses Findings
@@ -2415,14 +2416,14 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/mongo/repo.ts` plus the direct `flags` writers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts`, then record one short owner note in `Implementation Notes` naming which caller-owned flag surfaces must keep newer state authoritative when writes race and which helper seam will own the stale-write protection.
-2. [ ] Repair `updateConversationMeta()` in `server/src/mongo/repo.ts` so it no longer writes a precomputed stale full `flags` object after an intervening write. Keep current Story 59 behavior for `endpointId`, `threadId`, `workingFolder`, and flow-owned flags intact; if one changed direct caller still needs a bounded companion adjustment to follow the repaired helper contract honestly, keep that adjustment in the same repository and record it in `Implementation Notes`.
-3. [ ] Extend `server/src/test/unit/chat-interface-run-persistence.test.ts` with an intervening-write contradiction case that proves a newer flag update survives a later stale writer. Add one additional focused same-repository server proof file only if the helper-level proof cannot honestly show the preserved caller behavior through the repaired seam.
+1. [ ] Re-open `server/src/mongo/repo.ts` plus the direct `flags` writers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts`, then record one short owner note in `Implementation Notes` naming which caller currently owns `endpointId`, `threadId`, `workingFolder`, and the flow-owned flags, which of those fields must stay newer-writer-authoritative when writes race, and that `updateConversationMeta()` remains the single stale-write protection seam instead of pushing bespoke guards into every caller.
+2. [ ] Repair `updateConversationMeta()` in `server/src/mongo/repo.ts` so it no longer writes a precomputed stale full `flags` object after an intervening write. Keep the stale-write protection inside that helper seam by re-reading or guarding the persisted `flags` at write time there, and stop once a later stale writer can no longer reapply older `endpointId`, `threadId`, `workingFolder`, or flow-owned values. If one changed direct caller still needs a bounded companion adjustment to follow the repaired helper contract honestly, keep that adjustment in the same repository, limit it to the named caller seam, and record it in `Implementation Notes`.
+3. [ ] Extend `server/src/test/unit/chat-interface-run-persistence.test.ts` with one intervening-write contradiction case where an earlier reader keeps an older snapshot, a newer writer updates at least one of `endpointId`, `threadId`, `workingFolder`, or a flow-owned flag, and the later stale writer attempts to save its older snapshot. Assert that the newer values survive and that the stale writer does not reintroduce any older flag values. Add one additional focused same-repository server proof file only if the helper-level proof cannot honestly show the preserved caller behavior through the repaired seam.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` to confirm the repaired conversation metadata write seam still compiles cleanly on the Story 59 head.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the intervening-write contradiction case and the repaired shared helper contract directly.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the intervening-write contradiction case and the repaired shared helper contract directly. If Subtask 3 added one focused same-repository caller proof file, include that file in the same wrapper invocation with an additional `--file` argument so the changed caller seam is proved alongside the helper seam.
 
 #### Implementation Notes
 
@@ -2446,6 +2447,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - The same final proof pass also covers any inline-resolved minor fixes recorded for this active review cycle; none are currently recorded, and the task must keep that explicit if it remains true.
 - The current repository's relevant server, client, browser-visible chat, compose-backed smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
 - Final `Implementation Notes` map the current-cycle review-created finding block to its surviving proof owners on the repaired story head, including which browser-visible coverage remains broad-wrapper-owned versus client-wrapper-owned only.
+- Final `Implementation Notes` also state whether this review cycle still has no inline-resolved minor findings to re-cover, so later closeout does not assume a second final revalidation owner exists.
 
 #### Addresses Findings
 
@@ -2491,8 +2493,8 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 #### Subtasks
 
-1. [ ] Re-open this review-created findings block plus the retained proof-owner files touched by Task 23, then record one explicit proof-owner mapping in `Implementation Notes` for review-created Finding `1`, any inline-resolved minor fixes recorded later in this same review cycle, and the Story 59 browser-visible chat boundaries that remain broad-wrapper-owned on the final story head.
-2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that names which wrapper or smoke step owns each baseline boundary for this review-created block and that env-file loading remains owned by the compose wrapper path.
+1. [ ] Re-open this review-created findings block plus the retained proof-owner files touched by Task 23, then record one explicit proof-owner mapping in `Implementation Notes` with three buckets: the focused server proof home for Finding `1`, the broad server or client wrapper proof homes that still cover Story 59 endpoint and working-folder behavior after Task 23 lands, and the browser-visible chat surfaces that remain broad-wrapper-owned on the final story head. State explicitly that inline-resolved minor findings for this review cycle are still `none` if that remains true at execution time.
+2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that names which wrapper or smoke step owns each baseline boundary for this review-created block, that env-file loading remains owned by the compose wrapper path, and that runtime-boundary smoke does not replace the dedicated server, client, or browser proof owners above.
 
 #### Testing
 
@@ -2511,3 +2513,9 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 #### Implementation Notes
 
 - Review task role: final revalidation owner for review cycle `0000059-rc-20260609T173931Z-de51b749`.
+
+#### Manual Testing Guidance
+
+- If later manual revalidation is requested after the automated pass, use the checked-in main `docker-compose.yml` stack through the repository-supported compose wrapper path rather than a local development-stack variant. Re-cover only the current final state of the story-owned chat surfaces that this task's broad browser proof re-covers, and treat earlier screenshots as scratch proof unless they still provide uniquely necessary evidence.
+- If Playwright MCP screenshots are used for that later manual pass, stage them first under a relative path such as `0000059/24/proof-01-chat-surface.png` inside the Playwright runtime output. In this local harness workflow, a file saved under `/tmp/playwright-output/0000059/24/...` inside the Playwright runtime will normally appear at `$CODEINFO_ROOT/playwright-output-local/0000059/24/...` on the host before any later transfer into `codeInfoTmp/manual-testing/0000059/24/`.
+- If runtime handoff JSON is needed to confirm the artifact source, fallback runtime, or destination details, inspect that JSON by meaning rather than exact property names. If screenshot transfer is blocked, record the limitation honestly with the rest of the manual-proof result instead of reopening implementation work on that basis alone.

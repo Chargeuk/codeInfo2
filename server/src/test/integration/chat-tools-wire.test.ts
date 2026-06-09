@@ -14,6 +14,7 @@ import request from 'supertest';
 
 import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
+  __resetCompletedInflightForTests,
   cleanupInflight,
   createInflight,
   getInflight,
@@ -1147,7 +1148,7 @@ test('a new chat run can start on the same conversation after a confirmed stop',
   }
 });
 
-test('replaying a completed caller-supplied inflightId returns one stable replay result before and after cleanup while a fresh inflightId still starts', async () => {
+test('replaying a completed caller-supplied inflightId returns one stable replay result before and after completed-cache loss while a fresh inflightId still starts', async () => {
   const conversationId = 'conv-chat-completed-replay';
   const replayInflightId = 'replay-inflight-1';
   let providerRuns = 0;
@@ -1218,6 +1219,7 @@ test('replaying a completed caller-supplied inflightId returns one stable replay
 
     allowFirstRunToFinish();
     await waitForRuntimeCleanup(conversationId);
+    __resetCompletedInflightForTests();
 
     const cleanupReplay = await request(server.httpServer)
       .post('/chat')

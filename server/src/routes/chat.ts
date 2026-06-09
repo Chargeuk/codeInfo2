@@ -309,6 +309,39 @@ function buildCompletedReplayResponse(params: {
   };
 }
 
+async function getPersistedCompletedReplay(params: {
+  conversationId: string;
+  inflightId: string;
+}): Promise<{ finalStatus?: 'ok' | 'stopped' | 'failed' } | null> {
+  if (shouldUseMemoryPersistence()) {
+    const turns = getMemoryTurns(params.conversationId);
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+      const turn = turns[index];
+      const replay = turn.runtime?.replay;
+      if (
+        turn.role === 'assistant' &&
+        replay?.completed === true &&
+        replay.replayId === params.inflightId
+      ) {
+        return { finalStatus: turn.status };
+      }
+    }
+    return null;
+  }
+
+  const persistedTurn = (await TurnModel.findOne({
+    conversationId: params.conversationId,
+    role: 'assistant',
+    'runtime.replay.replayId': params.inflightId,
+    'runtime.replay.completed': true,
+  })
+    .sort({ createdAt: -1, _id: -1 })
+    .lean()
+    .exec()) as Turn | null;
+
+  return persistedTurn ? { finalStatus: persistedTurn.status } : null;
+}
+
 export function createChatRouter({
   clientFactory,
   codexFactory,
@@ -451,16 +484,28 @@ export function createChatRouter({
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
-    const getCompletedReplayResponse = (inflightId: string) => {
+    const getCompletedReplayResponse = async (inflightId: string) => {
       const completedReplay = getCompletedInflight({
         conversationId,
         inflightId,
       });
-      return completedReplay
+      if (completedReplay) {
+        return buildCompletedReplayResponse({
+          conversationId,
+          inflightId,
+          finalStatus: completedReplay.finalStatus,
+        });
+      }
+
+      const persistedReplay = await getPersistedCompletedReplay({
+        conversationId,
+        inflightId,
+      });
+      return persistedReplay
         ? buildCompletedReplayResponse({
             conversationId,
             inflightId,
-            finalStatus: completedReplay.finalStatus,
+            finalStatus: persistedReplay.finalStatus,
           })
         : null;
     };
@@ -504,7 +549,7 @@ export function createChatRouter({
       typeof requestedInflightId === 'string' &&
       requestedInflightId.length > 0
     ) {
-      const completedReplayResponse = getCompletedReplayResponse(
+      const completedReplayResponse = await getCompletedReplayResponse(
         requestedInflightId,
       );
       if (completedReplayResponse) {
@@ -514,7 +559,7 @@ export function createChatRouter({
     const safeBase = scrubBaseUrl(baseUrl);
     const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
 
-    const preflightRunLockResponse = (() => {
+    const preflightRunLockResponse = await (async () => {
       if (tryAcquireConversationLock(conversationId)) {
         return null;
       }
@@ -537,18 +582,11 @@ export function createChatRouter({
           );
         }
 
-        const completedReplay = getCompletedInflight({
-          conversationId,
-          inflightId: requestedInflightId,
-        });
+        const completedReplay = await getCompletedReplayResponse(
+          requestedInflightId,
+        );
         if (completedReplay) {
-          return res.status(409).json(
-            buildCompletedReplayResponse({
-              conversationId,
-              inflightId: requestedInflightId,
-              finalStatus: completedReplay.finalStatus,
-            }),
-          );
+          return res.status(409).json(completedReplay);
         }
       }
 
@@ -1148,7 +1186,7 @@ export function createChatRouter({
       typeof requestedInflightId === 'string' &&
       requestedInflightId.length > 0
     ) {
-      const completedReplayResponse = getCompletedReplayResponse(
+      const completedReplayResponse = await getCompletedReplayResponse(
         requestedInflightId,
       );
       if (completedReplayResponse) {
@@ -1172,7 +1210,9 @@ export function createChatRouter({
           ? requestedInflightId
           : crypto.randomUUID();
 
-      const completedReplayResponse = getCompletedReplayResponse(inflightId);
+      const completedReplayResponse = await getCompletedReplayResponse(
+        inflightId,
+      );
       if (completedReplayResponse) {
         releaseConversationLockFn(conversationId, runToken);
         return res.status(409).json(completedReplayResponse);
@@ -1258,6 +1298,7 @@ export function createChatRouter({
       createInflight({
         conversationId,
         inflightId,
+        replayId: inflightId,
         provider: executionProvider,
         model: executionModel,
         source: 'REST',
@@ -1292,6 +1333,15 @@ export function createChatRouter({
         content: message,
         createdAt: now.toISOString(),
       });
+
+      const chatRuntimeMetadata = {
+        ...executionContext.runtime,
+        replay: {
+          replayId: inflightId,
+          inflightId,
+          completed: false,
+        },
+      };
 
       let chat: ChatInterface;
       try {
@@ -1408,7 +1458,7 @@ export function createChatRouter({
                 requestId,
                 inflightId,
                 repositoryContext: executionContext.repositoryMetadata,
-                runtime: executionContext.runtime,
+                runtime: chatRuntimeMetadata,
                 deferInflightCleanup: true,
                 signal: getInflight(conversationId)?.abortController.signal,
                 source: 'REST',
@@ -1435,7 +1485,7 @@ export function createChatRouter({
                 ? { codeinfoOpenAiEndpoint: selectedOpenAiCompatEndpoint }
                 : {}),
               repositoryContext: executionContext.repositoryMetadata,
-              runtime: executionContext.runtime,
+              runtime: chatRuntimeMetadata,
               deferInflightCleanup: true,
               signal: getInflight(conversationId)?.abortController.signal,
               envOverrides,

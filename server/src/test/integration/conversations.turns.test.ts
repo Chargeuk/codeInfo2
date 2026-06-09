@@ -4,6 +4,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 import {
+  __resetCompletedInflightForTests,
   appendAnalysisDelta,
   appendAssistantDelta,
   appendToolEvent,
@@ -153,7 +154,7 @@ test('returns not_found when conversation is missing', async () => {
   assert.equal(res.body.error, 'not_found');
 });
 
-test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any conversation metadata rewrite', async () => {
+test('completed replay requests stay INFLIGHT_ALREADY_COMPLETED after completed-cache loss and before any conversation metadata rewrite', async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   memoryConversations.clear();
   memoryTurns.clear();
@@ -190,6 +191,18 @@ test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any con
   });
   assert.equal(replay.status, 409);
   assert.equal(replay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
+
+  __resetCompletedInflightForTests();
+
+  const replayAfterCacheClear = await request(app).post('/chat').send({
+    provider: 'lmstudio',
+    model: 'model-1',
+    conversationId,
+    inflightId,
+    message: 'hello',
+  });
+  assert.equal(replayAfterCacheClear.status, 409);
+  assert.equal(replayAfterCacheClear.body.code, 'INFLIGHT_ALREADY_COMPLETED');
 
   const contradictoryReplay = await request(app).post('/chat').send({
     provider: 'codex',

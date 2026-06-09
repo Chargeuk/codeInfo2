@@ -2571,10 +2571,11 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 #### Task Exit Criteria
 
 - `updateConversationMeta()` no longer returns a non-null success-shaped result when the requested metadata mutation was not applied after exhausting its optimistic-retry budget.
+- The exhausted path keeps `not found` behavior distinct from `retry budget exhausted` behavior, so same-repository callers do not have to guess which outcome occurred from one reused `null` or stale snapshot shape.
 - The repaired helper keeps Story 59's approved metadata ownership intact for `/chat`, agent, flow, and codebase-question callers without broadening into a new public persistence or runtime contract.
 - The exhausted-retry outcome is explicit at the shared helper seam and any necessary one-step same-repository caller follow-up, so shared callers no longer continue as though the metadata write succeeded when it did not.
 - Retained proof covers the exhaustion path directly, including at least one contradiction where repeated intervening writers keep advancing `updatedAt` until the helper reaches its retry ceiling.
-- The retained proof shows both the requested metadata write outcome and the caller-visible failure or retry contract on exhaustion rather than proving only the existing one-retry happy path.
+- The retained proof shows both the requested metadata write outcome and the caller-visible failure or retry contract on exhaustion rather than proving only the existing one-retry happy path, and it names the exact focused caller proof file when any direct caller seam changes.
 
 #### Addresses Findings
 
@@ -2591,7 +2592,7 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 
 - Shared metadata retry seam: `server/src/mongo/repo.ts`
 - Direct same-repository callers that currently interpret non-null as success: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`
-- Focused proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` and one additional same-repository focused server proof file only if the caller-visible exhausted contract cannot be shown honestly from the existing persistence proof owner alone
+- Focused proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` for the shared helper exhaustion seam, plus the nearest existing same-repository caller proof owner only if a direct caller changes: `server/src/test/integration/conversations.turns.test.ts` for `/chat` continuation behavior, `server/src/test/integration/flows.run.basic.test.ts` for flow-owned metadata continuation behavior, or one nearby existing agent or codebase-question proof owner when those callers are the only changed seam
 
 #### Requirement-To-Proof Mapping
 
@@ -2600,21 +2601,23 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
   Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, including a sustained-intervening-writer exhaustion case and the asserted exhausted outcome
 - Requirement: direct same-repository callers either observe an applied metadata result or an explicit bounded failure contract instead of continuing on silent loss.
   Implementation files or surfaces: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`
-  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` plus one additional focused same-repository proof file only if helper-level proof alone cannot show the retained caller contract honestly
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` plus exactly one nearest existing caller proof owner when a direct caller changes: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, or one nearby existing agent or codebase-question proof file chosen to match the changed caller seam
 - Requirement: the repair preserves approved Story 59 endpoint, thread, working-folder, and flow metadata behavior rather than broadening into a new product contract.
   Implementation files or surfaces: this review-created findings block, `server/src/mongo/repo.ts`, and any one-step same-repository caller follow-up retained by the repair
   Proof owners: Task 25 `Implementation Notes`, `npm run test:summary:server:unit`
 
 #### Subtasks
 
-1. [ ] Re-open `server/src/mongo/repo.ts` and the direct same-repository callers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, and `server/src/chat/interfaces/ChatInterface.ts`, then record one owner note in `Implementation Notes` that names where non-null `updateConversationMeta()` results currently mean success and which caller-owned metadata fields must keep their approved Story 59 behavior unchanged.
-2. [ ] Repair `server/src/mongo/repo.ts` so an exhausted optimistic-retry path no longer returns a success-shaped unchanged snapshot when the requested metadata update did not land. Keep the exhausted outcome explicit at the shared helper seam, and make only the minimal same-repository caller follow-up needed so existing callers honor that explicit contract honestly without widening product scope.
-3. [ ] Extend `server/src/test/unit/chat-interface-run-persistence.test.ts` with an exhaustion-path contradiction case that forces repeated intervening writers to advance `updatedAt` until the retry ceiling is hit, then assert the requested metadata outcome and the explicit exhausted contract. Add one additional focused same-repository proof file only if the caller-visible exhausted contract cannot be shown honestly from that persistence proof owner alone.
+1. [ ] Re-open `server/src/mongo/repo.ts` and the direct same-repository callers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, and `server/src/chat/interfaces/ChatInterface.ts`, then record one owner note in `Implementation Notes` that names which callers currently treat any non-null `updateConversationMeta()` return as success, which caller-owned fields must keep their approved Story 59 behavior unchanged, and which one existing caller proof file will be the exact second proof owner only if a direct caller seam changes.
+2. [ ] Repair `server/src/mongo/repo.ts` so exhausting the optimistic-retry budget no longer returns the freshest unchanged snapshot and no longer shares the same outcome shape as `conversation not found`. Keep the stopping rule inside this helper seam: after the retry ceiling is hit, surface one explicit exhausted outcome, do not emit a success-path upsert from that exhausted branch, and stop once the helper contract lets callers distinguish `applied`, `not found`, and `retry exhausted` without widening product scope.
+3. [ ] Update only the direct same-repository callers that still need follow-up after Subtask 2 so they honor the new exhausted outcome without continuing as though the metadata write succeeded. Keep this bounded to the exact changed seam in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, or `server/src/chat/interfaces/ChatInterface.ts`, preserve existing Story 59 endpoint, thread, working-folder, and flow metadata behavior, and stop once the changed callers either surface or contain the exhausted outcome explicitly instead of silently dropping it.
+4. [ ] Extend `server/src/test/unit/chat-interface-run-persistence.test.ts` with an exhaustion-path contradiction case that forces repeated intervening writers to advance `updatedAt` until the retry ceiling is hit, then assert the requested metadata outcome and the explicit exhausted contract from Subtask 2. If Subtask 3 changed a direct caller seam, add exactly one matching focused caller proof in the nearest existing same-repository file named in Subtask 1 so the changed caller behavior is proved without inventing a new broad harness.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` to confirm the repaired shared metadata persistence seam still compiles cleanly on the Story 59 head.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the exhaustion-path contradiction and the explicit exhausted-retry contract. If Subtask 3 adds one additional focused same-repository proof file, include it in the same wrapper invocation with another `--file` argument so the shared helper and retained caller behavior are proved together.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the exhaustion-path contradiction and the explicit exhausted-retry contract at the shared helper seam.
+3. [ ] If Subtask 4 added one caller proof file, rerun `npm run test:summary:server:unit` with both `--file server/src/test/unit/chat-interface-run-persistence.test.ts` and the exact second `--file` chosen for the changed caller seam so the shared helper contract and the caller-visible exhausted outcome are proved together on the same wrapper path.
 
 #### Implementation Notes
 
@@ -2637,7 +2640,8 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Review pass `0000059-20260609T204743Z-be606c98` has fresh proof on the final story head for Finding `1`.
 - The final notes keep `inline-resolved minor findings for this review cycle: none` explicit unless later same-cycle work changes that fact.
 - The current repository's relevant server, client, browser-visible chat, checked-in main-stack smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime or product scope.
-- Final `Implementation Notes` map the current-cycle review-created finding block to its focused and broad proof homes on the final story head.
+- Final `Implementation Notes` map the current-cycle review-created finding block to its focused and broad proof homes on the final story head, including the exact second caller proof file if Task 25 changed one.
+- Final `Implementation Notes` also state that no additional repository proof categories apply for this review cycle because `Affected Repositories` remains only `Current Repository`.
 - Any later manual follow-up remains optional and points at the supported main-stack runtime, readiness surfaces, mounted proof roots, and artifact destination rather than turning manual proof into a completion gate.
 
 #### Addresses Findings
@@ -2674,11 +2678,14 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Requirement: this task remains the one final revalidation owner for review cycle `0000059-rc-20260609T214316Z-d1783561`, and no second inline-minor final task is needed for the same cycle.
   Implementation files or surfaces: this review-created findings block and Task 26 `Implementation Notes`
   Proof owners: Task 26 `Implementation Notes`
+- Requirement: no cross-repository regression category is silently omitted; this cycle is single-repository, so additional repository proof is explicitly not applicable rather than left implicit.
+  Implementation files or surfaces: `Affected Repositories` and Task 26 `Implementation Notes`
+  Proof owners: Task 26 `Implementation Notes`
 
 #### Subtasks
 
-1. [ ] Re-open this review-created findings block plus the focused proof-owner files retained by Task 25, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its focused server proof home, identifies the broader wrappers that still cover Story 59 endpoint and working-folder behavior after the repair, and keeps `inline-resolved minor findings: none` explicit if that remains true.
-2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that keeps wrapper-owned env loading, checked-in main-stack smoke, and browser-visible chat proof scope explicit for this review-created findings block.
+1. [ ] Re-open this review-created findings block, `server/src/mongo/repo.ts`, `server/src/test/unit/chat-interface-run-persistence.test.ts`, and any exact second caller proof file retained by Task 25, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its focused server proof home, identifies the broader wrappers that still cover Story 59 endpoint and working-folder behavior after the repair, and keeps `inline-resolved minor findings: none` explicit if that remains true.
+2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that keeps wrapper-owned env loading, checked-in main-stack smoke, browser-visible chat proof scope, and the single-repository `Affected Repositories` boundary explicit for this review-created findings block.
 
 #### Testing
 

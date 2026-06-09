@@ -2427,7 +2427,7 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired conversation metadata write seam still compiles cleanly on the Story 59 head.
+1. [x] Run `npm run build:summary:server` to confirm the repaired conversation metadata write seam still compiles cleanly on the Story 59 head.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the intervening-write contradiction case and the repaired shared helper contract directly. If Subtask 3 added one focused same-repository caller proof file, include that file in the same wrapper invocation with an additional `--file` argument so the changed caller seam is proved alongside the helper seam.
 
 #### Implementation Notes
@@ -2436,6 +2436,7 @@ Repair the shared conversation metadata write seam so a caller that read flags e
 - `updateConversationMeta()` now uses a version-safe retry on `updatedAt` and a three-way flag merge so a later stale writer cannot reapply newer-raced `endpointId`, `threadId`, `workingFolder`, or flow-owned values.
 - The direct `/chat`, agent, flow, and codebase-question callers continue to own their existing metadata fields; the stale-write guard stays centralized in `server/src/mongo/repo.ts` instead of being duplicated into each caller.
 - `server/src/test/unit/chat-interface-run-persistence.test.ts` now contains the deterministic older-reader/newer-writer/later-stale-writer contradiction proof, including the preserved field set and version-guarded retry sequence.
+- `npm run build:summary:server` passed on the Story 59 head, confirming the repaired shared metadata write seam still compiles cleanly after the stale-write guard change.
 
 ### Task 24. Final Revalidation For Review Cycle 0000059-rc-20260609T173931Z-de51b749
 

@@ -2561,7 +2561,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 24`
 - Task Status: `__in_progress__`
-- Git Commits:
+- Git Commits: `12019965`
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T204743Z-be606c98`. The fix target is the silent-loss defect after exhausted optimistic retries, not the reviewer's broader remedy suggestion. Preserve approved Story 59 endpoint, thread, working-folder, and flow metadata behavior while making the exhausted path explicit and non-success-shaped for shared callers.
 
 #### Overview
@@ -2636,7 +2636,7 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 
 #### Testing
 
-1. [x] Run `npm run build:summary:server` to confirm the repaired shared metadata persistence seam still compiles cleanly on the Story 59 head.
+1. [ ] Run `npm run build:summary:server` to confirm the repaired shared metadata persistence seam still compiles cleanly on the Story 59 head.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` to prove the exhaustion-path contradiction and the explicit exhausted-retry contract at the shared helper seam.
 3. [x] If Subtask 4 added one caller proof file, rerun `npm run test:summary:server:unit` with both `--file server/src/test/unit/chat-interface-run-persistence.test.ts` and the exact second `--file` chosen for the changed caller seam so the shared helper contract and the caller-visible exhausted outcome are proved together on the same wrapper path. Not applicable here because Subtask 4 did not add a caller proof file.
 
@@ -2647,6 +2647,7 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 - Helper contract update: `updateConversationMeta()` now returns an explicit outcome object with `applied`, `not_found`, and `retry_exhausted` shapes, and the exhausted branch preserves the concurrent winner's persisted flags without emitting a success-shaped upsert.
 - Exhaustion proof: `server/src/test/unit/chat-interface-run-persistence.test.ts` now stages three intervening writers that keep advancing `updatedAt` until the helper reaches its retry ceiling, then asserts the `retry_exhausted` outcome, the final concurrent-winner snapshot, and the distinct `not_found` shape.
 - Validation note: `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts` passed with `22/22` tests after the helper contract change and the required test-double adaptation.
+- Audit note: implementation evidence on `12019965` supports the helper change, the focused persistence proof, and the test-double follow-up, but this audit reopened `npm run build:summary:server` because the repository evidence available on disk showed the targeted unit wrapper run rather than a separate `build:summary:server` wrapper execution.
 
 ### Task 26. Final Revalidation For Review Cycle 0000059-rc-20260609T214316Z-d1783561
 

@@ -21,7 +21,14 @@ import {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 class SubflowChat extends ChatInterface {
-  constructor(private readonly slowDelayMs: number) {
+  constructor(
+    private readonly slowDelayMs: number,
+    private readonly onExecute?: (params: {
+      message: string;
+      flags: Record<string, unknown>;
+      conversationId: string;
+    }) => void,
+  ) {
     super();
   }
 
@@ -32,6 +39,7 @@ class SubflowChat extends ChatInterface {
     _model: string,
   ) {
     void _model;
+    this.onExecute?.({ message, flags, conversationId });
     const signal = (flags as { signal?: AbortSignal }).signal;
     const abortIfNeeded = () => {
       if (!signal?.aborted) return false;
@@ -264,6 +272,63 @@ test('subflow step launches a child flow, waits for completion, and uses the gen
       )?.flow?.activeSubflow,
       undefined,
     );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('parent step after a successful subflow gets a fresh inflight id', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-inflight-rotation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-ok',
+      steps: [llmStep('child ok')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-two-step',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Child',
+          flowName: 'child-ok',
+        },
+        llmStep('parent after subflow'),
+      ],
+    });
+
+    const executions: Array<{
+      message: string;
+      conversationId: string;
+      inflightId: string | null;
+    }> = [];
+    const result = await startFlowRun({
+      flowName: 'parent-two-step',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(150, ({ message, flags, conversationId }) => {
+          executions.push({
+            message,
+            conversationId,
+            inflightId:
+              typeof flags.inflightId === 'string' ? flags.inflightId : null,
+          });
+        }),
+    });
+
+    await waitFor(() => executions.length === 2);
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    assert.equal(executions.length, 2);
+    const parentFollowUpExecution = executions[1];
+    assert.ok(parentFollowUpExecution);
+    assert.equal(typeof parentFollowUpExecution?.inflightId, 'string');
+    assert.notEqual(parentFollowUpExecution?.inflightId, result.inflightId);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

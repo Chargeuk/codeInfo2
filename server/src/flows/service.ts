@@ -4834,6 +4834,7 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         continue;
       }
 

@@ -1817,7 +1817,7 @@ Repair the fresh-flow retry-ownership seam so the same logical `retryOwnershipId
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 15`, `Task 16`, `Task 17`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260608T182732Z-e960c572`. It must revalidate the serious review-created findings from review pass `0000059-20260608T155357Z-e960c572` and also re-cover the already resolved inline minor findings `3`, `4`, `5`, `6`, `7`, `9`, `10`, `11`, and `12` so this cycle does not split close-out ownership across separate final tasks.
 

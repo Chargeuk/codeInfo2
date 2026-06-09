@@ -2369,7 +2369,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 22`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T163848Z-7744b884`. It must stop `updateConversationMeta()` from writing a stale read-merge-write snapshot back over newer conversation flags without widening Story 59 into a broader metadata or runtime-contract redesign.
 

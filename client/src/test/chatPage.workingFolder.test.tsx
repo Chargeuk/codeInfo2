@@ -207,6 +207,36 @@ describe('Chat page working folder', () => {
     );
   });
 
+  it('closes an already-open directory picker when the working folder locks', async () => {
+    const user = userEvent.setup();
+    const { emitInflightSnapshot } = renderChatWorkingFolderPage({
+      conversations: [makeConversation({ workingFolder: '/repos/chat' })],
+    });
+
+    await selectFirstConversation();
+
+    await user.click(screen.getByTestId('chat-working-folder-trigger'));
+    expect(
+      await screen.findByRole('dialog', { name: /choose folder…/i }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      emitInflightSnapshot({
+        conversationId: 'chat-1',
+        inflightId: 'inflight-1',
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: /choose folder…/i }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('chat-working-folder')).toHaveValue(
+      '/repos/chat',
+    );
+  });
+
   it('returns to the normal empty state after the server clears an invalid saved path', async () => {
     const { emitSidebarUpsert } = renderChatWorkingFolderPage({
       conversations: [makeConversation({ workingFolder: '/repos/chat' })],

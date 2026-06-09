@@ -1111,6 +1111,10 @@ export default function ChatPage() {
   };
 
   const handlePickDir = (path: string) => {
+    if (isWorkingFolderDisabled) {
+      setDirPickerOpen(false);
+      return;
+    }
     const trimmedWorkingFolder = path.trim();
     setWorkingFolder(trimmedWorkingFolder);
     setDirPickerOpen(false);
@@ -1120,6 +1124,22 @@ export default function ChatPage() {
   const handleCloseDirPicker = () => {
     setDirPickerOpen(false);
   };
+
+  const handleClearDirPicker = () => {
+    setDirPickerOpen(false);
+    if (isWorkingFolderDisabled) {
+      return;
+    }
+    setWorkingFolder('');
+    void persistWorkingFolder('');
+  };
+
+  useEffect(() => {
+    if (!isWorkingFolderDisabled || !dirPickerOpen) {
+      return;
+    }
+    setDirPickerOpen(false);
+  }, [dirPickerOpen, isWorkingFolderDisabled]);
 
   const handleNewConversation = (options?: {
     reason?: 'provider-change' | 'new-conversation' | 'model-change';
@@ -2613,11 +2633,7 @@ export default function ChatPage() {
         path={workingFolder}
         onClose={handleCloseDirPicker}
         onPick={handlePickDir}
-        onClear={() => {
-          setWorkingFolder('');
-          setDirPickerOpen(false);
-          void persistWorkingFolder('');
-        }}
+        onClear={handleClearDirPicker}
       />
     </CommonComposerShell>
   );

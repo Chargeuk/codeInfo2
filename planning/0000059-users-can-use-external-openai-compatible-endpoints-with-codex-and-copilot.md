@@ -2225,7 +2225,7 @@ Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` to confirm the repaired fresh-flow replay seam compiles cleanly before proof.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` to prove the fresh-flow `retryOwnershipId` barrier is durable after process-local cache loss and that contradictory or partial-state retries still take the correct path.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` to prove the fresh-flow `retryOwnershipId` writer and reader stay compatible after process-local cache loss, and that contradictory retries, partial-state retries, and cleanup-owner retirement boundaries still take the correct path.
 
 ### Task 22. Final Revalidation For Review Cycle 0000059-rc-20260609T120631Z-47ba57d5
 
@@ -2309,7 +2309,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
 6. [ ] Run `npm run test:summary:client` to prove the repaired resumed endpoint identity and working-folder lock parity surfaces still hold on the final story head.
 7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
-8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path.
+8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
 9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
 10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
 11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.

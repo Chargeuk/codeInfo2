@@ -193,6 +193,9 @@ const resolveSelectedModelSelection = (
   models: ChatModelInfo[],
   selected?: string,
   selectedEndpointId?: string,
+  options?: {
+    strictEndpointIdentity?: boolean;
+  },
 ): { model?: ChatModelInfo; endpointId?: string } => {
   if (!selected) {
     return {};
@@ -214,6 +217,9 @@ const resolveSelectedModelSelection = (
   }
 
   if (selectedEndpointId !== undefined) {
+    if (options?.strictEndpointIdentity) {
+      return {};
+    }
     const nativeMatch = models.find(
       (model) =>
         model.key === selected && (model.endpointId ?? undefined) === undefined,
@@ -316,10 +322,17 @@ export default function ChatPage() {
   const [agentFlagsDraft, setAgentFlagsDraft] = useState<ChatAgentFlagDraft>(
     {},
   );
+  const [lockedSubmissionEndpointId, setLockedSubmissionEndpointId] =
+    useState<string | undefined>(undefined);
   const selectedModelSelection = useMemo(
-    () => resolveSelectedModelSelection(models, selected, selectedEndpointId),
-    [models, selected, selectedEndpointId],
+    () =>
+      resolveSelectedModelSelection(models, selected, selectedEndpointId, {
+        strictEndpointIdentity: lockedSubmissionEndpointId !== undefined,
+      }),
+    [lockedSubmissionEndpointId, models, selected, selectedEndpointId],
   );
+  const selectedSubmissionEndpointId =
+    lockedSubmissionEndpointId ?? selectedModelSelection.endpointId;
   const {
     messages,
     status,
@@ -337,7 +350,7 @@ export default function ChatPage() {
     provider,
     selectedEndpointId,
     agentFlagsDraft,
-    selectedModelSelection.endpointId,
+    selectedSubmissionEndpointId,
   );
 
   const {
@@ -928,6 +941,7 @@ export default function ChatPage() {
       resumedEndpointId ?? selectedEndpointId ?? undefined;
 
     if (selectedConversation?.conversationId) {
+      setLockedSubmissionEndpointId(resumedEndpointId ?? undefined);
       if (resumedProvider) {
         setProvider(resumedProvider, { source: 'conversation-select' });
       }
@@ -936,14 +950,21 @@ export default function ChatPage() {
           models,
           resumedModel,
           restoredEndpointIdentity,
+          {
+            strictEndpointIdentity: Boolean(resumedEndpointId),
+          },
         );
         setSelected(resolvedSelection.model?.key ?? resumedModel, {
           source: 'conversation-select',
-          endpointId: resolvedSelection.endpointId ?? null,
+          endpointId:
+            resolvedSelection.endpointId ??
+            (resumedEndpointId ? restoredEndpointIdentity ?? null : null),
         });
       }
       return;
     }
+
+    setLockedSubmissionEndpointId(undefined);
 
     if (!previousConversationId) {
       return;

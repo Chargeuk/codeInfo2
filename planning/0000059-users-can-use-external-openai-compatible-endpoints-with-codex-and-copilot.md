@@ -2602,6 +2602,9 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 - Requirement: an exhausted optimistic-retry path can no longer silently drop a requested metadata write while returning a success-shaped result.
   Implementation files or surfaces: `server/src/mongo/repo.ts`
   Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, including a sustained-intervening-writer exhaustion case and the asserted exhausted outcome
+- Requirement: the exhausted branch stays distinguishable from `conversation not found`, and the helper does not emit a success-path upsert or reuse a stale success-shaped snapshot when the retry budget is exhausted.
+  Implementation files or surfaces: `server/src/mongo/repo.ts`
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, including explicit assertions for the exhausted return shape and the absence of the old success-path exhausted outcome
 - Requirement: direct same-repository callers either observe an applied metadata result or an explicit bounded failure contract instead of continuing on silent loss.
   Implementation files or surfaces: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`
   Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` plus exactly one nearest existing caller proof owner when a direct caller changes: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, or one nearby existing agent or codebase-question proof file chosen to match the changed caller seam
@@ -2611,6 +2614,9 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 - Requirement: if one caller seam changes, the new exhausted outcome is proved through that caller's ordinary same-repository route or service surface rather than only through a direct helper import.
   Implementation files or surfaces: exactly one changed caller seam in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, or `server/src/chat/interfaces/ChatInterface.ts`
   Proof owners: the exact focused caller proof file chosen in Subtask 1 and exercised in Testing step 3 when applicable
+- Requirement: the deterministic exhaustion harness remains test-owned and does not require production-only retry knobs, seeded bypasses, or environment shortcuts.
+  Implementation files or surfaces: `server/src/test/unit/chat-interface-run-persistence.test.ts` and its nearest existing same-repository test support only if one is needed
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts` and the exact nearby test-support file updated to stage the three-miss ordering, when applicable
 
 #### Subtasks
 
@@ -2689,7 +2695,13 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Requirement: the checked-in main-stack route remains reachable through the default compose wrapper path, with wrapper-owned env loading and smoke boundaries kept distinct from dedicated server, client, and browser proof owners.
   Implementation files or surfaces: `scripts/docker-compose-with-env.sh`, `docker-compose.yml`
   Proof owners: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Requirement: final hygiene stays green on the repaired story head so the review-created findings block does not close with lint or format regressions hidden outside the targeted server proof.
+  Implementation files or surfaces: repository-wide final Story 59 head
+  Proof owners: `npm run lint`, `npm run format:check`
 - Requirement: this task remains the one final revalidation owner for review cycle `0000059-rc-20260609T214316Z-d1783561`, and no second inline-minor final task is needed for the same cycle.
+  Implementation files or surfaces: this review-created findings block and Task 26 `Implementation Notes`
+  Proof owners: Task 26 `Implementation Notes`
+- Requirement: the final notes keep `inline-resolved minor findings for this review cycle: none` explicit unless later same-cycle work changes that fact.
   Implementation files or surfaces: this review-created findings block and Task 26 `Implementation Notes`
   Proof owners: Task 26 `Implementation Notes`
 - Requirement: no cross-repository regression category is silently omitted; this cycle is single-repository, so additional repository proof is explicitly not applicable rather than left implicit.

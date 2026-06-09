@@ -430,6 +430,7 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
   );
 
   render(<ChatPage />);
+  const user = userEvent.setup();
 
   await waitFor(() =>
     expect(screen.getByTestId('provider-select')).toHaveTextContent(

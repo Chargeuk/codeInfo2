@@ -1934,3 +1934,168 @@ Treat Task 18 screenshots as proof of the final repaired state for the visual su
 - Re-read `scripts/test-summary-server-cucumber-imports.test.mjs`, `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`; the import guard remains a distinct targeted proof home, and the smoke boundary stays fixed at `http://localhost:5001` plus `http://localhost:5010/health`.
 - Audit confirmed Task 18 is honestly complete on the current story head: all subtasks and automated Testing items are checked, the final wrapper artifacts passed without a surviving live blocker, and no new story-scope behavior drift was introduced while reconciling the client selection helper and fresh-run replay expectations during the proof pass.
 - Manual testing ran as full-story proof because Task 18 is the final task: after restarting the checked-in main stack because no supported freshness marker proved reuse, manual proof re-covered `http://localhost:5010/health`, `http://localhost:5001/chat`, `/chat/providers`, endpoint-backed `/chat/models` discovery for both Codex and Copilot, endpoint-backed live chat sends for both providers, seeded native-versus-endpoint history visibility, and the final flow replay barrier including corrected contradictory-launch rejection with `400 INVALID_REQUEST`; retained scratch artifacts are under `codeInfoTmp/manual-testing/0000059/18/`, including final desktop/mobile screenshots and supporting route, console, seeded-history, live-send, and replay captures, and the Task 18 screenshots supersede earlier re-covered `/chat` final-state screenshots with no additional subtasks needed.
+
+## Code Review Findings
+
+- Review pass: `0000059-20260609T033518Z-376c0288`
+- Review cycle: `0000059-rc-20260609T050126Z-8ccf6dc6`
+- Comparison context: local `HEAD` versus resolved base `origin/main@88f01984bf41500111ce1ee98e0aee2418fd9602` from the stored review handoff, with comparison rule `local_head_vs_resolved_base` and remote fetch status `success`.
+- Confidence note: the stored handoff compared Story 59 code head `376c0288be8f8be06196236c979033e348b2bba6` against `origin/main`; the current branch now adds inline minor-fix commits plus review-loop documentation commits after that review pass, so this block encodes the remaining routed task-up finding from the stored review outcome rather than a newly rediscovered diff.
+- Inline-resolved minor findings already handled in this same active review cycle and revalidated by the fresh final task below: `1`, `2`, `4`, `5`.
+- Remaining task-up findings encoded below: `3`.
+
+### Task 19. Make /chat Completed Replay Results Durable Across Restart Boundaries
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 18`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs Finding `3` from review pass `0000059-20260609T033518Z-376c0288`. It must make completed `/chat` replay results durable across restart or worker replacement while preserving the approved Story 59 `/chat` request contract rather than widening scope into a new retry API or unrelated replay redesign.
+
+#### Overview
+
+Repair the `/chat` completed-replay seam so a caller-owned `inflightId` can still collapse to the earlier completed result after the original process-local replay cache is gone. The task must preserve the existing in-flight dedupe and late completed-replay ordering while adding one durable completion marker or equivalent bounded persisted lookup that lets the same logical `/chat` send reuse the original completed result instead of creating a second user or assistant turn pair after restart, worker replacement, or cache eviction.
+
+#### Task Exit Criteria
+
+- A retry of the same logical `/chat` request with the same `inflightId` returns the earlier completed result even after the in-memory completed replay cache has been cleared.
+- The repaired seam preserves the existing in-flight dedupe behavior and the already-approved late completed-replay ordering instead of replacing them with a broader cache or a new user-visible retry contract.
+- A truly new `/chat` request still creates fresh work, and contradictory replay metadata still rejects instead of being silently merged into the prior completed result.
+- The repair stays bounded to the `/chat` replay-admission, durable turn metadata, and completed-result reuse seam without widening Story 59 into unrelated conversation history redesign or broader persistence cleanup.
+
+#### Addresses Findings
+
+- `3` - the `/chat` completed replay barrier is process-local, so a retry after ambiguous completion can duplicate work once the in-memory cache is gone.
+
+#### Risk Ownership
+
+- Durable replay guard: the completed-result reuse path must survive past process-local inflight cache lifetime long enough to recognize the same logical `/chat` send after restart or worker replacement.
+- Scope guard: preserve the existing `/chat` request and replay contract. Do not widen this task into a new public retry API, generalized conversation dedupe, or unrelated turn-history redesign.
+- Ordering guard: the existing post-lock completed replay behavior and the in-flight dedupe path must stay intact while the durable completed barrier is layered after them.
+- Persistence-surface guard: the task must name who writes the durable completion marker, how the replay lookup reads it before launching fresh work, and how contradictory or truly new requests are kept distinct from legitimate reuse.
+- Side-effect guard: the repair is only complete when a post-completion retry no longer creates a second user or assistant turn pair, duplicate provider call, or duplicate persistence side effect for the same logical request.
+- Proof-honesty guard: the retained proof must explicitly clear or bypass the process-local replay cache so the durable completed-result path is proved directly instead of passing only because the same-process cache stayed warm.
+
+#### Owner Map
+
+- `/chat` replay-admission seam: `server/src/routes/chat.ts`
+- Process-local inflight replay cache seam: `server/src/chat/inflightRegistry.ts`
+- Durable replay metadata and persisted turn seam: `server/src/chat/interfaces/ChatInterface.ts`, `server/src/mongo/turn.ts`
+- Proof owners: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/chat-tools-wire.test.ts`
+
+#### Requirement-To-Proof Mapping
+
+- Requirement: a completed `/chat` replay with the same caller-owned `inflightId` reuses the earlier persisted result even after the process-local completed replay cache has been cleared.
+  Implementation files: `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/mongo/turn.ts`
+  Proof owners: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/chat-tools-wire.test.ts`
+- Requirement: the existing in-flight dedupe path still blocks duplicate live work before launch while the new durable completed-result path sits behind it.
+  Implementation files: `server/src/routes/chat.ts`, `server/src/chat/inflightRegistry.ts`
+  Proof owners: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/chat-tools-wire.test.ts`
+- Requirement: a truly new `/chat` request or contradictory replay metadata still creates fresh work or rejects appropriately instead of being silently collapsed into the prior completed result.
+  Implementation files: `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/mongo/turn.ts`
+  Proof owners: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/chat-tools-wire.test.ts`
+- Requirement: the repaired route keeps the already-approved late completed-replay ordering where a completed result that appears after lock ownership still wins before fresh execution launches.
+  Implementation files: `server/src/routes/chat.ts`
+  Proof owners: `server/src/test/integration/chat-tools-wire.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-open `server/src/routes/chat.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/mongo/turn.ts`, then record one short owner map in `Implementation Notes` that names where `/chat` creates in-flight replay ownership today, where the completed same-process replay cache is checked, which persisted turn metadata already exists but is not being written or read for durable completed-result reuse, and which exact request-shape fields distinguish a legitimate replay from a truly new or contradictory request.
+2. [ ] Patch the `/chat` replay-admission seam so a completed request writes or exposes one durable replay marker tied to the same logical request and `inflightId`, and make the route reuse that persisted completed result before launching fresh work when the same logical request re-enters after the process-local cache is gone.
+3. [ ] Preserve the existing in-flight dedupe and already-approved post-lock completed replay ordering while layering the durable completed-result path behind them; do not replace those branches with a broader cache that would silently merge distinct `/chat` sends or widen the public request contract.
+4. [ ] Refresh `server/src/test/integration/conversations.turns.test.ts` and `server/src/test/integration/chat-tools-wire.test.ts` so they carry separate named claims for same-process in-flight dedupe, durable completed replay reuse after the process-local cache is cleared, true-new-request divergence, contradictory replay rejection, and preserved late completed-replay ordering. If any reused replay proof title would still claim only generic replay, generic history persistence, or generic duplicate suppression after this repair, rename or split it so the durable post-completion reuse path remains an explicit deterministic claim.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/integration/chat-tools-wire.test.ts` to prove `/chat` completed replay reuse is durable after the process-local cache is cleared and that the existing live dedupe plus late completed-replay ordering still hold.
+
+#### Implementation Notes
+
+- 
+
+### Task 20. Final Revalidation For Review Cycle 0000059-rc-20260609T050126Z-8ccf6dc6
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 19`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T050126Z-8ccf6dc6`. It must revalidate the serious review-created finding from review pass `0000059-20260609T033518Z-376c0288` and also re-cover the already resolved inline minor findings `1`, `2`, `4`, and `5` so this cycle does not split close-out ownership across separate final tasks.
+
+#### Overview
+
+Re-run the relevant wrapper-first regression proof for the current review-created findings block after Task 19 lands, and confirm that the same story head still covers the inline-resolved minor fixes from this active review cycle. This task is the one broad regression owner for the current repository in this review-created block: it owns the relevant server, client, browser-visible chat, checked-in main-stack smoke, and hygiene proof for review pass `0000059-20260609T033518Z-376c0288`.
+
+#### Task Exit Criteria
+
+- Review pass `0000059-20260609T033518Z-376c0288` has fresh proof on the story head for serious Finding `3`.
+- The same final proof pass still covers the inline-resolved minor findings from this review cycle: `1`, `2`, `4`, and `5`.
+- The current repository’s relevant server, client, browser-visible chat, compose-backed smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
+- Final `Implementation Notes` map the current-cycle serious finding and inline-resolved minor findings to their surviving proof owners on the repaired story head, including which browser-visible coverage remains broad-wrapper-owned versus client-wrapper-owned only.
+
+#### Addresses Findings
+
+- Serious review-created finding for review pass `0000059-20260609T033518Z-376c0288`: `3`
+- Inline-resolved minor findings revalidated here for the same review cycle: `1`, `2`, `4`, `5`
+
+#### Affected Repositories
+
+- `Current Repository` - owns the repaired `/chat` replay seam, persisted replay metadata, resumed endpoint identity, persisted metadata clearing, working-folder dialog lock parity, browser-visible chat surface, and checked-in main-stack runtime proof for this review-created findings block.
+
+#### Risk Ownership
+
+- Proof-owner mapping guard: this task is only complete when serious Finding `3` and inline-resolved minor findings `1`, `2`, `4`, and `5` are each mapped to an explicit surviving proof home on the final story head rather than assumed covered by a broad wrapper.
+- Shared wrapper or baseline seam: `npm run build:summary:*`, `npm run test:summary:*`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run test:summary:e2e` can fail for baseline or harness reasons unrelated to the repaired Story 59 assertions; when that happens, this task must record the interruption honestly instead of reopening Task 19 as wrapper-repair work.
+- Browser-visible scope guard: the repository-supported `npm run test:summary:e2e` path remains the broad browser-visible owner only for the chat history and send surfaces; flow and agent working-folder lock parity remain client-wrapper proof homes unless new repository-supported browser proof is added deliberately during this task.
+- Manual or runtime environment seam: if later manual follow-up is still needed, it must rely on the supported main stack, its readiness surfaces, the mounted proof catalogs, and the documented screenshot staging path rather than inventing ad hoc runtime setup or assuming the app-under-test runtime owns Playwright artifacts.
+- Scope guard: this task revalidates current-story repairs only. It must not widen into live external-endpoint product exploration, auth-dependent setup, or unrelated wrapper cleanup beyond honest baseline-boundary reporting.
+
+#### Owner Map
+
+- Server build and unit wrapper owners: `npm run build:summary:server`, `npm run test:summary:server:unit`
+- Client build and unit wrapper owners: `npm run build:summary:client`, `npm run test:summary:client`
+- Browser-visible chat proof owner: `npm run test:summary:e2e`
+- Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Final hygiene proof owner: `npm run lint`, `npm run format:check`
+
+#### Requirement-To-Proof Mapping
+
+- Finding `3`: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/chat-tools-wire.test.ts`, plus the broad `npm run test:summary:server:unit` wrapper that must keep both replay seams passing on the final story head.
+- Finding `1`: `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, plus the broad `npm run test:summary:client` wrapper and the browser-visible `npm run test:summary:e2e` path for the repository-supported chat surface.
+- Finding `2`: `server/src/test/unit/chat-interface-run-persistence.test.ts` plus the broad `npm run test:summary:server:unit` wrapper.
+- Finding `4`: `client/src/test/chatPage.workingFolder.test.tsx` plus the broad `npm run test:summary:client` wrapper.
+- Finding `5`: `client/src/test/flowsPage.run.test.tsx` and `client/src/test/agentsPage.workingFolderPicker.test.tsx` plus the broad `npm run test:summary:client` wrapper.
+- Final wrapper reachability for the repaired server surfaces: implementation files from Finding `3` and inline-resolved Finding `2`; proof owners `npm run build:summary:server` and `npm run test:summary:server:unit`.
+- Final wrapper reachability for the repaired client surfaces: implementation files from inline-resolved Findings `1`, `4`, and `5`; proof owners `npm run build:summary:client`, `npm run test:summary:client`, and `npm run test:summary:e2e` for the supported chat-only browser-visible surface.
+- Final checked-in main-stack smoke boundary for the repaired story head: current repository runtime path; proof owners `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, and `npm run compose:down`.
+- Final hygiene boundary for the repaired story head: repository-wide Story 59 changes for this review cycle; proof owners `npm run lint` and `npm run format:check`.
+
+#### Subtasks
+
+1. [ ] Re-open this current-cycle `Code Review Findings` block plus `## Minor Review Fixes`, then record one explicit proof-owner mapping in `Implementation Notes` for serious Finding `3` and inline-resolved minor findings `1`, `2`, `4`, and `5`. Name the exact proof home for each finding and mark whether that proof is targeted-only or broad-wrapper-owned on the final story head.
+2. [ ] Re-open `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/chat-tools-wire.test.ts`, `server/src/test/unit/chat-interface-run-persistence.test.ts`, `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.workingFolder.test.tsx`, `client/src/test/flowsPage.run.test.tsx`, and `client/src/test/agentsPage.workingFolderPicker.test.tsx`, then refresh any proof titles or retained assertions that would still claim only generic replay, generic persistence, generic resume, or generic working-folder behavior after the repaired story head lands. Keep the durable completed replay, persisted metadata clearing, resumed endpoint identity, and working-folder lock parity claims explicit on the final story head.
+3. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that distinguishes task-owned assertion failures from shared baseline or harness interruptions, explains why `npm run test:summary:e2e` remains the supported browser-visible owner only for the chat surface in this review cycle, and states why the smoke pass stops at `http://localhost:5001` and `http://localhost:5010/health` instead of widening into auth-dependent or live external-endpoint setup.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired `/chat` replay and persisted metadata server surfaces compile cleanly before broader proof.
+2. [ ] Run `npm run build:summary:client` to confirm the repaired resumed-identity and working-folder client surfaces compile cleanly before broader proof.
+3. [ ] Run `npm run test:summary:server:unit` to prove the repaired `/chat` durable replay seam and the inline-resolved server persistence fix still hold on the final story head.
+4. [ ] Run `npm run test:summary:client` to prove the repaired resumed endpoint identity and working-folder lock parity surfaces still hold on the final story head.
+5. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving the flow and agent working-folder dialogs as client-wrapper-owned proof homes.
+6. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly for the repaired story head.
+7. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior is still owned by Testing steps 3 through 5 rather than by the health surfaces alone.
+8. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+9. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+10. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+
+#### Manual Testing Guidance
+
+If a later human or manual-testing-agent follow-up is still needed after the automated proof above, use the checked-in main stack rather than a local development variant: `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down`. Treat the checked-in `docker-compose.yml` stack plus the repository wrapper env loading (`server/.env` and `server/.env.local`) as the supported runtime contract for this review cycle. Use the mounted proof catalogs under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` as the supported seed/setup source rather than ad hoc local edits, and treat `http://localhost:5001`, `http://localhost:5010`, and `http://localhost:5010/health` as the supported manual revalidation surfaces.
+
+Store retained manual-proof artifacts for this review-cycle close-out under `codeInfoTmp/manual-testing/0000059/20/` and do not commit them. If Playwright MCP screenshots are used, capture them first under a relative staging path such as `0000059/20/<filename>` in the Playwright output directory; in this local harness workflow, an artifact written inside the screenshot-producing Playwright runtime under `/tmp/playwright-output/0000059/20/<filename>` will normally appear on the host at `$CODEINFO_ROOT/playwright-output-local/0000059/20/<filename>`, and should then be transferred into `codeInfoTmp/manual-testing/0000059/20/`.
+
+Do not assume the app-under-test runtime owns those screenshot files when the screenshot-producing Playwright runtime differs from the checked-in main stack. If runtime handoff JSON is needed to locate artifact source, fallback runtime, or destination details, inspect that JSON for the needed information by meaning rather than exact property names. If screenshot transfer still fails, record the limitation honestly in the retained notes and continue with the best available evidence instead of blocking close-out on transfer alone.
+
+#### Implementation Notes
+
+- 

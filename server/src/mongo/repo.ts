@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { isDeepStrictEqual } from 'node:util';
 import { sanitizeConversationFlagsForProvider } from '../chat/agentFlags.js';
 import type { FlowResumeState } from '../flows/flowState.js';
 import { append } from '../logStore.js';
@@ -61,29 +62,52 @@ function toConversationEvent(doc: Conversation): ConversationEventSummary {
 
 function mergeConversationMetaFlags(params: {
   provider: ConversationProvider;
+  baseFlags?: Record<string, unknown> | null;
   currentFlags?: Record<string, unknown> | null;
   nextFlags?: Record<string, unknown> | null;
   replaceFlags?: boolean;
 }): Record<string, unknown> {
+  const baseFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.baseFlags,
+    { preserveFlowState: true },
+  );
+  const currentFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.currentFlags,
+    { preserveFlowState: true },
+  );
   const nextFlags = sanitizeConversationFlagsForProvider(
     params.provider,
     params.nextFlags,
     { preserveFlowState: true },
   );
 
-  if (params.replaceFlags === true) {
-    return nextFlags;
-  }
-
-  const currentFlags = sanitizeConversationFlagsForProvider(
-    params.provider,
-    params.currentFlags,
-    { preserveFlowState: true },
+  const safeNextFlags = Object.fromEntries(
+    Object.entries(nextFlags).filter(([key, value]) =>
+      isDeepStrictEqual(currentFlags[key], baseFlags[key]) && value !== undefined,
+    ),
   );
+
+  if (params.replaceFlags === true) {
+    const next = { ...currentFlags };
+    for (const key of Object.keys(currentFlags)) {
+      if (
+        !(key in nextFlags) &&
+        isDeepStrictEqual(currentFlags[key], baseFlags[key])
+      ) {
+        delete next[key];
+      }
+    }
+    return {
+      ...next,
+      ...safeNextFlags,
+    };
+  }
 
   return {
     ...currentFlags,
-    ...nextFlags,
+    ...safeNextFlags,
   };
 }
 
@@ -172,34 +196,56 @@ export async function updateConversationMeta(
   const existing = await ConversationModel.findById(input.conversationId)
     .lean()
     .exec();
-  const update: Partial<Conversation> = {} as Partial<Conversation>;
+  if (!existing) return null;
 
-  if (input.title !== undefined) update.title = input.title;
-  if (input.provider !== undefined) update.provider = input.provider;
-  if (input.model !== undefined) update.model = input.model;
-  if (input.flags !== undefined) {
-    update.flags = mergeConversationMetaFlags({
-      provider:
-        input.provider ??
-        existing?.provider ??
-        ('codex' as ConversationProvider),
-      currentFlags: existing?.flags ?? null,
-      nextFlags: input.flags,
-      replaceFlags: input.replaceFlags,
-    });
+  const buildUpdate = (current: Conversation): Partial<Conversation> => {
+    const update: Partial<Conversation> = {} as Partial<Conversation>;
+
+    if (input.title !== undefined) update.title = input.title;
+    if (input.provider !== undefined) update.provider = input.provider;
+    if (input.model !== undefined) update.model = input.model;
+    if (input.flags !== undefined) {
+      update.flags = mergeConversationMetaFlags({
+        provider:
+          input.provider ??
+          current.provider ??
+          ('codex' as ConversationProvider),
+        baseFlags: existing?.flags ?? null,
+        currentFlags: current.flags ?? null,
+        nextFlags: input.flags,
+        replaceFlags: input.replaceFlags,
+      });
+    }
+    if (input.lastMessageAt !== undefined)
+      update.lastMessageAt = input.lastMessageAt;
+
+    return update;
+  };
+
+  let current = existing;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const update = buildUpdate(current);
+    const updated = await ConversationModel.findOneAndUpdate(
+      {
+        _id: input.conversationId,
+        updatedAt: current.updatedAt,
+      },
+      update,
+      { new: true },
+    ).exec();
+    if (updated) {
+      emitConversationUpsert(toConversationEvent(updated));
+      return updated;
+    }
+
+    const refreshed = await ConversationModel.findById(input.conversationId)
+      .lean()
+      .exec();
+    if (!refreshed) return null;
+    current = refreshed;
   }
-  if (input.lastMessageAt !== undefined)
-    update.lastMessageAt = input.lastMessageAt;
 
-  const updated = await ConversationModel.findByIdAndUpdate(
-    input.conversationId,
-    update,
-    {
-      new: true,
-    },
-  ).exec();
-  if (updated) emitConversationUpsert(toConversationEvent(updated));
-  return updated;
+  return current;
 }
 
 export async function updateConversationThreadId({

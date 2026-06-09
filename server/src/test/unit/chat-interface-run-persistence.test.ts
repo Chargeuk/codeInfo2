@@ -11,7 +11,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
-import { ConversationModel } from '../../mongo/conversation.js';
+import { ConversationModel, type ConversationProvider } from '../../mongo/conversation.js';
 import type { AppendTurnInput } from '../../mongo/repo.js';
 import {
   listConversations,
@@ -45,6 +45,28 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
+
+const buildConversationDoc = (params: {
+  conversationId: string;
+  provider: ConversationProvider;
+  model: string;
+  flags: Record<string, unknown>;
+  title?: string;
+  lastMessageAt?: Date;
+  updatedAt?: Date;
+}) =>
+  ({
+    _id: params.conversationId,
+    provider: params.provider,
+    model: params.model,
+    title: params.title ?? 'conversation-title',
+    source: 'REST',
+    flags: params.flags,
+    lastMessageAt: params.lastMessageAt ?? new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: params.updatedAt ?? new Date('2025-01-01T00:00:00.000Z'),
+  }) as never;
 
 class PersistSpyChat extends ChatInterface {
   public persisted: Array<{
@@ -742,20 +764,35 @@ describe('ChatInterface.run persistence', () => {
     });
 
     const originalFindById = ConversationModel.findById;
-    const original = ConversationModel.findByIdAndUpdate;
+    const original = ConversationModel.findOneAndUpdate;
     let capturedUpdate: unknown;
 
     ConversationModel.findById = (() => ({
       lean: () => ({
-        exec: async () => null,
+        exec: async () =>
+          ({
+            _id: 'endpoint-conversation',
+            provider: 'codex',
+            model: 'gpt-5.2',
+            flags: {},
+            updatedAt: new Date('2024-12-31T00:00:00.000Z'),
+          }) as never,
       }),
     })) as unknown as typeof ConversationModel.findById;
-    ConversationModel.findByIdAndUpdate = ((...args: unknown[]) => {
+    ConversationModel.findOneAndUpdate = ((...args: unknown[]) => {
       capturedUpdate = args[1];
-      return { exec: async () => null } as unknown as ReturnType<
-        typeof ConversationModel.findByIdAndUpdate
-      >;
-    }) as typeof ConversationModel.findByIdAndUpdate;
+      return {
+        exec: async () =>
+          buildConversationDoc({
+            conversationId: 'endpoint-conversation',
+            provider: 'codex',
+            model: 'gpt-5.2',
+            flags: args[1] as Record<string, unknown>,
+            lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+          }),
+      } as unknown as ReturnType<typeof ConversationModel.findOneAndUpdate>;
+    }) as typeof ConversationModel.findOneAndUpdate;
 
     try {
       await updateConversationMeta({
@@ -770,7 +807,7 @@ describe('ChatInterface.run persistence', () => {
       });
     } finally {
       ConversationModel.findById = originalFindById;
-      ConversationModel.findByIdAndUpdate = original;
+      ConversationModel.findOneAndUpdate = original;
       Object.defineProperty(mongoose.connection, 'readyState', {
         value: originalReady,
         configurable: true,
@@ -788,7 +825,7 @@ describe('ChatInterface.run persistence', () => {
     });
   });
 
-  test('updateConversationMeta preserves fresher endpointId and workingFolder values when merging a stale snapshot', async () => {
+  test('updateConversationMeta preserves fresher endpointId, threadId, workingFolder, and flow flags when a stale snapshot retries after an intervening write', async () => {
     const originalReady = mongoose.connection.readyState;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: 1,
@@ -796,35 +833,67 @@ describe('ChatInterface.run persistence', () => {
     });
 
     const originalFindById = ConversationModel.findById;
-    const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
-    let capturedUpdate: unknown;
+    const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+    const capturedCalls: Array<{ filter: unknown; update: unknown }> = [];
+    let readCount = 0;
+
+    const staleFlags = {
+      endpointId: 'https://stale.example/v1',
+      workingFolder: '/repos/stale-root',
+      threadId: 'thread-stale',
+      flow: { status: 'queued' },
+      agentFlags: { modelReasoningEffort: 'low' },
+    };
+    const freshFlags = {
+      endpointId: 'https://fresh.example/v1',
+      workingFolder: '/repos/fresh-root',
+      threadId: 'thread-fresh',
+      flow: { status: 'running' },
+      agentFlags: { modelReasoningEffort: 'high' },
+    };
 
     ConversationModel.findById = ((conversationId: unknown) => ({
       lean: () => ({
-        exec: async () =>
-          ({
-            _id: conversationId,
-            provider: 'codex',
-            model: 'gpt-5.2',
-            flags: {
-              endpointId: 'https://fresh.example/v1',
-              workingFolder: '/repos/fresh-root',
-              threadId: 'thread-fresh',
-              flow: { status: 'running' },
-            },
-          }) as never,
+        exec: async () => {
+          readCount += 1;
+          return readCount === 1
+            ? ({
+                _id: conversationId,
+                provider: 'codex',
+                model: 'gpt-5.2',
+                flags: staleFlags,
+                updatedAt: new Date('2025-02-02T00:00:00.000Z'),
+              } as never)
+            : ({
+                _id: conversationId,
+                provider: 'codex',
+                model: 'gpt-5.2',
+                flags: freshFlags,
+                updatedAt: new Date('2025-03-03T00:00:00.000Z'),
+              } as never);
+        },
       }),
     })) as unknown as typeof ConversationModel.findById;
 
-    ConversationModel.findByIdAndUpdate = ((
-      _conversationId: unknown,
+    ConversationModel.findOneAndUpdate = ((
+      filter: unknown,
       update: unknown,
     ) => {
-      capturedUpdate = update;
-      return { exec: async () => null } as unknown as ReturnType<
-        typeof ConversationModel.findByIdAndUpdate
-      >;
-    }) as typeof ConversationModel.findByIdAndUpdate;
+      capturedCalls.push({ filter, update });
+      return {
+        exec: async () =>
+          capturedCalls.length === 1
+            ? null
+            : buildConversationDoc({
+                conversationId: 'stale-snapshot-conversation',
+                provider: 'codex',
+                model: 'gpt-5.2',
+                flags: (update as { flags?: Record<string, unknown> }).flags ?? {},
+                lastMessageAt: new Date('2025-02-02T00:00:00.000Z'),
+                updatedAt: new Date('2025-03-03T00:00:00.000Z'),
+              }),
+      } as unknown as ReturnType<typeof ConversationModel.findOneAndUpdate>;
+    }) as typeof ConversationModel.findOneAndUpdate;
 
     try {
       await updateConversationMeta({
@@ -832,29 +901,54 @@ describe('ChatInterface.run persistence', () => {
         provider: 'codex',
         model: 'gpt-5.2',
         flags: {
-          requestedProviderId: 'codex',
+          endpointId: 'https://stale.example/v1',
+          workingFolder: '/repos/stale-root',
+          threadId: 'thread-stale',
+          flow: { status: 'queued' },
           agentFlags: {
-            modelReasoningEffort: 'high',
+            modelReasoningEffort: 'low',
           },
         },
         lastMessageAt: new Date('2025-02-02T00:00:00.000Z'),
       });
     } finally {
       ConversationModel.findById = originalFindById;
-      ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+      ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
       Object.defineProperty(mongoose.connection, 'readyState', {
         value: originalReady,
         configurable: true,
       });
     }
 
-    assert.deepEqual(capturedUpdate, {
+    assert.equal(capturedCalls.length, 2);
+    assert.deepEqual(capturedCalls[0]?.filter, {
+      _id: 'stale-snapshot-conversation',
+      updatedAt: new Date('2025-02-02T00:00:00.000Z'),
+    });
+    assert.deepEqual(capturedCalls[0]?.update, {
+      provider: 'codex',
+      model: 'gpt-5.2',
+      flags: {
+        endpointId: 'https://stale.example/v1',
+        workingFolder: '/repos/stale-root',
+        threadId: 'thread-stale',
+        flow: { status: 'queued' },
+        agentFlags: {
+          modelReasoningEffort: 'low',
+        },
+      },
+      lastMessageAt: new Date('2025-02-02T00:00:00.000Z'),
+    });
+    assert.deepEqual(capturedCalls[1]?.filter, {
+      _id: 'stale-snapshot-conversation',
+      updatedAt: new Date('2025-03-03T00:00:00.000Z'),
+    });
+    assert.deepEqual(capturedCalls[1]?.update, {
       provider: 'codex',
       model: 'gpt-5.2',
       flags: {
         endpointId: 'https://fresh.example/v1',
         workingFolder: '/repos/fresh-root',
-        requestedProviderId: 'codex',
         threadId: 'thread-fresh',
         flow: { status: 'running' },
         agentFlags: {
@@ -873,7 +967,7 @@ describe('ChatInterface.run persistence', () => {
     });
 
     const originalFindById = ConversationModel.findById;
-    const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+    const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
     let capturedUpdate: unknown;
 
     ConversationModel.findById = ((conversationId: unknown) => ({
@@ -899,15 +993,23 @@ describe('ChatInterface.run persistence', () => {
       }),
     })) as unknown as typeof ConversationModel.findById;
 
-    ConversationModel.findByIdAndUpdate = ((
+    ConversationModel.findOneAndUpdate = ((
       _conversationId: unknown,
       update: unknown,
     ) => {
       capturedUpdate = update;
-      return { exec: async () => null } as unknown as ReturnType<
-        typeof ConversationModel.findByIdAndUpdate
-      >;
-    }) as typeof ConversationModel.findByIdAndUpdate;
+      return {
+        exec: async () =>
+          buildConversationDoc({
+            conversationId: 'provider-switch-conversation',
+            provider: 'copilot',
+            model: 'copilot-gpt-5',
+            flags: (update as { flags?: Record<string, unknown> }).flags ?? {},
+            lastMessageAt: new Date('2025-03-03T00:00:00.000Z'),
+            updatedAt: new Date('2025-03-03T00:00:00.000Z'),
+          }),
+      } as unknown as ReturnType<typeof ConversationModel.findOneAndUpdate>;
+    }) as typeof ConversationModel.findOneAndUpdate;
 
     try {
       await updateConversationMeta({
@@ -924,7 +1026,7 @@ describe('ChatInterface.run persistence', () => {
       });
     } finally {
       ConversationModel.findById = originalFindById;
-      ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+      ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
       Object.defineProperty(mongoose.connection, 'readyState', {
         value: originalReady,
         configurable: true,
@@ -955,7 +1057,7 @@ describe('ChatInterface.run persistence', () => {
     });
 
     const originalFindById = ConversationModel.findById;
-    const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+    const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
     let capturedUpdate: unknown;
 
     ConversationModel.findById = ((conversationId: unknown) => ({
@@ -980,15 +1082,23 @@ describe('ChatInterface.run persistence', () => {
       }),
     })) as unknown as typeof ConversationModel.findById;
 
-    ConversationModel.findByIdAndUpdate = ((
+    ConversationModel.findOneAndUpdate = ((
       _conversationId: unknown,
       update: unknown,
     ) => {
       capturedUpdate = update;
-      return { exec: async () => null } as unknown as ReturnType<
-        typeof ConversationModel.findByIdAndUpdate
-      >;
-    }) as typeof ConversationModel.findByIdAndUpdate;
+      return {
+        exec: async () =>
+          buildConversationDoc({
+            conversationId: 'replace-flags-conversation',
+            provider: 'copilot',
+            model: 'copilot-gpt-5',
+            flags: (update as { flags?: Record<string, unknown> }).flags ?? {},
+            lastMessageAt: new Date('2025-04-04T00:00:00.000Z'),
+            updatedAt: new Date('2025-04-04T00:00:00.000Z'),
+          }),
+      } as unknown as ReturnType<typeof ConversationModel.findOneAndUpdate>;
+    }) as typeof ConversationModel.findOneAndUpdate;
 
     try {
       await updateConversationMeta({
@@ -1021,7 +1131,7 @@ describe('ChatInterface.run persistence', () => {
       });
     } finally {
       ConversationModel.findById = originalFindById;
-      ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+      ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
       Object.defineProperty(mongoose.connection, 'readyState', {
         value: originalReady,
         configurable: true,

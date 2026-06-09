@@ -2,31 +2,32 @@
 
 # Acceptance
 
-1. Users can choose compatible external OpenAI-compatible endpoint models from the existing `Codex` and `Copilot` chat pickers.
-2. Users can pin `Codex` or `Copilot` chat defaults to a configured external `/v1` endpoint by setting `codeinfo_openai_endpoint` together with `model`.
-3. Users can run agents through external `Codex` or `Copilot` endpoints by setting `codeinfo_provider`, `codeinfo_openai_endpoint`, and `model`.
-4. Users keep seeing a config-pinned endpoint in chat even when that endpoint is not listed in `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`.
-5. Users keep the existing fallback and fail-in-place behavior: new runs repair within the same provider first, while pinned or resumed runs do not silently drift to a different provider or endpoint.
-6. Users keep older saved conversations working while newer endpoint-backed conversations store endpoint identity separately from the raw model id.
-7. Users get the review hardening needed for readiness gating, endpoint identity, replay durability, mixed-state client behavior, and final regression proof before the story closes.
+1. Chat users can choose compatible models from external OpenAI-compatible `/v1` endpoints while staying inside the existing `Codex` and `Copilot` chat flows.
+2. Support or configuration owners can pin `Codex` or `Copilot` chat defaults to an external endpoint by setting `codeinfo_openai_endpoint` together with `model`.
+3. Support or configuration owners can run agents through external `Codex` or `Copilot` endpoints by setting `codeinfo_provider`, `codeinfo_openai_endpoint`, and `model`.
+4. Users still see a config-pinned endpoint in chat even when that endpoint is not listed in the shared endpoint environment variable.
+5. New runs keep the intended fallback behavior: try the pinned endpoint first, repair within the same provider when possible, and only fall back more broadly when the same-provider path cannot run.
+6. Pinned or resumed conversations and executions do not silently drift to a different provider or endpoint when their saved endpoint later becomes unavailable.
+7. Older saved conversations still open normally, while newer endpoint-backed conversations keep endpoint identity separate from the raw model id.
+8. Final hardening keeps newer conversation metadata from being overwritten by stale writers and closes the story with full automated revalidation on the checked-in runtime path.
 
 # Description
 
-This story extends the existing `Codex` and `Copilot` chat and agent flows so they can use external OpenAI-compatible `/v1` endpoints without creating a brand-new top-level provider. It adds endpoint parsing, model discovery, runtime translation, persistence, fallback protection, and the review-driven hardening needed to ship the feature with honest server, client, browser, and checked-in runtime proof.
+This story lets the existing `Codex` and `Copilot` chat and agent surfaces use external OpenAI-compatible endpoints without introducing a brand-new top-level provider. It adds endpoint parsing, model discovery, runtime translation, persistence, fallback and resume protections, runtime-proof support, and final review hardening so the feature can ship with reliable server, client, browser, and checked-in compose proof.
 
 # Tasks
 
 1. [codeInfo2] - Upgrade Codex and Copilot SDK baselines before story work
-- Update the Codex and Copilot package versions and the repo-owned version guard.
-- Re-check the existing harness proof before endpoint work begins.
+- Update the Codex and Copilot package versions plus the repo-owned version guard.
+- Reconfirm the existing harness proof before endpoint work begins.
 
 2. [codeInfo2] - Parse and normalize external endpoint config inputs
 - Add the shared parser for `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` and `codeinfo_openai_endpoint`.
-- Normalize malformed, blank, and duplicate endpoint entries consistently.
+- Normalize malformed, blank, and duplicate entries consistently.
 
 3. [codeInfo2] - Add shared external endpoint model discovery
 - Build the server helper that probes normalized endpoints through `/v1/models`.
-- Add the shared fake-endpoint proof support for discovery and partial-failure cases.
+- Add shared proof support for ordering, partial failures, and one-probe-per-endpoint behavior.
 
 4. [codeInfo2] - Surface external endpoint models in the chat picker
 - Extend the chat discovery contract and chat page state for endpoint-backed `Codex` and `Copilot` models.
@@ -101,5 +102,13 @@ This story extends the existing `Codex` and `Copilot` chat and agent flows so th
 - Prove durable replay after cache loss together with contradiction, ordering, partial-state, and cleanup-owner boundaries on the targeted server proof files.
 
 22. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260609T120631Z-47ba57d5`
-- Re-run the broad final regression proof for the latest review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
+- Re-run the broad final regression proof for that review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
 - Re-cover the fresh-flow retry replay repair and any later inline-resolved minor fixes on the final story head.
+
+23. [codeInfo2] - Prevent intervening writes from reapplying stale conversation flags
+- Repair the shared conversation metadata write seam so stale reads cannot overwrite newer `endpointId`, `threadId`, `workingFolder`, or flow-owned flags.
+- Add focused proof for the exact older-reader/newer-writer/later-stale-writer contradiction case on the persistence test surface.
+
+24. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260609T173931Z-de51b749`
+- Re-run the final broad regression proof for the latest review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
+- Re-cover the stale-metadata overwrite repair and keep the final manual-proof handoff aligned to the checked-in main stack.

@@ -2146,3 +2146,139 @@ When screenshots are captured for this task, capture the current final state of 
 - Format check: `npm run format:check` passed cleanly on the repaired final story head with no additional formatting changes required.
 - Audit on 2026-06-09 verified that Task 20's proof pass completed all retained wrapper, smoke, and hygiene owners with no live blocker and no story-caused user-facing behavior drift beyond the approved Story 59 surfaces. The only code changes in the proof commit were test-support fixes needed to keep the existing client proofs compiling and lint-clean, so this final revalidation task is now `__done__`.
 - Manual proof on 2026-06-09 expanded to full-story scope because Task 20 is the final story task. After restarting the stale checked-in main stack, the retained scratch proof re-confirmed restart-stable `/chat` replay rejection and fresh-send behavior in `codeInfoTmp/manual-testing/0000059/20/support-replay-phase-1.json` and `codeInfoTmp/manual-testing/0000059/20/support-replay-phase-2.json`, then re-covered the supported chat UI by showing that `Reset chat draft` returns to a clean `codex` / `gpt-5.3-codex` new-conversation state, older endpoint-backed Codex and Copilot conversations resume with the expected `192.168.1.3:1234 / google/gemma-4-26b-a4b-qat` identity, and an older native Codex conversation still opens with native `gpt-5.3-codex` only. Playwright staging was attempted first with relative paths under `0000059/20/proof-0*.png`, but because `$CODEINFO_ROOT/playwright-output-local` did not expose those files in this harness run, the retained screenshots were copied from `codeinfo2-playwright-mcp-local:/home/node/proof-0*.png` into `codeInfoTmp/manual-testing/0000059/20/proof-01-new-conversation-desktop.png`, `proof-02-codex-endpoint-conversation.png`, `proof-03-copilot-endpoint-conversation.png`, `proof-04-native-codex-history.png`, and `proof-05-new-conversation-mobile.png`; these latest chat-surface screenshots supersede earlier scratch screenshots for the re-covered story-owned chat states, and no additional subtasks were needed.
+
+## Code Review Findings
+
+- Review pass: `0000059-20260609T110644Z-42513a6f`
+- Review cycle: `0000059-rc-20260609T120631Z-47ba57d5`
+- Comparison context: local `HEAD` versus resolved base `origin/main@88f01984bf41500111ce1ee98e0aee2418fd9602` from the stored review handoff, with comparison rule `local_head_vs_resolved_base` and remote fetch status `success`.
+- Confidence note: the stored review handoff compared Story 59 code head `42513a6f0a670b3a4ed61890d60db9977f1f3b19` against `origin/main`; this block encodes the routed unresolved task-required finding from the stored review disposition state rather than a newly rediscovered diff.
+- Inline-resolved minor findings already recorded for this same active review cycle and revalidated by the fresh final task below: `none`.
+- Remaining task-up findings encoded below: `1`.
+
+### Task 21. Make Fresh Flow `retryOwnershipId` Replay Durable Across Restart Boundaries
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T110644Z-42513a6f`. It must make the fresh-flow `retryOwnershipId` completion barrier durable across restart or worker replacement without widening Story 59 into a broader flow-contract redesign.
+
+#### Overview
+
+Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` still collapses to the earlier completed flow result after the original process-local completion cache is gone. The task must preserve the current accepted flow request contract while replacing the process-local post-completion barrier with one durable replay marker or equivalent persisted reader that prevents duplicate child work and duplicate provider calls after restart, worker replacement, or cache loss.
+
+#### Task Exit Criteria
+
+- A retry of the same logical fresh flow run with the same `retryOwnershipId` reuses or rejects against the earlier completed result even after the process-local completion cache is gone.
+- The repair keeps legitimate in-flight ownership, contradictory retry rejection, and truly new flow-run divergence distinct instead of collapsing them into one generic replay path.
+- The durable replay reader never treats partial, in-progress, or cleanup-incomplete flow state as a completed replay result.
+- The retained proof directly exercises the durable post-completion path rather than passing only because the same process-local maps stayed warm.
+- The repair stays bounded to the fresh-flow `retryOwnershipId` replay seam and does not widen Story 59 into unrelated flow architecture or runtime-contract redesign.
+
+#### Addresses Findings
+
+- `1` - the fresh-flow `retryOwnershipId` completion barrier is still process-local, so the same logical retry can launch a second full flow after restart or worker replacement.
+
+#### Risk Ownership
+
+- Durable replay guard: the completed flow barrier must survive past process-local map lifetime long enough to recognize the same logical retry after restart or worker replacement.
+- Scope guard: preserve the approved Story 59 fresh-flow contract. Do not widen this task into a new public flow retry API or unrelated flow-state redesign.
+- Ordering guard: legitimate in-flight ownership and contradictory retry rejection must still win in the correct order while the new durable completed-result path sits behind them.
+- Partial-state guard: the durable replay reader must ignore half-written, in-progress, or cleanup-incomplete state until the completed writer path has persisted enough information to prove one stable earlier success.
+- Proof-honesty guard: retained proof must explicitly clear or bypass the process-local completion cache so the durable path is proved directly instead of passing only because the same process stays alive.
+
+#### Owner Map
+
+- Fresh-flow replay seam: `server/src/flows/service.ts`
+- HTTP consumer seam: `server/src/routes/flowsRun.ts`
+- Flow persistence or durable state seam: `server/src/flows/flowState.ts`, `server/src/mongo/conversation.ts`
+- Proof owners: `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`
+
+#### Requirement-To-Proof Mapping
+
+- Requirement: a completed fresh flow retry with the same caller-owned `retryOwnershipId` survives restart or worker replacement without launching duplicate child work.
+  Implementation files: `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/mongo/conversation.ts`
+  Proof owners: `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`
+- Requirement: the repaired seam still rejects contradictory retries and keeps truly new fresh-flow requests distinct from legitimate replay reuse.
+  Implementation files: `server/src/flows/service.ts`, `server/src/routes/flowsRun.ts`
+  Proof owners: `server/src/test/integration/flows.run.errors.test.ts`
+- Requirement: partial, failed, or cleanup-incomplete flow state is not reused as a completed replay result.
+  Implementation files: `server/src/flows/service.ts`, `server/src/flows/flowState.ts`
+  Proof owners: `server/src/test/integration/flows.run.errors.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-open `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/mongo/conversation.ts`, and `server/src/routes/flowsRun.ts`, then record one short owner map in `Implementation Notes` that names where fresh-flow `retryOwnershipId` ownership is created today, where the completed same-process replay cache is checked, and which persisted state can carry a durable completed barrier without widening the approved Story 59 flow contract.
+2. [ ] Patch the fresh-flow replay seam so the normal retry path writes or exposes one durable completion marker tied to the same logical request and `retryOwnershipId`, and so the same default flow-run path reuses or rejects against that persisted completed result before launching fresh work after process-local cache loss.
+3. [ ] Keep the existing ownership and contradiction boundaries explicit while adding the durable completed-result path: legitimate in-flight work must still block duplicate live launches, contradictory retries must still reject, and truly new runs must still create fresh work.
+4. [ ] If the current server test support cannot deterministically clear or bypass only the completed same-process retry cache without weakening production behavior, add one bounded test-only helper seam under the existing server test-support surface so proof can exercise the persisted completed-replay path directly after cache loss.
+5. [ ] Refresh the retained flow replay proofs so they carry separate named claims for same-process ownership, durable completed replay reuse after cache loss or restart-style recovery, contradictory retry rejection, and the boundary where partial or failed persistence must not be reused as a completed replay result.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired fresh-flow replay seam compiles cleanly before proof.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` to prove the fresh-flow `retryOwnershipId` barrier is durable after process-local cache loss and that contradictory or partial-state retries still take the correct path.
+
+### Task 22. Final Revalidation For Review Cycle 0000059-rc-20260609T120631Z-47ba57d5
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 21`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T120631Z-47ba57d5`. It must revalidate the current review-created finding block for review pass `0000059-20260609T110644Z-42513a6f` and also cover any inline-resolved minor fixes already recorded for this same active review cycle.
+
+#### Overview
+
+Re-run the relevant wrapper-first regression proof for the current review-created findings block after Task 21 lands, and confirm that the same story head still covers the repaired fresh-flow `retryOwnershipId` seam plus any inline-resolved minor fixes already recorded for this review cycle. This task is the one broad regression owner for the current repository in this review-created block: it owns the relevant server, client, browser-visible chat, checked-in main-stack smoke, and hygiene proof on the repaired final story head.
+
+#### Task Exit Criteria
+
+- Review pass `0000059-20260609T110644Z-42513a6f` has fresh proof on the story head for Finding `1`.
+- The same final proof pass also covers any inline-resolved minor fixes recorded for this active review cycle; none are currently recorded, and the task must keep that explicit if it remains true.
+- The current repository's relevant server, client, browser-visible chat, compose-backed smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime-stack scope.
+- Final `Implementation Notes` map the current-cycle review-created finding block to its surviving proof owners on the repaired story head, including which browser-visible coverage remains broad-wrapper-owned versus client-wrapper-owned only.
+
+#### Addresses Findings
+
+- Review-created finding for review pass `0000059-20260609T110644Z-42513a6f`: `1`
+- Inline-resolved minor findings revalidated here for the same review cycle: `none currently recorded`
+
+#### Affected Repositories
+
+- `Current Repository` - owns the repaired fresh-flow `retryOwnershipId` replay seam, related persistence or state seams, browser-visible chat proof surface, and checked-in main-stack runtime proof for this review-created findings block.
+
+#### Risk Ownership
+
+- Proof-owner mapping guard: this task is only complete when review-created Finding `1` is mapped to an explicit surviving proof home on the final story head rather than assumed covered by a broad wrapper.
+- Shared wrapper or baseline seam: `npm run build:summary:*`, `npm run test:summary:*`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run test:summary:e2e` can fail for baseline or harness reasons unrelated to the repaired Story 59 assertions; when that happens, this task must record the interruption honestly instead of reopening Task 21 as wrapper-repair work.
+- Browser-visible scope guard: the repository-supported `npm run test:summary:e2e` path remains the broad browser-visible owner only for the chat history and send surfaces; flow and agent working-folder parity remain client-wrapper proof homes unless this task intentionally adds new repository-supported browser proof for those surfaces.
+- Scope guard: this task revalidates current-story repairs only. It must not widen into unrelated flow redesign, auth-dependent setup, or wrapper cleanup beyond honest baseline-boundary reporting.
+
+#### Owner Map
+
+- Server build and automated proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
+- Client build and unit wrapper owners: `npm run build:summary:client`, `npm run test:summary:client`
+- Browser-visible chat proof owner: `npm run test:summary:e2e`
+- Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Final hygiene proof owner: `npm run lint`, `npm run format:check`
+
+#### Subtasks
+
+1. [ ] Re-open this review-created findings block and record one explicit proof-owner mapping in `Implementation Notes` for review-created Finding `1`, plus any inline-resolved minor fixes that may have been recorded later in this same review cycle.
+2. [ ] Re-open the retained server and client proof-owner files touched by Task 21 only when a retained assertion title or proof-home note still needs clarification on the repaired final story head.
+3. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that distinguishes task-owned assertion failures from shared baseline or harness interruptions for this review-created block.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired fresh-flow replay seam compiles cleanly on the final story head.
+2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
+3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
+4. [ ] Run `npm run test:summary:server:unit` to prove the repaired fresh-flow replay seam and the inline-resolved server persistence surfaces still hold on the final story head.
+5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
+6. [ ] Run `npm run test:summary:client` to prove the repaired resumed endpoint identity and working-folder lock parity surfaces still hold on the final story head.
+7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
+8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path.
+9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.

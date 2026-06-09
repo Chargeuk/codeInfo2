@@ -2160,7 +2160,7 @@ When screenshots are captured for this task, capture the current final state of 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T110644Z-42513a6f`. It must make the fresh-flow `retryOwnershipId` completion barrier durable across restart or worker replacement without widening Story 59 into a broader flow-contract redesign.
 
@@ -2238,6 +2238,7 @@ Repair the fresh-flow retry ownership seam so a caller-owned `retryOwnershipId` 
 - Proof split: `server/src/test/integration/flows.run.basic.test.ts` now owns the durable completed replay after explicit completion-cache loss via `__resetFreshRunRetryOwnershipCompletionForTests()`, while `server/src/test/integration/flows.run.errors.test.ts` keeps the same-process in-flight path, same-process completed replay, contradictory replay rejection, and cleanup/partial-state boundaries explicit.
 - Implementation-only audit: the code changes, owner map, and retained proof files are present on disk, so all implementation subtasks stay complete. The broader two-file server unit wrapper remains open because the latest repository evidence only shows the single `--test-name "durable retryOwnershipId replay reuses the accepted launch after completed-cache loss"` proof run, not the full task-level replay boundary pass yet.
 - Targeted server-unit wrapper: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` passed cleanly on the repaired fresh-flow replay seam after the durable cache-loss proof was exercised directly.
+- Implementation-plus-proof audit: `test-results/server-unit-tests-2026-06-09T13-46-22-971Z.log` shows the full two-file targeted wrapper ran `src/test/integration/flows.run.basic.test.ts` and `src/test/integration/flows.run.errors.test.ts`, including the durable cache-loss replay, same-process replay, and contradictory retry rejection claims, and finished `pass 60 fail 0`. With all subtasks and automated testing now evidenced on disk and no story-caused preserved-behavior drift identified in the repaired fresh-flow seam, Task 21 is complete and hands off to Task 22 for the broader review-cycle revalidation.
 
 ### Task 22. Final Revalidation For Review Cycle 0000059-rc-20260609T120631Z-47ba57d5
 

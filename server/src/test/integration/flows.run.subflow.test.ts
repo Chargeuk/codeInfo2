@@ -811,6 +811,107 @@ test('resumed parent stop wins when the restored child already finished', async 
   }
 });
 
+test('resume fails stale subflows that have no active child run or terminal result', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-resume-stale-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-stale',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-stale',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Stale Child',
+          flowName: 'child-stale',
+        },
+      ],
+    });
+
+    const childConversationId = 'stale-child-conversation';
+    const parentConversationId = 'stale-parent-conversation';
+    const now = new Date();
+
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Stale Child',
+      flowName: 'child-stale',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'stale-child-execution',
+          stepPath: [],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Stale Parent',
+      flowName: 'parent-stale',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'stale-parent-execution',
+          stepPath: [],
+          loopStack: [],
+          activeSubflow: {
+            stepPath: [0],
+            flowName: 'child-stale',
+            conversationId: childConversationId,
+            runToken: 'stale-child-run-token',
+            title: 'Stale Parent-Run Stale Child',
+          },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-stale',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    const finalAssistant = await waitForAssistantStatus(
+      parentConversationId,
+      'failed',
+    );
+    assert.equal(
+      finalAssistant?.content,
+      `Subflow child-stale could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resumed parent flow uses its persisted conversation title for new subflow titles', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-persisted-title-'),

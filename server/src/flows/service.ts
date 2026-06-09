@@ -3948,6 +3948,16 @@ async function runFlowUnlocked(params: {
           break;
         }
 
+        if (
+          resumedActiveSubflow &&
+          !getActiveRunOwnership(childConversationId)
+        ) {
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            `Subflow ${step.flowName} could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+          );
+        }
+
         await sleep(25);
       }
 

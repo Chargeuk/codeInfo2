@@ -2560,7 +2560,7 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 24`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260609T204743Z-be606c98`. The fix target is the silent-loss defect after exhausted optimistic retries, not the reviewer's broader remedy suggestion. Preserve approved Story 59 endpoint, thread, working-folder, and flow metadata behavior while making the exhausted path explicit and non-success-shaped for shared callers.
 

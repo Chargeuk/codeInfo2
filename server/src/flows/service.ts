@@ -3824,12 +3824,24 @@ async function runFlowUnlocked(params: {
     let childRunToken = resumedRunToken;
 
     const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
-      if (childConversationId && childRunToken) return false;
-      const pendingCancel = consumePendingConversationCancel({
+      const pendingCancel = getPendingConversationCancel(params.conversationId);
+      if (!pendingCancel || pendingCancel.runToken !== params.runToken) {
+        return false;
+      }
+
+      if (childConversationId && childRunToken) {
+        const childStatus = await getFlowConversationTerminalStatus({
+          conversationId: childConversationId,
+          runToken: childRunToken,
+        });
+        if (!childStatus) return false;
+      }
+
+      const consumedPendingCancel = consumePendingConversationCancel({
         conversationId: params.conversationId,
         runToken: params.runToken,
       });
-      if (!pendingCancel) return false;
+      if (!consumedPendingCancel) return false;
 
       await emitStoppedFlowStep({
         flowConversationId: params.conversationId,

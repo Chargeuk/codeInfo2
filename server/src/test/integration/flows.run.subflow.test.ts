@@ -577,6 +577,99 @@ test('resume reattaches to an already running child subflow instead of launching
   }
 });
 
+test('resumed parent stop wins when the restored child already finished', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-resume-terminal-stop-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-resume-terminal',
+      steps: [llmStep('child ok')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-resume-terminal',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Finished Child',
+          flowName: 'child-resume-terminal',
+        },
+      ],
+    });
+
+    let childRunToken: string | undefined;
+    const childStart = await startFlowRun({
+      flowName: 'child-resume-terminal',
+      customTitle: 'Resume Parent-Run Finished Child',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+      onOwnershipReady: ({ runToken }) => {
+        childRunToken = runToken;
+      },
+    });
+    assert.ok(childRunToken);
+    await waitForAssistantStatus(childStart.conversationId, 'ok');
+
+    const parentConversationId = 'resume-parent-terminal-conversation';
+    const now = new Date();
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Parent',
+      flowName: 'parent-resume-terminal',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-parent-terminal-execution',
+          stepPath: [],
+          loopStack: [],
+          activeSubflow: {
+            stepPath: [0],
+            flowName: 'child-resume-terminal',
+            conversationId: childStart.conversationId,
+            runToken: childRunToken as string,
+            title: 'Resume Parent-Run Finished Child',
+          },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-resume-terminal',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
+      },
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    const finalAssistant = await waitForAssistantStatus(
+      parentConversationId,
+      'stopped',
+    );
+    assert.equal(finalAssistant?.content, 'Stopped');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resumed parent flow uses its persisted conversation title for new subflow titles', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-persisted-title-'),

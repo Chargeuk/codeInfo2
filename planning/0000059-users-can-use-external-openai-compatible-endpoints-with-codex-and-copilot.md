@@ -2269,11 +2269,29 @@ Re-run the relevant wrapper-first regression proof for the current review-create
 - Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
 - Final hygiene proof owner: `npm run lint`, `npm run format:check`
 
+#### Requirement-To-Proof Mapping
+
+- Requirement: review-created Finding `1` remains mapped to an explicit surviving proof home on the final story head rather than assumed covered implicitly by a broad wrapper.
+  Implementation files or surfaces: this review-created findings block, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`
+  Proof owners: Task 22 `Implementation Notes`, `npm run test:summary:server:unit`
+- Requirement: the repaired fresh-flow retry seam still passes full server regression proof on the final story head after Task 21 lands.
+  Implementation files or surfaces: `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/mongo/conversation.ts`, `server/src/routes/flowsRun.ts`
+  Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
+- Requirement: the repaired story head still preserves the client-owned endpoint identity, working-folder parity, and repository-supported browser-visible chat surfaces that Story 59 already owns.
+  Implementation files or surfaces: retained client proof-owner files touched by Story 59, `scripts/test-summary-e2e.mjs`
+  Proof owners: `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e`
+- Requirement: the checked-in main-stack runtime path remains reachable through the default compose wrapper path, readiness checks, and teardown order instead of only through targeted or stale local-runtime routes.
+  Implementation files or surfaces: `scripts/docker-compose-with-env.sh`, `docker-compose.yml`
+  Proof owners: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Requirement: lint and format hygiene stay green on the repaired final story head so final proof is not hiding residual repository-surface regressions.
+  Implementation files or surfaces: repository-wide final Story 59 head
+  Proof owners: `npm run lint`, `npm run format:check`
+
 #### Subtasks
 
 1. [ ] Re-open this review-created findings block plus only the retained proof-owner files touched by Task 21, then record one explicit proof-owner mapping in `Implementation Notes` for review-created Finding `1` and any inline-resolved minor fixes recorded later in this same review cycle, naming which proof homes are targeted server-only versus broad wrapper-owned and refreshing only the scenario titles, assertion names, or proof-home notes still needed to make that final mapping obvious on the repaired story head.
 2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, `docker-compose.yml`, and the mounted proof roots under `manual_testing/codeinfo_agents` plus `manual_testing/codex_agents`, then record one execution-boundary note in `Implementation Notes` that distinguishes task-owned assertion failures from shared baseline or harness interruptions for this review-created block and names which wrapper or smoke step owns that boundary.
-3. [ ] If browser-visible chat surfaces still need later manual confirmation after the automated pass, leave one optional manual-proof handoff note that names the supported main-stack runtime path, readiness checks, final-state screenshot set to recapture, staging or transfer convention for those screenshots, and the planned artifact destination, without turning that later manual proof into a blocking checklist item.
+3. [ ] If browser-visible chat surfaces still need later manual confirmation after the automated pass, leave one optional manual-proof handoff note that names the supported main-stack runtime path, readiness checks, final-state screenshot set to recapture, staging or transfer convention for those screenshots, and the planned artifact destination, without turning that later manual proof into a blocking checklist item or making any subtask depend on the later screenshots themselves.
 
 #### Testing
 

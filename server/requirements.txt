@@ -11,3 +11,5 @@ python-dateutil
 beautifulsoup4
 lxml
 pandas
+img2pdf
+Pillow

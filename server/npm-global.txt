@@ -6,3 +6,4 @@ mcp-remote
 @playwright/mcp@latest
 chrome-devtools-mcp
 git-credential-forwarder
+@mermaid-js/mermaid-cli

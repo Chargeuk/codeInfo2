@@ -2983,3 +2983,165 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - If Playwright MCP screenshots are used for that later manual pass, stage them first under a relative path such as `0000059/28/proof-01-chat-surface.png` inside the Playwright runtime output. In this local harness workflow, a file saved under `/tmp/playwright-output/0000059/28/...` inside the screenshot-producing Playwright runtime will normally appear at `$CODEINFO_ROOT/playwright-output-local/0000059/28/...` on the host. Treat that host-visible path as staging only, not as the final repository artifact destination, and do not assume the checked-in main stack automatically owns those files when the screenshot-producing runtime differs from the app-under-test runtime.
 - The durable artifact destination for later transferred screenshots or manual proof notes is `codeInfoTmp/manual-testing/0000059/28/`. If runtime handoff JSON is needed to confirm the artifact source, fallback runtime, or destination details, inspect that JSON by meaning rather than by exact property names. If screenshot transfer is blocked, record the limitation honestly instead of treating it as a reason to halt the proof pass, and continue with the best available non-screenshot evidence.
 - Treat the latest Task 28 screenshots and manual notes as the primary durable closeout proof for the Story 59 visual surfaces re-covered here. Keep earlier task screenshots in the durable bundle only when they remain uniquely necessary because the final Task 28 pass no longer shows that same proof clearly enough.
+
+## Code Review Findings
+
+- Review pass: `0000059-20260610T053726Z-fde56cd8`
+- Review cycle: `0000059-rc-20260610T063120Z-c375e6c3`
+- Comparison context: local `HEAD` `fde56cd82aa1c8d9b33d7d623df63f9a6c483247` versus resolved base `origin/main@88f01984bf41500111ce1ee98e0aee2418fd9602` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Confidence note: the stored review handoff, findings artifact, saturation artifact, and blind-spot challenge all converge on one remaining same-repository caller-contract defect. The unresolved issue is not a broader provider, startup, endpoint-identity, or proof-cleanup redesign; it is the current-story regression where the explicit `not_found` metadata-write outcome now stops at the helper boundary while the changed default-path production callers still continue as though the metadata update succeeded.
+- Inline-resolved minor findings already recorded for this active review cycle and revalidated by the fresh final task below: `none`.
+- Remaining task-up findings encoded below: `1`.
+
+### Task 29. Propagate Missing-Conversation Metadata Outcomes Through Default-Path Production Callers
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 28`
+- Task Status: `__to_do__`
+- Notes: This review-created task repairs Finding `1` from review pass `0000059-20260610T053726Z-fde56cd8`. Preserve approved Story 59 behavior while making the explicit `not_found` metadata outcome stop stale success-shaped continuation through the changed production caller family; do not widen the public runtime or user-facing contract just because a cleaner redesign would be easier to prove.
+
+#### Overview
+
+Repair the same-repository consumer chain for `updateConversationMeta()` so the helper's explicit `not_found` result no longer dies at `server/src/mongo/repo.ts`. Keep the repair bounded to the current repository by threading one missing-conversation outcome through the real production callers in `/chat`, agent execution, flow execution, MCP codebase-question persistence, chat-interface turn persistence, and reingest lifecycle persistence, while preserving the approved Story 59 fallback, endpoint, and resume behavior rather than inventing a broader cross-surface error-contract rewrite.
+
+#### Task Exit Criteria
+
+- `not_found` from `updateConversationMeta()` is no longer silently ignored by the default-path callers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/chat/reingestStepLifecycle.ts`.
+- Each affected caller either proves the requested metadata update landed or stops its old success-shaped continuation through an existing bounded same-surface missing-conversation containment or failure path; no caller simply reloads, persists onward, or returns stale success state after `not_found`.
+- The repair preserves approved Story 59 endpoint, requested-provider, working-folder, thread, flow, turn-persistence, and replay behavior instead of turning this finding into a broader user-facing product-contract redesign.
+- The repaired caller chain keeps `applied`, `not_found`, and `retry_exhausted` distinguishable all the way through the changed default-path seams.
+- Targeted proof directly covers the helper outcome plus each changed caller family through its ordinary route, service, or lifecycle surface, not only through direct helper imports.
+
+#### Addresses Findings
+
+- `1` - The explicit `not_found` metadata-write outcome now exists in `server/src/mongo/repo.ts`, but the changed default-path production callers still discard it and continue as if metadata persistence succeeded.
+
+#### Risk Ownership
+
+- Blocker family: `product or story seam` on the producer-consumer contract from `server/src/mongo/repo.ts` into the default-path callers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/chat/reingestStepLifecycle.ts`. The repair must propagate one explicit missing-conversation outcome through those real callers without inventing a new cross-surface public error taxonomy.
+- Exact ordering invariant: when `not_found` occurs, each changed caller must branch before its old success-shaped continuation point. For `/chat` that means before the post-write conversation reload and `updated ?? existing` return path; for chat-interface and reingest lifecycle that means before later turn-persistence success return; for agent, flow, and MCP execution that means before later success-shaped persistence, response construction, or replay-owned continuation.
+- Story-behavior lock guard: if one caller surface needs a bounded missing-conversation failure or containment path, use the existing same-surface contract that best preserves approved Story 59 behavior instead of broadening user-visible behavior for cleanliness or proof convenience.
+- Persistence-integrity guard: when `not_found` occurs, later readers must still see only the actual surviving conversation state rather than a stale pre-delete snapshot or a success-shaped continuation that hides the failed metadata write.
+- Blocker family: `proof or test harness seam` on deterministic missing-conversation staging. The focused proof homes must be able to force the helper into `not_found` through the normal caller seams using test-owned fixtures or support code only; if one proof file cannot do that honestly yet, this task must add the missing harness support in that proof owner before downstream product work relies on the assertion.
+
+#### Owner Map
+
+- Shared metadata outcome producer: `server/src/mongo/repo.ts`
+- Default-path caller seams: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestStepLifecycle.ts`
+- Focused proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`
+
+#### Requirement-To-Proof Mapping
+
+- Requirement: the shared helper still emits distinct `applied`, `not_found`, and `retry_exhausted` outcomes, and `not_found` no longer looks like a successful metadata write at the producer seam.
+  Implementation files or surfaces: `server/src/mongo/repo.ts`
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- Requirement: `/chat`, chat-interface turn persistence, and reingest lifecycle persistence stop their old success-shaped continuation when `not_found` occurs, while preserving the same Story 59 metadata surfaces they already own.
+  Implementation files or surfaces: `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestStepLifecycle.ts`
+  Proof owners: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`
+- Requirement: agent, flow, and MCP codebase-question execution paths stop their old success-shaped continuation when the shared metadata write returns `not_found`, without redefining public runtime-selection or replay behavior.
+  Implementation files or surfaces: `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
+  Proof owners: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Requirement: each changed caller family branches on `not_found` before its old success-shaped continuation point rather than detecting the problem only after reload, response construction, replay continuation, or later turn persistence has already run.
+  Implementation files or surfaces: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestStepLifecycle.ts`
+  Proof owners: the focused proof homes above plus their retained helper contradiction fixtures
+
+#### Subtasks
+
+1. [ ] Update `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/chat/reingestStepLifecycle.ts` so a `not_found` result from `updateConversationMeta()` stops each caller's old success-shaped continuation before any stale reload, turn return, or later success path can run, while preserving each surface's existing Story 59 missing-conversation behavior.
+2. [ ] Update `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` so a `not_found` metadata result stops later success-shaped persistence or response continuation without redefining provider selection, replay ordering, or endpoint identity behavior.
+3. [ ] Extend `server/src/test/unit/chat-interface-run-persistence.test.ts` with producer-side and caller-facing `not_found` contradiction coverage, and update `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/unit/reingest-step-lifecycle.test.ts` so each changed caller family proves the old success-shaped continuation no longer runs when the helper returns `not_found`.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired missing-conversation caller contract still compiles cleanly on the current story head.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts` to prove the helper-side and lifecycle-side `not_found` contradiction coverage.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/integration/agents-run-client-conversation-id.test.ts --file server/src/test/integration/flows.run.basic.test.ts` to prove the changed `/chat`, agent, and flow callers no longer continue through stale success-shaped paths after `not_found`.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` to prove the MCP codebase-question caller no longer collapses `not_found` into success-shaped persistence continuation.
+
+#### Implementation Notes
+
+- Finding coverage note: this task owns review pass `0000059-20260610T053726Z-fde56cd8` Finding `1` and keeps the repair constrained to restoring the already-intended same-repository caller contract rather than redesigning Story 59 behavior.
+
+### Task 30. Final Revalidation For Review Cycle 0000059-rc-20260610T063120Z-c375e6c3
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 29`
+- Task Status: `__to_do__`
+- Notes: This final task revalidates the current review-created findings block for review pass `0000059-20260610T053726Z-fde56cd8` after Task 29 lands. It is also the one final revalidation owner for review cycle `0000059-rc-20260610T063120Z-c375e6c3`, so later inline-minor routing must not create a second final revalidation task for this cycle.
+
+#### Overview
+
+Re-run the repository-supported broad proof on the repaired Story 59 head after Task 29 lands so the current review-created findings block closes on fresh server, client, browser-visible chat, checked-in main-stack smoke, and hygiene evidence. This task owns full regression proof for review pass `0000059-20260610T053726Z-fde56cd8` and also explicitly revalidates any inline-resolved minor findings already recorded for review cycle `0000059-rc-20260610T063120Z-c375e6c3`; none are currently recorded.
+
+#### Task Exit Criteria
+
+- Review pass `0000059-20260610T053726Z-fde56cd8` has fresh proof on the final story head for Finding `1`.
+- The final notes keep `inline-resolved minor findings for this review cycle: none` explicit unless later same-cycle work changes that fact.
+- The current repository's relevant server, client, browser-visible chat, checked-in main-stack smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime or product scope.
+- The final browser-visible chat proof keeps the Story 59 mixed-state boundaries explicit: restored conversation state stays authoritative while an old conversation remains selected, returning to a fresh draft restores the fresh create-mode state instead of leaking restored provider/model/endpoint state, and hidden or reset restored state is excluded from later submissions rather than silently retained in request payloads.
+- Final `Implementation Notes` map the current-cycle review-created findings block to its focused proof homes from Task 29 plus the broad wrapper proof rerun owned here.
+
+#### Addresses Findings
+
+- Review-created finding for review pass `0000059-20260610T053726Z-fde56cd8`: `1`
+- Inline-resolved minor findings revalidated here for the same review cycle: `none currently recorded`
+
+#### Affected Repositories
+
+- `Current Repository` - owns the repaired missing-conversation caller contract, the focused proof homes for the `not_found` propagation fix, the browser-visible chat regression surface, and the checked-in main-stack smoke path for this review-created findings block.
+
+#### Risk Ownership
+
+- Proof-owner mapping guard: this task is only complete when Finding `1` is mapped to the focused helper and caller proof homes from Task 29 before the broad wrapper reruns are treated as sufficient.
+- Blocker family: `shared wrapper or baseline seam` on `npm run build:summary:*`, `npm run test:summary:*`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run test:summary:e2e`. Those wrappers can fail for shared baseline reasons unrelated to the repaired caller contract, so this task must record that attribution honestly instead of reopening Task 29 as product work without evidence.
+- Blocker family: `manual or runtime environment seam` on later human-visible validation. If later manual revalidation is needed, the supported stack facts must stay explicit here: env loading comes from `server/.env` and `server/.env.local` through `scripts/docker-compose-with-env.sh`; the mounted proof-root namespace is `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`; the readiness surfaces are `http://localhost:5001`, `http://localhost:5010`, and `http://localhost:5010/health`; seeded story-owned inputs come from those mounted `manual_testing` roots; and the durable artifact destination is `codeInfoTmp/manual-testing/0000059/30/`.
+- Single-repository scope guard: `Affected Repositories` remains only `Current Repository`, so no additional repository regression category is applicable for this review cycle.
+
+#### Owner Map
+
+- Server build and automated proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
+- Client build and unit wrapper owners: `npm run build:summary:client`, `npm run test:summary:client`
+- Browser-visible chat proof owner: `npm run test:summary:e2e`
+- Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Final hygiene proof owner: `npm run lint`, `npm run format:check`
+
+#### Requirement-To-Proof Mapping
+
+- Requirement: Finding `1` remains mapped to the focused helper and caller proof homes added or updated in Task 29 rather than assumed covered by one broad wrapper.
+  Implementation files or surfaces: this review-created findings block, `server/src/mongo/repo.ts`, and the Task 29 caller proof homes
+  Proof owners: Task 30 `Implementation Notes`, `npm run test:summary:server:unit`
+- Requirement: the repaired missing-conversation caller contract still holds under the repository-supported broad server regression path on the final story head.
+  Implementation files or surfaces: `server/src/mongo/repo.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestStepLifecycle.ts`
+  Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
+- Requirement: Story 59 client and browser-visible chat surfaces still hold on the repaired final story head after the missing-conversation caller repair.
+  Implementation files or surfaces: retained Story 59 client files and `scripts/test-summary-e2e.mjs`
+  Proof owners: `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e`
+- Requirement: the checked-in main-stack route remains reachable through the default compose wrapper path, with wrapper-owned env loading and smoke boundaries kept distinct from dedicated server, client, and browser proof owners.
+  Implementation files or surfaces: `scripts/docker-compose-with-env.sh`, `docker-compose.yml`
+  Proof owners: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Requirement: final hygiene stays green on the repaired story head so this review-created findings block does not close with lint or format regressions hidden outside the focused server proof.
+  Implementation files or surfaces: repository-wide final Story 59 head
+  Proof owners: `npm run lint`, `npm run format:check`
+
+#### Subtasks
+
+1. [ ] Re-open this review-created findings block, the focused proof files from Task 29, and the existing client mixed-state proof homes in `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its helper and caller proof homes, maps the create-vs-reuse and restored-vs-fresh-draft state boundaries to those client proof files, and keeps `inline-resolved minor findings for this review cycle: none` explicit if that remains true.
+2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that keeps wrapper-owned env loading from `server/.env` and `server/.env.local`, checked-in main-stack smoke ownership, browser-visible chat proof scope, mounted proof roots under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, readiness surfaces at `http://localhost:5001`, `http://localhost:5010`, and `http://localhost:5010/health`, seed/setup ownership through those mounted roots, artifact destination `codeInfoTmp/manual-testing/0000059/30/`, and single-repository `Affected Repositories` ownership explicit for this review-created findings block.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to confirm the repaired missing-conversation caller contract still compiles cleanly on the final story head.
+2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
+3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
+4. [ ] Run `npm run test:summary:server:unit` to prove the repaired missing-conversation caller contract and its focused Task 29 proof owners still hold on the final story head.
+5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
+6. [ ] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the missing-conversation caller repair.
+7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
+8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
+9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+
+#### Implementation Notes
+
+- Review-cycle ownership note: this task is the one final revalidation owner for `0000059-rc-20260610T063120Z-c375e6c3`, so later inline-minor routing must not create a second final revalidation task for the same cycle.

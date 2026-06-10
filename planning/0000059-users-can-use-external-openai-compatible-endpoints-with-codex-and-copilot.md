@@ -2873,6 +2873,7 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Review pass `0000059-20260610T005032Z-52cb59b1` has fresh proof on the final story head for Finding `1`.
 - The final notes keep `inline-resolved minor findings for this review cycle: none` explicit unless later same-cycle work changes that fact.
 - The current repository's relevant server, client, browser-visible chat, checked-in main-stack smoke, and hygiene wrappers pass on the repaired story head without reopening unrelated runtime or product scope.
+- The final browser-visible chat proof keeps the Story 59 mixed-state boundaries explicit: restored conversation state stays authoritative while an old conversation remains selected, returning to a fresh draft restores the fresh create-mode state instead of leaking restored provider/model/endpoint state, and hidden or reset restored state is excluded from later submissions rather than silently retained in request payloads.
 - Final `Implementation Notes` map the current-cycle review-created finding block to its focused proof homes from Task 27 plus the broad wrapper proof rerun owned here.
 
 #### Addresses Findings
@@ -2911,6 +2912,9 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Requirement: Story 59 client and browser-visible chat surfaces still hold on the repaired final story head after the metadata-persistence caller repair.
   Implementation files or surfaces: retained Story 59 client files and `scripts/test-summary-e2e.mjs`
   Proof owners: `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e`
+- Requirement: the create-vs-reuse and restored-vs-fresh-draft chat state boundaries still hold after the repaired story head is rebuilt, including restored state staying authoritative while the old conversation remains selected, fresh-draft reset clearing or excluding stale restored state from later submission, and hidden or disabled restored values not leaking into payload construction.
+  Implementation files or surfaces: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/api/conversations.ts`, `client/src/hooks/useConversations.ts`, and the browser-visible chat surfaces re-covered by `scripts/test-summary-e2e.mjs`
+  Proof owners: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatSendPayload.test.tsx`, `npm run test:summary:client`, `npm run test:summary:e2e`
 - Requirement: the checked-in main-stack route remains reachable through the default compose wrapper path, with wrapper-owned env loading and smoke boundaries kept distinct from dedicated server, client, and browser proof owners.
   Implementation files or surfaces: `scripts/docker-compose-with-env.sh`, `docker-compose.yml`
   Proof owners: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
@@ -2926,7 +2930,7 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 
 #### Subtasks
 
-1. [ ] Re-open this review-created findings block plus the focused proof files from Task 27, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its helper and caller proof homes and keeps `inline-resolved minor findings for this review cycle: none` explicit if that remains true.
+1. [ ] Re-open this review-created findings block, the focused proof files from Task 27, and the existing client mixed-state proof homes in `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its helper and caller proof homes, maps the create-vs-reuse and restored-vs-fresh-draft state boundaries to those client proof files, and keeps `inline-resolved minor findings for this review cycle: none` explicit if that remains true.
 2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that keeps wrapper-owned env loading from `server/.env` and `server/.env.local`, checked-in main-stack smoke ownership, browser-visible chat proof scope, mounted proof roots under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, readiness surfaces at `http://localhost:5001`, `http://localhost:5010`, and `http://localhost:5010/health`, seed/setup ownership through those mounted roots, artifact destination `codeInfoTmp/manual-testing/0000059/28/`, and single-repository `Affected Repositories` ownership explicit for this review-created findings block.
 
 #### Testing

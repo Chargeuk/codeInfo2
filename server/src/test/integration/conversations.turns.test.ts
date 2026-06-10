@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
+import { ConversationModel } from '../../mongo/conversation.js';
 import {
   __resetCompletedInflightForTests,
   appendAnalysisDelta,
@@ -24,6 +25,7 @@ import {
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 
 const appWith = (
   overrides: Parameters<typeof createConversationsRouter>[0],
@@ -60,6 +62,25 @@ class ScriptedChat extends ChatInterface {
     }
     this.emit('thread', { type: 'thread', threadId: conversationId });
     await this.script(this, signal);
+  }
+}
+
+class CountingChat extends ChatInterface {
+  public executeCalls = 0;
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ): Promise<void> {
+    void _message;
+    void _flags;
+    void _model;
+    this.executeCalls += 1;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'assistant-reply' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
 
@@ -241,6 +262,57 @@ test('completed replay requests stay INFLIGHT_ALREADY_COMPLETED after completed-
     persistedConversationAfterReplay?.lastMessageAt?.toISOString(),
     persistedConversationBeforeReplay?.lastMessageAt?.toISOString(),
   );
+});
+
+test('stops the /chat append-turn path when metadata retries exhaust before reload and response return', async () => {
+  const conversationId = 'c-retry-exhausted-chat';
+  const chat = new CountingChat();
+
+  await withMockedMongoConversationPersistence({
+    seedConversations: [
+      {
+        _id: conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+        title: 'retry exhausted chat',
+        source: 'REST',
+        flags: {
+          endpointId: 'https://stale.example/v1',
+          workingFolder: '/repos/stale-root',
+          threadId: 'thread-stale',
+        },
+        archivedAt: null,
+        createdAt: new Date('2025-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+      } as never,
+    ],
+    run: async ({ conversations }) => {
+      const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+      ConversationModel.findOneAndUpdate = ((() => ({
+        exec: async () => null,
+      })) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+      try {
+        const response = await request(
+          createChatApp(() => chat),
+        )
+          .post('/chat')
+          .send({
+            provider: 'lmstudio',
+            model: 'model-1',
+            conversationId,
+            message: 'hello',
+          });
+
+        assert.equal(response.status, 500);
+        assert.equal(chat.executeCalls, 0);
+        assert.equal(conversations.get(conversationId)?.updatedAt?.toISOString(), '2025-01-01T00:00:00.000Z');
+      } finally {
+        ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+      }
+    },
+  });
 });
 
 test('inflight-only snapshot returns inflight items and inflight payload', async () => {

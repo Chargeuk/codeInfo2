@@ -573,7 +573,7 @@ async function ensureConversation(
     .lean()
     .exec()) as Conversation | null;
   if (existing) {
-    await updateConversationMeta({
+    const metaOutcome = await updateConversationMeta({
       conversationId,
       provider,
       model,
@@ -584,6 +584,9 @@ async function ensureConversation(
       replaceFlags: true,
       lastMessageAt: now,
     });
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('codebase question conversation metadata update exhausted');
+    }
     return;
   }
 

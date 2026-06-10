@@ -1145,7 +1145,7 @@ export function createChatRouter({
 
       const latestConversation =
         (await loadExistingConversation()) ?? existing;
-      await updateConversationMeta({
+      const metaOutcome = await updateConversationMeta({
         conversationId,
         provider: executionProvider,
         model: executionModel,
@@ -1153,6 +1153,9 @@ export function createChatRouter({
         replaceFlags: true,
         lastMessageAt: now,
       });
+      if (metaOutcome.outcome === 'retry_exhausted') {
+        throw new Error('chat conversation metadata update exhausted');
+      }
       const updated = (await ConversationModel.findById(conversationId)
         .lean()
         .exec()) as Conversation | null;

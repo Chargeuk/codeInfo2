@@ -29,6 +29,7 @@ import { startFlowRun } from '../../flows/service.js';
 import { resetStore } from '../../logStore.js';
 import { callTool } from '../../mcpAgents/tools.js';
 import type { Conversation } from '../../mongo/conversation.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import { createAgentsRunRouter } from '../../routes/agentsRun.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import {
@@ -387,6 +388,167 @@ test('direct agent start persists the final execution identity before background
     process.env.CODEINFO_AGENT_HOME = previousAgentHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('direct agent start stops before completion when persisted metadata retries exhaust', async () => {
+  const conversationId = 'task27-direct-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.3-codex',
+          title: 'Saved continuation',
+          agentName: 'coding_agent',
+          source: 'REST',
+          flags: {},
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Conversation,
+      ],
+      run: async ({ conversations }) => {
+        let builtChat = false;
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => null,
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        await assert.rejects(
+          runAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'continue with saved requested provider',
+            conversationId,
+            source: 'REST',
+            chatFactory: () => {
+              builtChat = true;
+              return new MinimalChat();
+            },
+          }),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.message === 'agent conversation metadata update exhausted',
+        );
+
+        assert.equal(builtChat, false);
+        assert.equal(conversations.get(conversationId)?.provider, 'codex');
+        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.3-codex');
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test('runAgentCommand stops before the first synthetic turn persistence when persisted metadata retries exhaust', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+  const conversationId = 'task27-command-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "gpt-5.3-codex"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(tempCodexHome, 'chat', 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(commandsDir, 'retry-exhausted.json'),
+    JSON.stringify(
+      {
+        Description: 'Retry exhausted command',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.3-codex',
+          title: 'Saved command continuation',
+          agentName: 'coding_agent',
+          source: 'REST',
+          flags: {},
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Conversation,
+      ],
+      run: async ({ conversations }) => {
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => null,
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        await assert.rejects(
+          runAgentCommand({
+            agentName: 'coding_agent',
+            commandName: 'retry-exhausted',
+            conversationId,
+            source: 'REST',
+            chatFactory: () => new MinimalChat(),
+          }),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.message === 'agent conversation metadata update exhausted',
+        );
+
+        assert.equal(conversations.get(conversationId)?.provider, 'codex');
+        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.3-codex');
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
 });
 

@@ -498,7 +498,7 @@ async function persistDirectAgentConversation(params: {
       lastMessageAt: now,
     });
   } else {
-    await updateConversationMeta({
+    const metaOutcome = await updateConversationMeta({
       conversationId: params.conversationId,
       provider: params.providerId,
       model: params.modelId,
@@ -506,6 +506,9 @@ async function persistDirectAgentConversation(params: {
       replaceFlags: true,
       lastMessageAt: now,
     });
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('agent conversation metadata update exhausted');
+    }
   }
 
   const persisted = (await ConversationModel.findById(params.conversationId)
@@ -1593,11 +1596,14 @@ async function persistSyntheticAgentTurn(params: {
     createdAt: params.createdAt,
   });
 
-  await updateConversationMeta({
+  const metaOutcome = await updateConversationMeta({
     conversationId: params.conversationId,
     lastMessageAt: params.createdAt,
     model: params.model,
   });
+  if (metaOutcome.outcome === 'retry_exhausted') {
+    throw new Error('agent turn metadata update exhausted');
+  }
 
   const turnId =
     turn && typeof turn === 'object' && '_id' in (turn as object)

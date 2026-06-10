@@ -34,6 +34,8 @@ import {
   startFlowRun,
 } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import type { Conversation } from '../../mongo/conversation.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -42,6 +44,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import {
   closeWs,
   connectWs,
@@ -1254,6 +1257,93 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    if (prevNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = prevNodeEnv;
+    }
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('flow run stops before turn persistence when metadata retries exhaust', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevNodeEnv = process.env.NODE_ENV;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-metadata-exhaust-'),
+  );
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  const workingFolder = path.join(tmpDir, 'repo-working-root');
+  const conversationId = 'flow-metadata-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  const originalSave = ConversationModel.prototype.save;
+  let updateAttempts = 0;
+
+  process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [],
+      run: async ({ conversations, turns }) => {
+        ConversationModel.prototype.save = (async function save(this: unknown) {
+          const doc = this as { _id?: unknown; toObject?: () => unknown };
+          const saved = {
+            ...structuredClone(doc.toObject?.() ?? doc),
+            _id: String(doc._id ?? conversationId),
+          } as Conversation;
+          conversations.set(String(saved._id), saved);
+          return saved;
+        }) as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => {
+              updateAttempts += 1;
+              return null;
+            },
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        const result = await startFlowRun({
+          flowName: 'llm-basic',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
+        });
+
+        assert.equal(result.conversationId, conversationId);
+        await waitFor(
+          () => updateAttempts > 0,
+          20000,
+        );
+
+        assert.ok(updateAttempts > 0);
+        assert.equal(turns.length, 1);
+        assert.equal(conversations.get(conversationId)?.provider, 'codex');
+        assert.ok(conversations.get(conversationId)?.model);
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    ConversationModel.prototype.save = originalSave;
+    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    __resetFreshRunRetryOwnershipCompletionForTests();
     if (prevNodeEnv === undefined) {
       delete process.env.NODE_ENV;
     } else {

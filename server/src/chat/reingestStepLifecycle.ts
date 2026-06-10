@@ -410,11 +410,14 @@ async function persistSyntheticTurn(params: {
     createdAt: params.createdAt,
   });
 
-  await lifecycleDeps.updateConversationMeta({
+  const metaOutcome = await lifecycleDeps.updateConversationMeta({
     conversationId: params.conversationId,
     lastMessageAt: params.createdAt,
     model: params.model,
   });
+  if (metaOutcome.outcome === 'retry_exhausted') {
+    throw new Error('reingest turn metadata update exhausted');
+  }
 
   const turnId =
     turn && typeof turn === 'object' && '_id' in (turn as object)

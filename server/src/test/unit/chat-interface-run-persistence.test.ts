@@ -21,6 +21,7 @@ import {
   listConversations,
   updateConversationMeta,
 } from '../../mongo/repo.js';
+import { TurnModel } from '../../mongo/turn.js';
 import type {
   TurnRuntimeMetadata,
   TurnSource,
@@ -127,6 +128,14 @@ class PersistSpyChat extends ChatInterface {
       type: 'complete',
       ...(this.completeEvent ?? {}),
     });
+  }
+}
+
+class RetryExhaustedChat extends ChatInterface {
+  public executeCalls = 0;
+
+  async execute(): Promise<void> {
+    this.executeCalls += 1;
   }
 }
 
@@ -1113,6 +1122,82 @@ describe('ChatInterface.run persistence', () => {
     });
     assert.deepEqual(storedConversation.flags, winnerFlags[3]);
     assert.deepEqual(storedConversation.updatedAt, updatedAtValues[3]);
+  });
+
+  test('ChatInterface.run stops before execute when persisted turn metadata retries exhaust', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 1,
+      configurable: true,
+    });
+
+    const originalFindById = ConversationModel.findById;
+    const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+    const originalTurnCreate = TurnModel.create;
+    const conversationId = 'chat-run-retry-exhausted';
+    const chat = new RetryExhaustedChat();
+    const existingConversation = buildConversationDoc({
+      conversationId,
+      provider: 'codex',
+      model: 'model-a',
+      flags: {
+        endpointId: 'https://stale.example/v1',
+        workingFolder: '/repos/stale-root',
+        threadId: 'thread-stale',
+      },
+      lastMessageAt: new Date('2025-05-05T00:00:00.000Z'),
+      updatedAt: new Date('2025-05-05T00:00:00.000Z'),
+    }) as Conversation;
+
+    ConversationModel.findById = ((returnedConversationId: unknown) => ({
+      lean: () => ({
+        exec: async () =>
+          ({
+            ...(existingConversation as unknown as Record<string, unknown>),
+            _id: returnedConversationId,
+          }) as never,
+      }),
+      exec: async () =>
+        ({
+          ...(existingConversation as unknown as Record<string, unknown>),
+          _id: returnedConversationId,
+        }) as never,
+    })) as unknown as typeof ConversationModel.findById;
+
+    ConversationModel.findOneAndUpdate = (() => ({
+      exec: async () => null,
+    })) as unknown as typeof ConversationModel.findOneAndUpdate;
+
+    TurnModel.create = (async (input: Record<string, unknown>) => ({
+      _id: 'turn-retry-exhausted',
+      ...structuredClone(input),
+    })) as typeof TurnModel.create;
+
+    try {
+      await withReadyState(1, 'development', async () => {
+        await assert.rejects(
+          chat.run(
+            'hello',
+            { provider: 'codex', source: 'REST' },
+            conversationId,
+            'model-a',
+          ),
+          (error) =>
+            error instanceof Error &&
+            error.message === 'chat turn metadata update exhausted',
+        );
+      });
+    } finally {
+      ConversationModel.findById = originalFindById;
+      ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+      TurnModel.create = originalTurnCreate;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
+    }
+
+    assert.equal(chat.executeCalls, 0);
   });
 
   test('updateConversationMeta returns not_found distinctly from retry_exhausted when the conversation is missing', async () => {

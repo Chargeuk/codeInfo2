@@ -34,10 +34,12 @@ import {
 } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
+import { ConversationModel } from '../../../mongo/conversation.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
 } from '../../support/mockCopilotSdk.js';
+import { withMockedMongoConversationPersistence } from '../../support/conversationMongoPersistenceStub.js';
 
 const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
@@ -1579,6 +1581,109 @@ test('codebase_question replays a completed retry before later setup can fail af
     assert.equal(replayPayload.replay?.status, 'completed');
   } finally {
     __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question stops before chat construction when persisted metadata retries exhaust', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const conversationId = 'mcp-metadata-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex-spark"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.3-codex-spark',
+          title: 'Saved MCP conversation',
+          source: 'MCP',
+          flags: {},
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Conversation,
+      ],
+      run: async ({ conversations }) => {
+        setToolDeps({
+          clientFactory: makeLmStudioClientFactory(),
+          chatFactory: () => {
+            throw new Error(
+              'codebase question should not build chat after metadata exhaustion',
+            );
+          },
+          listIngestedRepositoriesFn: async () => ({
+            repos: [],
+            lockedModelId: null,
+          }),
+        });
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => null,
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        try {
+          await assert.rejects(
+            runCodebaseQuestion(
+              {
+                question: 'Retry exhausted codebase question',
+                conversationId,
+                provider: 'codex',
+                model: 'gpt-5.3-codex-spark',
+              },
+              {
+                chatFactory: () => {
+                  throw new Error(
+                    'codebase question should not build chat after metadata exhaustion',
+                  );
+                },
+                listIngestedRepositoriesFn: async () => ({
+                  repos: [],
+                  lockedModelId: null,
+                }),
+              },
+            ),
+            (error: unknown) =>
+              error instanceof assert.AssertionError &&
+              /response\.result/.test(error.message),
+          );
+
+          assert.equal(conversations.get(conversationId)?.provider, 'codex');
+          assert.equal(
+            conversations.get(conversationId)?.model,
+            'gpt-5.3-codex-spark',
+          );
+        } finally {
+          resetToolDeps();
+        }
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
     if (originalForceAvailable === undefined) {
       delete process.env.MCP_FORCE_CODEX_AVAILABLE;
     } else {

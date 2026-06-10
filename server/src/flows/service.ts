@@ -1207,7 +1207,7 @@ const ensureFlowAgentConversation = async (params: {
     if (params.endpointId === null) {
       delete nextFlags.endpointId;
     }
-    await updateConversationMeta({
+    const metaOutcome = await updateConversationMeta({
       conversationId: params.conversationId,
       provider: params.providerId,
       model: params.modelId,
@@ -1215,6 +1215,9 @@ const ensureFlowAgentConversation = async (params: {
       replaceFlags: true,
       lastMessageAt: now,
     });
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('flow conversation metadata update exhausted');
+    }
     if (params.workingFolder) {
       await updateConversationWorkingFolder({
         conversationId: params.conversationId,
@@ -1690,11 +1693,14 @@ async function persistFlowTurn(params: {
     createdAt: params.createdAt,
   });
 
-  await updateConversationMeta({
+  const metaOutcome = await updateConversationMeta({
     conversationId: params.conversationId,
     lastMessageAt: params.createdAt,
     model: params.model,
   });
+  if (metaOutcome.outcome === 'retry_exhausted') {
+    throw new Error('flow turn metadata update exhausted');
+  }
 
   const turnId =
     turn && typeof turn === 'object' && '_id' in (turn as object)

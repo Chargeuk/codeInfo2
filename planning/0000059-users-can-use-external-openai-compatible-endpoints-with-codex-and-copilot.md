@@ -2872,7 +2872,7 @@ Repair the shared metadata persistence consumer contract so the new `UpdateConve
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 27`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260610T013203Z-69d92a33`. It must revalidate the current review-created findings block for review pass `0000059-20260610T005032Z-52cb59b1` and keep `inline-resolved minor findings for this review cycle: none` explicit unless later same-cycle work changes that fact.
 
 #### Overview

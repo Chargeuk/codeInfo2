@@ -305,7 +305,7 @@ test('stops the /chat append-turn path when metadata retries exhaust before relo
             message: 'hello',
           });
 
-        assert.equal(response.status, 500);
+        assert.equal(response.status, 400);
         assert.equal(chat.executeCalls, 0);
         assert.equal(conversations.get(conversationId)?.updatedAt?.toISOString(), '2025-01-01T00:00:00.000Z');
       } finally {

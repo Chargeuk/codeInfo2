@@ -438,6 +438,7 @@ export async function runReingestStepLifecycle(params: {
   const createdAt = lifecycleDeps.now();
   const createdAtIso = createdAt.toISOString();
   const provider = 'codex';
+  let shouldCleanupInflight = true;
   const userContent = buildUserTurnContent(params.toolResult);
   const assistantContent = buildAssistantTurnContent(params.toolResult);
   const liveToolEvent = toLiveToolEvent(params.toolResult);
@@ -596,18 +597,28 @@ export async function runReingestStepLifecycle(params: {
           stage: params.toolResult.stage ?? null,
           targetMode: payload.targetMode,
           warningCount:
-            payload.kind === 'reingest_step_batch_result'
-              ? payload.warnings.length
-              : 0,
-        },
+          payload.kind === 'reingest_step_batch_result'
+            ? payload.warnings.length
+            : 0,
+      },
       });
     }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === 'reingest turn metadata update exhausted'
+    ) {
+      shouldCleanupInflight = false;
+    }
+    throw error;
   } finally {
-    bridge?.cleanup();
-    lifecycleDeps.cleanupInflight({
-      conversationId: params.conversationId,
-      inflightId,
-    });
+    if (shouldCleanupInflight) {
+      bridge?.cleanup();
+      lifecycleDeps.cleanupInflight({
+        conversationId: params.conversationId,
+        inflightId,
+      });
+    }
   }
 }
 

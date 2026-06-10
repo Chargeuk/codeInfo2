@@ -2854,8 +2854,8 @@ Repair the shared metadata persistence consumer contract so the new `UpdateConve
 #### Testing
 
 1. [x] Run `npm run build:summary:server` to confirm the propagated exhausted-write handling contract still compiles cleanly on the Story 59 head.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts` to prove the explicit exhausted outcome at the helper seam and the lifecycle-owned persistence caller seam.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` to prove the default-path `/chat` continuation no longer treats an exhausted metadata write as success.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts` to prove the explicit exhausted outcome at the helper seam and the lifecycle-owned persistence caller seam.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` to prove the default-path `/chat` continuation no longer treats an exhausted metadata write as success.
 4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` to prove the agent, flow, and MCP caller families no longer continue on a silent exhausted-write outcome.
 
 #### Implementation Notes
@@ -2864,6 +2864,8 @@ Repair the shared metadata persistence consumer contract so the new `UpdateConve
 
 - Exhausted-write proof note: `/chat`, chat-interface turn persistence, reingest lifecycle, direct-agent and command-agent execution, flow execution, and MCP codebase-question persistence now branch on `retry_exhausted` before their old success-shaped continuation points; the focused proof homes all carry the exhausted-write branch assertions and the combined server-unit wrapper for agents, flows, and codebase-question passed with `87/87` tests.
 - `npm run build:summary:server` passed cleanly on the repaired Story 59 head, confirming the propagated exhausted-write handling contract still compiles after the caller-seam propagation changes.
+- `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts` passed cleanly after moving the cleanup guard to the outer lifecycle function, so exhausted turn metadata retries now stop the old cleanup continuation before inflight bookkeeping resumes.
+- `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` passed cleanly after tightening the proof to the route's existing 400 bounded-failure outcome, so the `/chat` append-turn path still stops before the reload-and-return continuation when metadata retries exhaust.
 
 ### Task 28. Final Revalidation For Review Cycle 0000059-rc-20260610T013203Z-69d92a33
 

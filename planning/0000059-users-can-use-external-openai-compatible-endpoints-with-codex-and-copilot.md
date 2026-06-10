@@ -2784,7 +2784,7 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 26`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260610T005032Z-52cb59b1`. Preserve approved Story 59 behavior while making the explicit `retry_exhausted` persistence outcome reach the default-path production callers that currently treat every non-create metadata update as success.
 
 #### Overview

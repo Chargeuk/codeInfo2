@@ -9,11 +9,11 @@
 5. New runs keep the intended fallback behavior: try the pinned endpoint first, repair within the same provider when possible, and only fall back more broadly when the same-provider path cannot run.
 6. Pinned or resumed conversations and executions do not silently drift to a different provider or endpoint when their saved endpoint later becomes unavailable.
 7. Older saved conversations still open normally, while newer endpoint-backed conversations keep endpoint identity separate from the raw model id.
-8. Final hardening keeps newer conversation metadata from being overwritten by stale writers, makes exhausted metadata retries explicit to callers, and closes the story with full automated revalidation on the checked-in runtime path.
+8. Final hardening keeps newer conversation metadata from being overwritten or ignored by stale or missing-conversation caller paths, makes exhausted metadata retries explicit to callers, and closes the story with full automated revalidation on the checked-in runtime path.
 
 # Description
 
-This story lets the existing `Codex` and `Copilot` chat and agent surfaces use external OpenAI-compatible endpoints without introducing a brand-new top-level provider. It adds endpoint parsing, model discovery, runtime translation, persistence, fallback and resume protections, runtime-proof support, and final review hardening so the feature can ship with reliable server, client, browser, and checked-in compose proof.
+This story lets the existing `Codex` and `Copilot` chat and agent surfaces use external OpenAI-compatible endpoints without introducing a brand-new top-level provider. It adds endpoint parsing, model discovery, runtime translation, persistence, fallback and resume protections, runtime-proof support, and final review hardening so the feature can ship with reliable server, client, browser, and checked-in compose proof, including the latest caller-contract safeguards around stale, exhausted, and missing conversation metadata updates.
 
 # Tasks
 
@@ -128,3 +128,11 @@ This story lets the existing `Codex` and `Copilot` chat and agent surfaces use e
 28. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260610T013203Z-69d92a33`
 - Re-run the broad server, client, browser, checked-in compose, smoke, lint, and format proof on the repaired story head.
 - Reconfirm the mixed-state chat protections and keep final review-cycle proof ownership explicit for the latest review-created findings block.
+
+29. [codeInfo2] - Propagate missing-conversation metadata outcomes through default-path production callers
+- Update the `/chat`, chat persistence, reingest, agent, flow, and MCP caller seams so a missing conversation metadata write stops the old success path.
+- Add focused server proof for the shared contradiction and for each changed caller family.
+
+30. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260610T063120Z-c375e6c3`
+- Re-run the full broad regression proof for the current review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
+- Keep this cycle as the one final revalidation owner for the latest missing-conversation caller hardening and its checked-in runtime closeout proof.

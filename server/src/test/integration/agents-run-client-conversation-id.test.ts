@@ -21,17 +21,24 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { startFlowRun } from '../../flows/service.js';
 import { resetStore } from '../../logStore.js';
 import { callTool } from '../../mcpAgents/tools.js';
 import type { Conversation } from '../../mongo/conversation.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import { createAgentsRunRouter } from '../../routes/agentsRun.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -127,6 +134,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetProviderBootstrapStatusForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -381,6 +389,209 @@ test('direct agent start persists the final execution identity before background
     process.env.CODEINFO_AGENT_HOME = previousAgentHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('direct agent start stops before completion when persisted metadata retries exhaust', async () => {
+  const conversationId = 'task27-direct-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.3-codex',
+          title: 'Saved continuation',
+          agentName: 'coding_agent',
+          source: 'REST',
+          flags: {},
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Conversation,
+      ],
+      run: async ({ conversations }) => {
+        let builtChat = false;
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => null,
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        await assert.rejects(
+          runAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'continue with saved requested provider',
+            conversationId,
+            source: 'REST',
+            chatFactory: () => {
+              builtChat = true;
+              return new MinimalChat();
+            },
+          }),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.message === 'agent conversation metadata update exhausted',
+        );
+
+        assert.equal(builtChat, false);
+        assert.equal(conversations.get(conversationId)?.provider, 'codex');
+        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.3-codex');
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test('direct agent start stops before completion when persisted metadata reports not_found after a concurrent delete', async () => {
+  const conversationId = 'task29-direct-not-found';
+
+  await withConversationMetaNotFoundFixture({
+    seedConversation: {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      title: 'Saved continuation',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: {},
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    } as Conversation,
+    run: async ({ conversations, capturedUpdates }) => {
+      let builtChat = false;
+
+        await assert.rejects(
+          runAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'continue with saved requested provider',
+            conversationId,
+            source: 'REST',
+            chatFactory: () => {
+              builtChat = true;
+              return new MinimalChat();
+            },
+          }),
+          (error: unknown) =>
+            (error as { code?: string }).code === 'CONVERSATION_ARCHIVED',
+        );
+
+      assert.equal(builtChat, false);
+      assert.equal(conversations.get(conversationId), undefined);
+      assert.equal(capturedUpdates.length, 1);
+    },
+  });
+});
+
+test('runAgentCommand stops before the first synthetic turn persistence when persisted metadata retries exhaust', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+  const conversationId = 'task27-command-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "gpt-5.3-codex"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(tempCodexHome, 'chat', 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(commandsDir, 'retry-exhausted.json'),
+    JSON.stringify(
+      {
+        Description: 'Retry exhausted command',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.3-codex',
+          title: 'Saved command continuation',
+          agentName: 'coding_agent',
+          source: 'REST',
+          flags: {},
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Conversation,
+      ],
+      run: async ({ conversations }) => {
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => null,
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        await assert.rejects(
+          runAgentCommand({
+            agentName: 'coding_agent',
+            commandName: 'retry-exhausted',
+            conversationId,
+            source: 'REST',
+            chatFactory: () => new MinimalChat(),
+          }),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.message === 'agent conversation metadata update exhausted',
+        );
+
+        assert.equal(conversations.get(conversationId)?.provider, 'codex');
+        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.3-codex');
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
 });
 
@@ -2525,6 +2736,12 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
       ),
       true,
     );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('Endpoint "unknown"'),
+      ),
+      false,
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.clear();
@@ -2868,6 +3085,1116 @@ test('Task 28 direct continuation restores the saved requested-provider identity
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempAgentsHome, { recursive: true, force: true });
     await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 9 resumes a direct-agent conversation with the saved endpoint when the configured endpoint matches', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousRuntimeCodexHome = process.env.CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.2-codex'],
+  });
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const conversationId = 'task9-direct-endpoint-success';
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.2-codex"',
+      `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.2-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.2-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.2-codex',
+      title: 'Saved endpoint direct-agent conversation',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: { endpointId },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Continue with the saved endpoint',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'gpt-5.2-codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      endpointId,
+    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    await externalServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousRuntimeCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
+test('direct Copilot agent runs carry the configured external endpoint through to chat execution flags', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousRuntimeCodexHome = process.env.CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['copilot-gpt-5'],
+  });
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const capturedFlags: Array<Record<string, unknown>> = [];
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "copilot"',
+      'model = "copilot-gpt-5"',
+      `codeinfo_openai_endpoint = "${endpointId}|completions"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.2-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${endpointId}|completions`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.2-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    const result = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Use the configured Copilot endpoint',
+      conversationId: 'copilot-agent-endpoint-carry-through',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          capturedFlags.push(flags);
+        }),
+    });
+
+    assert.equal(result.providerId, 'copilot');
+    assert.equal(capturedFlags.length, 1);
+    assert.equal(capturedFlags[0]?.provider, 'copilot');
+    assert.deepEqual(capturedFlags[0]?.codeinfoOpenAiEndpoint, {
+      endpointId,
+      baseUrl: endpointId,
+      capabilities: ['completions'],
+    });
+  } finally {
+    __resetAgentServiceDepsForTests();
+    await externalServer.stop();
+    memoryConversations.delete('copilot-agent-endpoint-carry-through');
+    memoryTurns.delete('copilot-agent-endpoint-carry-through');
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousRuntimeCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is degraded even if the endpoint is healthy', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousRuntimeCodexHome = process.env.CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.2-codex'],
+  });
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const conversationId = 'task15-direct-endpoint-bootstrap-degraded';
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.2-codex"',
+      `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.2-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.2-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+  });
+
+  try {
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.2-codex',
+      title: 'Saved endpoint direct-agent conversation',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: { endpointId },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await assert.rejects(
+      () =>
+        runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'Continue with the saved endpoint',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) => {
+        assert.equal((error as { code?: string }).code, 'PROVIDER_UNAVAILABLE');
+        return true;
+      },
+    );
+
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      endpointId,
+    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    __resetProviderBootstrapStatusForTests();
+    await externalServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousRuntimeCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 9 clears a stale saved Codex thread before direct-agent endpoint activation creates a replacement thread', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousRuntimeCodexHome = process.env.CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.2-codex'],
+  });
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const conversationId = 'task9-direct-endpoint-clears-stale-thread';
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.2-codex"',
+      `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.2-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.2-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  class FailingBeforeThreadChat extends ChatInterface {
+    public capturedFlags?: Record<string, unknown>;
+
+    async execute(
+      _message: string,
+      flags: Record<string, unknown>,
+      conversationId: string,
+      model: string,
+    ) {
+      void conversationId;
+      void model;
+      this.capturedFlags = { ...flags };
+      throw new Error('failed before replacement thread creation');
+    }
+  }
+
+  try {
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.2-codex',
+      title: 'Saved direct-agent conversation without endpoint identity',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: { threadId: 'thread-stale-direct-agent' },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const failingChat = new FailingBeforeThreadChat();
+
+    await assert.rejects(
+      () =>
+        runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'Use the configured endpoint',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => failingChat,
+        }),
+      /failed before replacement thread creation/u,
+    );
+
+    assert.equal(failingChat.capturedFlags?.threadId, undefined);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      endpointId,
+    );
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.threadId,
+      undefined,
+    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    await externalServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousRuntimeCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the saved conversation record', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousRuntimeCodexHome = process.env.CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.2-codex'],
+  });
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const currentEndpointId = `${externalServer.baseUrl}/v1`;
+  const savedEndpointId = 'https://saved-endpoint.example/v1';
+  const conversationId = 'task9-direct-endpoint-drift';
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.2-codex"',
+      `codeinfo_openai_endpoint = "${currentEndpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.2-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${currentEndpointId}|responses`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.2-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.2-codex',
+      title: 'Saved endpoint direct-agent conversation',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: { endpointId: savedEndpointId },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await assert.rejects(
+      () =>
+        runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'Continue with the saved endpoint',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) => {
+        assert.equal((error as { code?: string }).code, 'PROVIDER_UNAVAILABLE');
+        return true;
+      },
+    );
+
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      savedEndpointId,
+    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    await externalServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousRuntimeCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in place when the saved endpoint disappears', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousRuntimeCodexHome = process.env.CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const externalServer = await startExternalOpenAiCompatServer({
+    responseMode: 'transport-failure',
+  });
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const endpointId = `${externalServer.baseUrl}/v1`;
+  const conversationId = 'task24-direct-endpoint-fail-in-place';
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.2-codex"',
+      `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.2-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.2-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.2-codex',
+      title: 'Saved endpoint direct-agent conversation',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: { endpointId },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const app = express();
+    app.use(
+      createAgentsRunRouter({
+        startAgentInstruction: (params) =>
+          startAgentInstruction({
+            ...params,
+            chatFactory: () => new MinimalChat(),
+          }),
+      }),
+    );
+
+    const response = await supertest(app)
+      .post('/agents/coding_agent/run')
+      .send({
+        instruction: 'Do not drift away from the saved endpoint',
+        conversationId,
+      })
+      .expect(503);
+
+    assert.equal(response.body.error, 'provider_unavailable');
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      endpointId,
+    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'gpt-5.2-codex',
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    await externalServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousRuntimeCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
   }
 });
 

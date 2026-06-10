@@ -72,6 +72,7 @@ export type FlowAgentState = {
   providerId?: string;
   modelId?: string;
   requestedProviderId?: string;
+  endpointId?: string;
 };
 
 export type FlowExecutionRuntimeState = Map<string, FlowAgentState>;

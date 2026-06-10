@@ -6,6 +6,7 @@ import {
   resolveCodeinfoMcpEndpointContract,
   resolveRequiredCodeinfoPlaceholderValue,
 } from './mcpEndpoints.js';
+import type { OpenAiCompatEndpointConfig } from './openaiCompatEndpoints.js';
 
 const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
 
@@ -86,6 +87,54 @@ const authStoreLine = `${authStoreKey} = "${authStoreValue}"`;
 const authStoreRegex = new RegExp(
   `${authStoreKey}\\s*=\\s*["']?([^"'\\n]+)["']?`,
 );
+
+const CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME = 'codeinfo_openai_endpoint';
+
+const resolveOpenAiCompatWireApi = (
+  endpoint: OpenAiCompatEndpointConfig,
+): 'responses' | 'completions' =>
+  endpoint.capabilities.includes('responses') ? 'responses' : 'completions';
+
+export function buildCodexOpenAiCompatRuntimeConfig(
+  endpoint: OpenAiCompatEndpointConfig,
+): CodexOptions['config'] {
+  const providerName = CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME;
+  return {
+    model_provider: providerName,
+    model_providers: {
+      [providerName]: {
+        name: providerName,
+        base_url: endpoint.baseUrl,
+        wire_api: resolveOpenAiCompatWireApi(endpoint),
+      },
+    },
+  } satisfies CodexOptions['config'];
+}
+
+export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
+  runtimeConfig: CodexOptions['config'] | undefined,
+  endpoint?: OpenAiCompatEndpointConfig | null,
+): CodexOptions['config'] | undefined {
+  if (!endpoint) {
+    return runtimeConfig;
+  }
+
+  const generatedConfig = buildCodexOpenAiCompatRuntimeConfig(
+    endpoint,
+  ) as Record<string, unknown>;
+  const baseConfig =
+    runtimeConfig && typeof runtimeConfig === 'object' ? runtimeConfig : {};
+  return {
+    ...baseConfig,
+    ...generatedConfig,
+    model_providers: {
+      ...((baseConfig as Record<string, unknown>).model_providers as
+        | Record<string, unknown>
+        | undefined),
+      ...(generatedConfig.model_providers as Record<string, unknown>),
+    },
+  } as CodexOptions['config'];
+}
 
 export function applyResolvedServerPortToCodexConfig(
   configText: string,

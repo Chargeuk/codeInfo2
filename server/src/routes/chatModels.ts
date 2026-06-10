@@ -6,7 +6,6 @@ import {
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { resolveCopilotDefaultModel } from '../chat/copilotModelSupport.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -42,6 +41,7 @@ import {
   buildModelsResponse,
   buildProviderInfo,
   orderProviders,
+  resolveOpenAiCompatProviderDiscovery,
   toCompatibilityCodexWarnings,
   toCompatibilityReasoningEfforts,
 } from './chatDiscovery.js';
@@ -88,6 +88,48 @@ const prioritizeModel = <T extends { key: string }>(
   const [preferred] = clone.splice(index, 1);
   clone.unshift(preferred);
   return clone;
+};
+
+const prioritizeModelIdentity = <T extends { key: string; endpointId?: string }>(
+  models: T[],
+  preferredModel: string | undefined,
+  preferredEndpointId?: string,
+): T[] => {
+  if (!preferredModel) return models;
+
+  if (preferredEndpointId !== undefined) {
+    const exactIndex = models.findIndex(
+      (model) =>
+        model.key === preferredModel &&
+        (model.endpointId ?? undefined) === preferredEndpointId,
+    );
+    if (exactIndex > 0) {
+      const clone = [...models];
+      const [preferred] = clone.splice(exactIndex, 1);
+      clone.unshift(preferred);
+      return clone;
+    }
+  }
+
+  return prioritizeModel(models, preferredModel);
+};
+
+const resolveSelectedEndpointId = <T extends { key: string; endpointId?: string }>(
+  models: T[],
+  selectedModel: string | undefined,
+  selectedEndpointId: string | undefined,
+): string | undefined => {
+  if (!selectedModel || !selectedEndpointId) {
+    return undefined;
+  }
+
+  const exactMatch = models.find(
+    (model) =>
+      model.key === selectedModel &&
+      (model.endpointId ?? undefined) === selectedEndpointId,
+  );
+
+  return exactMatch?.endpointId;
 };
 
 const normalizeString = (value: unknown): string | undefined => {
@@ -214,6 +256,7 @@ export function createChatModelsRouter({
   };
 
   router.get('/models', async (req, res) => {
+    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
     const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
     const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
     const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
@@ -226,6 +269,19 @@ export function createChatModelsRouter({
       });
     }
     const provider = parsedProvider.provider ?? 'lmstudio';
+    const externalOpenAiCompatDiscovery =
+      provider === 'codex' || provider === 'copilot'
+        ? await resolveOpenAiCompatProviderDiscovery({
+            provider,
+            codexHome,
+            copilotHome: process.env.CODEINFO_COPILOT_HOME,
+            env: process.env,
+          })
+        : {
+            models: [],
+            liveModels: [],
+            warnings: [],
+          };
     const detection = getCodexDetection();
     const mcp = await getMcpStatus();
     const capabilities = await codexCapabilityResolver({
@@ -247,16 +303,19 @@ export function createChatModelsRouter({
     const codexConfigWarnings: string[] = [];
     const codexDefaults = buildCodexCompatibilityDefaults({
       capabilities,
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
       warnings: codexConfigWarnings,
     });
     codexWarnings.push(...codexConfigWarnings);
+    if (provider === 'codex') {
+      codexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
+    }
     let requestedDefaults: ReturnType<typeof resolveChatDefaults> | undefined =
       undefined;
     try {
       requestedDefaults = resolveChatDefaults({
         requestProvider: provider,
-        codexHome: process.env.CODEX_HOME,
+        codexHome,
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
       });
@@ -266,10 +325,41 @@ export function createChatModelsRouter({
       }
     }
     const codexPreferredDefaults = await resolveCodexChatDefaults({
-      codexHome: process.env.CODEX_HOME,
+      codexHome,
     });
-    const codexModels = prioritizeModel(
-      capabilities.models.map((capability) => ({
+    const codexExternalModels =
+      provider === 'codex' ? externalOpenAiCompatDiscovery.models : [];
+    const codexLiveModels = [
+      ...new Set([
+        ...capabilities.models.map((capability) => capability.model),
+        ...(provider === 'codex'
+          ? externalOpenAiCompatDiscovery.liveModels
+          : []),
+      ]),
+    ];
+    const codexProviderInfo = buildProviderInfo({
+      provider: 'codex',
+      available: detection.available && codexBootstrapHealthy,
+      toolsAvailable: codexToolsAvailable,
+      reason:
+        getProviderBootstrapReason('codex') ??
+        detection.reason ??
+        (mcp.available ? undefined : mcp.reason),
+      codexHome,
+      warnings: codexWarnings,
+      liveModels: codexLiveModels,
+      agentFlags: buildCodexAgentFlags({
+        capabilities,
+        codexHome,
+        defaults: codexDefaults,
+      }),
+      compatibility: {
+        codexDefaults,
+        codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
+      },
+    });
+    const codexModels = [
+      ...capabilities.models.map((capability) => ({
         key: capability.model,
         displayName: capability.model,
         type: 'codex',
@@ -278,7 +368,17 @@ export function createChatModelsRouter({
         ),
         flagOverrides: buildCodexModelFlagOverrides(capability),
       })),
-      codexPreferredDefaults.values.model,
+      ...codexExternalModels,
+    ];
+    const codexSelectedEndpointId = resolveSelectedEndpointId(
+      codexModels,
+      codexProviderInfo.defaultModel,
+      externalOpenAiCompatDiscovery.selectedEndpointId,
+    );
+    const prioritizedCodexModels = prioritizeModelIdentity(
+      codexModels,
+      codexProviderInfo.defaultModel,
+      codexSelectedEndpointId,
     );
 
     baseLogger.info(
@@ -303,18 +403,21 @@ export function createChatModelsRouter({
       toolsReason: mcp.reason,
     });
     const copilotRawModels = readiness.modelsRaw as ModelInfo[];
-    const copilotModelMetadata = resolveCopilotDefaultModel({
-      models: copilotRawModels,
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
-    });
     const copilotAgentFlags = buildCopilotAgentFlags({
       models: copilotRawModels,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
     const { mapped: mappedCopilotModels, ignoredUnsupportedFields } =
       mapCopilotModels(copilotRawModels);
-    const prioritizedCopilotModels = prioritizeModel(
-      mappedCopilotModels.map((model) => {
+    const copilotExternalModels =
+      provider === 'copilot'
+        ? externalOpenAiCompatDiscovery.models.map((model) => ({
+            ...model,
+            type: 'copilot',
+          }))
+        : [];
+    const copilotModels = [
+      ...mappedCopilotModels.map((model) => {
         const rawModel = copilotRawModels.find(
           (entry) => entry.id === model.key,
         );
@@ -327,12 +430,52 @@ export function createChatModelsRouter({
           flagOverrides,
         };
       }),
-      copilotModelMetadata.defaultModel,
-    );
+      ...copilotExternalModels,
+    ];
+    const copilotLiveModels = [
+      ...new Set([
+        ...copilotModels.map((model) => model.key),
+        ...(provider === 'copilot'
+          ? externalOpenAiCompatDiscovery.liveModels
+          : []),
+      ]),
+    ];
     const copilotAvailable =
       readiness.available &&
       copilotBootstrapHealthy &&
-      prioritizedCopilotModels.length > 0;
+      copilotLiveModels.length > 0;
+    const copilotWarnings = [
+      ...getProviderBootstrapWarnings('copilot'),
+      ...(readiness.reason ? [readiness.reason] : []),
+      ...copilotAgentFlags.warnings,
+      ...(provider === 'copilot'
+        ? externalOpenAiCompatDiscovery.warnings
+        : []),
+    ];
+    const copilotProviderInfo = buildProviderInfo({
+      provider: 'copilot',
+      available: copilotAvailable,
+      toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
+      reason:
+        getProviderBootstrapReason('copilot') ??
+        (copilotAvailable
+          ? readiness.reason
+          : (readiness.reason ?? COPILOT_MODELS_REASON)),
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      warnings: copilotWarnings,
+      liveModels: copilotLiveModels,
+      agentFlags: copilotAgentFlags.agentFlags,
+    });
+    const copilotSelectedEndpointId = resolveSelectedEndpointId(
+      copilotModels,
+      copilotProviderInfo.defaultModel,
+      externalOpenAiCompatDiscovery.selectedEndpointId,
+    );
+    const prioritizedCopilotModels = prioritizeModelIdentity(
+      copilotModels,
+      copilotProviderInfo.defaultModel,
+      copilotSelectedEndpointId,
+    );
     logCopilotModelMapping({
       requestId,
       mappedModelCount: prioritizedCopilotModels.length,
@@ -431,62 +574,8 @@ export function createChatModelsRouter({
     const lmstudioAgentFlags = buildLmStudioAgentFlags({});
 
     const providerMap = {
-      codex: buildProviderInfo({
-        provider: 'codex',
-        available: detection.available && codexBootstrapHealthy,
-        toolsAvailable: codexToolsAvailable,
-        reason:
-          getProviderBootstrapReason('codex') ??
-          detection.reason ??
-          (mcp.available ? undefined : mcp.reason),
-        codexHome: process.env.CODEX_HOME,
-        warnings: codexWarnings,
-        liveModels: capabilities.models.map((capability) => capability.model),
-        agentFlags: buildCodexAgentFlags({
-          capabilities,
-          codexHome: process.env.CODEX_HOME,
-          defaults: codexDefaults,
-        }),
-        compatibility: {
-          codexDefaults,
-          codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
-        },
-      }),
-      copilot: buildProviderInfo({
-        provider: 'copilot',
-        available: copilotAvailable,
-        toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
-        reason:
-          getProviderBootstrapReason('copilot') ??
-          (copilotAvailable
-            ? readiness.reason
-            : (readiness.reason ?? COPILOT_MODELS_REASON)),
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        warnings:
-          copilotAvailable && readiness.reason
-            ? [
-                ...getProviderBootstrapWarnings('copilot'),
-                readiness.reason,
-                ...copilotAgentFlags.warnings,
-              ]
-            : readiness.reason
-              ? [
-                  ...getProviderBootstrapWarnings('copilot'),
-                  readiness.reason,
-                  ...copilotAgentFlags.warnings,
-                ]
-              : [
-                  ...getProviderBootstrapWarnings('copilot'),
-                  ...copilotAgentFlags.warnings,
-                ],
-        modelMetadata: {
-          defaultModel: copilotModelMetadata.defaultModel,
-          defaultModelSource: copilotModelMetadata.defaultModelSource,
-          warnings: copilotModelMetadata.warnings,
-        },
-        liveModels: prioritizedCopilotModels.map((model) => model.key),
-        agentFlags: copilotAgentFlags.agentFlags,
-      }),
+      codex: codexProviderInfo,
+      copilot: copilotProviderInfo,
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',
         available: lmstudioAvailable && lmstudioBootstrapHealthy,
@@ -514,9 +603,13 @@ export function createChatModelsRouter({
           getProviderBootstrapReason('codex') ??
           detection.reason ??
           (mcp.available ? undefined : mcp.reason),
-        models: detection.available && codexBootstrapHealthy ? codexModels : [],
+        models:
+          detection.available && codexBootstrapHealthy
+            ? prioritizedCodexModels
+            : [],
         providers,
         providerInfo: providerMap.codex,
+        selectedEndpointId: codexSelectedEndpointId,
         compatibility: providerMap.codex.compatibility,
         codexDefaults,
         codexWarnings,
@@ -575,6 +668,7 @@ export function createChatModelsRouter({
         models: copilotAvailable ? prioritizedCopilotModels : [],
         providers,
         providerInfo: providerMap.copilot,
+        selectedEndpointId: copilotSelectedEndpointId,
       });
       return res.json(response);
     }
@@ -613,6 +707,7 @@ export function createChatModelsRouter({
         providers,
         providerInfo: providerMap.lmstudio,
         agentFlags: providerMap.lmstudio.agentFlags,
+        selectedEndpointId: undefined,
         defaultModel: providerMap.lmstudio.defaultModel,
         defaultModelSource: providerMap.lmstudio.defaultModelSource,
         warnings: providerMap.lmstudio.warnings,
@@ -627,6 +722,7 @@ export function createChatModelsRouter({
       models: lmstudioModels,
       providers,
       providerInfo: providerMap.lmstudio,
+      selectedEndpointId: undefined,
     });
     return res.json(response);
   });

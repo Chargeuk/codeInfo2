@@ -1,0 +1,80 @@
+[log] {level: info, message: DEV-0000046:T8:new-conversation-local-reset, timestamp: 2026-06-10T10:52:36.171Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T01:chat_shared_transcript_rendered, timestamp: 2026-06-10T10:52:36.225Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-06-10T10:52:36.226Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[info] [chat-history] conversationId changed {conversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-06-10T10:52:36.228Z, source: client, route: /chat}
+[info] [chat-history] hydrating turns {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, count: 0, first: undefined, last: undefined}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: DEV-0000035:T9:chat_raw_send_evaluated, timestamp: 2026-06-10T10:52:37.686Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T9:chat_raw_send_result, timestamp: 2026-06-10T10:52:37.687Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T9:chat_raw_send_evaluated, timestamp: 2026-06-10T10:52:37.688Z, source: client, route: /chat}
+[log] {level: info, message: chat.client_send_begin, timestamp: 2026-06-10T10:52:37.688Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T9:chat_raw_send_result, timestamp: 2026-06-10T10:52:37.689Z, source: client, route: /chat}
+[log] {level: info, message: chat.client_send_after_reset, timestamp: 2026-06-10T10:52:37.689Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-06-10T10:52:37.734Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_result, timestamp: 2026-06-10T10:52:37.763Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T09:virtualized_transcript_window_changed, timestamp: 2026-06-10T10:52:37.765Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T01:chat_shared_transcript_rendered, timestamp: 2026-06-10T10:52:37.765Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[info] DEV_0000048_T6_PICKER_SYNC {surface: chat, conversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, action: lock, pickerState: }
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-06-10T10:52:37.767Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_result, timestamp: 2026-06-10T10:52:37.772Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:37.776Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:37.782Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:37.783Z, source: client, route: /chat}
+[info] [turns] fetch start {conversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(21), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[info] DEV_0000048_T6_PICKER_SYNC {surface: chat, conversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, action: clear, pickerState: }
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(21), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:37.873Z, source: client, route: /chat}
+[log] {level: info, message: chat.ws.client_user_turn, timestamp: 2026-06-10T10:52:37.874Z, source: client, route: /chat}
+[log] {level: info, message: chat.ws.client_snapshot_received, timestamp: 2026-06-10T10:52:37.875Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:37.875Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:37.876Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:37.876Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:37.881Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-06-10T10:52:37.939Z, source: client, route: /chat}
+[log] {level: info, message: chat run started, timestamp: 2026-06-10T10:52:37.952Z, source: client, route: /chat}
+[info] [conversations] fetch start {mode: replace, agentName: __none__, flowName: __none__, filterState: Object, cursor: undefined}
+[log] {level: info, message: flows.filter.requested, timestamp: 2026-06-10T10:52:37.953Z, source: client-flows, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:37.954Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:37.956Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(21), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:38.005Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:38.007Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000029:T2:inflight_overlay_decision, timestamp: 2026-06-10T10:52:38.010Z, source: client, route: /chat}
+[info] [turns] fetch success {conversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, count: 1, inflight: Object}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:38.051Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:38.053Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(21), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[info] [chat-history] hydrating turns {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, count: 1, first: 2026-06-10T10:52:37.723Z, last: 2026-06-10T10:52:37.723Z}
+[info] DEV-0000046:T12:hidden-run-rehydrated {conversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, hasInflightSnapshot: true, inflightId: d12f4ddc-f721-40e0-93a9-70ced83ca4f0, replacedVisibleDraft: true, turnCount: 1}
+[info] [conversations] fetch success {mode: replace, received: 20, hasMore: true}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:38.058Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-06-10T10:52:38.089Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:38.108Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:38.113Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:38.746Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:38.749Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:39.299Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:39.386Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:39.391Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-06-10T10:52:41.739Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-06-10T10:52:41.752Z, source: client, route: /chat}
+[log] {level: info, message: chat.ws.client_final_received, timestamp: 2026-06-10T10:52:44.460Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:44.462Z, source: client, route: /chat}
+[log] {level: info, message: chat.client_turn_final_sync, timestamp: 2026-06-10T10:52:44.464Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T03:live_final_applied, timestamp: 2026-06-10T10:52:44.466Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:44.551Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:44.553Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:44.597Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:44.599Z, source: client, route: /chat}
+[log] {level: info, message: 0000022 ws event forwarded, timestamp: 2026-06-10T10:52:44.600Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:44.640Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-06-10T10:52:44.641Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: bef6ddd0-7f31-4ea0-b77f-f4dc62f002c7}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-06-10T10:52:44.644Z, source: client, route: /chat}

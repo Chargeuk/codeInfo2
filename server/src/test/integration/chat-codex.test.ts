@@ -34,6 +34,7 @@ import { createChatRouter } from '../../routes/chat.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   closeWs,
@@ -1225,6 +1226,420 @@ test('implicit chat requests keep threadId until route-level fallback selects co
   }
 });
 
+test('endpoint-unavailable Codex chat falls back to the same provider native path before cross-provider fallback', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const externalServer = await startExternalOpenAiCompatServer({
+    responseMode: 'transport-failure',
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const originalCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const originalRuntimeCodexHome = process.env.CODEX_HOME;
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-home-'));
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.1-codex-max"\n',
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses`;
+
+  const mockCodex = new MockCodex('thread-endpoint-native-fallback');
+  const codexFactory = () => mockCodex;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        provider: 'codex',
+        endpointId: `${externalServer.baseUrl}/v1`,
+        model: 'missing-codex-model',
+        conversationId: 'conv-codex-endpoint-native-fallback',
+        message: 'Use native Codex before cross-provider fallback',
+      })
+      .expect(202);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-5.1-codex-max');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          `Endpoint "${externalServer.baseUrl}/v1" was unavailable; falling back to native codex model "gpt-5.1-codex-max".`,
+        ),
+      ),
+      true,
+    );
+  } finally {
+    await externalServer.stop();
+    if (originalCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodexHome;
+    }
+    if (originalRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalRuntimeCodexHome;
+    }
+    await fs.rm(codexHome, { recursive: true, force: true });
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('pinned Codex chat fails in place when the saved endpoint later becomes unavailable', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const externalServer = await startExternalOpenAiCompatServer({
+    responseMode: 'transport-failure',
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses`;
+
+  const conversationId = 'conv-codex-endpoint-fail-in-place';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Pinned endpoint conversation',
+    source: 'REST',
+    flags: { endpointId: `${externalServer.baseUrl}/v1` },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new MockCodex('thread-endpoint-fail-in-place');
+  const codexFactory = () => mockCodex;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        conversationId,
+        message: 'Do not drift away from the saved endpoint',
+      })
+      .expect(503);
+
+    assert.equal(response.body.status, 'error');
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(mockCodex.lastResumeOptions, undefined);
+  } finally {
+    await externalServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('resumed Codex chat ignores a contradictory request endpointId when a saved endpoint pin exists', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const savedEndpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const requestEndpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${savedEndpointServer.baseUrl}/v1|responses;${requestEndpointServer.baseUrl}/v1|responses`;
+
+  const conversationId = 'conv-codex-saved-endpoint-wins';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved endpoint identity',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-saved-endpoint',
+      endpointId: `${savedEndpointServer.baseUrl}/v1`,
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new MockCodex('thread-saved-endpoint');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          endpointId: `${requestEndpointServer.baseUrl}/v1`,
+          message: 'Keep the saved endpoint pin',
+        }),
+      )
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-endpoint');
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(savedEndpointServer.requestCount(), 1);
+    assert.equal(requestEndpointServer.requestCount(), 0);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      `${savedEndpointServer.baseUrl}/v1`,
+    );
+  } finally {
+    await savedEndpointServer.stop();
+    await requestEndpointServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('resumed native Codex chat ignores a contradictory request endpointId when the saved conversation has no endpoint pin', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const requestEndpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${requestEndpointServer.baseUrl}/v1|responses`;
+
+  const conversationId = 'conv-codex-native-resume-ignores-request-endpoint';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved native execution identity',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-saved-native',
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new MockCodex('thread-saved-native');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          endpointId: `${requestEndpointServer.baseUrl}/v1`,
+          message: 'Keep the saved native execution identity',
+        }),
+      )
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-native');
+    assert.equal(requestEndpointServer.requestCount(), 0);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      undefined,
+    );
+  } finally {
+    await requestEndpointServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('resumed native Codex chat keeps the saved thread instead of drifting onto a newly requested endpoint', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  class FailingBeforeThreadCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      class FailingBeforeThread extends MockThread {
+        override async runStreamed(): Promise<{
+          events: AsyncGenerator<ThreadEvent>;
+        }> {
+          async function* generator(): AsyncGenerator<ThreadEvent> {
+            yield {
+              type: 'error',
+              message: 'failed before replacement thread creation',
+            } as ThreadEvent;
+          }
+
+          return { events: generator() };
+        }
+      }
+
+      return new FailingBeforeThread(this.id);
+    }
+  }
+
+  const endpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${endpointServer.baseUrl}/v1|responses`;
+
+  const conversationId = 'conv-codex-stale-thread-cleared-on-endpoint-add';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved thread without endpoint identity',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-saved-endpoint',
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new FailingBeforeThreadCodex(
+    'thread-never-created-for-new-endpoint',
+  );
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          endpointId: `${endpointServer.baseUrl}/v1`,
+          message: 'Use the newly selected endpoint',
+        }),
+      )
+      .expect(202);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-endpoint');
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      undefined,
+    );
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.threadId,
+      'thread-saved-endpoint',
+    );
+  } finally {
+    await endpointServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('resumed contradictory provider-model input cannot rewrite saved execution identity', async () => {
   setCodexDetection({
     available: true,
@@ -1544,6 +1959,60 @@ test('explicit codex request returns PROVIDER_UNAVAILABLE when codex is unavaila
   assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
+test('explicit Codex /chat requests fail closed when bootstrap is degraded even if the external endpoint is healthy', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+    warnings: ['codex bootstrap degraded warning'],
+  });
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses`;
+
+  const mockCodex = new MockCodex('thread-codex-bootstrap-degraded');
+  const codexFactory = () => mockCodex;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          endpointId: `${externalServer.baseUrl}/v1`,
+          model: 'gpt-5.1-codex-max',
+        }),
+      );
+    assert.equal(response.status, 503);
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(String(response.body.message), /codex bootstrap degraded/i);
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(mockCodex.lastResumeOptions, undefined);
+  } finally {
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('explicit lmstudio request returns PROVIDER_UNAVAILABLE when lmstudio is unavailable', async () => {
   setCodexDetection({
     available: true,
@@ -1656,12 +2125,13 @@ test('POST /chat persists turns without WS subscribers (run continues)', async (
   assert.ok(turns.some((t) => t.role === 'assistant'));
 });
 
-test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', async () => {
+test('POST /chat returns RUN_IN_PROGRESS before codex readiness failure can mask the active run', async () => {
   setCodexDetection({
-    available: true,
-    authPresent: true,
-    configPresent: true,
+    available: false,
+    authPresent: false,
+    configPresent: false,
     cliPath: '/usr/bin/codex',
+    reason: 'codex bootstrap degraded',
   });
   const app = express();
   app.use(express.json());
@@ -1669,8 +2139,6 @@ test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', asyn
     '/chat',
     createChatRouter({
       clientFactory: dummyClientFactory,
-      codexFactory: () => new MockCodex('thread-lock'),
-      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
     }),
   );
 

@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       // Keep the summary-wrapper warning contract meaningful by treating the
       // current client bundle size as the expected baseline instead of emitting
       // a persistent chunk-size warning on every clean build.
-      chunkSizeWarningLimit: 1600,
+      chunkSizeWarningLimit: 1700,
     },
     server: {
       port: 5001,

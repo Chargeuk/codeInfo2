@@ -16,6 +16,7 @@ const makeLmStudioClientFactory = () => () =>
 test('MCP chat persists conversation/turn with source MCP when persistence is available', async () => {
   const savedConversations: Record<string, unknown>[] = [];
   const savedTurns: Record<string, unknown>[] = [];
+  let persistedConversation: Record<string, unknown> | null = null;
 
   const originalEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';
@@ -34,28 +35,53 @@ test('MCP chat persists conversation/turn with source MCP when persistence is av
     ConversationModel as unknown as { prototype: { save: unknown } }
   ).prototype.save;
   const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
   const originalTurnCreate = TurnModel.create;
   const originalTurnFind = TurnModel.find;
-  const originalTurnUpdate = ConversationModel.findByIdAndUpdate;
 
   // stub conversation lookups/saves
-  (ConversationModel as unknown as Record<string, unknown>).findById = () => ({
-    lean: () => ({
-      exec: async () => null,
-    }),
-  });
+  (ConversationModel as unknown as Record<string, unknown>).findById = () =>
+    ({
+      lean: () => ({
+        exec: async () =>
+          persistedConversation
+            ? structuredClone(persistedConversation)
+            : null,
+      }),
+    }) as unknown;
   (
     ConversationModel as unknown as {
       prototype: { save: () => Promise<unknown> };
     }
-  ).prototype.save = function saveMock(this: Record<string, unknown>) {
-    savedConversations.push(this);
-    return Promise.resolve(this);
+  ).prototype.save = function saveMock(
+    this: Record<string, unknown> & {
+      _id?: unknown;
+      toObject?: () => Record<string, unknown>;
+    },
+  ) {
+    persistedConversation = {
+      ...structuredClone(this.toObject?.() ?? this),
+      _id: String(this._id ?? ''),
+    };
+    savedConversations.push(persistedConversation);
+    return Promise.resolve(persistedConversation);
   };
   (ConversationModel as unknown as Record<string, unknown>).findByIdAndUpdate =
     () => ({
       exec: async () => null,
     });
+  (ConversationModel as unknown as Record<string, unknown>).findOneAndUpdate =
+    ((_filter: unknown, update: unknown) => ({
+      exec: async () => {
+        if (!persistedConversation) return null;
+        persistedConversation = {
+          ...persistedConversation,
+          ...(structuredClone(update as Record<string, unknown>) ?? {}),
+          updatedAt: new Date(),
+        };
+        return structuredClone(persistedConversation);
+      },
+    })) as unknown;
 
   // stub turn creation/update
   (TurnModel as unknown as Record<string, unknown>).find = () => ({
@@ -141,11 +167,11 @@ test('MCP chat persists conversation/turn with source MCP when persistence is av
     (
       ConversationModel as unknown as Record<string, unknown>
     ).findByIdAndUpdate = originalFindByIdAndUpdate;
+    (
+      ConversationModel as unknown as Record<string, unknown>
+    ).findOneAndUpdate = originalFindOneAndUpdate;
     (TurnModel as unknown as Record<string, unknown>).create =
       originalTurnCreate;
     (TurnModel as unknown as Record<string, unknown>).find = originalTurnFind;
-    (
-      ConversationModel as unknown as Record<string, unknown>
-    ).findByIdAndUpdate = originalTurnUpdate;
   }
 });

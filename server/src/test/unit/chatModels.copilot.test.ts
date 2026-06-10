@@ -21,6 +21,7 @@ import {
   TASK6_LOG_MARKER,
 } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
@@ -48,6 +49,7 @@ const env = {
     this.snapshot.clear();
   },
 };
+const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
 
 function createClient(
   models?: Array<{ modelKey: string; displayName: string; type: string }>,
@@ -122,12 +124,16 @@ async function stopServer(server: { httpServer: http.Server }) {
 beforeEach(() => {
   resetMcpStatusCache();
   __resetProviderBootstrapStatusForTests();
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
 });
 
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
   __resetProviderBootstrapStatusForTests();
+  while (tempExternalServers.length > 0) {
+    await tempExternalServers.pop()!.stop();
+  }
   mock.restoreAll();
 });
 
@@ -371,6 +377,96 @@ test('copilot models route keeps selector-aligned default-model metadata when a 
   } finally {
     await stopServer(server);
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('copilot models route includes external completions endpoints and filters out unsupported capability endpoints', async () => {
+  const completionsServer = await startExternalOpenAiCompatServer({
+    models: ['external-copilot'],
+  });
+  const responsesServer = await startExternalOpenAiCompatServer({
+    models: ['external-codex'],
+  });
+  tempExternalServers.push(completionsServer, responsesServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${completionsServer.baseUrl}/v1|completions`,
+      `${responsesServer.baseUrl}/v1|responses`,
+      '',
+    ].join(';'),
+  );
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.ok(modelKeys.includes('external-copilot'));
+    assert.equal(modelKeys.includes('external-codex'), false);
+    assert.equal(
+      (res.body.models as Array<Record<string, unknown>>).find(
+        (model) => model.key === 'external-copilot',
+      )?.type,
+      'copilot',
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('copilot models route preserves duplicate raw model ids across distinct endpoint identities', async () => {
+  const firstServer = await startExternalOpenAiCompatServer({
+    models: ['shared-copilot-model'],
+  });
+  const secondServer = await startExternalOpenAiCompatServer({
+    models: ['shared-copilot-model'],
+  });
+  tempExternalServers.push(firstServer, secondServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${firstServer.baseUrl}/v1|completions`,
+      `${secondServer.baseUrl}/v1|completions`,
+    ].join(';'),
+  );
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    const sharedModels = (
+      res.body.models as Array<Record<string, unknown>>
+    ).filter((model) => model.key === 'shared-copilot-model');
+    assert.equal(sharedModels.length, 2);
+    assert.equal(sharedModels[0]?.endpointId, `${firstServer.baseUrl}/v1`);
+    assert.equal(sharedModels[1]?.endpointId, `${secondServer.baseUrl}/v1`);
+    assert.equal(sharedModels[0]?.type, 'copilot');
+    assert.equal(sharedModels[1]?.type, 'copilot');
+  } finally {
+    await stopServer(server);
   }
 });
 

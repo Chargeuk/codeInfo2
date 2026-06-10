@@ -1288,7 +1288,7 @@ async function resolveCollectionDimension(
   }
 
   const rawBaseUrl =
-    process.env.CODEINFO_CHROMA_URL?.trim() || 'http://localhost:8000';
+    process.env.CODEINFO_CHROMA_URL?.trim() || 'http://localhost:8300';
   const normalizedBaseUrl = rawBaseUrl.includes('://')
     ? rawBaseUrl
     : `http://${rawBaseUrl}`;

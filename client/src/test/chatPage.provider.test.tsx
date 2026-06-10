@@ -48,6 +48,7 @@ function mockChatProvidersFetch(options: {
   defaultModel?: string;
   selectedProvider?: string;
   selectedModel?: string;
+  selectedEndpointId?: string;
   providerInfo?: Record<string, unknown>;
   agents?: Array<{ name: string }>;
 }) {
@@ -78,6 +79,9 @@ function mockChatProvidersFetch(options: {
             : {}),
           ...(options.selectedModel
             ? { selectedModel: options.selectedModel }
+            : {}),
+          ...(options.selectedEndpointId
+            ? { selectedEndpointId: options.selectedEndpointId }
             : {}),
         }),
       }) as unknown as Response;
@@ -192,6 +196,75 @@ describe('Chat provider selection (WS transport)', () => {
       expect(providerSelect).toHaveTextContent(/github copilot/i),
     );
     await waitFor(() => expect(modelSelect).toHaveTextContent(/gpt-5 mini/i));
+  });
+
+  it('keeps the bootstrap endpoint identity alongside the server-selected model when duplicate raw ids exist', async () => {
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'copilot',
+          label: 'GitHub Copilot',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      modelsProvider: 'codex',
+      models: [
+        {
+          key: 'gpt-5.2',
+          displayName: 'gpt-5.2',
+          type: 'codex',
+          endpointId: 'https://alpha.example/base/v1',
+        },
+        {
+          key: 'gpt-5.2',
+          displayName: 'gpt-5.2',
+          type: 'codex',
+          endpointId: 'https://alpha.example/alt/v1',
+        },
+      ],
+      defaultModel: 'gpt-5.2',
+      selectedProvider: 'codex',
+      selectedModel: 'gpt-5.2',
+      selectedEndpointId: 'https://alpha.example/base/v1',
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/loading chat providers and models/i),
+      ).toBeNull(),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /openai codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /alpha\.example \/ gpt-5\.2 \(/i,
+      ),
+    );
+
+    await userEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    expect(
+      screen.getAllByRole('option', { name: /alpha\.example \/ gpt-5\.2/i }),
+    ).toHaveLength(2);
   });
 
   it('drops a degraded server-selected provider from the next request payload when another provider is runnable', async () => {

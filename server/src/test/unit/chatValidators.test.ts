@@ -351,6 +351,48 @@ test('stale hidden provider-specific flags fail validation after a provider swit
   );
 });
 
+test('chat request rejects endpointId for non-endpoint-backed LM Studio provider paths', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-endpoint-id',
+        provider: 'lmstudio',
+        endpointId: 'https://alpha.example/v1',
+      }),
+    /endpointId is not supported for provider "lmstudio"/,
+  );
+});
+
+test('chat request rejects a stale endpointId when defaults resolve to LM Studio after a create-mode transition', async () => {
+  setEnv({
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'lmstudio',
+  });
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        message: 'hello',
+        conversationId: 'lmstudio-endpoint-id-default',
+        endpointId: 'https://alpha.example/v1',
+      }),
+    /endpointId is not supported for provider "lmstudio"/,
+  );
+});
+
+test('chat request normalizes endpointId before later runtime selection uses it', async () => {
+  const result = await validateChatRequest({
+    model: 'gpt-5.1-codex-max',
+    message: 'hello',
+    conversationId: 'normalized-endpoint-id',
+    provider: 'codex',
+    endpointId: ' https://EXAMPLE.com/v1/ ',
+  });
+
+  assert.equal(result.endpointId, 'https://example.com/v1');
+});
+
 test('blank or whitespace-only LM Studio flag values fail validation instead of being trimmed into valid input', async () => {
   await assert.rejects(
     async () =>
@@ -648,7 +690,7 @@ test('chat request validation accepts copilot as a legal provider with provider-
   assert.equal(result.provider, 'copilot');
   assert.equal(result.model, 'gpt-4o-mini');
   assert.deepEqual(result.agentFlags, {
-    modelReasoningEffort: 'high',
+    modelReasoningEffort: 'medium',
     toolAccess: 'on',
   });
 });

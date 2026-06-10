@@ -1,6 +1,16 @@
+import type { FlowRunStartResult } from './types.js';
+
 export type FlowPendingLoopControl = {
   kind: 'continue';
   loopStepPath: number[];
+};
+
+export type FreshRunRetryOwnershipCompletion = {
+  retryOwnershipId: string;
+  sourceId?: string;
+  launchSignature: string;
+  completedAt: number;
+  result: FlowRunStartResult;
 };
 
 export type FlowResumeState = {
@@ -22,4 +32,6 @@ export type FlowResumeState = {
   agentProviders?: Record<string, string>;
   agentModels?: Record<string, string>;
   agentRequestedProviders?: Record<string, string>;
+  agentEndpointIds?: Record<string, string>;
+  retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion;
 };

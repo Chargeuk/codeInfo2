@@ -127,7 +127,18 @@ test('main stays image-baked while local host-network compose exposes the live d
     entrypoint,
     /export HOME="\$runtime_home"\nexport CODEX_HOME="\$\{CODEX_HOME:-\$\{CODEINFO_CODEX_HOME:-\$runtime_home\}\}"/u,
   );
-  assert.match(entrypoint, /mkdir -p "\$\{HOME\}\/\.agents\/skills"/u);
+  assert.match(
+    entrypoint,
+    /prepare_runtime_tree "\$\{HOME\}" "\.agents" "\.agents\/skills" "\.cache"/u,
+  );
+  assert.match(
+    entrypoint,
+    /prepare_runtime_tree "\$\{copilot_home\}" "\.cache" "\.cache\/copilot" "chat"/u,
+  );
+  assert.match(
+    entrypoint,
+    /prepare_runtime_tree "\$\{lmstudio_home\}" "\.cache"/u,
+  );
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);

@@ -21,6 +21,7 @@ import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { TASK5_LOG_MARKER } from '../../providers/copilotReadiness.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   createMockCopilotSdkHarness,
   type MockCopilotSdkHarness,
@@ -59,6 +60,7 @@ const defaultDetection = {
   reason: 'not detected',
 };
 const tempDirs: string[] = [];
+const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
 
 function createClient(
   models: {
@@ -175,6 +177,9 @@ afterEach(async () => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
   __resetProviderBootstrapStatusForTests();
+  while (tempExternalServers.length > 0) {
+    await tempExternalServers.pop()!.stop();
+  }
   await Promise.all(
     tempDirs
       .splice(0)
@@ -820,6 +825,103 @@ test('providers route exposes provider-local default-model ownership without usi
   }
 });
 
+test('providers route includes a config-pinned external endpoint that is absent from the env list for the selected provider', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "alpha"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('Codex_model_list', 'beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(res.body.selectedModel, 'alpha');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+    assert.equal(res.body.providers[0].id, 'codex');
+    assert.equal(res.body.providers[0].defaultModel, 'alpha');
+    assert.equal(res.body.providers[0].defaultModelSource, 'config');
+    assert.equal(externalServer.requestCount(), 1);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route collapses env-backed and config-backed copies of the same normalized endpoint into one discovery pass', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+  });
+  tempExternalServers.push(externalServer);
+  const endpointEntry = `${externalServer.baseUrl}/v1|responses`;
+  await setCodexHome(
+    [
+      'model = "alpha"',
+      `codeinfo_openai_endpoint = "${endpointEntry}"`,
+      '',
+    ].join('\n'),
+  );
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [endpointEntry, endpointEntry].join(';'),
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('Codex_model_list', 'beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(res.body.selectedModel, 'alpha');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+    assert.equal(res.body.providers[0].defaultModel, 'alpha');
+    assert.equal(externalServer.requestCount(), 1);
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('providers route degrades malformed Copilot chat defaults to warnings instead of failing discovery', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome('reasoning_effort = [\n');
@@ -881,6 +983,60 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
     assert.match(
       (copilot.warnings as string[]).join('\n'),
       /agentFlags resolution/i,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route warns when a pinned Copilot endpoint is filtered out by provider capability mismatch', async () => {
+  await setCodexHome('model = "config-model"\n');
+  await setCopilotHome(
+    [
+      'model = "copilot-gpt-5"',
+      'codeinfo_openai_endpoint = "https://alpha.example/v1|responses"',
+      '',
+    ].join('\n'),
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('COPILOT_GITHUB_TOKEN', 'ghu_test_token_value');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'provider-copilot-capability-mismatch',
+    authStatus: {
+      isAuthenticated: true,
+      authType: 'gh-cli',
+      statusMessage: 'authenticated via gh',
+    },
+    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    const copilot = (res.body.providers as Array<Record<string, unknown>>).find(
+      (provider) => provider.id === 'copilot',
+    );
+    assert.ok(copilot);
+    assert.equal(res.body.selectedEndpointId, undefined);
+    assert.match(
+      (copilot.warnings as string[]).join('\n'),
+      /pinned endpoint "https:\/\/alpha\.example\/v1" is ignored for discovery because it does not advertise the capabilities required by provider "copilot"/u,
     );
   } finally {
     await stopServer(server);

@@ -14,6 +14,9 @@ import request from 'supertest';
 
 import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
+  __resetCompletedInflightForTests,
+  cleanupInflight,
+  createInflight,
   getInflight,
   getPendingConversationCancel,
   registerPendingConversationCancel,
@@ -202,6 +205,7 @@ async function startServer(
   act: (chat: Chat, tools: Tool[], opts: ActCallbacks) => Promise<unknown>,
   opts?: {
     chatFactory?: () => ChatInterface;
+    clientFactory?: () => LMStudioClient;
     cleanupInflightFn?: (params: {
       conversationId: string;
       inflightId?: string;
@@ -213,17 +217,19 @@ async function startServer(
   app.use(
     '/chat',
     createChatRouter({
-      clientFactory: () =>
-        ({
-          system: {
-            listDownloadedModels: async () => [
-              { modelKey: 'model-1', displayName: 'model-1', type: 'llm' },
-            ],
-          },
-          llm: {
-            model: async () => ({ act }),
-          },
-        }) as unknown as LMStudioClient,
+      clientFactory:
+        opts?.clientFactory ??
+        (() =>
+          ({
+            system: {
+              listDownloadedModels: async () => [
+                { modelKey: 'model-1', displayName: 'model-1', type: 'llm' },
+              ],
+            },
+            llm: {
+              model: async () => ({ act }),
+            },
+          }) as unknown as LMStudioClient),
       ...(opts?.chatFactory ? { chatFactory: opts.chatFactory } : {}),
       ...(opts?.cleanupInflightFn
         ? { cleanupInflightFn: opts.cleanupInflightFn }
@@ -1142,7 +1148,7 @@ test('a new chat run can start on the same conversation after a confirmed stop',
   }
 });
 
-test('replaying a completed caller-supplied inflightId returns one stable replay result before and after cleanup while a fresh inflightId still starts', async () => {
+test('replaying a completed caller-supplied inflightId returns one stable replay result before and after completed-cache loss while a fresh inflightId still starts', async () => {
   const conversationId = 'conv-chat-completed-replay';
   const replayInflightId = 'replay-inflight-1';
   let providerRuns = 0;
@@ -1213,6 +1219,7 @@ test('replaying a completed caller-supplied inflightId returns one stable replay
 
     allowFirstRunToFinish();
     await waitForRuntimeCleanup(conversationId);
+    __resetCompletedInflightForTests();
 
     const cleanupReplay = await request(server.httpServer)
       .post('/chat')
@@ -1247,6 +1254,68 @@ test('replaying a completed caller-supplied inflightId returns one stable replay
   } finally {
     allowFirstRunToFinish();
     await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('late completed replay beats LM Studio bootstrap failure after the chat lock is acquired', async () => {
+  const conversationId = 'conv-chat-late-replay-bootstrap';
+  const inflightId = 'late-replay-bootstrap-1';
+  let replayPersisted = false;
+
+  const server = await startServer(async () => undefined, {
+    clientFactory: () =>
+      ({
+        system: {
+          listDownloadedModels: async () => {
+            if (!replayPersisted) {
+              replayPersisted = true;
+              const inflight = createInflight({
+                conversationId,
+                inflightId,
+                provider: 'lmstudio',
+                model: 'model-1',
+                source: 'REST',
+                userTurn: {
+                  content: 'persisted replay request',
+                  createdAt: '2025-01-01T00:00:01.000Z',
+                },
+              });
+              inflight.assistantText = 'Persisted late replay answer';
+              inflight.finalStatus = 'ok';
+              cleanupInflight({ conversationId, inflightId });
+            }
+            throw new Error('lmstudio bootstrap failed after replay persisted');
+          },
+        },
+        llm: {
+          model: async () => {
+            throw new Error('completed replay should return before LM Studio execution');
+          },
+        },
+      }) as unknown as LMStudioClient,
+  });
+
+  try {
+    const replay = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'model-1',
+        conversationId,
+        inflightId,
+        message: 'retry after replay winner appears during bootstrap',
+      })
+      .expect(409);
+
+    assert.equal(replayPersisted, true);
+    assert.equal(replay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
+    assert.equal(replay.body.replayed, true);
+    assert.equal(replay.body.inflightId, inflightId);
+    assert.equal(memoryConversations.get(conversationId), undefined);
+    assert.deepEqual(getMemoryTurns(conversationId), []);
+    assert.equal(getActiveRunOwnership(conversationId), null);
+  } finally {
     await stopServer(server);
   }
 });

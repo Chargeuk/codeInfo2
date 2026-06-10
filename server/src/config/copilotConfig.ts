@@ -120,6 +120,10 @@ export function getCopilotConfigDirForHome(copilotHome: string): string {
   return path.resolve(copilotHome);
 }
 
+export function getCopilotCacheDirForHome(copilotHome: string): string {
+  return path.join(path.resolve(copilotHome), '.cache');
+}
+
 export function getCopilotStatePathForHome(
   copilotHome: string,
   ...segments: string[]
@@ -695,10 +699,14 @@ export function buildCopilotClientOptions(params?: {
     ...DEFAULT_COPILOT_CLI_ARGS.filter((arg) => !providedCliArgs.has(arg)),
     ...normalizedCliArgs,
   ];
+  const cacheDir = getCopilotCacheDirForHome(copilotHome);
   const mergedEnv: Record<string, string | undefined> = {
     ...process.env,
     ...env,
+    HOME: copilotHome,
     COPILOT_HOME: copilotHome,
+    XDG_CACHE_HOME: cacheDir,
+    XDG_CONFIG_HOME: copilotHome,
   };
 
   const clientOptions: CopilotClientOptions = {

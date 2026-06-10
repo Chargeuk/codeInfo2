@@ -19,6 +19,7 @@ import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
 
@@ -53,6 +54,7 @@ const defaultDetection = {
   reason: 'not detected',
 };
 const tempDirs: string[] = [];
+const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
 
 function createClient(
   models: {
@@ -140,12 +142,16 @@ async function setCodexHome(chatToml?: string) {
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
 });
 
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  while (tempExternalServers.length > 0) {
+    await tempExternalServers.pop()!.stop();
+  }
   await Promise.all(
     tempDirs
       .splice(0)
@@ -1013,6 +1019,154 @@ test('lmstudio models route degrades malformed chat defaults to warnings instead
       (res.body.warnings ?? []).join('\n'),
       /agentFlags resolution/i,
     );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models route includes external responses endpoints and filters out unsupported capability endpoints', async () => {
+  const responsesServer = await startExternalOpenAiCompatServer({
+    models: ['external-alpha'],
+  });
+  const completionsServer = await startExternalOpenAiCompatServer({
+    models: ['external-beta'],
+  });
+  tempExternalServers.push(responsesServer, completionsServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${responsesServer.baseUrl}/v1|responses`,
+      `${completionsServer.baseUrl}/v1|completions`,
+      '',
+    ].join(';'),
+  );
+  env.set('Codex_model_list', 'builtin-a,builtin-b');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.ok(modelKeys.includes('external-alpha'));
+    assert.equal(modelKeys.includes('external-beta'), false);
+    assert.equal(
+      (res.body.models as Array<Record<string, unknown>>).find(
+        (model) => model.key === 'external-alpha',
+      )?.type,
+      'codex',
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models route preserves duplicate raw model ids and the selected endpoint identity', async () => {
+  const firstServer = await startExternalOpenAiCompatServer({
+    models: ['shared-model'],
+  });
+  const secondServer = await startExternalOpenAiCompatServer({
+    models: ['shared-model'],
+  });
+  tempExternalServers.push(firstServer, secondServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${firstServer.baseUrl}/v1|responses`,
+      `${secondServer.baseUrl}/v1|responses`,
+    ].join(';'),
+  );
+  await setCodexHome(
+    [
+      'model = "shared-model"',
+      `codeinfo_openai_endpoint = "${secondServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set('Codex_model_list', 'builtin-a');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const sharedModels = (
+      res.body.models as Array<Record<string, unknown>>
+    ).filter((model) => model.key === 'shared-model');
+    const sharedEndpointIds = sharedModels
+      .map((model) => String(model.endpointId ?? ''))
+      .filter((endpointId) => endpointId.length > 0);
+    assert.ok(sharedModels.length >= 2);
+    assert.equal(res.body.defaultModel, 'shared-model');
+    assert.equal(res.body.defaultModelSource, 'config');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${secondServer.baseUrl}/v1`,
+    );
+    assert.equal(sharedModels[0]?.endpointId, `${secondServer.baseUrl}/v1`);
+    assert.ok(sharedEndpointIds.includes(`${firstServer.baseUrl}/v1`));
+    assert.ok(sharedEndpointIds.includes(`${secondServer.baseUrl}/v1`));
+    assert.equal(sharedModels[0]?.type, 'codex');
+    assert.ok(sharedModels.some((model) => model.type === 'codex'));
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models route clears stale endpoint identity when the default normalizes back to native', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['shared-model'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "builtin-a"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set('Codex_model_list', 'builtin-a,builtin-b');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.defaultModel, 'builtin-a');
+    assert.equal(res.body.defaultModelSource, 'config');
+    assert.equal(res.body.selectedEndpointId, undefined);
+    const nativeModel = (res.body.models as Array<Record<string, unknown>>).find(
+      (model) => model.key === 'builtin-a',
+    );
+    assert.ok(nativeModel);
+    assert.equal(nativeModel?.endpointId, undefined);
+    assert.equal(nativeModel?.type, 'codex');
   } finally {
     await stopServer(server);
   }

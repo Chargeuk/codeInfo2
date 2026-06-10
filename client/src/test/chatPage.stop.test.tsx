@@ -267,6 +267,7 @@ describe('Chat page stop control', () => {
     expect(
       screen.getByRole('button', { name: /new conversation/i }),
     ).toBeDisabled();
+    expect(screen.getByTestId('chat-new-conversation-trigger')).toBeDisabled();
     const conversationRows = screen.getAllByTestId('conversation-row');
     expect(conversationRows[0]).toHaveAttribute('aria-disabled', 'true');
     expect(conversationRows[1]).toHaveAttribute('aria-disabled', 'true');

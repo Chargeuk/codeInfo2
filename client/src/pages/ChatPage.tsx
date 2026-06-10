@@ -1,4 +1,5 @@
 import {
+  type ChatModelInfo,
   type ChatAgentFlagDescriptor,
   type ChatAgentFlagKey,
   type ChatAgentFlagValue,
@@ -73,6 +74,7 @@ import ComposerSendButton from '../components/workspace/composer/ComposerSendBut
 import ThinkingLevelIcon from '../components/workspace/composer/ThinkingLevelIcon';
 import {
   buildComposerOptionSummary,
+  formatEndpointAwareModelLabel,
   formatComposerModelLabel,
   formatThinkingModeLabel,
   getComposerModelPresentation,
@@ -179,6 +181,71 @@ const readConversationAgentFlags = (
   return flags.agentFlags;
 };
 
+const readConversationEndpointId = (flags: unknown): string | undefined => {
+  if (!isRecord(flags) || typeof flags.endpointId !== 'string') {
+    return undefined;
+  }
+  const trimmed = flags.endpointId.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const resolveSelectedModelSelection = (
+  models: ChatModelInfo[],
+  selected?: string,
+  selectedEndpointId?: string,
+  options?: {
+    strictEndpointIdentity?: boolean;
+  },
+): { model?: ChatModelInfo; endpointId?: string } => {
+  if (!selected) {
+    return {};
+  }
+
+  const exactMatch =
+    selectedEndpointId !== undefined
+      ? models.find(
+          (model) =>
+            model.key === selected &&
+            (model.endpointId ?? undefined) === selectedEndpointId,
+        )
+      : undefined;
+  if (exactMatch) {
+    return {
+      model: exactMatch,
+      endpointId: exactMatch.endpointId ?? undefined,
+    };
+  }
+
+  if (selectedEndpointId !== undefined) {
+    if (options?.strictEndpointIdentity) {
+      return {};
+    }
+    const nativeMatch = models.find(
+      (model) =>
+        model.key === selected && (model.endpointId ?? undefined) === undefined,
+    );
+    if (nativeMatch) {
+      return {
+        model: nativeMatch,
+        endpointId: undefined,
+      };
+    }
+  }
+
+  const keyedMatch = models.find((model) => model.key === selected);
+  if (!keyedMatch) {
+    return {};
+  }
+
+  return {
+    model: keyedMatch,
+    endpointId:
+      selectedEndpointId === undefined
+        ? (keyedMatch.endpointId ?? undefined)
+        : undefined,
+  };
+};
+
 type ComposerInfoEntry = {
   key: string;
   label: string;
@@ -250,10 +317,23 @@ export default function ChatPage() {
     isEmpty,
     refreshModels,
     refreshProviders,
+    selectedEndpointId,
   } = useChatModel();
   const [agentFlagsDraft, setAgentFlagsDraft] = useState<ChatAgentFlagDraft>(
     {},
   );
+  const [lockedSubmissionEndpointId, setLockedSubmissionEndpointId] = useState<
+    string | undefined
+  >(undefined);
+  const selectedModelSelection = useMemo(
+    () =>
+      resolveSelectedModelSelection(models, selected, selectedEndpointId, {
+        strictEndpointIdentity: lockedSubmissionEndpointId !== undefined,
+      }),
+    [lockedSubmissionEndpointId, models, selected, selectedEndpointId],
+  );
+  const selectedSubmissionEndpointId =
+    lockedSubmissionEndpointId ?? selectedModelSelection.endpointId;
   const {
     messages,
     status,
@@ -266,7 +346,13 @@ export default function ChatPage() {
     hydrateHistory,
     hydrateInflightSnapshot,
     handleWsEvent,
-  } = useChatStream(selected, provider, agentFlagsDraft);
+  } = useChatStream(
+    selected,
+    provider,
+    selectedEndpointId,
+    agentFlagsDraft,
+    selectedSubmissionEndpointId,
+  );
 
   const {
     conversations,
@@ -303,6 +389,12 @@ export default function ChatPage() {
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
   const codexDocsLoggedRef = useRef(false);
+  const draftSelectionRef = useRef<{
+    provider?: string;
+    model?: string;
+    endpointId?: string | null;
+  } | null>(null);
+  const previousConversationIdRef = useRef<string | undefined>(undefined);
   const [input, setInput] = useState('');
   const [workingFolder, setWorkingFolder] = useState('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
@@ -815,27 +907,106 @@ export default function ChatPage() {
 
   const resumedProvider = selectedConversation?.provider?.trim() || undefined;
   const resumedModel = selectedConversation?.model?.trim() || undefined;
+  const resumedEndpointId = readConversationEndpointId(
+    selectedConversation?.flags,
+  );
   const resumedExecutionIdentityLocked = Boolean(
     selectedConversation?.conversationId && resumedProvider && resumedModel,
   );
 
   useEffect(() => {
-    if (!selectedConversation?.conversationId) {
+    if (selectedConversation?.conversationId) {
       return;
     }
 
-    if (resumedProvider) {
-      setProvider(resumedProvider, { source: 'conversation-select' });
+    if (previousConversationIdRef.current) {
+      return;
     }
-    if (resumedModel) {
-      setSelected(resumedModel, { source: 'conversation-select' });
+
+    draftSelectionRef.current = {
+      provider: provider ?? undefined,
+      model: selected ?? undefined,
+      endpointId: selectedEndpointId ?? null,
+    };
+  }, [
+    provider,
+    selected,
+    selectedConversation?.conversationId,
+    selectedEndpointId,
+  ]);
+
+  useEffect(() => {
+    const previousConversationId = previousConversationIdRef.current;
+    previousConversationIdRef.current = selectedConversation?.conversationId;
+    const restoredEndpointIdentity =
+      resumedEndpointId ?? selectedEndpointId ?? undefined;
+
+    if (selectedConversation?.conversationId) {
+      setLockedSubmissionEndpointId(resumedEndpointId ?? undefined);
+      if (resumedProvider) {
+        setProvider(resumedProvider, { source: 'conversation-select' });
+      }
+      if (resumedModel) {
+        const resolvedSelection = resolveSelectedModelSelection(
+          models,
+          resumedModel,
+          restoredEndpointIdentity,
+          {
+            strictEndpointIdentity: Boolean(resumedEndpointId),
+          },
+        );
+        setSelected(resolvedSelection.model?.key ?? resumedModel, {
+          source: 'conversation-select',
+          endpointId:
+            resolvedSelection.endpointId ??
+            (resumedEndpointId ? (restoredEndpointIdentity ?? null) : null),
+        });
+      }
+      return;
+    }
+
+    setLockedSubmissionEndpointId(undefined);
+
+    if (!previousConversationId) {
+      return;
+    }
+
+    const draftSelection = draftSelectionRef.current;
+    if (!draftSelection?.provider || !draftSelection.model) {
+      return;
+    }
+
+    if (draftSelection.provider !== provider) {
+      setProvider(draftSelection.provider, {
+        source: 'conversation-sync',
+      });
+    }
+    if (
+      draftSelection.model !== selected ||
+      (draftSelection.endpointId ?? undefined) !==
+        (selectedEndpointId ?? undefined)
+    ) {
+      const resolvedSelection = resolveSelectedModelSelection(
+        models,
+        draftSelection.model,
+        draftSelection.endpointId ?? undefined,
+      );
+      setSelected(draftSelection.model, {
+        source: 'conversation-sync',
+        endpointId: resolvedSelection.endpointId ?? null,
+      });
     }
   }, [
+    models,
     resumedModel,
+    resumedEndpointId,
     resumedProvider,
+    provider,
+    selected,
     selectedConversation?.conversationId,
     setProvider,
     setSelected,
+    selectedEndpointId,
   ]);
 
   useEffect(() => {
@@ -941,6 +1112,10 @@ export default function ChatPage() {
   };
 
   const handlePickDir = (path: string) => {
+    if (isWorkingFolderDisabled) {
+      setDirPickerOpen(false);
+      return;
+    }
     const trimmedWorkingFolder = path.trim();
     setWorkingFolder(trimmedWorkingFolder);
     setDirPickerOpen(false);
@@ -951,11 +1126,30 @@ export default function ChatPage() {
     setDirPickerOpen(false);
   };
 
+  const handleClearDirPicker = () => {
+    setDirPickerOpen(false);
+    if (isWorkingFolderDisabled) {
+      return;
+    }
+    setWorkingFolder('');
+    void persistWorkingFolder('');
+  };
+
+  useEffect(() => {
+    if (!isWorkingFolderDisabled || !dirPickerOpen) {
+      return;
+    }
+    setDirPickerOpen(false);
+  }, [dirPickerOpen, isWorkingFolderDisabled]);
+
   const handleNewConversation = (options?: {
     reason?: 'provider-change' | 'new-conversation' | 'model-change';
     nextProvider?: string;
   }) => {
     const resetReason = options?.reason ?? 'new-conversation';
+    if (providerLocked && resetReason === 'new-conversation') {
+      return;
+    }
     if (nextSendContextLocked && resetReason === 'model-change') {
       return;
     }
@@ -1011,12 +1205,15 @@ export default function ChatPage() {
     });
   };
 
-  const applyModelSelection = (nextModel: string) => {
+  const applyModelSelection = (nextModel: string, nextEndpointId?: string) => {
     if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
-    if (!nextModel || nextModel === selected) {
+    if (
+      !nextModel ||
+      (nextModel === selected && nextEndpointId === selectedEndpointId)
+    ) {
       return;
     }
 
@@ -1026,6 +1223,7 @@ export default function ChatPage() {
     setSelected(nextModel, {
       nextSendOnly: true,
       source: 'model-change',
+      endpointId: nextEndpointId ?? null,
     });
     log('info', 'DEV-0000046:T10:model-next-send-updated', {
       previousModel,
@@ -1114,12 +1312,40 @@ export default function ChatPage() {
     () => getComposerProviderPresentation(provider, selected),
     [provider, selected],
   );
-  const selectedModel = useMemo(
-    () => models.find((model) => model.key === selected),
-    [models, selected],
+  const modelDisplayLabelCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    models.forEach((model) => {
+      const baseLabel = formatEndpointAwareModelLabel(
+        model.displayName,
+        model.endpointId,
+      );
+      counts.set(baseLabel, (counts.get(baseLabel) ?? 0) + 1);
+    });
+    return counts;
+  }, [models]);
+  const getModelDisplayLabel = useCallback(
+    (model: (typeof models)[number]) => {
+      const baseLabel = formatEndpointAwareModelLabel(
+        model.displayName,
+        model.endpointId,
+      );
+      if ((modelDisplayLabelCounts.get(baseLabel) ?? 0) > 1) {
+        return formatEndpointAwareModelLabel(
+          model.displayName,
+          model.endpointId,
+          {
+            includePathHint: true,
+          },
+        );
+      }
+      return baseLabel;
+    },
+    [modelDisplayLabelCounts],
   );
-  const selectedModelDisplayName =
-    selectedModel?.displayName ?? selected ?? 'Select model';
+  const selectedModel = selectedModelSelection.model;
+  const selectedModelDisplayName = selectedModel
+    ? getModelDisplayLabel(selectedModel)
+    : formatEndpointAwareModelLabel(selected, selectedEndpointId);
   const reasoningDescriptor = availableAgentFlags.find(
     (descriptor) => descriptor.key === 'modelReasoningEffort',
   );
@@ -1924,15 +2150,20 @@ export default function ChatPage() {
               provider,
               model.displayName,
             );
+            const isSelectedModel =
+              selected === model.key &&
+              (selectedEndpointId ?? undefined) ===
+                (model.endpointId ?? undefined);
+            const modelLabel = getModelDisplayLabel(model);
 
             return (
               <ListItemButton
-                key={model.key}
+                key={`${model.key}:${model.endpointId ?? ''}`}
                 component="div"
                 role="option"
-                aria-label={model.displayName}
-                aria-selected={selected === model.key}
-                selected={selected === model.key}
+                aria-label={modelLabel}
+                aria-selected={isSelectedModel}
+                selected={isSelectedModel}
                 disabled={
                   isLoading ||
                   isError ||
@@ -1943,14 +2174,14 @@ export default function ChatPage() {
                 }
                 onClick={() => {
                   handleComposerModelClose();
-                  applyModelSelection(model.key);
+                  applyModelSelection(model.key, model.endpointId);
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
                   {presentation.icon}
                 </ListItemIcon>
                 <ListItemText
-                  primary={model.displayName}
+                  primary={modelLabel}
                   secondary={presentation.label}
                 />
               </ListItemButton>
@@ -2126,6 +2357,7 @@ export default function ChatPage() {
                   iconOnly
                   ariaLabel="Reset chat draft"
                   onClick={() => handleNewConversation()}
+                  disabled={providerLocked}
                   data-testid="chat-new-conversation-trigger"
                 />
               </span>
@@ -2402,11 +2634,7 @@ export default function ChatPage() {
         path={workingFolder}
         onClose={handleCloseDirPicker}
         onPick={handlePickDir}
-        onClear={() => {
-          setWorkingFolder('');
-          setDirPickerOpen(false);
-          void persistWorkingFolder('');
-        }}
+        onClear={handleClearDirPicker}
       />
     </CommonComposerShell>
   );
@@ -2451,6 +2679,7 @@ export default function ChatPage() {
         onConversationsClick={() => setMobileConversationsOpen(true)}
         onNewClick={() => handleNewConversation()}
         newButtonLabel="New conversation"
+        newButtonDisabled={providerLocked}
         onMenuClick={() => setMobileAppMenuOpen(true)}
       />
       <Box

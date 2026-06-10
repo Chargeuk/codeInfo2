@@ -13,6 +13,9 @@ import type {
 } from '@openai/codex-sdk';
 
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
+import {
+  applyCodexOpenAiCompatEndpointToRuntimeConfig,
+} from '../../config/codexConfig.js';
 import { RuntimeConfigResolutionError } from '../../config/runtimeConfig.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
@@ -517,5 +520,52 @@ test('MCP JSON-RPC returns a typed tool error when chat runtime config resolutio
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
+  }
+});
+
+test('MCP codebase_question preserves generated Codex OpenAI-compatible provider metadata through the wrapper path', async () => {
+  const prev = getCodexDetection();
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const mockCodex = new MockCodex();
+  let capturedOptions: CodexOptions | undefined;
+  const expectedConfig = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+    {
+      model: 'gpt-5.3-codex-spark',
+    },
+    {
+      endpointId: 'https://alpha.example/v1',
+      baseUrl: 'https://alpha.example/v1',
+      capabilities: ['responses', 'completions'],
+    },
+  )!;
+
+  try {
+    await runCodebaseQuestion(
+      { question: 'Use the pinned endpoint through the wrapper' },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return mockCodex;
+        },
+        clientFactory: makeLmStudioClientFactory(),
+        chatRuntimeConfigResolver: async () => ({
+          config: expectedConfig,
+          warnings: [],
+        }),
+      },
+    );
+
+    assert.deepEqual(capturedOptions?.config, expectedConfig);
+  } finally {
+    resetToolDeps();
+    setCodexDetection(prev);
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
   }
 });

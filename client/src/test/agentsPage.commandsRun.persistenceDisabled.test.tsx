@@ -260,6 +260,9 @@ describe('Agents page - command execute disabled when persistence unavailable', 
     const commandSelect = await screen.findByRole('combobox', {
       name: /command/i,
     });
+    await waitFor(() =>
+      expect(commandSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(commandSelect);
     await user.click(
       await screen.findByTestId('agent-command-option-improve_plan::local'),

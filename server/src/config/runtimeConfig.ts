@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { type ChatProviderId } from '@codeinfo2/common';
+import { isChatProviderId, type ChatProviderId } from '@codeinfo2/common';
 import toml from 'toml';
 
 import { discoverAgents } from '../agents/discovery.js';
@@ -26,6 +26,11 @@ import {
   resolveLmStudioHome,
 } from './copilotConfig.js';
 import { resolveRequiredCodeinfoPlaceholderValue } from './mcpEndpoints.js';
+import {
+  type OpenAiCompatEndpointConfig,
+  parseOpenAiCompatEndpointConfig,
+  validateOpenAiCompatEndpointConfigForProvider,
+} from './openaiCompatEndpoints.js';
 
 const T03_SUCCESS_LOG =
   '[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success';
@@ -51,6 +56,7 @@ export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
 export type RuntimeConfigAppMetadata = {
   codeinfoProvider?: string;
+  codeinfoOpenAiEndpoint?: OpenAiCompatEndpointConfig;
 };
 export type RuntimeConfigValidationResult = {
   config: RuntimeTomlConfig;
@@ -165,6 +171,7 @@ const DIRECT_CODEINFO_ENV_PLACEHOLDERS = new Set([
 const CODEINFO_CONFIG_DIRNAME = 'codeinfo_config';
 const CODEINFO_CONFIG_BASENAME = 'config.toml';
 const CODEINFO_PROVIDER_METADATA_KEY = 'codeinfo_provider';
+const CODEINFO_OPENAI_ENDPOINT_METADATA_KEY = 'codeinfo_openai_endpoint';
 const CODEINFO_METADATA_PREFIX = 'codeinfo_';
 const REQUIRED_MCP_PLACEHOLDER_KEYS = new Set([
   'CODEINFO_SERVER_PORT',
@@ -887,32 +894,44 @@ export function extractRuntimeConfigAppMetadata(params: {
   const metadata: RuntimeConfigAppMetadata = {};
   const rawProvider = params.config[CODEINFO_PROVIDER_METADATA_KEY];
 
-  if (rawProvider === undefined) {
+  if (rawProvider !== undefined) {
+    if (typeof rawProvider !== 'string') {
+      warnings?.push({
+        path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
+        message: `${CODEINFO_PROVIDER_METADATA_KEY} must be a string when present; ignoring non-string metadata value`,
+      });
+    } else {
+      const trimmedProvider = rawProvider.trim();
+      if (trimmedProvider) {
+        if (params.surface !== 'agent') {
+          warnings?.push({
+            path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
+            message: `${CODEINFO_PROVIDER_METADATA_KEY} is only supported on agent runtime config and was ignored on ${params.surface}`,
+          });
+        } else {
+          metadata.codeinfoProvider = trimmedProvider;
+        }
+      }
+    }
+  }
+
+  const rawEndpoint = params.config[CODEINFO_OPENAI_ENDPOINT_METADATA_KEY];
+  if (rawEndpoint === undefined) {
     return metadata;
   }
 
-  if (typeof rawProvider !== 'string') {
-    warnings?.push({
-      path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
-      message: `${CODEINFO_PROVIDER_METADATA_KEY} must be a string when present; ignoring non-string metadata value`,
-    });
-    return metadata;
+  if (typeof rawEndpoint !== 'string') {
+    throw new Error(
+      `RUNTIME_CONFIG_INVALID: ${pathLabel}.${CODEINFO_OPENAI_ENDPOINT_METADATA_KEY}: expected a string`,
+    );
   }
 
-  const trimmedProvider = rawProvider.trim();
-  if (!trimmedProvider) {
-    return metadata;
-  }
-
-  if (params.surface !== 'agent') {
-    warnings?.push({
-      path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
-      message: `${CODEINFO_PROVIDER_METADATA_KEY} is only supported on agent runtime config and was ignored on ${params.surface}`,
-    });
-    return metadata;
-  }
-
-  metadata.codeinfoProvider = trimmedProvider;
+  metadata.codeinfoOpenAiEndpoint = parseOpenAiCompatEndpointConfig(
+    rawEndpoint,
+    {
+      pathLabel: `${pathLabel}.${CODEINFO_OPENAI_ENDPOINT_METADATA_KEY}`,
+    },
+  );
   return metadata;
 }
 
@@ -1362,6 +1381,18 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       surface: params.surface,
       warnings: metadataWarnings,
     });
+    const overrideProvider = stripped.appMetadata.codeinfoProvider?.trim() ?? '';
+    let effectiveProvider: ChatProviderId = provider;
+    if (isChatProviderId(overrideProvider)) {
+      effectiveProvider = overrideProvider;
+    }
+    if (stripped.appMetadata.codeinfoOpenAiEndpoint) {
+      validateOpenAiCompatEndpointConfigForProvider({
+        endpoint: stripped.appMetadata.codeinfoOpenAiEndpoint,
+        provider: effectiveProvider,
+        pathLabel: `${params.surface}.${CODEINFO_OPENAI_ENDPOINT_METADATA_KEY}`,
+      });
+    }
     const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
       stripped.config,
     );

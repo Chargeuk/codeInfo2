@@ -3,7 +3,7 @@ Feature: Chat models endpoint
     Given chat models scenario "chat-fixture"
     When I request chat models
     Then the chat models response status code is 200
-    And the chat models body matches the normalized mock models fixture
+    And the chat models body matches the mock models fixture ignoring provider metadata
     And the chat models response includes provider-neutral providers metadata
     And the LM Studio Agent Flags expose only the first-wave option keys
 
@@ -26,4 +26,60 @@ Feature: Chat models endpoint
     Then the chat models response status code is 200
     And the chat models response provider is "copilot"
     And the chat models list includes model "copilot-gpt-5"
+    And the chat models response includes provider-neutral providers metadata
+
+  Scenario: External endpoint discovery returns endpoint-backed Codex models
+    Given chat models scenario "external-endpoint-discovery"
+    When I request chat providers
+    Then the chat providers response status code is 200
+    And the chat providers response selected provider is "codex"
+    And the chat providers response selected endpoint is "discovered endpoint"
+    When I request chat models for provider "codex"
+    Then the chat models response status code is 200
+    And the chat models response provider is "codex"
+    And the chat models list includes model "gpt-5.1-codex-max"
+    And the chat models response includes model "gpt-5.1-codex-max" on endpoint "discovered endpoint"
+    And the chat models response includes provider-neutral providers metadata
+
+  Scenario: Native-normalized Codex default clears stale selected endpoint
+    Given chat models scenario "external-endpoint-native-default-clears-stale-endpoint"
+    When I request chat providers
+    Then the chat providers response status code is 200
+    And the chat providers response selected provider is "codex"
+    And the chat providers response selected endpoint is "none"
+    When I request chat models for provider "codex"
+    Then the chat models response status code is 200
+    And the chat models response provider is "codex"
+    And the chat models field "defaultModel" equals "builtin-a"
+    And the chat models list includes model "builtin-a"
+    And the chat models response selected endpoint is "none"
+    And the chat models response includes provider-neutral providers metadata
+
+  Scenario: Config-pinned external endpoint stays visible in picker bootstrap
+    Given chat models scenario "external-endpoint-picker-bootstrap"
+    When I request chat providers
+    Then the chat providers response status code is 200
+    And the chat providers response selected provider is "codex"
+    And the chat providers response selected endpoint is "pinned endpoint"
+    When I request chat models for provider "codex"
+    Then the chat models response status code is 200
+    And the chat models response provider is "codex"
+    And the chat models list includes model "gpt-5.2"
+    And the chat models response includes model "gpt-5.2" on endpoint "pinned endpoint"
+    And the chat models response selected endpoint is "pinned endpoint"
+    And the chat models response includes provider-neutral providers metadata
+
+  Scenario: Config-pinned duplicate raw model ids preserve the selected endpoint identity
+    Given chat models scenario "external-endpoint-picker-bootstrap-duplicate-ids"
+    When I request chat providers
+    Then the chat providers response status code is 200
+    And the chat providers response selected provider is "codex"
+    And the chat providers response selected endpoint is "pinned endpoint"
+    When I request chat models for provider "codex"
+    Then the chat models response status code is 200
+    And the chat models response provider is "codex"
+    And the chat models field "defaultModel" equals "shared-model"
+    And the chat models field "defaultModelSource" equals "config"
+    And the chat models response selected endpoint is "pinned endpoint"
+    And the chat models response includes model "shared-model" on endpoint "pinned endpoint"
     And the chat models response includes provider-neutral providers metadata

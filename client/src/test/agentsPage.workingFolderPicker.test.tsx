@@ -195,6 +195,34 @@ function emitConversationUpsert(conversation: Record<string, unknown>) {
   });
 }
 
+function emitInflightSnapshot(payload: {
+  conversationId: string;
+  inflightId: string | null;
+}) {
+  const wsRegistry = (
+    globalThis as unknown as {
+      __wsMock?: { last: () => { _receive: (data: unknown) => void } | null };
+    }
+  ).__wsMock;
+  const ws = wsRegistry?.last();
+  if (!ws) throw new Error('No WebSocket instance created');
+  act(() => {
+    ws._receive({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: payload.conversationId,
+      seq: 1,
+      inflight: {
+        inflightId: payload.inflightId ?? '',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+      },
+    });
+  });
+}
+
 describe('Agents page - working folder picker', () => {
   it('opens the directory picker dialog from the working path footer trigger', async () => {
     const user = userEvent.setup();
@@ -657,6 +685,48 @@ describe('Agents page - working folder picker', () => {
         { status: 202 },
       ),
     );
+  });
+
+  it('closes an already-open agent directory picker when the working folder locks', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'agent-conv-1',
+          title: 'Agent conversation',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          lastMessageAt: '2025-01-01T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+          flags: {},
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await selectFirstConversation();
+    await waitForPickerEnabled();
+
+    await user.click(screen.getByTestId('agent-working-folder-picker'));
+    expect(
+      await screen.findByRole('dialog', { name: /choose folder…/i }),
+    ).toBeInTheDocument();
+
+    emitInflightSnapshot({
+      conversationId: 'agent-conv-1',
+      inflightId: 'agent-inflight-1',
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: /choose folder…/i }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('agent-working-folder')).toHaveValue('');
   });
 
   it('returns to the empty state after the server clears an invalid saved path', async () => {

@@ -188,6 +188,14 @@ Corporate certificate directory requirements:
 - Shared auth now uses the `Choose Authentication` dialog for both Codex and Copilot. `POST /copilot/device-auth` uses the same provider-auth state vocabulary as Codex and returns device-flow verification details early so the browser step can finish outside the container.
 - Checked-in env files never hard-code Copilot credentials. Runtime auth precedence still honors `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, and authenticated `gh` fallback before device auth is required.
 
+## External OpenAI-compatible endpoints
+
+- `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` configures one or more OpenAI-compatible `/v1` endpoints for Codex and Copilot chat discovery. Each entry must be an explicit `http://` or `https://` URL that ends at `/v1`; later duplicate normalized endpoints are ignored after the first warning.
+- The external-endpoint list is chat-picker scope only. It populates `/chat/providers` and `/chat/models` for Codex and Copilot, but it does not replace LM Studio discovery or broaden Agents-page provider selection.
+- `codeinfo_openai_endpoint` is supported in `codex/chat/config.toml`, `copilot/chat/config.toml`, and `codeinfo_agents/<agent>/config.toml` as a provider or agent pin to one external endpoint. The runtime keeps that pin separate from the raw model id by persisting `endpointId` in conversation and flow flags.
+- A config-pinned endpoint can still participate in discovery even when it is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`, and the selected endpoint stays visible in the chat picker as `endpointId`-backed model identity.
+- Endpoint-backed conversations and flow-owned runs keep their stored `provider`, `model`, and `endpointId` stable on resume or reuse. Auth, CLI presence, and provider readiness still gate availability independently of endpoint discovery, so a missing login or unavailable provider still disables the provider as before.
+
 ## Chat defaults and Agent Flags behavior
 
 - `CODEINFO_CHAT_DEFAULT_PROVIDER` remains the single top-level chat default selector. The server resolves the default provider in shared order `codex`, then `copilot`, then `lmstudio`, and only falls automatically when the selected default provider is unavailable or misconfigured.

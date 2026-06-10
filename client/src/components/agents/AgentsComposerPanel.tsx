@@ -143,6 +143,7 @@ type AgentsComposerPanelProps = {
   dirPickerOpen: boolean;
   onCloseDirPicker: () => void;
   onPickDir: (path: string) => void;
+  onClearDirPicker: () => void;
   deviceAuthOpen: boolean;
 } & Record<string, unknown>;
 
@@ -256,6 +257,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   dirPickerOpen,
   onCloseDirPicker,
   onPickDir,
+  onClearDirPicker,
   deviceAuthOpen,
 }: AgentsComposerPanelProps) {
   const theme = useTheme();
@@ -1040,10 +1042,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         path={selectedWorkingFolder}
         onClose={onCloseDirPicker}
         onPick={onPickDir}
-        onClear={() => {
-          void onCommitWorkingFolder('picker', '');
-          onCloseDirPicker();
-        }}
+        onClear={onClearDirPicker}
       />
       <CodexDeviceAuthDialog
         open={deviceAuthOpen}

@@ -553,10 +553,16 @@ export abstract class ChatInterface extends EventEmitter {
     input: AppendTurnInput & { source?: TurnSource },
   ): Promise<{ turnId?: string }> {
     const turn = await appendTurn(input);
-    await updateConversationMeta({
+    const metaOutcome = await updateConversationMeta({
       conversationId: input.conversationId,
       lastMessageAt: turn.createdAt,
     });
+    if (metaOutcome.outcome === 'not_found') {
+      throw new Error('chat turn conversation metadata not found');
+    }
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('chat turn metadata update exhausted');
+    }
 
     const turnId =
       turn && typeof turn === 'object' && '_id' in (turn as object)

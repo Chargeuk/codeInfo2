@@ -75,6 +75,7 @@ const baseProps: ComponentProps<typeof AgentsComposerPanel> = {
   onWorkingFolderChange: () => {},
   onCommitWorkingFolder: async () => undefined,
   onOpenDirPicker: () => {},
+  onClearDirPicker: () => {},
   onInputChange: () => {},
   onStopClick: () => {},
   onDeviceAuthOpen: () => {},

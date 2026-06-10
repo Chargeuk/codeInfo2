@@ -18,6 +18,7 @@ import {
 } from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
@@ -78,6 +79,38 @@ async function hasBootstrappedRuntime(runtimeHome: string) {
   }
 }
 
+function createMockCodexFactory() {
+  const createThread = (threadId: string) => ({
+    id: threadId,
+    runStreamed: async () => ({
+      events: (async function* () {
+        yield { type: 'thread.started', thread_id: threadId };
+        yield {
+          type: 'item.updated',
+          item: { type: 'agent_message', text: 'Hello from Codex' },
+        };
+        yield {
+          type: 'item.completed',
+          item: { type: 'agent_message', text: 'Hello from Codex fallback' },
+        };
+        yield {
+          type: 'turn.completed',
+          usage: {
+            input_tokens: 1,
+            cached_input_tokens: 0,
+            output_tokens: 2,
+          },
+        };
+      })(),
+    }),
+  });
+
+  return () => ({
+    startThread: () => createThread('codex-fallback-thread'),
+    resumeThread: (threadId: string) => createThread(threadId),
+  });
+}
+
 test('copilot chat fails on the selected explicit provider before unrelated LM Studio fallback probing can run', async () => {
   let lmstudioProbeCount = 0;
   const server = await startCopilotChatServer({
@@ -115,6 +148,53 @@ test('copilot chat fails on the selected explicit provider before unrelated LM S
   } finally {
     await server.stop();
   }
+});
+
+test('explicit copilot chat requests return PROVIDER_UNAVAILABLE instead of falling back to codex', async () => {
+  memoryConversations.clear();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.post('/mcp', (_req, res) => {
+    res.json({ result: { ok: true } });
+  });
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [],
+          },
+        }) as never,
+      codexFactory: createMockCodexFactory(),
+      copilotLifecycleFactory: () =>
+        createMockCopilotSdkHarness({
+          name: 'copilot-explicit-no-cross-provider-fallback',
+          startError: new Error('copilot unavailable'),
+        }).createLifecycle(),
+    }),
+  );
+
+  const response = await request(app).post('/chat').send({
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    conversationId: 'copilot-explicit-no-cross-provider-fallback',
+    message: 'Do not silently switch to Codex',
+  });
+
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+  assert.equal(
+    memoryConversations.get('copilot-explicit-no-cross-provider-fallback'),
+    undefined,
+  );
 });
 
 test('copilot chat still falls back automatically when provider resolution is omitted and runtime selection must recover', async () => {
@@ -287,6 +367,12 @@ test('implicit degraded-bootstrap chat requests fall back at the route and keep 
       true,
     );
     assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('Endpoint "unknown"'),
+      ),
+      false,
+    );
+    assert.equal(
       memoryConversations.get('copilot-bootstrap-fallback')?.provider,
       'lmstudio',
     );
@@ -298,6 +384,102 @@ test('implicit degraded-bootstrap chat requests fall back at the route and keep 
       process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
     }
     await server.stop();
+  }
+});
+
+test('endpoint-unavailable Copilot chat falls back to the same provider native path before cross-provider fallback', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responseMode: 'transport-failure',
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses,completions`;
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-endpoint-native-fallback',
+    },
+    lmstudioAvailable: true,
+  });
+
+  try {
+    const conversationId = 'copilot-endpoint-native-fallback';
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      endpointId: `${externalServer.baseUrl}/v1`,
+      model: 'missing-copilot-model',
+      conversationId,
+      message: 'Use native Copilot before any cross-provider fallback',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.body.model, 'copilot-gpt-5');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          `Endpoint "${externalServer.baseUrl}/v1" was unavailable; falling back to native copilot model "copilot-gpt-5".`,
+        ),
+      ),
+      true,
+    );
+  } finally {
+    await server.stop();
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('endpoint-aware Copilot chat repairs to the first selectable model on the same endpoint before broader fallback', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-copilot-model', 'endpoint-copilot-model-2'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses,completions`;
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-endpoint-repair',
+    },
+    lmstudioAvailable: true,
+  });
+
+  try {
+    const conversationId = 'copilot-endpoint-repair';
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      endpointId: `${externalServer.baseUrl}/v1`,
+      model: 'missing-copilot-model',
+      conversationId,
+      message: 'Repair to the first selectable model on the endpoint',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.body.model, 'endpoint-copilot-model');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          `Requested model "missing-copilot-model" was unavailable on endpoint "${externalServer.baseUrl}/v1"; using "endpoint-copilot-model" instead.`,
+        ),
+      ),
+      true,
+    );
+  } finally {
+    await server.stop();
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
   }
 });
 

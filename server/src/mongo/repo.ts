@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import mongoose from 'mongoose';
 import { sanitizeConversationFlagsForProvider } from '../chat/agentFlags.js';
 import type { FlowResumeState } from '../flows/flowState.js';
@@ -59,6 +60,57 @@ function toConversationEvent(doc: Conversation): ConversationEventSummary {
   };
 }
 
+function mergeConversationMetaFlags(params: {
+  provider: ConversationProvider;
+  baseFlags?: Record<string, unknown> | null;
+  currentFlags?: Record<string, unknown> | null;
+  nextFlags?: Record<string, unknown> | null;
+  replaceFlags?: boolean;
+}): Record<string, unknown> {
+  const baseFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.baseFlags,
+    { preserveFlowState: true },
+  );
+  const currentFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.currentFlags,
+    { preserveFlowState: true },
+  );
+  const nextFlags = sanitizeConversationFlagsForProvider(
+    params.provider,
+    params.nextFlags,
+    { preserveFlowState: true },
+  );
+
+  const safeNextFlags = Object.fromEntries(
+    Object.entries(nextFlags).filter(([key, value]) =>
+      isDeepStrictEqual(currentFlags[key], baseFlags[key]) && value !== undefined,
+    ),
+  );
+
+  if (params.replaceFlags === true) {
+    const next = { ...currentFlags };
+    for (const key of Object.keys(currentFlags)) {
+      if (
+        !(key in nextFlags) &&
+        isDeepStrictEqual(currentFlags[key], baseFlags[key])
+      ) {
+        delete next[key];
+      }
+    }
+    return {
+      ...next,
+      ...safeNextFlags,
+    };
+  }
+
+  return {
+    ...currentFlags,
+    ...safeNextFlags,
+  };
+}
+
 export interface CreateConversationInput {
   conversationId: string;
   provider: ConversationProvider;
@@ -77,8 +129,14 @@ export interface UpdateConversationMetaInput {
   provider?: ConversationProvider;
   model?: string;
   flags?: Record<string, unknown>;
+  replaceFlags?: boolean;
   lastMessageAt?: Date;
 }
+
+export type UpdateConversationMetaOutcome =
+  | { outcome: 'applied'; conversation: Conversation }
+  | { outcome: 'not_found' }
+  | { outcome: 'retry_exhausted'; conversation: Conversation };
 
 export interface UpdateConversationWorkingFolderInput {
   conversationId: string;
@@ -139,30 +197,60 @@ export async function createConversation(
 
 export async function updateConversationMeta(
   input: UpdateConversationMetaInput,
-): Promise<Conversation | null> {
-  const update: Partial<Conversation> = {} as Partial<Conversation>;
+): Promise<UpdateConversationMetaOutcome> {
+  const existing = await ConversationModel.findById(input.conversationId)
+    .lean()
+    .exec();
+  if (!existing) return { outcome: 'not_found' };
 
-  if (input.title !== undefined) update.title = input.title;
-  if (input.provider !== undefined) update.provider = input.provider;
-  if (input.model !== undefined) update.model = input.model;
-  if (input.flags !== undefined) {
-    update.flags = sanitizeConversationFlagsForProvider(
-      input.provider ?? 'codex',
-      input.flags,
-    );
+  const buildUpdate = (current: Conversation): Partial<Conversation> => {
+    const update: Partial<Conversation> = {} as Partial<Conversation>;
+
+    if (input.title !== undefined) update.title = input.title;
+    if (input.provider !== undefined) update.provider = input.provider;
+    if (input.model !== undefined) update.model = input.model;
+    if (input.flags !== undefined) {
+      update.flags = mergeConversationMetaFlags({
+        provider:
+          input.provider ??
+          current.provider ??
+          ('codex' as ConversationProvider),
+        baseFlags: existing?.flags ?? null,
+        currentFlags: current.flags ?? null,
+        nextFlags: input.flags,
+        replaceFlags: input.replaceFlags,
+      });
+    }
+    if (input.lastMessageAt !== undefined)
+      update.lastMessageAt = input.lastMessageAt;
+
+    return update;
+  };
+
+  let current = existing;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const update = buildUpdate(current);
+    const updated = await ConversationModel.findOneAndUpdate(
+      {
+        _id: input.conversationId,
+        updatedAt: current.updatedAt,
+      },
+      update,
+      { new: true },
+    ).exec();
+    if (updated) {
+      emitConversationUpsert(toConversationEvent(updated));
+      return { outcome: 'applied', conversation: updated };
+    }
+
+    const refreshed = await ConversationModel.findById(input.conversationId)
+      .lean()
+      .exec();
+    if (!refreshed) return { outcome: 'not_found' };
+    current = refreshed;
   }
-  if (input.lastMessageAt !== undefined)
-    update.lastMessageAt = input.lastMessageAt;
 
-  const updated = await ConversationModel.findByIdAndUpdate(
-    input.conversationId,
-    update,
-    {
-      new: true,
-    },
-  ).exec();
-  if (updated) emitConversationUpsert(toConversationEvent(updated));
-  return updated;
+  return { outcome: 'retry_exhausted', conversation: current };
 }
 
 export async function updateConversationThreadId({

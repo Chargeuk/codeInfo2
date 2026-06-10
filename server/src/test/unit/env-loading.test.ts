@@ -9,6 +9,7 @@ import {
   loadStartupEnv,
   resolveAgentProviderFallbackOrder,
   resolveCodeinfoEnvResolutions,
+  resolveExternalOpenAiCompatEndpoints,
   resolveOpenAiEmbeddingCapabilityState,
 } from '../../config/startupEnv.js';
 import { resolveConfig } from '../../ingest/config.js';
@@ -244,6 +245,68 @@ test('runtime startup env resolution also surfaces CODEINFO_CHAT_MCP_PORT when i
     resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_MCP_PORT')
       ?.source,
     'server/.env',
+  );
+});
+
+test('ignores fully blank CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS segments', () => {
+  const resolved = resolveExternalOpenAiCompatEndpoints({
+    env: {
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+        ';; https://example.com/v1|responses ;;',
+    },
+  });
+
+  assert.deepEqual(
+    resolved.endpoints.map((endpoint) => endpoint.endpointId),
+    ['https://example.com/v1'],
+  );
+  assert.deepEqual(resolved.warnings, []);
+});
+
+test('ignores whitespace-only CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS segments after trimming', () => {
+  const resolved = resolveExternalOpenAiCompatEndpoints({
+    env: {
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+        ' https://example.com/v1|responses ;   ; https://example.com/alt/v1|completions ',
+    },
+  });
+
+  assert.deepEqual(
+    resolved.endpoints.map((endpoint) => endpoint.endpointId),
+    ['https://example.com/v1', 'https://example.com/alt/v1'],
+  );
+  assert.deepEqual(resolved.warnings, []);
+});
+
+test('keeps the first normalized external endpoint and warns on later duplicates', () => {
+  const resolved = resolveExternalOpenAiCompatEndpoints({
+    env: {
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+        'https://example.com/v1|responses;https://example.com/v1/|completions;https://example.com/alt/v1|responses',
+    },
+  });
+
+  assert.deepEqual(
+    resolved.endpoints.map((endpoint) => endpoint.endpointId),
+    ['https://example.com/v1', 'https://example.com/alt/v1'],
+  );
+  assert.equal(resolved.warnings.length, 1);
+  assert.match(
+    resolved.warnings[0] ?? '',
+    /duplicates normalized endpoint https:\/\/example\.com\/v1; keeping first entry/,
+  );
+});
+
+test('fails clearly when CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS contains a malformed endpoint string', () => {
+  assert.throws(
+    () =>
+      resolveExternalOpenAiCompatEndpoints({
+        env: {
+          CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+            'https://example.com/v1|responses;not-a-url|completions',
+        },
+      }),
+    /RUNTIME_CONFIG_INVALID: CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS\[2\]: expected an explicit http or https \/v1 base URL/,
   );
 });
 

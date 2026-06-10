@@ -27,6 +27,7 @@ import {
   toCodexDefaultSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
+import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
 import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import { baseLogger } from '../logger.js';
 import { validateRequestedWorkingFolder } from '../workingFolders/state.js';
@@ -39,6 +40,7 @@ export type ChatRequestBody = {
   conversationId?: unknown;
   messages?: unknown;
   provider?: unknown;
+  endpointId?: unknown;
   threadId?: unknown;
   inflightId?: unknown;
   agentFlags?: unknown;
@@ -50,6 +52,7 @@ export type ValidatedChatRequest = {
   message: string;
   conversationId: string;
   provider: Provider;
+  endpointId?: string;
   threadId?: string;
   inflightId?: string;
   working_folder?: string;
@@ -76,6 +79,11 @@ export class ChatValidationError extends Error {
     this.code = code;
   }
 }
+
+const normalizeEndpointIdValidationMessage = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/^RUNTIME_CONFIG_INVALID:\s*endpointId:\s*/, '');
+};
 
 const validateRawTextInput = (params: {
   field: 'message';
@@ -257,8 +265,9 @@ const resolveCodexAgentFlags = async (params: {
     | undefined;
 }): Promise<Record<string, unknown>> => {
   validateNoUnsupportedAgentFlags('codex', params.rawAgentFlags);
+  const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
   const defaults = await resolveCodexChatDefaults({
-    codexHome: process.env.CODEX_HOME,
+    codexHome,
   });
   const config = loadProviderConfigForAgentFlags('codex');
   const supportedReasoningEfforts =
@@ -455,13 +464,35 @@ export async function validateChatRequest(
   const codexRequestedDefaults =
     provider === 'codex' && requestedModel === undefined
       ? await resolveCodexChatDefaults({
-          codexHome: process.env.CODEX_HOME,
+          codexHome: process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME,
         })
       : undefined;
   const model =
     provider === 'codex' && requestedModel === undefined
       ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
       : resolvedDefaults.model;
+
+  const rawEndpointId = body.endpointId;
+  let endpointId: string | undefined;
+  if (rawEndpointId !== undefined) {
+    if (typeof rawEndpointId !== 'string' || rawEndpointId.trim().length === 0) {
+      throw new ChatValidationError('endpointId must be a non-empty string');
+    }
+    try {
+      endpointId = normalizeOpenAiCompatEndpointId(rawEndpointId, {
+        pathLabel: 'endpointId',
+      });
+    } catch (error) {
+      throw new ChatValidationError(
+        `endpointId is invalid: ${normalizeEndpointIdValidationMessage(error)}`,
+      );
+    }
+  }
+  if (endpointId && provider === 'lmstudio') {
+    throw new ChatValidationError(
+      'endpointId is not supported for provider "lmstudio"',
+    );
+  }
 
   const warnings: string[] = [...resolvedDefaults.warnings];
   const bootstrapStatus = getProviderBootstrapStatus(provider);
@@ -578,6 +609,7 @@ export async function validateChatRequest(
     message: validatedMessage,
     conversationId,
     provider,
+    endpointId,
     threadId,
     inflightId,
     working_folder,

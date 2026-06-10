@@ -275,6 +275,239 @@ describe('Agent config defaults', () => {
     }
   });
 
+  it('normalizes and preserves codeinfo_openai_endpoint on the accepted agent config path', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-'));
+    const agentsHome = path.join(tmp, 'agents');
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const copilotHome = path.join(tmp, 'copilot-home');
+    const configPath = path.join(agentHome, 'config.toml');
+
+    await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(copilotHome, 'chat', 'config.toml'),
+      'model = "copilot-model"\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      configPath,
+      [
+        'codeinfo_provider = "copilot"',
+        'codeinfo_openai_endpoint = " https://LOCALHOST:1234/v1/ | RESPONSES, completions, responses "',
+        'model = "copilot-model"',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+    process.env.CODEINFO_COPILOT_HOME = copilotHome;
+
+    try {
+      const resolved = await resolveAgentRuntimeExecutionConfig({
+        configPath,
+        entrypoint: 'agents.service',
+      });
+
+      assert.equal(resolved.providerId, 'copilot');
+      assert.equal(resolved.requestedProviderId, 'copilot');
+      assert.equal(
+        resolved.appMetadata?.codeinfoOpenAiEndpoint?.endpointId,
+        'https://localhost:1234/v1',
+      );
+      assert.deepEqual(
+        resolved.appMetadata?.codeinfoOpenAiEndpoint?.capabilities,
+        ['responses', 'completions'],
+      );
+      assert.equal('codeinfo_openai_endpoint' in resolved.runtimeConfig, false);
+      assert.equal(resolved.modelId, 'copilot-model');
+    } finally {
+      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects blank codeinfo_openai_endpoint values in agent configs', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-blank-'));
+    const agentHome = path.join(tmp, 'agents', 'coding_agent');
+    const configPath = path.join(agentHome, 'config.toml');
+    const codexHome = path.join(tmp, 'codex-home');
+
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      configPath,
+      ['codeinfo_provider = "codex"', 'codeinfo_openai_endpoint = ""', ''].join(
+        '\n',
+      ),
+      'utf8',
+    );
+
+    try {
+      await assert.rejects(
+        async () =>
+          resolveAgentRuntimeExecutionConfig({
+            configPath,
+            entrypoint: 'agents.service',
+            codexHome,
+          }),
+        (error) => {
+          const typed = error as Error & { code?: string; surface?: string };
+          return (
+            typed.code === 'RUNTIME_CONFIG_INVALID' &&
+            typed.surface === 'agent' &&
+            typed.message.includes('codeinfo_openai_endpoint') &&
+            typed.message.includes(
+              'expected an explicit http or https /v1 base URL',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects whitespace-only codeinfo_openai_endpoint values in agent configs', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-space-'));
+    const agentHome = path.join(tmp, 'agents', 'coding_agent');
+    const configPath = path.join(agentHome, 'config.toml');
+    const codexHome = path.join(tmp, 'codex-home');
+
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      configPath,
+      [
+        'codeinfo_provider = "codex"',
+        'codeinfo_openai_endpoint = "   "',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    try {
+      await assert.rejects(
+        async () =>
+          resolveAgentRuntimeExecutionConfig({
+            configPath,
+            entrypoint: 'agents.service',
+            codexHome,
+          }),
+        (error) => {
+          const typed = error as Error & { code?: string; surface?: string };
+          return (
+            typed.code === 'RUNTIME_CONFIG_INVALID' &&
+            typed.surface === 'agent' &&
+            typed.message.includes('codeinfo_openai_endpoint') &&
+            typed.message.includes(
+              'expected an explicit http or https /v1 base URL',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves the Codex responses requirement when agent configs target incompatible endpoints', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-codex-compat-'));
+    const agentHome = path.join(tmp, 'agents', 'coding_agent');
+    const configPath = path.join(agentHome, 'config.toml');
+    const codexHome = path.join(tmp, 'codex-home');
+
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      configPath,
+      [
+        'codeinfo_provider = "codex"',
+        'codeinfo_openai_endpoint = "https://example.com/v1|completions"',
+        'model = "codex-model"',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    try {
+      await assert.rejects(
+        async () =>
+          resolveAgentRuntimeExecutionConfig({
+            configPath,
+            entrypoint: 'agents.service',
+            codexHome,
+          }),
+        (error) => {
+          const typed = error as Error & { code?: string; surface?: string };
+          return (
+            typed.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed.surface === 'agent' &&
+            typed.message.includes(
+              'Codex requires responses support on codeinfo_openai_endpoint',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves the Copilot completions requirement when agent configs target incompatible endpoints', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-copilot-compat-'));
+    const agentHome = path.join(tmp, 'agents', 'coding_agent');
+    const configPath = path.join(agentHome, 'config.toml');
+    const copilotHome = path.join(tmp, 'copilot-home');
+    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+
+    await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(path.join(copilotHome, 'chat', 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      configPath,
+      [
+        'codeinfo_provider = "copilot"',
+        'codeinfo_openai_endpoint = "https://example.com/v1|responses"',
+        'model = "copilot-model"',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    process.env.CODEINFO_COPILOT_HOME = copilotHome;
+
+    try {
+      await assert.rejects(
+        async () =>
+          resolveAgentRuntimeExecutionConfig({
+            configPath,
+            entrypoint: 'agents.service',
+          }),
+        (error) => {
+          const typed = error as Error & { code?: string; surface?: string };
+          return (
+            typed.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed.surface === 'agent' &&
+            typed.message.includes(
+              'Copilot requires completions support on codeinfo_openai_endpoint',
+            )
+          );
+        },
+      );
+    } finally {
+      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
   it('emits deterministic T05 success log when runtime execution config resolves', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const configPath = path.join(tmp, 'config.toml');
@@ -768,6 +1001,7 @@ describe('Agent config defaults', () => {
         () =>
           capturedFlags.length === 1 &&
           getActiveRunOwnership(conversationId) === null,
+        5000,
       );
 
       await startAgentInstruction({
@@ -781,7 +1015,7 @@ describe('Agent config defaults', () => {
           }),
       });
 
-      await waitFor(() => capturedFlags.length === 2);
+      await waitFor(() => capturedFlags.length === 2, 5000);
       assert.equal(capturedFlags.length, 2);
       assert.equal(capturedFlags[0]?.resumeConversation, false);
       assert.equal(capturedFlags[1]?.resumeConversation, true);

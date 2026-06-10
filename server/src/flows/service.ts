@@ -56,6 +56,7 @@ import {
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import { formatReingestPrestartReason } from '../ingest/reingestError.js';
 import { executeReingestRequest } from '../ingest/reingestExecution.js';
 import type { ReingestResult } from '../ingest/reingestService.js';
@@ -93,6 +94,15 @@ import type {
 } from '../mongo/turn.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  knownRepositoryPathsAvailable,
+  knownRepositoryPathsUnavailable,
+  restoreSavedWorkingFolder,
+  validateRequestedWorkingFolder,
+} from '../workingFolders/state.js';
+import { publishInflightSnapshot, publishUserTurn } from '../ws/server.js';
 
 const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   const pendingCancel = getPendingConversationCancel(conversationId);
@@ -103,15 +113,6 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
     pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
   };
 };
-import {
-  appendWorkingFolderDecisionLog,
-  getConversationRecordType,
-  knownRepositoryPathsAvailable,
-  knownRepositoryPathsUnavailable,
-  restoreSavedWorkingFolder,
-  validateRequestedWorkingFolder,
-} from '../workingFolders/state.js';
-import { publishInflightSnapshot, publishUserTurn } from '../ws/server.js';
 
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
@@ -126,7 +127,11 @@ import {
   type FlowSubflowStep,
   type FlowStep,
 } from './flowSchema.js';
-import type { FlowPendingLoopControl, FlowResumeState } from './flowState.js';
+import type {
+  FlowPendingLoopControl,
+  FlowResumeState,
+  FreshRunRetryOwnershipCompletion,
+} from './flowState.js';
 import {
   normalizeSourceLabel,
   prepareMarkdownInstruction,
@@ -220,6 +225,16 @@ type FreshRunRetryOwnershipRecord = {
   launchSignature: string;
 };
 
+type FreshRunRetryOwnershipCompletionRecord = {
+  retryOwnershipId: string;
+  sourceId?: string;
+  result: FlowRunStartResult;
+  launchSignature: string;
+  completedAt: number;
+};
+
+const FRESH_RUN_RETRY_OWNERSHIP_COMPLETION_WINDOW_MS = 10 * 60 * 1000;
+
 type FreshRunRetryOwnershipLaunch = {
   flowName: string;
   source: 'REST' | 'MCP';
@@ -233,10 +248,17 @@ const freshRunRetryOwnershipByKey = new Map<
   FreshRunRetryOwnershipRecord
 >();
 
+const freshRunRetryOwnershipCompletedByKey = new Map<
+  string,
+  FreshRunRetryOwnershipCompletionRecord
+>();
+
 const makeFreshRunRetryOwnershipKey = (params: {
   flowName: string;
+  sourceId?: string;
   retryOwnershipId: string;
-}) => `${params.flowName}::${params.retryOwnershipId.trim()}`;
+}) =>
+  `${params.flowName}::${params.sourceId?.trim() || ''}::${params.retryOwnershipId.trim()}`;
 
 const normalizeFreshRunRetryOwnershipLaunch = (params: {
   flowName: string;
@@ -278,16 +300,298 @@ const rememberFreshRunRetryOwnership = (params: {
   });
 };
 
-const getFreshRunRetryOwnership = (params: {
+const rememberFreshRunRetryOwnershipCompletion = (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  result: FlowRunStartResult;
+  launch: FreshRunRetryOwnershipLaunch;
+}) => {
+  freshRunRetryOwnershipCompletedByKey.set(
+    makeFreshRunRetryOwnershipKey(params),
+    {
+      retryOwnershipId: params.retryOwnershipId,
+      sourceId: params.sourceId?.trim() || undefined,
+      result: cloneFlowRunStartResult(params.result),
+      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
+        params.launch,
+      ),
+      completedAt: Date.now(),
+    },
+  );
+};
+
+const parseFreshRunRetryOwnershipCompletion = (
+  completion: unknown,
+): FreshRunRetryOwnershipCompletionRecord | null => {
+  if (!isRecord(completion)) return null;
+  const retryOwnershipId =
+    typeof completion.retryOwnershipId === 'string' &&
+    completion.retryOwnershipId.trim().length > 0
+      ? completion.retryOwnershipId.trim()
+      : undefined;
+  const sourceId =
+    typeof completion.sourceId === 'string' && completion.sourceId.trim().length > 0
+      ? completion.sourceId.trim()
+      : undefined;
+  const launchSignature =
+    typeof completion.launchSignature === 'string' &&
+    completion.launchSignature.trim().length > 0
+      ? completion.launchSignature.trim()
+      : undefined;
+  const completedAt =
+    typeof completion.completedAt === 'number' &&
+    Number.isFinite(completion.completedAt)
+      ? completion.completedAt
+      : undefined;
+  const result = completion.result;
+  if (
+    !retryOwnershipId ||
+    !launchSignature ||
+    completedAt === undefined ||
+    !isRecord(result)
+  ) {
+    return null;
+  }
+  const flowName =
+    typeof result.flowName === 'string' && result.flowName.trim().length > 0
+      ? result.flowName.trim()
+      : undefined;
+  const conversationId =
+    typeof result.conversationId === 'string' &&
+    result.conversationId.trim().length > 0
+      ? result.conversationId.trim()
+      : undefined;
+  const inflightId =
+    typeof result.inflightId === 'string' && result.inflightId.trim().length > 0
+      ? result.inflightId.trim()
+      : undefined;
+  const providerId =
+    typeof result.providerId === 'string' && result.providerId.trim().length > 0
+      ? result.providerId.trim()
+      : undefined;
+  const modelId =
+    typeof result.modelId === 'string' && result.modelId.trim().length > 0
+      ? result.modelId.trim()
+      : undefined;
+  const warnings =
+    Array.isArray(result.warnings) && result.warnings.every((item) =>
+      typeof item === 'string',
+    )
+      ? result.warnings.filter((item): item is string => typeof item === 'string')
+      : undefined;
+  if (
+    !flowName ||
+    !conversationId ||
+    !inflightId ||
+    !providerId ||
+    !modelId
+  ) {
+    return null;
+  }
+  return {
+    retryOwnershipId,
+    sourceId,
+    launchSignature,
+    completedAt,
+    result: {
+      flowName,
+      conversationId,
+      inflightId,
+      providerId,
+      modelId,
+      ...(warnings ? { warnings: [...warnings] } : {}),
+    },
+  };
+};
+
+const getFreshRunRetryOwnershipCompletionFromConversation = (
+  conversation: Conversation | null | undefined,
+  params: {
+    flowName: string;
+    retryOwnershipId: string;
+    launch: FreshRunRetryOwnershipLaunch;
+  },
+): FreshRunRetryOwnershipCompletionRecord | null => {
+  if (!conversation || conversation.flowName !== params.flowName) return null;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow)) return null;
+  const completion = parseFreshRunRetryOwnershipCompletion(
+    flow.retryOwnershipCompletion,
+  );
+  if (!completion) return null;
+  if (completion.retryOwnershipId !== params.retryOwnershipId) return null;
+  if (params.launch.sourceId) {
+    if (completion.sourceId !== params.launch.sourceId) return null;
+  } else if (completion.sourceId) {
+    return null;
+  }
+  return completion;
+};
+
+const clearFreshRunRetryOwnershipCompletion = async (params: {
+  conversationId: string;
+  conversation: Conversation | null | undefined;
+}) => {
+  const conversation = params.conversation;
+  if (!conversation) return;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow) || !flow.retryOwnershipCompletion) return;
+  const nextFlow = { ...flow } as Record<string, unknown>;
+  delete nextFlow.retryOwnershipCompletion;
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(params.conversationId, {
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: nextFlow,
+      },
+    });
+    return;
+  }
+  await updateConversationFlowState({
+    conversationId: params.conversationId,
+    flow: nextFlow as FlowResumeState,
+  });
+};
+
+const persistFreshRunRetryOwnershipCompletion = async (params: {
+  conversationId: string;
+  retryOwnershipId: string;
+  result: FlowRunStartResult;
+  launch: FreshRunRetryOwnershipLaunch;
+}) => {
+  const conversation = await getConversation(params.conversationId);
+  if (!conversation) return;
+  const completion: FreshRunRetryOwnershipCompletion = {
+    retryOwnershipId: params.retryOwnershipId,
+    sourceId: params.launch.sourceId,
+    launchSignature: makeFreshRunRetryOwnershipLaunchSignature(params.launch),
+    completedAt: Date.now(),
+    result: cloneFlowRunStartResult(params.result),
+  };
+  const nextFlow = {
+    ...(isRecord(conversation.flags?.flow)
+      ? (conversation.flags.flow as Record<string, unknown>)
+      : {}),
+    retryOwnershipCompletion: completion,
+  } as FlowResumeState;
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(params.conversationId, {
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: nextFlow,
+      },
+    });
+    return;
+  }
+  await updateConversationFlowState({
+    conversationId: params.conversationId,
+    flow: nextFlow,
+  });
+};
+
+const getPersistedFreshRunRetryOwnershipCompletion = async (params: {
   flowName: string;
   sourceId?: string;
   retryOwnershipId: string;
   launch: FreshRunRetryOwnershipLaunch;
-}): FreshRunRetryOwnershipRecord | null => {
-  const record = freshRunRetryOwnershipByKey.get(
-    makeFreshRunRetryOwnershipKey(params),
+}): Promise<FreshRunRetryOwnershipCompletionRecord | null> => {
+  const loadCompletedConversation = async (): Promise<Conversation | null> => {
+    if (shouldUseMemoryPersistence()) {
+      const conversation = [...memoryConversations.values()]
+        .filter((item) => item.flowName === params.flowName)
+        .filter((item) =>
+          Boolean(
+            getFreshRunRetryOwnershipCompletionFromConversation(item, params),
+          ),
+        )
+        .sort((a, b) => {
+          const first =
+            getFreshRunRetryOwnershipCompletionFromConversation(a, params)
+              ?.completedAt ?? 0;
+          const second =
+            getFreshRunRetryOwnershipCompletionFromConversation(b, params)
+              ?.completedAt ?? 0;
+          return second - first;
+        })[0];
+      return conversation ?? null;
+    }
+
+    return (await ConversationModel.findOne({
+      flowName: params.flowName,
+      'flags.flow.retryOwnershipCompletion.retryOwnershipId':
+        params.retryOwnershipId,
+      ...(params.sourceId
+        ? {
+            'flags.flow.retryOwnershipCompletion.sourceId': params.sourceId,
+          }
+        : {
+            'flags.flow.retryOwnershipCompletion.sourceId': { $exists: false },
+          }),
+    })
+      .sort({ 'flags.flow.retryOwnershipCompletion.completedAt': -1 })
+      .lean()
+      .exec()) as Conversation | null;
+  };
+
+  const conversation = await loadCompletedConversation();
+  if (!conversation) return null;
+  const completion = getFreshRunRetryOwnershipCompletionFromConversation(
+    conversation,
+    params,
   );
+  if (!completion) {
+    await clearFreshRunRetryOwnershipCompletion({
+      conversationId: conversation._id,
+      conversation,
+    });
+    return null;
+  }
+  const completedAt = completion.completedAt;
+  if (
+    Date.now() - completedAt >
+    FRESH_RUN_RETRY_OWNERSHIP_COMPLETION_WINDOW_MS
+  ) {
+    await clearFreshRunRetryOwnershipCompletion({
+      conversationId: conversation._id,
+      conversation,
+    });
+    return null;
+  }
+  if (
+    completion.launchSignature !==
+    makeFreshRunRetryOwnershipLaunchSignature(params.launch)
+  ) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      'retryOwnershipId already belongs to a different fresh-run launch',
+    );
+  }
+  return {
+    retryOwnershipId: completion.retryOwnershipId,
+    sourceId: completion.sourceId,
+    result: cloneFlowRunStartResult(completion.result),
+    launchSignature: completion.launchSignature,
+    completedAt: completion.completedAt,
+  };
+};
+
+const getFreshRunRetryOwnershipCompletion = async (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}): Promise<FreshRunRetryOwnershipCompletionRecord | null> => {
+  const key = makeFreshRunRetryOwnershipKey(params);
+  const record = freshRunRetryOwnershipCompletedByKey.get(key);
   if (!record) return null;
+  if (
+    Date.now() - record.completedAt >
+    FRESH_RUN_RETRY_OWNERSHIP_COMPLETION_WINDOW_MS
+  ) {
+    freshRunRetryOwnershipCompletedByKey.delete(key);
+    return null;
+  }
   if (
     record.launchSignature !==
     makeFreshRunRetryOwnershipLaunchSignature(params.launch)
@@ -298,9 +602,46 @@ const getFreshRunRetryOwnership = (params: {
     );
   }
   return {
-    runToken: record.runToken,
+    retryOwnershipId: record.retryOwnershipId,
+    sourceId: record.sourceId,
     result: cloneFlowRunStartResult(record.result),
     launchSignature: record.launchSignature,
+    completedAt: record.completedAt,
+  };
+};
+
+const getFreshRunRetryOwnership = async (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}): Promise<FreshRunRetryOwnershipRecord | null> => {
+  const key = makeFreshRunRetryOwnershipKey(params);
+  const launchSignature = makeFreshRunRetryOwnershipLaunchSignature(
+    params.launch,
+  );
+  const activeRecord = freshRunRetryOwnershipByKey.get(key);
+  if (activeRecord) {
+    if (activeRecord.launchSignature !== launchSignature) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'retryOwnershipId already belongs to a different fresh-run launch',
+      );
+    }
+    return {
+      runToken: activeRecord.runToken,
+      result: cloneFlowRunStartResult(activeRecord.result),
+      launchSignature: activeRecord.launchSignature,
+    };
+  }
+  const completedRecord =
+    (await getFreshRunRetryOwnershipCompletion(params)) ??
+    (await getPersistedFreshRunRetryOwnershipCompletion(params));
+  if (!completedRecord) return null;
+  return {
+    runToken: key,
+    result: cloneFlowRunStartResult(completedRecord.result),
+    launchSignature: completedRecord.launchSignature,
   };
 };
 
@@ -332,6 +673,22 @@ export function __setFlowServiceDepsForTests(
 export function __resetFlowServiceDepsForTests() {
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
   freshRunRetryOwnershipByKey.clear();
+  freshRunRetryOwnershipCompletedByKey.clear();
+}
+
+export function __resetFreshRunRetryOwnershipCompletionForTests() {
+  freshRunRetryOwnershipCompletedByKey.clear();
+}
+
+export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(
+  params: {
+    flowName: string;
+    sourceId?: string;
+    retryOwnershipId: string;
+    launch: FreshRunRetryOwnershipLaunch;
+  },
+) {
+  return getPersistedFreshRunRetryOwnershipCompletion(params);
 }
 
 const toFlowRunError = (
@@ -477,6 +834,10 @@ const parseFlowResumeState = (
   const agentRequestedProviders = normalizeStringMap(
     flow.agentRequestedProviders,
   );
+  const agentEndpointIds = normalizeStringMap(flow.agentEndpointIds);
+  const retryOwnershipCompletion = parseFreshRunRetryOwnershipCompletion(
+    flow.retryOwnershipCompletion,
+  );
   const activeSubflow = isRecord(flow.activeSubflow)
     ? (() => {
         const flowName = normalizeOptionalString(flow.activeSubflow.flowName);
@@ -529,6 +890,10 @@ const parseFlowResumeState = (
     ...(Object.keys(agentModels).length > 0 ? { agentModels } : {}),
     ...(Object.keys(agentRequestedProviders).length > 0
       ? { agentRequestedProviders }
+      : {}),
+    ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
+    ...(retryOwnershipCompletion
+      ? { retryOwnershipCompletion }
       : {}),
   };
 };
@@ -823,6 +1188,7 @@ const ensureFlowAgentConversation = async (params: {
   providerId: ConversationProvider;
   modelId: string;
   requestedProviderId?: string;
+  endpointId?: string | null;
   customTitle?: string;
   source: 'REST' | 'MCP';
   workingFolder?: string;
@@ -836,16 +1202,23 @@ const ensureFlowAgentConversation = async (params: {
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
     if (existing) {
+      const nextFlags = {
+        ...(existing.flags ?? {}),
+        ...(params.requestedProviderId?.trim()
+          ? { requestedProviderId: params.requestedProviderId.trim() }
+          : {}),
+        ...(params.endpointId?.trim()
+          ? { endpointId: params.endpointId.trim() }
+          : {}),
+      } as Record<string, unknown>;
+      if (params.endpointId === null) {
+        delete nextFlags.endpointId;
+      }
       updateMemoryConversationMeta(params.conversationId, {
         provider: params.providerId,
         model: params.modelId,
         agentName: params.agentType,
-        flags: {
-          ...(existing.flags ?? {}),
-          ...(params.requestedProviderId?.trim()
-            ? { requestedProviderId: params.requestedProviderId.trim() }
-            : {}),
-        },
+        flags: nextFlags,
         lastMessageAt: now,
       });
       if (params.workingFolder) {
@@ -870,6 +1243,7 @@ const ensureFlowAgentConversation = async (params: {
         ...(params.requestedProviderId?.trim()
           ? { requestedProviderId: params.requestedProviderId.trim() }
           : {}),
+        ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
         flowChild: { executionId: params.executionId },
       },
       lastMessageAt: now,
@@ -895,18 +1269,32 @@ const ensureFlowAgentConversation = async (params: {
     .lean()
     .exec()) as Conversation | null;
   if (existing) {
-    await updateConversationMeta({
+    const nextFlags = {
+      ...(existing.flags ?? {}),
+      ...(params.requestedProviderId?.trim()
+        ? { requestedProviderId: params.requestedProviderId.trim() }
+        : {}),
+      ...(params.endpointId?.trim()
+        ? { endpointId: params.endpointId.trim() }
+        : {}),
+    } as Record<string, unknown>;
+    if (params.endpointId === null) {
+      delete nextFlags.endpointId;
+    }
+    const metaOutcome = await updateConversationMeta({
       conversationId: params.conversationId,
       provider: params.providerId,
       model: params.modelId,
-      flags: {
-        ...(existing.flags ?? {}),
-        ...(params.requestedProviderId?.trim()
-          ? { requestedProviderId: params.requestedProviderId.trim() }
-          : {}),
-      },
+      flags: nextFlags,
+      replaceFlags: true,
       lastMessageAt: now,
     });
+    if (metaOutcome.outcome === 'not_found') {
+      throw toFlowRunError('CONVERSATION_ARCHIVED');
+    }
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('flow conversation metadata update exhausted');
+    }
     if (params.workingFolder) {
       await updateConversationWorkingFolder({
         conversationId: params.conversationId,
@@ -928,6 +1316,7 @@ const ensureFlowAgentConversation = async (params: {
       ...(params.requestedProviderId?.trim()
         ? { requestedProviderId: params.requestedProviderId.trim() }
         : {}),
+      ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
       flowChild: { executionId: params.executionId },
     },
     lastMessageAt: now,
@@ -1016,6 +1405,7 @@ const ensureAgentState = async (params: {
   providerId: ConversationProvider;
   modelId: string;
   requestedProviderId?: string;
+  endpointId?: string | null;
   workingFolder?: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
@@ -1027,9 +1417,25 @@ const ensureAgentState = async (params: {
     const existingConversation = await getConversation(existing.conversationId);
     const requestedProviderIdToUse =
       typeof params.requestedProviderId === 'string' &&
-      params.requestedProviderId.trim()
+        params.requestedProviderId.trim()
         ? params.requestedProviderId.trim()
         : getSavedRequestedProviderId(existingConversation);
+    const savedEndpointId =
+      typeof existingConversation?.flags?.endpointId === 'string' &&
+      existingConversation.flags.endpointId.trim().length > 0
+        ? existingConversation.flags.endpointId.trim()
+        : undefined;
+    if (savedEndpointId && !existing.endpointId) {
+      existing.endpointId = savedEndpointId;
+    }
+    const endpointIdToUse =
+      params.endpointId !== undefined ? params.endpointId : savedEndpointId;
+
+    await ensureFlowChildConversationOwnership({
+      conversationId: existing.conversationId,
+      agentType: params.agentType,
+      executionId: params.executionId,
+    });
 
     await ensureFlowAgentConversation({
       conversationId: existing.conversationId,
@@ -1040,20 +1446,25 @@ const ensureAgentState = async (params: {
       providerId: params.providerId,
       modelId: params.modelId,
       requestedProviderId: requestedProviderIdToUse,
+      endpointId: endpointIdToUse ?? null,
       customTitle: params.customTitle,
       source: params.source,
       workingFolder: params.workingFolder,
-    });
-    await ensureFlowChildConversationOwnership({
-      conversationId: existing.conversationId,
-      agentType: params.agentType,
-      executionId: params.executionId,
     });
     existing.workingFolder = params.workingFolder;
     existing.providerId = params.providerId;
     existing.modelId = params.modelId;
     if (requestedProviderIdToUse)
       existing.requestedProviderId = requestedProviderIdToUse;
+    if (params.endpointId !== undefined) {
+      if (params.endpointId === null) {
+        delete existing.endpointId;
+      } else if (params.endpointId.trim()) {
+        existing.endpointId = params.endpointId.trim();
+      }
+    } else if (savedEndpointId && !existing.endpointId) {
+      existing.endpointId = savedEndpointId;
+    }
     return { state: existing, isNew: false };
   }
 
@@ -1063,6 +1474,9 @@ const ensureAgentState = async (params: {
     modelId: params.modelId,
     ...(params.requestedProviderId
       ? { requestedProviderId: params.requestedProviderId }
+      : {}),
+    ...(params.endpointId?.trim()
+      ? { endpointId: params.endpointId.trim() }
       : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
   } satisfies FlowAgentState;
@@ -1076,6 +1490,7 @@ const ensureAgentState = async (params: {
     providerId: params.providerId,
     modelId: params.modelId,
     requestedProviderId: params.requestedProviderId,
+    endpointId: params.endpointId ?? null,
     customTitle: params.customTitle,
     source: params.source,
     workingFolder: params.workingFolder,
@@ -1128,6 +1543,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   pinnedProviderId?: ConversationProvider;
   pinnedModelId?: string;
   pinnedRequestedProviderId?: string;
+  pinnedEndpointId?: string | null;
   allowFallback?: boolean;
 }) => {
   try {
@@ -1140,6 +1556,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
       pinnedProviderId: params.pinnedProviderId,
       pinnedModelId: params.pinnedModelId,
       pinnedRequestedProviderId: params.pinnedRequestedProviderId,
+      pinnedEndpointId: params.pinnedEndpointId ?? undefined,
       allowFallback: params.allowFallback ?? true,
     });
     if (params.source) {
@@ -1153,6 +1570,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
       modelId: resolved.modelId ?? FALLBACK_MODEL_ID,
       providerId: resolved.executionProviderId,
       requestedProviderId: resolved.requestedProviderId,
+      endpointId: resolved.endpointId,
       runtimeConfig: resolved.runtimeConfig as CodexOptions['config'],
       workingDirectoryOverride: resolved.workingDirectoryOverride,
       warnings: resolved.warnings,
@@ -1199,12 +1617,14 @@ const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
       const providerId = resumeState.agentProviders?.[key];
       const modelId = resumeState.agentModels?.[key];
       const requestedProviderId = resumeState.agentRequestedProviders?.[key];
+      const endpointId = resumeState.agentEndpointIds?.[key];
       runtimeState.set(key, {
         conversationId,
         threadId,
         ...(providerId ? { providerId } : {}),
         ...(modelId ? { modelId } : {}),
         ...(requestedProviderId ? { requestedProviderId } : {}),
+        ...(endpointId ? { endpointId } : {}),
         ...(workingFolder ? { workingFolder } : {}),
       });
     },
@@ -1335,6 +1755,18 @@ async function persistFlowTurn(params: {
     return {};
   }
 
+  const metaOutcome = await updateConversationMeta({
+    conversationId: params.conversationId,
+    lastMessageAt: params.createdAt,
+    model: params.model,
+  });
+  if (metaOutcome.outcome === 'not_found') {
+    throw toFlowRunError('CONVERSATION_ARCHIVED');
+  }
+  if (metaOutcome.outcome === 'retry_exhausted') {
+    throw new Error('flow turn metadata update exhausted');
+  }
+
   const turn = await appendTurn({
     conversationId: params.conversationId,
     role: params.role,
@@ -1349,12 +1781,6 @@ async function persistFlowTurn(params: {
     usage: params.usage,
     timing: params.timing,
     createdAt: params.createdAt,
-  });
-
-  await updateConversationMeta({
-    conversationId: params.conversationId,
-    lastMessageAt: params.createdAt,
-    model: params.model,
   });
 
   const turnId =
@@ -1490,6 +1916,7 @@ const runFlowInstruction = async (params: {
   agentConversationId: string;
   providerId: ConversationProvider;
   modelId: string;
+  endpointId?: string | null;
   runtimeConfig: CodexOptions['config'];
   threadId?: string;
   systemPrompt?: string;
@@ -1635,6 +2062,7 @@ const runFlowInstruction = async (params: {
         params.instruction,
         {
           provider: params.providerId,
+          endpointId: params.endpointId ?? undefined,
           inflightId: params.inflightId,
           threadId: params.threadId,
           useConfigDefaults: true,
@@ -2230,6 +2658,7 @@ const buildFlowResumeState = (params: {
   const agentProviders: Record<string, string> = {};
   const agentModels: Record<string, string> = {};
   const agentRequestedProviders: Record<string, string> = {};
+  const agentEndpointIds: Record<string, string> = {};
   params.runtimeState.forEach((state, key) => {
     agentConversations[key] = state.conversationId;
     if (state.workingFolder) {
@@ -2246,6 +2675,9 @@ const buildFlowResumeState = (params: {
     }
     if (state.requestedProviderId) {
       agentRequestedProviders[key] = state.requestedProviderId;
+    }
+    if (state.endpointId) {
+      agentEndpointIds[key] = state.endpointId;
     }
   });
 
@@ -2288,6 +2720,7 @@ const buildFlowResumeState = (params: {
     ...(Object.keys(agentRequestedProviders).length > 0
       ? { agentRequestedProviders }
       : {}),
+    ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
   };
 };
 
@@ -2310,6 +2743,16 @@ const persistFlowResumeState = async (params: {
     activeSubflow: params.activeSubflow,
     workingFolder: params.workingFolder,
   });
+  const existingConversation = await getConversation(params.conversationId);
+  const existingFlowState = parseFlowResumeState(
+    isRecord(existingConversation?.flags?.flow)
+      ? (existingConversation.flags.flow as Record<string, unknown>)
+      : undefined,
+  );
+  if (existingFlowState?.retryOwnershipCompletion) {
+    flowState.retryOwnershipCompletion =
+      existingFlowState.retryOwnershipCompletion;
+  }
 
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
@@ -3268,6 +3711,7 @@ async function runFlowUnlocked(params: {
     providerId: ConversationProvider;
     modelId: string;
     requestedProviderId?: string;
+    endpointId?: string | null;
     runtimeConfig: CodexOptions['config'];
     workingDirectoryOverride?: string;
   }> => {
@@ -3279,24 +3723,37 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const agentState = runtimeState.get(
-      getAgentKey(params.agentType, params.identifier),
+  const agentState = runtimeState.get(
+    getAgentKey(params.agentType, params.identifier),
+  );
+  if (agentState?.conversationId) {
+    const persistedConversation = await getConversation(
+      agentState.conversationId,
     );
-    if (
-      agentState?.conversationId &&
-      (!agentState.providerId || !agentState.modelId)
-    ) {
-      const persistedConversation = await getConversation(
-        agentState.conversationId,
-      );
-      if (persistedConversation?.agentName === params.agentType) {
+    if (persistedConversation?.agentName === params.agentType) {
+      const savedEndpointId =
+        typeof persistedConversation.flags?.endpointId === 'string' &&
+        persistedConversation.flags.endpointId.trim().length > 0
+          ? persistedConversation.flags.endpointId.trim()
+          : undefined;
+      if (!agentState.providerId || !agentState.modelId) {
         agentState.providerId = persistedConversation.provider;
         agentState.modelId = persistedConversation.model;
         agentState.requestedProviderId = getSavedRequestedProviderId(
           persistedConversation,
         );
       }
+      if (savedEndpointId) {
+        agentState.endpointId = savedEndpointId;
+      }
     }
+  }
+  const providerBootstrapReady =
+    agentState?.providerId !== undefined
+      ? getProviderBootstrapStatus(
+          agentState.providerId as ConversationProvider,
+        ).healthy
+      : true;
 
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
@@ -3309,6 +3766,9 @@ async function runFlowUnlocked(params: {
         | undefined,
       pinnedModelId: agentState?.modelId,
       pinnedRequestedProviderId: agentState?.requestedProviderId,
+      pinnedEndpointId: providerBootstrapReady
+        ? agentState?.endpointId
+        : undefined,
       allowFallback: !agentState?.providerId,
     });
   };
@@ -3349,6 +3809,7 @@ async function runFlowUnlocked(params: {
       providerId: runtime.providerId,
       modelId,
       requestedProviderId: runtime.requestedProviderId,
+      endpointId: runtime.endpointId ?? null,
       workingFolder: params.repositoryContext.workingRepositoryPath,
       customTitle: params.customTitle,
       source: params.source,
@@ -3392,6 +3853,7 @@ async function runFlowUnlocked(params: {
         agentConversationId: agentState.conversationId,
         providerId: runtime.providerId,
         modelId,
+        endpointId: agentState.endpointId ?? runtime.endpointId ?? null,
         runtimeConfig: runtime.runtimeConfig,
         threadId: agentState.threadId,
         systemPrompt,
@@ -3979,6 +4441,7 @@ async function runFlowUnlocked(params: {
 
       let terminalStatus: TurnStatus;
       let parentStopRequested = false;
+      let childOkObservedAt: number | null = null;
       while (true) {
         const parentPendingCancel = consumePendingConversationCancel({
           conversationId: params.conversationId,
@@ -3997,9 +4460,24 @@ async function runFlowUnlocked(params: {
           runToken: childRunToken,
         });
         if (childStatus) {
+          const lateParentPendingCancel = consumePendingConversationCancel({
+            conversationId: params.conversationId,
+            runToken: params.runToken,
+          });
+          if (lateParentPendingCancel) {
+            parentStopRequested = true;
+          }
+          if (childStatus === 'ok' && !parentStopRequested) {
+            childOkObservedAt ??= Date.now();
+            if (Date.now() - childOkObservedAt < 50) {
+              await sleep(25);
+              continue;
+            }
+          }
           terminalStatus = parentStopRequested ? 'stopped' : childStatus;
           break;
         }
+        childOkObservedAt = null;
 
         if (
           resumedActiveSubflow &&
@@ -4996,7 +5474,7 @@ export async function startFlowRun(
     );
   }
   if (retryOwnershipId && !resumeStepPath) {
-    const existingRetry = getFreshRunRetryOwnership({
+    const existingRetry = await getFreshRunRetryOwnership({
       flowName,
       sourceId,
       retryOwnershipId,
@@ -5036,6 +5514,7 @@ export async function startFlowRun(
   let executionId: string = crypto.randomUUID();
   let startupWarnings: string[] = [];
   let childExecutionBackfills: string[] = [];
+  let completedSuccessfully = false;
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -5341,6 +5820,7 @@ export async function startFlowRun(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
+      completedSuccessfully = true;
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
         conversationId,
@@ -5351,13 +5831,26 @@ export async function startFlowRun(
         : err instanceof Error
           ? err.message
           : 'Flow run failed unexpectedly.';
-      await persistUnexpectedFlowFailureIfNeeded({
-        conversationId,
-        modelId,
-        providerId,
-        source: params.source,
-        message: failureMessage,
-      });
+      try {
+        await persistUnexpectedFlowFailureIfNeeded({
+          conversationId,
+          modelId,
+          providerId,
+          source: params.source,
+          message: failureMessage,
+        });
+      } catch (persistErr) {
+        baseLogger.error(
+          {
+            flowName,
+            conversationId,
+            inflightId,
+            err: persistErr,
+            originalError: err,
+          },
+          'flow run failure persistence skipped after terminal metadata error',
+        );
+      }
       if ((err as FlowRunError | undefined)?.code) {
         baseLogger.error(
           { flowName, conversationId, inflightId, err },
@@ -5378,6 +5871,36 @@ export async function startFlowRun(
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
       const released = releaseConversationLockFn(conversationId, runToken);
+      if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
+        const completedResult = {
+          flowName,
+          conversationId,
+          inflightId,
+          providerId,
+          modelId,
+          ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
+        };
+        try {
+          await persistFreshRunRetryOwnershipCompletion({
+            conversationId,
+            retryOwnershipId,
+            launch: retryOwnershipLaunch,
+            result: completedResult,
+          });
+        } catch (error) {
+          baseLogger.error(
+            { flowName, conversationId, inflightId, error },
+            'fresh run retry completion persistence failed',
+          );
+        }
+        rememberFreshRunRetryOwnershipCompletion({
+          flowName,
+          sourceId,
+          retryOwnershipId,
+          launch: retryOwnershipLaunch,
+          result: completedResult,
+        });
+      }
       if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,

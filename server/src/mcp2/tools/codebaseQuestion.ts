@@ -573,7 +573,7 @@ async function ensureConversation(
     .lean()
     .exec()) as Conversation | null;
   if (existing) {
-    await updateConversationMeta({
+    const metaOutcome = await updateConversationMeta({
       conversationId,
       provider,
       model,
@@ -581,8 +581,17 @@ async function ensureConversation(
         ...(existing.flags ?? {}),
         ...(flags ?? {}),
       }),
+      replaceFlags: true,
       lastMessageAt: now,
     });
+    if (metaOutcome.outcome === 'not_found') {
+      throw new ArchivedConversationError(
+        'Conversation is archived and must be restored before use',
+      );
+    }
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('codebase question conversation metadata update exhausted');
+    }
     return;
   }
 
@@ -894,6 +903,7 @@ async function executeCodebaseQuestion(
       requestedProvider: runtimeSelection.requestedProvider,
       requestedModel: runtimeSelection.requestedModel,
       resolvedModel: runtimeSelection.executionModel,
+      runtimePath: runtimeSelection.executionPath,
       modelSource:
         requestedProvider === 'codex'
           ? toChatResolutionSource(
@@ -929,6 +939,7 @@ async function executeCodebaseQuestion(
       requestedProvider: runtimeSelection.requestedProvider,
       requestedModel: runtimeSelection.requestedModel,
       resolvedModel: runtimeSelection.executionModel,
+      runtimePath: runtimeSelection.executionPath,
       modelSource:
         requestedProvider === 'codex'
           ? toChatResolutionSource(

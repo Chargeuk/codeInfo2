@@ -17,6 +17,15 @@ const copilotScenario = useMockChat ? logE2ECopilotScenarioBoot() : null;
 const preferredChatModel = 'openai/gpt-oss-20b';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
+const hideMcpOverlay = async (page: Page) => {
+  await page.evaluate(() => {
+    const sidebar = document.getElementById('mcp-sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+    const frame = document.querySelector('iframe[name="toolbox-frame"]');
+    if (frame) (frame as HTMLElement).style.display = 'none';
+  });
+};
+
 const buildMockProviders = (): ChatProviderInfo[] => {
   const providers: ChatProviderInfo[] = [
     {
@@ -483,6 +492,426 @@ test('copilot happy-path send uses the Copilot provider contract end to end', as
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Hello from fake Copilot',
+    { timeout: 20000 },
+  );
+});
+
+test('endpoint-backed send uses the selected provider/model flow on the normal chat launcher', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  test.skip(
+    !useMockChat,
+    'Endpoint-backed browser proof requires mock chat routing',
+  );
+
+  const mockWs = await installMockChatWs(page);
+  const chatBodies: Array<Record<string, unknown>> = [];
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+        selectedProvider: 'codex',
+        selectedModel: 'gpt-5.1-codex-max',
+        selectedEndpointId: 'https://alpha.example/base/v1',
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+    if (provider === 'codex') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          providerInfo: {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+            defaultModel: 'gpt-5.2',
+            defaultModelSource: 'config',
+          },
+          models: [
+            {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
+              type: 'codex',
+              endpointId: 'https://alpha.example/base/v1',
+            },
+            {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
+              type: 'codex',
+              endpointId: 'https://alpha.example/alt/v1',
+            },
+          ],
+        }),
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+      }),
+    });
+  });
+  await page.route('**/conversations/**/turns*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route('**/conversations*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      return route.continue();
+    }
+
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    chatBodies.push(payload);
+    const conversationId = String(payload.conversationId ?? 'endpoint-chat-c1');
+    const inflightId = String(payload.inflightId ?? 'endpoint-chat-i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    await mockWs.sendInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantThink: 'endpoint-backed trace',
+    });
+    await mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Hello from endpoint-backed send',
+    });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+  });
+
+  await page.goto(`${baseUrl}/chat`);
+
+  await expect(page.getByTestId('provider-select')).toContainText(
+    /OpenAI Codex/i,
+  );
+  await expect(page.getByTestId('model-select')).toContainText(
+    /alpha\.example \/ gpt-5\.2/i,
+  );
+
+  await page
+    .getByTestId('chat-input')
+    .fill('Use the endpoint-backed Codex launcher');
+  await page.getByTestId('chat-send').click();
+
+  await expect.poll(() => chatBodies.length).toBe(1);
+  expect(chatBodies[0]?.provider).toBe('codex');
+  expect(chatBodies[0]?.model).toBe('gpt-5.2');
+  expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
+
+  await expect(page.getByTestId('chat-transcript')).toContainText(
+    'Hello from endpoint-backed send',
+    { timeout: 20000 },
+  );
+});
+
+test('mobile endpoint-backed send uses the provider/model dialogs after restoring history and starting fresh', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  test.skip(
+    !useMockChat,
+    'Endpoint-backed browser proof requires mock chat routing',
+  );
+
+  const mockWs = await installMockChatWs(page);
+  const chatBodies: Array<Record<string, unknown>> = [];
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+        selectedProvider: 'codex',
+        selectedModel: 'gpt-5.2',
+        selectedEndpointId: 'https://alpha.example/base/v1',
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+    if (provider === 'codex') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          providerInfo: {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+            defaultModel: 'gpt-5.1-codex-max',
+            defaultModelSource: 'config',
+          },
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+              endpointId: 'https://alpha.example/base/v1',
+              supportedReasoningEfforts: ['medium', 'high'],
+            },
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+              endpointId: 'https://alpha.example/alt/v1',
+              supportedReasoningEfforts: ['medium', 'high'],
+            },
+          ],
+        }),
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+      }),
+    });
+  });
+  await page.route('**/conversations*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            conversationId: 'endpoint-history-conversation',
+            title: 'Endpoint history conversation',
+            provider: 'codex',
+            model: 'gpt-5.1-codex-max',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flags: { endpointId: 'https://alpha.example/alt/v1' },
+          },
+        ],
+        nextCursor: null,
+      }),
+    }),
+  );
+  await page.route(
+    '**/conversations/endpoint-history-conversation/turns*',
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              turnId: 'endpoint-history-user',
+              role: 'user',
+              content: 'Earlier prompt',
+              provider: 'codex',
+              model: 'gpt-5.1-codex-max',
+              status: 'ok',
+              createdAt: '2025-01-01T00:00:00.000Z',
+            },
+            {
+              turnId: 'endpoint-history-assistant',
+              role: 'assistant',
+              content: 'Earlier reply',
+              provider: 'codex',
+              model: 'gpt-5.1-codex-max',
+              status: 'ok',
+              createdAt: '2025-01-01T00:00:01.000Z',
+            },
+          ],
+        }),
+      }),
+  );
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      return route.continue();
+    }
+
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    chatBodies.push(payload);
+    const conversationId = String(payload.conversationId ?? 'endpoint-history');
+    const inflightId = String(payload.inflightId ?? 'endpoint-history-i1');
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+    await mockWs.waitForConversationSubscription(conversationId);
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Fresh mobile endpoint reply',
+    });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+  });
+
+  await page.goto(`${baseUrl}/chat`);
+  await hideMcpOverlay(page);
+
+  await page.getByRole('button', { name: 'Open conversations' }).click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeVisible();
+  await page.getByTestId('conversation-refresh').click();
+  const historyConversationRow = page.locator(
+    '[data-testid="conversation-row"]',
+    {
+      hasText: 'Endpoint history conversation',
+    },
+  );
+  await expect(historyConversationRow).toBeVisible({
+    timeout: 20000,
+  });
+  await historyConversationRow.click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeHidden();
+  await expect(page.getByTestId('provider-select')).toContainText(
+    /OpenAI Codex/i,
+  );
+  await expect(page.getByTestId('model-select')).toContainText(
+    /alpha\.example \/ gpt-5\.1-codex-max/i,
+  );
+
+  await page.getByRole('button', { name: /new conversation/i }).click();
+  await expect(page.getByTestId('provider-select')).toContainText(
+    /OpenAI Codex/i,
+  );
+  await expect(page.getByTestId('model-select')).toContainText(
+    /alpha\.example \/ gpt-5\.1-codex-max/i,
+  );
+
+  await page.getByTestId('provider-select').click();
+  const providerDialog = page.getByTestId('chat-provider-dialog');
+  await expect(providerDialog).toBeVisible();
+  await expect(
+    providerDialog.getByRole('heading', { name: 'Provider', exact: true }),
+  ).toBeVisible();
+  await providerDialog.getByRole('option', { name: /OpenAI Codex/i }).click();
+  await expect(page.getByTestId('provider-select')).toContainText(
+    /OpenAI Codex/i,
+  );
+
+  await page.getByTestId('model-select').click();
+  const modelDialog = page.getByTestId('chat-model-dialog');
+  await expect(modelDialog).toBeVisible();
+  await expect(
+    modelDialog.getByRole('heading', { name: 'Model', exact: true }),
+  ).toBeVisible();
+  await expect(
+    modelDialog.getByRole('listbox', { name: 'Thinking mode options' }),
+  ).toBeVisible();
+  await expect(
+    modelDialog.getByRole('listbox', { name: 'Model options' }),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('model-select')).toContainText(
+    /alpha\.example \/ gpt-5\.1-codex-max/i,
+  );
+
+  await page
+    .getByTestId('chat-input')
+    .fill('Use the mobile endpoint-backed Codex launcher');
+  await page.getByTestId('chat-send').click();
+
+  await expect.poll(() => chatBodies.length).toBe(1);
+  expect(chatBodies[0]?.provider).toBe('codex');
+  expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
+  expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
+  expect(chatBodies[0]?.conversationId).not.toBe(
+    'endpoint-history-conversation',
+  );
+
+  await expect(page.getByTestId('chat-transcript')).toContainText(
+    'Fresh mobile endpoint reply',
     { timeout: 20000 },
   );
 });

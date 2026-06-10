@@ -3,6 +3,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChatProviderId } from '@codeinfo2/common';
 import { parse } from 'dotenv';
+import {
+  resolveOpenAiCompatEndpointConfigsFromList,
+  type OpenAiCompatEndpointListResolution,
+} from './openaiCompatEndpoints.js';
 
 export const STARTUP_ENV_ORDER = ['server/.env', 'server/.env.local'] as const;
 export const DEFAULT_AGENT_PROVIDER_FALLBACK_ORDER = [
@@ -19,6 +23,7 @@ export const SERVER_CODEINFO_ENV_NAMES = [
   'CODEINFO_PLAYWRIGHT_MCP_URL',
   'CODEINFO_OPENAI_EMBEDDING_KEY',
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
   'CODEINFO_INGEST_INCLUDE',
   'CODEINFO_INGEST_EXCLUDE',
   'CODEINFO_INGEST_TOKEN_MARGIN',
@@ -65,6 +70,9 @@ export type CodeinfoEnvResolution = {
   defined: boolean;
   nonEmpty: boolean;
 };
+
+export type ExternalOpenAiCompatEndpointResolution =
+  OpenAiCompatEndpointListResolution;
 
 export type AgentProviderFallbackOrderResolution = {
   normalizedProviders: ChatProviderId[];
@@ -158,6 +166,16 @@ export const resolveCodeinfoEnvResolutions = ({
       defined: typeof rawValue === 'string',
       nonEmpty: typeof rawValue === 'string' && rawValue.trim().length > 0,
     };
+  });
+
+export const resolveExternalOpenAiCompatEndpoints = ({
+  env = process.env,
+}: {
+  env?: Record<string, string | undefined>;
+} = {}): ExternalOpenAiCompatEndpointResolution =>
+  resolveOpenAiCompatEndpointConfigsFromList({
+    value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
   });
 
 const isChatProviderId = (value: string): value is ChatProviderId =>

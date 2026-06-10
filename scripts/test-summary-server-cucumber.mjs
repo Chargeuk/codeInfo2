@@ -16,6 +16,10 @@ import {
   createSummaryWrapperProtocol,
   runLoggedCommand,
 } from './summary-wrapper-protocol.mjs';
+import {
+  buildCucumberImportArgs,
+  normalizeServerPath,
+} from './test-summary-server-cucumber-imports.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -78,18 +82,6 @@ for (let i = 0; i < args.length; i += 1) {
   process.exit(1);
 }
 
-const normalizeServerPath = (value) => {
-  if (path.isAbsolute(value)) return value;
-  const normalized = value.replace(/\\/g, '/');
-  const withoutDotPrefix = normalized.startsWith('./')
-    ? normalized.slice(2)
-    : normalized;
-  if (withoutDotPrefix.startsWith('server/')) {
-    return withoutDotPrefix.slice('server/'.length);
-  }
-  return withoutDotPrefix;
-};
-
 const parseCucumberScenarioCounts = (output) => {
   let scenariosTotal = 0;
   let scenariosPassed = 0;
@@ -148,14 +140,11 @@ const tagsExpression = options.tags
   ? `(${options.tags}) and (not @skip)`
   : 'not @skip';
 
+const cucumberImportArgs = buildCucumberImportArgs(serverDir, featureArgs);
+
 const cucumberArgs = [
   ...featureArgs,
-  '--import',
-  'src/test/support/chromaContainer.ts',
-  '--import',
-  'src/test/support/mongoContainer.ts',
-  '--import',
-  'src/test/steps/**/*.ts',
+  ...cucumberImportArgs,
   '--tags',
   tagsExpression,
 ];
@@ -166,6 +155,8 @@ if (options.scenario) {
 const cucumberEnv = {
   ...process.env,
   CODEINFO_LOG_FILE_PATH: '../logs/server-cucumber.log',
+  // Match the server-unit wrapper's isolation contract so cucumber uses its
+  // scenario-owned containers instead of reusing ambient host services.
   CODEINFO_CHROMA_URL: '',
   CODEINFO_MONGO_URI: '',
   CODEINFO_PLAYWRIGHT_MCP_URL:

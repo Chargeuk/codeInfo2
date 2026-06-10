@@ -577,6 +577,102 @@ describe('Chat page models list', () => {
     expect(requestedProviders).toContain('copilot');
   });
 
+  it('keeps duplicate raw model ids independently selectable by endpoint identity', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+            selectedProvider: 'codex',
+            selectedModel: 'gpt-5.2',
+            selectedEndpointId: 'https://alpha.example/base/v1',
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            providerInfo: {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: true,
+              defaultModel: 'gpt-5.2',
+            },
+            models: [
+              {
+                key: 'gpt-5.2',
+                displayName: 'gpt-5.2',
+                type: 'codex',
+                endpointId: 'https://alpha.example/base/v1',
+              },
+              {
+                key: 'gpt-5.2',
+                displayName: 'gpt-5.2',
+                type: 'codex',
+                endpointId: 'https://alpha.example/alt/v1',
+              },
+            ],
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /alpha\.example \/ gpt-5\.2 \(/i,
+      ),
+    );
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await user.click(modelSelect);
+
+    const duplicateOptions = screen.getAllByRole('option', {
+      name: /alpha\.example \/ gpt-5\.2/i,
+    });
+    expect(duplicateOptions).toHaveLength(2);
+    expect(duplicateOptions[0]).toHaveAttribute('aria-selected', 'true');
+    expect(duplicateOptions[1]).toHaveAttribute('aria-selected', 'false');
+
+    await user.click(duplicateOptions[1]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+      ),
+    );
+
+    await user.click(screen.getByRole('combobox', { name: /model/i }));
+    const refreshedOptions = screen.getAllByRole('option', {
+      name: /alpha\.example \/ gpt-5\.2/i,
+    });
+    expect(refreshedOptions[0]).toHaveAttribute('aria-selected', 'false');
+    expect(refreshedOptions[1]).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('does not re-enable a provider when /chat/models top-level availability is degraded', async () => {
     mockFetch.mockImplementation(
       asFetchImplementation(async (url: RequestInfo | URL) => {
@@ -799,6 +895,11 @@ describe('Chat page models list', () => {
     });
     render(<RouterProvider router={router} />);
 
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /model/i }),
+      ).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(
       await screen.findByRole('combobox', { name: /model/i }),
     );

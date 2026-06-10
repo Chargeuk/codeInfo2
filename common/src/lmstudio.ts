@@ -32,6 +32,7 @@ export type ChatModelInfo = {
   key: string;
   displayName: string;
   type: string;
+  endpointId?: string;
   // Required for Codex model entries in /chat/models payloads.
   supportedReasoningEfforts?: string[];
   // Required for Codex model entries in /chat/models payloads.
@@ -139,6 +140,7 @@ export type ChatProvidersResponse = {
   providers: ChatProviderInfo[];
   selectedProvider?: ChatProviderId;
   selectedModel?: string;
+  selectedEndpointId?: string;
   fallbackApplied?: boolean;
   compatibility?: ChatProviderCompatibility;
   // Compatibility add-ons while Task 5 still consumes the Codex-first shape.
@@ -154,6 +156,7 @@ export type ChatModelsResponse = {
   providerInfo?: ChatProviderInfo;
   providers?: ChatProviderInfo[];
   agentFlags?: ChatAgentFlagDescriptor[];
+  selectedEndpointId?: string;
   defaultModel?: string;
   defaultModelSource?: ChatProviderDefaultsSource;
   warnings?: string[];

@@ -3242,6 +3242,250 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
     }
   });
 
+  it('reads and strips codeinfo_openai_endpoint from codex chat config metadata on the accepted path', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-chat-endpoint-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        [
+          'model = "gpt-5.3-codex"',
+          'codeinfo_openai_endpoint = " https://LOCALHOST:1234/v1/ | RESPONSES, completions, responses "',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(
+        resolved.appMetadata?.codeinfoOpenAiEndpoint?.endpointId,
+        'https://localhost:1234/v1',
+      );
+      assert.deepEqual(
+        resolved.appMetadata?.codeinfoOpenAiEndpoint?.capabilities,
+        ['responses', 'completions'],
+      );
+      assert.equal('codeinfo_openai_endpoint' in resolved.config, false);
+      assert.equal(resolved.config.model, 'gpt-5.3-codex');
+      assert.deepEqual(resolved.warnings, []);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects blank codeinfo_openai_endpoint values in codex chat config', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-chat-endpoint-blank-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        ['model = "gpt-5.3-codex"', 'codeinfo_openai_endpoint = ""', ''].join(
+          '\n',
+        ),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () => resolveChatRuntimeConfig({ codexHome }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed.code === 'RUNTIME_CONFIG_INVALID' &&
+            typed.surface === 'chat' &&
+            typed.message.includes(
+              'RUNTIME_CONFIG_INVALID: chat.codeinfo_openai_endpoint: expected an explicit http or https /v1 base URL',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects whitespace-only codeinfo_openai_endpoint values in copilot chat config', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-chat-endpoint-space-'),
+    );
+    const copilotHome = path.join(tempRoot, 'copilot');
+
+    try {
+      await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+      await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(copilotHome, 'chat', 'config.toml'),
+        [
+          'model = "copilot-gpt-5"',
+          'codeinfo_openai_endpoint = "   "',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () =>
+          resolveChatRuntimeConfig({
+            provider: 'copilot',
+            copilotHome,
+          }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed.code === 'RUNTIME_CONFIG_INVALID' &&
+            typed.surface === 'chat' &&
+            typed.message.includes(
+              'RUNTIME_CONFIG_INVALID: chat.codeinfo_openai_endpoint: expected an explicit http or https /v1 base URL',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects codex chat endpoints that do not advertise responses support', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-chat-endpoint-codex-compat-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        [
+          'model = "gpt-5.3-codex"',
+          'codeinfo_openai_endpoint = "https://example.com/v1|completions"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () => resolveChatRuntimeConfig({ codexHome }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed.surface === 'chat' &&
+            typed.message.includes(
+              'Codex requires responses support on codeinfo_openai_endpoint',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects copilot chat endpoints that do not advertise completions support', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-chat-endpoint-copilot-compat-'),
+    );
+    const copilotHome = path.join(tempRoot, 'copilot');
+
+    try {
+      await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+      await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(copilotHome, 'chat', 'config.toml'),
+        [
+          'model = "copilot-gpt-5"',
+          'codeinfo_openai_endpoint = "https://example.com/v1|responses"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () =>
+          resolveChatRuntimeConfig({
+            provider: 'copilot',
+            copilotHome,
+          }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed.surface === 'chat' &&
+            typed.message.includes(
+              'Copilot requires completions support on codeinfo_openai_endpoint',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('validates codeinfo_openai_endpoint against the effective agent provider override', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-agent-endpoint-provider-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+    const copilotHome = path.join(tempRoot, 'copilot');
+    const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+      await fs.mkdir(path.dirname(agentConfigPath), { recursive: true });
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        'model = "gpt-5.3-codex"\n',
+        'utf8',
+      );
+      await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(copilotHome, 'chat', 'config.toml'),
+        'model = "copilot-gpt-5"\n',
+        'utf8',
+      );
+      await fs.writeFile(
+        agentConfigPath,
+        [
+          'codeinfo_provider = "copilot"',
+          'model = "copilot-gpt-5"',
+          'codeinfo_openai_endpoint = "https://example.com/v1|completions"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveAgentRuntimeConfig({
+        provider: 'codex',
+        codexHome,
+        copilotHome,
+        agentConfigPath,
+      });
+
+      assert.equal(resolved.appMetadata?.codeinfoProvider, 'copilot');
+      assert.equal(
+        resolved.appMetadata?.codeinfoOpenAiEndpoint?.endpointId,
+        'https://example.com/v1',
+      );
+      assert.equal(resolved.config.model, 'copilot-gpt-5');
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('keeps structured warnings when agent runtime resolution succeeds through a fallback-provider config path', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-fallback-warnings-'),

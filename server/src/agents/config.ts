@@ -4,6 +4,7 @@ import {
   readAndNormalizeRuntimeTomlConfig,
   RuntimeConfigResolutionError,
   resolveAgentRuntimeConfig,
+  type RuntimeConfigAppMetadata,
   validateRuntimeConfig,
   type RuntimeTomlConfig,
 } from '../config/runtimeConfig.js';
@@ -18,6 +19,7 @@ export type AgentRuntimeExecutionConfig = {
   modelId?: string;
   providerId: ChatProviderId;
   requestedProviderId?: string;
+  appMetadata?: RuntimeConfigAppMetadata;
   warnings: string[];
 };
 
@@ -38,14 +40,25 @@ export async function readAgentRequestedProviderMetadata(params: {
     { required: true },
   );
   const warnings: { path: string; message: string }[] = [];
-  const requestedProviderId = rawAgentConfig
-    ? extractRuntimeConfigAppMetadata({
-        config: rawAgentConfig,
-        surface: 'agent',
-        warnings,
-        pathLabel: params.configPath,
-      }).codeinfoProvider
-    : undefined;
+  let requestedProviderId: string | undefined;
+  try {
+    requestedProviderId = rawAgentConfig
+      ? extractRuntimeConfigAppMetadata({
+          config: rawAgentConfig,
+          surface: 'agent',
+          warnings,
+          pathLabel: params.configPath,
+        }).codeinfoProvider
+      : undefined;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new RuntimeConfigResolutionError({
+      code: 'RUNTIME_CONFIG_INVALID',
+      configPath: params.configPath,
+      surface: 'agent',
+      message,
+    });
+  }
   const providerId =
     requestedProviderId && isChatProviderId(requestedProviderId)
       ? requestedProviderId
@@ -91,7 +104,7 @@ export async function resolveAgentRuntimeExecutionConfig(params: {
     const requestedMetadata = await readAgentRequestedProviderMetadata({
       configPath: params.configPath,
     });
-    const { config, warnings } = await resolveAgentRuntimeConfig({
+    const { config, warnings, appMetadata } = await resolveAgentRuntimeConfig({
       provider: requestedMetadata.providerId,
       codexHome: params.codexHome,
       agentConfigPath: params.configPath,
@@ -110,6 +123,7 @@ export async function resolveAgentRuntimeExecutionConfig(params: {
     return {
       runtimeConfig: config,
       modelId,
+      appMetadata,
       providerId: requestedMetadata.providerId,
       requestedProviderId: requestedMetadata.requestedProviderId,
       warnings: [

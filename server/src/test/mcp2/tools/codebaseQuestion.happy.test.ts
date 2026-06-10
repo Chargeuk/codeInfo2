@@ -21,6 +21,9 @@ import {
 } from '../../../chat/memoryPersistence.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
+import {
+  applyCodexOpenAiCompatEndpointToRuntimeConfig,
+} from '../../../config/codexConfig.js';
 import { resetCollectionsForTests } from '../../../ingest/chromaClient.js';
 import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
@@ -31,6 +34,9 @@ import {
 } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
+import { ConversationModel } from '../../../mongo/conversation.js';
+import { withConversationMetaNotFoundFixture } from '../../support/conversationMetaNotFoundFixture.js';
+import { withMockedMongoConversationPersistence } from '../../support/conversationMongoPersistenceStub.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
@@ -1595,6 +1601,197 @@ test('codebase_question replays a completed retry before later setup can fail af
   }
 });
 
+test('codebase_question stops before chat construction when persisted metadata retries exhaust', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const conversationId = 'mcp-metadata-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex-spark"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.3-codex-spark',
+          title: 'Saved MCP conversation',
+          source: 'MCP',
+          flags: {},
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Conversation,
+      ],
+      run: async ({ conversations }) => {
+        setToolDeps({
+          clientFactory: makeLmStudioClientFactory(),
+          chatFactory: () => {
+            throw new Error(
+              'codebase question should not build chat after metadata exhaustion',
+            );
+          },
+          listIngestedRepositoriesFn: async () => ({
+            repos: [],
+            lockedModelId: null,
+          }),
+        });
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => null,
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        try {
+          await assert.rejects(
+            runCodebaseQuestion(
+              {
+                question: 'Retry exhausted codebase question',
+                conversationId,
+                provider: 'codex',
+                model: 'gpt-5.3-codex-spark',
+              },
+              {
+                chatFactory: () => {
+                  throw new Error(
+                    'codebase question should not build chat after metadata exhaustion',
+                  );
+                },
+                listIngestedRepositoriesFn: async () => ({
+                  repos: [],
+                  lockedModelId: null,
+                }),
+              },
+            ),
+            (error: unknown) =>
+              error instanceof assert.AssertionError &&
+              /response\.result/.test(error.message),
+          );
+
+          assert.equal(conversations.get(conversationId)?.provider, 'codex');
+          assert.equal(
+            conversations.get(conversationId)?.model,
+            'gpt-5.3-codex-spark',
+          );
+        } finally {
+          resetToolDeps();
+        }
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question stops before chat construction when persisted metadata reports not_found after a concurrent delete', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const conversationId = 'mcp-metadata-not-found';
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex-spark"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  try {
+    await withConversationMetaNotFoundFixture({
+      seedConversation: {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.3-codex-spark',
+        title: 'Saved MCP conversation',
+        source: 'MCP',
+        flags: {},
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Conversation,
+      run: async ({ conversations, capturedUpdates }) => {
+        const server = http.createServer(handleRpc);
+        server.listen(0);
+        const { port } = server.address() as AddressInfo;
+
+        try {
+          setToolDeps({
+            clientFactory: makeLmStudioClientFactory(),
+            chatFactory: () => {
+              throw new Error(
+                'codebase question should not build chat after metadata not_found',
+              );
+            },
+            listIngestedRepositoriesFn: async () => ({
+              repos: [],
+              lockedModelId: null,
+            }),
+          });
+
+          const response = await postJson(port, {
+            jsonrpc: '2.0',
+            id: 133,
+            method: 'tools/call',
+            params: {
+              name: 'codebase_question',
+              arguments: {
+                question: 'Missing conversation codebase question',
+                conversationId,
+                provider: 'codex',
+                model: 'gpt-5.3-codex-spark',
+              },
+            },
+          });
+
+          assert.ok(response.error);
+          assert.equal(response.error.code, 410);
+          assert.equal(response.error.message, 'Conversation is archived and must be restored before use');
+          assert.equal(conversations.get(conversationId), undefined);
+          assert.equal(capturedUpdates.length, 1);
+        } finally {
+          resetToolDeps();
+          server.closeAllConnections();
+          await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+          });
+        }
+      },
+    });
+  } finally {
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeInfoCodeHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    await tempHome.cleanup();
+  }
+});
+
 test('codebase_question keeps caller conversationId stable across Codex replay windows even when provider thread ids differ', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
@@ -2731,5 +2928,46 @@ test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
+  }
+});
+
+test('codebase_question translates codeinfo_openai_endpoint into Codex provider metadata', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const mockCodex = new MockCodex();
+  const expectedConfig = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+    {
+      model: 'gpt-5.3-codex-spark',
+    },
+    {
+      endpointId: 'https://alpha.example/v1',
+      baseUrl: 'https://alpha.example/v1',
+      capabilities: ['responses', 'completions'],
+    },
+  )!;
+  let capturedOptions: CodexOptions | undefined;
+
+  try {
+    const result = await runCodebaseQuestion(
+      { question: 'Use the pinned OpenAI-compatible endpoint' },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return mockCodex;
+        },
+        clientFactory: makeLmStudioClientFactory(),
+        chatRuntimeConfigResolver: async () => ({
+          config: expectedConfig,
+          warnings: [],
+        }),
+      },
+    );
+
+    assert.ok(result.content[0].text);
+    assert.deepEqual(capturedOptions?.config, expectedConfig);
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
   }
 });

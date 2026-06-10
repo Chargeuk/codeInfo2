@@ -137,6 +137,45 @@ test('sanitizes persisted conversation flags before createConversation stores th
   ]);
 });
 
+test('normalizes persisted endpointId before createConversation stores it', async () => {
+  const storedFlags: unknown[] = [];
+
+  await request(
+    appWith({
+      createConversation: async (input) => {
+        storedFlags.push(input.flags);
+        return {
+          _id: input.conversationId,
+          provider: input.provider,
+          model: input.model,
+          title: input.title,
+          source: input.source ?? 'REST',
+          flags: input.flags ?? {},
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastMessageAt: input.lastMessageAt ?? new Date(),
+          archivedAt: null,
+        } satisfies Conversation;
+      },
+    }),
+  )
+    .post('/conversations')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5',
+      flags: {
+        endpointId: ' https://example.com/v1/ ',
+      },
+    })
+    .expect(201);
+
+  assert.deepEqual(storedFlags, [
+    {
+      endpointId: 'https://example.com/v1',
+    },
+  ]);
+});
+
 test('rejects provider-incompatible persisted flags instead of silently dropping them', async () => {
   let createCalls = 0;
 
@@ -218,6 +257,34 @@ test('rejects server-owned parent and child flow metadata on ordinary conversati
   assert.equal(flowChildRes.body.error, 'validation_error');
   assert.deepEqual(flowChildRes.body.details.flags._errors, [
     'flags.flowChild is server-owned and cannot be set via conversations API',
+  ]);
+  assert.equal(createCalls, 0);
+});
+
+test('rejects malformed persisted endpointId values before createConversation runs', async () => {
+  let createCalls = 0;
+
+  const res = await request(
+    appWith({
+      createConversation: async () => {
+        createCalls += 1;
+        throw new Error('createConversation should not be called');
+      },
+    }),
+  )
+    .post('/conversations')
+    .send({
+      provider: 'copilot',
+      model: 'gpt-5',
+      flags: {
+        endpointId: 'not-a-url',
+      },
+    })
+    .expect(400);
+
+  assert.equal(res.body.error, 'validation_error');
+  assert.deepEqual(res.body.details.flags._errors, [
+    'flags.endpointId is invalid: expected an explicit http or https /v1 base URL',
   ]);
   assert.equal(createCalls, 0);
 });

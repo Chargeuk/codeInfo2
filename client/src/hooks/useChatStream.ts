@@ -227,19 +227,32 @@ function normalizeToolCallId(raw: unknown): string {
 export function useChatStream(
   model?: string,
   provider?: string,
+  endpointId?: string,
   agentFlags?: ChatAgentFlagDraft,
+  selectedModelEndpointId?: string,
 ) {
   const log = useRef(createLogger('client')).current;
   const flowLog = useRef(createLogger('client-flows')).current;
+  const requestedEndpointId =
+    typeof endpointId === 'string' && endpointId.trim().length > 0
+      ? endpointId.trim()
+      : undefined;
+  const submissionEndpointId =
+    typeof selectedModelEndpointId === 'string' &&
+    selectedModelEndpointId.trim().length > 0
+      ? selectedModelEndpointId.trim()
+      : undefined;
   const logWithChannel = useCallback(
     (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>
       log(level, message, {
         channel: 'client-chat',
         provider,
         model,
+        requestedEndpointId,
+        endpointId: submissionEndpointId,
         ...context,
       }),
-    [log, model, provider],
+    [log, model, provider, requestedEndpointId, submissionEndpointId],
   );
 
   const [status, setStatus] = useState<Status>('idle');
@@ -1279,6 +1292,7 @@ export function useChatStream(
         blockedByProvider: !effectiveProvider,
         effectiveProvider: effectiveProvider ?? null,
         effectiveModel: effectiveModel ?? null,
+        endpointId: submissionEndpointId ?? null,
       });
 
       if (
@@ -1390,6 +1404,7 @@ export function useChatStream(
           body: JSON.stringify({
             provider: effectiveProvider,
             model: effectiveModel,
+            ...(submissionEndpointId ? { endpointId: submissionEndpointId } : {}),
             conversationId: currentConversationId,
             inflightId: nextInflightId,
             message: text,
@@ -1474,6 +1489,7 @@ export function useChatStream(
       logWithChannel,
       model,
       provider,
+      submissionEndpointId,
       resetInflightState,
       scheduleThinkingTimer,
       rememberSeenInflightId,

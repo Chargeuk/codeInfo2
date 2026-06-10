@@ -10,6 +10,7 @@ import {
   type SessionEventHandler,
   type SystemMessageConfig,
 } from '@github/copilot-sdk';
+import type { OpenAiCompatEndpointConfig } from '../../config/openaiCompatEndpoints.js';
 import type { RuntimeTomlConfig } from '../../config/runtimeConfig.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
@@ -32,12 +33,19 @@ const DEFAULT_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC = 7200;
 
 type CopilotRunFlags = {
   agentFlags?: Record<string, unknown>;
+  codeinfoOpenAiEndpoint?: OpenAiCompatEndpointConfig;
   systemPrompt?: string;
   workingDirectoryOverride?: string;
   history?: TurnSummary[];
   resumeConversation?: boolean;
   copilotModels?: ModelInfo[];
   runtimeConfig?: RuntimeTomlConfig;
+};
+
+type OpenAiCompatProviderConfig = {
+  type: 'openai';
+  baseUrl: string;
+  wireApi: 'responses' | 'completions';
 };
 
 type CopilotSessionLike = Pick<
@@ -119,6 +127,19 @@ const resolveCopilotSendAndWaitTimeoutMs = (
   return effectiveSeconds * 1000;
 };
 
+const resolveOpenAiCompatWireApi = (
+  endpoint: OpenAiCompatEndpointConfig,
+): 'responses' | 'completions' =>
+  endpoint.capabilities.includes('responses') ? 'responses' : 'completions';
+
+const buildOpenAiCompatProviderConfig = (
+  endpoint: OpenAiCompatEndpointConfig,
+): OpenAiCompatProviderConfig => ({
+  type: 'openai',
+  baseUrl: endpoint.baseUrl,
+  wireApi: resolveOpenAiCompatWireApi(endpoint),
+});
+
 const disableCopilotMcpServerTools = (
   mcpServers: Record<string, MCPServerConfig> | undefined,
 ): Record<string, MCPServerConfig> | undefined => {
@@ -183,6 +204,13 @@ export class ChatInterfaceCopilot extends ChatInterface {
     return {
       sessionId: conversationId,
       model,
+      ...(typedFlags.codeinfoOpenAiEndpoint
+        ? {
+            provider: buildOpenAiCompatProviderConfig(
+              typedFlags.codeinfoOpenAiEndpoint,
+            ),
+          }
+        : {}),
       configDir: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
@@ -218,6 +246,13 @@ export class ChatInterfaceCopilot extends ChatInterface {
       : true;
     return {
       model,
+      ...(typedFlags.codeinfoOpenAiEndpoint
+        ? {
+            provider: buildOpenAiCompatProviderConfig(
+              typedFlags.codeinfoOpenAiEndpoint,
+            ),
+          }
+        : {}),
       configDir: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),

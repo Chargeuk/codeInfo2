@@ -410,11 +410,17 @@ async function persistSyntheticTurn(params: {
     createdAt: params.createdAt,
   });
 
-  await lifecycleDeps.updateConversationMeta({
+  const metaOutcome = await lifecycleDeps.updateConversationMeta({
     conversationId: params.conversationId,
     lastMessageAt: params.createdAt,
     model: params.model,
   });
+  if (metaOutcome.outcome === 'not_found') {
+    throw new Error('reingest turn conversation metadata not found');
+  }
+  if (metaOutcome.outcome === 'retry_exhausted') {
+    throw new Error('reingest turn metadata update exhausted');
+  }
 
   const turnId =
     turn && typeof turn === 'object' && '_id' in (turn as object)
@@ -435,6 +441,7 @@ export async function runReingestStepLifecycle(params: {
   const createdAt = lifecycleDeps.now();
   const createdAtIso = createdAt.toISOString();
   const provider = 'codex';
+  let shouldCleanupInflight = true;
   const userContent = buildUserTurnContent(params.toolResult);
   const assistantContent = buildAssistantTurnContent(params.toolResult);
   const liveToolEvent = toLiveToolEvent(params.toolResult);
@@ -593,18 +600,28 @@ export async function runReingestStepLifecycle(params: {
           stage: params.toolResult.stage ?? null,
           targetMode: payload.targetMode,
           warningCount:
-            payload.kind === 'reingest_step_batch_result'
-              ? payload.warnings.length
-              : 0,
-        },
+          payload.kind === 'reingest_step_batch_result'
+            ? payload.warnings.length
+            : 0,
+      },
       });
     }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === 'reingest turn metadata update exhausted'
+    ) {
+      shouldCleanupInflight = false;
+    }
+    throw error;
   } finally {
-    bridge?.cleanup();
-    lifecycleDeps.cleanupInflight({
-      conversationId: params.conversationId,
-      inflightId,
-    });
+    if (shouldCleanupInflight) {
+      bridge?.cleanup();
+      lifecycleDeps.cleanupInflight({
+        conversationId: params.conversationId,
+        inflightId,
+      });
+    }
   }
 }
 

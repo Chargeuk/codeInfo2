@@ -47,7 +47,7 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   const mainMongo = getServiceBlock(mainCompose, 'mongo');
   assert.match(mainMongo, /27517:27017/u);
   const mainChroma = getServiceBlock(mainCompose, 'chroma');
-  assert.match(mainChroma, /'8000:8000'/u);
+  assert.match(mainChroma, /'8300:8000'/u);
   assert.match(mainChroma, /00000000:1F40/u);
   const mainOtel = getServiceBlock(mainCompose, 'otel-collector');
   assert.match(mainOtel, /'4317:4317'/u);
@@ -158,17 +158,29 @@ test('compose services that need Copilot state inject CODEINFO_COPILOT_HOME=/app
   }
 });
 
-test('local compose defaults to Mongo 8.2.9 through the checkout override seam', () => {
+test('compose files keep the checked-in Mongo 8.2.9 override seams aligned with the local test support defaults', () => {
+  const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
   const mongoContainerSupport = readRepoFile(
     'server/src/test/support/mongoContainer.ts',
   );
+
+  const mainMongo = getServiceBlock(mainCompose, 'mongo');
+  assert.match(mainMongo, /image: \$\{CODEINFO_MONGO_IMAGE:-mongo:8\.2\.9\}/u);
 
   const localMongo = getServiceBlock(localCompose, 'mongo');
   assert.match(
     localMongo,
     /image: \$\{CODEINFO_LOCAL_MONGO_IMAGE:-mongo:8\.2\.9\}/u,
   );
+
+  const e2eMongo = getServiceBlock(e2eCompose, 'mongo-e2e');
+  assert.match(
+    e2eMongo,
+    /image: \$\{CODEINFO_E2E_MONGO_IMAGE:-mongo:8\.2\.9\}/u,
+  );
+
   assert.match(
     mongoContainerSupport,
     /process\.env\.CODEINFO_LOCAL_MONGO_IMAGE \?\? 'mongo:8\.2\.9'/u,
@@ -319,6 +331,14 @@ test('compose wrapper exports the resolved docker socket path for Linux Docker D
   assert.match(
     composeWrapper,
     /export CODEINFO_DOCKER_SOCKET_PATH="\$\{SOCKET_PATH\}"/u,
+  );
+  assert.match(
+    composeWrapper,
+    /if \[\[ "\$\{DOCKER_OPERATING_SYSTEM_LC\}" == \*"docker desktop"\* \]\]; then\s+  CONTAINER_SOCKET_GID=0\s+fi/u,
+  );
+  assert.match(
+    composeWrapper,
+    /export CODEINFO_DOCKER_SOCK_GID="\$\{CONTAINER_SOCKET_GID\}"/u,
   );
   assert.match(
     localCompose,

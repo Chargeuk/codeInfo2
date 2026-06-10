@@ -1,3 +1,4 @@
+import type { CodexDefaults } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -33,13 +34,13 @@ const routes = [
 ];
 
 // Intentionally not matching server defaults to prove the UI uses the server response.
-const defaultCodexDefaults = {
+const defaultCodexDefaults: CodexDefaults = {
   sandboxMode: 'read-only',
   approvalPolicy: 'never',
   modelReasoningEffort: 'medium',
   networkAccessEnabled: false,
   webSearchEnabled: false,
-} as const;
+};
 
 const defaultCodexModels = [
   {
@@ -52,7 +53,9 @@ const defaultCodexModels = [
 ] satisfies Array<Record<string, unknown>>;
 
 function mockCodexReady(options?: {
-  codexDefaults?: typeof defaultCodexDefaults;
+  codexDefaults?: CodexDefaults;
+  compatibilityCodexDefaults?: CodexDefaults;
+  compatibilityCodexWarnings?: string[];
   includeDefaults?: boolean;
   codexModels?: Array<Record<string, unknown>>;
 }) {
@@ -104,6 +107,23 @@ function mockCodexReady(options?: {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
+          ...(options?.compatibilityCodexDefaults ||
+          options?.compatibilityCodexWarnings
+            ? {
+                compatibility: {
+                  ...(options?.compatibilityCodexDefaults
+                    ? {
+                        codexDefaults: options.compatibilityCodexDefaults,
+                      }
+                    : {}),
+                  ...(options?.compatibilityCodexWarnings
+                    ? {
+                        codexWarnings: options.compatibilityCodexWarnings,
+                      }
+                    : {}),
+                },
+              }
+            : {}),
           ...(includeDefaults
             ? {
                 codexDefaults: options?.codexDefaults ?? defaultCodexDefaults,
@@ -148,6 +168,53 @@ function mockCodexReady(options?: {
 }
 
 describe('Codex compatibility defaults behavior', () => {
+  it('prefers canonical compatibility defaults over stale legacy top-level Codex fields', async () => {
+    mockCodexReady({
+      codexDefaults: defaultCodexDefaults,
+      compatibilityCodexDefaults: {
+        sandboxMode: 'workspace-write',
+        approvalPolicy: 'on-request',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: true,
+      },
+      codexModels: [
+        {
+          key: 'compatibility-model',
+          displayName: 'Compatibility Model',
+          type: 'codex',
+          supportedReasoningEfforts: ['medium', 'high'],
+          defaultReasoningEffort: '',
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
+
+    await ensureAgentFlagsPanelExpanded();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /sandbox mode/i }),
+      ).toHaveTextContent(/workspace write/i),
+    );
+    expect(
+      screen.getByRole('combobox', { name: /approval policy/i }),
+    ).toHaveTextContent(/on request/i);
+    expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
+      /high/i,
+    );
+  });
+
   it('disables Codex flags when defaults are missing', async () => {
     mockCodexReady({ includeDefaults: false });
 

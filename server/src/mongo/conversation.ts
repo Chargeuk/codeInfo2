@@ -1,4 +1,5 @@
 import mongoose, { type HydratedDocument, type Model } from 'mongoose';
+import type { FreshRunRetryOwnershipCompletion } from '../flows/flowState.js';
 
 const { Schema, model, models } = mongoose;
 
@@ -7,8 +8,11 @@ export type ConversationSource = 'REST' | 'MCP';
 export type ConversationFlags = {
   agentFlags?: Record<string, unknown>;
   threadId?: string;
+  endpointId?: string;
   workingFolder?: string;
-  flow?: Record<string, unknown>;
+  flow?: Record<string, unknown> & {
+    retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion;
+  };
   flowChild?: Record<string, unknown>;
   [key: string]: unknown;
 };

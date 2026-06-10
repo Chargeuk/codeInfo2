@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 import {
+  __resetCompletedInflightForTests,
   appendAnalysisDelta,
   appendAssistantDelta,
   appendToolEvent,
@@ -20,9 +22,12 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
+import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 
 const appWith = (
   overrides: Parameters<typeof createConversationsRouter>[0],
@@ -34,6 +39,29 @@ const appWith = (
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const buildRepoEntry = (containerPath: string) =>
+  ({
+    id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+    description: null,
+    containerPath,
+    hostPath: containerPath,
+    lastIngestAt: null,
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    model: 'model',
+    modelId: 'model',
+    lock: {
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'model',
+      embeddingDimensions: 768,
+      lockedModelId: 'model',
+      modelId: 'model',
+    },
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    lastError: null,
+  }) as const;
 
 class ScriptedChat extends ChatInterface {
   constructor(
@@ -62,6 +90,25 @@ class ScriptedChat extends ChatInterface {
   }
 }
 
+class CountingChat extends ChatInterface {
+  public executeCalls = 0;
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ): Promise<void> {
+    void _message;
+    void _flags;
+    void _model;
+    this.executeCalls += 1;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'assistant-reply' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 async function waitForChatPersistence(
   conversationId: string,
   expectedTurnCount: number,
@@ -84,7 +131,7 @@ async function waitForChatPersistence(
 }
 
 function createChatApp(chatFactory: () => ChatInterface) {
-  const app = express();
+const app = express();
   app.use(express.json());
   app.use(
     '/chat',
@@ -98,6 +145,10 @@ function createChatApp(chatFactory: () => ChatInterface) {
           },
         }) as unknown as LMStudioClient,
       chatFactory,
+      listIngestedRepositoriesFn: async () => ({
+        repos: [buildRepoEntry(process.cwd())],
+        lockedModelId: null,
+      }),
     }),
   );
   return app;
@@ -153,7 +204,7 @@ test('returns not_found when conversation is missing', async () => {
   assert.equal(res.body.error, 'not_found');
 });
 
-test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any conversation metadata rewrite', async () => {
+test('completed replay requests stay INFLIGHT_ALREADY_COMPLETED after completed-cache loss and before any conversation metadata rewrite', async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   memoryConversations.clear();
   memoryTurns.clear();
@@ -191,6 +242,18 @@ test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any con
   });
   assert.equal(replay.status, 409);
   assert.equal(replay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
+
+  __resetCompletedInflightForTests();
+
+  const replayAfterCacheClear = await request(app).post('/chat').send({
+    provider: 'lmstudio',
+    model: 'model-1',
+    conversationId,
+    inflightId,
+    message: 'hello',
+  });
+  assert.equal(replayAfterCacheClear.status, 409);
+  assert.equal(replayAfterCacheClear.body.code, 'INFLIGHT_ALREADY_COMPLETED');
 
   const contradictoryReplay = await request(app).post('/chat').send({
     provider: 'codex',
@@ -230,6 +293,146 @@ test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any con
     persistedConversationAfterReplay?.lastMessageAt?.toISOString(),
     persistedConversationBeforeReplay?.lastMessageAt?.toISOString(),
   );
+});
+
+test('stops the /chat append-turn path when metadata retries exhaust before reload and response return', async () => {
+  const conversationId = 'c-retry-exhausted-chat';
+  const chat = new CountingChat();
+
+  await withMockedMongoConversationPersistence({
+    seedConversations: [
+      {
+        _id: conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+        title: 'retry exhausted chat',
+        source: 'REST',
+        flags: {
+          endpointId: 'https://stale.example/v1',
+          workingFolder: '/repos/stale-root',
+          threadId: 'thread-stale',
+        },
+        archivedAt: null,
+        createdAt: new Date('2025-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+      } as never,
+    ],
+    run: async ({ conversations }) => {
+      const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+      ConversationModel.findOneAndUpdate = ((() => ({
+        exec: async () => null,
+      })) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+      try {
+        const response = await request(
+          createChatApp(() => chat),
+        )
+          .post('/chat')
+          .send({
+            provider: 'lmstudio',
+            model: 'model-1',
+            conversationId,
+            message: 'hello',
+          });
+
+        assert.equal(response.status, 400);
+        assert.equal(chat.executeCalls, 0);
+        assert.equal(conversations.get(conversationId)?.updatedAt?.toISOString(), '2025-01-01T00:00:00.000Z');
+      } finally {
+        ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+      }
+    },
+  });
+});
+
+test('stops the /chat append-turn path when metadata write reports not_found after a concurrent delete', async () => {
+  const conversationId = 'c-not-found-chat';
+  const chat = new CountingChat();
+  const expectedWorkingFolder = process.cwd();
+  const seedConversation = {
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: 'model-1',
+    title: 'missing chat conversation',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-stale',
+      flow: { status: 'queued' },
+      workingFolder: '/repos/stale-root',
+    },
+    archivedAt: null,
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+  } as const;
+
+  await withMockedMongoConversationPersistence({
+    seedConversations: [seedConversation as never],
+    run: async () => {
+      await withConversationMetaNotFoundFixture({
+        seedConversation: seedConversation as never,
+        run: async ({ conversations, capturedUpdates }) => {
+          const response = await request(createChatApp(() => chat))
+            .post('/chat')
+            .send({
+              provider: 'lmstudio',
+              model: 'model-1',
+              conversationId,
+              message: 'hello',
+              working_folder: process.cwd(),
+            });
+
+          assert.equal(response.status, 410);
+          assert.equal(response.body.status, 'error');
+          assert.equal(response.body.code, 'CONVERSATION_ARCHIVED');
+          assert.equal(
+            response.body.message,
+            'Conversation is archived and must be restored before use.',
+          );
+          assert.equal(chat.executeCalls, 0);
+          assert.equal(conversations.get(conversationId), undefined);
+          assert.equal(capturedUpdates.length, 1);
+          assert.deepEqual(capturedUpdates[0]?.filter, {
+            _id: conversationId,
+            updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+          });
+      assert.deepEqual(
+        (capturedUpdates[0]?.update as Record<string, unknown>).flags,
+        {
+          workingFolder: expectedWorkingFolder,
+          agentFlags: {
+            temperature: 0.2,
+            maxTokens: 4096,
+            contextOverflowPolicy: 'truncateMiddle',
+            toolAccess: 'on',
+          },
+        },
+      );
+      const capturedFlags = (capturedUpdates[0]?.update as Record<
+        string,
+        unknown
+      >).flags as Record<string, unknown>;
+      assert.equal(
+        'threadId' in capturedFlags,
+        false,
+      );
+      assert.equal(
+        'flow' in capturedFlags,
+        false,
+      );
+      assert.equal(
+        typeof (capturedUpdates[0]?.update as Record<string, unknown>)
+          .lastMessageAt,
+            'object',
+          );
+          assert.equal('provider' in response.body, false);
+          assert.equal('model' in response.body, false);
+          assert.equal('error' in response.body, false);
+        },
+      });
+    },
+  });
 });
 
 test('inflight-only snapshot returns inflight items and inflight payload', async () => {

@@ -15,7 +15,7 @@ import {
 
 function getChromaUrl(): string {
   const raw = process.env.CODEINFO_CHROMA_URL;
-  if (!raw || raw.trim() === '') return 'http://localhost:8000';
+  if (!raw || raw.trim() === '') return 'http://localhost:8300';
   return raw;
 }
 type MinimalCollection = {
@@ -440,7 +440,8 @@ export async function clearLockedModel(options?: {
     if (
       errorName.includes('ChromaNotFoundError') ||
       message.includes('ChromaNotFoundError') ||
-      message.includes('requested resource could not be found')
+      message.includes('requested resource could not be found') ||
+      message.includes('Missing metadata segment')
     ) {
       baseLogger.info('clearLockedModel skipped; collection missing');
       return;

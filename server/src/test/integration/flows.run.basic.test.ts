@@ -11,6 +11,10 @@ import supertest from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 
 import {
+  tryAcquireConversationLock,
+  releaseConversationLock,
+} from '../../agents/runLock.js';
+import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
 } from '../../agents/service.js';
@@ -24,8 +28,14 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __getPersistedFreshRunRetryOwnershipCompletionForTests,
+  __resetFreshRunRetryOwnershipCompletionForTests,
+  startFlowRun,
+} from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import type { Conversation } from '../../mongo/conversation.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -34,6 +44,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import {
   closeWs,
   connectWs,
@@ -161,12 +172,12 @@ class CapturingChat extends ChatInterface {
 }
 
 const waitFor = async (
-  predicate: () => boolean,
+  predicate: () => boolean | Promise<boolean>,
   timeoutMs = 4000,
 ): Promise<void> => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    if (predicate()) return;
+    if (await predicate()) return;
     await delay(20);
   }
   throw new Error('Timed out waiting for flow condition');
@@ -184,6 +195,43 @@ const waitForTurns = async (
     await delay(20);
   }
   throw new Error('Timed out waiting for flow turns');
+};
+
+const waitForTurnCountToStay = async (
+  conversationId: string,
+  expectedCount: number,
+  quietWindowMs = 150,
+  timeoutMs = 4000,
+) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const initialCount = (memoryTurns.get(conversationId) ?? []).length;
+    if (initialCount === expectedCount) {
+      await delay(quietWindowMs);
+      const finalCount = (memoryTurns.get(conversationId) ?? []).length;
+      if (finalCount === expectedCount) {
+        return;
+      }
+    }
+    await delay(20);
+  }
+  throw new Error('Timed out waiting for flow turn count to stay stable');
+};
+
+const waitForConversationUnlocked = async (
+  conversationId: string,
+  timeoutMs = 4000,
+) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const acquired = tryAcquireConversationLock(conversationId);
+    if (acquired) {
+      releaseConversationLock(conversationId);
+      return;
+    }
+    await delay(20);
+  }
+  throw new Error('Timed out waiting for flow unlock');
 };
 
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
@@ -204,6 +252,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetFreshRunRetryOwnershipCompletionForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -1098,9 +1147,10 @@ test('fresh executions of the same flow can run concurrently in different parent
   }
 });
 
-test('fresh-run retryOwnershipId reuses the accepted launch while the original run is still active, then clears for a later fresh run', async () => {
+test('durable retryOwnershipId replay reuses the accepted launch after completed-cache loss', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevNodeEnv = process.env.NODE_ENV;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -1114,60 +1164,309 @@ test('fresh-run retryOwnershipId reuses the accepted launch while the original r
   );
   await fs.cp(localFixturesDir, tmpDir, { recursive: true });
 
+  process.env.NODE_ENV = 'test';
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
   const customTitle = 'Accepted Retry Launch';
 
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+        }),
+    }),
+  );
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const ws = await connectWs({ baseUrl });
+
   try {
-    const firstResult = await startFlowRun({
-      flowName: 'llm-basic',
-      conversationId: 'flow-retry-ownership-a',
-      source: 'REST',
-      retryOwnershipId: 'fresh-run-retry-1',
-      customTitle,
-      chatFactory: () => new DelayedInstantChat(75),
+    const firstConversationId = 'flow-retry-ownership-a';
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId: firstConversationId,
     });
-    const secondResult = await startFlowRun({
-      flowName: 'llm-basic',
-      conversationId: 'flow-retry-ownership-b',
-      source: 'REST',
-      retryOwnershipId: 'fresh-run-retry-1',
-      customTitle,
-      chatFactory: () => new DelayedInstantChat(75),
+    const firstResultPromise = supertest(baseUrl)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: firstConversationId,
+        retryOwnershipId: 'fresh-run-retry-1',
+        customTitle,
+      })
+      .expect(202);
+    const firstFinalPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is { type: 'turn_final'; status: string } => {
+        const candidate = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return (
+          candidate.type === 'turn_final' &&
+          candidate.conversationId === firstConversationId &&
+          candidate.status === 'ok'
+        );
+      },
+      timeoutMs: 8000,
     });
-
-    assert.deepEqual(secondResult, firstResult);
-
-    await waitForTurns(firstResult.conversationId, (turns) =>
-      turns.some((turn) => turn.role === 'assistant'),
-    );
-    assert.equal(
-      getFlowExecutionId(firstResult.conversationId),
-      getFlowExecutionId(secondResult.conversationId),
+    const firstResult = (await firstResultPromise).body as {
+      flowName: string;
+      conversationId: string;
+      inflightId: string;
+      providerId: string;
+      modelId: string;
+      warnings?: string[];
+    };
+    await firstFinalPromise;
+    await waitForConversationUnlocked(firstResult.conversationId);
+    await waitFor(
+      async () =>
+        Boolean(
+          await __getPersistedFreshRunRetryOwnershipCompletionForTests({
+            flowName: 'llm-basic',
+            retryOwnershipId: 'fresh-run-retry-1',
+            launch: {
+              flowName: 'llm-basic',
+              source: 'REST',
+              customTitle,
+            },
+          }),
+        ),
+      20000,
     );
     assert.equal(
       memoryConversations.get(firstResult.conversationId)?.title,
       customTitle,
     );
-    await delay(50);
-    const thirdResult = await startFlowRun({
-      flowName: 'llm-basic',
-      conversationId: 'flow-retry-ownership-c',
-      source: 'REST',
-      retryOwnershipId: 'fresh-run-retry-1',
-      customTitle,
-      chatFactory: () => new DelayedInstantChat(75),
+    __resetFreshRunRetryOwnershipCompletionForTests();
+
+    const replayConversationId = 'flow-retry-ownership-b';
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId: replayConversationId,
     });
-    await waitForTurns(thirdResult.conversationId, (turns) =>
-      turns.some((turn) => turn.role === 'assistant'),
-    );
-    assert.notEqual(thirdResult.conversationId, firstResult.conversationId);
+    const replayResult = (
+      await supertest(baseUrl)
+        .post('/flows/llm-basic/run')
+        .send({
+          conversationId: replayConversationId,
+          retryOwnershipId: 'fresh-run-retry-1',
+          customTitle,
+        })
+        .expect(202)
+    ).body as typeof firstResult;
+    assert.deepEqual(replayResult, firstResult);
+    await waitForTurnCountToStay(firstResult.conversationId, 2);
   } finally {
     cleanupMemory(
       'flow-retry-ownership-a',
       'flow-retry-ownership-b',
-      'flow-retry-ownership-c',
     );
+    __resetFreshRunRetryOwnershipCompletionForTests();
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    if (prevNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = prevNodeEnv;
+    }
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('retryOwnershipId replay stays scoped to sourceId for ingested flows that share the same flow name', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevNodeEnv = process.env.NODE_ENV;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpLocalDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-retry-source-local-'),
+  );
+  const repoA = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-repo-a-'));
+  const repoB = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-repo-b-'));
+  await fs.mkdir(path.join(repoA, 'flows'), { recursive: true });
+  await fs.mkdir(path.join(repoB, 'flows'), { recursive: true });
+  await fs.cp(fixturesDir, path.join(repoA, 'flows'), { recursive: true });
+  await fs.cp(fixturesDir, path.join(repoB, 'flows'), { recursive: true });
+
+  process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpLocalDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(repoA), buildRepoEntry(repoB)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    const firstResult = (
+      await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({
+          conversationId: 'flow-retry-source-a',
+          sourceId: repoA,
+          retryOwnershipId: 'fresh-run-retry-1',
+        })
+        .expect(202)
+    ).body as {
+      conversationId: string;
+      inflightId: string;
+      providerId: string;
+      modelId: string;
+    };
+    await waitForConversationUnlocked(firstResult.conversationId);
+    await waitForTurns(firstResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    __resetFreshRunRetryOwnershipCompletionForTests();
+
+    const secondResult = (
+      await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({
+          conversationId: 'flow-retry-source-b',
+          sourceId: repoB,
+          retryOwnershipId: 'fresh-run-retry-1',
+        })
+        .expect(202)
+    ).body as typeof firstResult;
+    await waitForConversationUnlocked(secondResult.conversationId);
+    await waitForTurns(secondResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    assert.equal(firstResult.conversationId, 'flow-retry-source-a');
+    assert.equal(secondResult.conversationId, 'flow-retry-source-b');
+    assert.notDeepEqual(secondResult, firstResult);
+  } finally {
+    cleanupMemory('flow-retry-source-a', 'flow-retry-source-b');
+    __resetFreshRunRetryOwnershipCompletionForTests();
+    if (prevNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = prevNodeEnv;
+    }
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpLocalDir, { recursive: true, force: true });
+    await fs.rm(repoA, { recursive: true, force: true });
+    await fs.rm(repoB, { recursive: true, force: true });
+  }
+});
+
+test('flow run stops before turn persistence when metadata retries exhaust', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevNodeEnv = process.env.NODE_ENV;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-metadata-exhaust-'),
+  );
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  const workingFolder = path.join(tmpDir, 'repo-working-root');
+  const conversationId = 'flow-metadata-retry-exhausted';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  const originalSave = ConversationModel.prototype.save;
+  let updateAttempts = 0;
+
+  process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [],
+      run: async ({ conversations, turns }) => {
+        ConversationModel.prototype.save = (async function save(this: unknown) {
+          const doc = this as { _id?: unknown; toObject?: () => unknown };
+          const saved = {
+            ...structuredClone(doc.toObject?.() ?? doc),
+            _id: String(doc._id ?? conversationId),
+          } as Conversation;
+          conversations.set(String(saved._id), saved);
+          return saved;
+        }) as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => {
+              updateAttempts += 1;
+              return null;
+            },
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        const result = await startFlowRun({
+          flowName: 'llm-basic',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
+        });
+
+        assert.equal(result.conversationId, conversationId);
+        await waitFor(
+          () => updateAttempts > 0,
+          20000,
+        );
+        await waitForConversationUnlocked(conversationId, 20000);
+
+        assert.ok(updateAttempts > 0);
+        assert.equal(turns.length, 0);
+        assert.equal(conversations.get(conversationId)?.provider, 'codex');
+        assert.ok(conversations.get(conversationId)?.model);
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    ConversationModel.prototype.save = originalSave;
+    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    __resetFreshRunRetryOwnershipCompletionForTests();
+    if (prevNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = prevNodeEnv;
+    }
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;
@@ -1416,6 +1715,115 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
     }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
+  }
+});
+
+test('flow llm.basic stops before replay completion when persisted metadata reports not_found after a concurrent delete', async () => {
+  const prevNodeEnv = process.env.NODE_ENV;
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-not-found-'),
+  );
+  const workingFolder = path.join(tmpDir, 'repo-working-root');
+  const conversationId = 'flow-not-found-conversation';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  const originalSave = ConversationModel.prototype.save;
+  let updateAttempts = 0;
+
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await fs.mkdir(workingFolder, { recursive: true });
+
+  process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [],
+      run: async ({ conversations, turns }) => {
+        ConversationModel.prototype.save = (async function save(this: unknown) {
+          const doc = this as { _id?: unknown; toObject?: () => unknown };
+          const saved = {
+            ...structuredClone(doc.toObject?.() ?? doc),
+            _id: String(doc._id ?? conversationId),
+          } as Conversation;
+          conversations.set(String(saved._id), saved);
+          return saved;
+        }) as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => {
+              updateAttempts += 1;
+              conversations.delete(conversationId);
+              return null;
+            },
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        const app = express();
+        app.use(
+          createFlowsRunRouter({
+            startFlowRun: (params) =>
+              startFlowRun({
+                ...params,
+                chatFactory: () => new InstantChat(),
+                listIngestedRepositories: async () => ({
+                  repos: [buildRepoEntry(workingFolder)],
+                  lockedModelId: null,
+                }),
+              }),
+          }),
+        );
+
+        const response = await supertest(app)
+          .post('/flows/llm-basic/run')
+          .send({
+            conversationId,
+            retryOwnershipId: 'flow-not-found-retry-1',
+            working_folder: workingFolder,
+          });
+
+        assert.equal(response.status, 202);
+        assert.equal(response.body.status, 'started');
+        await waitFor(() => updateAttempts > 0, 20000);
+        await waitForConversationUnlocked(conversationId, 20000);
+        assert.ok(updateAttempts > 0);
+        assert.equal(turns.length, 0);
+        assert.equal(conversations.get(conversationId), undefined);
+        assert.equal(
+          await __getPersistedFreshRunRetryOwnershipCompletionForTests({
+            flowName: 'llm-basic',
+            retryOwnershipId: 'flow-not-found-retry-1',
+            launch: {
+              flowName: 'llm-basic',
+              source: 'REST',
+              workingFolder,
+            },
+          }),
+          null,
+        );
+      },
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    ConversationModel.prototype.save = originalSave;
+    if (prevNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = prevNodeEnv;
+    }
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 

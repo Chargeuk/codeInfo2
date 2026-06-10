@@ -1,11 +1,39 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import ChatPage from '../pages/ChatPage';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
+
+function setMatchMedia(matches: boolean) {
+  const original = window.matchMedia;
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string) =>
+      ({
+        matches,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      }) as unknown as MediaQueryList,
+  });
+
+  return () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: original,
+    });
+  };
+}
 
 beforeAll(() => {
   (
@@ -52,7 +80,7 @@ function streamFromFrames(frames: string[]) {
   });
 }
 
-test('chat send payload includes only conversationId and message', async () => {
+test('chat send payload includes conversationId, message, provider, and model', async () => {
   type ChatBody = {
     conversationId?: string;
     message?: string;
@@ -207,6 +235,373 @@ test('chat send payload includes working_folder when selected', async () => {
     throw new Error('Expected chat request body to be captured');
   }
   expect((chatBody as ChatBody).working_folder).toBe('/repo/selected');
+});
+
+test('chat send payload includes endpointId when the selected model is endpoint-backed', async () => {
+  type ChatBody = {
+    conversationId?: string;
+    message?: string;
+    provider?: string;
+    model?: string;
+    endpointId?: string;
+  };
+  let chatBody: ChatBody | null = null;
+
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (url.includes('/chat/providers')) {
+        return mockJsonResponse({
+          providers: [
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+          selectedProvider: 'codex',
+          selectedModel: 'gpt-5.1-codex-max',
+          selectedEndpointId: 'https://alpha.example/v1',
+        });
+      }
+      if (url.includes('/chat/models') && url.includes('provider=codex')) {
+        return mockJsonResponse({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+              endpointId: 'https://alpha.example/v1',
+            },
+          ],
+        });
+      }
+      if (url.includes('/chat/models')) {
+        return mockJsonResponse({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+        });
+      }
+      if (url.includes('/chat')) {
+        chatBody =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as ChatBody)
+            : null;
+        return new Response(
+          streamFromFrames([
+            'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
+            'data: {"type":"complete"}\n\n',
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    }),
+  );
+
+  render(<ChatPage />);
+
+  await waitFor(() =>
+    expect(screen.getByTestId('provider-select')).toHaveTextContent(
+      /OpenAI Codex/i,
+    ),
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('model-select')).toHaveTextContent(
+      /gpt-5\.1-codex-max/i,
+    ),
+  );
+
+  const input = await screen.findByTestId('chat-input');
+  fireEvent.change(input, { target: { value: 'Hello endpoint' } });
+  await waitFor(() =>
+    expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
+  );
+  fireEvent.click(screen.getByTestId('chat-send'));
+
+  await waitFor(() => expect(chatBody).not.toBeNull());
+  if (!chatBody) {
+    throw new Error('Expected chat request body to be captured');
+  }
+
+  expect(chatBody).toMatchObject({
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    endpointId: 'https://alpha.example/v1',
+  });
+});
+
+test('chat send payload clears stale endpointId after switching to LM Studio', async () => {
+  type ChatBody = {
+    conversationId?: string;
+    message?: string;
+    provider?: string;
+    model?: string;
+    endpointId?: string;
+  };
+  let chatBody: ChatBody | null = null;
+
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (url.includes('/chat/providers')) {
+        return mockJsonResponse({
+          providers: [
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+          selectedProvider: 'codex',
+          selectedModel: 'gpt-5.1-codex-max',
+          selectedEndpointId: 'https://alpha.example/v1',
+        });
+      }
+      if (url.includes('/chat/models') && url.includes('provider=codex')) {
+        return mockJsonResponse({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+              endpointId: 'https://alpha.example/v1',
+            },
+          ],
+        });
+      }
+      if (url.includes('/chat/models')) {
+        return mockJsonResponse({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+        });
+      }
+      if (url.includes('/chat')) {
+        chatBody =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as ChatBody)
+            : null;
+        return new Response(
+          streamFromFrames([
+            'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
+            'data: {"type":"complete"}\n\n',
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    }),
+  );
+
+  render(<ChatPage />);
+  const user = userEvent.setup();
+
+  await waitFor(() =>
+    expect(screen.getByTestId('provider-select')).toHaveTextContent(
+      /OpenAI Codex/i,
+    ),
+  );
+
+  await user.click(screen.getByRole('combobox', { name: /provider/i }));
+  await user.click(await screen.findByRole('option', { name: /LM Studio/i }));
+
+  await waitFor(() =>
+    expect(screen.getByTestId('provider-select')).toHaveTextContent(
+      /LM Studio/i,
+    ),
+  );
+
+  const input = await screen.findByTestId('chat-input');
+  fireEvent.change(input, { target: { value: 'Hello stale endpoint clear' } });
+  await waitFor(() =>
+    expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
+  );
+  fireEvent.click(screen.getByTestId('chat-send'));
+
+  await waitFor(() => expect(chatBody).not.toBeNull());
+  if (!chatBody) {
+    throw new Error('Expected chat request body to be captured');
+  }
+
+  expect(chatBody).toMatchObject({
+    provider: 'lmstudio',
+    model: 'lm',
+  });
+  expect(chatBody).not.toHaveProperty('endpointId');
+});
+
+test('chat send payload omits a stale endpointId on the compact mobile picker path', async () => {
+  type ChatBody = {
+    conversationId?: string;
+    message?: string;
+    provider?: string;
+    model?: string;
+    endpointId?: string;
+  };
+  const restoreMatchMedia = setMatchMedia(true);
+  let chatBody: ChatBody | null = null;
+
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (url.includes('/chat/providers')) {
+        return mockJsonResponse({
+          providers: [
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+          selectedProvider: 'codex',
+          selectedModel: 'gpt-5.2',
+          selectedEndpointId: 'https://alpha.example/stale/v1',
+        });
+      }
+      if (url.includes('/chat/models') && url.includes('provider=codex')) {
+        return mockJsonResponse({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          providerInfo: {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+            defaultModel: 'gpt-5.2',
+            defaultModelSource: 'config',
+          },
+          models: [
+            {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
+              type: 'codex',
+            },
+            {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
+              type: 'codex',
+              endpointId: 'https://alpha.example/alt/v1',
+            },
+          ],
+        });
+      }
+      if (url.includes('/chat/models')) {
+        return mockJsonResponse({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+        });
+      }
+      if (url.includes('/chat')) {
+        chatBody =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as ChatBody)
+            : null;
+        return new Response(
+          streamFromFrames([
+            'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
+            'data: {"type":"complete"}\n\n',
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    }),
+  );
+
+  try {
+    const router = createMemoryRouter(
+      [{ path: '/chat', element: <ChatPage /> }],
+      { initialEntries: ['/chat'] },
+    );
+    render(<RouterProvider router={router} />);
+
+    const providerButton = screen.getByTestId('provider-select');
+    expect(providerButton).toHaveAttribute('aria-label', 'Provider');
+    expect(providerButton).not.toHaveTextContent(/OpenAI Codex/i);
+
+    const modelButton = screen.getByTestId('model-select');
+    expect(modelButton).toHaveAttribute('aria-label', 'Model');
+    expect(modelButton).not.toHaveTextContent(/alpha\.example/i);
+    await waitFor(() => {
+      const modelInput = modelButton.querySelector('input');
+      expect(modelInput).not.toBeNull();
+      expect(modelInput).toHaveValue('gpt-5.2');
+    });
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, {
+      target: { value: 'Hello mobile stale endpoint' },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByTestId('chat-send'));
+
+    await waitFor(() => expect(chatBody).not.toBeNull());
+    if (!chatBody) {
+      throw new Error('Expected chat request body to be captured');
+    }
+
+    expect(chatBody).toMatchObject({
+      provider: 'codex',
+      model: 'gpt-5.2',
+    });
+    expect(chatBody).not.toHaveProperty('endpointId');
+  } finally {
+    restoreMatchMedia();
+  }
 });
 
 test('chat send payload keeps the Copilot request provider-neutral without legacy top-level Codex fields', async () => {

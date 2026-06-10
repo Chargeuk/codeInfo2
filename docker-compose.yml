@@ -27,7 +27,7 @@ services:
       - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5
       - CODEINFO_LMSTUDIO_BASE_URL=http://host.docker.internal:1234
       - CODEINFO_LOG_FILE_PATH=/app/logs/server.log
-      - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
+      - CODEINFO_CHROMA_URL=http://host.docker.internal:8300
       - HOME=/app/codex
       - CODEX_HOME=/app/codex
       - CODEINFO_CODEX_HOME=/app/codex
@@ -114,7 +114,7 @@ services:
 
   mongo:
     container_name: 'mongo_db_CodeInfo'
-    image: mongo:8
+    image: ${CODEINFO_MONGO_IMAGE:-mongo:8.2.9}
     command: ['mongod', '--replSet', 'rs0', '--bind_ip_all', '--port', '27017']
     ports:
       - 27517:27017
@@ -144,7 +144,7 @@ services:
       - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://host.docker.internal:4317/
       - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:
-      - '8000:8000'
+      - '8300:8000'
     networks:
       - internal
     healthcheck:

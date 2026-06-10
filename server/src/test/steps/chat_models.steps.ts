@@ -1,5 +1,8 @@
 import assert from 'assert';
 import type { Server } from 'http';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { mockModelsResponse } from '@codeinfo2/common';
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
@@ -7,6 +10,7 @@ import cors from 'cors';
 import express from 'express';
 import { append as appendLog, query } from '../../logStore.js';
 import { baseLogger, createRequestLogger } from '../../logger.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { createLogsRouter } from '../../routes/logs.js';
@@ -18,6 +22,10 @@ import {
   NAMED_COPILOT_SCENARIOS,
   type NamedCopilotScenario,
 } from '../support/copilotScenarioCatalog.js';
+import {
+  startExternalOpenAiCompatServer,
+  type ExternalOpenAiCompatServer,
+} from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   MockLMStudioClient,
@@ -27,11 +35,36 @@ import {
 } from '../support/mockLmStudioSdk.js';
 
 const TASK17_LOG_MARKER = 'story.0000051.task17.cucumber_scenarios_registered';
+const ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+const ORIGINAL_CODEX_MODEL_LIST = process.env.Codex_model_list;
 
 let server: Server | null = null;
 let baseUrl = '';
 let response: { status: number; body: unknown | null } | null = null;
 let namedCopilotScenarioServer: StartedNamedCopilotScenarioServer | null = null;
+let externalServers: ExternalOpenAiCompatServer[] = [];
+let tempCodexHomeForScenario: string | null = null;
+let discoveredEndpointId: string | null = null;
+let pinnedEndpointId: string | null = null;
+
+async function writeCodexChatConfig(params: {
+  home: string;
+  model: string;
+  endpointId: string;
+}) {
+  await fs.mkdir(path.join(params.home, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(params.home, 'chat', 'config.toml'),
+    [
+      `model = "${params.model}"`,
+      `codeinfo_openai_endpoint = "${params.endpointId}|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+}
 
 function createUnavailableCopilotLifecycle() {
   return createMockCopilotSdkHarness({
@@ -88,6 +121,53 @@ async function startLegacyModelsServer() {
   });
 }
 
+async function startExternalEndpointModelsScenario(params: {
+  discoveredModels: string[];
+  pinnedModels?: string[];
+  pinnedEndpointAbsentFromEnv?: boolean;
+  codexConfigModel?: string;
+}) {
+  const discoveredServer = await startExternalOpenAiCompatServer({
+    models: params.discoveredModels,
+  });
+  externalServers.push(discoveredServer);
+  discoveredEndpointId = `${discoveredServer.baseUrl}/v1`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${discoveredEndpointId}|responses,completions`;
+
+  if (params.pinnedModels) {
+    const pinnedServer = await startExternalOpenAiCompatServer({
+      models: params.pinnedModels,
+    });
+    externalServers.push(pinnedServer);
+    pinnedEndpointId = `${pinnedServer.baseUrl}/v1`;
+    if (params.pinnedEndpointAbsentFromEnv) {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${discoveredEndpointId}|responses,completions`;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${discoveredEndpointId}|responses,completions,${pinnedEndpointId}|responses`;
+    }
+    tempCodexHomeForScenario = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'chat-models-codex-home-'),
+    );
+    await writeCodexChatConfig({
+      home: tempCodexHomeForScenario,
+      model: params.codexConfigModel ?? params.pinnedModels[0] ?? 'gpt-5.1-codex-max',
+      endpointId: pinnedEndpointId,
+    });
+    process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
+    return;
+  }
+
+  tempCodexHomeForScenario = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-codex-home-'),
+  );
+  await writeCodexChatConfig({
+    home: tempCodexHomeForScenario,
+    model: params.codexConfigModel ?? params.discoveredModels[0] ?? 'gpt-5.1-codex-max',
+    endpointId: discoveredEndpointId,
+  });
+  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
+}
+
 function registerTask17Scenario(scenarioName: NamedCopilotScenario) {
   const context = {
     scenario: scenarioName,
@@ -106,8 +186,18 @@ function registerTask17Scenario(scenarioName: NamedCopilotScenario) {
 
 Before(async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: false,
+    reason: 'not detected',
+  });
   response = null;
   baseUrl = '';
+  discoveredEndpointId = null;
+  pinnedEndpointId = null;
+  externalServers = [];
+  tempCodexHomeForScenario = null;
 });
 
 After(async () => {
@@ -116,6 +206,35 @@ After(async () => {
     await namedCopilotScenarioServer.stop();
     namedCopilotScenarioServer = null;
   }
+  while (externalServers.length > 0) {
+    await externalServers.pop()!.stop();
+  }
+  if (tempCodexHomeForScenario) {
+    await fs.rm(tempCodexHomeForScenario, { recursive: true, force: true });
+    tempCodexHomeForScenario = null;
+  }
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: false,
+    reason: 'not detected',
+  });
+  if (ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  }
+  if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+    delete process.env.CODEINFO_CODEX_HOME;
+  } else {
+    process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
+  }
+  if (ORIGINAL_CODEX_MODEL_LIST === undefined) {
+    delete process.env.Codex_model_list;
+  } else {
+    process.env.Codex_model_list = ORIGINAL_CODEX_MODEL_LIST;
+  }
   if (server) {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
@@ -123,6 +242,70 @@ After(async () => {
 });
 
 Given('chat models scenario {string}', async (name: string) => {
+  if (name === 'external-endpoint-discovery') {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    await startExternalEndpointModelsScenario({
+      discoveredModels: ['gpt-5.1-codex-max', 'gpt-5.2'],
+    });
+    await startLegacyModelsServer();
+    return;
+  }
+
+  if (name === 'external-endpoint-native-default-clears-stale-endpoint') {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    process.env.Codex_model_list = 'builtin-a,builtin-b';
+    await startExternalEndpointModelsScenario({
+      discoveredModels: ['external-alpha'],
+      pinnedModels: ['external-beta'],
+      pinnedEndpointAbsentFromEnv: true,
+      codexConfigModel: 'builtin-a',
+    });
+    await startLegacyModelsServer();
+    return;
+  }
+
+  if (name === 'external-endpoint-picker-bootstrap') {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    await startExternalEndpointModelsScenario({
+      discoveredModels: ['gpt-5.1-codex-max'],
+      pinnedModels: ['gpt-5.2'],
+      pinnedEndpointAbsentFromEnv: true,
+    });
+    await startLegacyModelsServer();
+    return;
+  }
+
+  if (name === 'external-endpoint-picker-bootstrap-duplicate-ids') {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    await startExternalEndpointModelsScenario({
+      discoveredModels: ['shared-model'],
+      pinnedModels: ['shared-model'],
+      pinnedEndpointAbsentFromEnv: true,
+    });
+    await startLegacyModelsServer();
+    return;
+  }
+
   if (isNamedCopilotScenario(name)) {
     namedCopilotScenarioServer = await startNamedCopilotScenarioServer({
       scenarioName: name,
@@ -164,7 +347,66 @@ Then('the chat providers response status code is {int}', (status: number) => {
   assert.equal(response.status, status);
 });
 
-Then('the chat models body matches the normalized mock models fixture', () => {
+Then(
+  'the chat providers response selected provider is {string}',
+  (provider: string) => {
+    assert(response?.body, 'expected response body');
+    assert.equal(
+      String((response.body as Record<string, unknown>).selectedProvider),
+      provider,
+    );
+  },
+);
+
+Then(
+  'the chat providers response selected endpoint is {string}',
+  (endpoint: string) => {
+    assert(response?.body, 'expected response body');
+    const selectedEndpointId = String(
+      (response.body as Record<string, unknown>).selectedEndpointId ?? '',
+    );
+    if (endpoint === 'none' || endpoint === 'absent') {
+      assert.equal(selectedEndpointId, '');
+      return;
+    }
+    if (endpoint === 'discovered endpoint') {
+      assert.equal(selectedEndpointId, discoveredEndpointId);
+      return;
+    }
+    if (endpoint === 'pinned endpoint') {
+      assert.equal(selectedEndpointId, pinnedEndpointId);
+      return;
+    }
+    assert.equal(selectedEndpointId, endpoint);
+  },
+);
+
+Then(
+  'the chat models response selected endpoint is {string}',
+  (endpoint: string) => {
+    assert(response?.body, 'expected response body');
+    const selectedEndpointId = String(
+      (response.body as Record<string, unknown>).selectedEndpointId ?? '',
+    );
+    if (endpoint === 'none' || endpoint === 'absent') {
+      assert.equal(selectedEndpointId, '');
+      return;
+    }
+    if (endpoint === 'discovered endpoint') {
+      assert.equal(selectedEndpointId, discoveredEndpointId);
+      return;
+    }
+    if (endpoint === 'pinned endpoint') {
+      assert.equal(selectedEndpointId, pinnedEndpointId);
+      return;
+    }
+    assert.equal(selectedEndpointId, endpoint);
+  },
+);
+
+Then(
+  'the chat models body matches the mock models fixture ignoring provider metadata',
+  () => {
   assert(response, 'expected response');
   const body = response.body as Record<string, unknown>;
   const normalized = {
@@ -178,7 +420,8 @@ Then('the chat models body matches the normalized mock models fixture', () => {
     providers: undefined,
   };
   assert.deepStrictEqual(normalized, expected);
-});
+  },
+);
 
 Then(
   'the chat models response includes provider-neutral providers metadata',
@@ -250,6 +493,33 @@ Then('the chat models list includes model {string}', (modelKey: string) => {
   const model = models.find((entry) => entry.key === modelKey);
   assert(model, `expected model ${modelKey}`);
 });
+
+Then(
+  'the chat models response includes model {string} on endpoint {string}',
+  (modelKey: string, endpoint: string) => {
+    assert(response?.body, 'expected response body');
+    const models = (response.body as { models?: Array<Record<string, unknown>> })
+      .models;
+    assert(Array.isArray(models), 'expected models array');
+    const expectedEndpointId =
+      endpoint === 'discovered endpoint'
+        ? discoveredEndpointId
+        : endpoint === 'pinned endpoint'
+          ? pinnedEndpointId
+          : endpoint;
+    const model = models.find(
+      (entry) =>
+        entry.key === modelKey &&
+        String((entry as Record<string, unknown>).endpointId ?? '') ===
+          String(expectedEndpointId ?? ''),
+    );
+    assert(model, `expected model ${modelKey}`);
+    assert.equal(
+      String((model as Record<string, unknown>).endpointId ?? ''),
+      String(expectedEndpointId ?? ''),
+    );
+  },
+);
 
 Then(
   'the Copilot Cucumber registration log records scenario {string}',

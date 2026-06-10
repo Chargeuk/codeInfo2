@@ -42,11 +42,17 @@ async function ensureMongoContainer() {
 }
 
 async function connectScenarioMongo() {
-  const started = await ensureMongoContainer();
-  const host = started.getHost();
-  const port = started.getMappedPort(27017);
-  const uri = `mongodb://${host}:${port}/db?directConnection=true`;
-  process.env.CODEINFO_MONGO_URI = uri;
+  const configuredMongoUri = process.env.CODEINFO_MONGO_URI?.trim();
+  let uri = configuredMongoUri;
+
+  if (!uri) {
+    const started = await ensureMongoContainer();
+    const host = started.getHost();
+    const port = started.getMappedPort(27017);
+    uri = `mongodb://${host}:${port}/db?directConnection=true`;
+    process.env.CODEINFO_MONGO_URI = uri;
+  }
+
   await connectMongo(uri);
   await IngestFileModel.deleteMany({}).exec();
 }

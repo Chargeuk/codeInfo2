@@ -72,4 +72,24 @@ describe('WorkspaceMobileTopBar', () => {
     expect(onMenuClick).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('heading', { name: 'Chat' })).toBeVisible();
   });
+
+  it('disables the mobile new action when the reset lock is active', () => {
+    const onNewClick = jest.fn();
+
+    render(
+      <WorkspaceMobileTopBar
+        title="Chat"
+        showConversationsButton
+        onConversationsClick={() => {}}
+        onNewClick={onNewClick}
+        newButtonLabel="New chat"
+        newButtonDisabled
+        onMenuClick={() => {}}
+      />,
+    );
+
+    const newButton = screen.getByRole('button', { name: /^New chat$/i });
+    expect(newButton).toBeDisabled();
+    expect(onNewClick).not.toHaveBeenCalled();
+  });
 });

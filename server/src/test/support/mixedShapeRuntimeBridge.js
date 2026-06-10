@@ -1,6 +1,6 @@
 import { ChromaClient } from 'chromadb';
 
-const DEFAULT_CHROMA_URL = 'http://localhost:8000';
+const DEFAULT_CHROMA_URL = 'http://localhost:8300';
 const DEFAULT_ROOTS_COLLECTION = 'ingest_roots';
 const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 

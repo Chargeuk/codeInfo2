@@ -692,6 +692,10 @@ export default function FlowsPage() {
   };
 
   const handlePickDir = (path: string) => {
+    if (workingFolderDisabledRef.current) {
+      setDirPickerOpen(false);
+      return;
+    }
     const trimmedWorkingFolder = path.trim();
     setWorkingFolder(trimmedWorkingFolder);
     log('info', 'flows.ui.working_folder.selected', {
@@ -703,6 +707,15 @@ export default function FlowsPage() {
 
   const handleCloseDirPicker = () => {
     setDirPickerOpen(false);
+  };
+
+  const handleClearDirPicker = () => {
+    setDirPickerOpen(false);
+    if (workingFolderDisabledRef.current) {
+      return;
+    }
+    setWorkingFolder('');
+    void persistWorkingFolder('');
   };
 
   const loadFlows = useCallback(async () => {
@@ -1588,6 +1601,13 @@ export default function FlowsPage() {
   }, [isWorkingFolderDisabled]);
 
   useEffect(() => {
+    if (!isWorkingFolderDisabled || !dirPickerOpen) {
+      return;
+    }
+    setDirPickerOpen(false);
+  }, [dirPickerOpen, isWorkingFolderDisabled]);
+
+  useEffect(() => {
     if (!flowWorkingFolderLocked) {
       workingFolderLockKeyRef.current = null;
       return;
@@ -2253,11 +2273,7 @@ export default function FlowsPage() {
         path={workingFolder}
         onClose={handleCloseDirPicker}
         onPick={handlePickDir}
-        onClear={() => {
-          setWorkingFolder('');
-          setDirPickerOpen(false);
-          void persistWorkingFolder('');
-        }}
+        onClear={handleClearDirPicker}
       />
       <Snackbar
         open={Boolean(titleCopyFeedback)}

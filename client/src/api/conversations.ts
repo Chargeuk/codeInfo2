@@ -19,6 +19,7 @@ export type ConversationApiSummary = {
 };
 
 export type ConversationFlags = Record<string, unknown> & {
+  endpointId?: string;
   flow?: {
     executionId?: string;
     stepPath?: unknown;

@@ -70,6 +70,10 @@ export function sanitizeConversationFlagsForProvider(
     next.requestedProviderId = flags.requestedProviderId.trim();
   }
 
+  if (typeof flags.endpointId === 'string' && flags.endpointId.trim()) {
+    next.endpointId = flags.endpointId.trim();
+  }
+
   if (options?.preserveFlowState === true) {
     if (isPlainObject(flags.flow)) {
       next.flow = flags.flow;
@@ -101,6 +105,7 @@ export function buildConversationFlags(params: {
   agentFlags?: Record<string, unknown>;
   workingFolder?: string;
   threadId?: string | null;
+  endpointId?: string | null;
   preserveFlowState?: boolean;
 }): Record<string, unknown> {
   const next = sanitizeConversationFlagsForProvider(
@@ -130,6 +135,21 @@ export function buildConversationFlags(params: {
     next.threadId = params.threadId.trim();
   } else {
     delete next.threadId;
+  }
+
+  if (params.endpointId === undefined) {
+    if (!next.endpointId || typeof next.endpointId !== 'string') {
+      delete next.endpointId;
+    }
+  } else if (params.endpointId === null) {
+    delete next.endpointId;
+  } else {
+    const trimmedEndpointId = params.endpointId.trim();
+    if (trimmedEndpointId) {
+      next.endpointId = trimmedEndpointId;
+    } else {
+      delete next.endpointId;
+    }
   }
 
   return next;

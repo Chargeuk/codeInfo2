@@ -12,13 +12,22 @@ import {
 } from '../../ingest/chromaClient.js';
 
 let environment: StartedDockerComposeEnvironment | null = null;
-let envPromise: Promise<StartedDockerComposeEnvironment> | null = null;
+let envPromise: Promise<StartedDockerComposeEnvironment | null> | null = null;
 let stopping = false;
 
 process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
 process.env.TESTCONTAINERS_HOST_OVERRIDE ??= 'host.docker.internal';
 
 setDefaultTimeout(120_000);
+
+async function hasReachableExternalChroma(baseUrl: string) {
+  try {
+    const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/v2/heartbeat`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 async function ensureContainer() {
   console.log(
@@ -31,6 +40,18 @@ async function ensureContainer() {
   );
   if (environment) return environment;
   if (envPromise) return envPromise;
+
+  const configuredChromaUrl = process.env.CODEINFO_CHROMA_URL?.trim();
+  if (
+    configuredChromaUrl &&
+    (await hasReachableExternalChroma(configuredChromaUrl))
+  ) {
+    console.log(
+      `[chroma-compose] using reachable preconfigured CODEINFO_CHROMA_URL=${configuredChromaUrl}`,
+    );
+    envPromise = Promise.resolve(null);
+    return envPromise;
+  }
 
   const composeFile = 'docker-compose.chroma.yml';
   const composePath = path.resolve(

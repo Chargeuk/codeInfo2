@@ -2656,8 +2656,8 @@ Repair the shared conversation metadata persistence seam so `updateConversationM
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `c094fd16`
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260609T214316Z-d1783561`. It must revalidate the current review-created findings block for review pass `0000059-20260609T204743Z-be606c98` and also state explicitly that this active review cycle has no inline-resolved minor findings to re-cover unless later same-cycle work changes that fact.
 
 #### Overview
@@ -2761,6 +2761,7 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Validation note: `npm run compose:down` completed cleanly after the smoke validation, so the repository-supported main stack shutdown path is proven on the checked-in compose route.
 - Validation note: `npm run lint` passed cleanly on the repaired Story 59 head, keeping the final review-cycle validation surface free of lint regressions.
 - Validation note: `npm run format:check` passed cleanly on the repaired Story 59 head, keeping the final review-cycle validation surface free of formatting regressions.
+- Automated-proof audit: the recorded wrapper and test-result artifacts on disk now support every Task 26 checkbox, no additional repository proof category was needed, and the task closes cleanly without introducing new Story 59 behavior.
 
 #### Manual Testing Guidance
 

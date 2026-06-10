@@ -27,6 +27,7 @@ import {
   toCodexDefaultSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
+import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
 import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import { baseLogger } from '../logger.js';
 import { validateRequestedWorkingFolder } from '../workingFolders/state.js';
@@ -78,6 +79,11 @@ export class ChatValidationError extends Error {
     this.code = code;
   }
 }
+
+const normalizeEndpointIdValidationMessage = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/^RUNTIME_CONFIG_INVALID:\s*endpointId:\s*/, '');
+};
 
 const validateRawTextInput = (params: {
   field: 'message';
@@ -472,7 +478,15 @@ export async function validateChatRequest(
     if (typeof rawEndpointId !== 'string' || rawEndpointId.trim().length === 0) {
       throw new ChatValidationError('endpointId must be a non-empty string');
     }
-    endpointId = rawEndpointId.trim();
+    try {
+      endpointId = normalizeOpenAiCompatEndpointId(rawEndpointId, {
+        pathLabel: 'endpointId',
+      });
+    } catch (error) {
+      throw new ChatValidationError(
+        `endpointId is invalid: ${normalizeEndpointIdValidationMessage(error)}`,
+      );
+    }
   }
   if (endpointId && provider === 'lmstudio') {
     throw new ChatValidationError(

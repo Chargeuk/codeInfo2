@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { type ChatProviderId } from '@codeinfo2/common';
+import { isChatProviderId, type ChatProviderId } from '@codeinfo2/common';
 import toml from 'toml';
 
 import { discoverAgents } from '../agents/discovery.js';
@@ -1381,10 +1381,15 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       surface: params.surface,
       warnings: metadataWarnings,
     });
+    const overrideProvider = stripped.appMetadata.codeinfoProvider?.trim() ?? '';
+    let effectiveProvider: ChatProviderId = provider;
+    if (isChatProviderId(overrideProvider)) {
+      effectiveProvider = overrideProvider;
+    }
     if (stripped.appMetadata.codeinfoOpenAiEndpoint) {
       validateOpenAiCompatEndpointConfigForProvider({
         endpoint: stripped.appMetadata.codeinfoOpenAiEndpoint,
-        provider,
+        provider: effectiveProvider,
         pathLabel: `${params.surface}.${CODEINFO_OPENAI_ENDPOINT_METADATA_KEY}`,
       });
     }

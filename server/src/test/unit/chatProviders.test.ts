@@ -989,6 +989,60 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
   }
 });
 
+test('providers route warns when a pinned Copilot endpoint is filtered out by provider capability mismatch', async () => {
+  await setCodexHome('model = "config-model"\n');
+  await setCopilotHome(
+    [
+      'model = "copilot-gpt-5"',
+      'codeinfo_openai_endpoint = "https://alpha.example/v1|responses"',
+      '',
+    ].join('\n'),
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('COPILOT_GITHUB_TOKEN', 'ghu_test_token_value');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'provider-copilot-capability-mismatch',
+    authStatus: {
+      isAuthenticated: true,
+      authType: 'gh-cli',
+      statusMessage: 'authenticated via gh',
+    },
+    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    const copilot = (res.body.providers as Array<Record<string, unknown>>).find(
+      (provider) => provider.id === 'copilot',
+    );
+    assert.ok(copilot);
+    assert.equal(res.body.selectedEndpointId, undefined);
+    assert.match(
+      (copilot.warnings as string[]).join('\n'),
+      /pinned endpoint "https:\/\/alpha\.example\/v1" is ignored for discovery because it does not advertise the capabilities required by provider "copilot"/u,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('providers route clamps unsupported Copilot config defaults to the runtime-supported values', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome(

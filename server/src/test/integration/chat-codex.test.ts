@@ -1309,6 +1309,12 @@ test('endpoint-unavailable Codex chat falls back to the same provider native pat
 });
 
 test('pinned Codex chat fails in place when the saved endpoint later becomes unavailable', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
   const externalServer = await startExternalOpenAiCompatServer({
     responseMode: 'transport-failure',
   });
@@ -1451,7 +1457,85 @@ test('resumed Codex chat ignores a contradictory request endpointId when a saved
   }
 });
 
-test('adding endpoint identity to a saved Codex thread clears the stale thread before a replacement thread exists', async () => {
+test('resumed native Codex chat ignores a contradictory request endpointId when the saved conversation has no endpoint pin', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const requestEndpointServer = await startExternalOpenAiCompatServer({
+    models: ['gpt-5.1-codex-max'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${requestEndpointServer.baseUrl}/v1|responses`;
+
+  const conversationId = 'conv-codex-native-resume-ignores-request-endpoint';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved native execution identity',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-saved-native',
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new MockCodex('thread-saved-native');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          endpointId: `${requestEndpointServer.baseUrl}/v1`,
+          message: 'Keep the saved native execution identity',
+        }),
+      )
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-native');
+    assert.equal(requestEndpointServer.requestCount(), 0);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      undefined,
+    );
+  } finally {
+    await requestEndpointServer.stop();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('resumed native Codex chat keeps the saved thread instead of drifting onto a newly requested endpoint', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -1533,15 +1617,15 @@ test('adding endpoint identity to a saved Codex thread clears the stale thread b
 
     assert.equal(response.body.provider, 'codex');
     assert.equal(response.body.model, 'gpt-5.1-codex-max');
-    assert.equal(mockCodex.lastResumeThreadId, undefined);
-    assert.ok(mockCodex.lastStartOptions);
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-endpoint');
+    assert.equal(mockCodex.lastStartOptions, undefined);
     assert.equal(
       memoryConversations.get(conversationId)?.flags?.endpointId,
-      `${endpointServer.baseUrl}/v1`,
+      undefined,
     );
     assert.equal(
       memoryConversations.get(conversationId)?.flags?.threadId,
-      undefined,
+      'thread-saved-endpoint',
     );
   } finally {
     await endpointServer.stop();

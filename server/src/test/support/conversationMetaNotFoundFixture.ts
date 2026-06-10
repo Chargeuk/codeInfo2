@@ -34,9 +34,15 @@ export async function withConversationMetaNotFoundFixture<T>(params: {
 
   ConversationModel.findById = ((id: unknown) => ({
     lean: () => ({
-      exec: async () => conversations.get(String(id)) ?? null,
+      exec: async () => {
+        const conversation = conversations.get(String(id));
+        return conversation ? cloneConversation(conversation) : null;
+      },
     }),
-    exec: async () => conversations.get(String(id)) ?? null,
+    exec: async () => {
+      const conversation = conversations.get(String(id));
+      return conversation ? cloneConversation(conversation) : null;
+    },
   })) as typeof ConversationModel.findById;
 
   ConversationModel.findOneAndUpdate = ((

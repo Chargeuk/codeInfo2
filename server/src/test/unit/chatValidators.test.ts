@@ -381,6 +381,18 @@ test('chat request rejects a stale endpointId when defaults resolve to LM Studio
   );
 });
 
+test('chat request normalizes endpointId before later runtime selection uses it', async () => {
+  const result = await validateChatRequest({
+    model: 'gpt-5.1-codex-max',
+    message: 'hello',
+    conversationId: 'normalized-endpoint-id',
+    provider: 'codex',
+    endpointId: ' https://EXAMPLE.com/v1/ ',
+  });
+
+  assert.equal(result.endpointId, 'https://example.com/v1');
+});
+
 test('blank or whitespace-only LM Studio flag values fail validation instead of being trimmed into valid input', async () => {
   await assert.rejects(
     async () =>

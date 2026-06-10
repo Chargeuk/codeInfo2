@@ -224,6 +224,14 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
     lmstudioHome: params.lmstudioHome,
     warnings,
   });
+  if (
+    pinnedEndpoint &&
+    !providerSupportsOpenAiCompatEndpoint(params.provider, pinnedEndpoint)
+  ) {
+    warnings.push(
+      `${params.provider}/chat/config.toml pinned endpoint "${pinnedEndpoint.endpointId}" is ignored for discovery because it does not advertise the capabilities required by provider "${params.provider}".`,
+    );
+  }
 
   const discovery = await discoverOpenAiCompatEndpointModels({
     endpoints: envResolution.endpoints.filter((endpoint) =>

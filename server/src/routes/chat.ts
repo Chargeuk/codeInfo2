@@ -753,10 +753,9 @@ export function createChatRouter({
       throw error;
     }
     const selectedEndpointId =
-      resumedExecutionIdentity?.endpointId ??
-      endpointId ??
-      pinnedSelectedEndpoint?.endpointId ??
-      undefined;
+      resumedExecutionIdentity !== null
+        ? (resumedExecutionIdentity.endpointId ?? undefined)
+        : endpointId ?? pinnedSelectedEndpoint?.endpointId ?? undefined;
     let selectedOpenAiCompatEndpoint: OpenAiCompatEndpointConfig | undefined;
     try {
       selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({

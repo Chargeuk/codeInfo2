@@ -326,6 +326,7 @@ type DirectAgentPreparedExecution = {
   executionProviderId: ChatProviderId;
   modelId: string;
   endpointId?: string;
+  openAiCompatEndpoint?: OpenAiCompatEndpointConfig;
   runtimePath?: RuntimeProviderSelectionPath;
   runtimeConfig: CodexOptions['config'];
   warnings: string[];
@@ -932,6 +933,12 @@ async function prepareDirectAgentExecution(params: {
       executionProviderId: runtimeSelection.executionProvider,
       modelId: runtimeSelection.executionModel,
       endpointId,
+      openAiCompatEndpoint:
+        runtimeSelection.executionProvider === 'copilot' &&
+        endpointId &&
+        providerRuntimeResolution.endpoint?.endpointId === endpointId
+          ? providerRuntimeResolution.endpoint
+          : undefined,
       runtimePath,
       runtimeConfig: cloneRuntimeConfigWithModel(
         runtimeConfig,
@@ -1113,6 +1120,12 @@ async function prepareDirectAgentExecution(params: {
       executionProviderId: runtimeSelection.executionProvider,
       modelId: runtimeSelection.executionModel,
       endpointId,
+      openAiCompatEndpoint:
+        runtimeSelection.executionProvider === 'copilot' &&
+        endpointId &&
+        providerRuntimeResolution.endpoint?.endpointId === endpointId
+          ? providerRuntimeResolution.endpoint
+          : undefined,
       runtimePath: runtimeSelection.executionPath,
       runtimeConfig: cloneRuntimeConfigWithModel(
         runtimeConfig,
@@ -2806,6 +2819,8 @@ export async function runAgentInstructionUnlocked(params: {
                 repositoryContext: preparedExecution.repositoryContext,
                 ...(executionProviderId === 'copilot'
                   ? {
+                      codeinfoOpenAiEndpoint:
+                        preparedExecution.openAiCompatEndpoint,
                       copilotModels: preparedExecution.copilotModels,
                       resumeConversation: shouldResumeCopilotSession,
                       runtimeConfig: preparedExecution.runtimeConfig,

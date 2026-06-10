@@ -470,57 +470,60 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
   const originalError = console.error;
   const infoLogs: string[] = [];
   const errorLogs: string[] = [];
-  console.info = (...args: unknown[]) => {
-    infoLogs.push(args.map(String).join(' '));
-  };
-  console.error = (...args: unknown[]) => {
-    errorLogs.push(args.map(String).join(' '));
-  };
+  const conversationId = 'flow-resume-endpoint-fail';
+  const childConversationId = 'agent-conv-resume-endpoint-fail';
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const agentHome = path.join(agentsHome, 'coding_agent');
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-endpoint-fail-'),
   );
-  await writeResumeFlow(tmpDir);
-
-  const externalServer = await startExternalOpenAiCompatServer({
-    responseMode: 'transport-failure',
-  });
-  const endpointId = `${externalServer.baseUrl}/v1`;
-
-  await fs.mkdir(agentHome, { recursive: true });
-  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
-  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
-  await fs.writeFile(
-    path.join(agentHome, 'config.toml'),
-    [
-      'codeinfo_provider = "codex"',
-      'model = "gpt-5.2-codex"',
-      `codeinfo_openai_endpoint = "${endpointId}|responses"`,
-      '',
-    ].join('\n'),
-    'utf8',
-  );
-  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
-  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
-  await fs.writeFile(
-    path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
-    'utf8',
-  );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEX_HOME = codexHome;
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
-
-  const conversationId = 'flow-resume-endpoint-fail';
-  const childConversationId = 'agent-conv-resume-endpoint-fail';
+  let externalServer: Awaited<
+    ReturnType<typeof startExternalOpenAiCompatServer>
+  > | null = null;
 
   try {
+    console.info = (...args: unknown[]) => {
+      infoLogs.push(args.map(String).join(' '));
+    };
+    console.error = (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(' '));
+    };
+    await writeResumeFlow(tmpDir);
+
+    externalServer = await startExternalOpenAiCompatServer({
+      responseMode: 'transport-failure',
+    });
+    const endpointId = `${externalServer.baseUrl}/v1`;
+
+    await fs.mkdir(agentHome, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      [
+        'codeinfo_provider = "codex"',
+        'model = "gpt-5.2-codex"',
+        `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "gpt-5.2-codex"\n',
+      'utf8',
+    );
+
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+    process.env.CODEX_HOME = codexHome;
+    process.env.FLOWS_DIR = tmpDir;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
+
     await withMockedMongoConversationPersistence({
       seedConversations: [
         {
@@ -537,6 +540,12 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
               loopStack: [],
               agentConversations: {
                 'coding_agent:resume-test': childConversationId,
+              },
+              agentProviders: {
+                'coding_agent:resume-test': 'codex',
+              },
+              agentModels: {
+                'coding_agent:resume-test': 'flow-current-model',
               },
               agentEndpointIds: {
                 'coding_agent:resume-test': endpointId,
@@ -600,7 +609,7 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
   } finally {
     console.info = originalInfo;
     console.error = originalError;
-    await externalServer.stop();
+    await externalServer?.stop();
     if (prevAgentHome === undefined) {
       delete process.env.CODEINFO_AGENT_HOME;
     } else {
@@ -859,7 +868,7 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
   }
 });
 
-test('Task 15 blocks resumed flow-owned endpoint execution when codex bootstrap is degraded even if the endpoint is healthy', async () => {
+test('Task 15 keeps the saved child endpoint record untouched when degraded codex bootstrap forces resumed flow fallback selection', async () => {
   const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
   const prevLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -941,6 +950,11 @@ test('Task 15 blocks resumed flow-owned endpoint execution when codex bootstrap 
       authSource: 'env-token',
     }),
   });
+  __setFlowResumeTestDepsForTests({
+    ensureFlowChildConversationOwnership: async () => ({
+      needsExecutionIdBackfill: false,
+    }),
+  });
   __setProviderBootstrapStatusForTests('codex', {
     healthy: false,
     reason: 'codex bootstrap degraded',
@@ -957,12 +971,22 @@ test('Task 15 blocks resumed flow-owned endpoint execution when codex bootstrap 
           flowName: 'resume-basic',
           source: 'REST',
           flags: {
+            requestedProviderId: 'codex',
             flow: {
               executionId: 'resume-execution-endpoint-degraded',
               stepPath: [0],
               loopStack: [],
               agentConversations: {
                 'coding_agent:resume-test': childConversationId,
+              },
+              agentProviders: {
+                'coding_agent:resume-test': 'codex',
+              },
+              agentModels: {
+                'coding_agent:resume-test': 'flow-current-model',
+              },
+              agentRequestedProviders: {
+                'coding_agent:resume-test': 'codex',
               },
               agentEndpointIds: {
                 'coding_agent:resume-test': endpointId,
@@ -983,6 +1007,7 @@ test('Task 15 blocks resumed flow-owned endpoint execution when codex bootstrap 
           agentName: 'coding_agent',
           source: 'REST',
           flags: {
+            requestedProviderId: 'codex',
             endpointId,
             flowChild: {
               executionId: 'resume-execution-endpoint-degraded',
@@ -995,20 +1020,16 @@ test('Task 15 blocks resumed flow-owned endpoint execution when codex bootstrap 
         } as Conversation,
       ],
       run: async ({ conversations }) => {
-        await assert.rejects(
-          () =>
-            startFlowRun({
-              flowName: 'resume-basic',
-              conversationId,
-              resumeStepPath: [0],
-              source: 'REST',
-              chatFactory: () => new MinimalChat(),
-            }),
-          (error: unknown) => {
-            assert.equal((error as { code?: string }).code, 'PROVIDER_UNAVAILABLE');
-            return true;
-          },
-        );
+        const result = await startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        });
+
+        assert.equal(result.providerId, 'copilot');
+        assert.equal(result.modelId, 'flow-current-model');
 
         assert.equal(
           (

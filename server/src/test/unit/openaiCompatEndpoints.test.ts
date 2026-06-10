@@ -142,6 +142,6 @@ test('resolves env-list entries with deduped, first-wins endpoint ordering', () 
   assert.equal(resolved.warnings.length, 1);
   assert.match(
     resolved.warnings[0] ?? '',
-    /duplicates normalized endpoint https:\/\/example.com\/v1; keeping first entry/,
+    /duplicates normalized endpoint https:\/\/example\.com\/v1; keeping first entry/,
   );
 });

@@ -7,6 +7,7 @@ export type FlowPendingLoopControl = {
 
 export type FreshRunRetryOwnershipCompletion = {
   retryOwnershipId: string;
+  sourceId?: string;
   launchSignature: string;
   completedAt: number;
   result: FlowRunStartResult;

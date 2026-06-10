@@ -227,6 +227,7 @@ type FreshRunRetryOwnershipRecord = {
 
 type FreshRunRetryOwnershipCompletionRecord = {
   retryOwnershipId: string;
+  sourceId?: string;
   result: FlowRunStartResult;
   launchSignature: string;
   completedAt: number;
@@ -254,8 +255,10 @@ const freshRunRetryOwnershipCompletedByKey = new Map<
 
 const makeFreshRunRetryOwnershipKey = (params: {
   flowName: string;
+  sourceId?: string;
   retryOwnershipId: string;
-}) => `${params.flowName}::${params.retryOwnershipId.trim()}`;
+}) =>
+  `${params.flowName}::${params.sourceId?.trim() || ''}::${params.retryOwnershipId.trim()}`;
 
 const normalizeFreshRunRetryOwnershipLaunch = (params: {
   flowName: string;
@@ -308,6 +311,7 @@ const rememberFreshRunRetryOwnershipCompletion = (params: {
     makeFreshRunRetryOwnershipKey(params),
     {
       retryOwnershipId: params.retryOwnershipId,
+      sourceId: params.sourceId?.trim() || undefined,
       result: cloneFlowRunStartResult(params.result),
       launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
         params.launch,
@@ -325,6 +329,10 @@ const parseFreshRunRetryOwnershipCompletion = (
     typeof completion.retryOwnershipId === 'string' &&
     completion.retryOwnershipId.trim().length > 0
       ? completion.retryOwnershipId.trim()
+      : undefined;
+  const sourceId =
+    typeof completion.sourceId === 'string' && completion.sourceId.trim().length > 0
+      ? completion.sourceId.trim()
       : undefined;
   const launchSignature =
     typeof completion.launchSignature === 'string' &&
@@ -383,6 +391,7 @@ const parseFreshRunRetryOwnershipCompletion = (
   }
   return {
     retryOwnershipId,
+    sourceId,
     launchSignature,
     completedAt,
     result: {
@@ -412,6 +421,11 @@ const getFreshRunRetryOwnershipCompletionFromConversation = (
   );
   if (!completion) return null;
   if (completion.retryOwnershipId !== params.retryOwnershipId) return null;
+  if (params.launch.sourceId) {
+    if (completion.sourceId !== params.launch.sourceId) return null;
+  } else if (completion.sourceId) {
+    return null;
+  }
   return completion;
 };
 
@@ -450,6 +464,7 @@ const persistFreshRunRetryOwnershipCompletion = async (params: {
   if (!conversation) return;
   const completion: FreshRunRetryOwnershipCompletion = {
     retryOwnershipId: params.retryOwnershipId,
+    sourceId: params.launch.sourceId,
     launchSignature: makeFreshRunRetryOwnershipLaunchSignature(params.launch),
     completedAt: Date.now(),
     result: cloneFlowRunStartResult(params.result),
@@ -506,6 +521,13 @@ const getPersistedFreshRunRetryOwnershipCompletion = async (params: {
       flowName: params.flowName,
       'flags.flow.retryOwnershipCompletion.retryOwnershipId':
         params.retryOwnershipId,
+      ...(params.sourceId
+        ? {
+            'flags.flow.retryOwnershipCompletion.sourceId': params.sourceId,
+          }
+        : {
+            'flags.flow.retryOwnershipCompletion.sourceId': { $exists: false },
+          }),
     })
       .sort({ 'flags.flow.retryOwnershipCompletion.completedAt': -1 })
       .lean()
@@ -547,6 +569,7 @@ const getPersistedFreshRunRetryOwnershipCompletion = async (params: {
   }
   return {
     retryOwnershipId: completion.retryOwnershipId,
+    sourceId: completion.sourceId,
     result: cloneFlowRunStartResult(completion.result),
     launchSignature: completion.launchSignature,
     completedAt: completion.completedAt,
@@ -580,6 +603,7 @@ const getFreshRunRetryOwnershipCompletion = async (params: {
   }
   return {
     retryOwnershipId: record.retryOwnershipId,
+    sourceId: record.sourceId,
     result: cloneFlowRunStartResult(record.result),
     launchSignature: record.launchSignature,
     completedAt: record.completedAt,
@@ -4417,6 +4441,7 @@ async function runFlowUnlocked(params: {
 
       let terminalStatus: TurnStatus;
       let parentStopRequested = false;
+      let childOkObservedAt: number | null = null;
       while (true) {
         const parentPendingCancel = consumePendingConversationCancel({
           conversationId: params.conversationId,
@@ -4435,9 +4460,24 @@ async function runFlowUnlocked(params: {
           runToken: childRunToken,
         });
         if (childStatus) {
+          const lateParentPendingCancel = consumePendingConversationCancel({
+            conversationId: params.conversationId,
+            runToken: params.runToken,
+          });
+          if (lateParentPendingCancel) {
+            parentStopRequested = true;
+          }
+          if (childStatus === 'ok' && !parentStopRequested) {
+            childOkObservedAt ??= Date.now();
+            if (Date.now() - childOkObservedAt < 50) {
+              await sleep(25);
+              continue;
+            }
+          }
           terminalStatus = parentStopRequested ? 'stopped' : childStatus;
           break;
         }
+        childOkObservedAt = null;
 
         if (
           resumedActiveSubflow &&

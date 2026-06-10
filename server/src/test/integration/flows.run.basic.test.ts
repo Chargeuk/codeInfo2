@@ -1245,9 +1245,8 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
         .expect(202)
     ).body as typeof firstResult;
     assert.deepEqual(replayResult, firstResult);
-    await waitFor(
-      () => (memoryTurns.get(firstResult.conversationId) ?? []).length === 2,
-    );
+    await delay(150);
+    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
   } finally {
     cleanupMemory(
       'flow-retry-ownership-a',
@@ -1269,6 +1268,104 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
       delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('retryOwnershipId replay stays scoped to sourceId for ingested flows that share the same flow name', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevNodeEnv = process.env.NODE_ENV;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpLocalDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-retry-source-local-'),
+  );
+  const repoA = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-repo-a-'));
+  const repoB = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-repo-b-'));
+  await fs.mkdir(path.join(repoA, 'flows'), { recursive: true });
+  await fs.mkdir(path.join(repoB, 'flows'), { recursive: true });
+  await fs.cp(fixturesDir, path.join(repoA, 'flows'), { recursive: true });
+  await fs.cp(fixturesDir, path.join(repoB, 'flows'), { recursive: true });
+
+  process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpLocalDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(repoA), buildRepoEntry(repoB)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    const firstResult = (
+      await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({
+          conversationId: 'flow-retry-source-a',
+          sourceId: repoA,
+          retryOwnershipId: 'fresh-run-retry-1',
+        })
+        .expect(202)
+    ).body as {
+      conversationId: string;
+      inflightId: string;
+      providerId: string;
+      modelId: string;
+    };
+    await waitForConversationUnlocked(firstResult.conversationId);
+    await waitForTurns(firstResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    __resetFreshRunRetryOwnershipCompletionForTests();
+
+    const secondResult = (
+      await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({
+          conversationId: 'flow-retry-source-b',
+          sourceId: repoB,
+          retryOwnershipId: 'fresh-run-retry-1',
+        })
+        .expect(202)
+    ).body as typeof firstResult;
+    await waitForConversationUnlocked(secondResult.conversationId);
+    await waitForTurns(secondResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    assert.equal(firstResult.conversationId, 'flow-retry-source-a');
+    assert.equal(secondResult.conversationId, 'flow-retry-source-b');
+    assert.notDeepEqual(secondResult, firstResult);
+  } finally {
+    cleanupMemory('flow-retry-source-a', 'flow-retry-source-b');
+    __resetFreshRunRetryOwnershipCompletionForTests();
+    if (prevNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = prevNodeEnv;
+    }
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpLocalDir, { recursive: true, force: true });
+    await fs.rm(repoA, { recursive: true, force: true });
+    await fs.rm(repoB, { recursive: true, force: true });
   }
 });
 

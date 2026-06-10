@@ -11,6 +11,8 @@ const cloneConversation = (
 ): Conversation | null =>
   conversation ? (structuredClone(conversation) as Conversation) : null;
 
+const cloneRecord = <T>(value: T): T => structuredClone(value);
+
 const getNestedValue = (value: unknown, path: string): unknown =>
   path.split('.').reduce<unknown>((current, segment) => {
     if (!isPlainObject(current)) return undefined;
@@ -105,6 +107,40 @@ const resolveConversationId = (value: unknown): string | undefined => {
   return undefined;
 };
 
+const matchesTurnFilter = (
+  turn: Record<string, unknown>,
+  filter: unknown,
+): boolean => {
+  if (!isPlainObject(filter)) return true;
+  return Object.entries(filter).every(([path, expected]) => {
+    if (path.startsWith('$')) return false;
+    const actual = getNestedValue(turn, path);
+    if (isPlainObject(expected)) {
+      if ('$lt' in expected) {
+        const candidate = expected.$lt;
+        if (!(candidate instanceof Date) || !(actual instanceof Date)) {
+          return false;
+        }
+        return actual.getTime() < candidate.getTime();
+      }
+      return false;
+    }
+    return actual === expected;
+  });
+};
+
+const compareSortValues = (left: unknown, right: unknown): number => {
+  const leftComparable =
+    left instanceof Date ? left.getTime() : left == null ? undefined : left;
+  const rightComparable =
+    right instanceof Date ? right.getTime() : right == null ? undefined : right;
+
+  if (leftComparable === rightComparable) return 0;
+  if (leftComparable === undefined) return 1;
+  if (rightComparable === undefined) return -1;
+  return leftComparable > rightComparable ? 1 : -1;
+};
+
 export async function withMockedMongoConversationPersistence<T>(params: {
   seedConversations: Conversation[];
   run: (state: {
@@ -126,6 +162,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   const originalFindOne = ConversationModel.findOne;
   const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
   const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  const originalTurnFind = TurnModel.find;
   const originalTurnFindOne = TurnModel.findOne;
   const originalTurnCreate = TurnModel.create;
 
@@ -204,11 +241,52 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   TurnModel.create = (async (input: Record<string, unknown>) => {
     const turn = {
       _id: `turn-${turns.length + 1}`,
-      ...structuredClone(input),
+      ...cloneRecord(input),
     };
     turns.push(turn);
     return turn;
   }) as unknown as typeof TurnModel.create;
+  TurnModel.find = ((filter: unknown) => {
+    let sortSpec: Record<string, 1 | -1> = {};
+    let limitCount: number | undefined;
+
+    const execute = async () => {
+      const matches = turns
+        .filter((turn) => matchesTurnFilter(turn, filter))
+        .map((turn) => cloneRecord(turn));
+      const sortEntries = Object.entries(sortSpec ?? {});
+      if (sortEntries.length > 0) {
+        matches.sort((left, right) => {
+          for (const [path, direction] of sortEntries) {
+            const comparison = compareSortValues(
+              getNestedValue(left, path),
+              getNestedValue(right, path),
+            );
+            if (comparison !== 0) return comparison * (direction ?? 1);
+          }
+          return 0;
+        });
+      }
+      return typeof limitCount === 'number'
+        ? matches.slice(0, limitCount)
+        : matches;
+    };
+
+    const query = {
+      sort(spec: Record<string, 1 | -1>) {
+        sortSpec = spec;
+        return query;
+      },
+      limit(count: number) {
+        limitCount = count;
+        return query;
+      },
+      lean: async () => execute(),
+      exec: async () => execute(),
+    };
+
+    return query;
+  }) as unknown as typeof TurnModel.find;
   TurnModel.findOne = (() => ({
     sort: () => ({
       lean: () => ({
@@ -233,6 +311,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
     ConversationModel.findOne = originalFindOne;
     ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    TurnModel.find = originalTurnFind;
     TurnModel.findOne = originalTurnFindOne;
     TurnModel.create = originalTurnCreate;
   }

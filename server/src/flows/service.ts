@@ -5791,13 +5791,26 @@ export async function startFlowRun(
         : err instanceof Error
           ? err.message
           : 'Flow run failed unexpectedly.';
-      await persistUnexpectedFlowFailureIfNeeded({
-        conversationId,
-        modelId,
-        providerId,
-        source: params.source,
-        message: failureMessage,
-      });
+      try {
+        await persistUnexpectedFlowFailureIfNeeded({
+          conversationId,
+          modelId,
+          providerId,
+          source: params.source,
+          message: failureMessage,
+        });
+      } catch (persistErr) {
+        baseLogger.error(
+          {
+            flowName,
+            conversationId,
+            inflightId,
+            err: persistErr,
+            originalError: err,
+          },
+          'flow run failure persistence skipped after terminal metadata error',
+        );
+      }
       if ((err as FlowRunError | undefined)?.code) {
         baseLogger.error(
           { flowName, conversationId, inflightId, err },

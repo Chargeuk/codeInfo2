@@ -2997,7 +2997,7 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 28`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: This review-created task repairs Finding `1` from review pass `0000059-20260610T053726Z-fde56cd8`. Preserve approved Story 59 behavior while making the explicit `not_found` metadata outcome stop stale success-shaped continuation through the changed production caller family; do not widen the public runtime or user-facing contract just because a cleaner redesign would be easier to prove.
 
 #### Overview

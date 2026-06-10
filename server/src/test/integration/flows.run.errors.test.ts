@@ -1931,7 +1931,10 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
 
     // Override memoryConversations.set to throw when the flow flag is being set.
     memoryConversations.set = ((key: string, value: Conversation) => {
-      if (value?.flags && Object.prototype.hasOwnProperty.call(value.flags, 'flow')) {
+      if (
+        value?.flags &&
+        Object.prototype.hasOwnProperty.call(value.flags, 'flow')
+      ) {
         throw new Error('boom');
       }
       return originalSet.call(memoryConversations, key, value);

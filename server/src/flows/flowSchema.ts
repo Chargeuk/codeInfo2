@@ -59,6 +59,12 @@ export type FlowCommandStep = {
   commandName: string;
 };
 
+export type FlowSubflowStep = {
+  type: 'subflow';
+  label?: string;
+  flowName: string;
+};
+
 export type FlowReingestStep = {
   type: 'reingest';
   label?: string;
@@ -70,6 +76,7 @@ export type FlowStep =
   | FlowBreakStep
   | FlowContinueStep
   | FlowCommandStep
+  | FlowSubflowStep
   | FlowReingestStep;
 
 export type FlowFile = {
@@ -137,6 +144,14 @@ const FlowCommandStepSchema = z
   })
   .strict();
 
+const FlowSubflowStepSchema = z
+  .object({
+    type: z.literal('subflow'),
+    label: trimmedNonEmptyString.optional(),
+    flowName: trimmedNonEmptyString,
+  })
+  .strict();
+
 const FlowReingestSourceIdStepSchema = z
   .object({
     type: z.literal('reingest'),
@@ -168,6 +183,7 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowContinueStepSchema,
     FlowCommandStepSchema,
+    FlowSubflowStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,
     FlowReingestPlanScopeTargetStepSchema,

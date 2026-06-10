@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { cleanupInflight, createInflight } from '../../chat/inflightRegistry.js';
+import {
+  cleanupInflight,
+  createInflight,
+} from '../../chat/inflightRegistry.js';
 
 test('cleanupInflight detaches shared external abort listeners after successful child cleanup', () => {
   const conversationId = 'inflight-external-abort-cleanup';
@@ -37,7 +40,11 @@ test('cleanupInflight detaches shared external abort listeners after successful 
       addCalls += 1;
       addedListener = listener as EventListener;
     }
-    return originalAdd(type, listener as EventListenerOrEventListenerObject, options);
+    return originalAdd(
+      type,
+      listener as EventListenerOrEventListenerObject,
+      options,
+    );
   }) as AbortSignal['addEventListener'];
 
   externalController.signal.removeEventListener = ((

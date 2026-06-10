@@ -533,11 +533,15 @@ test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async (
     }
 
     assert.equal(
-      capturedOptions.some((options) => options.env?.CODEINFO_ROOT === repoRoot),
+      capturedOptions.some(
+        (options) => options.env?.CODEINFO_ROOT === repoRoot,
+      ),
       true,
     );
     assert.equal(
-      capturedOptions.some((options) => options.env?.COPILOT_HOME === copilotHome),
+      capturedOptions.some(
+        (options) => options.env?.COPILOT_HOME === copilotHome,
+      ),
       true,
     );
   } finally {

@@ -61,9 +61,8 @@ let previousNodeEnv: string | undefined;
 let originalConversationFindByIdAndUpdate:
   | typeof ConversationModel.findByIdAndUpdate
   | null = null;
-let originalMemoryConversationsSet:
-  | typeof memoryConversations.set
-  | null = null;
+let originalMemoryConversationsSet: typeof memoryConversations.set | null =
+  null;
 
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
@@ -344,7 +343,11 @@ When(
 
 When(
   'I start flow {string} with conversation id {string} and retry ownership {string}',
-  async (flowName: string, conversationId: string, retryOwnershipId: string) => {
+  async (
+    flowName: string,
+    conversationId: string,
+    retryOwnershipId: string,
+  ) => {
     const res = await fetch(`${baseUrl}/flows/${flowName}/run`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

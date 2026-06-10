@@ -1,5 +1,8 @@
+const TRANSIENT_RECONNECT_PATTERN =
+  /^Reconnecting\.\.\.\s+\d+\/\d+(?:\s+\(.*\))?$/;
+
 export const isTransientReconnect = (message: string | null | undefined) =>
-  Boolean(message && /^Reconnecting\.\.\.\s+\d+\/\d+$/.test(message));
+  Boolean(message && TRANSIENT_RECONNECT_PATTERN.test(message));
 
 export function getErrorMessage(err: unknown): string | undefined {
   if (!err) return undefined;

@@ -2298,11 +2298,7 @@ describe('agent commands runner (v1)', () => {
     );
     await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
     await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
-    await fs.writeFile(
-      path.join(codexHome, 'chat', 'config.toml'),
-      '',
-      'utf8',
-    );
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-only',

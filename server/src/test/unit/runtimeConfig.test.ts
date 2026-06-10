@@ -2450,8 +2450,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       );
       await fs.writeFile(
         agentConfigPath,
-        ['model = "agent-model"', 'model_auto_compact_token_limit = 300000', '']
-          .join('\n'),
+        [
+          'model = "agent-model"',
+          'model_auto_compact_token_limit = 300000',
+          '',
+        ].join('\n'),
         'utf8',
       );
 
@@ -2822,10 +2825,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       });
 
       assert.equal(snapshots.length, 2);
-      assert.deepEqual(
-        snapshots.map((snapshot) => snapshot.provider).sort(),
-        ['codex', 'lmstudio'],
-      );
+      assert.deepEqual(snapshots.map((snapshot) => snapshot.provider).sort(), [
+        'codex',
+        'lmstudio',
+      ]);
 
       const copilotStatus = getProviderBootstrapStatus('copilot');
       assert.equal(copilotStatus.healthy, false);
@@ -3283,9 +3286,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
 
       assert.equal(resolved.config.model, 'copilot-gpt-5');
       assert.equal(
-        resolved.warnings.some((warning) =>
-          warning.path.endsWith('top_level_unknown') &&
-          warning.message.includes('Unknown key'),
+        resolved.warnings.some(
+          (warning) =>
+            warning.path.endsWith('top_level_unknown') &&
+            warning.message.includes('Unknown key'),
         ),
         true,
       );

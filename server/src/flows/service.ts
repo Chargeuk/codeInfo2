@@ -400,6 +400,11 @@ const buildSubflowConversationTitle = (params: {
   return `${parentTitle}-${stepTitle}`;
 };
 
+const buildFlowPathEntry = (params: { flowName: string; sourceId?: string }) =>
+  params.sourceId?.trim()
+    ? `${params.flowName.trim()}@${params.sourceId.trim()}`
+    : params.flowName.trim();
+
 const normalizeNumberArray = (value: unknown): number[] => {
   if (!Array.isArray(value)) return [];
   return value.filter(
@@ -3060,6 +3065,7 @@ const resolveFlowCommandForAgent = async (params: {
 async function runFlowUnlocked(params: {
   flowName: string;
   flow: FlowFile;
+  flowPath: string[];
   repositoryContext: FlowCommandRepositoryContext;
   conversationId: string;
   executionId: string;
@@ -3940,6 +3946,7 @@ async function runFlowUnlocked(params: {
         const started = await startFlowRun({
           flowName: step.flowName,
           sourceId: params.repositoryContext.flowSourceId,
+          flowPath: params.flowPath,
           working_folder: params.repositoryContext.workingRepositoryPath,
           customTitle: subflowTitle,
           source: params.source,
@@ -4962,6 +4969,15 @@ export async function startFlowRun(
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
   const sourceId = params.sourceId?.trim() || undefined;
+  const flowPathEntry = buildFlowPathEntry({ flowName, sourceId });
+  if (params.flowPath?.includes(flowPathEntry)) {
+    const cyclePath = [...params.flowPath, flowPathEntry].join(' -> ');
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `Subflow cycle detected: ${cyclePath}.`,
+    );
+  }
+  const flowPath = [...(params.flowPath ?? []), flowPathEntry];
   const retryOwnershipId = params.retryOwnershipId?.trim() || undefined;
   const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
@@ -5307,6 +5323,7 @@ export async function startFlowRun(
       await runFlowUnlocked({
         flowName,
         flow,
+        flowPath,
         repositoryContext,
         conversationId,
         executionId,

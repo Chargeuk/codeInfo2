@@ -531,6 +531,77 @@ test('subflow fails when the child crashes after a prior successful step', async
   }
 });
 
+test('subflow fails fast when flows reference each other recursively', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-recursive-cycle-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-cycle-b',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Back To Parent',
+          flowName: 'parent-cycle-a',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-cycle-a',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Child',
+          flowName: 'child-cycle-b',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-cycle-a',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+    });
+
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'failed',
+    );
+    assert.equal(
+      finalAssistant?.content,
+      'Subflow Parent Review-Run Child failed',
+    );
+
+    const childConversation = findChildFlowConversation({
+      parentConversationId: result.conversationId,
+      childFlowName: 'child-cycle-b',
+    });
+    assert.ok(childConversation?._id);
+
+    const childTurns = memoryTurns.get(String(childConversation?._id)) ?? [];
+    const latestChildAssistant = [...childTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant');
+    assert.equal(latestChildAssistant?.status, 'failed');
+    assert.equal(
+      latestChildAssistant?.content,
+      'Subflow cycle detected: parent-cycle-a -> child-cycle-b -> parent-cycle-a.',
+    );
+
+    const childCycleConversations = Array.from(memoryConversations.values())
+      .filter((conversation) => conversation.flowName === 'parent-cycle-a')
+      .map((conversation) => conversation._id);
+    assert.deepEqual(childCycleConversations, [result.conversationId]);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('stopping the parent flow stops the running child subflow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
   process.env.FLOWS_DIR = tmpDir;

@@ -2728,26 +2728,39 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 
 #### Subtasks
 
-1. [ ] Re-open this review-created findings block, `server/src/mongo/repo.ts`, `server/src/test/unit/chat-interface-run-persistence.test.ts`, and any exact second caller proof file retained by Task 25, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its focused server proof home, identifies the broader wrappers that still cover Story 59 endpoint and working-folder behavior after the repair, and keeps `inline-resolved minor findings: none` explicit if that remains true.
-2. [ ] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that keeps wrapper-owned env loading, checked-in main-stack smoke, browser-visible chat proof scope, the single-repository `Affected Repositories` boundary, and the distinction between shared baseline or harness failures versus Task 25 product regressions explicit for this review-created findings block.
+1. [x] Re-open this review-created findings block, `server/src/mongo/repo.ts`, `server/src/test/unit/chat-interface-run-persistence.test.ts`, and any exact second caller proof file retained by Task 25, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its focused server proof home, identifies the broader wrappers that still cover Story 59 endpoint and working-folder behavior after the repair, and keeps `inline-resolved minor findings: none` explicit if that remains true.
+2. [x] Re-open `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml`, then record one execution-boundary note in `Implementation Notes` that keeps wrapper-owned env loading, checked-in main-stack smoke, browser-visible chat proof scope, the single-repository `Affected Repositories` boundary, and the distinction between shared baseline or harness failures versus Task 25 product regressions explicit for this review-created findings block.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired metadata persistence seam still compiles cleanly on the final story head.
-2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
-3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
-4. [ ] Run `npm run test:summary:server:unit` to prove the repaired metadata persistence seam and its focused exhausted-retry proof owners still hold on the final story head.
-5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
-6. [ ] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the shared metadata retry repair.
-7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
-8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
-9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
-10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+1. [x] Run `npm run build:summary:server` to confirm the repaired metadata persistence seam still compiles cleanly on the final story head.
+2. [x] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
+3. [x] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
+4. [x] Run `npm run test:summary:server:unit` to prove the repaired metadata persistence seam and its focused exhausted-retry proof owners still hold on the final story head.
+5. [x] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
+6. [x] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the shared metadata retry repair.
+7. [x] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
+8. [x] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
+9. [x] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [x] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [x] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Implementation Notes
 
 - Review-cycle ownership note: this task is the one final revalidation owner for `0000059-rc-20260609T214316Z-d1783561`, so later inline-minor routing must not create a second final revalidation task for the same cycle.
+- Proof-owner mapping: Finding `1` stays mapped to the focused helper proof in `server/src/test/unit/chat-interface-run-persistence.test.ts`; the broad server/client/browser/compose/hygiene wrappers still own the final regression coverage on the repaired story head, and `inline-resolved minor findings for this review cycle: none` remains explicit.
+- Runtime boundary: `scripts/docker-compose-with-env.sh` owns wrapper env loading, `docker-compose.yml` is the checked-in main-stack route, browser-visible chat proof remains broad-wrapper-owned only, and Task 26 stays single-repository with no extra `Affected Repositories` category.
+- Validation note: `npm run build:summary:server` passed cleanly on the repaired Story 59 head, confirming the server-side proof owner still compiles after Task 25's exhausted-retry contract change.
+- Validation note: `npm run build:summary:client` passed cleanly on the repaired Story 59 head, confirming the client-side proof owner still compiles after Task 25's exhausted-retry contract change.
+- Validation note: `npm run compose:build:summary` passed cleanly on the repaired Story 59 head, confirming the checked-in main-stack images still build before smoke validation.
+- Validation note: `npm run test:summary:server:unit` passed cleanly with `2229/2229` tests on the repaired Story 59 head, confirming the focused exhaustion proof and the broader server unit suite both hold after the explicit exhausted-retry contract change.
+- Validation note: `npm run test:summary:server:cucumber` passed cleanly with `129/129` scenarios on the repaired Story 59 head, re-covering the repository-supported server feature-wrapper surface after the metadata contract change.
+- Validation note: `npm run test:summary:client` passed cleanly with `887/887` tests on the repaired Story 59 head, confirming the client-owned resumed endpoint identity and working-folder parity surfaces still hold after the metadata contract change.
+- Validation note: `npm run test:summary:e2e` passed cleanly with `76/76` tests on the repaired Story 59 head, re-covering the repository-supported browser-visible chat surface after the metadata contract change.
+- Validation note: the main-stack smoke step reached `http://localhost:5010/health` successfully and `http://localhost:5001` succeeded on a bounded retry after initial startup lag, so the runtime-boundary proof is satisfied on the checked-in compose path.
+- Validation note: `npm run compose:down` completed cleanly after the smoke validation, so the repository-supported main stack shutdown path is proven on the checked-in compose route.
+- Validation note: `npm run lint` passed cleanly on the repaired Story 59 head, keeping the final review-cycle validation surface free of lint regressions.
+- Validation note: `npm run format:check` passed cleanly on the repaired Story 59 head, keeping the final review-cycle validation surface free of formatting regressions.
 
 #### Manual Testing Guidance
 

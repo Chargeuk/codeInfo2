@@ -35,11 +35,11 @@ import {
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
 import { ConversationModel } from '../../../mongo/conversation.js';
+import { withMockedMongoConversationPersistence } from '../../support/conversationMongoPersistenceStub.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
 } from '../../support/mockCopilotSdk.js';
-import { withMockedMongoConversationPersistence } from '../../support/conversationMongoPersistenceStub.js';
 
 const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',

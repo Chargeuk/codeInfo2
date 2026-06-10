@@ -3,7 +3,6 @@ import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
-import { ConversationModel } from '../../mongo/conversation.js';
 import {
   __resetCompletedInflightForTests,
   appendAnalysisDelta,
@@ -22,6 +21,7 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createConversationsRouter } from '../../routes/conversations.js';

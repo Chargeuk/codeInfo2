@@ -2949,22 +2949,32 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 #### Testing
 
 1. [x] Run `npm run build:summary:server` to confirm the repaired metadata-persistence caller contract still compiles cleanly on the final story head.
-2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
-3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
-4. [ ] Run `npm run test:summary:server:unit` to prove the repaired metadata-persistence caller contract and its focused Task 27 proof owners still hold on the final story head.
-5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
-6. [ ] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the metadata-persistence caller repair.
-7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
-8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
-9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
-10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+2. [x] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
+3. [x] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
+4. [x] Run `npm run test:summary:server:unit` to prove the repaired metadata-persistence caller contract and its focused Task 27 proof owners still hold on the final story head.
+5. [x] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
+6. [x] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the metadata-persistence caller repair.
+7. [x] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
+8. [x] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
+9. [x] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [x] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [x] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Implementation Notes
 
 - Review-cycle ownership note: this task is the one final revalidation owner for `0000059-rc-20260610T013203Z-69d92a33`, so later inline-minor routing must not create a second final revalidation task for the same cycle.
 - Automated-proof audit note: the current repository evidence showed both owner-side subtasks complete but no commit, note, or checked testing item proving that any Task 28 wrapper-level automated revalidation had actually run yet, so the task stays `__in_progress__` with a live blocker instead of being treated as an ordinary open proof pass.
 - **RESOLVED ISSUE** `npm run build:summary:server` passed on 2026-06-10, so the first missing Task 28 wrapper proof is now recorded honestly on the repaired story head. That result retired the generic audit blocker because final revalidation can continue directly with the remaining Testing steps in checklist order instead of staying blocked only by missing proof bookkeeping.
+- `npm run build:summary:client` passed cleanly on the repaired Story 59 head, confirming the client-side proof owner still compiles after the final review-cycle revalidation repair and leaving nine wrapper-owned proof steps remaining.
+- `npm run compose:build:summary` passed cleanly on the repaired Story 59 head, confirming the checked-in main-stack image path still builds after the final review-cycle revalidation repair and leaving eight wrapper-owned proof steps remaining.
+- `npm run test:summary:server:unit` passed cleanly with `2236/2236` tests on the repaired Story 59 head, confirming the repaired metadata-persistence caller contract and its focused Task 27 proof homes still hold after the final review-cycle revalidation repair and leaving seven wrapper-owned proof steps remaining.
+- `npm run test:summary:server:cucumber` passed cleanly with `129/129` scenarios on the repaired Story 59 head, confirming the repository-supported server feature-wrapper surface still holds after the final review-cycle revalidation repair and leaving six wrapper-owned proof steps remaining.
+- `npm run test:summary:client` passed cleanly with `887/887` tests on the repaired Story 59 head, confirming the resumed endpoint identity and working-folder parity surfaces still hold after the final review-cycle revalidation repair and leaving five wrapper-owned proof steps remaining.
+- `npm run test:summary:e2e` passed cleanly with `76/76` browser-visible tests on the repaired Story 59 head, confirming the repository-supported browser-visible chat surface still holds after the final review-cycle revalidation repair and leaving four wrapper-owned proof steps remaining.
+- `npm run compose:up` followed by `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` passed cleanly on the repaired Story 59 head, confirming the checked-in main-stack smoke path still comes up and serves both readiness surfaces after the final review-cycle revalidation repair and leaving three wrapper-owned proof steps remaining.
+- `npm run compose:down` passed cleanly after the smoke validation, confirming the checked-in main stack tears down cleanly after the final review-cycle revalidation repair and leaving two wrapper-owned proof steps remaining.
+- `npm run lint` passed cleanly after correcting import order in the two affected server test files, confirming the final review-cycle validation surface is clean after the repair and leaving one wrapper-owned proof step remaining.
+- `npm run format:check` passed cleanly on the repaired Story 59 head, confirming the final review-cycle validation surface remains Prettier-clean after the repair and closing the remaining Task 28 wrapper proof step.
 
 #### Manual Testing Guidance
 

@@ -11,6 +11,24 @@ const cloneConversation = (
 ): Conversation | null =>
   conversation ? (structuredClone(conversation) as Conversation) : null;
 
+const getNestedValue = (value: unknown, path: string): unknown =>
+  path.split('.').reduce<unknown>((current, segment) => {
+    if (!isPlainObject(current)) return undefined;
+    return current[segment];
+  }, value);
+
+const matchesConversationFilter = (
+  conversation: Conversation,
+  filter: unknown,
+): boolean => {
+  if (!isPlainObject(filter)) return true;
+  return Object.entries(filter).every(([path, expected]) => {
+    if (path.startsWith('$')) return false;
+    if (isPlainObject(expected)) return false;
+    return getNestedValue(conversation, path) === expected;
+  });
+};
+
 const setNestedValue = (
   target: Record<string, unknown>,
   path: string,
@@ -98,6 +116,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalReadyState = mongoose.connection.readyState;
   const originalFindById = ConversationModel.findById;
+  const originalFindOne = ConversationModel.findOne;
   const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
   const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
   const originalTurnFindOne = TurnModel.findOne;
@@ -111,6 +130,44 @@ export async function withMockedMongoConversationPersistence<T>(params: {
 
   ConversationModel.findById = ((id: unknown) =>
     buildFindByIdResult(conversations, id)) as typeof ConversationModel.findById;
+
+  ConversationModel.findOne = ((filter: unknown) => ({
+    sort: (sortSpec: Record<string, 1 | -1>) => ({
+      lean: () => ({
+        exec: async () => {
+          const [sortPath, direction] = Object.entries(sortSpec ?? {})[0] ?? [];
+          const matches = [...conversations.values()].filter((conversation) =>
+            matchesConversationFilter(conversation, filter),
+          );
+          if (sortPath) {
+            matches.sort((left, right) => {
+              const leftValue = getNestedValue(left, sortPath);
+              const rightValue = getNestedValue(right, sortPath);
+              const leftComparable =
+                leftValue instanceof Date
+                  ? leftValue.getTime()
+                  : leftValue == null
+                    ? undefined
+                    : leftValue;
+              const rightComparable =
+                rightValue instanceof Date
+                  ? rightValue.getTime()
+                  : rightValue == null
+                    ? undefined
+                    : rightValue;
+              if (leftComparable === rightComparable) return 0;
+              if (leftComparable === undefined) return 1;
+              if (rightComparable === undefined) return -1;
+              return leftComparable > rightComparable
+                ? (direction ?? 1)
+                : -1 * (direction ?? 1);
+            });
+          }
+          return cloneConversation(matches[0] ?? null);
+        },
+      }),
+    }),
+  })) as typeof ConversationModel.findOne;
 
   ConversationModel.findByIdAndUpdate = ((
     id: unknown,
@@ -171,6 +228,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
       configurable: true,
     });
     ConversationModel.findById = originalFindById;
+    ConversationModel.findOne = originalFindOne;
     ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
     TurnModel.findOne = originalTurnFindOne;

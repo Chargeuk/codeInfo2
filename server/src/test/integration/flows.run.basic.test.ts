@@ -1332,9 +1332,10 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
           () => updateAttempts > 0,
           20000,
         );
+        await waitForConversationUnlocked(conversationId, 20000);
 
         assert.ok(updateAttempts > 0);
-        assert.equal(turns.length, 1);
+        assert.equal(turns.length, 0);
         assert.equal(conversations.get(conversationId)?.provider, 'codex');
         assert.ok(conversations.get(conversationId)?.model);
       },
@@ -1600,7 +1601,7 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
   }
 });
 
-test('flow llm.basic stops before started response construction when persisted metadata reports not_found after a concurrent delete', async () => {
+test('flow llm.basic stops before replay completion when persisted metadata reports not_found after a concurrent delete', async () => {
   const prevNodeEnv = process.env.NODE_ENV;
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -1615,6 +1616,7 @@ test('flow llm.basic stops before started response construction when persisted m
   const conversationId = 'flow-not-found-conversation';
   const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
   const originalSave = ConversationModel.prototype.save;
+  let updateAttempts = 0;
 
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   await fs.mkdir(workingFolder, { recursive: true });
@@ -1625,28 +1627,9 @@ test('flow llm.basic stops before started response construction when persisted m
 
   try {
     await withMockedMongoConversationPersistence({
-      seedConversations: [
-        {
-          _id: conversationId,
-          provider: 'codex',
-          model: 'gpt-5.3-codex',
-          title: 'Saved flow continuation',
-          agentName: 'flow_agent',
-          source: 'REST',
-          flags: {
-            endpointId: 'https://alpha.example/v1',
-          },
-          lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
-          archivedAt: null,
-          createdAt: new Date('2025-01-01T00:00:00.000Z'),
-          updatedAt: new Date('2025-01-01T00:00:00.000Z'),
-        } as Conversation,
-      ],
+      seedConversations: [],
       run: async ({ conversations, turns }) => {
-        let updateAttempts = 0;
-        ConversationModel.prototype.save = (async function save(
-          this: unknown,
-        ) {
+        ConversationModel.prototype.save = (async function save(this: unknown) {
           const doc = this as { _id?: unknown; toObject?: () => unknown };
           const saved = {
             ...structuredClone(doc.toObject?.() ?? doc),
@@ -1665,43 +1648,53 @@ test('flow llm.basic stops before started response construction when persisted m
           })
         ) as unknown) as typeof ConversationModel.findOneAndUpdate;
 
-        try {
-          const app = express();
-          app.use(
-            createFlowsRunRouter({
-              startFlowRun: (params) =>
-                startFlowRun({
-                  ...params,
-                  chatFactory: () => new InstantChat(),
-                  listIngestedRepositories: async () => ({
-                    repos: [buildRepoEntry(workingFolder)],
-                    lockedModelId: null,
-                  }),
+        const app = express();
+        app.use(
+          createFlowsRunRouter({
+            startFlowRun: (params) =>
+              startFlowRun({
+                ...params,
+                chatFactory: () => new InstantChat(),
+                listIngestedRepositories: async () => ({
+                  repos: [buildRepoEntry(workingFolder)],
+                  lockedModelId: null,
                 }),
-            }),
-          );
+              }),
+          }),
+        );
 
-          const response = await supertest(app)
-            .post('/flows/llm-basic/run')
-            .send({
-              conversationId,
-              working_folder: workingFolder,
-            });
+        const response = await supertest(app)
+          .post('/flows/llm-basic/run')
+          .send({
+            conversationId,
+            retryOwnershipId: 'flow-not-found-retry-1',
+            working_folder: workingFolder,
+          });
 
-          assert.equal(response.status, 202);
-          assert.equal(response.body.status, 'started');
-          await waitFor(() => updateAttempts > 0);
-          assert.equal(updateAttempts, 3);
-          assert.equal(turns.length, 1);
-          assert.equal(turns[0]?.role, 'user');
-          assert.equal(conversations.get(conversationId), undefined);
-        } finally {
-          ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
-          ConversationModel.prototype.save = originalSave;
-        }
+        assert.equal(response.status, 202);
+        assert.equal(response.body.status, 'started');
+        await waitFor(() => updateAttempts > 0, 20000);
+        await waitForConversationUnlocked(conversationId, 20000);
+        assert.ok(updateAttempts > 0);
+        assert.equal(turns.length, 0);
+        assert.equal(conversations.get(conversationId), undefined);
+        assert.equal(
+          await __getPersistedFreshRunRetryOwnershipCompletionForTests({
+            flowName: 'llm-basic',
+            retryOwnershipId: 'flow-not-found-retry-1',
+            launch: {
+              flowName: 'llm-basic',
+              source: 'REST',
+              workingFolder,
+            },
+          }),
+          null,
+        );
       },
     });
   } finally {
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    ConversationModel.prototype.save = originalSave;
     if (prevNodeEnv === undefined) {
       delete process.env.NODE_ENV;
     } else {

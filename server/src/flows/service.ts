@@ -1680,6 +1680,18 @@ async function persistFlowTurn(params: {
     return {};
   }
 
+  const metaOutcome = await updateConversationMeta({
+    conversationId: params.conversationId,
+    lastMessageAt: params.createdAt,
+    model: params.model,
+  });
+  if (metaOutcome.outcome === 'not_found') {
+    throw toFlowRunError('CONVERSATION_ARCHIVED');
+  }
+  if (metaOutcome.outcome === 'retry_exhausted') {
+    throw new Error('flow turn metadata update exhausted');
+  }
+
   const turn = await appendTurn({
     conversationId: params.conversationId,
     role: params.role,
@@ -1695,18 +1707,6 @@ async function persistFlowTurn(params: {
     timing: params.timing,
     createdAt: params.createdAt,
   });
-
-  const metaOutcome = await updateConversationMeta({
-    conversationId: params.conversationId,
-    lastMessageAt: params.createdAt,
-    model: params.model,
-  });
-  if (metaOutcome.outcome === 'not_found') {
-    throw toFlowRunError('CONVERSATION_ARCHIVED');
-  }
-  if (metaOutcome.outcome === 'retry_exhausted') {
-    throw new Error('flow turn metadata update exhausted');
-  }
 
   const turnId =
     turn && typeof turn === 'object' && '_id' in (turn as object)

@@ -120,3 +120,11 @@ This story lets the existing `Codex` and `Copilot` chat and agent surfaces use e
 26. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260609T214316Z-d1783561`
 - Re-run the full broad regression proof for the current review-created findings block across server, client, browser-visible chat, checked-in runtime smoke, lint, and format validation.
 - Keep this cycle as the one final revalidation owner for the latest metadata retry hardening and its checked-in runtime closeout proof.
+
+27. [codeInfo2] - Propagate exhausted metadata retry outcomes through default-path production callers
+- Update the `/chat`, chat persistence, reingest, agent, flow, and MCP caller seams so exhausted metadata retries stop the old success path.
+- Add focused server proof for the shared persistence contradiction and for each changed caller family.
+
+28. [codeInfo2] - Final revalidation for review cycle `0000059-rc-20260610T013203Z-69d92a33`
+- Re-run the broad server, client, browser, checked-in compose, smoke, lint, and format proof on the repaired story head.
+- Reconfirm the mixed-state chat protections and keep final review-cycle proof ownership explicit for the latest review-created findings block.

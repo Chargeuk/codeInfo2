@@ -1959,6 +1959,52 @@ const getFlowConversationTerminalStatus = async (params: {
   return assistantTurn?.status ?? null;
 };
 
+const persistUnexpectedFlowFailureIfNeeded = async (params: {
+  conversationId: string;
+  modelId: string;
+  providerId?: ConversationProvider;
+  source: 'REST' | 'MCP';
+  message: string;
+}) => {
+  const latestAssistantTurn = shouldUseMemoryPersistence()
+    ? (() => {
+        const turns = memoryTurns.get(params.conversationId) ?? [];
+        for (let index = turns.length - 1; index >= 0; index -= 1) {
+          const turn = turns[index];
+          if (turn?.role === 'assistant') {
+            return turn;
+          }
+        }
+        return null;
+      })()
+    : (
+        await listTurns({
+          conversationId: params.conversationId,
+          limit: 10,
+        })
+      ).items.find((turn) => turn.role === 'assistant');
+
+  if (
+    latestAssistantTurn &&
+    (latestAssistantTurn.status === 'failed' ||
+      latestAssistantTurn.status === 'stopped')
+  ) {
+    return;
+  }
+
+  await persistFlowTurn({
+    conversationId: params.conversationId,
+    role: 'assistant',
+    content: params.message,
+    model: params.modelId,
+    provider: params.providerId ?? 'codex',
+    source: params.source,
+    status: 'failed',
+    toolCalls: null,
+    createdAt: new Date(),
+  });
+};
+
 const emitFailedFlowStep = async (params: {
   flowConversationId: string;
   inflightId: string;
@@ -5283,6 +5329,18 @@ export async function startFlowRun(
         conversationId,
       });
     } catch (err) {
+      const failureMessage = isFlowRunError(err)
+        ? (err.reason ?? err.code)
+        : err instanceof Error
+          ? err.message
+          : 'Flow run failed unexpectedly.';
+      await persistUnexpectedFlowFailureIfNeeded({
+        conversationId,
+        modelId,
+        providerId,
+        source: params.source,
+        message: failureMessage,
+      });
       if ((err as FlowRunError | undefined)?.code) {
         baseLogger.error(
           { flowName, conversationId, inflightId, err },

@@ -67,6 +67,19 @@ class SubflowChat extends ChatInterface {
       return;
     }
 
+    if (
+      message.includes(
+        'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
+      )
+    ) {
+      this.emit('final', {
+        type: 'final',
+        content: '{"answer":"yes"}',
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
     if (abortIfNeeded()) return;
     this.emit('final', { type: 'final', content: 'child ok' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
@@ -168,6 +181,14 @@ const llmStep = (content: string) => ({
   agentType: 'planning_agent',
   identifier: 'planner',
   messages: [{ role: 'user' as const, content: [content] }],
+});
+
+const continueStep = (question: string) => ({
+  type: 'continue' as const,
+  agentType: 'planning_agent',
+  identifier: 'planner',
+  question,
+  continueOn: 'yes' as const,
 });
 
 const findChildFlowConversation = (params: {
@@ -440,6 +461,70 @@ test('subflow waits for the full child flow and can fail on a later child step',
     assert.equal(
       finalAssistant?.content,
       'Subflow Parent Review-Run Later Failure failed',
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('subflow fails when the child crashes after a prior successful step', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-stale-ok-crash-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-crash-after-ok',
+      steps: [llmStep('child ok'), continueStep('Keep going?')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-crash-after-ok',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run Crashing Child',
+          flowName: 'child-crash-after-ok',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-crash-after-ok',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+    });
+
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'failed',
+    );
+    assert.equal(
+      finalAssistant?.content,
+      'Subflow Parent Review-Run Crashing Child failed',
+    );
+
+    const childConversation = findChildFlowConversation({
+      parentConversationId: result.conversationId,
+      childFlowName: 'child-crash-after-ok',
+    });
+    assert.ok(childConversation?._id);
+
+    const childTurns = memoryTurns.get(String(childConversation?._id)) ?? [];
+    const latestChildAssistant = [...childTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant');
+    assert.equal(
+      latestChildAssistant?.status,
+      'failed',
+      'child crash should persist a terminal failed assistant turn',
+    );
+    assert.equal(
+      latestChildAssistant?.content,
+      'A continue step was reached outside of a startLoop context.',
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

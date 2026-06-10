@@ -3283,3 +3283,24 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
    The hardest logic is identity and fallback ownership across several layers at once: endpoint URLs must normalize into stable internal identities, saved conversations must keep endpoint identity separate from the raw model name, resumed executions must fail in place instead of silently drifting to a different provider or endpoint, and new conversations must still attempt same-endpoint repair and same-provider native fallback in the right order. The review-created Task 29 repair also had to make every `updateConversationMeta()` caller treat `not_found` as a real stop condition rather than a stale success-shaped continuation.
 4. What a reviewer should take particular interest in.
    Reviewers should focus on the high-authority seams in `server/src/config/openaiCompatEndpoints.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/mongo/repo.ts`, `server/src/flows/service.ts`, and the client identity path through `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts`. The most important closeout evidence now lives in the review artifacts plus the curated manual-proof bundle under `codeInfoStatus/manual-proof/0000059/`, especially the final-state screenshots in `task-30/`; residual confidence is still weakest around large-endpoint discovery fan-out and the one time-based negative assertion in `e2e/chat-provider-history.spec.ts`.
+
+### Review Pass `0000059-20260610T200500Z-replay-quiet-window`
+
+#### Subtasks
+
+1. [x] Replace the fixed `delay(150)` in `server/src/test/integration/flows.run.basic.test.ts` with a condition-based replay assertion that proves the Story 59 `retryOwnershipId` replay path stays at two turns for a short quiet window. Purpose: keep the Story 59 replay proof deterministic without reopening any production endpoint or flow behavior.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` to prove the replay proof still passes after the quiet-window stabilization.
+2. [x] Run `npm run test:summary:server:unit` to re-cover the full repository-supported server unit/integration wrapper after the Story 59 test-only stabilization.
+3. [x] Run `npm run lint` for the final Story 59 replay-proof surface and correct any issues found.
+4. [x] Run `npm run format:check` for the final Story 59 replay-proof surface and correct any issues found.
+
+#### Implementation Notes
+
+- `server/src/test/integration/flows.run.basic.test.ts` now uses a small quiet-window helper to prove the replayed `retryOwnershipId` path stays at two turns instead of relying on a one-shot `delay(150)` assertion that could pass or fail on timing luck alone.
+- `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` passed with `28/28` tests after the replay assertion moved to the quiet-window helper, keeping the Story 59 replay proof green without changing production flow behavior.
+- `npm run test:summary:server:unit` then passed with `2265/2265` tests after the replay-proof stabilization, confirming the quiet-window helper did not destabilize the broader repository-supported server suite.
+- `npm run lint` exited cleanly after the replay-proof stabilization without requiring any further edits.
+- `npm run format:check` exited cleanly after the replay-proof stabilization without requiring any formatting changes.

@@ -197,6 +197,27 @@ const waitForTurns = async (
   throw new Error('Timed out waiting for flow turns');
 };
 
+const waitForTurnCountToStay = async (
+  conversationId: string,
+  expectedCount: number,
+  quietWindowMs = 150,
+  timeoutMs = 4000,
+) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const initialCount = (memoryTurns.get(conversationId) ?? []).length;
+    if (initialCount === expectedCount) {
+      await delay(quietWindowMs);
+      const finalCount = (memoryTurns.get(conversationId) ?? []).length;
+      if (finalCount === expectedCount) {
+        return;
+      }
+    }
+    await delay(20);
+  }
+  throw new Error('Timed out waiting for flow turn count to stay stable');
+};
+
 const waitForConversationUnlocked = async (
   conversationId: string,
   timeoutMs = 4000,
@@ -1245,8 +1266,7 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
         .expect(202)
     ).body as typeof firstResult;
     assert.deepEqual(replayResult, firstResult);
-    await delay(150);
-    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
+    await waitForTurnCountToStay(firstResult.conversationId, 2);
   } finally {
     cleanupMemory(
       'flow-retry-ownership-a',

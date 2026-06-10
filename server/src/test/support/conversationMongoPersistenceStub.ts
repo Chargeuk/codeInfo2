@@ -205,9 +205,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
     turns.push(turn);
     return turn;
   }) as unknown) as typeof TurnModel.create;
-  TurnModel.findOne = ((
-    _filter: unknown,
-  ) => ({
+  TurnModel.findOne = (() => ({
     sort: () => ({
       lean: () => ({
         exec: async () => null,

@@ -3156,17 +3156,17 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired missing-conversation caller contract still compiles cleanly on the final story head.
-2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
-3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
-4. [ ] Run `npm run test:summary:server:unit` to prove the repaired missing-conversation caller contract and its focused Task 29 proof owners still hold on the final story head.
-5. [ ] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
-6. [ ] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the missing-conversation caller repair.
-7. [ ] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
-8. [ ] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
-9. [ ] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
-10. [ ] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
-11. [ ] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
+1. [x] Run `npm run build:summary:server` to confirm the repaired missing-conversation caller contract still compiles cleanly on the final story head.
+2. [x] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
+3. [x] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
+4. [x] Run `npm run test:summary:server:unit` to prove the repaired missing-conversation caller contract and its focused Task 29 proof owners still hold on the final story head.
+5. [x] Run `npm run test:summary:server:cucumber` to re-cover the repository-supported server feature-wrapper surface on the final story head.
+6. [x] Run `npm run test:summary:client` to prove the resumed endpoint identity and working-folder parity surfaces still hold on the final story head after the missing-conversation caller repair.
+7. [x] Run `npm run test:summary:e2e` to re-cover the repository-supported browser-visible chat surface on the final story head while leaving non-chat browser surfaces on their current proof homes.
+8. [x] Run `npm run compose:up`, then verify `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` so the repaired story head is smoke-proven on the checked-in main `docker-compose.yml` runtime path. Treat this as runtime-boundary smoke proof only: preserved server, client, and browser-visible story behavior for this review-created block is still owned by Testing steps 4 through 7 rather than by the health surfaces alone.
+9. [x] Run `npm run compose:down` to prove the repository-supported main stack still shuts down cleanly after the smoke validation above.
+10. [x] Run `npm run lint` for the final review-cycle validation surface and fix any issues found.
+11. [x] Run `npm run format:check` for the final review-cycle validation surface and fix any issues found.
 
 #### Implementation Notes
 
@@ -3174,6 +3174,17 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Server proof ownership note: Finding `1` stays mapped to the focused Task 29 server proof homes in `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`; `inline-resolved minor findings for this review cycle: none` remains explicit.
 - Client mixed-state proof note: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, and `client/src/test/chatSendPayload.test.tsx` own the restored-state authority, fresh-draft reset, and stale-restored-payload exclusion boundaries for the final story head.
 - Execution-boundary note: `scripts/test-summary-e2e.mjs`, `scripts/docker-compose-with-env.sh`, and `docker-compose.yml` keep wrapper-owned env loading, checked-in main-stack smoke, browser-visible chat proof scope, mounted proof roots, readiness URLs, and artifact destination `codeInfoTmp/manual-testing/0000059/30/` explicit for this review-created findings block.
+- `npm run build:summary:server` passed cleanly on the final story head, confirming the repaired missing-conversation caller contract still compiles and leaving ten wrapper-owned proof steps remaining in Task 30.
+- `npm run build:summary:client` passed cleanly on the final story head, confirming the repaired Story 59 client surfaces still compile and leaving nine wrapper-owned proof steps remaining in Task 30.
+- `npm run compose:build:summary` passed cleanly on the final story head, confirming the checked-in main-stack images still build and leaving eight wrapper-owned proof steps remaining in Task 30.
+- `npm run test:summary:server:unit` passed cleanly with `47/47` tests on the final story head, confirming the helper-side and lifecycle-side `not_found` contradiction coverage and leaving seven wrapper-owned proof steps remaining in Task 30.
+- `npm run test:summary:server:cucumber` passed cleanly with `129/129` scenarios on the final story head, confirming the repository-supported server feature-wrapper surface still holds and leaving six wrapper-owned proof steps remaining in Task 30.
+- `npm run test:summary:client` passed cleanly with `887/887` tests on the final story head, confirming the resumed endpoint identity and working-folder parity surfaces still hold after the missing-conversation caller repair and leaving five wrapper-owned proof steps remaining in Task 30.
+- `npm run test:summary:e2e` passed cleanly with `76/76` browser-visible tests on the final story head, confirming the repository-supported browser-visible chat surface still holds and leaving four wrapper-owned proof steps remaining in Task 30.
+- `npm run compose:up` followed by `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001` passed cleanly on the final story head, confirming the checked-in main-stack smoke path still comes up and serves both readiness surfaces and leaving three wrapper-owned proof steps remaining in Task 30.
+- `npm run compose:down` passed cleanly after the smoke validation, confirming the checked-in main stack tears down cleanly and leaving two wrapper-owned proof steps remaining in Task 30.
+- `npm run lint` passed cleanly after correcting import order and one unused test helper signature in the targeted server test/support files, confirming the final review-cycle validation surface is clean and leaving one wrapper-owned proof step remaining in Task 30.
+- `npm run format:check` passed cleanly on the final story head, confirming the final review-cycle validation surface remains Prettier-clean and closing the remaining Task 30 wrapper proof step.
 
 #### Manual Testing Guidance
 

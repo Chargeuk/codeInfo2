@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';

@@ -29,12 +29,12 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { createChatRouter } from '../../routes/chat.js';
-import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import {
   knownRepositoryPathsUnavailable,
   restoreSavedWorkingFolder,
   setWorkingFolderStatForTests,
 } from '../../workingFolders/state.js';
+import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 
 const originalLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
 

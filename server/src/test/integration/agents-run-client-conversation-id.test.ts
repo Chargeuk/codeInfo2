@@ -36,8 +36,8 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
-import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 class MinimalChat extends ChatInterface {

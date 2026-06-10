@@ -83,7 +83,10 @@ const applyConversationUpdate = (
   return next;
 };
 
-const buildFindByIdResult = (store: Map<string, Conversation>, id: unknown) => ({
+const buildFindByIdResult = (
+  store: Map<string, Conversation>,
+  id: unknown,
+) => ({
   lean: () => ({
     exec: async () => cloneConversation(store.get(String(id)) ?? null),
   }),
@@ -92,7 +95,11 @@ const buildFindByIdResult = (store: Map<string, Conversation>, id: unknown) => (
 
 const resolveConversationId = (value: unknown): string | undefined => {
   if (typeof value === 'string' && value.trim()) return value;
-  if (isPlainObject(value) && typeof value._id === 'string' && value._id.trim()) {
+  if (
+    isPlainObject(value) &&
+    typeof value._id === 'string' &&
+    value._id.trim()
+  ) {
     return value._id;
   }
   return undefined;
@@ -129,7 +136,10 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   });
 
   ConversationModel.findById = ((id: unknown) =>
-    buildFindByIdResult(conversations, id)) as typeof ConversationModel.findById;
+    buildFindByIdResult(
+      conversations,
+      id,
+    )) as typeof ConversationModel.findById;
 
   ConversationModel.findOne = ((filter: unknown) => ({
     sort: (sortSpec: Record<string, 1 | -1>) => ({
@@ -169,10 +179,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
     }),
   })) as typeof ConversationModel.findOne;
 
-  ConversationModel.findByIdAndUpdate = ((
-    id: unknown,
-    update: unknown,
-  ) => ({
+  ConversationModel.findByIdAndUpdate = ((id: unknown, update: unknown) => ({
     exec: async () => {
       const existing = conversations.get(String(id));
       if (!existing) return null;
@@ -182,10 +189,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
     },
   })) as typeof ConversationModel.findByIdAndUpdate;
 
-  ConversationModel.findOneAndUpdate = ((
-    filter: unknown,
-    update: unknown,
-  ) => ({
+  ConversationModel.findOneAndUpdate = ((filter: unknown, update: unknown) => ({
     exec: async () => {
       const conversationId = resolveConversationId(filter);
       if (!conversationId) return null;
@@ -197,14 +201,14 @@ export async function withMockedMongoConversationPersistence<T>(params: {
     },
   })) as typeof ConversationModel.findOneAndUpdate;
 
-  TurnModel.create = ((async (input: Record<string, unknown>) => {
+  TurnModel.create = (async (input: Record<string, unknown>) => {
     const turn = {
       _id: `turn-${turns.length + 1}`,
       ...structuredClone(input),
     };
     turns.push(turn);
     return turn;
-  }) as unknown) as typeof TurnModel.create;
+  }) as unknown as typeof TurnModel.create;
   TurnModel.findOne = (() => ({
     sort: () => ({
       lean: () => ({

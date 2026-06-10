@@ -1,0 +1,1 @@
+Agent that generates professional booklets from a booklet design

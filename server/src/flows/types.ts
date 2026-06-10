@@ -33,6 +33,7 @@ export type FlowRunError = {
 export type FlowRunStartParams = {
   flowName: string;
   sourceId?: string;
+  flowPath?: string[];
   conversationId?: string;
   retryOwnershipId?: string;
   working_folder?: string;

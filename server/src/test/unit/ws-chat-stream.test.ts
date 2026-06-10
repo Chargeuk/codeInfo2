@@ -658,11 +658,15 @@ test('late subscriber receives inflight_snapshot with partial assistant/tool sta
   }
 });
 
-test('transient reconnect errors do not fail the stream (published as warnings)', async () => {
+test('transient reconnect errors with upstream cause text do not fail the stream (published as warnings)', async () => {
   const server = await startServer({
     chatFactory: () =>
       new ScriptedChat(async (chat) => {
-        chat.emit('error', { type: 'error', message: 'Reconnecting... 1/5' });
+        chat.emit('error', {
+          type: 'error',
+          message:
+            'Reconnecting... 2/5 (stream disconnected before completion: websocket closed by server before response.completed)',
+        });
         await delay(25);
         chat.emit('token', { type: 'token', content: 'Still ' });
         await delay(25);
@@ -698,7 +702,10 @@ test('transient reconnect errors do not fail the stream (published as warnings)'
       timeoutMs: 5000,
     });
 
-    assert.equal(warning.message, 'Reconnecting... 1/5');
+    assert.equal(
+      warning.message,
+      'Reconnecting... 2/5 (stream disconnected before completion: websocket closed by server before response.completed)',
+    );
 
     const final = await waitForEvent({
       ws,

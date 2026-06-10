@@ -140,7 +140,8 @@ export async function resolveWorkingFolderWorkingDirectory(
     }
   }
 
-  if (await isDirectory(workingFolder)) return normalizeWorkingFolder(workingFolder);
+  if (await isDirectory(workingFolder))
+    return normalizeWorkingFolder(workingFolder);
 
   // The requested host working folder was not present on the local filesystem.
   // If caller allows restoring host path even when the mount isn't present,

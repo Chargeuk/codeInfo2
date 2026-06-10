@@ -88,6 +88,38 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('valid subflow step parses as ok: true', () => {
+    const json = JSON.stringify({
+      description: 'Subflow parent',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run child',
+          flowName: 'child-flow',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+  });
+
+  test('subflow step requires non-empty flowName', () => {
+    const json = JSON.stringify({
+      description: 'Subflow parent',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run child',
+          flowName: '   ',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
   test('invalid JSON returns ok: false', () => {
     const parsed = parseFlowFile('{ not valid json');
     assert.equal(parsed.ok, false);

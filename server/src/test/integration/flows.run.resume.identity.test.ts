@@ -1733,10 +1733,7 @@ test('startFlowRun keeps the parent requestedProviderId authoritative over weake
       flowFlags.flow?.agentRequestedProviders?.['coding_agent:resume-test'],
       'codex',
     );
-    assert.equal(
-      conversation?.flags?.requestedProviderId,
-      'codex',
-    );
+    assert.equal(conversation?.flags?.requestedProviderId, 'codex');
     assert.equal(
       memoryConversations.get(childConversationId)?.flags?.requestedProviderId,
       'copilot',

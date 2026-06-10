@@ -666,10 +666,7 @@ test('flow-owned llm steps default to the shared execution root when working_fol
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.message, 'Say hello from a flow step.');
-    assert.equal(
-      calls[0]?.flags.workingDirectoryOverride,
-      sharedExecutionRoot,
-    );
+    assert.equal(calls[0]?.flags.workingDirectoryOverride, sharedExecutionRoot);
     assert.equal(
       memoryConversations.get('flow-source-default-root')?.flags?.workingFolder,
       undefined,

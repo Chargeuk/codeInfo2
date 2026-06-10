@@ -150,12 +150,14 @@ export type ProviderBootstrapStatus = {
   warnings: string[];
 };
 
-const providerBootstrapStatuses: Record<ChatProviderId, ProviderBootstrapStatus> =
-  {
-    codex: { provider: 'codex', healthy: true, warnings: [] },
-    copilot: { provider: 'copilot', healthy: true, warnings: [] },
-    lmstudio: { provider: 'lmstudio', healthy: true, warnings: [] },
-  };
+const providerBootstrapStatuses: Record<
+  ChatProviderId,
+  ProviderBootstrapStatus
+> = {
+  codex: { provider: 'codex', healthy: true, warnings: [] },
+  copilot: { provider: 'copilot', healthy: true, warnings: [] },
+  lmstudio: { provider: 'lmstudio', healthy: true, warnings: [] },
+};
 
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
 const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
@@ -1035,9 +1037,7 @@ export function validateRuntimeConfig(
 
     if (key === 'plugins') {
       if (!isRecord(value)) {
-        throw new Error(
-          `invalid type at ${pathLabel}.plugins: expected table`,
-        );
+        throw new Error(`invalid type at ${pathLabel}.plugins: expected table`);
       }
       sanitized.plugins = value;
       continue;

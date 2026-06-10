@@ -572,7 +572,10 @@ test('startFlowRun validates each resumed child once and only backfills missing 
       secondChildConversationId,
     ]);
     assert.deepEqual(persistCalls, [secondChildConversationId]);
-    assert.equal(getFlowChildExecutionId(firstChildConversationId), executionId);
+    assert.equal(
+      getFlowChildExecutionId(firstChildConversationId),
+      executionId,
+    );
     assert.equal(
       getFlowChildExecutionId(secondChildConversationId),
       executionId,

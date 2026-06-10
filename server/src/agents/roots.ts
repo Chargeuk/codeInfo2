@@ -167,7 +167,9 @@ export const resolveAgentHomeForRepository = async (params: {
   repositoryRoot: string;
   agentName: string;
 }): Promise<ResolvedAgentHome> => {
-  const validatedAgentType = validateRepositoryBackedAgentType(params.agentName);
+  const validatedAgentType = validateRepositoryBackedAgentType(
+    params.agentName,
+  );
   if (!validatedAgentType.ok) {
     const error = new Error(validatedAgentType.message) as Error & {
       code?: string;

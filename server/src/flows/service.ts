@@ -25,6 +25,7 @@ import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { getChatInterface, UnsupportedProviderError } from '../chat/factory.js';
 import {
   abortInflight,
+  abortInflightByConversation,
   bindPendingConversationCancelToInflight,
   cleanupPendingConversationCancel,
   cleanupInflight,
@@ -33,6 +34,8 @@ import {
   getInflight,
   getPendingConversationCancel,
   markInflightPersisted,
+  registerPendingConversationCancel,
+  setAssistantText,
 } from '../chat/inflightRegistry.js';
 import type {
   ChatCompleteEvent,
@@ -44,6 +47,7 @@ import type {
 import { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
+  memoryTurns,
   recordMemoryTurn,
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
@@ -73,6 +77,7 @@ import type {
 import {
   appendTurn,
   createConversation,
+  listTurns,
   updateConversationFlowChildExecution,
   updateConversationMeta,
   updateConversationFlowState,
@@ -97,7 +102,7 @@ import {
   restoreSavedWorkingFolder,
   validateRequestedWorkingFolder,
 } from '../workingFolders/state.js';
-import { publishUserTurn } from '../ws/server.js';
+import { publishInflightSnapshot, publishUserTurn } from '../ws/server.js';
 
 const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   const pendingCancel = getPendingConversationCancel(conversationId);
@@ -119,6 +124,7 @@ import {
   type FlowLlmStep,
   type FlowReingestStep,
   type FlowStartLoopStep,
+  type FlowSubflowStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
@@ -249,8 +255,7 @@ const freshRunRetryOwnershipCompletedByKey = new Map<
 const makeFreshRunRetryOwnershipKey = (params: {
   flowName: string;
   retryOwnershipId: string;
-}) =>
-  `${params.flowName}::${params.retryOwnershipId.trim()}`;
+}) => `${params.flowName}::${params.retryOwnershipId.trim()}`;
 
 const normalizeFreshRunRetryOwnershipLaunch = (params: {
   flowName: string;
@@ -713,12 +718,37 @@ const buildFlowAgentConversationTitle = (params: {
     ? `${params.customTitle} (${params.identifier})`
     : `Flow: ${params.flowName} (${params.identifier})`;
 
+const buildSubflowConversationTitle = (params: {
+  parentFlowName: string;
+  parentPersistedTitle?: string;
+  parentCustomTitle?: string;
+  stepLabel?: string;
+  childFlowName: string;
+}) => {
+  const parentTitle =
+    params.parentPersistedTitle?.trim() ||
+    params.parentCustomTitle?.trim() ||
+    params.parentFlowName;
+  const stepTitle = params.stepLabel?.trim() || params.childFlowName;
+  return `${parentTitle}-${stepTitle}`;
+};
+
+const buildFlowPathEntry = (params: { flowName: string; sourceId?: string }) =>
+  params.sourceId?.trim()
+    ? `${params.flowName.trim()}@${params.sourceId.trim()}`
+    : params.flowName.trim();
+
 const normalizeNumberArray = (value: unknown): number[] => {
   if (!Array.isArray(value)) return [];
   return value.filter(
     (item) => typeof item === 'number' && Number.isFinite(item),
   );
 };
+
+const normalizeOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
 
 const normalizeStringMap = (value: unknown): Record<string, string> => {
   if (!isRecord(value)) return {};
@@ -784,6 +814,25 @@ const parseFlowResumeState = (
   const retryOwnershipCompletion = parseFreshRunRetryOwnershipCompletion(
     flow.retryOwnershipCompletion,
   );
+  const activeSubflow = isRecord(flow.activeSubflow)
+    ? (() => {
+        const flowName = normalizeOptionalString(flow.activeSubflow.flowName);
+        const conversationId = normalizeOptionalString(
+          flow.activeSubflow.conversationId,
+        );
+        const runToken = normalizeOptionalString(flow.activeSubflow.runToken);
+        if (!flowName || !conversationId || !runToken) return null;
+        return {
+          stepPath: normalizeNumberArray(flow.activeSubflow.stepPath),
+          flowName,
+          conversationId,
+          runToken,
+          ...(normalizeOptionalString(flow.activeSubflow.title)
+            ? { title: normalizeOptionalString(flow.activeSubflow.title) }
+            : {}),
+        };
+      })()
+    : null;
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {
@@ -804,6 +853,7 @@ const parseFlowResumeState = (
           pendingLoopControl,
         }
       : {}),
+    ...(activeSubflow ? { activeSubflow } : {}),
     ...(typeof flow.workingFolder === 'string' && flow.workingFolder.trim()
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
@@ -1598,6 +1648,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowBreakStep
     | FlowContinueStep
     | FlowCommandStep
+    | FlowSubflowStep
     | FlowReingestStep;
   stepIndex: number;
   totalSteps: number;
@@ -2278,6 +2329,91 @@ const createNoopChat = () =>
     }
   })();
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getFlowConversationTerminalStatus = async (params: {
+  conversationId: string;
+  runToken: string;
+}): Promise<TurnStatus | null> => {
+  const activeOwnership = getActiveRunOwnership(params.conversationId);
+  if (activeOwnership?.runToken === params.runToken) {
+    return null;
+  }
+
+  if (activeOwnership && activeOwnership.runToken !== params.runToken) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `Subflow conversation ${params.conversationId} is now owned by a different run.`,
+    );
+  }
+
+  if (shouldUseMemoryPersistence()) {
+    const turns = memoryTurns.get(params.conversationId) ?? [];
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+      const turn = turns[index];
+      if (turn?.role === 'assistant') {
+        return turn.status;
+      }
+    }
+    return null;
+  }
+
+  const persistedTurns = await listTurns({
+    conversationId: params.conversationId,
+    limit: 10,
+  });
+  const assistantTurn = persistedTurns.items.find(
+    (turn) => turn.role === 'assistant',
+  );
+  return assistantTurn?.status ?? null;
+};
+
+const persistUnexpectedFlowFailureIfNeeded = async (params: {
+  conversationId: string;
+  modelId: string;
+  providerId?: ConversationProvider;
+  source: 'REST' | 'MCP';
+  message: string;
+}) => {
+  const latestAssistantTurn = shouldUseMemoryPersistence()
+    ? (() => {
+        const turns = memoryTurns.get(params.conversationId) ?? [];
+        for (let index = turns.length - 1; index >= 0; index -= 1) {
+          const turn = turns[index];
+          if (turn?.role === 'assistant') {
+            return turn;
+          }
+        }
+        return null;
+      })()
+    : (
+        await listTurns({
+          conversationId: params.conversationId,
+          limit: 10,
+        })
+      ).items.find((turn) => turn.role === 'assistant');
+
+  if (
+    latestAssistantTurn &&
+    (latestAssistantTurn.status === 'failed' ||
+      latestAssistantTurn.status === 'stopped')
+  ) {
+    return;
+  }
+
+  await persistFlowTurn({
+    conversationId: params.conversationId,
+    role: 'assistant',
+    content: params.message,
+    model: params.modelId,
+    provider: params.providerId ?? 'codex',
+    source: params.source,
+    status: 'failed',
+    toolCalls: null,
+    createdAt: new Date(),
+  });
+};
+
 const emitFailedFlowStep = async (params: {
   flowConversationId: string;
   inflightId: string;
@@ -2489,6 +2625,7 @@ const buildFlowResumeState = (params: {
   stepPath: number[];
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
+  activeSubflow?: FlowResumeState['activeSubflow'];
   workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
@@ -2535,6 +2672,19 @@ const buildFlowResumeState = (params: {
           },
         }
       : {}),
+    ...(params.activeSubflow
+      ? {
+          activeSubflow: {
+            stepPath: [...params.activeSubflow.stepPath],
+            flowName: params.activeSubflow.flowName,
+            conversationId: params.activeSubflow.conversationId,
+            runToken: params.activeSubflow.runToken,
+            ...(params.activeSubflow.title
+              ? { title: params.activeSubflow.title }
+              : {}),
+          },
+        }
+      : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
@@ -2557,6 +2707,7 @@ const persistFlowResumeState = async (params: {
   stepPath: number[];
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
+  activeSubflow?: FlowResumeState['activeSubflow'];
   workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
@@ -2565,6 +2716,7 @@ const persistFlowResumeState = async (params: {
     stepPath: params.stepPath,
     loopStack: params.loopStack,
     pendingLoopControl: params.pendingLoopControl,
+    activeSubflow: params.activeSubflow,
     workingFolder: params.workingFolder,
   });
   const existingConversation = await getConversation(params.conversationId);
@@ -3332,11 +3484,13 @@ const resolveFlowCommandForAgent = async (params: {
 async function runFlowUnlocked(params: {
   flowName: string;
   flow: FlowFile;
+  flowPath: string[];
   repositoryContext: FlowCommandRepositoryContext;
   conversationId: string;
   executionId: string;
   inflightId: string;
   modelId: string;
+  providerId: ConversationProvider;
   workingDirectoryOverride?: string;
   source: 'REST' | 'MCP';
   chatFactory?: FlowChatFactory;
@@ -3369,6 +3523,17 @@ async function runFlowUnlocked(params: {
         loopStepPath: [...params.resumeState.pendingLoopControl.loopStepPath],
       }
     : null;
+  let activeSubflow = params.resumeState?.activeSubflow
+    ? {
+        stepPath: [...params.resumeState.activeSubflow.stepPath],
+        flowName: params.resumeState.activeSubflow.flowName,
+        conversationId: params.resumeState.activeSubflow.conversationId,
+        runToken: params.resumeState.activeSubflow.runToken,
+        ...(params.resumeState.activeSubflow.title
+          ? { title: params.resumeState.activeSubflow.title }
+          : {}),
+      }
+    : undefined;
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
@@ -3393,6 +3558,7 @@ async function runFlowUnlocked(params: {
       stepPath,
       loopStack,
       pendingLoopControl,
+      activeSubflow,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
   const clearContinueBoundaryForActiveLoop = () => {
@@ -4101,6 +4267,326 @@ async function runFlowUnlocked(params: {
       status: 'ok',
       shouldContinue: continueAnswer === step.continueOn,
     };
+  };
+
+  const requestActiveSubflowStop = (params: {
+    conversationId: string;
+    runToken?: string;
+  }) => {
+    const childRunToken =
+      params.runToken ?? getActiveRunOwnership(params.conversationId)?.runToken;
+    if (!childRunToken) return false;
+
+    registerPendingConversationCancel({
+      conversationId: params.conversationId,
+      runToken: childRunToken,
+    });
+    const aborted = abortInflightByConversation(params.conversationId);
+    return aborted.ok || aborted.reason === 'INFLIGHT_NOT_FOUND';
+  };
+
+  const runSubflowStep = async (
+    step: FlowSubflowStep,
+    command: TurnCommandMetadata,
+    nextPath: number[],
+  ): Promise<TurnStatus> => {
+    const instruction = `Run subflow ${step.flowName}`;
+    const parentTurnCreatedAtIso = new Date().toISOString();
+    const parentTurnCreatedAt = new Date(parentTurnCreatedAtIso);
+    const parentConversation = await getConversation(params.conversationId);
+    const subflowTitle = buildSubflowConversationTitle({
+      parentFlowName: params.flowName,
+      parentPersistedTitle: parentConversation?.title,
+      parentCustomTitle: params.customTitle,
+      stepLabel: step.label,
+      childFlowName: step.flowName,
+    });
+    const resumedActiveSubflow =
+      activeSubflow &&
+      getStepPathKey(activeSubflow.stepPath) === getStepPathKey(nextPath) &&
+      activeSubflow.flowName === step.flowName
+        ? activeSubflow
+        : undefined;
+    const resumedConversationId = resumedActiveSubflow?.conversationId;
+    const resumedRunToken = resumedActiveSubflow?.runToken;
+    const runningText = `Running subflow ${subflowTitle}`;
+    let childConversationId = resumedConversationId;
+    let childRunToken = resumedRunToken;
+
+    const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
+      const pendingCancel = getPendingConversationCancel(params.conversationId);
+      if (!pendingCancel || pendingCancel.runToken !== params.runToken) {
+        return false;
+      }
+
+      if (childConversationId && childRunToken) {
+        const childStatus = await getFlowConversationTerminalStatus({
+          conversationId: childConversationId,
+          runToken: childRunToken,
+        });
+        if (!childStatus) return false;
+      }
+
+      const consumedPendingCancel = consumePendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+      });
+      if (!consumedPendingCancel) return false;
+
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return true;
+    };
+
+    if (await stopSubflowBeforeLaunch()) {
+      return 'stopped';
+    }
+
+    createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+      command,
+      userTurn: { content: instruction, createdAt: parentTurnCreatedAtIso },
+    });
+    setAssistantText({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      text: runningText,
+    });
+    publishUserTurn({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      content: instruction,
+      createdAt: parentTurnCreatedAtIso,
+    });
+
+    const bridge = attachChatStreamBridge({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      chat: createNoopChat(),
+      deferFinal: true,
+    });
+
+    try {
+      if (!childConversationId || !childRunToken) {
+        const started = await startFlowRun({
+          flowName: step.flowName,
+          sourceId: params.repositoryContext.flowSourceId,
+          flowPath: params.flowPath,
+          working_folder: params.repositoryContext.workingRepositoryPath,
+          customTitle: subflowTitle,
+          source: params.source,
+          chatFactory: params.chatFactory,
+          listIngestedRepositories:
+            params.repositoryContext.listIngestedRepositories,
+          onOwnershipReady: ({ conversationId, runToken }) => {
+            childConversationId = conversationId;
+            childRunToken = runToken;
+          },
+        });
+        childConversationId = started.conversationId;
+      }
+
+      if (!childConversationId || !childRunToken) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          `Subflow ${step.flowName} did not start correctly.`,
+        );
+      }
+
+      activeSubflow = {
+        stepPath: [...nextPath],
+        flowName: step.flowName,
+        conversationId: childConversationId,
+        runToken: childRunToken,
+        title: subflowTitle,
+      };
+      await persistRuntimeResumeState(lastCompletedStepPath);
+
+      let terminalStatus: TurnStatus;
+      let parentStopRequested = false;
+      while (true) {
+        const parentPendingCancel = consumePendingConversationCancel({
+          conversationId: params.conversationId,
+          runToken: params.runToken,
+        });
+        if (parentPendingCancel) {
+          parentStopRequested = true;
+          requestActiveSubflowStop({
+            conversationId: childConversationId,
+            runToken: childRunToken,
+          });
+        }
+
+        const childStatus = await getFlowConversationTerminalStatus({
+          conversationId: childConversationId,
+          runToken: childRunToken,
+        });
+        if (childStatus) {
+          terminalStatus = parentStopRequested ? 'stopped' : childStatus;
+          break;
+        }
+
+        if (
+          resumedActiveSubflow &&
+          !getActiveRunOwnership(childConversationId)
+        ) {
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            `Subflow ${step.flowName} could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+          );
+        }
+
+        await sleep(25);
+      }
+
+      activeSubflow = undefined;
+
+      const finalMessage =
+        terminalStatus === 'ok'
+          ? `Completed subflow ${subflowTitle}`
+          : terminalStatus === 'stopped'
+            ? `Stopped subflow ${subflowTitle}`
+            : `Subflow ${subflowTitle} failed`;
+      setAssistantText({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        text: finalMessage,
+      });
+      publishInflightSnapshot(params.conversationId);
+
+      const userPersisted = await persistFlowTurn({
+        conversationId: params.conversationId,
+        role: 'user',
+        content: instruction,
+        model: params.modelId,
+        provider: params.providerId,
+        source: params.source,
+        status: 'ok',
+        toolCalls: null,
+        command,
+        createdAt: parentTurnCreatedAt,
+      });
+      const assistantPersisted = await persistFlowTurn({
+        conversationId: params.conversationId,
+        role: 'assistant',
+        content: finalMessage,
+        model: params.modelId,
+        provider: params.providerId,
+        source: params.source,
+        status: terminalStatus,
+        toolCalls: null,
+        command,
+        createdAt: new Date(),
+      });
+
+      markInflightPersisted({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        role: 'user',
+        turnId: userPersisted.turnId,
+      });
+      markInflightPersisted({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        role: 'assistant',
+        turnId: assistantPersisted.turnId,
+      });
+
+      bridge.finalize({
+        fallback:
+          terminalStatus === 'failed'
+            ? {
+                status: terminalStatus,
+                error: {
+                  code: 'SUBFLOW_FAILED',
+                  message: finalMessage,
+                },
+              }
+            : {
+                status: terminalStatus,
+              },
+      });
+      return terminalStatus;
+    } catch (error) {
+      activeSubflow = undefined;
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
+          ? error.message
+          : `Failed to run subflow ${step.flowName}`;
+      setAssistantText({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        text: message,
+      });
+      publishInflightSnapshot(params.conversationId);
+
+      const userPersisted = await persistFlowTurn({
+        conversationId: params.conversationId,
+        role: 'user',
+        content: instruction,
+        model: params.modelId,
+        provider: params.providerId,
+        source: params.source,
+        status: 'ok',
+        toolCalls: null,
+        command,
+        createdAt: parentTurnCreatedAt,
+      });
+      const assistantPersisted = await persistFlowTurn({
+        conversationId: params.conversationId,
+        role: 'assistant',
+        content: message,
+        model: params.modelId,
+        provider: params.providerId,
+        source: params.source,
+        status: 'failed',
+        toolCalls: null,
+        command,
+        createdAt: new Date(),
+      });
+      markInflightPersisted({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        role: 'user',
+        turnId: userPersisted.turnId,
+      });
+      markInflightPersisted({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        role: 'assistant',
+        turnId: assistantPersisted.turnId,
+      });
+      bridge.finalize({
+        fallback: {
+          status: 'failed',
+          error: {
+            code: isFlowRunError(error) ? error.code : 'SUBFLOW_FAILED',
+            message,
+          },
+        },
+      });
+      return 'failed';
+    } finally {
+      bridge.cleanup();
+      cleanupInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+    }
   };
 
   const runCommandStep = async (
@@ -4821,6 +5307,40 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'subflow') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            subflowName: step.flowName,
+          },
+        });
+        const status = await runSubflowStep(step, command, nextPath);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.subflow',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
       if (step.type === 'reingest') {
         const command = buildFlowCommandMetadata({
           step,
@@ -4887,6 +5407,15 @@ export async function startFlowRun(
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
   const sourceId = params.sourceId?.trim() || undefined;
+  const flowPathEntry = buildFlowPathEntry({ flowName, sourceId });
+  if (params.flowPath?.includes(flowPathEntry)) {
+    const cyclePath = [...params.flowPath, flowPathEntry].join(' -> ');
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `Subflow cycle detected: ${cyclePath}.`,
+    );
+  }
+  const flowPath = [...(params.flowPath ?? []), flowPathEntry];
   const retryOwnershipId = params.retryOwnershipId?.trim() || undefined;
   const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
@@ -5169,6 +5698,17 @@ export async function startFlowRun(
             loopStepPath: [...resumeState.pendingLoopControl.loopStepPath],
           }
         : null,
+      activeSubflow: resumeState?.activeSubflow
+        ? {
+            stepPath: [...resumeState.activeSubflow.stepPath],
+            flowName: resumeState.activeSubflow.flowName,
+            conversationId: resumeState.activeSubflow.conversationId,
+            runToken: resumeState.activeSubflow.runToken,
+            ...(resumeState.activeSubflow.title
+              ? { title: resumeState.activeSubflow.title }
+              : {}),
+          }
+        : undefined,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
     });
     if (retryOwnershipId && !resumeStepPath) {
@@ -5222,11 +5762,13 @@ export async function startFlowRun(
       await runFlowUnlocked({
         flowName,
         flow,
+        flowPath,
         repositoryContext,
         conversationId,
         executionId,
         inflightId,
         modelId,
+        providerId,
         workingDirectoryOverride,
         source: params.source,
         chatFactory: params.chatFactory,
@@ -5244,6 +5786,18 @@ export async function startFlowRun(
         conversationId,
       });
     } catch (err) {
+      const failureMessage = isFlowRunError(err)
+        ? (err.reason ?? err.code)
+        : err instanceof Error
+          ? err.message
+          : 'Flow run failed unexpectedly.';
+      await persistUnexpectedFlowFailureIfNeeded({
+        conversationId,
+        modelId,
+        providerId,
+        source: params.source,
+        message: failureMessage,
+      });
       if ((err as FlowRunError | undefined)?.code) {
         baseLogger.error(
           { flowName, conversationId, inflightId, err },

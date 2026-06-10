@@ -344,10 +344,7 @@ test('providers route keeps degraded LM Studio bootstrap reason authoritative ev
     assert.equal(res.body.providers[2].id, 'lmstudio');
     assert.equal(res.body.providers[2].available, false);
     assert.equal(res.body.providers[2].toolsAvailable, false);
-    assert.equal(
-      res.body.providers[2].reason,
-      'lmstudio bootstrap degraded',
-    );
+    assert.equal(res.body.providers[2].reason, 'lmstudio bootstrap degraded');
   } finally {
     await stopServer(server);
   }

@@ -1,0 +1,4 @@
+Console sanity summary from the final Task 24 browser pass:
+- No blocking console errors were observed during the restored-history and fresh-draft checks.
+- The only notable browser issue entry was: "A form field element should have an id or name attribute" (count: 8).
+- Informational chat-history, provider-selection, and codex-warning logs were present while conversation history and model identity were restored.

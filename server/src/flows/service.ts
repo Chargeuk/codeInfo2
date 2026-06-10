@@ -1215,6 +1215,9 @@ const ensureFlowAgentConversation = async (params: {
       replaceFlags: true,
       lastMessageAt: now,
     });
+    if (metaOutcome.outcome === 'not_found') {
+      throw toFlowRunError('CONVERSATION_ARCHIVED');
+    }
     if (metaOutcome.outcome === 'retry_exhausted') {
       throw new Error('flow conversation metadata update exhausted');
     }
@@ -1698,6 +1701,9 @@ async function persistFlowTurn(params: {
     lastMessageAt: params.createdAt,
     model: params.model,
   });
+  if (metaOutcome.outcome === 'not_found') {
+    throw toFlowRunError('CONVERSATION_ARCHIVED');
+  }
   if (metaOutcome.outcome === 'retry_exhausted') {
     throw new Error('flow turn metadata update exhausted');
   }

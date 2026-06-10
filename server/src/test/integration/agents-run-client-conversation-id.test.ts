@@ -37,6 +37,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
+import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 class MinimalChat extends ChatInterface {
@@ -444,6 +445,48 @@ test('direct agent start stops before completion when persisted metadata retries
   } finally {
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
   }
+});
+
+test('direct agent start stops before completion when persisted metadata reports not_found after a concurrent delete', async () => {
+  const conversationId = 'task29-direct-not-found';
+
+  await withConversationMetaNotFoundFixture({
+    seedConversation: {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      title: 'Saved continuation',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: {},
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    } as Conversation,
+    run: async ({ conversations, capturedUpdates }) => {
+      let builtChat = false;
+
+        await assert.rejects(
+          runAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'continue with saved requested provider',
+            conversationId,
+            source: 'REST',
+            chatFactory: () => {
+              builtChat = true;
+              return new MinimalChat();
+            },
+          }),
+          (error: unknown) =>
+            (error as { code?: string }).code === 'CONVERSATION_ARCHIVED',
+        );
+
+      assert.equal(builtChat, false);
+      assert.equal(conversations.get(conversationId), undefined);
+      assert.equal(capturedUpdates.length, 1);
+    },
+  });
 });
 
 test('runAgentCommand stops before the first synthetic turn persistence when persisted metadata retries exhaust', async () => {

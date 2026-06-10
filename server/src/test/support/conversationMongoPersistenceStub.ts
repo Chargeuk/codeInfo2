@@ -100,6 +100,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   const originalFindById = ConversationModel.findById;
   const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
   const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  const originalTurnFindOne = TurnModel.findOne;
   const originalTurnCreate = TurnModel.create;
 
   process.env.NODE_ENV = 'production';
@@ -147,6 +148,15 @@ export async function withMockedMongoConversationPersistence<T>(params: {
     turns.push(turn);
     return turn;
   }) as unknown) as typeof TurnModel.create;
+  TurnModel.findOne = ((
+    _filter: unknown,
+  ) => ({
+    sort: () => ({
+      lean: () => ({
+        exec: async () => null,
+      }),
+    }),
+  })) as typeof TurnModel.findOne;
 
   try {
     return await params.run({ conversations, turns });
@@ -163,6 +173,7 @@ export async function withMockedMongoConversationPersistence<T>(params: {
     ConversationModel.findById = originalFindById;
     ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    TurnModel.findOne = originalTurnFindOne;
     TurnModel.create = originalTurnCreate;
   }
 }

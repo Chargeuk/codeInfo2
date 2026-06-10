@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
@@ -25,6 +27,7 @@ import { ConversationModel } from '../../mongo/conversation.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
+import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 
 const appWith = (
@@ -37,6 +40,29 @@ const appWith = (
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const buildRepoEntry = (containerPath: string) =>
+  ({
+    id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+    description: null,
+    containerPath,
+    hostPath: containerPath,
+    lastIngestAt: null,
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    model: 'model',
+    modelId: 'model',
+    lock: {
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'model',
+      embeddingDimensions: 768,
+      lockedModelId: 'model',
+      modelId: 'model',
+    },
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    lastError: null,
+  }) as const;
 
 class ScriptedChat extends ChatInterface {
   constructor(
@@ -106,7 +132,7 @@ async function waitForChatPersistence(
 }
 
 function createChatApp(chatFactory: () => ChatInterface) {
-  const app = express();
+const app = express();
   app.use(express.json());
   app.use(
     '/chat',
@@ -120,6 +146,10 @@ function createChatApp(chatFactory: () => ChatInterface) {
           },
         }) as unknown as LMStudioClient,
       chatFactory,
+      listIngestedRepositoriesFn: async () => ({
+        repos: [buildRepoEntry(process.cwd())],
+        lockedModelId: null,
+      }),
     }),
   );
   return app;
@@ -311,6 +341,95 @@ test('stops the /chat append-turn path when metadata retries exhaust before relo
       } finally {
         ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
       }
+    },
+  });
+});
+
+test('stops the /chat append-turn path when metadata write reports not_found after a concurrent delete', async () => {
+  const conversationId = 'c-not-found-chat';
+  const chat = new CountingChat();
+  const expectedWorkingFolder = process.cwd();
+  const seedConversation = {
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: 'model-1',
+    title: 'missing chat conversation',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-stale',
+      flow: { status: 'queued' },
+      workingFolder: '/repos/stale-root',
+    },
+    archivedAt: null,
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+  } as const;
+
+  await withMockedMongoConversationPersistence({
+    seedConversations: [seedConversation as never],
+    run: async () => {
+      await withConversationMetaNotFoundFixture({
+        seedConversation: seedConversation as never,
+        run: async ({ conversations, capturedUpdates }) => {
+          const response = await request(createChatApp(() => chat))
+            .post('/chat')
+            .send({
+              provider: 'lmstudio',
+              model: 'model-1',
+              conversationId,
+              message: 'hello',
+              working_folder: process.cwd(),
+            });
+
+          assert.equal(response.status, 410);
+          assert.equal(response.body.status, 'error');
+          assert.equal(response.body.code, 'CONVERSATION_ARCHIVED');
+          assert.equal(
+            response.body.message,
+            'Conversation is archived and must be restored before use.',
+          );
+          assert.equal(chat.executeCalls, 0);
+          assert.equal(conversations.get(conversationId), undefined);
+          assert.equal(capturedUpdates.length, 1);
+          assert.deepEqual(capturedUpdates[0]?.filter, {
+            _id: conversationId,
+            updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+          });
+      assert.deepEqual(
+        (capturedUpdates[0]?.update as Record<string, unknown>).flags,
+        {
+          workingFolder: expectedWorkingFolder,
+          agentFlags: {
+            temperature: 0.2,
+            maxTokens: 4096,
+            contextOverflowPolicy: 'truncateMiddle',
+            toolAccess: 'on',
+          },
+        },
+      );
+      const capturedFlags = (capturedUpdates[0]?.update as Record<
+        string,
+        unknown
+      >).flags as Record<string, unknown>;
+      assert.equal(
+        'threadId' in capturedFlags,
+        false,
+      );
+      assert.equal(
+        'flow' in capturedFlags,
+        false,
+      );
+      assert.equal(
+        typeof (capturedUpdates[0]?.update as Record<string, unknown>)
+          .lastMessageAt,
+            'object',
+          );
+          assert.equal('provider' in response.body, false);
+          assert.equal('model' in response.body, false);
+          assert.equal('error' in response.body, false);
+        },
+      });
     },
   });
 });

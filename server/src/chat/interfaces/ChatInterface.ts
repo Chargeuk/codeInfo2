@@ -557,6 +557,9 @@ export abstract class ChatInterface extends EventEmitter {
       conversationId: input.conversationId,
       lastMessageAt: turn.createdAt,
     });
+    if (metaOutcome.outcome === 'not_found') {
+      throw new Error('chat turn conversation metadata not found');
+    }
     if (metaOutcome.outcome === 'retry_exhausted') {
       throw new Error('chat turn metadata update exhausted');
     }

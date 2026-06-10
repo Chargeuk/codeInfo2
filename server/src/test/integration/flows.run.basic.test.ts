@@ -1600,6 +1600,123 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
   }
 });
 
+test('flow llm.basic stops before started response construction when persisted metadata reports not_found after a concurrent delete', async () => {
+  const prevNodeEnv = process.env.NODE_ENV;
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-not-found-'),
+  );
+  const workingFolder = path.join(tmpDir, 'repo-working-root');
+  const conversationId = 'flow-not-found-conversation';
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  const originalSave = ConversationModel.prototype.save;
+
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await fs.mkdir(workingFolder, { recursive: true });
+
+  process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await withMockedMongoConversationPersistence({
+      seedConversations: [
+        {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.3-codex',
+          title: 'Saved flow continuation',
+          agentName: 'flow_agent',
+          source: 'REST',
+          flags: {
+            endpointId: 'https://alpha.example/v1',
+          },
+          lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+          archivedAt: null,
+          createdAt: new Date('2025-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+        } as Conversation,
+      ],
+      run: async ({ conversations, turns }) => {
+        let updateAttempts = 0;
+        ConversationModel.prototype.save = (async function save(
+          this: unknown,
+        ) {
+          const doc = this as { _id?: unknown; toObject?: () => unknown };
+          const saved = {
+            ...structuredClone(doc.toObject?.() ?? doc),
+            _id: String(doc._id ?? conversationId),
+          } as Conversation;
+          conversations.set(String(saved._id), saved);
+          return saved;
+        }) as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = ((
+          () => ({
+            exec: async () => {
+              updateAttempts += 1;
+              conversations.delete(conversationId);
+              return null;
+            },
+          })
+        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+
+        try {
+          const app = express();
+          app.use(
+            createFlowsRunRouter({
+              startFlowRun: (params) =>
+                startFlowRun({
+                  ...params,
+                  chatFactory: () => new InstantChat(),
+                  listIngestedRepositories: async () => ({
+                    repos: [buildRepoEntry(workingFolder)],
+                    lockedModelId: null,
+                  }),
+                }),
+            }),
+          );
+
+          const response = await supertest(app)
+            .post('/flows/llm-basic/run')
+            .send({
+              conversationId,
+              working_folder: workingFolder,
+            });
+
+          assert.equal(response.status, 202);
+          assert.equal(response.body.status, 'started');
+          await waitFor(() => updateAttempts > 0);
+          assert.equal(updateAttempts, 3);
+          assert.equal(turns.length, 1);
+          assert.equal(turns[0]?.role, 'user');
+          assert.equal(conversations.get(conversationId), undefined);
+        } finally {
+          ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+          ConversationModel.prototype.save = originalSave;
+        }
+      },
+    });
+  } finally {
+    if (prevNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = prevNodeEnv;
+    }
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('POST /flows/:flowName/run uses local flows when sourceId omitted', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

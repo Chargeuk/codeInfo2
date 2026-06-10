@@ -36,6 +36,7 @@ import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
 import { ConversationModel } from '../../../mongo/conversation.js';
 import { withMockedMongoConversationPersistence } from '../../support/conversationMongoPersistenceStub.js';
+import { withConversationMetaNotFoundFixture } from '../../support/conversationMetaNotFoundFixture.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
@@ -1699,6 +1700,94 @@ test('codebase_question stops before chat construction when persisted metadata r
     } else {
       process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
     }
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question stops before chat construction when persisted metadata reports not_found after a concurrent delete', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const conversationId = 'mcp-metadata-not-found';
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex-spark"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  try {
+    await withConversationMetaNotFoundFixture({
+      seedConversation: {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.3-codex-spark',
+        title: 'Saved MCP conversation',
+        source: 'MCP',
+        flags: {},
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Conversation,
+      run: async ({ conversations, capturedUpdates }) => {
+        const server = http.createServer(handleRpc);
+        server.listen(0);
+        const { port } = server.address() as AddressInfo;
+
+        try {
+          setToolDeps({
+            clientFactory: makeLmStudioClientFactory(),
+            chatFactory: () => {
+              throw new Error(
+                'codebase question should not build chat after metadata not_found',
+              );
+            },
+            listIngestedRepositoriesFn: async () => ({
+              repos: [],
+              lockedModelId: null,
+            }),
+          });
+
+          const response = await postJson(port, {
+            jsonrpc: '2.0',
+            id: 133,
+            method: 'tools/call',
+            params: {
+              name: 'codebase_question',
+              arguments: {
+                question: 'Missing conversation codebase question',
+                conversationId,
+                provider: 'codex',
+                model: 'gpt-5.3-codex-spark',
+              },
+            },
+          });
+
+          assert.ok(response.error);
+          assert.equal(response.error.code, 410);
+          assert.equal(response.error.message, 'Conversation is archived and must be restored before use');
+          assert.equal(conversations.get(conversationId), undefined);
+          assert.equal(capturedUpdates.length, 1);
+        } finally {
+          resetToolDeps();
+          server.closeAllConnections();
+          await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+          });
+        }
+      },
+    });
+  } finally {
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeInfoCodeHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
     await tempHome.cleanup();
   }
 });

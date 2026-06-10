@@ -1046,7 +1046,9 @@ export function createChatRouter({
       executionContext.repositoryMetadata.workingRepositoryAvailable;
     let repositoryBackedCodexHome: string | undefined;
 
-    const ensureConversation = async (): Promise<Conversation | null> => {
+    const ensureConversation = async (): Promise<
+      Conversation | null | { outcome: 'not_found' }
+    > => {
       const buildRuntimeConversationFlags = (
         currentFlags: Record<string, unknown> | undefined,
       ) => {
@@ -1153,6 +1155,9 @@ export function createChatRouter({
         replaceFlags: true,
         lastMessageAt: now,
       });
+      if (metaOutcome.outcome === 'not_found') {
+        return { outcome: 'not_found' };
+      }
       if (metaOutcome.outcome === 'retry_exhausted') {
         throw new Error('chat conversation metadata update exhausted');
       }
@@ -1222,6 +1227,14 @@ export function createChatRouter({
       }
 
       const ensuredConversation = await ensureConversation();
+      if (ensuredConversation && 'outcome' in ensuredConversation) {
+        releaseConversationLockFn(conversationId, runToken);
+        return res.status(410).json({
+          status: 'error',
+          code: 'CONVERSATION_ARCHIVED',
+          message: 'Conversation is archived and must be restored before use.',
+        });
+      }
       if (!ensuredConversation) {
         releaseConversationLockFn(conversationId, runToken);
         return res.status(410).json({

@@ -29,6 +29,7 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import {
   knownRepositoryPathsUnavailable,
   restoreSavedWorkingFolder,
@@ -1233,6 +1234,127 @@ describe('ChatInterface.run persistence', () => {
         value: originalReady,
         configurable: true,
       });
+    }
+  });
+
+  test('updateConversationMeta returns not_found after a concurrent delete and does not reintroduce stale metadata on refresh', async () => {
+    const staleFlags = {
+      endpointId: 'https://stale.example/v1',
+      requestedProviderId: 'codex',
+      workingFolder: '/repos/stale-root',
+      threadId: 'thread-stale',
+      flow: { status: 'queued' },
+    } as const;
+    const seedConversation: Conversation = {
+      _id: 'missing-after-delete-conversation',
+      provider: 'codex',
+      model: 'gpt-5.2',
+      title: 'missing after delete',
+      source: 'REST',
+      flags: { ...staleFlags },
+      lastMessageAt: new Date('2025-02-05T00:00:00.000Z'),
+      archivedAt: null,
+      createdAt: new Date('2025-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2025-02-05T00:00:00.000Z'),
+    } as Conversation;
+
+    await withConversationMetaNotFoundFixture({
+      seedConversation,
+      run: async ({ conversations, capturedUpdates }) => {
+        const outcome = await updateConversationMeta({
+          conversationId: seedConversation._id,
+          provider: 'codex',
+          model: 'gpt-5.3-codex',
+          flags: {
+            endpointId: 'https://fresh.example/v1',
+            requestedProviderId: 'copilot',
+            workingFolder: '/repos/fresh-root',
+            threadId: 'thread-fresh',
+            flow: { status: 'running' },
+          },
+          lastMessageAt: new Date('2025-02-06T00:00:00.000Z'),
+        });
+
+        assert.deepEqual(outcome, { outcome: 'not_found' });
+        assert.equal(conversations.get(seedConversation._id), undefined);
+        assert.equal(capturedUpdates.length, 1);
+        assert.deepEqual(capturedUpdates[0]?.filter, {
+          _id: seedConversation._id,
+          updatedAt: seedConversation.updatedAt,
+        });
+        assert.deepEqual(capturedUpdates[0]?.update, {
+          provider: 'codex',
+          model: 'gpt-5.3-codex',
+          flags: {
+            endpointId: 'https://fresh.example/v1',
+            requestedProviderId: 'copilot',
+            workingFolder: '/repos/fresh-root',
+            threadId: 'thread-fresh',
+            flow: { status: 'running' },
+          },
+          lastMessageAt: new Date('2025-02-06T00:00:00.000Z'),
+        });
+      },
+    });
+  });
+
+  test('ChatInterface.run stops before execute when persisted turn metadata reports not_found after a concurrent delete', async () => {
+    const originalTurnCreate = TurnModel.create;
+    const conversationId = 'chat-run-not-found';
+    const chat = new RetryExhaustedChat();
+    const seedConversation = buildConversationDoc({
+      conversationId,
+      provider: 'codex',
+      model: 'model-a',
+      flags: {
+        endpointId: 'https://stale.example/v1',
+        workingFolder: '/repos/stale-root',
+        threadId: 'thread-stale',
+        flow: { status: 'queued' },
+      },
+      lastMessageAt: new Date('2025-05-05T00:00:00.000Z'),
+      updatedAt: new Date('2025-05-05T00:00:00.000Z'),
+    }) as Conversation;
+
+    TurnModel.create = (async (input: Record<string, unknown>) => ({
+      _id: 'turn-not-found',
+      ...structuredClone(input),
+    })) as typeof TurnModel.create;
+
+    try {
+      await withConversationMetaNotFoundFixture({
+        seedConversation,
+        run: async ({ conversations, capturedUpdates }) => {
+          await withReadyState(1, 'development', async () => {
+            await assert.rejects(
+              chat.run(
+                'hello',
+                { provider: 'codex', source: 'REST' },
+                conversationId,
+                'model-a',
+              ),
+              (error) =>
+                error instanceof Error &&
+                error.message === 'chat turn conversation metadata not found',
+            );
+          });
+
+          assert.equal(chat.executeCalls, 0);
+          assert.equal(conversations.get(conversationId), undefined);
+          assert.equal(capturedUpdates.length, 1);
+          assert.ok(
+            (capturedUpdates[0]?.filter as { _id?: string } | undefined)?._id ===
+              conversationId,
+          );
+          assert.equal(
+            (capturedUpdates[0]?.update as { lastMessageAt?: unknown })
+              ?.lastMessageAt instanceof Date,
+            true,
+          );
+        },
+      });
+    } finally {
+      TurnModel.create = originalTurnCreate;
     }
   });
 

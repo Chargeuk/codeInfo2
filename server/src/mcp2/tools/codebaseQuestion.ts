@@ -584,6 +584,11 @@ async function ensureConversation(
       replaceFlags: true,
       lastMessageAt: now,
     });
+    if (metaOutcome.outcome === 'not_found') {
+      throw new ArchivedConversationError(
+        'Conversation is archived and must be restored before use',
+      );
+    }
     if (metaOutcome.outcome === 'retry_exhausted') {
       throw new Error('codebase question conversation metadata update exhausted');
     }

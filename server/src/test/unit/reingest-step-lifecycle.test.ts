@@ -54,6 +54,20 @@ const buildOutcome = (
   ...overrides,
 });
 
+const buildConversation = (): Conversation =>
+  ({
+    _id: 'conversation-1',
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'reingest conversation',
+    source: 'MCP',
+    flags: {},
+    lastMessageAt: new Date('2026-03-11T00:00:00.000Z'),
+    archivedAt: null,
+    createdAt: new Date('2026-03-11T00:00:00.000Z'),
+    updatedAt: new Date('2026-03-11T00:00:00.000Z'),
+  }) as Conversation;
+
 const buildHarness = (params?: {
   toolOutcome?: Partial<ReingestTerminalOutcome>;
   toolResult?: ChatToolResultEvent;
@@ -61,7 +75,7 @@ const buildHarness = (params?: {
   command?: TurnCommandMetadata;
   modelId?: string;
   source?: TurnSource;
-  updateConversationMetaOutcome?:
+    updateConversationMetaOutcome?:
     | { outcome: 'applied'; conversation: Conversation }
     | { outcome: 'not_found' }
     | { outcome: 'retry_exhausted'; conversation: Conversation };
@@ -158,7 +172,10 @@ const buildHarness = (params?: {
         ...(input as unknown as Record<string, unknown>),
       });
       return (
-        params?.updateConversationMetaOutcome ?? { outcome: 'not_found' }
+        params?.updateConversationMetaOutcome ?? {
+          outcome: 'applied',
+          conversation: buildConversation(),
+        }
       ) as
         | { outcome: 'applied'; conversation: Conversation }
         | { outcome: 'not_found' }
@@ -270,6 +287,31 @@ test('runReingestStepLifecycle stops before inflight bookkeeping continues when 
     'appendTurn:user',
     'updateConversationMeta',
   ]);
+  assert.equal(harness.inflightPersistedCalls.length, 0);
+  assert.equal(harness.finalizations.length, 0);
+});
+
+test('runReingestStepLifecycle stops before inflight bookkeeping continues when turn metadata reports not_found', async () => {
+  const harness = buildHarness({
+    updateConversationMetaOutcome: { outcome: 'not_found' },
+  });
+
+  await assert.rejects(
+    harness.run(),
+    (error) =>
+      error instanceof Error &&
+      error.message === 'reingest turn conversation metadata not found',
+  );
+
+  assert.deepEqual(harness.order.slice(0, 5), [
+    'createInflight',
+    'publishUserTurn',
+    'attachChatStreamBridge',
+    'appendTurn:user',
+    'updateConversationMeta',
+  ]);
+  assert.ok(harness.order.includes('bridge.cleanup'));
+  assert.ok(harness.order.includes('cleanupInflight'));
   assert.equal(harness.inflightPersistedCalls.length, 0);
   assert.equal(harness.finalizations.length, 0);
 });

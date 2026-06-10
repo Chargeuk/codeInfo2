@@ -415,6 +415,9 @@ async function persistSyntheticTurn(params: {
     lastMessageAt: params.createdAt,
     model: params.model,
   });
+  if (metaOutcome.outcome === 'not_found') {
+    throw new Error('reingest turn conversation metadata not found');
+  }
   if (metaOutcome.outcome === 'retry_exhausted') {
     throw new Error('reingest turn metadata update exhausted');
   }

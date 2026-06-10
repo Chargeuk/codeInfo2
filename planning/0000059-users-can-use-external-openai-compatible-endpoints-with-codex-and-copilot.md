@@ -3087,7 +3087,7 @@ Repair the same-repository consumer chain for `updateConversationMeta()` so the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 29`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: This final task revalidates the current review-created findings block for review pass `0000059-20260610T053726Z-fde56cd8` after Task 29 lands. It is also the one final revalidation owner for review cycle `0000059-rc-20260610T063120Z-c375e6c3`, so later inline-minor routing must not create a second final revalidation task for this cycle.
 
 #### Overview

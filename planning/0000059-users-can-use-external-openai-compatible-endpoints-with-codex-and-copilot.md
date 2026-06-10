@@ -2874,7 +2874,6 @@ Repair the shared metadata persistence consumer contract so the new `UpdateConve
 - Task Dependencies: `Task 27`
 - Task Status: `__in_progress__`
 - Notes: This is the one final revalidation owner for review cycle `0000059-rc-20260610T013203Z-69d92a33`. It must revalidate the current review-created findings block for review pass `0000059-20260610T005032Z-52cb59b1` and keep `inline-resolved minor findings for this review cycle: none` explicit unless later same-cycle work changes that fact.
-- **BLOCKER** Automated-proof audit could not close this task honestly because Testing steps 1 through 11 remain unchecked after audit normalization: `npm run build:summary:server`, `npm run build:summary:client`, `npm run compose:build:summary`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:up` plus `curl -sf http://localhost:5010/health` and `curl -sf http://localhost:5001`, `npm run compose:down`, `npm run lint`, and `npm run format:check`. Evidence checked in this audit was the current plan, `current-task.json`, `plan_status.py --task-number 28`, a clean working tree, and the recent Story 59 commit history, and none of that evidence showed these wrapper proofs had already been run. Broad final revalidation cannot continue honestly without repair, narrower ownership, or planner intervention to reconcile the missing proof pass.
 
 #### Overview
 
@@ -2949,7 +2948,7 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to confirm the repaired metadata-persistence caller contract still compiles cleanly on the final story head.
+1. [x] Run `npm run build:summary:server` to confirm the repaired metadata-persistence caller contract still compiles cleanly on the final story head.
 2. [ ] Run `npm run build:summary:client` to confirm the repaired Story 59 client surfaces still compile cleanly on the final story head.
 3. [ ] Run `npm run compose:build:summary` to confirm the checked-in main-stack images still build cleanly on the repaired story head.
 4. [ ] Run `npm run test:summary:server:unit` to prove the repaired metadata-persistence caller contract and its focused Task 27 proof owners still hold on the final story head.
@@ -2965,6 +2964,7 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 
 - Review-cycle ownership note: this task is the one final revalidation owner for `0000059-rc-20260610T013203Z-69d92a33`, so later inline-minor routing must not create a second final revalidation task for the same cycle.
 - Automated-proof audit note: the current repository evidence showed both owner-side subtasks complete but no commit, note, or checked testing item proving that any Task 28 wrapper-level automated revalidation had actually run yet, so the task stays `__in_progress__` with a live blocker instead of being treated as an ordinary open proof pass.
+- **RESOLVED ISSUE** `npm run build:summary:server` passed on 2026-06-10, so the first missing Task 28 wrapper proof is now recorded honestly on the repaired story head. That result retired the generic audit blocker because final revalidation can continue directly with the remaining Testing steps in checklist order instead of staying blocked only by missing proof bookkeeping.
 
 #### Manual Testing Guidance
 

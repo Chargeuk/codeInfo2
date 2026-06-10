@@ -2816,17 +2816,34 @@ Repair the shared metadata persistence consumer contract so the new `UpdateConve
 - Default-path caller seams: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestStepLifecycle.ts`
 - Focused proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`
 
+#### Requirement-To-Proof Mapping
+
+- Requirement: the shared helper still emits distinct `applied`, `not_found`, and `retry_exhausted` outcomes, and exhaustion no longer looks like a success-shaped metadata write at the producer seam.
+  Implementation files or surfaces: `server/src/mongo/repo.ts`
+  Proof owners: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- Requirement: `/chat`, chat-interface turn persistence, and reingest lifecycle persistence stop their old success-shaped continuation when `retry_exhausted` occurs, while preserving the same Story 59 metadata surfaces they already own.
+  Implementation files or surfaces: `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestStepLifecycle.ts`
+  Proof owners: `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, plus `server/src/test/unit/chat-interface-run-persistence.test.ts` when the shared turn-persistence seam remains the narrowest proof owner
+- Requirement: agent, flow, and MCP codebase-question execution paths stop their old success-shaped continuation when the shared metadata write exhausts its retry budget, without redefining public runtime-selection or replay behavior.
+  Implementation files or surfaces: `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
+  Proof owners: `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Requirement: the repaired caller chain still preserves approved Story 59 endpoint, requested-provider, working-folder, thread, flow, and turn-persistence behavior instead of widening into a new cross-surface product contract.
+  Implementation files or surfaces: this review-created findings block plus the changed caller seams above
+  Proof owners: Task 27 `Implementation Notes`, `npm run build:summary:server`, and the focused server wrapper runs below
+
 #### Subtasks
 
-1. [ ] Re-open `server/src/mongo/repo.ts` and the caller seams in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/chat/reingestStepLifecycle.ts`, then record one owner note that maps which metadata fields each caller must preserve and which existing same-surface failure or containment contract each caller can use when `retry_exhausted` occurs. Stop only when every default-path caller named in the finding is mapped to one concrete handling seam and one proof home.
-2. [ ] Repair the shared caller-handling contract in the current repository so `retry_exhausted` no longer falls through as success. Keep `server/src/mongo/repo.ts` as the explicit outcome producer, then update the ordinary production callers in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/chat/reingestStepLifecycle.ts` so each surface either confirms the metadata write landed or stops on an approved bounded same-surface failure or containment path without silently continuing.
-3. [ ] Author or update the focused proof homes in `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/unit/reingest-step-lifecycle.test.ts` so the helper contradiction and every changed caller family prove that `retry_exhausted` blocks the old success-shaped continuation through the caller's normal route, service, or lifecycle surface.
+1. [ ] Re-open `server/src/mongo/repo.ts` and the caller seams in `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/chat/reingestStepLifecycle.ts`, then record one owner note that maps each caller family to its exact metadata fields (`endpointId`, `requestedProviderId`, `workingFolder`, `threadId`, `flow`, or `lastMessageAt`), the concrete continuation branch that currently assumes success, and the focused proof file that will own the repaired behavior. Stop only when every default-path caller named in the finding is mapped to one handling seam and one proof home.
+2. [ ] Repair the route and lifecycle caller family in `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, and `server/src/chat/reingestStepLifecycle.ts` so `retry_exhausted` no longer falls through to the old success-shaped continuation. Each seam must either confirm that the requested metadata write landed or stop through its nearest existing bounded same-surface failure or containment path before it reloads, returns, or persists onward as though the metadata update succeeded.
+3. [ ] Repair the execution caller family in `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` so `retry_exhausted` no longer falls through to the old success-shaped continuation. Keep `server/src/mongo/repo.ts` as the explicit outcome producer, then make each execution seam either confirm that the requested metadata write landed or stop through its nearest existing bounded same-surface failure or containment path without redefining broader runtime-selection, replay, or user-facing workflow behavior.
+4. [ ] Author or update the focused proof homes in `server/src/test/unit/chat-interface-run-persistence.test.ts`, `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/unit/reingest-step-lifecycle.test.ts` so the helper contradiction and each changed caller family prove that `retry_exhausted` blocks the old success-shaped continuation through the caller's normal route, service, or lifecycle surface.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` to confirm the propagated exhausted-write handling contract still compiles cleanly on the Story 59 head.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts` to prove the explicit exhausted outcome at the helper seam and the lifecycle-owned persistence caller seam.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/integration/agents-run-client-conversation-id.test.ts --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` to prove the default-path `/chat`, agent, flow, and MCP caller families no longer continue on a silent exhausted-write outcome.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` to prove the default-path `/chat` continuation no longer treats an exhausted metadata write as success.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` to prove the agent, flow, and MCP caller families no longer continue on a silent exhausted-write outcome.
 
 #### Implementation Notes
 
@@ -2873,6 +2890,24 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 - Main-stack smoke owner: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
 - Final hygiene proof owner: `npm run lint`, `npm run format:check`
 
+#### Requirement-To-Proof Mapping
+
+- Requirement: Finding `1` remains mapped to the focused helper and caller proof homes added or updated in Task 27 rather than assumed covered by one broad wrapper.
+  Implementation files or surfaces: this review-created findings block, `server/src/mongo/repo.ts`, and the Task 27 caller proof homes
+  Proof owners: Task 28 `Implementation Notes`, `npm run test:summary:server:unit`
+- Requirement: the repaired metadata-persistence caller contract still holds under the repository-supported broad server regression path on the final story head.
+  Implementation files or surfaces: `server/src/mongo/repo.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestStepLifecycle.ts`
+  Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`
+- Requirement: Story 59 client and browser-visible chat surfaces still hold on the repaired final story head after the metadata-persistence caller repair.
+  Implementation files or surfaces: retained Story 59 client files and `scripts/test-summary-e2e.mjs`
+  Proof owners: `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e`
+- Requirement: the checked-in main-stack route remains reachable through the default compose wrapper path, with wrapper-owned env loading and smoke boundaries kept distinct from dedicated server, client, and browser proof owners.
+  Implementation files or surfaces: `scripts/docker-compose-with-env.sh`, `docker-compose.yml`
+  Proof owners: `npm run compose:build:summary`, `npm run compose:up`, `curl -sf http://localhost:5010/health`, `curl -sf http://localhost:5001`, `npm run compose:down`
+- Requirement: this task remains the one final revalidation owner for review cycle `0000059-rc-20260610T013203Z-69d92a33`, and no second inline-minor final task is needed for the same cycle.
+  Implementation files or surfaces: this review-created findings block and Task 28 `Implementation Notes`
+  Proof owners: Task 28 `Implementation Notes`
+
 #### Subtasks
 
 1. [ ] Re-open this review-created findings block plus the focused proof files from Task 27, then record one proof-owner note in `Implementation Notes` that maps Finding `1` to its helper and caller proof homes and keeps `inline-resolved minor findings for this review cycle: none` explicit if that remains true.
@@ -2895,3 +2930,9 @@ Re-run the repository-supported broad proof on the repaired Story 59 head after 
 #### Implementation Notes
 
 - Review-cycle ownership note: this task is the one final revalidation owner for `0000059-rc-20260610T013203Z-69d92a33`, so later inline-minor routing must not create a second final revalidation task for the same cycle.
+
+#### Manual Testing Guidance
+
+- If later manual revalidation is requested after the automated pass, use the checked-in main `docker-compose.yml` stack through the repository-supported compose wrapper path rather than a local development-stack variant. Re-cover only the final Story 59 visual surfaces this task re-covers broadly: the fresh new-conversation chat surface, restored endpoint-backed Codex and Copilot history, restored native Codex history, the reset-to-fresh-draft boundary after leaving restored history, and the mobile new-conversation view if it remains in scope on the final head.
+- If Playwright MCP screenshots are used for that later manual pass, stage them first under a relative path such as `0000059/28/proof-01-chat-surface.png` inside the Playwright runtime output. In this local harness workflow, a file saved under `/tmp/playwright-output/0000059/28/...` inside the Playwright runtime will normally appear at `$CODEINFO_ROOT/playwright-output-local/0000059/28/...` on the host before any later transfer into `codeInfoTmp/manual-testing/0000059/28/`.
+- The durable artifact destination for later transferred screenshots or manual proof notes is `codeInfoTmp/manual-testing/0000059/28/`. If runtime handoff JSON is needed to confirm the artifact source, fallback runtime, or destination details, inspect that JSON by meaning rather than by exact property names. If screenshot transfer is blocked, record the limitation honestly instead of treating it as a reason to halt the proof pass.

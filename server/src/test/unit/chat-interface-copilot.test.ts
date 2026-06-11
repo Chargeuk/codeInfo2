@@ -258,6 +258,44 @@ test('ChatInterfaceCopilot create-session removes all tools when toolAccess is o
   );
 });
 
+test('ChatInterfaceCopilot forwards apiKey for authenticated OpenAI-compatible providers', async () => {
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-authenticated-openai-provider',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+
+  await chat.run(
+    'Use authenticated endpoint',
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: false,
+      codeinfoOpenAiEndpoint: {
+        endpointId: 'https://openrouter.ai/api/v1',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        capabilities: ['responses', 'completions'],
+        displayLabel: 'OpenRouter',
+        authLookupKey: 'openrouter',
+        apiKey: 'sk-or-v1-test',
+      },
+      runtimeConfig: runtimeConfigWithMcpServers,
+    },
+    'copilot-conversation-auth',
+    'openai/gpt-oss-20b',
+  );
+
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastCreateSessionConfig?.provider),
+    {
+      type: 'openai',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      wireApi: 'responses',
+      apiKey: 'sk-or-v1-test',
+    },
+  );
+});
+
 test('ChatInterfaceCopilot resume path keeps permissions allowed through the resume session config', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-resume-permission',

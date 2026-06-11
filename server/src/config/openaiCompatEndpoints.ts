@@ -12,6 +12,9 @@ export type OpenAiCompatEndpointConfig = {
   endpointId: string;
   baseUrl: string;
   capabilities: readonly OpenAiCompatEndpointCapability[];
+  displayLabel?: string;
+  authLookupKey?: string;
+  apiKey?: string;
 };
 
 type ParseEndpointPathLabel = {
@@ -20,6 +23,16 @@ type ParseEndpointPathLabel = {
 
 export type OpenAiCompatEndpointListResolution = {
   endpoints: OpenAiCompatEndpointConfig[];
+  warnings: string[];
+};
+
+export type OpenAiCompatEndpointKeyEntry = {
+  authLookupKey: string;
+  apiKey: string;
+};
+
+export type OpenAiCompatEndpointKeyListResolution = {
+  keys: OpenAiCompatEndpointKeyEntry[];
   warnings: string[];
 };
 
@@ -103,6 +116,24 @@ function normalizeBaseUrl(value: string, pathLabel: string): string {
   return parsed.toString();
 }
 
+export function normalizeOpenAiCompatEndpointLabelKey(
+  value: string,
+  params: ParseEndpointPathLabel = {},
+): string {
+  const pathLabel = params.pathLabel ?? 'label';
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw makeInvalidEndpointError(pathLabel, 'endpoint label is required');
+  }
+
+  const normalized = trimmed.toLowerCase().replace(/\s+/g, '-');
+  if (!normalized) {
+    throw makeInvalidEndpointError(pathLabel, 'endpoint label is required');
+  }
+
+  return normalized;
+}
+
 export function normalizeOpenAiCompatEndpointId(
   value: string,
   params: ParseEndpointPathLabel = {},
@@ -180,6 +211,56 @@ export function parseOpenAiCompatEndpointConfig(
   };
 }
 
+export function describeOpenAiCompatEndpoint(
+  endpoint: Pick<OpenAiCompatEndpointConfig, 'displayLabel' | 'endpointId'>,
+): string {
+  return endpoint.displayLabel?.trim() || endpoint.endpointId;
+}
+
+function parseOpenAiCompatEndpointListEntry(
+  value: string,
+  params: ParseEndpointPathLabel = {},
+): OpenAiCompatEndpointConfig {
+  const pathLabel = params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS';
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw makeInvalidEndpointError(
+      pathLabel,
+      'expected <Label>,<baseUrl>|<capability[,capability...]> or legacy <baseUrl>|<capability[,capability...]>',
+    );
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return parseOpenAiCompatEndpointConfig(trimmed, { pathLabel });
+  }
+
+  const delimiterIndex = trimmed.indexOf(',');
+  if (delimiterIndex <= 0) {
+    if (trimmed.includes('|')) {
+      return parseOpenAiCompatEndpointConfig(trimmed, { pathLabel });
+    }
+    throw makeInvalidEndpointError(
+      pathLabel,
+      'expected <Label>,<baseUrl>|<capability[,capability...]>',
+    );
+  }
+
+  const displayLabel = trimmed.slice(0, delimiterIndex).trim();
+  const remainder = trimmed.slice(delimiterIndex + 1);
+  if (!displayLabel) {
+    throw makeInvalidEndpointError(pathLabel, 'endpoint label is required');
+  }
+
+  const parsed = parseOpenAiCompatEndpointConfig(remainder, { pathLabel });
+  return {
+    ...parsed,
+    displayLabel,
+    authLookupKey: normalizeOpenAiCompatEndpointLabelKey(displayLabel, {
+      pathLabel,
+    }),
+  };
+}
+
 export function resolveOpenAiCompatEndpointConfigsFromList(params: {
   value?: string;
   pathLabel?: string;
@@ -196,6 +277,7 @@ export function resolveOpenAiCompatEndpointConfigsFromList(params: {
   const warnings: string[] = [];
   const endpoints: OpenAiCompatEndpointConfig[] = [];
   const seen = new Set<string>();
+  const seenLabels = new Set<string>();
 
   for (const [index, segment] of rawValue.split(';').entries()) {
     const trimmed = segment.trim();
@@ -203,9 +285,18 @@ export function resolveOpenAiCompatEndpointConfigsFromList(params: {
       continue;
     }
 
-    const parsed = parseOpenAiCompatEndpointConfig(trimmed, {
+    const parsed = parseOpenAiCompatEndpointListEntry(trimmed, {
       pathLabel: `${pathLabel}[${index + 1}]`,
     });
+    if (parsed.authLookupKey) {
+      if (seenLabels.has(parsed.authLookupKey)) {
+        throw makeInvalidEndpointError(
+          `${pathLabel}[${index + 1}]`,
+          `duplicate normalized endpoint label "${parsed.authLookupKey}"`,
+        );
+      }
+      seenLabels.add(parsed.authLookupKey);
+    }
     if (seen.has(parsed.endpointId)) {
       warnings.push(
         `${pathLabel}[${index + 1}] duplicates normalized endpoint ${parsed.endpointId}; keeping first entry`,
@@ -214,6 +305,117 @@ export function resolveOpenAiCompatEndpointConfigsFromList(params: {
     }
     seen.add(parsed.endpointId);
     endpoints.push(parsed);
+  }
+
+  return {
+    endpoints,
+    warnings,
+  };
+}
+
+function parseOpenAiCompatEndpointKeyEntry(
+  value: string,
+  params: ParseEndpointPathLabel = {},
+): OpenAiCompatEndpointKeyEntry {
+  const pathLabel = params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS';
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw makeInvalidEndpointError(pathLabel, 'expected <Label>,<raw key>');
+  }
+
+  const delimiterIndex = trimmed.indexOf(',');
+  if (delimiterIndex <= 0) {
+    throw makeInvalidEndpointError(pathLabel, 'expected <Label>,<raw key>');
+  }
+
+  const label = trimmed.slice(0, delimiterIndex);
+  const rawKey = trimmed.slice(delimiterIndex + 1).trim();
+  const authLookupKey = normalizeOpenAiCompatEndpointLabelKey(label, {
+    pathLabel,
+  });
+  if (!rawKey) {
+    throw makeInvalidEndpointError(pathLabel, 'endpoint key value is required');
+  }
+
+  return {
+    authLookupKey,
+    apiKey: rawKey,
+  };
+}
+
+export function resolveOpenAiCompatEndpointKeysFromList(params: {
+  value?: string;
+  pathLabel?: string;
+}): OpenAiCompatEndpointKeyListResolution {
+  const pathLabel = params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS';
+  const rawValue = params.value?.trim() ?? '';
+  if (!rawValue) {
+    return {
+      keys: [],
+      warnings: [],
+    };
+  }
+
+  const warnings: string[] = [];
+  const keys: OpenAiCompatEndpointKeyEntry[] = [];
+  const seenLabels = new Set<string>();
+
+  for (const [index, segment] of rawValue.split(';').entries()) {
+    const trimmed = segment.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const parsed = parseOpenAiCompatEndpointKeyEntry(trimmed, {
+      pathLabel: `${pathLabel}[${index + 1}]`,
+    });
+    if (seenLabels.has(parsed.authLookupKey)) {
+      throw makeInvalidEndpointError(
+        `${pathLabel}[${index + 1}]`,
+        `duplicate normalized endpoint label "${parsed.authLookupKey}"`,
+      );
+    }
+    seenLabels.add(parsed.authLookupKey);
+    keys.push(parsed);
+  }
+
+  return {
+    keys,
+    warnings,
+  };
+}
+
+export function attachOpenAiCompatEndpointKeys(params: {
+  endpoints: readonly OpenAiCompatEndpointConfig[];
+  keys: readonly OpenAiCompatEndpointKeyEntry[];
+  warnings?: readonly string[];
+}): OpenAiCompatEndpointListResolution {
+  const byLookupKey = new Map(
+    params.keys.map((entry) => [entry.authLookupKey, entry.apiKey] as const),
+  );
+  const matchedLookupKeys = new Set<string>();
+  const endpoints = params.endpoints.map((endpoint) => {
+    if (!endpoint.authLookupKey) {
+      return endpoint;
+    }
+    const apiKey = byLookupKey.get(endpoint.authLookupKey);
+    if (!apiKey) {
+      return endpoint;
+    }
+    matchedLookupKeys.add(endpoint.authLookupKey);
+    return {
+      ...endpoint,
+      apiKey,
+    };
+  });
+
+  const warnings = [...(params.warnings ?? [])];
+  for (const entry of params.keys) {
+    if (matchedLookupKeys.has(entry.authLookupKey)) {
+      continue;
+    }
+    warnings.push(
+      `Ignoring CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS entry "${entry.authLookupKey}" because it does not match any labeled external endpoint`,
+    );
   }
 
   return {

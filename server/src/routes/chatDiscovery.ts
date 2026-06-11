@@ -30,6 +30,7 @@ import type {
 } from '../codex/capabilityResolver.js';
 import { ORDERED_CHAT_PROVIDERS } from '../config/chatDefaults.js';
 import {
+  describeOpenAiCompatEndpoint,
   type OpenAiCompatEndpointConfig,
   parseOpenAiCompatEndpointConfig,
 } from '../config/openaiCompatEndpoints.js';
@@ -254,7 +255,9 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
     for (const modelId of endpoint.modelIds) {
       models.push({
         key: modelId,
-        displayName: modelId,
+        displayName: endpoint.endpoint.displayLabel
+          ? `${describeOpenAiCompatEndpoint(endpoint.endpoint)} / ${modelId}`
+          : modelId,
         type: params.provider,
         endpointId: endpoint.endpoint.endpointId,
       });

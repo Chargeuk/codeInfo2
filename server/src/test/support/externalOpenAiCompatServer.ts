@@ -4,11 +4,13 @@ export type ExternalOpenAiCompatServerScenario = {
   models?: string[];
   responseMode?: 'success' | 'malformed-payload' | 'slow' | 'transport-failure';
   delayMs?: number;
+  requiredBearerToken?: string;
 };
 
 export type ExternalOpenAiCompatServer = {
   baseUrl: string;
   requestCount: () => number;
+  lastAuthorizationHeader: () => string | undefined;
   stop: () => Promise<void>;
 };
 
@@ -28,12 +30,18 @@ export async function startExternalOpenAiCompatServer(
   params: ExternalOpenAiCompatServerScenario = {},
 ): Promise<ExternalOpenAiCompatServer> {
   let requestCount = 0;
+  let lastAuthorizationHeader: string | undefined;
   const responseMode = params.responseMode ?? 'success';
   const models = params.models ?? ['alpha'];
   const delayMs = params.delayMs ?? 0;
+  const requiredBearerToken = params.requiredBearerToken?.trim();
 
   const httpServer = http.createServer(async (req, res) => {
     requestCount += 1;
+    lastAuthorizationHeader =
+      typeof req.headers.authorization === 'string'
+        ? req.headers.authorization
+        : undefined;
     const url = req.url ?? '';
 
     if (req.method !== 'GET' || url !== '/v1/models') {
@@ -45,6 +53,16 @@ export async function startExternalOpenAiCompatServer(
 
     if (responseMode === 'transport-failure') {
       req.socket.destroy(new Error('transport failure'));
+      return;
+    }
+
+    if (
+      requiredBearerToken &&
+      req.headers.authorization !== `Bearer ${requiredBearerToken}`
+    ) {
+      res.statusCode = 401;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ error: 'unauthorized' }));
       return;
     }
 
@@ -80,6 +98,7 @@ export async function startExternalOpenAiCompatServer(
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
     requestCount: () => requestCount,
+    lastAuthorizationHeader: () => lastAuthorizationHeader,
     stop: async () =>
       await new Promise<void>((resolve) => httpServer.close(() => resolve())),
   };

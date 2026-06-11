@@ -50,14 +50,20 @@ import {
   type ChatDefaultProvider,
   type RuntimeProviderSelectionPath,
 } from '../config/chatDefaults.js';
-import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
+import {
+  applyCodexOpenAiCompatEndpointToRuntimeConfig,
+  CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV,
+} from '../config/codexConfig.js';
 import { type OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
 import {
   RuntimeConfigResolutionError,
   getProviderBootstrapStatus,
   resolveAgentRuntimeConfig,
 } from '../config/runtimeConfig.js';
-import { resolveAgentProviderFallbackOrder } from '../config/startupEnv.js';
+import {
+  resolveAgentProviderFallbackOrder,
+  resolveExternalOpenAiCompatEndpoints,
+} from '../config/startupEnv.js';
 import {
   buildRepositoryCandidateLookupSummary,
   buildRepositoryCandidateOrderLogContext,
@@ -605,6 +611,29 @@ const applyBootstrapStatusToDirectAgentProviderState = (
   };
 };
 
+function enrichOpenAiCompatEndpointFromEnv(
+  endpoint: OpenAiCompatEndpointConfig | undefined,
+): OpenAiCompatEndpointConfig | undefined {
+  if (!endpoint) {
+    return undefined;
+  }
+
+  const envEndpoint = resolveExternalOpenAiCompatEndpoints({
+    env: process.env,
+  }).endpoints.find((entry) => entry.endpointId === endpoint.endpointId);
+
+  if (!envEndpoint) {
+    return endpoint;
+  }
+
+  return {
+    ...endpoint,
+    displayLabel: envEndpoint.displayLabel ?? endpoint.displayLabel,
+    authLookupKey: envEndpoint.authLookupKey ?? endpoint.authLookupKey,
+    apiKey: envEndpoint.apiKey ?? endpoint.apiKey,
+  };
+}
+
 async function resolveProviderRuntimeConfig(params: {
   agentConfigPath: string;
   providerId: ChatProviderId;
@@ -620,7 +649,9 @@ async function resolveProviderRuntimeConfig(params: {
   return {
     config: resolved.config as CodexOptions['config'],
     warnings: resolved.warnings.map((warning) => warning.message),
-    endpoint: resolved.appMetadata?.codeinfoOpenAiEndpoint,
+    endpoint: enrichOpenAiCompatEndpointFromEnv(
+      resolved.appMetadata?.codeinfoOpenAiEndpoint,
+    ),
   };
 }
 
@@ -934,7 +965,8 @@ async function prepareDirectAgentExecution(params: {
       modelId: runtimeSelection.executionModel,
       endpointId,
       openAiCompatEndpoint:
-        runtimeSelection.executionProvider === 'copilot' &&
+        (runtimeSelection.executionProvider === 'copilot' ||
+          runtimeSelection.executionProvider === 'codex') &&
         endpointId &&
         providerRuntimeResolution.endpoint?.endpointId === endpointId
           ? providerRuntimeResolution.endpoint
@@ -1121,7 +1153,8 @@ async function prepareDirectAgentExecution(params: {
       modelId: runtimeSelection.executionModel,
       endpointId,
       openAiCompatEndpoint:
-        runtimeSelection.executionProvider === 'copilot' &&
+        (runtimeSelection.executionProvider === 'copilot' ||
+          runtimeSelection.executionProvider === 'codex') &&
         endpointId &&
         providerRuntimeResolution.endpoint?.endpointId === endpointId
           ? providerRuntimeResolution.endpoint
@@ -2687,6 +2720,13 @@ export async function runAgentInstructionUnlocked(params: {
 
     const envOverrides: NodeJS.ProcessEnv = {
       CODEINFO_ROOT: codeInfo2RootForAgent(agent.home),
+      ...(executionProviderId === 'codex' &&
+      preparedExecution.openAiCompatEndpoint?.apiKey
+        ? {
+            [CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV]:
+              preparedExecution.openAiCompatEndpoint.apiKey,
+          }
+        : {}),
       ...(params.envOverrides ?? {}),
     };
 

@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 import type { ChatProviderId } from '@codeinfo2/common';
 import { parse } from 'dotenv';
 import {
+  attachOpenAiCompatEndpointKeys,
   resolveOpenAiCompatEndpointConfigsFromList,
+  resolveOpenAiCompatEndpointKeysFromList,
   type OpenAiCompatEndpointListResolution,
 } from './openaiCompatEndpoints.js';
 
@@ -24,6 +26,7 @@ export const SERVER_CODEINFO_ENV_NAMES = [
   'CODEINFO_OPENAI_EMBEDDING_KEY',
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
   'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
   'CODEINFO_INGEST_INCLUDE',
   'CODEINFO_INGEST_EXCLUDE',
   'CODEINFO_INGEST_TOKEN_MARGIN',
@@ -172,11 +175,21 @@ export const resolveExternalOpenAiCompatEndpoints = ({
   env = process.env,
 }: {
   env?: Record<string, string | undefined>;
-} = {}): ExternalOpenAiCompatEndpointResolution =>
-  resolveOpenAiCompatEndpointConfigsFromList({
+} = {}): ExternalOpenAiCompatEndpointResolution => {
+  const endpoints = resolveOpenAiCompatEndpointConfigsFromList({
     value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
     pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
   });
+  const keys = resolveOpenAiCompatEndpointKeysFromList({
+    value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+  });
+  return attachOpenAiCompatEndpointKeys({
+    endpoints: endpoints.endpoints,
+    keys: keys.keys,
+    warnings: [...endpoints.warnings, ...keys.warnings],
+  });
+};
 
 const isChatProviderId = (value: string): value is ChatProviderId =>
   value === 'codex' || value === 'copilot' || value === 'lmstudio';

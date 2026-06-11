@@ -46,6 +46,7 @@ type OpenAiCompatProviderConfig = {
   type: 'openai';
   baseUrl: string;
   wireApi: 'responses' | 'completions';
+  apiKey?: string;
 };
 
 type CopilotSessionLike = Pick<
@@ -138,6 +139,7 @@ const buildOpenAiCompatProviderConfig = (
   type: 'openai',
   baseUrl: endpoint.baseUrl,
   wireApi: resolveOpenAiCompatWireApi(endpoint),
+  ...(endpoint.apiKey ? { apiKey: endpoint.apiKey } : {}),
 });
 
 const disableCopilotMcpServerTools = (

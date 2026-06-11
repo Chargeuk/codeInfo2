@@ -89,6 +89,8 @@ const authStoreRegex = new RegExp(
 );
 
 const CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME = 'codeinfo_openai_endpoint';
+export const CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV =
+  'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_API_KEY';
 
 const resolveOpenAiCompatWireApi = (
   endpoint: OpenAiCompatEndpointConfig,
@@ -106,6 +108,9 @@ export function buildCodexOpenAiCompatRuntimeConfig(
         name: providerName,
         base_url: endpoint.baseUrl,
         wire_api: resolveOpenAiCompatWireApi(endpoint),
+        ...(endpoint.apiKey
+          ? { env_key: CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV }
+          : {}),
       },
     },
   } satisfies CodexOptions['config'];

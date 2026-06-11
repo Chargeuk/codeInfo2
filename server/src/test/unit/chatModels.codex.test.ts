@@ -143,6 +143,7 @@ beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 });
 
 afterEach(async () => {
@@ -1167,6 +1168,47 @@ test('codex models route clears stale endpoint identity when the default normali
     assert.ok(nativeModel);
     assert.equal(nativeModel?.endpointId, undefined);
     assert.equal(nativeModel?.type, 'codex');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models route uses the configured endpoint label in endpoint-backed display names', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['shared-model'],
+  });
+  tempExternalServers.push(externalServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `OpenRouter,${externalServer.baseUrl}/v1|responses`,
+  );
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const endpointBackedModel = (
+      res.body.models as Array<Record<string, unknown>>
+    ).find(
+      (model) =>
+        model.key === 'shared-model' &&
+        model.endpointId === `${externalServer.baseUrl}/v1`,
+    );
+
+    assert.ok(endpointBackedModel);
+    assert.equal(
+      endpointBackedModel?.displayName,
+      'OpenRouter / shared-model',
+    );
   } finally {
     await stopServer(server);
   }

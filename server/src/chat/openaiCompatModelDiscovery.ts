@@ -1,6 +1,9 @@
 import { setTimeout as delay } from 'node:timers/promises';
 
-import type { OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
+import {
+  describeOpenAiCompatEndpoint,
+  type OpenAiCompatEndpointConfig,
+} from '../config/openaiCompatEndpoints.js';
 
 const DEFAULT_TIMEOUT_MS = 1_500;
 
@@ -92,6 +95,9 @@ async function fetchEndpointModelIds(params: {
       method: 'GET',
       headers: {
         accept: 'application/json',
+        ...(params.endpoint.apiKey
+          ? { authorization: `Bearer ${params.endpoint.apiKey}` }
+          : {}),
       },
       signal: controller.signal,
     });
@@ -167,7 +173,7 @@ export async function discoverOpenAiCompatEndpointModels(params: {
           warnings: [
             {
               endpointId: endpoint.endpointId,
-              message: `Failed to discover external models at ${endpoint.endpointId}: ${message}`,
+              message: `Failed to discover external models at ${describeOpenAiCompatEndpoint(endpoint)} (${endpoint.endpointId}): ${message}`,
             },
           ] as OpenAiCompatModelDiscoveryWarning[],
         };
@@ -218,7 +224,7 @@ export async function resolveOpenAiCompatEndpointRuntimeState(params: {
       : {
           reason:
             discovery.warnings[0]?.message ??
-            `Failed to discover external models at ${params.endpoint.endpointId}`,
+            `Failed to discover external models at ${describeOpenAiCompatEndpoint(params.endpoint)} (${params.endpoint.endpointId})`,
         }),
   };
 }

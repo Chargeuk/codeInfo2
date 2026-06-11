@@ -7,8 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   applyResolvedServerPortToCodexConfig,
+  buildCodexOpenAiCompatRuntimeConfig,
   buildCodexOptions,
   buildDefaultCodexConfig,
+  CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV,
   ensureCodexConfigSeeded,
 } from '../../config/codexConfig.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
@@ -57,6 +59,29 @@ describe('codexConfig', () => {
     assert.match(config, /args = \['-y', '@upstash\/context7-mcp'\]/u);
     assert.doesNotMatch(config, /ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866/u);
     assert.doesNotMatch(config, /--api-key/u);
+  });
+
+  it('buildCodexOpenAiCompatRuntimeConfig uses an env-backed api key when the endpoint requires auth', () => {
+    const config = buildCodexOpenAiCompatRuntimeConfig({
+      endpointId: 'https://openrouter.ai/api/v1',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      capabilities: ['responses', 'completions'],
+      displayLabel: 'OpenRouter',
+      authLookupKey: 'openrouter',
+      apiKey: 'sk-or-v1-test',
+    });
+
+    assert.deepEqual(config, {
+      model_provider: 'codeinfo_openai_endpoint',
+      model_providers: {
+        codeinfo_openai_endpoint: {
+          name: 'codeinfo_openai_endpoint',
+          base_url: 'https://openrouter.ai/api/v1',
+          wire_api: 'responses',
+          env_key: CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV,
+        },
+      },
+    });
   });
 
   it('applyResolvedServerPortToCodexConfig rewrites legacy hard-coded MCP urls', () => {

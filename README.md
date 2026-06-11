@@ -190,10 +190,13 @@ Corporate certificate directory requirements:
 
 ## External OpenAI-compatible endpoints
 
-- `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` configures one or more OpenAI-compatible `/v1` endpoints for Codex and Copilot chat discovery. Each entry must be an explicit `http://` or `https://` URL that ends at `/v1`; later duplicate normalized endpoints are ignored after the first warning.
+- `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` configures one or more OpenAI-compatible `/v1` endpoints for Codex and Copilot chat discovery. Each entry may use the labeled form `<Label>,<full /v1 URL>|<capability[,capability...]>`, for example `OpenRouter,https://openrouter.ai/api/v1|responses,completions`. Legacy unlabeled `<full /v1 URL>|<capability[,capability...]>` entries are still accepted for backward compatibility, but labeled entries are required when the endpoint must match a configured key.
+- `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS` optionally configures raw bearer keys for labeled endpoints using `<label>,<raw key>` entries separated by semicolons. Endpoint labels and key labels are both normalized with the same repository-owned rule before matching: trim, lowercase, and collapse internal whitespace to `-`.
+- The exact label from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS` is preserved for GUI display, while the normalized URL remains the real runtime and persistence `endpointId`.
 - The external-endpoint list is chat-picker scope only. It populates `/chat/providers` and `/chat/models` for Codex and Copilot, but it does not replace LM Studio discovery or broaden Agents-page provider selection.
 - `codeinfo_openai_endpoint` is supported in `codex/chat/config.toml`, `copilot/chat/config.toml`, and `codeinfo_agents/<agent>/config.toml` as a provider or agent pin to one external endpoint. The runtime keeps that pin separate from the raw model id by persisting `endpointId` in conversation and flow flags.
 - A config-pinned endpoint can still participate in discovery even when it is absent from `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS`, and the selected endpoint stays visible in the chat picker as `endpointId`-backed model identity.
+- Bearer keys are a server-runtime concern in this repository. Put endpoint labels and keys in `server/.env.local` for host-only overrides. The repo-root `.env.local` is not part of the supported server startup env contract.
 - Endpoint-backed conversations and flow-owned runs keep their stored `provider`, `model`, and `endpointId` stable on resume or reuse. Auth, CLI presence, and provider readiness still gate availability independently of endpoint discovery, so a missing login or unavailable provider still disables the provider as before.
 
 ## Chat defaults and Agent Flags behavior

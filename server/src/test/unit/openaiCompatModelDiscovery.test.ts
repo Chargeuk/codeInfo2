@@ -18,10 +18,16 @@ afterEach(async () => {
   }
 });
 
-const makeEndpoint = (baseUrl: string, capabilities = 'responses') =>
-  parseOpenAiCompatEndpointConfig(`${baseUrl}/v1|${capabilities}`, {
+const makeEndpoint = (
+  baseUrl: string,
+  capabilities = 'responses',
+  overrides?: { apiKey?: string; displayLabel?: string; authLookupKey?: string },
+) => ({
+  ...parseOpenAiCompatEndpointConfig(`${baseUrl}/v1|${capabilities}`, {
     pathLabel: 'codeinfo_openai_endpoint',
-  });
+  }),
+  ...(overrides ?? {}),
+});
 
 function endpointIds(results: OpenAiCompatModelDiscoveryEndpointResult[]) {
   return results.map((result) => result.endpoint.endpointId);
@@ -164,4 +170,48 @@ test('isolates malformed payloads to the failing endpoint without affecting heal
     result.warnings[0]?.message ?? '',
     /Failed to discover external models/,
   );
+});
+
+test('sends bearer auth when the endpoint has a configured key', async () => {
+  const server = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+    requiredBearerToken: 'sk-test',
+  });
+  tempServers.push(server);
+
+  const endpoint = makeEndpoint(server.baseUrl, 'responses', {
+    apiKey: 'sk-test',
+    displayLabel: 'OpenRouter',
+    authLookupKey: 'openrouter',
+  });
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [endpoint],
+  });
+
+  assert.deepEqual(endpointIds(result.endpoints), [endpoint.endpointId]);
+  assert.deepEqual(result.endpoints[0]?.modelIds, ['alpha']);
+  assert.equal(server.lastAuthorizationHeader(), 'Bearer sk-test');
+  assert.deepEqual(result.warnings, []);
+});
+
+test('reports unauthorized discovery clearly when a required bearer token is missing', async () => {
+  const server = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+    requiredBearerToken: 'sk-test',
+  });
+  tempServers.push(server);
+
+  const endpoint = makeEndpoint(server.baseUrl, 'responses', {
+    displayLabel: 'OpenRouter',
+    authLookupKey: 'openrouter',
+  });
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [endpoint],
+  });
+
+  assert.deepEqual(result.endpoints[0]?.modelIds, []);
+  assert.equal(server.lastAuthorizationHeader(), undefined);
+  assert.equal(result.warnings.length, 1);
+  assert.match(result.warnings[0]?.message ?? '', /OpenRouter/);
+  assert.match(result.warnings[0]?.message ?? '', /HTTP 401/);
 });

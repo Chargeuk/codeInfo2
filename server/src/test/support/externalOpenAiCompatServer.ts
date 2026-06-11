@@ -2,6 +2,7 @@ import http from 'node:http';
 
 export type ExternalOpenAiCompatServerScenario = {
   models?: string[];
+  modelEntries?: Array<Record<string, unknown>>;
   responseMode?: 'success' | 'malformed-payload' | 'slow' | 'transport-failure';
   delayMs?: number;
   requiredBearerToken?: string;
@@ -14,15 +15,21 @@ export type ExternalOpenAiCompatServer = {
   stop: () => Promise<void>;
 };
 
-function buildSuccessResponse(models: string[]) {
+function buildSuccessResponse(
+  models: string[],
+  modelEntries?: Array<Record<string, unknown>>,
+) {
+  const data = modelEntries?.length
+    ? modelEntries
+    : models.map((id, index) => ({
+        id,
+        object: 'model',
+        created: 1_700_000_000 + index,
+        owned_by: 'organization-owner',
+      }));
   return {
     object: 'list',
-    data: models.map((id, index) => ({
-      id,
-      object: 'model',
-      created: 1_700_000_000 + index,
-      owned_by: 'organization-owner',
-    })),
+    data,
   };
 }
 
@@ -33,6 +40,7 @@ export async function startExternalOpenAiCompatServer(
   let lastAuthorizationHeader: string | undefined;
   const responseMode = params.responseMode ?? 'success';
   const models = params.models ?? ['alpha'];
+  const modelEntries = params.modelEntries;
   const delayMs = params.delayMs ?? 0;
   const requiredBearerToken = params.requiredBearerToken?.trim();
 
@@ -84,7 +92,7 @@ export async function startExternalOpenAiCompatServer(
       case 'slow':
       case 'success':
       default:
-        res.end(JSON.stringify(buildSuccessResponse(models)));
+        res.end(JSON.stringify(buildSuccessResponse(models, modelEntries)));
         break;
     }
   });

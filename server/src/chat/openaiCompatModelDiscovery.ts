@@ -40,6 +40,32 @@ type OpenAiModelsListResponse = {
   data?: unknown;
 };
 
+type OpenAiModelEntry = {
+  id?: unknown;
+  supported_parameters?: unknown;
+};
+
+function isOpenRouterEndpoint(
+  endpoint: Pick<OpenAiCompatEndpointConfig, 'baseUrl' | 'endpointId'>,
+): boolean {
+  try {
+    const parsed = new URL(endpoint.baseUrl || endpoint.endpointId);
+    return /(^|\.)openrouter\.ai$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function supportsCodexToolUse(entry: OpenAiModelEntry): boolean {
+  const supportedParameters = Array.isArray(entry.supported_parameters)
+    ? entry.supported_parameters
+    : [];
+  return (
+    supportedParameters.includes('tools') ||
+    supportedParameters.includes('tool_choice')
+  );
+}
+
 function mergeDiscoveryEndpoints(params: {
   endpoints: readonly OpenAiCompatEndpointConfig[];
   pinnedEndpoint?: OpenAiCompatEndpointConfig;
@@ -81,6 +107,7 @@ function mergeDiscoveryEndpoints(params: {
 
 async function fetchEndpointModelIds(params: {
   endpoint: OpenAiCompatEndpointConfig;
+  provider?: 'codex' | 'copilot';
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<string[]> {
@@ -116,7 +143,15 @@ async function fetchEndpointModelIds(params: {
       if (!entry || typeof entry !== 'object') {
         return [];
       }
-      const modelId = (entry as { id?: unknown }).id;
+      const modelEntry = entry as OpenAiModelEntry;
+      if (
+        params.provider === 'codex' &&
+        isOpenRouterEndpoint(params.endpoint) &&
+        !supportsCodexToolUse(modelEntry)
+      ) {
+        return [];
+      }
+      const modelId = modelEntry.id;
       if (typeof modelId !== 'string') {
         return [];
       }
@@ -143,6 +178,7 @@ async function fetchEndpointModelIds(params: {
 export async function discoverOpenAiCompatEndpointModels(params: {
   endpoints: readonly OpenAiCompatEndpointConfig[];
   pinnedEndpoint?: OpenAiCompatEndpointConfig;
+  provider?: 'codex' | 'copilot';
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<OpenAiCompatModelDiscoveryResult> {
@@ -157,6 +193,7 @@ export async function discoverOpenAiCompatEndpointModels(params: {
       try {
         const modelIds = await fetchEndpointModelIds({
           endpoint,
+          provider: params.provider,
           fetchImpl: params.fetchImpl,
           timeoutMs: params.timeoutMs,
         });
@@ -204,11 +241,13 @@ export async function discoverOpenAiCompatEndpointModels(params: {
 
 export async function resolveOpenAiCompatEndpointRuntimeState(params: {
   endpoint: OpenAiCompatEndpointConfig;
+  provider?: 'codex' | 'copilot';
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<OpenAiCompatEndpointRuntimeState> {
   const discovery = await discoverOpenAiCompatEndpointModels({
     endpoints: [params.endpoint],
+    provider: params.provider,
     fetchImpl: params.fetchImpl,
     timeoutMs: params.timeoutMs,
   });

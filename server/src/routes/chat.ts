@@ -789,6 +789,11 @@ export function createChatRouter({
       selectedOpenAiCompatEndpoint !== undefined
         ? await resolveOpenAiCompatEndpointRuntimeState({
             endpoint: selectedOpenAiCompatEndpoint,
+            provider:
+              effectiveRequestedProvider === 'codex' ||
+              effectiveRequestedProvider === 'copilot'
+                ? effectiveRequestedProvider
+                : undefined,
           })
         : undefined;
     const resolvedEndpointUnavailable =
@@ -916,6 +921,9 @@ export function createChatRouter({
             ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
                 config as CodexOptions['config'],
                 selectedOpenAiCompatEndpoint,
+                {
+                  modelId: runtimeSelection.executionModel,
+                },
               )
             : config;
         console.info(T06_SUCCESS_LOG, {

@@ -215,3 +215,47 @@ test('reports unauthorized discovery clearly when a required bearer token is mis
   assert.match(result.warnings[0]?.message ?? '', /OpenRouter/);
   assert.match(result.warnings[0]?.message ?? '', /HTTP 401/);
 });
+
+test('filters OpenRouter discovery down to tool-capable models for Codex', async () => {
+  const endpoint = makeEndpoint('https://openrouter.ai/api', 'responses', {
+    displayLabel: 'OpenRouter',
+    authLookupKey: 'openrouter',
+    apiKey: 'sk-test',
+  });
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [endpoint],
+    provider: 'codex',
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          object: 'list',
+          data: [
+            {
+              id: 'meta-llama/llama-3.2-3b-instruct:free',
+              supported_parameters: ['temperature', 'top_p'],
+            },
+            {
+              id: 'openai/gpt-chat-latest',
+              supported_parameters: ['tools', 'tool_choice', 'response_format'],
+            },
+            {
+              id: 'google/gemini-3.5-flash',
+              supported_parameters: ['tools'],
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      ),
+  });
+
+  assert.deepEqual(result.endpoints[0]?.modelIds, [
+    'openai/gpt-chat-latest',
+    'google/gemini-3.5-flash',
+  ]);
+  assert.deepEqual(result.warnings, []);
+});

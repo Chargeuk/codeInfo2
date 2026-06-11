@@ -882,6 +882,11 @@ async function prepareDirectAgentExecution(params: {
       providerRuntimeResolution.endpoint !== undefined
         ? await resolveOpenAiCompatEndpointRuntimeState({
             endpoint: providerRuntimeResolution.endpoint,
+            provider:
+              params.pinnedProviderId === 'codex' ||
+              params.pinnedProviderId === 'copilot'
+                ? params.pinnedProviderId
+                : undefined,
           })
         : params.pinnedEndpointId
           ? {
@@ -946,6 +951,9 @@ async function prepareDirectAgentExecution(params: {
         ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
             providerRuntimeResolution.config,
             providerRuntimeResolution.endpoint,
+            {
+              modelId: runtimeSelection.executionModel,
+            },
           )
         : providerRuntimeResolution.config;
     const runtimeWarning = buildRuntimeSelectionWarning({
@@ -1055,6 +1063,10 @@ async function prepareDirectAgentExecution(params: {
     const endpointState = providerRuntimeResolution.endpoint
       ? await resolveOpenAiCompatEndpointRuntimeState({
           endpoint: providerRuntimeResolution.endpoint,
+          provider:
+            providerId === 'codex' || providerId === 'copilot'
+              ? providerId
+              : undefined,
         })
       : params.pinnedEndpointId
         ? {
@@ -1139,6 +1151,9 @@ async function prepareDirectAgentExecution(params: {
         ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
             providerRuntimeResolution.config,
             providerRuntimeResolution.endpoint,
+            {
+              modelId: runtimeSelection.executionModel,
+            },
           )
         : providerRuntimeResolution.config;
     const fallbackWarning =

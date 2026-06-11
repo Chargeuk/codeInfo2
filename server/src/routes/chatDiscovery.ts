@@ -238,6 +238,10 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
     endpoints: envResolution.endpoints.filter((endpoint) =>
       providerSupportsOpenAiCompatEndpoint(params.provider, endpoint),
     ),
+    provider:
+      params.provider === 'codex' || params.provider === 'copilot'
+        ? params.provider
+        : undefined,
     pinnedEndpoint:
       pinnedEndpoint &&
       providerSupportsOpenAiCompatEndpoint(params.provider, pinnedEndpoint)

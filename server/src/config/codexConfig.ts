@@ -1,5 +1,7 @@
-import fs from 'fs';
-import path from 'path';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { baseLogger } from '../logger.js';
 import {
@@ -91,18 +93,141 @@ const authStoreRegex = new RegExp(
 const CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME = 'codeinfo_openai_endpoint';
 export const CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV =
   'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_API_KEY';
+const CODEINFO_CODEX_MODEL_CATALOG_DIR = path.join(
+  os.tmpdir(),
+  'codeinfo-codex-model-catalogs',
+);
+
+type CodexModelCatalog = {
+  models: Array<Record<string, unknown>>;
+};
 
 const resolveOpenAiCompatWireApi = (
   endpoint: OpenAiCompatEndpointConfig,
 ): 'responses' | 'completions' =>
   endpoint.capabilities.includes('responses') ? 'responses' : 'completions';
 
+export function isOpenRouterEndpoint(
+  endpoint: Pick<OpenAiCompatEndpointConfig, 'baseUrl' | 'endpointId'>,
+): boolean {
+  try {
+    const parsed = new URL(endpoint.baseUrl || endpoint.endpointId);
+    return /(^|\.)openrouter\.ai$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function buildCodexOpenRouterModelCatalog(modelId: string): CodexModelCatalog {
+  const trimmedModelId = modelId.trim();
+  if (!trimmedModelId) {
+    throw new Error('OpenRouter Codex catalog requires a non-empty model id');
+  }
+
+  const supportedReasoningEfforts = [
+    ['none', 'No reasoning'],
+    ['minimal', 'Minimal reasoning'],
+    ['low', 'Low reasoning'],
+    ['medium', 'Balanced reasoning'],
+    ['high', 'High reasoning'],
+    ['xhigh', 'Maximum reasoning'],
+  ].map(([effort, description]) => ({
+    effort,
+    description,
+  }));
+
+  return {
+    models: [
+      {
+        slug: trimmedModelId,
+        display_name: trimmedModelId,
+        description: `External OpenRouter model ${trimmedModelId}`,
+        default_reasoning_level: 'medium',
+        supported_reasoning_levels: supportedReasoningEfforts,
+        shell_type: 'shell_command',
+        visibility: 'list',
+        supported_in_api: true,
+        priority: 1,
+        additional_speed_tiers: [],
+        service_tiers: [],
+        default_service_tier: null,
+        availability_nux: null,
+        upgrade: null,
+        base_instructions: '',
+        model_messages: null,
+        supports_reasoning_summaries: false,
+        default_reasoning_summary: 'auto',
+        support_verbosity: false,
+        default_verbosity: null,
+        apply_patch_tool_type: null,
+        web_search_tool_type: 'text',
+        truncation_policy: {
+          mode: 'bytes',
+          limit: 10_000,
+        },
+        supports_parallel_tool_calls: false,
+        supports_image_detail_original: false,
+        context_window: null,
+        max_context_window: null,
+        auto_compact_token_limit: null,
+        comp_hash: null,
+        effective_context_window_percent: 95,
+        experimental_supported_tools: [],
+        input_modalities: ['text', 'image'],
+        supports_search_tool: false,
+        use_responses_lite: false,
+        auto_review_model_override: null,
+        tool_mode: null,
+        multi_agent_version: null,
+      },
+    ],
+  };
+}
+
+function ensureCodexOpenRouterModelCatalog(
+  endpoint: Pick<OpenAiCompatEndpointConfig, 'endpointId'>,
+  modelId: string,
+): string {
+  const stableKey = crypto
+    .createHash('sha256')
+    .update(`${endpoint.endpointId}\n${modelId.trim()}`)
+    .digest('hex')
+    .slice(0, 16);
+  const targetPath = path.join(
+    CODEINFO_CODEX_MODEL_CATALOG_DIR,
+    `${stableKey}.json`,
+  );
+
+  if (!fs.existsSync(CODEINFO_CODEX_MODEL_CATALOG_DIR)) {
+    fs.mkdirSync(CODEINFO_CODEX_MODEL_CATALOG_DIR, { recursive: true });
+  }
+
+  fs.writeFileSync(
+    targetPath,
+    JSON.stringify(buildCodexOpenRouterModelCatalog(modelId), null, 2),
+    'utf8',
+  );
+
+  return targetPath;
+}
+
 export function buildCodexOpenAiCompatRuntimeConfig(
   endpoint: OpenAiCompatEndpointConfig,
+  params?: {
+    modelId?: string;
+  },
 ): CodexOptions['config'] {
   const providerName = CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME;
   return {
     model_provider: providerName,
+    ...(isOpenRouterEndpoint(endpoint) && params?.modelId?.trim()
+      ? {
+          model_catalog_json: ensureCodexOpenRouterModelCatalog(
+            endpoint,
+            params.modelId,
+          ),
+        }
+      : {}),
     model_providers: {
       [providerName]: {
         name: providerName,
@@ -119,6 +244,9 @@ export function buildCodexOpenAiCompatRuntimeConfig(
 export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
   runtimeConfig: CodexOptions['config'] | undefined,
   endpoint?: OpenAiCompatEndpointConfig | null,
+  params?: {
+    modelId?: string;
+  },
 ): CodexOptions['config'] | undefined {
   if (!endpoint) {
     return runtimeConfig;
@@ -126,6 +254,7 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
 
   const generatedConfig = buildCodexOpenAiCompatRuntimeConfig(
     endpoint,
+    params,
   ) as Record<string, unknown>;
   const baseConfig =
     runtimeConfig && typeof runtimeConfig === 'object' ? runtimeConfig : {};

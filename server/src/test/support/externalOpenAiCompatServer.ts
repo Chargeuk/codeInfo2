@@ -1,11 +1,22 @@
 import http from 'node:http';
 
+type ExternalOpenAiCompatMockResponse = {
+  status?: number;
+  headers?: Record<string, string>;
+  body?: Record<string, unknown> | string;
+  delayMs?: number;
+  destroySocket?: boolean;
+};
+
 export type ExternalOpenAiCompatServerScenario = {
   models?: string[];
   modelEntries?: Array<Record<string, unknown>>;
   responseMode?: 'success' | 'malformed-payload' | 'slow' | 'transport-failure';
   delayMs?: number;
   requiredBearerToken?: string;
+  modelResponses?: ExternalOpenAiCompatMockResponse[];
+  responsesResponses?: ExternalOpenAiCompatMockResponse[];
+  completionsResponses?: ExternalOpenAiCompatMockResponse[];
 };
 
 export type ExternalOpenAiCompatServer = {
@@ -33,6 +44,15 @@ function buildSuccessResponse(
   };
 }
 
+function cloneResponse(
+  response: ExternalOpenAiCompatMockResponse | undefined,
+): ExternalOpenAiCompatMockResponse {
+  return {
+    ...(response ?? {}),
+    ...(response?.headers ? { headers: { ...response.headers } } : {}),
+  };
+}
+
 export async function startExternalOpenAiCompatServer(
   params: ExternalOpenAiCompatServerScenario = {},
 ): Promise<ExternalOpenAiCompatServer> {
@@ -43,6 +63,17 @@ export async function startExternalOpenAiCompatServer(
   const modelEntries = params.modelEntries;
   const delayMs = params.delayMs ?? 0;
   const requiredBearerToken = params.requiredBearerToken?.trim();
+  const modelResponses = params.modelResponses?.map(cloneResponse) ?? [];
+  const responsesResponses = params.responsesResponses?.map(cloneResponse) ?? [];
+  const completionsResponses =
+    params.completionsResponses?.map(cloneResponse) ?? [];
+
+  const takeResponse = (
+    responses: ExternalOpenAiCompatMockResponse[],
+  ): ExternalOpenAiCompatMockResponse | undefined => {
+    if (responses.length === 0) return undefined;
+    return responses.length === 1 ? responses[0] : responses.shift();
+  };
 
   const httpServer = http.createServer(async (req, res) => {
     requestCount += 1;
@@ -51,6 +82,94 @@ export async function startExternalOpenAiCompatServer(
         ? req.headers.authorization
         : undefined;
     const url = req.url ?? '';
+
+    if (
+      req.method === 'GET' &&
+      url === '/v1/models' &&
+      modelResponses.length > 0
+    ) {
+      const response = takeResponse(modelResponses) ?? {};
+      if (response?.destroySocket) {
+        req.socket.destroy(new Error('transport failure'));
+        return;
+      }
+      if ((response?.delayMs ?? 0) > 0) {
+        await new Promise((resolve) => setTimeout(resolve, response.delayMs));
+      }
+      res.statusCode = response?.status ?? 200;
+      for (const [key, value] of Object.entries(response?.headers ?? {})) {
+        res.setHeader(key, value);
+      }
+      if (!res.getHeader('content-type')) {
+        res.setHeader('content-type', 'application/json');
+      }
+      res.end(
+        typeof response?.body === 'string'
+          ? response.body
+          : JSON.stringify(response?.body ?? buildSuccessResponse(models, modelEntries)),
+      );
+      return;
+    }
+
+    if (
+      req.method === 'POST' &&
+      url === '/v1/responses' &&
+      responsesResponses.length > 0
+    ) {
+      const response = takeResponse(responsesResponses) ?? {};
+      if (response?.destroySocket) {
+        req.socket.destroy(new Error('transport failure'));
+        return;
+      }
+      if ((response?.delayMs ?? 0) > 0) {
+        await new Promise((resolve) => setTimeout(resolve, response.delayMs));
+      }
+      res.statusCode = response?.status ?? 200;
+      for (const [key, value] of Object.entries(response?.headers ?? {})) {
+        res.setHeader(key, value);
+      }
+      if (!res.getHeader('content-type')) {
+        res.setHeader('content-type', 'application/json');
+      }
+      res.end(
+        typeof response?.body === 'string'
+          ? response.body
+          : JSON.stringify(response?.body ?? { output: [{ type: 'output_text', text: 'ok' }] }),
+      );
+      return;
+    }
+
+    if (
+      req.method === 'POST' &&
+      url === '/v1/chat/completions' &&
+      completionsResponses.length > 0
+    ) {
+      const response = takeResponse(completionsResponses) ?? {};
+      if (response?.destroySocket) {
+        req.socket.destroy(new Error('transport failure'));
+        return;
+      }
+      if ((response?.delayMs ?? 0) > 0) {
+        await new Promise((resolve) => setTimeout(resolve, response.delayMs));
+      }
+      res.statusCode = response?.status ?? 200;
+      for (const [key, value] of Object.entries(response?.headers ?? {})) {
+        res.setHeader(key, value);
+      }
+      if (!res.getHeader('content-type')) {
+        res.setHeader('content-type', 'application/json');
+      }
+      res.end(
+        typeof response?.body === 'string'
+          ? response.body
+          : JSON.stringify(
+              response?.body ?? {
+                choices: [{ message: { role: 'assistant', content: 'ok' } }],
+              },
+            ),
+      );
+      return;
+    }
 
     if (req.method !== 'GET' || url !== '/v1/models') {
       res.statusCode = 404;

@@ -5,14 +5,13 @@ import path from 'node:path';
 import { describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
 import {
   applyResolvedServerPortToCodexConfig,
   buildCodexOpenAiCompatRuntimeConfig,
   buildCodexOptions,
   buildDefaultCodexConfig,
-  CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV,
   ensureCodexConfigSeeded,
-  isOpenRouterEndpoint,
 } from '../../config/codexConfig.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
@@ -62,7 +61,7 @@ describe('codexConfig', () => {
     assert.doesNotMatch(config, /--api-key/u);
   });
 
-  it('buildCodexOpenAiCompatRuntimeConfig uses an env-backed api key when the endpoint requires auth', () => {
+  it('buildCodexOpenAiCompatRuntimeConfig points Codex at the shared internal proxy', () => {
     const config = buildCodexOpenAiCompatRuntimeConfig({
       endpointId: 'https://openrouter.ai/api/v1',
       baseUrl: 'https://openrouter.ai/api/v1',
@@ -77,15 +76,19 @@ describe('codexConfig', () => {
       model_providers: {
         codeinfo_openai_endpoint: {
           name: 'codeinfo_openai_endpoint',
-          base_url: 'https://openrouter.ai/api/v1',
+          base_url: buildOpenAiCompatProxyBaseUrl({
+            endpoint: {
+              endpointId: 'https://openrouter.ai/api/v1',
+            },
+            consumer: 'codex',
+          }),
           wire_api: 'responses',
-          env_key: CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV,
         },
       },
     });
   });
 
-  it('buildCodexOpenAiCompatRuntimeConfig generates a static Codex model catalog for OpenRouter runs', async () => {
+  it('buildCodexOpenAiCompatRuntimeConfig no longer requires a static model catalog for OpenRouter runs', async () => {
     const config = buildCodexOpenAiCompatRuntimeConfig(
       {
         endpointId: 'https://openrouter.ai/api/v1',
@@ -100,34 +103,25 @@ describe('codexConfig', () => {
       },
     ) as Record<string, unknown>;
 
-    assert.equal(isOpenRouterEndpoint({
-      endpointId: 'https://openrouter.ai/api/v1',
-      baseUrl: 'https://openrouter.ai/api/v1',
-    }), true);
-    assert.equal(typeof config.model_catalog_json, 'string');
-
-    const catalogPath = config.model_catalog_json as string;
-    const catalog = JSON.parse(await fs.readFile(catalogPath, 'utf8')) as {
-      models: Array<{
-        slug: string;
-        display_name: string;
-        shell_type: string;
-        visibility: string;
-      }>;
-    };
-
-    assert.deepEqual(catalog.models.map((model) => model.slug), [
-      'meta-llama/llama-3.2-3b-instruct:free',
-    ]);
-    assert.equal(
-      catalog.models[0]?.display_name,
-      'meta-llama/llama-3.2-3b-instruct:free',
-    );
-    assert.equal(catalog.models[0]?.shell_type, 'shell_command');
-    assert.equal(catalog.models[0]?.visibility, 'list');
+    assert.equal(config.model_catalog_json, undefined);
+    assert.deepEqual(config, {
+      model_provider: 'codeinfo_openai_endpoint',
+      model_providers: {
+        codeinfo_openai_endpoint: {
+          name: 'codeinfo_openai_endpoint',
+          base_url: buildOpenAiCompatProxyBaseUrl({
+            endpoint: {
+              endpointId: 'https://openrouter.ai/api/v1',
+            },
+            consumer: 'codex',
+          }),
+          wire_api: 'responses',
+        },
+      },
+    });
   });
 
-  it('buildCodexOpenAiCompatRuntimeConfig leaves non-OpenRouter endpoints on the direct runtime path', () => {
+  it('buildCodexOpenAiCompatRuntimeConfig routes non-OpenRouter endpoints through the same internal proxy', () => {
     const config = buildCodexOpenAiCompatRuntimeConfig(
       {
         endpointId: 'http://192.168.1.3:1234/v1',
@@ -141,20 +135,18 @@ describe('codexConfig', () => {
       },
     ) as Record<string, unknown>;
 
-    assert.equal(
-      isOpenRouterEndpoint({
-        endpointId: 'http://192.168.1.3:1234/v1',
-        baseUrl: 'http://192.168.1.3:1234/v1',
-      }),
-      false,
-    );
     assert.equal(config.model_catalog_json, undefined);
     assert.deepEqual(config, {
       model_provider: 'codeinfo_openai_endpoint',
       model_providers: {
         codeinfo_openai_endpoint: {
           name: 'codeinfo_openai_endpoint',
-          base_url: 'http://192.168.1.3:1234/v1',
+          base_url: buildOpenAiCompatProxyBaseUrl({
+            endpoint: {
+              endpointId: 'http://192.168.1.3:1234/v1',
+            },
+            consumer: 'codex',
+          }),
           wire_api: 'responses',
         },
       },

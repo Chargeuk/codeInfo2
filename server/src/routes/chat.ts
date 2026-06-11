@@ -48,7 +48,6 @@ import {
 } from '../config/chatDefaults.js';
 import {
   applyCodexOpenAiCompatEndpointToRuntimeConfig,
-  CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV,
 } from '../config/codexConfig.js';
 import {
   type OpenAiCompatEndpointConfig,
@@ -1050,14 +1049,6 @@ export function createChatRouter({
     });
     const envOverrides: NodeJS.ProcessEnv = {
       CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,
-      ...(executionProvider === 'codex' &&
-      executionUsesEndpoint &&
-      selectedOpenAiCompatEndpoint?.apiKey
-        ? {
-            [CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV]:
-              selectedOpenAiCompatEndpoint.apiKey,
-          }
-        : {}),
     };
     const repositoryBackedCodexRun =
       executionProvider === 'codex' &&

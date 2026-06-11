@@ -110,10 +110,13 @@ test('reports a timed-out endpoint without hiding healthy discovery results', as
   ]);
   assert.deepEqual(result.endpoints[0]?.modelIds, []);
   assert.deepEqual(result.endpoints[1]?.modelIds, ['healthy-model']);
-  assert.equal(slowServer.requestCount(), 1);
+  assert.equal(slowServer.requestCount(), 3);
   assert.equal(healthyServer.requestCount(), 1);
   assert.equal(result.warnings.length, 1);
-  assert.match(result.warnings[0]?.message ?? '', /timed out after 50ms/);
+  assert.match(
+    result.warnings[0]?.message ?? '',
+    /Failed to discover external models/,
+  );
 });
 
 test('reports a transport-failing endpoint without hiding healthy discovery results', async () => {
@@ -135,13 +138,44 @@ test('reports a transport-failing endpoint without hiding healthy discovery resu
   ]);
   assert.deepEqual(result.endpoints[0]?.modelIds, []);
   assert.deepEqual(result.endpoints[1]?.modelIds, ['healthy-model']);
-  assert.equal(failingServer.requestCount(), 1);
+  assert.equal(failingServer.requestCount(), 3);
   assert.equal(healthyServer.requestCount(), 1);
   assert.equal(result.warnings.length, 1);
   assert.match(
     result.warnings[0]?.message ?? '',
     /Failed to discover external models/,
   );
+});
+
+test('retries transient rate-limited discovery before succeeding', async () => {
+  const server = await startExternalOpenAiCompatServer({
+    modelResponses: [
+      {
+        status: 429,
+        headers: {
+          'content-type': 'application/json',
+          'retry-after': '0',
+        },
+        body: { error: 'rate limited' },
+      },
+      {
+        status: 200,
+        body: {
+          object: 'list',
+          data: [{ id: 'recovered-model', object: 'model' }],
+        },
+      },
+    ],
+  });
+  tempServers.push(server);
+
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [makeEndpoint(server.baseUrl)],
+  });
+
+  assert.deepEqual(result.endpoints[0]?.modelIds, ['recovered-model']);
+  assert.equal(server.requestCount(), 2);
+  assert.deepEqual(result.warnings, []);
 });
 
 test('isolates malformed payloads to the failing endpoint without affecting healthy results', async () => {

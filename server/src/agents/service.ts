@@ -52,7 +52,6 @@ import {
 } from '../config/chatDefaults.js';
 import {
   applyCodexOpenAiCompatEndpointToRuntimeConfig,
-  CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV,
 } from '../config/codexConfig.js';
 import { type OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
 import {
@@ -2735,13 +2734,6 @@ export async function runAgentInstructionUnlocked(params: {
 
     const envOverrides: NodeJS.ProcessEnv = {
       CODEINFO_ROOT: codeInfo2RootForAgent(agent.home),
-      ...(executionProviderId === 'codex' &&
-      preparedExecution.openAiCompatEndpoint?.apiKey
-        ? {
-            [CODEINFO_OPENAI_ENDPOINT_API_KEY_ENV]:
-              preparedExecution.openAiCompatEndpoint.apiKey,
-          }
-        : {}),
       ...(params.envOverrides ?? {}),
     };
 

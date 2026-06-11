@@ -4,6 +4,7 @@ import {
   describeOpenAiCompatEndpoint,
   type OpenAiCompatEndpointConfig,
 } from '../config/openaiCompatEndpoints.js';
+import { fetchOpenAiCompatModels } from './openaiCompatAdapter.js';
 
 const DEFAULT_TIMEOUT_MS = 1_500;
 
@@ -34,37 +35,6 @@ type DiscoveryEndpointSelection = {
   endpoint: OpenAiCompatEndpointConfig;
   source: 'env' | 'config';
 };
-
-type OpenAiModelsListResponse = {
-  object?: unknown;
-  data?: unknown;
-};
-
-type OpenAiModelEntry = {
-  id?: unknown;
-  supported_parameters?: unknown;
-};
-
-function isOpenRouterEndpoint(
-  endpoint: Pick<OpenAiCompatEndpointConfig, 'baseUrl' | 'endpointId'>,
-): boolean {
-  try {
-    const parsed = new URL(endpoint.baseUrl || endpoint.endpointId);
-    return /(^|\.)openrouter\.ai$/i.test(parsed.hostname);
-  } catch {
-    return false;
-  }
-}
-
-function supportsCodexToolUse(entry: OpenAiModelEntry): boolean {
-  const supportedParameters = Array.isArray(entry.supported_parameters)
-    ? entry.supported_parameters
-    : [];
-  return (
-    supportedParameters.includes('tools') ||
-    supportedParameters.includes('tool_choice')
-  );
-}
 
 function mergeDiscoveryEndpoints(params: {
   endpoints: readonly OpenAiCompatEndpointConfig[];
@@ -111,66 +81,23 @@ async function fetchEndpointModelIds(params: {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<string[]> {
-  const fetchImpl = params.fetchImpl ?? fetch;
-  const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const modelsUrl = new URL('models', `${params.endpoint.baseUrl}/`);
-
   try {
-    const response = await fetchImpl(modelsUrl, {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-        ...(params.endpoint.apiKey
-          ? { authorization: `Bearer ${params.endpoint.apiKey}` }
-          : {}),
-      },
-      signal: controller.signal,
+    const models = await fetchOpenAiCompatModels({
+      endpoint: params.endpoint,
+      consumer:
+        params.provider === 'codex' || params.provider === 'copilot'
+          ? params.provider
+          : 'discovery',
+      fetchImpl: params.fetchImpl,
+      timeoutMs: params.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = (await response.json()) as OpenAiModelsListResponse;
-    const data = Array.isArray(payload.data) ? payload.data : null;
-    if (!data) {
-      throw new Error('expected data[] array in /v1/models response');
-    }
-
-    const modelIds = data.flatMap((entry) => {
-      if (!entry || typeof entry !== 'object') {
-        return [];
-      }
-      const modelEntry = entry as OpenAiModelEntry;
-      if (
-        params.provider === 'codex' &&
-        isOpenRouterEndpoint(params.endpoint) &&
-        !supportsCodexToolUse(modelEntry)
-      ) {
-        return [];
-      }
-      const modelId = modelEntry.id;
-      if (typeof modelId !== 'string') {
-        return [];
-      }
-      const trimmed = modelId.trim();
-      return trimmed ? [trimmed] : [];
-    });
-
+    const modelIds = models.map((model) => model.id);
     if (modelIds.length === 0) {
       throw new Error('expected at least one model id in /v1/models response');
     }
 
     return [...new Set(modelIds)];
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error(`timed out after ${timeoutMs}ms`);
-    }
-    throw error;
   } finally {
-    clearTimeout(timeout);
     await delay(0);
   }
 }

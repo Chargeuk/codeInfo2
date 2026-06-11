@@ -7,6 +7,7 @@ import test from 'node:test';
 import request from 'supertest';
 
 import { memoryConversations } from '../../chat/memoryPersistence.js';
+import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   startCopilotChatServer,
@@ -277,7 +278,13 @@ test('copilot create-session path builds an OpenAI-compatible provider config fr
       server.harness.getState().lastCreateSessionConfig?.provider,
       {
         type: 'openai',
-        baseUrl: `${externalServer.baseUrl}/v1`,
+        baseUrl: buildOpenAiCompatProxyBaseUrl({
+          endpoint: {
+            endpointId: `${externalServer.baseUrl}/v1`,
+          },
+          consumer: 'copilot',
+          env: process.env,
+        }),
         wireApi: 'responses',
       },
     );

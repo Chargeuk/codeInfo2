@@ -67,6 +67,7 @@ import { createIngestStartRouter } from './routes/ingestStart.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
 import { toWebSocketUrl } from './routes/lmstudioUrl.js';
 import { createLogsRouter } from './routes/logs.js';
+import { createOpenAiCompatProxyRouter } from './routes/openaiCompatProxy.js';
 import { createToolsAstCallGraphRouter } from './routes/toolsAstCallGraph.js';
 import { createToolsAstFindDefinitionRouter } from './routes/toolsAstFindDefinition.js';
 import { createToolsAstFindReferencesRouter } from './routes/toolsAstFindReferences.js';
@@ -117,8 +118,9 @@ ensureCodexAuthFromHost({
 const codexDetection = detectCodex();
 const app = express();
 app.use(cors());
-app.use(express.json());
 app.use(createRequestLogger());
+app.use('/', createOpenAiCompatProxyRouter());
+app.use(express.json());
 baseLogger.info({ codexDetection }, 'Codex detection summary');
 baseLogger.info(
   {

@@ -4,6 +4,7 @@ import test from 'node:test';
 import { getChatInterface } from '../../chat/factory.js';
 import type { ChatEvent } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../chat/interfaces/ChatInterfaceCopilot.js';
+import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
@@ -258,7 +259,7 @@ test('ChatInterfaceCopilot create-session removes all tools when toolAccess is o
   );
 });
 
-test('ChatInterfaceCopilot forwards apiKey for authenticated OpenAI-compatible providers', async () => {
+test('ChatInterfaceCopilot routes authenticated OpenAI-compatible providers through the shared proxy', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-authenticated-openai-provider',
     createSessionEvents: [createSessionIdleEvent()],
@@ -289,9 +290,13 @@ test('ChatInterfaceCopilot forwards apiKey for authenticated OpenAI-compatible p
     toComparableJson(harness.getState().lastCreateSessionConfig?.provider),
     {
       type: 'openai',
-      baseUrl: 'https://openrouter.ai/api/v1',
+      baseUrl: buildOpenAiCompatProxyBaseUrl({
+        endpoint: {
+          endpointId: 'https://openrouter.ai/api/v1',
+        },
+        consumer: 'copilot',
+      }),
       wireApi: 'responses',
-      apiKey: 'sk-or-v1-test',
     },
   );
 });

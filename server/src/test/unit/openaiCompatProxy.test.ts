@@ -134,7 +134,7 @@ test('OpenAI-compatible proxy resolves config-pinned endpoints without requiring
   );
 });
 
-test('OpenAI-compatible proxy forwards bearer auth for config-pinned keyed endpoints', async () => {
+test('OpenAI-compatible proxy forwards bearer auth for config-pinned endpoints only when the same URL is declared in the env endpoint list', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     requiredBearerToken: 'required-secret',
     responsesResponses: [
@@ -145,17 +145,17 @@ test('OpenAI-compatible proxy forwards bearer auth for config-pinned keyed endpo
     ],
   });
   tempServers.push(externalServer);
-  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
-    'Pinned Endpoint,required-secret';
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+    apiKey: 'required-secret',
+    label: 'Pinned Endpoint',
+  });
 
   const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
     endpoint: {
       endpointId: `${externalServer.baseUrl}/v1`,
       baseUrl: `${externalServer.baseUrl}/v1`,
       capabilities: ['responses'],
-      displayLabel: 'Pinned Endpoint',
-      authLookupKey: 'pinned-endpoint',
     },
     consumer: 'copilot',
   });
@@ -170,6 +170,42 @@ test('OpenAI-compatible proxy forwards bearer auth for config-pinned keyed endpo
     { type: 'output_text', text: 'authenticated' },
   ]);
   assert.equal(externalServer.lastAuthorizationHeader(), 'Bearer required-secret');
+  assert.equal(externalServer.requestCount(), 1);
+});
+
+test('OpenAI-compatible proxy does not forward bearer auth for config-pinned endpoints when the same URL is absent from the env endpoint list', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    requiredBearerToken: 'required-secret',
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'should-not-return' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+    'Pinned Endpoint,required-secret';
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      baseUrl: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+      displayLabel: 'Pinned Endpoint',
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send({ model: 'alpha-model', input: 'hello' })
+    .expect(401);
+
+  assert.deepEqual(response.body, { error: 'unauthorized' });
+  assert.equal(externalServer.lastAuthorizationHeader(), undefined);
   assert.equal(externalServer.requestCount(), 1);
 });
 

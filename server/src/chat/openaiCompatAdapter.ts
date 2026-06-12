@@ -151,18 +151,9 @@ function resolveEndpointApiKey(
   endpoint: Pick<OpenAiCompatEndpointConfig, 'endpointId'>,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const resolved = resolveExternalOpenAiCompatEndpoints({
+  return resolveExternalOpenAiCompatEndpoints({
     env,
-  });
-  const matchedByEndpointId = resolved.apiKeysByEndpointId.get(endpoint.endpointId);
-  if (matchedByEndpointId) {
-    return matchedByEndpointId;
-  }
-  const registeredEndpoint = openAiCompatProxyEndpointRegistry.get(endpoint.endpointId);
-  if (!registeredEndpoint?.authLookupKey) {
-    return undefined;
-  }
-  return resolved.apiKeysByAuthLookupKey.get(registeredEndpoint.authLookupKey);
+  }).apiKeysByEndpointId.get(endpoint.endpointId);
 }
 
 function buildHeaders(

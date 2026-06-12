@@ -3,7 +3,7 @@ import http from 'node:http';
 type ExternalOpenAiCompatMockResponse = {
   status?: number;
   headers?: Record<string, string>;
-  body?: Record<string, unknown> | string;
+  body?: Record<string, unknown> | string | Buffer;
   delayMs?: number;
   destroySocket?: boolean;
 };
@@ -104,7 +104,7 @@ export async function startExternalOpenAiCompatServer(
         res.setHeader('content-type', 'application/json');
       }
       res.end(
-        typeof response?.body === 'string'
+        typeof response?.body === 'string' || Buffer.isBuffer(response?.body)
           ? response.body
           : JSON.stringify(response?.body ?? buildSuccessResponse(models, modelEntries)),
       );
@@ -132,7 +132,7 @@ export async function startExternalOpenAiCompatServer(
         res.setHeader('content-type', 'application/json');
       }
       res.end(
-        typeof response?.body === 'string'
+        typeof response?.body === 'string' || Buffer.isBuffer(response?.body)
           ? response.body
           : JSON.stringify(response?.body ?? { output: [{ type: 'output_text', text: 'ok' }] }),
       );
@@ -160,7 +160,7 @@ export async function startExternalOpenAiCompatServer(
         res.setHeader('content-type', 'application/json');
       }
       res.end(
-        typeof response?.body === 'string'
+        typeof response?.body === 'string' || Buffer.isBuffer(response?.body)
           ? response.body
           : JSON.stringify(
               response?.body ?? {

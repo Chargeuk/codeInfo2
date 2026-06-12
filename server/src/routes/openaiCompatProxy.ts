@@ -11,8 +11,20 @@ import {
 } from '../chat/openaiCompatAdapter.js';
 
 function copyResponseHeaders(source: Headers, res: Response) {
+  const blockedHeaders = new Set([
+    'connection',
+    'content-encoding',
+    'content-length',
+    'keep-alive',
+    'proxy-authenticate',
+    'proxy-authorization',
+    'te',
+    'trailer',
+    'transfer-encoding',
+    'upgrade',
+  ]);
   source.forEach((value, key) => {
-    if (key.toLowerCase() === 'content-length') {
+    if (blockedHeaders.has(key.toLowerCase())) {
       return;
     }
     res.setHeader(key, value);
@@ -89,16 +101,17 @@ export function createOpenAiCompatProxyRouter() {
       const endpoint = resolveOpenAiCompatEndpointFromProxyToken({
         endpointToken: req.params.endpointToken ?? '',
       });
+      const bodyText =
+        typeof req.body === 'string'
+          ? req.body
+          : req.body === undefined
+            ? undefined
+            : JSON.stringify(req.body);
       const response = await forwardOpenAiCompatProxyRequest({
         endpoint,
         method: 'POST',
         path,
-        bodyText:
-          typeof req.body === 'string'
-            ? req.body
-            : req.body === undefined
-              ? undefined
-              : JSON.stringify(req.body),
+        bodyText,
         contentType: req.get('content-type') ?? 'application/json',
         accept: req.get('accept') ?? undefined,
       });

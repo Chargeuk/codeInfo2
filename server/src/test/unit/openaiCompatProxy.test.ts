@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
+import zlib from 'node:zlib';
 
 import express from 'express';
 import request from 'supertest';
@@ -129,4 +130,48 @@ test('OpenAI-compatible proxy accepts large JSON request bodies on internal POST
     { type: 'output_text', text: 'accepted' },
   ]);
   assert.equal(externalServer.requestCount(), 1);
+});
+
+test('OpenAI-compatible proxy strips upstream content-encoding when relaying decoded JSON bodies', async () => {
+  const compressedBody = zlib.gzipSync(
+    JSON.stringify({
+      id: 'resp_123',
+      object: 'response',
+      status: 'completed',
+      output: [{ type: 'output_text', text: 'PING' }],
+    }),
+  );
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'content-encoding': 'gzip',
+        },
+        body: compressedBody,
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .set('accept', 'application/json')
+    .send({ model: 'alpha-model', input: 'hello' })
+    .expect(200);
+
+  assert.equal(response.headers['content-encoding'], undefined);
+  assert.equal(response.body.status, 'completed');
+  assert.deepEqual(response.body.output, [
+    { type: 'output_text', text: 'PING' },
+  ]);
 });

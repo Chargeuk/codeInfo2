@@ -5,7 +5,10 @@ import zlib from 'node:zlib';
 import express from 'express';
 import request from 'supertest';
 
-import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
+import {
+  buildOpenAiCompatProxyBaseUrl,
+  resetOpenAiCompatProxyEndpointRegistryForTests,
+} from '../../chat/openaiCompatAdapter.js';
 import { createOpenAiCompatProxyRouter } from '../../routes/openaiCompatProxy.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
@@ -18,6 +21,7 @@ afterEach(async () => {
   while (tempServers.length > 0) {
     await tempServers.pop()!.stop();
   }
+  resetOpenAiCompatProxyEndpointRegistryForTests();
   if (originalEndpointsEnv === undefined) {
     delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   } else {
@@ -94,6 +98,40 @@ test('OpenAI-compatible proxy converts models into the Codex catalog shape', asy
     ['alpha-model', 'beta-model'],
   );
   assert.equal(response.body.models[0]?.shell_type, 'shell_command');
+});
+
+test('OpenAI-compatible proxy resolves config-pinned endpoints without requiring a global env entry', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    modelResponses: [
+      {
+        body: {
+          object: 'list',
+          data: [{ id: 'pinned-model', supported_parameters: ['tools'] }],
+        },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      baseUrl: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+      displayLabel: 'Pinned Endpoint',
+    },
+    consumer: 'codex',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/models`).pathname;
+
+  const response = await request(createApp()).get(pathName).expect(200);
+
+  assert.deepEqual(
+    response.body.models.map((entry: { slug?: string }) => entry.slug),
+    ['pinned-model'],
+  );
 });
 
 test('OpenAI-compatible proxy emits normalized ids for slug-only Copilot model entries', async () => {

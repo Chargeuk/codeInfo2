@@ -15,6 +15,10 @@ const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
 const DEFAULT_PROXY_DISCOVERY_HEADER_TIMEOUT_MS = 10_000;
 const DEFAULT_PROXY_INFERENCE_HEADER_TIMEOUT_MS = 60_000;
 const DEFAULT_PROXY_MAX_ATTEMPTS = 3;
+const openAiCompatProxyEndpointRegistry = new Map<
+  string,
+  OpenAiCompatEndpointConfig
+>();
 
 export type OpenAiCompatAdapterConsumer = 'codex' | 'copilot';
 
@@ -217,11 +221,24 @@ export function isValidOpenAiCompatProxySecret(secret: string): boolean {
 }
 
 export function buildOpenAiCompatProxyBaseUrl(params: {
-  endpoint: Pick<OpenAiCompatEndpointConfig, 'endpointId'>;
+  endpoint: Pick<OpenAiCompatEndpointConfig, 'endpointId'> &
+    Partial<
+      Pick<
+        OpenAiCompatEndpointConfig,
+        'baseUrl' | 'capabilities' | 'displayLabel' | 'authLookupKey'
+      >
+    >;
   consumer: OpenAiCompatAdapterConsumer;
   env?: NodeJS.ProcessEnv;
 }): string {
   const port = resolveServerPort(params.env);
+  openAiCompatProxyEndpointRegistry.set(params.endpoint.endpointId, {
+    endpointId: params.endpoint.endpointId,
+    baseUrl: params.endpoint.baseUrl ?? params.endpoint.endpointId,
+    capabilities: params.endpoint.capabilities ?? ['responses', 'completions'],
+    displayLabel: params.endpoint.displayLabel,
+    authLookupKey: params.endpoint.authLookupKey,
+  });
   return [
     `http://localhost:${port}`,
     'internal',
@@ -247,7 +264,15 @@ export function resolveOpenAiCompatEndpointFromProxyToken(params: {
   if (matched) {
     return matched;
   }
+  const registered = openAiCompatProxyEndpointRegistry.get(normalizedEndpointId);
+  if (registered) {
+    return registered;
+  }
   throw new Error('invalid endpoint token');
+}
+
+export function resetOpenAiCompatProxyEndpointRegistryForTests() {
+  openAiCompatProxyEndpointRegistry.clear();
 }
 
 async function fetchWithRetry(

@@ -74,7 +74,7 @@ export async function startExternalOpenAiCompatServer(
     responses: ExternalOpenAiCompatMockResponse[],
   ): ExternalOpenAiCompatMockResponse | undefined => {
     if (responses.length === 0) return undefined;
-    return responses.length === 1 ? responses[0] : responses.shift();
+    return responses.shift();
   };
 
   const sendMockResponse = async (

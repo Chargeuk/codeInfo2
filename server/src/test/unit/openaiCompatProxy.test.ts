@@ -209,6 +209,43 @@ test('OpenAI-compatible proxy does not forward bearer auth for config-pinned end
   assert.equal(externalServer.requestCount(), 1);
 });
 
+test('OpenAI-compatible proxy forwards /v1/chat/completions', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    completionsResponses: [
+      {
+        status: 200,
+        body: {
+          choices: [{ message: { role: 'assistant', content: 'ok' } }],
+        },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['completions'],
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/chat/completions`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    .expect(200);
+
+  assert.equal(response.body.choices[0]?.message?.content, 'ok');
+  assert.equal(externalServer.requestCount(), 1);
+});
+
 test('OpenAI-compatible proxy emits normalized ids for slug-only Copilot model entries', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     modelResponses: [

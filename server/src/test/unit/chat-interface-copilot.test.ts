@@ -278,7 +278,6 @@ test('ChatInterfaceCopilot routes authenticated OpenAI-compatible providers thro
         capabilities: ['responses', 'completions'],
         displayLabel: 'OpenRouter',
         authLookupKey: 'openrouter',
-        apiKey: 'sk-or-v1-test',
       },
       runtimeConfig: runtimeConfigWithMcpServers,
     },

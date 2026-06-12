@@ -11,23 +11,55 @@ import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompat
 const tempServers: Array<{
   stop: () => Promise<void>;
 }> = [];
+const originalEndpointsEnv = process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+const originalEndpointKeysEnv =
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
 
 afterEach(async () => {
   while (tempServers.length > 0) {
     await tempServers.pop()!.stop();
+  }
+  if (originalEndpointsEnv === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = originalEndpointsEnv;
+  }
+  if (originalEndpointKeysEnv === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      originalEndpointKeysEnv;
   }
 });
 
 const makeEndpoint = (
   baseUrl: string,
   capabilities = 'responses',
-  overrides?: { apiKey?: string; displayLabel?: string; authLookupKey?: string },
+  overrides?: { displayLabel?: string; authLookupKey?: string },
 ) => ({
   ...parseOpenAiCompatEndpointConfig(`${baseUrl}/v1|${capabilities}`, {
     pathLabel: 'codeinfo_openai_endpoint',
   }),
   ...(overrides ?? {}),
 });
+
+function configureExternalEndpointEnv(params: {
+  endpointId: string;
+  apiKey?: string;
+  label?: string;
+  capabilities?: string;
+}) {
+  const label = params.label ?? 'External';
+  const capabilities = params.capabilities ?? 'responses';
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${label},${params.endpointId}|${capabilities}`;
+  if (params.apiKey) {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      `${label},${params.apiKey}`;
+    return;
+  }
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+}
 
 function endpointIds(results: OpenAiCompatModelDiscoveryEndpointResult[]) {
   return results.map((result) => result.endpoint.endpointId);
@@ -214,9 +246,13 @@ test('sends bearer auth when the endpoint has a configured key', async () => {
   tempServers.push(server);
 
   const endpoint = makeEndpoint(server.baseUrl, 'responses', {
-    apiKey: 'sk-test',
     displayLabel: 'OpenRouter',
     authLookupKey: 'openrouter',
+  });
+  configureExternalEndpointEnv({
+    endpointId: endpoint.endpointId,
+    apiKey: 'sk-test',
+    label: 'OpenRouter',
   });
   const result = await discoverOpenAiCompatEndpointModels({
     endpoints: [endpoint],
@@ -254,7 +290,6 @@ test('filters OpenRouter discovery down to tool-capable models for Codex', async
   const endpoint = makeEndpoint('https://openrouter.ai/api', 'responses', {
     displayLabel: 'OpenRouter',
     authLookupKey: 'openrouter',
-    apiKey: 'sk-test',
   });
   const result = await discoverOpenAiCompatEndpointModels({
     endpoints: [endpoint],

@@ -308,9 +308,15 @@ test('matches labeled external endpoints with raw keys using shared label normal
 
   assert.equal(resolved.endpoints[0]?.displayLabel, 'Open Router');
   assert.equal(resolved.endpoints[0]?.authLookupKey, 'open-router');
-  assert.equal(resolved.endpoints[0]?.apiKey, 'sk-test');
+  assert.equal(
+    resolved.apiKeysByEndpointId.get('https://example.com/v1'),
+    'sk-test',
+  );
   assert.equal(resolved.endpoints[1]?.displayLabel, 'Legacy');
-  assert.equal(resolved.endpoints[1]?.apiKey, undefined);
+  assert.equal(
+    resolved.apiKeysByEndpointId.get('https://example.com/alt/v1'),
+    undefined,
+  );
   assert.deepEqual(resolved.warnings, []);
 });
 
@@ -337,7 +343,10 @@ test('warns when CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS contains an unmat
     },
   });
 
-  assert.equal(resolved.endpoints[0]?.apiKey, undefined);
+  assert.equal(
+    resolved.apiKeysByEndpointId.get('https://example.com/v1'),
+    undefined,
+  );
   assert.equal(resolved.warnings.length, 1);
   assert.match(
     resolved.warnings[0] ?? '',

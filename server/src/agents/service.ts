@@ -627,9 +627,9 @@ function enrichOpenAiCompatEndpointFromEnv(
 
   return {
     ...endpoint,
+    capabilities: envEndpoint.capabilities,
     displayLabel: envEndpoint.displayLabel ?? endpoint.displayLabel,
     authLookupKey: envEndpoint.authLookupKey ?? endpoint.authLookupKey,
-    apiKey: envEndpoint.apiKey ?? endpoint.apiKey,
   };
 }
 

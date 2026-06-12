@@ -7,7 +7,7 @@ import {
   attachOpenAiCompatEndpointKeys,
   resolveOpenAiCompatEndpointConfigsFromList,
   resolveOpenAiCompatEndpointKeysFromList,
-  type OpenAiCompatEndpointListResolution,
+  type OpenAiCompatEndpointAuthResolution,
 } from './openaiCompatEndpoints.js';
 
 export const STARTUP_ENV_ORDER = ['server/.env', 'server/.env.local'] as const;
@@ -75,7 +75,7 @@ export type CodeinfoEnvResolution = {
 };
 
 export type ExternalOpenAiCompatEndpointResolution =
-  OpenAiCompatEndpointListResolution;
+  OpenAiCompatEndpointAuthResolution;
 
 export type AgentProviderFallbackOrderResolution = {
   normalizedProviders: ChatProviderId[];

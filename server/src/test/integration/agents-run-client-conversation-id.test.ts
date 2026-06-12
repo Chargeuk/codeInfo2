@@ -3322,7 +3322,7 @@ test('direct Copilot agent runs carry the configured external endpoint through t
   process.env.CODEX_HOME = codexHome;
   process.env.CODEINFO_COPILOT_HOME = copilotHome;
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `OpenRouter,${endpointId}|completions`;
+    `OpenRouter,${endpointId}|responses,completions`;
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
     'openrouter,sk-or-v1-test';
 
@@ -3391,10 +3391,9 @@ test('direct Copilot agent runs carry the configured external endpoint through t
     assert.deepEqual(capturedFlags[0]?.codeinfoOpenAiEndpoint, {
       endpointId,
       baseUrl: endpointId,
-      capabilities: ['completions'],
+      capabilities: ['responses', 'completions'],
       displayLabel: 'OpenRouter',
       authLookupKey: 'openrouter',
-      apiKey: 'sk-or-v1-test',
     });
   } finally {
     __resetAgentServiceDepsForTests();

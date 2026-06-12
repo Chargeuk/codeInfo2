@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import express, { Router, type Request, type Response } from 'express';
 
 import {
@@ -18,6 +19,7 @@ function copyResponseHeaders(source: Headers, res: Response) {
     'keep-alive',
     'proxy-authenticate',
     'proxy-authorization',
+    'set-cookie',
     'te',
     'trailer',
     'transfer-encoding',
@@ -121,7 +123,13 @@ export function createOpenAiCompatProxyRouter() {
       if (!response.body) {
         return res.end();
       }
-      Readable.fromWeb(response.body as never).pipe(res);
+      try {
+        await pipeline(Readable.fromWeb(response.body as never), res);
+      } catch (error) {
+        if (!res.destroyed) {
+          res.destroy(error instanceof Error ? error : undefined);
+        }
+      }
       return undefined;
     } catch (error) {
       const status = buildRouterErrorStatus(error);

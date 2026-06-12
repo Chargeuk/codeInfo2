@@ -143,13 +143,26 @@ function sanitizeModelsForConsumer(params: {
   return params.models.filter(supportsCodexToolUse);
 }
 
+function resolveEndpointApiKey(
+  endpoint: Pick<OpenAiCompatEndpointConfig, 'endpointId'>,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  return resolveExternalOpenAiCompatEndpoints({
+    env,
+  }).apiKeysByEndpointId.get(endpoint.endpointId);
+}
+
 function buildHeaders(
-  endpoint: Pick<OpenAiCompatEndpointConfig, 'apiKey'>,
-  baseHeaders?: HeadersInit,
+  endpoint: Pick<OpenAiCompatEndpointConfig, 'endpointId'>,
+  params?: {
+    baseHeaders?: HeadersInit;
+    env?: NodeJS.ProcessEnv;
+  },
 ): Headers {
-  const headers = new Headers(baseHeaders);
-  if (endpoint.apiKey) {
-    headers.set('authorization', `Bearer ${endpoint.apiKey}`);
+  const headers = new Headers(params?.baseHeaders);
+  const apiKey = resolveEndpointApiKey(endpoint, params?.env);
+  if (apiKey) {
+    headers.set('authorization', `Bearer ${apiKey}`);
   }
   if (!headers.has('accept')) {
     headers.set('accept', 'application/json');
@@ -325,12 +338,13 @@ export async function fetchOpenAiCompatModels(params: {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   maxAttempts?: number;
+  env?: NodeJS.ProcessEnv;
 }): Promise<CanonicalOpenAiCompatModel[]> {
   const response = await fetchWithRetry({
     url: new URL('models', `${params.endpoint.baseUrl}/`),
     init: {
       method: 'GET',
-      headers: buildHeaders(params.endpoint),
+      headers: buildHeaders(params.endpoint, { env: params.env }),
     },
     fetchImpl: params.fetchImpl,
     headerTimeoutMs: params.timeoutMs,
@@ -364,7 +378,10 @@ export function serializeOpenAiCompatModelsForConsumer(params: {
   }
   return {
     object: 'list',
-    data: models.map((model) => model.rawEntry),
+    data: models.map((model) => ({
+      ...model.rawEntry,
+      id: model.id,
+    })),
   };
 }
 
@@ -378,14 +395,18 @@ export async function forwardOpenAiCompatProxyRequest(params: {
   fetchImpl?: typeof fetch;
   maxAttempts?: number;
   headerTimeoutMs?: number;
+  env?: NodeJS.ProcessEnv;
 }): Promise<Response> {
   return await fetchWithRetry({
     url: new URL(params.path, `${params.endpoint.baseUrl}/`),
     init: {
       method: params.method,
       headers: buildHeaders(params.endpoint, {
-        ...(params.contentType ? { 'content-type': params.contentType } : {}),
-        ...(params.accept ? { accept: params.accept } : {}),
+        baseHeaders: {
+          ...(params.contentType ? { 'content-type': params.contentType } : {}),
+          ...(params.accept ? { accept: params.accept } : {}),
+        },
+        env: params.env,
       }),
       ...(params.bodyText !== undefined ? { body: params.bodyText } : {}),
     },

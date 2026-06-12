@@ -14,7 +14,6 @@ export type OpenAiCompatEndpointConfig = {
   capabilities: readonly OpenAiCompatEndpointCapability[];
   displayLabel?: string;
   authLookupKey?: string;
-  apiKey?: string;
 };
 
 type ParseEndpointPathLabel = {
@@ -24,6 +23,10 @@ type ParseEndpointPathLabel = {
 export type OpenAiCompatEndpointListResolution = {
   endpoints: OpenAiCompatEndpointConfig[];
   warnings: string[];
+};
+
+export type OpenAiCompatEndpointAuthResolution = OpenAiCompatEndpointListResolution & {
+  apiKeysByEndpointId: ReadonlyMap<string, string>;
 };
 
 export type OpenAiCompatEndpointKeyEntry = {
@@ -388,11 +391,13 @@ export function attachOpenAiCompatEndpointKeys(params: {
   endpoints: readonly OpenAiCompatEndpointConfig[];
   keys: readonly OpenAiCompatEndpointKeyEntry[];
   warnings?: readonly string[];
-}): OpenAiCompatEndpointListResolution {
+}): OpenAiCompatEndpointAuthResolution {
   const byLookupKey = new Map(
     params.keys.map((entry) => [entry.authLookupKey, entry.apiKey] as const),
   );
   const matchedLookupKeys = new Set<string>();
+  const apiKeysByEndpointId = new Map<string, string>();
+
   const endpoints = params.endpoints.map((endpoint) => {
     if (!endpoint.authLookupKey) {
       return endpoint;
@@ -402,10 +407,8 @@ export function attachOpenAiCompatEndpointKeys(params: {
       return endpoint;
     }
     matchedLookupKeys.add(endpoint.authLookupKey);
-    return {
-      ...endpoint,
-      apiKey,
-    };
+    apiKeysByEndpointId.set(endpoint.endpointId, apiKey);
+    return endpoint;
   });
 
   const warnings = [...(params.warnings ?? [])];
@@ -421,6 +424,7 @@ export function attachOpenAiCompatEndpointKeys(params: {
   return {
     endpoints,
     warnings,
+    apiKeysByEndpointId,
   };
 }
 

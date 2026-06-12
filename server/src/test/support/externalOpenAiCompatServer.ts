@@ -4,8 +4,10 @@ type ExternalOpenAiCompatMockResponse = {
   status?: number;
   headers?: Record<string, string>;
   body?: Record<string, unknown> | string | Buffer;
+  bodyChunks?: Array<string | Buffer>;
   delayMs?: number;
   destroySocket?: boolean;
+  destroySocketAfterBodyStart?: boolean;
 };
 
 export type ExternalOpenAiCompatServerScenario = {
@@ -75,6 +77,45 @@ export async function startExternalOpenAiCompatServer(
     return responses.length === 1 ? responses[0] : responses.shift();
   };
 
+  const sendMockResponse = async (
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    response: ExternalOpenAiCompatMockResponse | undefined,
+    fallbackBody: Record<string, unknown> | string,
+  ) => {
+    const delayMs = response?.delayMs ?? 0;
+    if (response?.destroySocket) {
+      req.socket.destroy(new Error('transport failure'));
+      return;
+    }
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    res.statusCode = response?.status ?? 200;
+    for (const [key, value] of Object.entries(response?.headers ?? {})) {
+      res.setHeader(key, value);
+    }
+    if (!res.getHeader('content-type')) {
+      res.setHeader('content-type', 'application/json');
+    }
+    if (Array.isArray(response?.bodyChunks) && response.bodyChunks.length > 0) {
+      for (const chunk of response.bodyChunks) {
+        res.write(chunk);
+      }
+      if (response.destroySocketAfterBodyStart) {
+        req.socket.destroy(new Error('stream terminated'));
+        return;
+      }
+      res.end();
+      return;
+    }
+    res.end(
+      typeof response?.body === 'string' || Buffer.isBuffer(response?.body)
+        ? response.body
+        : JSON.stringify(response?.body ?? fallbackBody),
+    );
+  };
+
   const httpServer = http.createServer(async (req, res) => {
     requestCount += 1;
     lastAuthorizationHeader =
@@ -99,25 +140,7 @@ export async function startExternalOpenAiCompatServer(
       modelResponses.length > 0
     ) {
       const response = takeResponse(modelResponses) ?? {};
-      if (response?.destroySocket) {
-        req.socket.destroy(new Error('transport failure'));
-        return;
-      }
-      if ((response?.delayMs ?? 0) > 0) {
-        await new Promise((resolve) => setTimeout(resolve, response.delayMs));
-      }
-      res.statusCode = response?.status ?? 200;
-      for (const [key, value] of Object.entries(response?.headers ?? {})) {
-        res.setHeader(key, value);
-      }
-      if (!res.getHeader('content-type')) {
-        res.setHeader('content-type', 'application/json');
-      }
-      res.end(
-        typeof response?.body === 'string' || Buffer.isBuffer(response?.body)
-          ? response.body
-          : JSON.stringify(response?.body ?? buildSuccessResponse(models, modelEntries)),
-      );
+      await sendMockResponse(req, res, response, buildSuccessResponse(models, modelEntries));
       return;
     }
 
@@ -127,25 +150,9 @@ export async function startExternalOpenAiCompatServer(
       responsesResponses.length > 0
     ) {
       const response = takeResponse(responsesResponses) ?? {};
-      if (response?.destroySocket) {
-        req.socket.destroy(new Error('transport failure'));
-        return;
-      }
-      if ((response?.delayMs ?? 0) > 0) {
-        await new Promise((resolve) => setTimeout(resolve, response.delayMs));
-      }
-      res.statusCode = response?.status ?? 200;
-      for (const [key, value] of Object.entries(response?.headers ?? {})) {
-        res.setHeader(key, value);
-      }
-      if (!res.getHeader('content-type')) {
-        res.setHeader('content-type', 'application/json');
-      }
-      res.end(
-        typeof response?.body === 'string' || Buffer.isBuffer(response?.body)
-          ? response.body
-          : JSON.stringify(response?.body ?? { output: [{ type: 'output_text', text: 'ok' }] }),
-      );
+      await sendMockResponse(req, res, response, {
+        output: [{ type: 'output_text', text: 'ok' }],
+      });
       return;
     }
 
@@ -155,29 +162,9 @@ export async function startExternalOpenAiCompatServer(
       completionsResponses.length > 0
     ) {
       const response = takeResponse(completionsResponses) ?? {};
-      if (response?.destroySocket) {
-        req.socket.destroy(new Error('transport failure'));
-        return;
-      }
-      if ((response?.delayMs ?? 0) > 0) {
-        await new Promise((resolve) => setTimeout(resolve, response.delayMs));
-      }
-      res.statusCode = response?.status ?? 200;
-      for (const [key, value] of Object.entries(response?.headers ?? {})) {
-        res.setHeader(key, value);
-      }
-      if (!res.getHeader('content-type')) {
-        res.setHeader('content-type', 'application/json');
-      }
-      res.end(
-        typeof response?.body === 'string' || Buffer.isBuffer(response?.body)
-          ? response.body
-          : JSON.stringify(
-              response?.body ?? {
-                choices: [{ message: { role: 'assistant', content: 'ok' } }],
-              },
-            ),
-      );
+      await sendMockResponse(req, res, response, {
+        choices: [{ message: { role: 'assistant', content: 'ok' } }],
+      });
       return;
     }
 

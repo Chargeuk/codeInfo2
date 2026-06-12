@@ -69,7 +69,6 @@ describe('codexConfig', () => {
       capabilities: ['responses', 'completions'],
       displayLabel: 'OpenRouter',
       authLookupKey: 'openrouter',
-      apiKey: 'sk-or-v1-test',
     });
 
     assert.deepEqual(config, {
@@ -97,7 +96,6 @@ describe('codexConfig', () => {
         capabilities: ['responses', 'completions'],
         displayLabel: 'OpenRouter',
         authLookupKey: 'openrouter',
-        apiKey: 'sk-or-v1-test',
       },
       {
         modelId: 'meta-llama/llama-3.2-3b-instruct:free',
@@ -163,7 +161,6 @@ describe('codexConfig', () => {
         capabilities: ['responses', 'completions'],
         displayLabel: 'OpenRouter',
         authLookupKey: 'openrouter',
-        apiKey: 'sk-or-v1-test',
       },
       {
         env: {

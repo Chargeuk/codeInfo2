@@ -231,9 +231,15 @@ test('attaches matching endpoint keys without changing URL-backed identity', () 
 
   assert.equal(attached.endpoints[0]?.endpointId, 'https://example.com/v1');
   assert.equal(attached.endpoints[0]?.displayLabel, 'OpenRouter');
-  assert.equal(attached.endpoints[0]?.apiKey, 'sk-test');
+  assert.equal(
+    attached.apiKeysByEndpointId.get('https://example.com/v1'),
+    'sk-test',
+  );
   assert.equal(attached.endpoints[1]?.endpointId, 'https://example.com/alt/v1');
-  assert.equal(attached.endpoints[1]?.apiKey, undefined);
+  assert.equal(
+    attached.apiKeysByEndpointId.get('https://example.com/alt/v1'),
+    undefined,
+  );
 });
 
 test('warns when a configured endpoint key does not match any labeled external endpoint', () => {

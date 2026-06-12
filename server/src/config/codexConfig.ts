@@ -125,6 +125,7 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
   endpoint?: OpenAiCompatEndpointConfig | null,
   params?: {
     modelId?: string;
+    env?: NodeJS.ProcessEnv;
   },
 ): CodexOptions['config'] | undefined {
   if (!endpoint) {

@@ -10,10 +10,24 @@ import { createOpenAiCompatProxyRouter } from '../../routes/openaiCompatProxy.js
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 const tempServers: Array<{ stop: () => Promise<void> }> = [];
+const originalEndpointsEnv = process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+const originalEndpointKeysEnv =
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
 
 afterEach(async () => {
   while (tempServers.length > 0) {
     await tempServers.pop()!.stop();
+  }
+  if (originalEndpointsEnv === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = originalEndpointsEnv;
+  }
+  if (originalEndpointKeysEnv === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      originalEndpointKeysEnv;
   }
 });
 
@@ -22,6 +36,22 @@ function createApp() {
   app.use('/', createOpenAiCompatProxyRouter());
   app.use(express.json());
   return app;
+}
+
+function configureExternalEndpointEnv(params: {
+  endpointId: string;
+  apiKey?: string;
+  label?: string;
+}) {
+  const label = params.label ?? 'External';
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${label},${params.endpointId}|responses,completions`;
+  if (params.apiKey) {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      `${label},${params.apiKey}`;
+    return;
+  }
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
 }
 
 test('OpenAI-compatible proxy converts models into the Codex catalog shape', async () => {
@@ -45,6 +75,9 @@ test('OpenAI-compatible proxy converts models into the Codex catalog shape', asy
     ],
   });
   tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
 
   const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
     endpoint: {
@@ -63,9 +96,9 @@ test('OpenAI-compatible proxy converts models into the Codex catalog shape', asy
   assert.equal(response.body.models[0]?.shell_type, 'shell_command');
 });
 
-test('OpenAI-compatible proxy retries pre-stream response failures before succeeding', async () => {
+test('OpenAI-compatible proxy retries model discovery failures before succeeding', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
-    responsesResponses: [
+    modelResponses: [
       {
         status: 503,
         headers: {
@@ -76,28 +109,32 @@ test('OpenAI-compatible proxy retries pre-stream response failures before succee
       },
       {
         status: 200,
-        body: { output: [{ type: 'output_text', text: 'recovered' }] },
+        body: {
+          object: 'list',
+          data: [{ id: 'recovered-model', supported_parameters: ['tools'] }],
+        },
       },
     ],
   });
   tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
 
   const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
     endpoint: {
       endpointId: `${externalServer.baseUrl}/v1`,
     },
-    consumer: 'copilot',
+    consumer: 'codex',
   });
-  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+  const pathName = new URL(`${proxyBaseUrl}/models`).pathname;
 
-  const response = await request(createApp())
-    .post(pathName)
-    .send({ model: 'alpha-model', input: 'hello' })
-    .expect(200);
+  const response = await request(createApp()).get(pathName).expect(200);
 
-  assert.deepEqual(response.body.output, [
-    { type: 'output_text', text: 'recovered' },
-  ]);
+  assert.deepEqual(
+    response.body.models.map((entry: { slug?: string }) => entry.slug),
+    ['recovered-model'],
+  );
   assert.equal(externalServer.requestCount(), 2);
 });
 
@@ -111,6 +148,9 @@ test('OpenAI-compatible proxy accepts large JSON request bodies on internal POST
     ],
   });
   tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
 
   const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
     endpoint: {
@@ -129,6 +169,45 @@ test('OpenAI-compatible proxy accepts large JSON request bodies on internal POST
   assert.deepEqual(response.body.output, [
     { type: 'output_text', text: 'accepted' },
   ]);
+  assert.equal(externalServer.requestCount(), 1);
+});
+
+test('OpenAI-compatible proxy does not retry inference POST failures', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 503,
+        headers: {
+          'content-type': 'application/json',
+          'retry-after': '0',
+        },
+        body: { error: 'overloaded' },
+      },
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'recovered' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send({ model: 'alpha-model', input: 'hello' })
+    .expect(503);
+
+  assert.deepEqual(response.body, { error: 'overloaded' });
   assert.equal(externalServer.requestCount(), 1);
 });
 
@@ -154,6 +233,9 @@ test('OpenAI-compatible proxy strips upstream content-encoding when relaying dec
     ],
   });
   tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
 
   const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
     endpoint: {
@@ -174,4 +256,61 @@ test('OpenAI-compatible proxy strips upstream content-encoding when relaying dec
   assert.deepEqual(response.body.output, [
     { type: 'output_text', text: 'PING' },
   ]);
+});
+
+test('OpenAI-compatible proxy rejects unknown endpoint tokens', async () => {
+  const externalServer = await startExternalOpenAiCompatServer();
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+    },
+    consumer: 'codex',
+  });
+  const proxyUrl = new URL(`${proxyBaseUrl}/models`);
+  const parts = proxyUrl.pathname.split('/');
+  parts[5] = Buffer.from('http://127.0.0.1:65535/v1', 'utf8').toString(
+    'base64url',
+  );
+  proxyUrl.pathname = parts.join('/');
+
+  await request(createApp())
+    .get(proxyUrl.pathname)
+    .expect(404, { error: 'invalid endpoint token' });
+});
+
+test('OpenAI-compatible proxy enforces bearer auth before queued upstream responses', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    requiredBearerToken: 'required-secret',
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'should-not-return' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send({ model: 'alpha-model', input: 'hello' })
+    .expect(401);
+
+  assert.deepEqual(response.body, { error: 'unauthorized' });
+  assert.equal(externalServer.requestCount(), 1);
 });

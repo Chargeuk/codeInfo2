@@ -84,6 +84,16 @@ export async function startExternalOpenAiCompatServer(
     const url = req.url ?? '';
 
     if (
+      requiredBearerToken &&
+      req.headers.authorization !== `Bearer ${requiredBearerToken}`
+    ) {
+      res.statusCode = 401;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ error: 'unauthorized' }));
+      return;
+    }
+
+    if (
       req.method === 'GET' &&
       url === '/v1/models' &&
       modelResponses.length > 0
@@ -180,16 +190,6 @@ export async function startExternalOpenAiCompatServer(
 
     if (responseMode === 'transport-failure') {
       req.socket.destroy(new Error('transport failure'));
-      return;
-    }
-
-    if (
-      requiredBearerToken &&
-      req.headers.authorization !== `Bearer ${requiredBearerToken}`
-    ) {
-      res.statusCode = 401;
-      res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ error: 'unauthorized' }));
       return;
     }
 

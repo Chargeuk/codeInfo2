@@ -234,11 +234,7 @@ export function resolveOpenAiCompatEndpointFromProxyToken(params: {
   if (matched) {
     return matched;
   }
-  return {
-    endpointId: normalizedEndpointId,
-    baseUrl: normalizedEndpointId,
-    capabilities: ['responses', 'completions'],
-  };
+  throw new Error('invalid endpoint token');
 }
 
 async function fetchWithRetry(
@@ -396,6 +392,6 @@ export async function forwardOpenAiCompatProxyRequest(params: {
     fetchImpl: params.fetchImpl,
     headerTimeoutMs:
       params.headerTimeoutMs ?? DEFAULT_PROXY_INFERENCE_HEADER_TIMEOUT_MS,
-    maxAttempts: params.maxAttempts,
+    maxAttempts: params.maxAttempts ?? 1,
   });
 }

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
 import {
+  applyCodexOpenAiCompatEndpointToRuntimeConfig,
   applyResolvedServerPortToCodexConfig,
   buildCodexOpenAiCompatRuntimeConfig,
   buildCodexOptions,
@@ -146,6 +147,45 @@ describe('codexConfig', () => {
               endpointId: 'http://192.168.1.3:1234/v1',
             },
             consumer: 'codex',
+          }),
+          wire_api: 'responses',
+        },
+      },
+    });
+  });
+
+  it('applyCodexOpenAiCompatEndpointToRuntimeConfig forwards env to proxy base-url generation', () => {
+    const config = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+      undefined,
+      {
+        endpointId: 'https://openrouter.ai/api/v1',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        capabilities: ['responses', 'completions'],
+        displayLabel: 'OpenRouter',
+        authLookupKey: 'openrouter',
+        apiKey: 'sk-or-v1-test',
+      },
+      {
+        env: {
+          CODEINFO_SERVER_PORT: '5710',
+        },
+        modelId: 'openrouter/auto',
+      },
+    ) as Record<string, unknown>;
+
+    assert.deepEqual(config, {
+      model_provider: 'codeinfo_openai_endpoint',
+      model_providers: {
+        codeinfo_openai_endpoint: {
+          name: 'codeinfo_openai_endpoint',
+          base_url: buildOpenAiCompatProxyBaseUrl({
+            endpoint: {
+              endpointId: 'https://openrouter.ai/api/v1',
+            },
+            consumer: 'codex',
+            env: {
+              CODEINFO_SERVER_PORT: '5710',
+            },
           }),
           wire_api: 'responses',
         },

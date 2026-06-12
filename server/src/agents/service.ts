@@ -951,6 +951,7 @@ async function prepareDirectAgentExecution(params: {
             providerRuntimeResolution.config,
             providerRuntimeResolution.endpoint,
             {
+              env: process.env,
               modelId: runtimeSelection.executionModel,
             },
           )
@@ -1151,6 +1152,7 @@ async function prepareDirectAgentExecution(params: {
             providerRuntimeResolution.config,
             providerRuntimeResolution.endpoint,
             {
+              env: process.env,
               modelId: runtimeSelection.executionModel,
             },
           )

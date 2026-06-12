@@ -918,12 +918,13 @@ export function createChatRouter({
         chatRuntimeConfig =
           executionProvider === 'codex' && executionUsesEndpoint
             ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
-                config as CodexOptions['config'],
-                selectedOpenAiCompatEndpoint,
-                {
-                  modelId: runtimeSelection.executionModel,
-                },
-              )
+              config as CodexOptions['config'],
+              selectedOpenAiCompatEndpoint,
+              {
+                env: process.env,
+                modelId: runtimeSelection.executionModel,
+              },
+            )
             : config;
         console.info(T06_SUCCESS_LOG, {
           surface: '/chat',

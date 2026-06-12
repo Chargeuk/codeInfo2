@@ -235,6 +235,7 @@ test('attaches matching endpoint keys without changing URL-backed identity', () 
     attached.apiKeysByEndpointId.get('https://example.com/v1'),
     'sk-test',
   );
+  assert.equal(attached.apiKeysByAuthLookupKey.get('openrouter'), 'sk-test');
   assert.equal(attached.endpoints[1]?.endpointId, 'https://example.com/alt/v1');
   assert.equal(
     attached.apiKeysByEndpointId.get('https://example.com/alt/v1'),
@@ -261,4 +262,5 @@ test('warns when a configured endpoint key does not match any labeled external e
     attached.warnings[0] ?? '',
     /does not match any labeled external endpoint/,
   );
+  assert.equal(attached.apiKeysByAuthLookupKey.get('openrouter'), 'sk-test');
 });

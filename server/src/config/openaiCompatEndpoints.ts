@@ -26,6 +26,7 @@ export type OpenAiCompatEndpointListResolution = {
 };
 
 export type OpenAiCompatEndpointAuthResolution = OpenAiCompatEndpointListResolution & {
+  apiKeysByAuthLookupKey: ReadonlyMap<string, string>;
   apiKeysByEndpointId: ReadonlyMap<string, string>;
 };
 
@@ -392,7 +393,7 @@ export function attachOpenAiCompatEndpointKeys(params: {
   keys: readonly OpenAiCompatEndpointKeyEntry[];
   warnings?: readonly string[];
 }): OpenAiCompatEndpointAuthResolution {
-  const byLookupKey = new Map(
+  const apiKeysByAuthLookupKey = new Map(
     params.keys.map((entry) => [entry.authLookupKey, entry.apiKey] as const),
   );
   const matchedLookupKeys = new Set<string>();
@@ -402,7 +403,7 @@ export function attachOpenAiCompatEndpointKeys(params: {
     if (!endpoint.authLookupKey) {
       return endpoint;
     }
-    const apiKey = byLookupKey.get(endpoint.authLookupKey);
+    const apiKey = apiKeysByAuthLookupKey.get(endpoint.authLookupKey);
     if (!apiKey) {
       return endpoint;
     }
@@ -424,6 +425,7 @@ export function attachOpenAiCompatEndpointKeys(params: {
   return {
     endpoints,
     warnings,
+    apiKeysByAuthLookupKey,
     apiKeysByEndpointId,
   };
 }

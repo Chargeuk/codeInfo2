@@ -44,6 +44,11 @@ function parseConsumer(value: string): OpenAiCompatAdapterConsumer | null {
   return value === 'codex' || value === 'copilot' ? value : null;
 }
 
+function isStreamingProxyResponse(response: globalThis.Response): boolean {
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  return contentType.includes('text/event-stream');
+}
+
 export function createOpenAiCompatProxyRouter() {
   const router = Router();
   router.use(
@@ -118,11 +123,20 @@ export function createOpenAiCompatProxyRouter() {
         accept: req.get('accept') ?? undefined,
       });
 
-      res.status(response.status);
-      copyResponseHeaders(response.headers, res);
       if (!response.body) {
+        res.status(response.status);
+        copyResponseHeaders(response.headers, res);
         return res.end();
       }
+      if (!isStreamingProxyResponse(response)) {
+        const body = Buffer.from(await response.arrayBuffer());
+        res.status(response.status);
+        copyResponseHeaders(response.headers, res);
+        return res.end(body);
+      }
+
+      res.status(response.status);
+      copyResponseHeaders(response.headers, res);
       try {
         await pipeline(Readable.fromWeb(response.body as never), res);
       } catch (error) {

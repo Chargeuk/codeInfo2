@@ -134,6 +134,45 @@ test('OpenAI-compatible proxy resolves config-pinned endpoints without requiring
   );
 });
 
+test('OpenAI-compatible proxy forwards bearer auth for config-pinned keyed endpoints', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    requiredBearerToken: 'required-secret',
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'authenticated' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+    'Pinned Endpoint,required-secret';
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      baseUrl: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+      displayLabel: 'Pinned Endpoint',
+      authLookupKey: 'pinned-endpoint',
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send({ model: 'alpha-model', input: 'hello' })
+    .expect(200);
+
+  assert.deepEqual(response.body.output, [
+    { type: 'output_text', text: 'authenticated' },
+  ]);
+  assert.equal(externalServer.lastAuthorizationHeader(), 'Bearer required-secret');
+  assert.equal(externalServer.requestCount(), 1);
+});
+
 test('OpenAI-compatible proxy emits normalized ids for slug-only Copilot model entries', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     modelResponses: [

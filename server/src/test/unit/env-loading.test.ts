@@ -312,6 +312,7 @@ test('matches labeled external endpoints with raw keys using shared label normal
     resolved.apiKeysByEndpointId.get('https://example.com/v1'),
     'sk-test',
   );
+  assert.equal(resolved.apiKeysByAuthLookupKey.get('open-router'), 'sk-test');
   assert.equal(resolved.endpoints[1]?.displayLabel, 'Legacy');
   assert.equal(
     resolved.apiKeysByEndpointId.get('https://example.com/alt/v1'),
@@ -347,6 +348,7 @@ test('warns when CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS contains an unmat
     resolved.apiKeysByEndpointId.get('https://example.com/v1'),
     undefined,
   );
+  assert.equal(resolved.apiKeysByAuthLookupKey.get('openrouter'), 'sk-a');
   assert.equal(resolved.warnings.length, 1);
   assert.match(
     resolved.warnings[0] ?? '',

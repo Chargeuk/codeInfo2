@@ -190,6 +190,51 @@ describe('codexConfig', () => {
     });
   });
 
+  it('applyCodexOpenAiCompatEndpointToRuntimeConfig strips stale model_catalog_json while preserving other base config fields', () => {
+    const config = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+      {
+        model: 'legacy-model',
+        model_catalog_json: '{"models":[{"slug":"stale"}]}',
+        approval_policy: 'never',
+        model_providers: {
+          legacy: {
+            name: 'legacy',
+            base_url: 'https://legacy.example/v1',
+          },
+        },
+      } as unknown as Parameters<
+        typeof applyCodexOpenAiCompatEndpointToRuntimeConfig
+      >[0],
+      {
+        endpointId: 'https://openrouter.ai/api/v1',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        capabilities: ['responses', 'completions'],
+        displayLabel: 'OpenRouter',
+        authLookupKey: 'openrouter',
+      },
+    ) as Record<string, unknown>;
+
+    assert.equal(config.model_catalog_json, undefined);
+    assert.equal(config.approval_policy, 'never');
+    assert.equal(config.model, 'legacy-model');
+    assert.deepEqual(config.model_providers, {
+      legacy: {
+        name: 'legacy',
+        base_url: 'https://legacy.example/v1',
+      },
+      codeinfo_openai_endpoint: {
+        name: 'codeinfo_openai_endpoint',
+        base_url: buildOpenAiCompatProxyBaseUrl({
+          endpoint: {
+            endpointId: 'https://openrouter.ai/api/v1',
+          },
+          consumer: 'codex',
+        }),
+        wire_api: 'responses',
+      },
+    });
+  });
+
   it('applyResolvedServerPortToCodexConfig rewrites legacy hard-coded MCP urls', () => {
     const input = [
       'host = "http://localhost:5010/mcp"',

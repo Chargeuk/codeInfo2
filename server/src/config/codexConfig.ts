@@ -138,11 +138,15 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
   ) as Record<string, unknown>;
   const baseConfig =
     runtimeConfig && typeof runtimeConfig === 'object' ? runtimeConfig : {};
+  const baseConfigWithoutCatalog = {
+    ...(baseConfig as Record<string, unknown>),
+  };
+  delete baseConfigWithoutCatalog.model_catalog_json;
   return {
-    ...baseConfig,
+    ...baseConfigWithoutCatalog,
     ...generatedConfig,
     model_providers: {
-      ...((baseConfig as Record<string, unknown>).model_providers as
+      ...((baseConfigWithoutCatalog as Record<string, unknown>).model_providers as
         | Record<string, unknown>
         | undefined),
       ...(generatedConfig.model_providers as Record<string, unknown>),

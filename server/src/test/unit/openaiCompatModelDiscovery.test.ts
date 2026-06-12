@@ -11,17 +11,55 @@ import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompat
 const tempServers: Array<{
   stop: () => Promise<void>;
 }> = [];
+const originalEndpointsEnv = process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+const originalEndpointKeysEnv =
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
 
 afterEach(async () => {
   while (tempServers.length > 0) {
     await tempServers.pop()!.stop();
   }
+  if (originalEndpointsEnv === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = originalEndpointsEnv;
+  }
+  if (originalEndpointKeysEnv === undefined) {
+    delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  } else {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      originalEndpointKeysEnv;
+  }
 });
 
-const makeEndpoint = (baseUrl: string, capabilities = 'responses') =>
-  parseOpenAiCompatEndpointConfig(`${baseUrl}/v1|${capabilities}`, {
+const makeEndpoint = (
+  baseUrl: string,
+  capabilities = 'responses',
+  overrides?: { displayLabel?: string; authLookupKey?: string },
+) => ({
+  ...parseOpenAiCompatEndpointConfig(`${baseUrl}/v1|${capabilities}`, {
     pathLabel: 'codeinfo_openai_endpoint',
-  });
+  }),
+  ...(overrides ?? {}),
+});
+
+function configureExternalEndpointEnv(params: {
+  endpointId: string;
+  apiKey?: string;
+  label?: string;
+  capabilities?: string;
+}) {
+  const label = params.label ?? 'External';
+  const capabilities = params.capabilities ?? 'responses';
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${label},${params.endpointId}|${capabilities}`;
+  if (params.apiKey) {
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      `${label},${params.apiKey}`;
+    return;
+  }
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+}
 
 function endpointIds(results: OpenAiCompatModelDiscoveryEndpointResult[]) {
   return results.map((result) => result.endpoint.endpointId);
@@ -104,10 +142,13 @@ test('reports a timed-out endpoint without hiding healthy discovery results', as
   ]);
   assert.deepEqual(result.endpoints[0]?.modelIds, []);
   assert.deepEqual(result.endpoints[1]?.modelIds, ['healthy-model']);
-  assert.equal(slowServer.requestCount(), 1);
+  assert.equal(slowServer.requestCount(), 3);
   assert.equal(healthyServer.requestCount(), 1);
   assert.equal(result.warnings.length, 1);
-  assert.match(result.warnings[0]?.message ?? '', /timed out after 50ms/);
+  assert.match(
+    result.warnings[0]?.message ?? '',
+    /Failed to discover external models/,
+  );
 });
 
 test('reports a transport-failing endpoint without hiding healthy discovery results', async () => {
@@ -129,13 +170,44 @@ test('reports a transport-failing endpoint without hiding healthy discovery resu
   ]);
   assert.deepEqual(result.endpoints[0]?.modelIds, []);
   assert.deepEqual(result.endpoints[1]?.modelIds, ['healthy-model']);
-  assert.equal(failingServer.requestCount(), 1);
+  assert.equal(failingServer.requestCount(), 3);
   assert.equal(healthyServer.requestCount(), 1);
   assert.equal(result.warnings.length, 1);
   assert.match(
     result.warnings[0]?.message ?? '',
     /Failed to discover external models/,
   );
+});
+
+test('retries transient rate-limited discovery before succeeding', async () => {
+  const server = await startExternalOpenAiCompatServer({
+    modelResponses: [
+      {
+        status: 429,
+        headers: {
+          'content-type': 'application/json',
+          'retry-after': '0',
+        },
+        body: { error: 'rate limited' },
+      },
+      {
+        status: 200,
+        body: {
+          object: 'list',
+          data: [{ id: 'recovered-model', object: 'model' }],
+        },
+      },
+    ],
+  });
+  tempServers.push(server);
+
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [makeEndpoint(server.baseUrl)],
+  });
+
+  assert.deepEqual(result.endpoints[0]?.modelIds, ['recovered-model']);
+  assert.equal(server.requestCount(), 2);
+  assert.deepEqual(result.warnings, []);
 });
 
 test('isolates malformed payloads to the failing endpoint without affecting healthy results', async () => {
@@ -164,4 +236,95 @@ test('isolates malformed payloads to the failing endpoint without affecting heal
     result.warnings[0]?.message ?? '',
     /Failed to discover external models/,
   );
+});
+
+test('sends bearer auth when the endpoint has a configured key', async () => {
+  const server = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+    requiredBearerToken: 'sk-test',
+  });
+  tempServers.push(server);
+
+  const endpoint = makeEndpoint(server.baseUrl, 'responses', {
+    displayLabel: 'OpenRouter',
+    authLookupKey: 'openrouter',
+  });
+  configureExternalEndpointEnv({
+    endpointId: endpoint.endpointId,
+    apiKey: 'sk-test',
+    label: 'OpenRouter',
+  });
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [endpoint],
+  });
+
+  assert.deepEqual(endpointIds(result.endpoints), [endpoint.endpointId]);
+  assert.deepEqual(result.endpoints[0]?.modelIds, ['alpha']);
+  assert.equal(server.lastAuthorizationHeader(), 'Bearer sk-test');
+  assert.deepEqual(result.warnings, []);
+});
+
+test('reports unauthorized discovery clearly when a required bearer token is missing', async () => {
+  const server = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+    requiredBearerToken: 'sk-test',
+  });
+  tempServers.push(server);
+
+  const endpoint = makeEndpoint(server.baseUrl, 'responses', {
+    displayLabel: 'OpenRouter',
+    authLookupKey: 'openrouter',
+  });
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [endpoint],
+  });
+
+  assert.deepEqual(result.endpoints[0]?.modelIds, []);
+  assert.equal(server.lastAuthorizationHeader(), undefined);
+  assert.equal(result.warnings.length, 1);
+  assert.match(result.warnings[0]?.message ?? '', /OpenRouter/);
+  assert.match(result.warnings[0]?.message ?? '', /HTTP 401/);
+});
+
+test('filters OpenRouter discovery down to tool-capable models for Codex', async () => {
+  const endpoint = makeEndpoint('https://openrouter.ai/api', 'responses', {
+    displayLabel: 'OpenRouter',
+    authLookupKey: 'openrouter',
+  });
+  const result = await discoverOpenAiCompatEndpointModels({
+    endpoints: [endpoint],
+    provider: 'codex',
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          object: 'list',
+          data: [
+            {
+              id: 'meta-llama/llama-3.2-3b-instruct:free',
+              supported_parameters: ['temperature', 'top_p'],
+            },
+            {
+              id: 'openai/gpt-chat-latest',
+              supported_parameters: ['tools', 'tool_choice', 'response_format'],
+            },
+            {
+              id: 'google/gemini-3.5-flash',
+              supported_parameters: ['tools'],
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      ),
+  });
+
+  assert.deepEqual(result.endpoints[0]?.modelIds, [
+    'openai/gpt-chat-latest',
+    'google/gemini-3.5-flash',
+  ]);
+  assert.deepEqual(result.warnings, []);
 });

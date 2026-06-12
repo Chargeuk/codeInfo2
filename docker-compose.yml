@@ -88,14 +88,12 @@ services:
         VITE_CODEINFO_LOG_MAX_BYTES: 32768
         CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
     image: codeinfo2-client
-    ports:
-      - '5001:5001'
-    networks:
-      - internal
+    network_mode: host
     env_file:
       - client/.env
       - client/.env.local
     environment:
+      - PORT=5001
       - CODEINFO_SERVER_PORT=5010
       - VITE_CODEINFO_API_URL=${VITE_CODEINFO_API_URL:-USE_BROWSER_HOST:5010}
       - VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
@@ -110,7 +108,7 @@ services:
       timeout: 5s
       retries: 5
     extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      - 'host.docker.internal:127.0.0.1'
 
   mongo:
     container_name: 'mongo_db_CodeInfo'

@@ -50,14 +50,19 @@ import {
   type ChatDefaultProvider,
   type RuntimeProviderSelectionPath,
 } from '../config/chatDefaults.js';
-import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
+import {
+  applyCodexOpenAiCompatEndpointToRuntimeConfig,
+} from '../config/codexConfig.js';
 import { type OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
 import {
   RuntimeConfigResolutionError,
   getProviderBootstrapStatus,
   resolveAgentRuntimeConfig,
 } from '../config/runtimeConfig.js';
-import { resolveAgentProviderFallbackOrder } from '../config/startupEnv.js';
+import {
+  resolveAgentProviderFallbackOrder,
+  resolveExternalOpenAiCompatEndpoints,
+} from '../config/startupEnv.js';
 import {
   buildRepositoryCandidateLookupSummary,
   buildRepositoryCandidateOrderLogContext,
@@ -605,6 +610,29 @@ const applyBootstrapStatusToDirectAgentProviderState = (
   };
 };
 
+function enrichOpenAiCompatEndpointFromEnv(
+  endpoint: OpenAiCompatEndpointConfig | undefined,
+): OpenAiCompatEndpointConfig | undefined {
+  if (!endpoint) {
+    return undefined;
+  }
+
+  const envEndpoint = resolveExternalOpenAiCompatEndpoints({
+    env: process.env,
+  }).endpoints.find((entry) => entry.endpointId === endpoint.endpointId);
+
+  if (!envEndpoint) {
+    return endpoint;
+  }
+
+  return {
+    ...endpoint,
+    capabilities: envEndpoint.capabilities,
+    displayLabel: envEndpoint.displayLabel ?? endpoint.displayLabel,
+    authLookupKey: envEndpoint.authLookupKey ?? endpoint.authLookupKey,
+  };
+}
+
 async function resolveProviderRuntimeConfig(params: {
   agentConfigPath: string;
   providerId: ChatProviderId;
@@ -620,7 +648,9 @@ async function resolveProviderRuntimeConfig(params: {
   return {
     config: resolved.config as CodexOptions['config'],
     warnings: resolved.warnings.map((warning) => warning.message),
-    endpoint: resolved.appMetadata?.codeinfoOpenAiEndpoint,
+    endpoint: enrichOpenAiCompatEndpointFromEnv(
+      resolved.appMetadata?.codeinfoOpenAiEndpoint,
+    ),
   };
 }
 
@@ -851,6 +881,11 @@ async function prepareDirectAgentExecution(params: {
       providerRuntimeResolution.endpoint !== undefined
         ? await resolveOpenAiCompatEndpointRuntimeState({
             endpoint: providerRuntimeResolution.endpoint,
+            provider:
+              params.pinnedProviderId === 'codex' ||
+              params.pinnedProviderId === 'copilot'
+                ? params.pinnedProviderId
+                : undefined,
           })
         : params.pinnedEndpointId
           ? {
@@ -915,6 +950,10 @@ async function prepareDirectAgentExecution(params: {
         ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
             providerRuntimeResolution.config,
             providerRuntimeResolution.endpoint,
+            {
+              env: process.env,
+              modelId: runtimeSelection.executionModel,
+            },
           )
         : providerRuntimeResolution.config;
     const runtimeWarning = buildRuntimeSelectionWarning({
@@ -934,7 +973,8 @@ async function prepareDirectAgentExecution(params: {
       modelId: runtimeSelection.executionModel,
       endpointId,
       openAiCompatEndpoint:
-        runtimeSelection.executionProvider === 'copilot' &&
+        (runtimeSelection.executionProvider === 'copilot' ||
+          runtimeSelection.executionProvider === 'codex') &&
         endpointId &&
         providerRuntimeResolution.endpoint?.endpointId === endpointId
           ? providerRuntimeResolution.endpoint
@@ -1023,6 +1063,10 @@ async function prepareDirectAgentExecution(params: {
     const endpointState = providerRuntimeResolution.endpoint
       ? await resolveOpenAiCompatEndpointRuntimeState({
           endpoint: providerRuntimeResolution.endpoint,
+          provider:
+            providerId === 'codex' || providerId === 'copilot'
+              ? providerId
+              : undefined,
         })
       : params.pinnedEndpointId
         ? {
@@ -1107,6 +1151,10 @@ async function prepareDirectAgentExecution(params: {
         ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
             providerRuntimeResolution.config,
             providerRuntimeResolution.endpoint,
+            {
+              env: process.env,
+              modelId: runtimeSelection.executionModel,
+            },
           )
         : providerRuntimeResolution.config;
     const fallbackWarning =
@@ -1121,7 +1169,8 @@ async function prepareDirectAgentExecution(params: {
       modelId: runtimeSelection.executionModel,
       endpointId,
       openAiCompatEndpoint:
-        runtimeSelection.executionProvider === 'copilot' &&
+        (runtimeSelection.executionProvider === 'copilot' ||
+          runtimeSelection.executionProvider === 'codex') &&
         endpointId &&
         providerRuntimeResolution.endpoint?.endpointId === endpointId
           ? providerRuntimeResolution.endpoint

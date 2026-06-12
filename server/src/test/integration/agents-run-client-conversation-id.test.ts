@@ -3275,6 +3275,8 @@ test('direct Copilot agent runs carry the configured external endpoint through t
   const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
   const previousCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const previousCompatEndpointKeys =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['copilot-gpt-5'],
   });
@@ -3320,7 +3322,9 @@ test('direct Copilot agent runs carry the configured external endpoint through t
   process.env.CODEX_HOME = codexHome;
   process.env.CODEINFO_COPILOT_HOME = copilotHome;
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${endpointId}|completions`;
+    `OpenRouter,${endpointId}|responses,completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+    'openrouter,sk-or-v1-test';
 
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
@@ -3387,7 +3391,9 @@ test('direct Copilot agent runs carry the configured external endpoint through t
     assert.deepEqual(capturedFlags[0]?.codeinfoOpenAiEndpoint, {
       endpointId,
       baseUrl: endpointId,
-      capabilities: ['completions'],
+      capabilities: ['responses', 'completions'],
+      displayLabel: 'OpenRouter',
+      authLookupKey: 'openrouter',
     });
   } finally {
     __resetAgentServiceDepsForTests();
@@ -3424,6 +3430,12 @@ test('direct Copilot agent runs carry the configured external endpoint through t
     } else {
       process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
         previousCompatEndpoints;
+    }
+    if (previousCompatEndpointKeys === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+        previousCompatEndpointKeys;
     }
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });

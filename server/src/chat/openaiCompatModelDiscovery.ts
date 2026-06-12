@@ -1,6 +1,10 @@
 import { setTimeout as delay } from 'node:timers/promises';
 
-import type { OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
+import {
+  describeOpenAiCompatEndpoint,
+  type OpenAiCompatEndpointConfig,
+} from '../config/openaiCompatEndpoints.js';
+import { fetchOpenAiCompatModels } from './openaiCompatAdapter.js';
 
 const DEFAULT_TIMEOUT_MS = 1_500;
 
@@ -30,11 +34,6 @@ export type OpenAiCompatEndpointRuntimeState = {
 type DiscoveryEndpointSelection = {
   endpoint: OpenAiCompatEndpointConfig;
   source: 'env' | 'config';
-};
-
-type OpenAiModelsListResponse = {
-  object?: unknown;
-  data?: unknown;
 };
 
 function mergeDiscoveryEndpoints(params: {
@@ -78,58 +77,27 @@ function mergeDiscoveryEndpoints(params: {
 
 async function fetchEndpointModelIds(params: {
   endpoint: OpenAiCompatEndpointConfig;
+  provider?: 'codex' | 'copilot';
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<string[]> {
-  const fetchImpl = params.fetchImpl ?? fetch;
-  const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const modelsUrl = new URL('models', `${params.endpoint.baseUrl}/`);
-
   try {
-    const response = await fetchImpl(modelsUrl, {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-      },
-      signal: controller.signal,
+    const models = await fetchOpenAiCompatModels({
+      endpoint: params.endpoint,
+      consumer:
+        params.provider === 'codex' || params.provider === 'copilot'
+          ? params.provider
+          : 'discovery',
+      fetchImpl: params.fetchImpl,
+      timeoutMs: params.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = (await response.json()) as OpenAiModelsListResponse;
-    const data = Array.isArray(payload.data) ? payload.data : null;
-    if (!data) {
-      throw new Error('expected data[] array in /v1/models response');
-    }
-
-    const modelIds = data.flatMap((entry) => {
-      if (!entry || typeof entry !== 'object') {
-        return [];
-      }
-      const modelId = (entry as { id?: unknown }).id;
-      if (typeof modelId !== 'string') {
-        return [];
-      }
-      const trimmed = modelId.trim();
-      return trimmed ? [trimmed] : [];
-    });
-
+    const modelIds = models.map((model) => model.id);
     if (modelIds.length === 0) {
       throw new Error('expected at least one model id in /v1/models response');
     }
 
     return [...new Set(modelIds)];
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error(`timed out after ${timeoutMs}ms`);
-    }
-    throw error;
   } finally {
-    clearTimeout(timeout);
     await delay(0);
   }
 }
@@ -137,6 +105,7 @@ async function fetchEndpointModelIds(params: {
 export async function discoverOpenAiCompatEndpointModels(params: {
   endpoints: readonly OpenAiCompatEndpointConfig[];
   pinnedEndpoint?: OpenAiCompatEndpointConfig;
+  provider?: 'codex' | 'copilot';
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<OpenAiCompatModelDiscoveryResult> {
@@ -151,6 +120,7 @@ export async function discoverOpenAiCompatEndpointModels(params: {
       try {
         const modelIds = await fetchEndpointModelIds({
           endpoint,
+          provider: params.provider,
           fetchImpl: params.fetchImpl,
           timeoutMs: params.timeoutMs,
         });
@@ -167,7 +137,7 @@ export async function discoverOpenAiCompatEndpointModels(params: {
           warnings: [
             {
               endpointId: endpoint.endpointId,
-              message: `Failed to discover external models at ${endpoint.endpointId}: ${message}`,
+              message: `Failed to discover external models at ${describeOpenAiCompatEndpoint(endpoint)} (${endpoint.endpointId}): ${message}`,
             },
           ] as OpenAiCompatModelDiscoveryWarning[],
         };
@@ -198,11 +168,13 @@ export async function discoverOpenAiCompatEndpointModels(params: {
 
 export async function resolveOpenAiCompatEndpointRuntimeState(params: {
   endpoint: OpenAiCompatEndpointConfig;
+  provider?: 'codex' | 'copilot';
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<OpenAiCompatEndpointRuntimeState> {
   const discovery = await discoverOpenAiCompatEndpointModels({
     endpoints: [params.endpoint],
+    provider: params.provider,
     fetchImpl: params.fetchImpl,
     timeoutMs: params.timeoutMs,
   });
@@ -218,7 +190,7 @@ export async function resolveOpenAiCompatEndpointRuntimeState(params: {
       : {
           reason:
             discovery.warnings[0]?.message ??
-            `Failed to discover external models at ${params.endpoint.endpointId}`,
+            `Failed to discover external models at ${describeOpenAiCompatEndpoint(params.endpoint)} (${params.endpoint.endpointId})`,
         }),
   };
 }

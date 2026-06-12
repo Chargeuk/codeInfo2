@@ -22,6 +22,7 @@ import type {
 import { CopilotLifecycle } from '../copilotLifecycle.js';
 import { buildCopilotMcpServers } from '../copilotMcpConfig.js';
 import { copilotModelSupportsReasoningEffort } from '../copilotModelSupport.js';
+import { buildOpenAiCompatProxyBaseUrl } from '../openaiCompatAdapter.js';
 import {
   resolveCopilotRuntimeAgentFlags,
   type CopilotRuntimeAgentFlags,
@@ -136,7 +137,10 @@ const buildOpenAiCompatProviderConfig = (
   endpoint: OpenAiCompatEndpointConfig,
 ): OpenAiCompatProviderConfig => ({
   type: 'openai',
-  baseUrl: endpoint.baseUrl,
+  baseUrl: buildOpenAiCompatProxyBaseUrl({
+    endpoint,
+    consumer: 'copilot',
+  }),
   wireApi: resolveOpenAiCompatWireApi(endpoint),
 });
 

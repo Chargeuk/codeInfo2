@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  attachOpenAiCompatEndpointKeys,
+  normalizeOpenAiCompatEndpointLabelKey,
   parseOpenAiCompatEndpointConfig,
   resolveOpenAiCompatEndpointConfigsFromList,
+  resolveOpenAiCompatEndpointKeysFromList,
 } from '../../config/openaiCompatEndpoints.js';
 
 test('accepts explicit http or https /v1 base URLs with normalized capabilities', () => {
@@ -128,10 +131,25 @@ test('keeps same-host endpoints distinct when their normalized paths differ', ()
   assert.equal(second.endpointId, 'https://example.com/alt/v1');
 });
 
-test('resolves env-list entries with deduped, first-wins endpoint ordering', () => {
+test('normalizes endpoint labels into deterministic auth lookup keys', () => {
+  assert.equal(
+    normalizeOpenAiCompatEndpointLabelKey(' Open Router ', {
+      pathLabel: 'label',
+    }),
+    'open-router',
+  );
+  assert.equal(
+    normalizeOpenAiCompatEndpointLabelKey('OPENROUTER', {
+      pathLabel: 'label',
+    }),
+    'openrouter',
+  );
+});
+
+test('resolves labeled env-list entries with deduped, first-wins endpoint ordering', () => {
   const resolved = resolveOpenAiCompatEndpointConfigsFromList({
     value:
-      'https://example.com/v1|responses; https://example.com/v1/|completions; https://example.com/alt/v1|responses',
+      'OpenRouter,https://example.com/v1|responses; Duplicate Name,https://example.com/v1/|completions; Local Gateway,https://example.com/alt/v1|responses',
     pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
   });
 
@@ -139,9 +157,110 @@ test('resolves env-list entries with deduped, first-wins endpoint ordering', () 
     resolved.endpoints.map((endpoint) => endpoint.endpointId),
     ['https://example.com/v1', 'https://example.com/alt/v1'],
   );
+  assert.equal(resolved.endpoints[0]?.displayLabel, 'OpenRouter');
+  assert.equal(resolved.endpoints[0]?.authLookupKey, 'openrouter');
+  assert.equal(resolved.endpoints[1]?.displayLabel, 'Local Gateway');
+  assert.equal(resolved.endpoints[1]?.authLookupKey, 'local-gateway');
   assert.equal(resolved.warnings.length, 1);
   assert.match(
     resolved.warnings[0] ?? '',
     /duplicates normalized endpoint https:\/\/example\.com\/v1; keeping first entry/,
   );
+});
+
+test('continues to accept legacy unlabeled env-list entries for backward compatibility', () => {
+  const resolved = resolveOpenAiCompatEndpointConfigsFromList({
+    value: 'https://example.com/v1|responses',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  });
+
+  assert.equal(resolved.endpoints[0]?.endpointId, 'https://example.com/v1');
+  assert.equal(resolved.endpoints[0]?.displayLabel, undefined);
+  assert.equal(resolved.endpoints[0]?.authLookupKey, undefined);
+});
+
+test('rejects duplicate normalized endpoint labels in the env list', () => {
+  assert.throws(
+    () =>
+      resolveOpenAiCompatEndpointConfigsFromList({
+        value:
+          'Open Router,https://example.com/v1|responses;open-router,https://example.com/alt/v1|responses',
+        pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+      }),
+    /duplicate normalized endpoint label "open-router"/,
+  );
+});
+
+test('parses endpoint key entries using the same label normalization rules', () => {
+  const resolved = resolveOpenAiCompatEndpointKeysFromList({
+    value: 'Open Router,sk-test-1;OPENROUTER-ALT,sk-test-2',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+  });
+
+  assert.deepEqual(resolved.keys, [
+    { authLookupKey: 'open-router', apiKey: 'sk-test-1' },
+    { authLookupKey: 'openrouter-alt', apiKey: 'sk-test-2' },
+  ]);
+});
+
+test('rejects duplicate normalized endpoint labels in the key list', () => {
+  assert.throws(
+    () =>
+      resolveOpenAiCompatEndpointKeysFromList({
+        value: 'Open Router,sk-a;open-router,sk-b',
+        pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+      }),
+    /duplicate normalized endpoint label "open-router"/,
+  );
+});
+
+test('attaches matching endpoint keys without changing URL-backed identity', () => {
+  const endpoints = resolveOpenAiCompatEndpointConfigsFromList({
+    value:
+      'OpenRouter,https://example.com/v1|responses;Legacy,https://example.com/alt/v1|responses',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  });
+  const keys = resolveOpenAiCompatEndpointKeysFromList({
+    value: 'openrouter,sk-test',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+  });
+  const attached = attachOpenAiCompatEndpointKeys({
+    endpoints: endpoints.endpoints,
+    keys: keys.keys,
+  });
+
+  assert.equal(attached.endpoints[0]?.endpointId, 'https://example.com/v1');
+  assert.equal(attached.endpoints[0]?.displayLabel, 'OpenRouter');
+  assert.equal(
+    attached.apiKeysByEndpointId.get('https://example.com/v1'),
+    'sk-test',
+  );
+  assert.equal(attached.apiKeysByAuthLookupKey.get('openrouter'), 'sk-test');
+  assert.equal(attached.endpoints[1]?.endpointId, 'https://example.com/alt/v1');
+  assert.equal(
+    attached.apiKeysByEndpointId.get('https://example.com/alt/v1'),
+    undefined,
+  );
+});
+
+test('warns when a configured endpoint key does not match any labeled external endpoint', () => {
+  const endpoints = resolveOpenAiCompatEndpointConfigsFromList({
+    value: 'https://example.com/v1|responses',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  });
+  const keys = resolveOpenAiCompatEndpointKeysFromList({
+    value: 'openrouter,sk-test',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+  });
+  const attached = attachOpenAiCompatEndpointKeys({
+    endpoints: endpoints.endpoints,
+    keys: keys.keys,
+  });
+
+  assert.equal(attached.warnings.length, 1);
+  assert.match(
+    attached.warnings[0] ?? '',
+    /does not match any labeled external endpoint/,
+  );
+  assert.equal(attached.apiKeysByAuthLookupKey.get('openrouter'), 'sk-test');
 });

@@ -1,6 +1,7 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { CodexOptions } from '@openai/codex-sdk';
+import { buildOpenAiCompatProxyBaseUrl } from '../chat/openaiCompatAdapter.js';
 import { baseLogger } from '../logger.js';
 import {
   resolveCodeinfoMcpEndpointContract,
@@ -97,6 +98,10 @@ const resolveOpenAiCompatWireApi = (
 
 export function buildCodexOpenAiCompatRuntimeConfig(
   endpoint: OpenAiCompatEndpointConfig,
+  params?: {
+    modelId?: string;
+    env?: NodeJS.ProcessEnv;
+  },
 ): CodexOptions['config'] {
   const providerName = CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME;
   return {
@@ -104,7 +109,11 @@ export function buildCodexOpenAiCompatRuntimeConfig(
     model_providers: {
       [providerName]: {
         name: providerName,
-        base_url: endpoint.baseUrl,
+        base_url: buildOpenAiCompatProxyBaseUrl({
+          endpoint,
+          consumer: 'codex',
+          env: params?.env,
+        }),
         wire_api: resolveOpenAiCompatWireApi(endpoint),
       },
     },
@@ -114,6 +123,10 @@ export function buildCodexOpenAiCompatRuntimeConfig(
 export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
   runtimeConfig: CodexOptions['config'] | undefined,
   endpoint?: OpenAiCompatEndpointConfig | null,
+  params?: {
+    modelId?: string;
+    env?: NodeJS.ProcessEnv;
+  },
 ): CodexOptions['config'] | undefined {
   if (!endpoint) {
     return runtimeConfig;
@@ -121,14 +134,19 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
 
   const generatedConfig = buildCodexOpenAiCompatRuntimeConfig(
     endpoint,
+    params,
   ) as Record<string, unknown>;
   const baseConfig =
     runtimeConfig && typeof runtimeConfig === 'object' ? runtimeConfig : {};
+  const baseConfigWithoutCatalog = {
+    ...(baseConfig as Record<string, unknown>),
+  };
+  delete baseConfigWithoutCatalog.model_catalog_json;
   return {
-    ...baseConfig,
+    ...baseConfigWithoutCatalog,
     ...generatedConfig,
     model_providers: {
-      ...((baseConfig as Record<string, unknown>).model_providers as
+      ...((baseConfigWithoutCatalog as Record<string, unknown>).model_providers as
         | Record<string, unknown>
         | undefined),
       ...(generatedConfig.model_providers as Record<string, unknown>),

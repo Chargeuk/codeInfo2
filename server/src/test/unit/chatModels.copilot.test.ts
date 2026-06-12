@@ -125,6 +125,7 @@ beforeEach(() => {
   resetMcpStatusCache();
   __resetProviderBootstrapStatusForTests();
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 });
 
 afterEach(async () => {

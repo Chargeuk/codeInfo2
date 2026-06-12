@@ -4,6 +4,7 @@ import test from 'node:test';
 import { getChatInterface } from '../../chat/factory.js';
 import type { ChatEvent } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../chat/interfaces/ChatInterfaceCopilot.js';
+import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
@@ -254,6 +255,47 @@ test('ChatInterfaceCopilot create-session removes all tools when toolAccess is o
         url: 'https://mcp.deepwiki.com/mcp',
         tools: [],
       },
+    },
+  );
+});
+
+test('ChatInterfaceCopilot routes authenticated OpenAI-compatible providers through the shared proxy', async () => {
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-authenticated-openai-provider',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+
+  await chat.run(
+    'Use authenticated endpoint',
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: false,
+      codeinfoOpenAiEndpoint: {
+        endpointId: 'https://openrouter.ai/api/v1',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        capabilities: ['responses', 'completions'],
+        displayLabel: 'OpenRouter',
+        authLookupKey: 'openrouter',
+      },
+      runtimeConfig: runtimeConfigWithMcpServers,
+    },
+    'copilot-conversation-auth',
+    'openai/gpt-oss-20b',
+  );
+
+  assert.deepEqual(
+    toComparableJson(harness.getState().lastCreateSessionConfig?.provider),
+    {
+      type: 'openai',
+      baseUrl: buildOpenAiCompatProxyBaseUrl({
+        endpoint: {
+          endpointId: 'https://openrouter.ai/api/v1',
+        },
+        consumer: 'copilot',
+      }),
+      wireApi: 'responses',
     },
   );
 });

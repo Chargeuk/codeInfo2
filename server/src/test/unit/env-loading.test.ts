@@ -297,6 +297,65 @@ test('keeps the first normalized external endpoint and warns on later duplicates
   );
 });
 
+test('matches labeled external endpoints with raw keys using shared label normalization', () => {
+  const resolved = resolveExternalOpenAiCompatEndpoints({
+    env: {
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+        'Open Router,https://example.com/v1|responses;Legacy,https://example.com/alt/v1|responses',
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: 'open-router,sk-test',
+    },
+  });
+
+  assert.equal(resolved.endpoints[0]?.displayLabel, 'Open Router');
+  assert.equal(resolved.endpoints[0]?.authLookupKey, 'open-router');
+  assert.equal(
+    resolved.apiKeysByEndpointId.get('https://example.com/v1'),
+    'sk-test',
+  );
+  assert.equal(resolved.apiKeysByAuthLookupKey.get('open-router'), 'sk-test');
+  assert.equal(resolved.endpoints[1]?.displayLabel, 'Legacy');
+  assert.equal(
+    resolved.apiKeysByEndpointId.get('https://example.com/alt/v1'),
+    undefined,
+  );
+  assert.deepEqual(resolved.warnings, []);
+});
+
+test('fails clearly when CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS contains duplicate normalized labels', () => {
+  assert.throws(
+    () =>
+      resolveExternalOpenAiCompatEndpoints({
+        env: {
+          CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+            'Open Router,https://example.com/v1|responses',
+          CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS:
+            'open-router,sk-a;Open Router,sk-b',
+        },
+      }),
+    /duplicate normalized endpoint label "open-router"/,
+  );
+});
+
+test('warns when CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS contains an unmatched label', () => {
+  const resolved = resolveExternalOpenAiCompatEndpoints({
+    env: {
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: 'https://example.com/v1|responses',
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: 'openrouter,sk-a',
+    },
+  });
+
+  assert.equal(
+    resolved.apiKeysByEndpointId.get('https://example.com/v1'),
+    undefined,
+  );
+  assert.equal(resolved.apiKeysByAuthLookupKey.get('openrouter'), 'sk-a');
+  assert.equal(resolved.warnings.length, 1);
+  assert.match(
+    resolved.warnings[0] ?? '',
+    /does not match any labeled external endpoint/,
+  );
+});
+
 test('fails clearly when CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS contains a malformed endpoint string', () => {
   assert.throws(
     () =>

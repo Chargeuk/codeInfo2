@@ -86,17 +86,22 @@ export function logManualAcceptanceCheckCompleted(
   );
 }
 
+export function shouldIgnoreAutoLoggedRequest(
+  url: string | undefined,
+): boolean {
+  const normalizedUrl = url ?? '';
+  if (normalizedUrl.startsWith('/logs')) return true;
+  if (normalizedUrl.startsWith('/health')) return true;
+  if (normalizedUrl.startsWith('/internal/openai-compat')) return true;
+  return false;
+}
+
 export function createRequestLogger() {
   return pinoHttp({
     logger: baseLogger,
     genReqId: () => crypto.randomUUID?.() || Date.now().toString(),
     autoLogging: {
-      ignore: (req) => {
-        const url = req.url ?? '';
-        if (url.startsWith('/logs')) return true;
-        if (url.startsWith('/health')) return true;
-        return false;
-      },
+      ignore: (req) => shouldIgnoreAutoLoggedRequest(req.url),
     },
   });
 }

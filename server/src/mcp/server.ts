@@ -272,6 +272,23 @@ const moduleImportsSchema = {
   additionalProperties: false,
 };
 
+const astCoverageSchema = {
+  type: 'object',
+  required: [
+    'supportedFileCount',
+    'skippedFileCount',
+    'failedFileCount',
+    'lastIndexedAt',
+  ],
+  properties: {
+    supportedFileCount: { type: 'integer', minimum: 0 },
+    skippedFileCount: { type: 'integer', minimum: 0 },
+    failedFileCount: { type: 'integer', minimum: 0 },
+    lastIndexedAt: { type: ['string', 'null'], format: 'date-time' },
+  },
+  additionalProperties: false,
+};
+
 const baseToolDefinitions = [
   {
     name: 'ListIngestedRepositories',
@@ -366,6 +383,7 @@ const baseToolDefinitions = [
                   embedded: { type: 'number' },
                 },
               },
+              ast: astCoverageSchema,
               lastError: { type: ['string', 'null'] },
               error: {
                 type: ['object', 'null'],

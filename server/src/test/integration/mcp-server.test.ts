@@ -206,6 +206,24 @@ test('tools/list returns MCP tool definitions', async () => {
   assert.ok(names.includes('AstFindReferences'));
   assert.ok(names.includes('AstCallGraph'));
   assert.ok(names.includes('AstModuleImports'));
+  const listReposTool = (
+    res.body.result.tools as Array<{
+      name: string;
+      outputSchema?: {
+        properties?: {
+          repos?: {
+            items?: {
+              properties?: Record<string, unknown>;
+            };
+          };
+        };
+      };
+    }>
+  ).find((tool) => tool.name === 'ListIngestedRepositories');
+  assert.ok(listReposTool);
+  assert.ok(
+    listReposTool.outputSchema?.properties?.repos?.items?.properties?.ast,
+  );
 });
 
 test('tools/list does not emit keepalive preamble bytes', async () => {

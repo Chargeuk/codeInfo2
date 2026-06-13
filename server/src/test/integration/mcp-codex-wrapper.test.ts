@@ -24,6 +24,7 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
+import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
 async function withTempCodexHome(chatToml: string): Promise<{
   codexHome: string;
@@ -526,6 +527,8 @@ test('MCP JSON-RPC returns a typed tool error when chat runtime config resolutio
 test('MCP codebase_question preserves generated Codex OpenAI-compatible provider metadata through the wrapper path', async () => {
   const prev = getCodexDetection();
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   setCodexDetection({
     available: true,
@@ -533,16 +536,28 @@ test('MCP codebase_question preserves generated Codex OpenAI-compatible provider
     configPresent: true,
   });
 
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['google/gemma-4-26b-a4b-qat'],
+  });
+  const tempHome = await withTempCodexHome(
+    [
+      'model = "google/gemma-4-26b-a4b-qat"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  process.env.CODEX_HOME = tempHome.codexHome;
   const mockCodex = new MockCodex();
   let capturedOptions: CodexOptions | undefined;
   const expectedConfig = applyCodexOpenAiCompatEndpointToRuntimeConfig(
     {
-      model: 'gpt-5.3-codex-spark',
+      model: 'google/gemma-4-26b-a4b-qat',
     },
     {
-      endpointId: 'https://alpha.example/v1',
-      baseUrl: 'https://alpha.example/v1',
-      capabilities: ['responses', 'completions'],
+      endpointId: `${externalServer.baseUrl}/v1`,
+      baseUrl: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
     },
   )!;
 
@@ -555,10 +570,6 @@ test('MCP codebase_question preserves generated Codex OpenAI-compatible provider
           return mockCodex;
         },
         clientFactory: makeLmStudioClientFactory(),
-        chatRuntimeConfigResolver: async () => ({
-          config: expectedConfig,
-          warnings: [],
-        }),
       },
     );
 
@@ -567,5 +578,17 @@ test('MCP codebase_question preserves generated Codex OpenAI-compatible provider
     resetToolDeps();
     setCodexDetection(prev);
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeinfoHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    }
+    await externalServer.stop();
+    await tempHome.cleanup();
   }
 });

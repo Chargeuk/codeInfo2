@@ -37,6 +37,7 @@ import {
   memoryConversations,
   shouldUseMemoryPersistence,
 } from '../../chat/memoryPersistence.js';
+import { prepareProviderExecution } from '../../chat/providerExecution.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
@@ -46,7 +47,6 @@ import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveProviderRuntimePreferredModel,
-  resolveRuntimeProviderSelection,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
   type ChatDefaultProvider,
@@ -54,7 +54,6 @@ import {
 import {
   RuntimeConfigResolutionError,
   resolveChatRuntimeConfig,
-  type RuntimeTomlConfig,
 } from '../../config/runtimeConfig.js';
 import {
   getAdvertisedRepositoryIdentityPaths,
@@ -151,9 +150,6 @@ export type CodebaseQuestionResult = {
         inflightId?: string;
       };
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function buildReplayResult(params: {
   conversationId: string;
@@ -416,6 +412,15 @@ const getSavedCodexThreadId = (
   const threadId = conversation?.flags?.threadId;
   return typeof threadId === 'string' && threadId.trim().length > 0
     ? threadId
+    : undefined;
+};
+
+const getSavedEndpointId = (
+  conversation: Conversation | null | undefined,
+): string | undefined => {
+  const endpointId = conversation?.flags?.endpointId;
+  return typeof endpointId === 'string' && endpointId.trim().length > 0
+    ? endpointId.trim()
     : undefined;
 };
 
@@ -847,9 +852,7 @@ async function executeCodebaseQuestion(
     copilotHome: process.env.CODEINFO_COPILOT_HOME,
   }).defaultModel;
 
-  const runtimeSelection = resolveRuntimeProviderSelection({
-    requestedProvider,
-    requestedModel: normalizedRequestedModel,
+  const runtimeProviderStates = {
     codex: codexState,
     copilot: {
       available: copilotReadiness.available,
@@ -860,127 +863,7 @@ async function executeCodebaseQuestion(
       reason: copilotReadiness.reason,
     },
     lmstudio: lmstudioState,
-  });
-  append({
-    level: 'info',
-    message: 'DEV-0000035:T2:provider_fallback_evaluated',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      surface: 'mcp2.codebase_question',
-      conversationId,
-      requestedProvider: runtimeSelection.requestedProvider,
-      requestedModel: runtimeSelection.requestedModel,
-      executionProvider: runtimeSelection.executionProvider,
-      executionModel: runtimeSelection.executionModel,
-      fallbackApplied: runtimeSelection.fallbackApplied,
-      decision: runtimeSelection.decision,
-      requestedReason: runtimeSelection.requestedReason,
-      fallbackReason: runtimeSelection.fallbackReason,
-      lmstudioModelCount: lmstudioState.models.length,
-    },
-  });
-  append({
-    level: 'info',
-    message: 'DEV-0000035:T2:provider_fallback_result',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      surface: 'mcp2.codebase_question',
-      executionProvider: runtimeSelection.executionProvider,
-      executionModel: runtimeSelection.executionModel,
-      fallbackApplied: runtimeSelection.fallbackApplied,
-      decision: runtimeSelection.decision,
-    },
-  });
-  append({
-    level: 'info',
-    message: STORY_47_TASK_1_LOG_MARKER,
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: buildDefaultsAppliedMarkerPayload({
-      surface: 'mcp2.codebase_question',
-      requestedProvider: runtimeSelection.requestedProvider,
-      requestedModel: runtimeSelection.requestedModel,
-      resolvedModel: runtimeSelection.executionModel,
-      runtimePath: runtimeSelection.executionPath,
-      modelSource:
-        requestedProvider === 'codex'
-          ? toChatResolutionSource(
-              codexRequestedDefaults?.sources.model ?? 'hardcoded',
-            )
-          : resolvedDefaults.modelSource,
-      codexModelSource:
-        requestedProvider === 'codex'
-          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
-          : undefined,
-      warnings: codexWarnings,
-    }),
-  });
-  append({
-    level: 'info',
-    message: TASK8_LOG_MARKER,
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      surface: 'mcp2.codebase_question',
-      requestedProvider: runtimeSelection.requestedProvider,
-      executionProvider: runtimeSelection.executionProvider,
-      executionModel: runtimeSelection.executionModel,
-      warningCount: codexWarnings.length,
-      warningFields: extractWarningFields(codexWarnings),
-      defaults: codexCapabilities.defaults,
-    },
-  });
-  console.info(
-    STORY_47_TASK_1_LOG_MARKER,
-    buildDefaultsAppliedMarkerPayload({
-      surface: 'mcp2.codebase_question',
-      requestedProvider: runtimeSelection.requestedProvider,
-      requestedModel: runtimeSelection.requestedModel,
-      resolvedModel: runtimeSelection.executionModel,
-      runtimePath: runtimeSelection.executionPath,
-      modelSource:
-        requestedProvider === 'codex'
-          ? toChatResolutionSource(
-              codexRequestedDefaults?.sources.model ?? 'hardcoded',
-            )
-          : resolvedDefaults.modelSource,
-      codexModelSource:
-        requestedProvider === 'codex'
-          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
-          : undefined,
-      warnings: codexWarnings,
-    }),
-  );
-  console.info(TASK8_LOG_MARKER, {
-    surface: 'mcp2.codebase_question',
-    requestedProvider: runtimeSelection.requestedProvider,
-    executionProvider: runtimeSelection.executionProvider,
-    executionModel: runtimeSelection.executionModel,
-    warningCount: codexWarnings.length,
-    warningFields: extractWarningFields(codexWarnings),
-    defaults: codexCapabilities.defaults,
-  });
-
-  if (
-    (explicitProviderSelected || pinSavedConversationExecutionIdentity) &&
-    runtimeSelection.decision !== 'selected'
-  ) {
-    throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
-  }
-
-  if (runtimeSelection.unavailable) {
-    throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
-  }
-
-  const executionProvider = runtimeSelection.executionProvider;
-  const executionModel = runtimeSelection.executionModel;
-  const codexDefaults = codexCapabilities.defaults;
-  let chatRuntimeConfig: RuntimeTomlConfig | undefined;
-  const resolvedConversationId =
-    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
-
+  };
   let effectiveWorkingFolder: string | undefined;
   let mutableConversation = existingConversation;
   let knownRepositoryPathsState: KnownRepositoryPathsState | undefined =
@@ -1177,12 +1060,186 @@ async function executeCodebaseQuestion(
   }
 
   const replayAfterWorkingFolderRestore = await getReplayResult({
-    conversationId: resolvedConversationId,
+    conversationId,
     replayId,
   });
   if (replayAfterWorkingFolderRestore) {
     return replayAfterWorkingFolderRestore;
   }
+
+  let preparedExecution;
+  try {
+    preparedExecution = await prepareProviderExecution({
+      requestedProvider,
+      requestedModel: normalizedRequestedModel,
+      providerStates: runtimeProviderStates,
+      loadRuntimeConfig: async (provider) => {
+        const runtimeConfigResolver =
+          deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
+        try {
+          const resolved = await runtimeConfigResolver(
+            provider === 'copilot'
+              ? {
+                  provider: 'copilot',
+                  copilotHome: process.env.CODEINFO_COPILOT_HOME,
+                }
+              : undefined,
+          );
+          return {
+            config: resolved.config,
+            warnings: resolved.warnings.map((warning) => warning.message),
+            endpoint: resolved.appMetadata?.codeinfoOpenAiEndpoint,
+          };
+        } catch (err) {
+          if (err instanceof RuntimeConfigResolutionError) {
+            throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {
+              code: err.code,
+              surface: err.surface,
+              configPath: err.configPath,
+            });
+          }
+          throw err;
+        }
+      },
+      selectedEndpointId: getSavedEndpointId(existingConversation),
+      allowCrossProviderFallback: !explicitProviderSelected,
+      failInPlaceOnEndpointUnavailable: Boolean(
+        pinSavedConversationExecutionIdentity &&
+          getSavedEndpointId(existingConversation),
+      ),
+      env: process.env,
+    });
+  } catch (error) {
+    if (error instanceof ToolExecutionError) {
+      throw error;
+    }
+    throw error;
+  }
+  const runtimeSelection = preparedExecution.runtimeSelection;
+  const executionWarnings = [
+    ...new Set([...codexWarnings, ...preparedExecution.warnings]),
+  ];
+  append({
+    level: 'info',
+    message: 'DEV-0000035:T2:provider_fallback_evaluated',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      conversationId,
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      executionProvider: runtimeSelection.executionProvider,
+      executionModel: runtimeSelection.executionModel,
+      fallbackApplied: runtimeSelection.fallbackApplied,
+      decision: runtimeSelection.decision,
+      requestedReason: runtimeSelection.requestedReason,
+      fallbackReason: runtimeSelection.fallbackReason,
+      lmstudioModelCount: lmstudioState.models.length,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000035:T2:provider_fallback_result',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      executionProvider: runtimeSelection.executionProvider,
+      executionModel: runtimeSelection.executionModel,
+      fallbackApplied: runtimeSelection.fallbackApplied,
+      decision: runtimeSelection.decision,
+    },
+  });
+  append({
+    level: 'info',
+    message: STORY_47_TASK_1_LOG_MARKER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: buildDefaultsAppliedMarkerPayload({
+      surface: 'mcp2.codebase_question',
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      resolvedModel: runtimeSelection.executionModel,
+      runtimePath: runtimeSelection.executionPath,
+      modelSource:
+        requestedProvider === 'codex'
+          ? toChatResolutionSource(
+              codexRequestedDefaults?.sources.model ?? 'hardcoded',
+            )
+          : resolvedDefaults.modelSource,
+      codexModelSource:
+        requestedProvider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : undefined,
+      warnings: executionWarnings,
+    }),
+  });
+  append({
+    level: 'info',
+    message: TASK8_LOG_MARKER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      requestedProvider: runtimeSelection.requestedProvider,
+      executionProvider: runtimeSelection.executionProvider,
+      executionModel: runtimeSelection.executionModel,
+      warningCount: executionWarnings.length,
+      warningFields: extractWarningFields(executionWarnings),
+      defaults: codexCapabilities.defaults,
+    },
+  });
+  console.info(
+    STORY_47_TASK_1_LOG_MARKER,
+    buildDefaultsAppliedMarkerPayload({
+      surface: 'mcp2.codebase_question',
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      resolvedModel: runtimeSelection.executionModel,
+      runtimePath: runtimeSelection.executionPath,
+      modelSource:
+        requestedProvider === 'codex'
+          ? toChatResolutionSource(
+              codexRequestedDefaults?.sources.model ?? 'hardcoded',
+            )
+          : resolvedDefaults.modelSource,
+      codexModelSource:
+        requestedProvider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : undefined,
+      warnings: executionWarnings,
+    }),
+  );
+  console.info(TASK8_LOG_MARKER, {
+    surface: 'mcp2.codebase_question',
+    requestedProvider: runtimeSelection.requestedProvider,
+    executionProvider: runtimeSelection.executionProvider,
+    executionModel: runtimeSelection.executionModel,
+    warningCount: executionWarnings.length,
+    warningFields: extractWarningFields(executionWarnings),
+    defaults: codexCapabilities.defaults,
+  });
+
+  if (
+    (explicitProviderSelected || pinSavedConversationExecutionIdentity) &&
+    runtimeSelection.decision !== 'selected'
+  ) {
+    throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
+  }
+
+  if (runtimeSelection.unavailable) {
+    throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
+  }
+
+  const executionProvider = preparedExecution.executionProvider;
+  const executionModel = preparedExecution.executionModel;
+  const executionUsesEndpoint = preparedExecution.executionUsesEndpoint;
+  const executionEndpointId = preparedExecution.endpointId;
+  const codexDefaults = codexCapabilities.defaults;
+  const chatRuntimeConfig = preparedExecution.runtimeConfig;
+  const resolvedConversationId =
+    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
 
   const agentHomeResolution = resolveAgentHomeEnv();
   const executionContext = await resolveSharedExecutionContext({
@@ -1196,42 +1253,6 @@ async function executeCodebaseQuestion(
   const envOverrides: NodeJS.ProcessEnv = {
     CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,
   };
-
-  if (executionProvider === 'codex' || executionProvider === 'copilot') {
-    const runtimeConfigResolver =
-      deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
-    try {
-      const { config } = await runtimeConfigResolver(
-        executionProvider === 'copilot'
-          ? {
-              provider: 'copilot',
-              copilotHome: process.env.CODEINFO_COPILOT_HOME,
-            }
-          : undefined,
-      );
-      chatRuntimeConfig = config;
-      if (
-        executionProvider === 'codex' &&
-        pinSavedConversationExecutionIdentity &&
-        isRecord(chatRuntimeConfig) &&
-        chatRuntimeConfig.model !== executionModel
-      ) {
-        chatRuntimeConfig = {
-          ...chatRuntimeConfig,
-          model: executionModel,
-        } satisfies Record<string, unknown>;
-      }
-    } catch (err) {
-      if (err instanceof RuntimeConfigResolutionError) {
-        throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {
-          code: err.code,
-          surface: err.surface,
-          configPath: err.configPath,
-        });
-      }
-      throw err;
-    }
-  }
 
   const threadOpts: ThreadOptions = {
     model: executionModel,
@@ -1259,6 +1280,14 @@ async function executeCodebaseQuestion(
     mutableConversation && mutableConversation._id === resolvedConversationId
       ? (mutableConversation.flags as Record<string, unknown> | undefined)
       : undefined;
+  const existingConversationEndpointId =
+    mutableConversation && mutableConversation._id === resolvedConversationId
+      ? getSavedEndpointId(mutableConversation)
+      : undefined;
+  const shouldResumeCopilotConversation =
+    mutableConversation?.provider === 'copilot' &&
+    mutableConversation.model === executionModel &&
+    existingConversationEndpointId === executionEndpointId;
   const conversationFlags = buildConversationFlags({
     provider: executionProvider,
     currentFlags: existingFlags,
@@ -1269,6 +1298,9 @@ async function executeCodebaseQuestion(
       mutableConversation.model === executionModel
         ? (getSavedCodexThreadId(mutableConversation) ?? null)
         : null,
+    endpointId: executionUsesEndpoint
+      ? (executionEndpointId ?? existingConversationEndpointId ?? null)
+      : null,
     preserveFlowState: false,
   });
 
@@ -1373,12 +1405,17 @@ async function executeCodebaseQuestion(
             ...(executionProvider === 'copilot'
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
-                  resumeConversation:
-                    mutableConversation?.provider === 'copilot' &&
-                    mutableConversation.model === executionModel,
+                  resumeConversation: shouldResumeCopilotConversation,
                   runtimeConfig: chatRuntimeConfig,
                   workingDirectoryOverride:
                     executionContext.workingDirectoryOverride,
+                }
+              : {}),
+            ...(executionUsesEndpoint &&
+            preparedExecution.openAiCompatEndpoint
+              ? {
+                  codeinfoOpenAiEndpoint:
+                    preparedExecution.openAiCompatEndpoint,
                 }
               : {}),
             source: 'MCP',
@@ -1422,6 +1459,9 @@ async function executeCodebaseQuestion(
       currentFlags: conversationFlags,
       workingFolder: effectiveWorkingFolder,
       threadId: providerThreadId,
+      endpointId: executionUsesEndpoint
+        ? (executionEndpointId ?? existingConversationEndpointId ?? null)
+        : null,
       preserveFlowState: false,
     });
     await ensureConversation(

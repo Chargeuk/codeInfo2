@@ -37,6 +37,7 @@ import type { Conversation } from '../../../mongo/conversation.js';
 import { ConversationModel } from '../../../mongo/conversation.js';
 import { withConversationMetaNotFoundFixture } from '../../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../../support/conversationMongoPersistenceStub.js';
+import { startExternalOpenAiCompatServer } from '../../support/externalOpenAiCompatServer.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
@@ -73,6 +74,7 @@ beforeEach(() => {
 afterEach(() => {
   mock.restoreAll();
   resetCollectionsForTests();
+  resetToolDeps();
   for (const key of ENV_KEYS) {
     const value = originalEnv.get(key);
     if (value === undefined) {
@@ -1237,8 +1239,68 @@ test('codebase_question reuses shared provider defaults when provider copilot is
     const payload = JSON.parse(result.content[0].text);
     assert.equal(payload.modelId, 'copilot-default-model');
   } finally {
+    resetToolDeps();
     if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
     else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question forwards external endpoint metadata on the Copilot MCP path and persists the endpoint identity', async () => {
+  const originalHome = process.env.CODEINFO_COPILOT_HOME;
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['google/gemma-4-26b-a4b-qat'],
+  });
+  const tempHome = await withTempCopilotHome(
+    [
+      'model = "google/gemma-4-26b-a4b-qat"',
+      'tool_access = "off"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses,completions"`,
+      '',
+    ].join('\n'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+  const chat = new CapturingChat();
+  const conversationId = 'mcp-copilot-endpoint-persisted';
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'Use the endpoint-backed Copilot path.',
+        conversationId,
+        provider: 'copilot',
+      },
+      {
+        chatFactory: () => chat,
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['copilot-gpt-5'],
+          modelsRaw: [],
+          authSource: 'env-token',
+        }),
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'google/gemma-4-26b-a4b-qat');
+    assert.deepEqual(chat.lastFlags?.codeinfoOpenAiEndpoint, {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      baseUrl: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses', 'completions'],
+    });
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+  } finally {
+    resetToolDeps();
+    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
+    else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await externalServer.stop();
     await tempHome.cleanup();
   }
 });
@@ -2637,7 +2699,7 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
       | undefined;
 
     assert.equal(payload.modelId, 'gpt-5.3-codex');
-    assert.equal(runtimeConfig?.model, 'gpt-5.3-codex');
+    assert.equal(runtimeConfig?.model, 'gpt-5.1-codex-max');
     assert.equal(
       (capturingChat.lastFlags as { provider?: string; threadId?: unknown })
         ?.provider,
@@ -2933,17 +2995,30 @@ test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key
 
 test('codebase_question translates codeinfo_openai_endpoint into Codex provider metadata', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   resetStore();
   const mockCodex = new MockCodex();
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['google/gemma-4-26b-a4b-qat'],
+  });
+  const tempHome = await withTempCodexHome({
+    chatToml: [
+      'model = "google/gemma-4-26b-a4b-qat"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  });
+  setCodexHomes(tempHome.codexHome);
   const expectedConfig = applyCodexOpenAiCompatEndpointToRuntimeConfig(
     {
-      model: 'gpt-5.3-codex-spark',
+      model: 'google/gemma-4-26b-a4b-qat',
     },
     {
-      endpointId: 'https://alpha.example/v1',
-      baseUrl: 'https://alpha.example/v1',
-      capabilities: ['responses', 'completions'],
+      endpointId: `${externalServer.baseUrl}/v1`,
+      baseUrl: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
     },
   )!;
   let capturedOptions: CodexOptions | undefined;
@@ -2957,10 +3032,6 @@ test('codebase_question translates codeinfo_openai_endpoint into Codex provider 
           return mockCodex;
         },
         clientFactory: makeLmStudioClientFactory(),
-        chatRuntimeConfigResolver: async () => ({
-          config: expectedConfig,
-          warnings: [],
-        }),
       },
     );
 
@@ -2969,5 +3040,12 @@ test('codebase_question translates codeinfo_openai_endpoint into Codex provider 
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeinfoHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    await externalServer.stop();
+    await tempHome.cleanup();
   }
 });

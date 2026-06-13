@@ -236,6 +236,7 @@ test('tools/call executes ListIngestedRepositories', async () => {
   assert.equal(content.type, 'text');
   const parsed = JSON.parse(content.text as string);
   assert.equal(parsed.repos[0].id, 'repo-1');
+  assert.deepEqual(res.body.result.structuredContent, parsed);
 });
 
 test('tools/call emits whitespace preamble and remains parseable JSON', async () => {

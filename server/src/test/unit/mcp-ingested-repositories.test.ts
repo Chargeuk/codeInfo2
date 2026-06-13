@@ -140,6 +140,7 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   assert.equal(parsed.repos[0].lock.modelId, 'embed-model');
   assert.equal(parsed.repos[0].status, 'completed');
   assert.equal(parsed.repos[0].phase, undefined);
+  assert.deepEqual(response.body?.result?.structuredContent, parsed);
 });
 
 test('ListIngestedRepositories preserves structured ingest-origin normalized error fields from the shared repo-list payload', async () => {

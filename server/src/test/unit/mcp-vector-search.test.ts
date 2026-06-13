@@ -74,6 +74,7 @@ test('classic MCP VectorSearch returns stable payload wrapped as tool text JSON'
   assert.equal(result.hostPath, '/host/base/repo-one/docs/readme.md');
   assert.equal(result.modelId, 'text-embed');
   assert.equal(parsed.files.length, 1);
+  assert.deepEqual(res.body.result?.structuredContent, parsed);
 });
 
 test('classic MCP VectorSearch coerces string limit values', async () => {

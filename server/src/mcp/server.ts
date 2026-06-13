@@ -121,6 +121,16 @@ async function canonicalizeRepositorySelectorArgs(
 
 const PROTOCOL_VERSION = '2024-11-05';
 
+function jsonRpcStructuredToolResult<T extends Record<string, unknown>>(
+  id: string | number | null,
+  payload: T,
+) {
+  return jsonRpcResult(id, {
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
+    structuredContent: payload,
+  }) as JsonRpcLikeResponse;
+}
+
 function logLockResolverState(
   requestId: string | undefined,
   surface: string,
@@ -838,11 +848,10 @@ export function createMcpRouter(
                 schemaVersion:
                   payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
               };
-              return jsonRpcResult(id as never, {
-                content: [
-                  { type: 'text', text: JSON.stringify(normalizedPayload) },
-                ],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(
+                id as never,
+                normalizedPayload,
+              );
             }
 
             if (toolCall.name === 'VectorSearch') {
@@ -887,9 +896,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'reingest_repository') {
@@ -947,9 +954,7 @@ export function createMcpRouter(
                   payload: result.value,
                 },
               });
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(result.value) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, result.value);
             }
 
             if (toolCall.name === 'AstListSymbols') {
@@ -972,9 +977,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstFindDefinition') {
@@ -999,9 +1002,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstFindReferences') {
@@ -1026,9 +1027,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstCallGraph') {
@@ -1054,9 +1053,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstModuleImports') {
@@ -1073,9 +1070,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             return invalidParams(id, `Unknown tool ${toolCall.name}`);

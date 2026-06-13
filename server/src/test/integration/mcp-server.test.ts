@@ -216,6 +216,10 @@ test('tools/list returns MCP tool definitions', async () => {
               properties?: Record<string, unknown>;
             };
           };
+          queueReadDegraded?: Record<string, unknown>;
+          queueReadError?: {
+            properties?: Record<string, unknown>;
+          };
         };
       };
     }>
@@ -223,6 +227,23 @@ test('tools/list returns MCP tool definitions', async () => {
   assert.ok(listReposTool);
   assert.ok(
     listReposTool.outputSchema?.properties?.repos?.items?.properties?.ast,
+  );
+  assert.deepEqual(listReposTool.outputSchema?.properties?.queueReadDegraded, {
+    type: 'boolean',
+  });
+  assert.deepEqual(
+    listReposTool.outputSchema?.properties?.queueReadError?.properties,
+    {
+      error: { type: 'string' },
+      message: { type: 'string' },
+      retryable: { type: 'boolean' },
+      provider: {
+        type: 'string',
+        enum: ['lmstudio', 'openai', 'ingest'],
+      },
+      upstreamStatus: { type: 'integer' },
+      retryAfterMs: { type: 'integer' },
+    },
   );
 });
 

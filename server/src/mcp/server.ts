@@ -86,6 +86,23 @@ type Deps = {
 
 type RepositoryField = 'repository' | 'sourceId';
 
+const normalizedRepoErrorSchema = {
+  type: ['object', 'null'],
+  required: ['error', 'message', 'retryable', 'provider'],
+  properties: {
+    error: { type: 'string' },
+    message: { type: 'string' },
+    retryable: { type: 'boolean' },
+    provider: {
+      type: 'string',
+      enum: ['lmstudio', 'openai', 'ingest'],
+    },
+    upstreamStatus: { type: 'integer' },
+    retryAfterMs: { type: 'integer' },
+  },
+  additionalProperties: false,
+} as const;
+
 async function canonicalizeRepositorySelectorArgs(
   args: unknown,
   field: RepositoryField,
@@ -385,22 +402,7 @@ const baseToolDefinitions = [
               },
               ast: astCoverageSchema,
               lastError: { type: ['string', 'null'] },
-              error: {
-                type: ['object', 'null'],
-                required: ['error', 'message', 'retryable', 'provider'],
-                properties: {
-                  error: { type: 'string' },
-                  message: { type: 'string' },
-                  retryable: { type: 'boolean' },
-                  provider: {
-                    type: 'string',
-                    enum: ['lmstudio', 'openai', 'ingest'],
-                  },
-                  upstreamStatus: { type: 'integer' },
-                  retryAfterMs: { type: 'integer' },
-                },
-                additionalProperties: false,
-              },
+              error: normalizedRepoErrorSchema,
             },
             additionalProperties: false,
           },
@@ -425,6 +427,8 @@ const baseToolDefinitions = [
         },
         lockedModelId: { type: ['string', 'null'] },
         schemaVersion: { type: 'string' },
+        queueReadDegraded: { type: 'boolean' },
+        queueReadError: normalizedRepoErrorSchema,
       },
       additionalProperties: false,
     },

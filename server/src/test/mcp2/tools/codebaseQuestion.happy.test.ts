@@ -2733,6 +2733,78 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
   }
 });
 
+test('codebase_question does not resume a saved Codex thread when endpoint-backed execution lacks a matching saved endpoint id', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const mockCodex = new MockCodex('fresh-thread-after-endpoint-change');
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['google/gemma-4-26b-a4b-qat'],
+  });
+  const tempHome = await withTempCodexHome({
+    chatToml: [
+      'model = "google/gemma-4-26b-a4b-qat"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  });
+  setCodexHomes(tempHome.codexHome);
+  const conversationId = 'saved-codex-endpoint-mismatch';
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'google/gemma-4-26b-a4b-qat',
+    title: 'Saved Codex endpointless conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {
+      threadId: 'stale-thread-before-endpoint-change',
+    },
+  } as Conversation);
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'Use the current endpoint-backed Codex config',
+        conversationId,
+      },
+      {
+        codexFactory: () => mockCodex,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'google/gemma-4-26b-a4b-qat');
+    assert.equal(mockCodex.lastResumeId, undefined);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.threadId,
+      'fresh-thread-after-endpoint-change',
+    );
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeinfoHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    await externalServer.stop();
+    await tempHome.cleanup();
+  }
+});
+
 test('codebase_question keeps the saved execution identity authoritative over contradictory follow-up provider-model input', async () => {
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
   const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;

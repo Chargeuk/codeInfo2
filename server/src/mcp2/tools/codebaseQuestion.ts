@@ -1284,6 +1284,11 @@ async function executeCodebaseQuestion(
     mutableConversation && mutableConversation._id === resolvedConversationId
       ? getSavedEndpointId(mutableConversation)
       : undefined;
+  const canReuseCodexThread =
+    executionProvider === 'codex' &&
+    mutableConversation?.provider === 'codex' &&
+    mutableConversation.model === executionModel &&
+    existingConversationEndpointId === executionEndpointId;
   const shouldResumeCopilotConversation =
     mutableConversation?.provider === 'copilot' &&
     mutableConversation.model === executionModel &&
@@ -1292,12 +1297,9 @@ async function executeCodebaseQuestion(
     provider: executionProvider,
     currentFlags: existingFlags,
     workingFolder: effectiveWorkingFolder,
-    threadId:
-      executionProvider === 'codex' &&
-      mutableConversation?.provider === 'codex' &&
-      mutableConversation.model === executionModel
-        ? (getSavedCodexThreadId(mutableConversation) ?? null)
-        : null,
+    threadId: canReuseCodexThread
+      ? getSavedCodexThreadId(mutableConversation)
+      : undefined,
     endpointId: executionUsesEndpoint
       ? (executionEndpointId ?? existingConversationEndpointId ?? null)
       : null,
@@ -1373,7 +1375,9 @@ async function executeCodebaseQuestion(
             question,
             {
               provider: executionProvider,
-              threadId: getSavedCodexThreadId(mutableConversation),
+              threadId: canReuseCodexThread
+                ? getSavedCodexThreadId(mutableConversation)
+                : undefined,
               runtimeConfig: chatRuntimeConfig,
               codexFlags: threadOpts,
               inflightId,

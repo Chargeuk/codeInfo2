@@ -419,6 +419,7 @@ test('ListIngestedRepositories default MCP path surfaces explicit queue-read deg
     retryable: true,
     provider: 'ingest',
   });
+  assert.deepEqual(response.body?.result?.structuredContent, parsed);
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
     value: originalReadyState,

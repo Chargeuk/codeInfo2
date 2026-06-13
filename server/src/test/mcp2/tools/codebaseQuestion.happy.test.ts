@@ -50,6 +50,7 @@ const ENV_KEYS = [
   'CODEINFO_CODEX_HOME',
   'CODEX_HOME',
   'CODEINFO_CODEX_WORKDIR',
+  'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
   'MCP_FORCE_CODEX_AVAILABLE',
 ] as const;
 const originalEnv = new Map<string, string | undefined>();
@@ -3117,6 +3118,91 @@ test('codebase_question translates codeinfo_openai_endpoint into Codex provider 
     if (originalCodeinfoHome === undefined)
       delete process.env.CODEINFO_CODEX_HOME;
     else process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    await externalServer.stop();
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question resolves saved env-backed endpoint ids through the shared provider execution helper', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+  const originalExternalEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const mockCodex = new MockCodex();
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['google/gemma-4-26b-a4b-qat'],
+  });
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses`;
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "google/gemma-4-26b-a4b-qat"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+  const conversationId = 'mcp-codex-env-endpoint-follow-up';
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'google/gemma-4-26b-a4b-qat',
+    title: 'Saved env endpoint follow-up',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+    },
+  } as Conversation);
+  const expectedConfig = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+    {
+      model: 'google/gemma-4-26b-a4b-qat',
+    },
+    {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      baseUrl: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+    },
+  )!;
+  let capturedOptions: CodexOptions | undefined;
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'Reuse the saved env-backed endpoint id.',
+        conversationId,
+      },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return mockCodex;
+        },
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.ok(result.content[0].text);
+    assert.deepEqual(capturedOptions?.config, expectedConfig);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeinfoHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    if (originalExternalEndpoints === undefined)
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    else
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalExternalEndpoints;
     await externalServer.stop();
     await tempHome.cleanup();
   }

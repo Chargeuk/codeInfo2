@@ -33,7 +33,10 @@ import {
   memoryConversations,
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
-import { prepareProviderExecution } from '../chat/providerExecution.js';
+import {
+  prepareProviderExecution,
+  resolveOpenAiCompatEndpointById,
+} from '../chat/providerExecution.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -48,7 +51,6 @@ import {
 import {
   type OpenAiCompatEndpointConfig,
   parseOpenAiCompatEndpointConfig,
-  validateOpenAiCompatEndpointConfigForProvider,
 } from '../config/openaiCompatEndpoints.js';
 import {
   RuntimeConfigResolutionError,
@@ -57,7 +59,6 @@ import {
   materializeRepositoryBackedCodexChatHome,
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
-import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
@@ -171,38 +172,20 @@ function resolvePinnedOpenAiCompatEndpoint(params: {
 function resolveOpenAiCompatEndpointForChat(params: {
   provider: ChatDefaultProvider;
   endpointId?: string | null;
-  codexHome?: string;
-  copilotHome?: string;
   env?: NodeJS.ProcessEnv;
 }): OpenAiCompatEndpointConfig | undefined {
-  const normalizedEndpointId = params.endpointId?.trim();
-  if (!normalizedEndpointId) {
+  if (
+    params.provider !== 'codex' &&
+    params.provider !== 'copilot'
+  ) {
     return undefined;
   }
-
-  const envResolution = resolveExternalOpenAiCompatEndpoints({
-    env: params.env ?? process.env,
-  });
-  const pinnedEndpoint = resolvePinnedOpenAiCompatEndpoint({
+  return resolveOpenAiCompatEndpointById({
     provider: params.provider,
-    codexHome: params.codexHome,
-    copilotHome: params.copilotHome,
-  });
-
-  const endpoint = [
-    ...envResolution.endpoints,
-    ...(pinnedEndpoint ? [pinnedEndpoint] : []),
-  ].find((entry) => entry.endpointId === normalizedEndpointId);
-  if (!endpoint) {
-    return undefined;
-  }
-
-  validateOpenAiCompatEndpointConfigForProvider({
-    endpoint,
-    provider: params.provider,
+    endpointId: params.endpointId,
+    env: params.env,
     pathLabel: 'chat.endpointId',
   });
-  return endpoint;
 }
 
 const isChatModel = (model: { type?: string; architecture?: string }) => {
@@ -714,8 +697,6 @@ export function createChatRouter({
       selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({
         provider: effectiveRequestedProvider,
         endpointId: selectedEndpointId,
-        codexHome,
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
         env: process.env,
       });
     } catch (error) {

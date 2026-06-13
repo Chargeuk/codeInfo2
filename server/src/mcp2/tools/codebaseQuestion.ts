@@ -1223,7 +1223,7 @@ async function executeCodebaseQuestion(
 
   if (
     (explicitProviderSelected || pinSavedConversationExecutionIdentity) &&
-    runtimeSelection.decision !== 'selected'
+    runtimeSelection.executionProvider !== requestedProvider
   ) {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
   }

@@ -10,8 +10,12 @@ import {
 import {
   applyCodexOpenAiCompatEndpointToRuntimeConfig,
 } from '../config/codexConfig.js';
-import type { OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
+import {
+  type OpenAiCompatEndpointConfig,
+  validateOpenAiCompatEndpointConfigForProvider,
+} from '../config/openaiCompatEndpoints.js';
 import type { RuntimeTomlConfig } from '../config/runtimeConfig.js';
+import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 
 import { resolveOpenAiCompatEndpointRuntimeState } from './openaiCompatModelDiscovery.js';
 
@@ -95,6 +99,37 @@ const cloneRuntimeConfigWithModel = (
   model: modelId,
 }) as RuntimeTomlConfig;
 
+export function resolveOpenAiCompatEndpointById(params: {
+  provider: Extract<ChatDefaultProvider, 'codex' | 'copilot'>;
+  endpointId?: string | null;
+  configuredEndpoint?: OpenAiCompatEndpointConfig;
+  env?: NodeJS.ProcessEnv;
+  pathLabel?: string;
+}): OpenAiCompatEndpointConfig | undefined {
+  const normalizedEndpointId = params.endpointId?.trim();
+  if (!normalizedEndpointId) {
+    return undefined;
+  }
+
+  const envResolution = resolveExternalOpenAiCompatEndpoints({
+    env: params.env ?? process.env,
+  });
+  const endpoint = [
+    ...envResolution.endpoints,
+    ...(params.configuredEndpoint ? [params.configuredEndpoint] : []),
+  ].find((entry) => entry.endpointId === normalizedEndpointId);
+  if (!endpoint) {
+    return undefined;
+  }
+
+  validateOpenAiCompatEndpointConfigForProvider({
+    endpoint,
+    provider: params.provider,
+    pathLabel: params.pathLabel ?? 'selectedEndpointId',
+  });
+  return endpoint;
+}
+
 export async function prepareProviderExecution(params: {
   requestedProvider: ChatDefaultProvider;
   requestedModel: string;
@@ -125,13 +160,18 @@ export async function prepareProviderExecution(params: {
   }
 
   const selectedEndpointId = params.selectedEndpointId?.trim() || undefined;
-  const configuredEndpoint =
-    params.selectedEndpoint ?? requestedRuntimeResolution?.endpoint;
+  const configuredEndpoint = params.selectedEndpoint ?? requestedRuntimeResolution?.endpoint;
   const effectiveEndpoint =
-    configuredEndpoint &&
-    (!selectedEndpointId || configuredEndpoint.endpointId === selectedEndpointId)
-      ? configuredEndpoint
-      : undefined;
+    selectedEndpointId &&
+    (params.requestedProvider === 'codex' ||
+      params.requestedProvider === 'copilot')
+      ? resolveOpenAiCompatEndpointById({
+          provider: params.requestedProvider,
+          endpointId: selectedEndpointId,
+          configuredEndpoint,
+          env: params.env,
+        })
+      : configuredEndpoint;
   const effectiveEndpointId = selectedEndpointId ?? effectiveEndpoint?.endpointId;
   const endpointState =
     effectiveEndpoint !== undefined

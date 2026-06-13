@@ -240,8 +240,37 @@ test('tools/list includes reingest_repository metadata', async () => {
     .send({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
 
   assert.equal(res.status, 200);
-  const tools = res.body.result.tools as Array<{ name: string }>;
-  assert.ok(tools.some((tool) => tool.name === 'reingest_repository'));
+  const tools = res.body.result.tools as Array<{
+    name: string;
+    outputSchema?: {
+      required?: string[];
+      properties?: Record<string, unknown>;
+    };
+  }>;
+  const reingestTool = tools.find(
+    (tool) => tool.name === 'reingest_repository',
+  );
+  assert.ok(reingestTool);
+  assert.deepEqual(reingestTool.outputSchema?.required, [
+    'status',
+    'operation',
+    'runId',
+    'sourceId',
+    'resolvedRepositoryId',
+    'completionMode',
+    'durationMs',
+    'files',
+    'chunks',
+    'embedded',
+    'errorCode',
+  ]);
+  assert.deepEqual(reingestTool.outputSchema?.properties?.resolvedRepositoryId, {
+    type: ['string', 'null'],
+  });
+  assert.deepEqual(reingestTool.outputSchema?.properties?.completionMode, {
+    type: ['string', 'null'],
+    enum: ['reingested', 'skipped', null],
+  });
 });
 
 test('classic MCP wraps terminal payload as text JSON and never returns started', async () => {
@@ -266,6 +295,7 @@ test('classic MCP wraps terminal payload as text JSON and never returns started'
   assert.notEqual(payload.status, 'started');
   assert.equal(typeof content.text, 'string');
   assert.equal(payload.message, undefined);
+  assert.deepEqual(res.body.result.structuredContent, payload);
 });
 
 test('classic MCP success/cancel/error errorCode constraints', async () => {

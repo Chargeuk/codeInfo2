@@ -1,5 +1,6 @@
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { StringDecoder } from 'node:string_decoder';
 import express, { Router, type Request, type Response } from 'express';
 
 import {
@@ -57,6 +58,7 @@ function createCodexNamespaceToolCallRestoreStream(params: {
   restoreResponse: (rawBodyText: string) => string;
 }) {
   let remainder = '';
+  const decoder = new StringDecoder('utf8');
 
   const rewriteLine = (line: string) => {
     const dataPrefix = 'data:';
@@ -72,13 +74,16 @@ function createCodexNamespaceToolCallRestoreStream(params: {
 
   return new Transform({
     transform(chunk, _encoding, callback) {
-      remainder += chunk.toString('utf8');
+      remainder += decoder.write(
+        Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)),
+      );
       const lines = remainder.split('\n');
       remainder = lines.pop() ?? '';
       const rewritten = lines.map((line) => rewriteLine(line)).join('');
       callback(null, rewritten);
     },
     flush(callback) {
+      remainder += decoder.end();
       if (remainder.length === 0) {
         callback();
         return;

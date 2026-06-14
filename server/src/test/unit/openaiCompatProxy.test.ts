@@ -9,6 +9,7 @@ import {
   buildOpenAiCompatProxyBaseUrl,
   resetOpenAiCompatProxyEndpointRegistryForTests,
 } from '../../chat/openaiCompatAdapter.js';
+import { flattenCodexNamespaceToolsForCustomProvider } from '../../chat/openaiCompatToolFlattening.js';
 import { createOpenAiCompatProxyRouter } from '../../routes/openaiCompatProxy.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 
@@ -399,6 +400,49 @@ test('OpenAI-compatible proxy does not retry inference POST failures', async () 
 });
 
 test('OpenAI-compatible proxy flattens Codex namespace tools for custom provider responses requests', async () => {
+  const originalRequestBody = JSON.stringify({
+    model: 'alpha-model',
+    input: 'hello',
+    tools: [
+      {
+        type: 'namespace',
+        name: 'mcp__code_info__',
+        description: 'code info tools',
+        tools: [
+          {
+            type: 'function',
+            name: 'ListIngestedRepositories',
+            description: 'list repos',
+            parameters: {
+              type: 'object',
+              properties: {},
+              required: [],
+              additionalProperties: false,
+            },
+          },
+          {
+            type: 'function',
+            name: 'VectorSearch',
+            description: 'search vectors',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: { type: 'string' },
+              },
+              required: ['query'],
+              additionalProperties: false,
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const expectedFlattened = flattenCodexNamespaceToolsForCustomProvider(
+    originalRequestBody,
+  );
+  const expectedFlattenedToolNames = Object.keys(
+    expectedFlattened.namespaceToolCallMap,
+  );
   const externalServer = await startExternalOpenAiCompatServer({
     responsesResponses: [
       {
@@ -407,7 +451,7 @@ test('OpenAI-compatible proxy flattens Codex namespace tools for custom provider
           output: [
             {
               type: 'function_call',
-              name: 'mcp__code_info__.ListIngestedRepositories',
+              name: expectedFlattenedToolNames[0],
               arguments: '{}',
               call_id: 'call_123',
             },
@@ -432,43 +476,7 @@ test('OpenAI-compatible proxy flattens Codex namespace tools for custom provider
 
   const response = await request(createApp())
     .post(pathName)
-    .send({
-      model: 'alpha-model',
-      input: 'hello',
-      tools: [
-        {
-          type: 'namespace',
-          name: 'mcp__code_info__',
-          description: 'code info tools',
-          tools: [
-            {
-              type: 'function',
-              name: 'ListIngestedRepositories',
-              description: 'list repos',
-              parameters: {
-                type: 'object',
-                properties: {},
-                required: [],
-                additionalProperties: false,
-              },
-            },
-            {
-              type: 'function',
-              name: 'VectorSearch',
-              description: 'search vectors',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: { type: 'string' },
-                },
-                required: ['query'],
-                additionalProperties: false,
-              },
-            },
-          ],
-        },
-      ],
-    })
+    .send(JSON.parse(originalRequestBody))
     .expect(200);
 
   const forwarded = JSON.parse(
@@ -477,11 +485,12 @@ test('OpenAI-compatible proxy flattens Codex namespace tools for custom provider
 
   assert.deepEqual(
     forwarded.tools?.map((tool) => tool.name),
-    [
-      'mcp__code_info__.ListIngestedRepositories',
-      'mcp__code_info__.VectorSearch',
-    ],
+    expectedFlattenedToolNames,
   );
+  for (const flattenedName of expectedFlattenedToolNames) {
+    assert.match(flattenedName, /^[A-Za-z0-9_-]+$/);
+    assert.doesNotMatch(flattenedName, /\./);
+  }
   assert.deepEqual(
     forwarded.tools?.map((tool) => tool.type),
     ['function', 'function'],
@@ -563,6 +572,31 @@ test('OpenAI-compatible proxy leaves Copilot namespace tools unchanged', async (
 });
 
 test('OpenAI-compatible proxy restores namespace tool calls inside streamed Codex responses', async () => {
+  const originalRequestBody = JSON.stringify({
+    model: 'alpha-model',
+    input: 'hello',
+    tools: [
+      {
+        type: 'namespace',
+        name: 'mcp__code_info__',
+        tools: [
+          {
+            type: 'function',
+            name: 'ListIngestedRepositories',
+            parameters: {
+              type: 'object',
+              properties: {},
+              additionalProperties: false,
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const expectedFlattened = flattenCodexNamespaceToolsForCustomProvider(
+    originalRequestBody,
+  );
+  const flattenedToolName = Object.keys(expectedFlattened.namespaceToolCallMap)[0];
   const externalServer = await startExternalOpenAiCompatServer({
     responsesResponses: [
       {
@@ -572,9 +606,9 @@ test('OpenAI-compatible proxy restores namespace tool calls inside streamed Code
         },
         bodyChunks: [
           'event: response.output_item.done\n',
-          'data: {"type":"response.output_item.done","item":{"type":"function_call","name":"mcp__code_info__.ListIngestedRepositories","arguments":"{}","call_id":"call_123"}}\n\n',
+          `data: {"type":"response.output_item.done","item":{"type":"function_call","name":"${flattenedToolName}","arguments":"{}","call_id":"call_123"}}\n\n`,
           'event: response.completed\n',
-          'data: {"type":"response.completed","response":{"output":[{"type":"function_call","name":"mcp__code_info__.ListIngestedRepositories","arguments":"{}","call_id":"call_123"}]}}\n\n',
+          `data: {"type":"response.completed","response":{"output":[{"type":"function_call","name":"${flattenedToolName}","arguments":"{}","call_id":"call_123"}]}}\n\n`,
         ],
       },
     ],
@@ -595,27 +629,7 @@ test('OpenAI-compatible proxy restores namespace tool calls inside streamed Code
 
   const response = await request(createApp())
     .post(pathName)
-    .send({
-      model: 'alpha-model',
-      input: 'hello',
-      tools: [
-        {
-          type: 'namespace',
-          name: 'mcp__code_info__',
-          tools: [
-            {
-              type: 'function',
-              name: 'ListIngestedRepositories',
-              parameters: {
-                type: 'object',
-                properties: {},
-                additionalProperties: false,
-              },
-            },
-          ],
-        },
-      ],
-    })
+    .send(JSON.parse(originalRequestBody))
     .expect(200);
 
   assert.match(
@@ -624,8 +638,84 @@ test('OpenAI-compatible proxy restores namespace tool calls inside streamed Code
   );
   assert.doesNotMatch(
     response.text,
-    /"name":"mcp__code_info__\.ListIngestedRepositories"/,
+    /"name":"codexns_[A-Za-z0-9_-]+"/,
   );
+});
+
+test('OpenAI-compatible proxy preserves multibyte UTF-8 characters when restoring streamed Codex tool calls', async () => {
+  const originalRequestBody = JSON.stringify({
+    model: 'alpha-model',
+    input: 'hello',
+    tools: [
+      {
+        type: 'namespace',
+        name: 'mcp__code_info__',
+        tools: [
+          {
+            type: 'function',
+            name: 'ListIngestedRepositories',
+            parameters: {
+              type: 'object',
+              properties: {},
+              additionalProperties: false,
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const expectedFlattened = flattenCodexNamespaceToolsForCustomProvider(
+    originalRequestBody,
+  );
+  const flattenedToolName = Object.keys(expectedFlattened.namespaceToolCallMap)[0];
+  const payloadText =
+    `data: {"type":"response.output_item.done","item":{"type":"function_call","name":"${flattenedToolName}","arguments":"{\\"note\\":\\"emoji 😄\\"}","call_id":"call_123"}}\n\n`;
+  const payloadBuffer = Buffer.from(payloadText, 'utf8');
+  const emojiBytes = Buffer.from('😄', 'utf8');
+  const emojiStart = payloadBuffer.indexOf(emojiBytes);
+  assert.notEqual(emojiStart, -1);
+  const splitAt = emojiStart + 2;
+
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        headers: {
+          'content-type': 'text/event-stream',
+        },
+        bodyChunks: [
+          Buffer.from('event: response.output_item.done\n', 'utf8'),
+          payloadBuffer.subarray(0, splitAt),
+          payloadBuffer.subarray(splitAt),
+        ],
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+    },
+    consumer: 'codex',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send(JSON.parse(originalRequestBody))
+    .expect(200);
+
+  assert.match(
+    response.text,
+    /"name":"ListIngestedRepositories".*"namespace":"mcp__code_info__"/,
+  );
+  assert.match(response.text, /emoji 😄/u);
+  assert.doesNotMatch(response.text, /�/u);
 });
 
 test('OpenAI-compatible proxy strips upstream content-encoding when relaying decoded JSON bodies', async () => {

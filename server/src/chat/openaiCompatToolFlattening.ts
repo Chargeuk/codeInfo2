@@ -26,6 +26,14 @@ type NamespaceToolCallTarget = {
   namespace: string;
 };
 
+const FLATTENED_NAMESPACE_TOOL_PREFIX = 'codexns_';
+
+const encodeFlattenedNamespaceToolName = (
+  namespaceName: string,
+  nestedName: string,
+) =>
+  `${FLATTENED_NAMESPACE_TOOL_PREFIX}${Buffer.from(namespaceName, 'utf8').toString('base64url')}_${Buffer.from(nestedName, 'utf8').toString('base64url')}`;
+
 export type CodexFlattenedNamespaceToolMap = Record<
   string,
   NamespaceToolCallTarget
@@ -61,7 +69,10 @@ const flattenNamespaceTool = (
         ? nestedTool.name
         : null;
     if (!nestedName) continue;
-    const flattenedName = `${namespaceName}.${nestedName}`;
+    const flattenedName = encodeFlattenedNamespaceToolName(
+      namespaceName,
+      nestedName,
+    );
     flattenedTools.push({
       ...cloneTool(nestedTool),
       type: 'function',

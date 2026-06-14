@@ -78,15 +78,19 @@ test('flattenCodexNamespaceToolsForCustomProvider flattens namespace tools into 
   const parsed = JSON.parse(flattened.bodyText as string) as {
     tools: Array<Record<string, unknown>>;
   };
+  const encodedToolNames = Object.keys(flattened.namespaceToolCallMap);
 
   assert.deepEqual(
     parsed.tools.map((tool) => tool.name),
     [
       'exec_command',
-      'mcp__code_info__.ListIngestedRepositories',
-      'mcp__code_info__.VectorSearch',
+      ...encodedToolNames,
     ],
   );
+  for (const tool of parsed.tools.slice(1)) {
+    assert.match(String(tool.name), /^[A-Za-z0-9_-]+$/);
+    assert.doesNotMatch(String(tool.name), /\./);
+  }
   assert.equal(parsed.tools[1]?.type, 'function');
   assert.equal(parsed.tools[2]?.type, 'function');
   assert.deepEqual(parsed.tools[2]?.parameters, {
@@ -98,11 +102,11 @@ test('flattenCodexNamespaceToolsForCustomProvider flattens namespace tools into 
     additionalProperties: false,
   });
   assert.deepEqual(flattened.namespaceToolCallMap, {
-    'mcp__code_info__.ListIngestedRepositories': {
+    [encodedToolNames[0]]: {
       namespace: 'mcp__code_info__',
       name: 'ListIngestedRepositories',
     },
-    'mcp__code_info__.VectorSearch': {
+    [encodedToolNames[1]]: {
       namespace: 'mcp__code_info__',
       name: 'VectorSearch',
     },
@@ -110,6 +114,19 @@ test('flattenCodexNamespaceToolsForCustomProvider flattens namespace tools into 
 });
 
 test('restoreCodexNamespaceToolCallsFromCustomProviderResponse restores namespace on flattened function calls', () => {
+  const flattenedName = Object.keys(
+    flattenCodexNamespaceToolsForCustomProvider(
+      JSON.stringify({
+        tools: [
+          {
+            type: 'namespace',
+            name: 'mcp__code_info__',
+            tools: [{ type: 'function', name: 'ListIngestedRepositories' }],
+          },
+        ],
+      }),
+    ).namespaceToolCallMap,
+  )[0];
   const response = JSON.stringify({
     id: 'resp_123',
     object: 'response',
@@ -117,7 +134,7 @@ test('restoreCodexNamespaceToolCallsFromCustomProviderResponse restores namespac
     output: [
       {
         type: 'function_call',
-        name: 'mcp__code_info__.ListIngestedRepositories',
+        name: flattenedName,
         arguments: '{}',
         call_id: 'call_123',
       },
@@ -127,7 +144,7 @@ test('restoreCodexNamespaceToolCallsFromCustomProviderResponse restores namespac
   const restored = restoreCodexNamespaceToolCallsFromCustomProviderResponse(
     response,
     {
-      'mcp__code_info__.ListIngestedRepositories': {
+      [flattenedName]: {
         namespace: 'mcp__code_info__',
         name: 'ListIngestedRepositories',
       },

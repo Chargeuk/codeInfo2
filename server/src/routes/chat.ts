@@ -478,6 +478,16 @@ export function createChatRouter({
       resumedExecutionIdentity?.provider ?? requestedProvider;
     const effectiveRequestedModel =
       resumedExecutionIdentity?.model ?? requestedModel;
+    if (
+      effectiveRequestedProvider === 'lmstudio' &&
+      resumedExecutionIdentity?.endpointId
+    ) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'VALIDATION_FAILED',
+        message: 'endpointId is not supported for provider "lmstudio"',
+      });
+    }
     const explicitProviderSelected =
       resumedExecutionIdentity !== null ||
       defaultsResolution.providerSource === 'request';
@@ -691,9 +701,19 @@ export function createChatRouter({
       throw error;
     }
     const selectedEndpointId =
-      resumedExecutionIdentity !== null
-        ? (resumedExecutionIdentity.endpointId ?? undefined)
-        : endpointId ?? pinnedSelectedEndpoint?.endpointId ?? undefined;
+      effectiveRequestedProvider === 'codex' ||
+      effectiveRequestedProvider === 'copilot'
+        ? resumedExecutionIdentity !== null
+          ? (resumedExecutionIdentity.endpointId ?? undefined)
+          : endpointId ?? pinnedSelectedEndpoint?.endpointId ?? undefined
+        : undefined;
+    const requestedEndpointId =
+      typeof endpointId === 'string' && endpointId.trim().length > 0
+        ? endpointId.trim()
+        : undefined;
+    const selectedEndpointIdCameFromRequest =
+      requestedEndpointId !== undefined &&
+      requestedEndpointId === selectedEndpointId;
     let selectedOpenAiCompatEndpoint: OpenAiCompatEndpointConfig | undefined;
     try {
       selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({
@@ -711,7 +731,7 @@ export function createChatRouter({
         message,
       });
     }
-    if (selectedEndpointId && !selectedOpenAiCompatEndpoint) {
+    if (selectedEndpointIdCameFromRequest && !selectedOpenAiCompatEndpoint) {
       return res.status(400).json({
         status: 'error',
         code: 'VALIDATION_FAILED',

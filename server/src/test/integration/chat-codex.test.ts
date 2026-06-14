@@ -1392,6 +1392,74 @@ test('POST /chat accepts a Codex endpoint pinned only in chat config when select
   }
 });
 
+test('resumed Codex chat treats a missing saved endpoint as provider unavailability instead of request validation failure', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+
+  const conversationId = 'conv-codex-missing-saved-endpoint';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Missing saved endpoint',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-missing-saved-endpoint',
+      endpointId: 'https://missing.example/v1',
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new MockCodex('thread-missing-saved-endpoint');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        conversationId,
+        message: 'Continue the saved endpoint conversation',
+      })
+      .expect(503);
+
+    assert.equal(response.body.status, 'error');
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(
+      String(response.body.message),
+      /Endpoint "https:\/\/missing\.example\/v1" is unavailable\./u,
+    );
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(mockCodex.lastResumeOptions, undefined);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('pinned Codex chat fails in place when the saved endpoint later becomes unavailable', async () => {
   setCodexDetection({
     available: true,

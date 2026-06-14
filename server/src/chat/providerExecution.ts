@@ -115,8 +115,8 @@ export function resolveOpenAiCompatEndpointById(params: {
     env: params.env ?? process.env,
   });
   const endpoint = [
-    ...envResolution.endpoints,
     ...(params.configuredEndpoint ? [params.configuredEndpoint] : []),
+    ...envResolution.endpoints,
   ].find((entry) => entry.endpointId === normalizedEndpointId);
   if (!endpoint) {
     return undefined;

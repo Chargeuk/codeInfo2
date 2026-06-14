@@ -147,6 +147,21 @@ export function createChatProvidersRouter({
             liveModels: [],
             warnings: [],
           };
+    const resolvedRequestedModel =
+      requestedDefaults.provider === 'codex' ||
+      requestedDefaults.provider === 'copilot'
+        ? (externalOpenAiCompatDiscovery.selectedModelKey ?? requestedModel)
+        : requestedModel;
+    const selectedProviderModelMetadata =
+      externalOpenAiCompatDiscovery.selectedModelKey &&
+      (requestedDefaults.provider === 'codex' ||
+        requestedDefaults.provider === 'copilot')
+        ? {
+            defaultModel: externalOpenAiCompatDiscovery.selectedModelKey,
+            defaultModelSource: 'config' as const,
+            warnings: [] as string[],
+          }
+        : undefined;
     const copilotModelMetadata = resolveCopilotDefaultModel({
       models: copilot.modelsRaw,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
@@ -181,7 +196,7 @@ export function createChatProvidersRouter({
           };
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
-      requestedModel,
+      requestedModel: resolvedRequestedModel,
       codex: {
         available: codex.available && codexBootstrapHealthy,
         models: prioritizeRuntimeProviderModels(
@@ -191,7 +206,9 @@ export function createChatProvidersRouter({
               ? externalOpenAiCompatDiscovery.liveModels
               : []),
           ],
-          codexRequestedDefaults?.values.model,
+          requestedDefaults.provider === 'codex'
+            ? resolvedRequestedModel
+            : codexRequestedDefaults?.values.model,
         ),
         reason:
           getProviderBootstrapReason('codex') ??
@@ -207,7 +224,9 @@ export function createChatProvidersRouter({
               ? externalOpenAiCompatDiscovery.liveModels
               : []),
           ],
-          copilotModelMetadata.defaultModel,
+          requestedDefaults.provider === 'copilot'
+            ? resolvedRequestedModel
+            : copilotModelMetadata.defaultModel,
         ),
         reason: getProviderBootstrapReason('copilot') ?? copilot.reason,
       },
@@ -283,6 +302,10 @@ export function createChatProvidersRouter({
             : []),
         ],
         liveModels: copilotLiveModels,
+        modelMetadata:
+          requestedDefaults.provider === 'copilot'
+            ? selectedProviderModelMetadata
+            : undefined,
         agentFlags: copilotAgentFlags.agentFlags,
       }),
       lmstudio: buildProviderInfo({
@@ -315,6 +338,10 @@ export function createChatProvidersRouter({
         codexHome,
         warnings: codexWarnings,
         liveModels: codexLiveModels,
+        modelMetadata:
+          requestedDefaults.provider === 'codex'
+            ? selectedProviderModelMetadata
+            : undefined,
         agentFlags: buildCodexAgentFlags({
           capabilities,
           codexHome,

@@ -1173,6 +1173,67 @@ test('codex models route clears stale endpoint identity when the default normali
   }
 });
 
+test('codex models route promotes a pinned endpoint-backed default once and removes the plain duplicate', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['unsloth/gemma-4-26B-A4B-it-qat-GGUF'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "unsloth/gemma-4-26b-A4b-it-qat-GGUF"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `SparkUnsloth,${externalServer.baseUrl}/v1|responses`,
+  );
+  env.set('Codex_model_list', 'unsloth/gemma-4-26b-A4b-it-qat-GGUF,builtin-a');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const matchingModels = (
+      res.body.models as Array<Record<string, unknown>>
+    ).filter(
+      (model) =>
+        String(model.key ?? '').trim().toLowerCase() ===
+        'unsloth/gemma-4-26b-a4b-it-qat-gguf',
+    );
+
+    assert.equal(res.body.defaultModel, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
+    assert.equal(res.body.defaultModelSource, 'config');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+    assert.equal(matchingModels.length, 1);
+    assert.equal(
+      matchingModels[0]?.key,
+      'unsloth/gemma-4-26B-A4B-it-qat-GGUF',
+    );
+    assert.equal(matchingModels[0]?.endpointId, `${externalServer.baseUrl}/v1`);
+    assert.equal(res.body.models[0]?.key, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
+    assert.equal(
+      res.body.models[0]?.endpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('codex models route uses the configured endpoint label in endpoint-backed display names', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['shared-model'],

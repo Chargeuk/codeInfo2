@@ -33,7 +33,10 @@ import {
   memoryConversations,
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
-import { resolveOpenAiCompatEndpointRuntimeState } from '../chat/openaiCompatModelDiscovery.js';
+import {
+  prepareProviderExecution,
+  resolveOpenAiCompatEndpointById,
+} from '../chat/providerExecution.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -43,16 +46,11 @@ import {
   prioritizeRuntimeProviderModels,
   resolveProviderRuntimePreferredModel,
   resolveCodexChatDefaults,
-  resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
 import {
-  applyCodexOpenAiCompatEndpointToRuntimeConfig,
-} from '../config/codexConfig.js';
-import {
   type OpenAiCompatEndpointConfig,
   parseOpenAiCompatEndpointConfig,
-  validateOpenAiCompatEndpointConfigForProvider,
 } from '../config/openaiCompatEndpoints.js';
 import {
   RuntimeConfigResolutionError,
@@ -60,9 +58,7 @@ import {
   loadProviderChatDefaultsSnapshotSync,
   materializeRepositoryBackedCodexChatHome,
   resolveChatRuntimeConfig,
-  type RuntimeTomlConfig,
 } from '../config/runtimeConfig.js';
-import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
@@ -176,83 +172,23 @@ function resolvePinnedOpenAiCompatEndpoint(params: {
 function resolveOpenAiCompatEndpointForChat(params: {
   provider: ChatDefaultProvider;
   endpointId?: string | null;
-  codexHome?: string;
-  copilotHome?: string;
+  configuredEndpoint?: OpenAiCompatEndpointConfig;
   env?: NodeJS.ProcessEnv;
 }): OpenAiCompatEndpointConfig | undefined {
-  const normalizedEndpointId = params.endpointId?.trim();
-  if (!normalizedEndpointId) {
+  if (
+    params.provider !== 'codex' &&
+    params.provider !== 'copilot'
+  ) {
     return undefined;
   }
-
-  const envResolution = resolveExternalOpenAiCompatEndpoints({
-    env: params.env ?? process.env,
-  });
-  const pinnedEndpoint = resolvePinnedOpenAiCompatEndpoint({
+  return resolveOpenAiCompatEndpointById({
     provider: params.provider,
-    codexHome: params.codexHome,
-    copilotHome: params.copilotHome,
-  });
-
-  const endpoint = [
-    ...envResolution.endpoints,
-    ...(pinnedEndpoint ? [pinnedEndpoint] : []),
-  ].find((entry) => entry.endpointId === normalizedEndpointId);
-  if (!endpoint) {
-    return undefined;
-  }
-
-  validateOpenAiCompatEndpointConfigForProvider({
-    endpoint,
-    provider: params.provider,
+    endpointId: params.endpointId,
+    configuredEndpoint: params.configuredEndpoint,
+    env: params.env,
     pathLabel: 'chat.endpointId',
   });
-  return endpoint;
 }
-
-const buildRuntimeSelectionWarning = (params: {
-  executionPath:
-    | 'configured_endpoint'
-    | 'same_endpoint_repair'
-    | 'same_provider_native_fallback'
-    | 'cross_provider_fallback'
-    | 'unavailable';
-  requestedProvider: ChatDefaultProvider;
-  executionProvider: ChatDefaultProvider;
-  requestedModel: string;
-  executionModel: string;
-  endpointId?: string;
-  endpointReason?: string;
-  requestedReason?: string;
-  fallbackReason?: string;
-}) => {
-  switch (params.executionPath) {
-    case 'same_endpoint_repair':
-      return `Requested model "${params.requestedModel}" was unavailable on endpoint "${params.endpointId ?? 'unknown'}"; using "${params.executionModel}" instead.`;
-    case 'same_provider_native_fallback':
-      if (!params.endpointId) {
-        return `Requested provider "${params.requestedProvider}" was unavailable; using native ${params.executionProvider} model "${params.executionModel}".`;
-      }
-      return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; falling back to native ${params.executionProvider} model "${params.executionModel}".`;
-    case 'cross_provider_fallback':
-      if (!params.endpointId) {
-        return `Requested provider "${params.requestedProvider}" was unavailable; fell back to provider "${params.executionProvider}" model "${params.executionModel}".`;
-      }
-      return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; fell back to provider "${params.executionProvider}" model "${params.executionModel}".`;
-    case 'unavailable':
-      return (
-        params.endpointReason ??
-        params.requestedReason ??
-        params.fallbackReason ??
-        (params.endpointId
-          ? `Endpoint "${params.endpointId}" is unavailable.`
-          : `Provider "${params.requestedProvider}" is unavailable.`)
-      );
-    case 'configured_endpoint':
-    default:
-      return undefined;
-  }
-};
 
 const isChatModel = (model: { type?: string; architecture?: string }) => {
   const kind = (model.type ?? '').toLowerCase();
@@ -542,6 +478,16 @@ export function createChatRouter({
       resumedExecutionIdentity?.provider ?? requestedProvider;
     const effectiveRequestedModel =
       resumedExecutionIdentity?.model ?? requestedModel;
+    if (
+      effectiveRequestedProvider === 'lmstudio' &&
+      resumedExecutionIdentity?.endpointId
+    ) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'VALIDATION_FAILED',
+        message: 'endpointId is not supported for provider "lmstudio"',
+      });
+    }
     const explicitProviderSelected =
       resumedExecutionIdentity !== null ||
       defaultsResolution.providerSource === 'request';
@@ -755,16 +701,25 @@ export function createChatRouter({
       throw error;
     }
     const selectedEndpointId =
-      resumedExecutionIdentity !== null
-        ? (resumedExecutionIdentity.endpointId ?? undefined)
-        : endpointId ?? pinnedSelectedEndpoint?.endpointId ?? undefined;
+      effectiveRequestedProvider === 'codex' ||
+      effectiveRequestedProvider === 'copilot'
+        ? resumedExecutionIdentity !== null
+          ? (resumedExecutionIdentity.endpointId ?? undefined)
+          : endpointId ?? pinnedSelectedEndpoint?.endpointId ?? undefined
+        : undefined;
+    const requestedEndpointId =
+      typeof endpointId === 'string' && endpointId.trim().length > 0
+        ? endpointId.trim()
+        : undefined;
+    const selectedEndpointIdCameFromRequest =
+      requestedEndpointId !== undefined &&
+      requestedEndpointId === selectedEndpointId;
     let selectedOpenAiCompatEndpoint: OpenAiCompatEndpointConfig | undefined;
     try {
       selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({
         provider: effectiveRequestedProvider,
         endpointId: selectedEndpointId,
-        codexHome,
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        configuredEndpoint: pinnedSelectedEndpoint,
         env: process.env,
       });
     } catch (error) {
@@ -776,7 +731,7 @@ export function createChatRouter({
         message,
       });
     }
-    if (selectedEndpointId && !selectedOpenAiCompatEndpoint) {
+    if (selectedEndpointIdCameFromRequest && !selectedOpenAiCompatEndpoint) {
       return res.status(400).json({
         status: 'error',
         code: 'VALIDATION_FAILED',
@@ -784,65 +739,69 @@ export function createChatRouter({
       });
     }
 
-    const selectedOpenAiCompatEndpointState =
-      selectedOpenAiCompatEndpoint !== undefined
-        ? await resolveOpenAiCompatEndpointRuntimeState({
-            endpoint: selectedOpenAiCompatEndpoint,
-            provider:
-              effectiveRequestedProvider === 'codex' ||
-              effectiveRequestedProvider === 'copilot'
-                ? effectiveRequestedProvider
-                : undefined,
-          })
-        : undefined;
-    const resolvedEndpointUnavailable =
-      selectedEndpointId !== undefined &&
-      (selectedOpenAiCompatEndpointState === undefined ||
-        !selectedOpenAiCompatEndpointState.available);
-    const runtimeEndpointState =
-      selectedOpenAiCompatEndpointState ??
-      (resolvedEndpointUnavailable
-        ? {
-            endpointId: selectedEndpointId,
-            available: false,
-            models: [],
-            reason: `Endpoint "${selectedEndpointId}" is unavailable.`,
+    const runtimeRequestedModel = normalizedRequestedModel;
+    let preparedExecution;
+    try {
+      preparedExecution = await prepareProviderExecution({
+        requestedProvider: effectiveRequestedProvider,
+        requestedModel: runtimeRequestedModel,
+        providerStates: runtimeProviderStates,
+        loadRuntimeConfig: async (provider) => {
+          try {
+            const resolved = await resolveChatRuntimeConfig({
+              provider,
+              ...(provider === 'copilot'
+                ? { copilotHome: process.env.CODEINFO_COPILOT_HOME }
+                : {}),
+            });
+            const { config } = resolved;
+            console.info(T06_SUCCESS_LOG, {
+              surface: '/chat',
+              provider,
+              hasModel: typeof config.model === 'string',
+            });
+            return {
+              config,
+              warnings: resolved.warnings.map((warning) => warning.message),
+            };
+          } catch (error) {
+            const code =
+              error instanceof RuntimeConfigResolutionError
+                ? error.code
+                : 'UNKNOWN_ERROR';
+            console.error(`${T06_ERROR_LOG} surface=/chat code=${code}`);
+            throw error;
           }
-        : undefined);
-    const runtimeRequestedModel =
-      resolvedEndpointUnavailable && effectiveRequestedProvider === 'codex'
-        ? codexPreferredDefaults.values.model
-        : normalizedRequestedModel;
-    const runtimeSelection = resolveRuntimeProviderSelection({
-      requestedProvider: effectiveRequestedProvider,
-      requestedModel: runtimeRequestedModel,
-      endpoint: runtimeEndpointState,
-      failInPlaceOnEndpointUnavailable: Boolean(
-        resumedExecutionIdentity?.endpointId &&
-          resumedExecutionIdentity.endpointId === selectedEndpointId,
-      ),
-      allowCrossProviderFallback: !explicitProviderSelected,
-      codex: runtimeProviderStates.codex,
-      copilot: runtimeProviderStates.copilot,
-      lmstudio: runtimeProviderStates.lmstudio,
-    });
-    const executionProvider = runtimeSelection.executionProvider;
-    const executionModel = runtimeSelection.executionModel;
-
-    const runtimeSelectionWarning = buildRuntimeSelectionWarning({
-      executionPath: runtimeSelection.executionPath,
-      requestedProvider: runtimeSelection.requestedProvider,
-      executionProvider: runtimeSelection.executionProvider,
-      requestedModel: runtimeSelection.requestedModel,
-      executionModel: runtimeSelection.executionModel,
-      endpointId: runtimeSelection.endpointId,
-      endpointReason: runtimeSelection.endpointReason,
-      requestedReason: runtimeSelection.requestedReason,
-      fallbackReason: runtimeSelection.fallbackReason,
-    });
+        },
+        selectedEndpoint: selectedOpenAiCompatEndpoint,
+        selectedEndpointId,
+        allowCrossProviderFallback: !explicitProviderSelected,
+        failInPlaceOnEndpointUnavailable: Boolean(
+          resumedExecutionIdentity?.endpointId &&
+            resumedExecutionIdentity.endpointId === selectedEndpointId,
+        ),
+        env: process.env,
+      });
+    } catch (error) {
+      const code =
+        error instanceof RuntimeConfigResolutionError
+          ? error.code
+          : 'UNKNOWN_ERROR';
+      return res.status(500).json({
+        status: 'error',
+        code,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'chat runtime config resolution failed',
+      });
+    }
+    const runtimeSelection = preparedExecution.runtimeSelection;
+    const executionProvider = preparedExecution.executionProvider;
+    const executionModel = preparedExecution.executionModel;
     const responseWarnings = mergeWarningMessages(
       warnings,
-      runtimeSelectionWarning ? [runtimeSelectionWarning] : undefined,
+      preparedExecution.warnings,
     );
     if (threadId && executionProvider !== 'codex') {
       return res.status(400).json({
@@ -901,52 +860,9 @@ export function createChatRouter({
       warningCount: responseWarningsWithAgentFlags.length,
       defaultsResolution,
     });
-    const executionUsesEndpoint =
-      runtimeSelection.executionPath === 'configured_endpoint' ||
-      runtimeSelection.executionPath === 'same_endpoint_repair';
-
-    let chatRuntimeConfig: RuntimeTomlConfig | undefined;
-
-    if (executionProvider === 'codex' || executionProvider === 'copilot') {
-      try {
-        const { config } = await resolveChatRuntimeConfig({
-          provider: executionProvider,
-          ...(executionProvider === 'copilot'
-            ? { copilotHome: process.env.CODEINFO_COPILOT_HOME }
-            : {}),
-        });
-        chatRuntimeConfig =
-          executionProvider === 'codex' && executionUsesEndpoint
-            ? applyCodexOpenAiCompatEndpointToRuntimeConfig(
-              config as CodexOptions['config'],
-              selectedOpenAiCompatEndpoint,
-              {
-                env: process.env,
-                modelId: runtimeSelection.executionModel,
-              },
-            )
-            : config;
-        console.info(T06_SUCCESS_LOG, {
-          surface: '/chat',
-          provider: executionProvider,
-          hasModel: typeof config.model === 'string',
-        });
-      } catch (error) {
-        const code =
-          error instanceof RuntimeConfigResolutionError
-            ? error.code
-            : 'UNKNOWN_ERROR';
-        console.error(`${T06_ERROR_LOG} surface=/chat code=${code}`);
-        return res.status(500).json({
-          status: 'error',
-          code,
-          message:
-            error instanceof Error
-              ? error.message
-              : 'chat runtime config resolution failed',
-        });
-      }
-    }
+    const executionUsesEndpoint = preparedExecution.executionUsesEndpoint;
+    const executionEndpointId = preparedExecution.endpointId;
+    const chatRuntimeConfig = preparedExecution.runtimeConfig;
 
     const fallbackLogContext = {
       requestId,
@@ -996,7 +912,7 @@ export function createChatRouter({
     const shouldResumeCopilotSession =
       existingConversation?.provider === 'copilot' &&
       existingConversation.model === executionModel &&
-      existingConversationEndpointId === selectedEndpointId;
+      existingConversationEndpointId === executionEndpointId;
     let effectiveWorkingFolder = requestedWorkingFolder;
     try {
       if (!effectiveWorkingFolder && existingConversation) {
@@ -1068,7 +984,7 @@ export function createChatRouter({
             ? currentFlags.endpointId.trim()
             : undefined;
         const nextEndpointId = executionUsesEndpoint
-          ? (selectedEndpointId ?? currentEndpointId ?? undefined)
+          ? (executionEndpointId ?? currentEndpointId ?? undefined)
           : undefined;
         const persistedEndpointId = nextEndpointId ?? null;
         const persistedThreadId =
@@ -1455,7 +1371,7 @@ export function createChatRouter({
               threadId ??
               (ensuredConversation.provider === 'codex' &&
               ensuredConversation.model === executionModel &&
-              existingConversationEndpointId === selectedEndpointId
+              existingConversationEndpointId === executionEndpointId
                 ? ((ensuredConversation.flags?.threadId as string | undefined) ??
                   null)
                 : null) ??
@@ -1507,8 +1423,12 @@ export function createChatRouter({
               baseUrl,
               inflightId,
               agentFlags: effectiveAgentFlags,
-              ...(executionUsesEndpoint && selectedOpenAiCompatEndpoint
-                ? { codeinfoOpenAiEndpoint: selectedOpenAiCompatEndpoint }
+              ...(executionUsesEndpoint &&
+              preparedExecution.openAiCompatEndpoint
+                ? {
+                    codeinfoOpenAiEndpoint:
+                      preparedExecution.openAiCompatEndpoint,
+                  }
                 : {}),
               repositoryContext: executionContext.repositoryMetadata,
               runtime: chatRuntimeMetadata,

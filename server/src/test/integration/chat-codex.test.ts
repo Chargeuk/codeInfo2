@@ -632,7 +632,7 @@ test('shared-home device-auth success unlocks chat without extra target selectio
   assert.equal(res.status, 202);
 });
 
-test('codex chat uses chat runtime config file (not base behavior keys)', async () => {
+test('codex chat uses chat runtime config file for inherited behavior keys while keeping the resolved execution model', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -699,12 +699,11 @@ test('codex chat uses chat runtime config file (not base behavior keys)', async 
   try {
     const response = await request(app)
       .post('/chat')
-      .send(
-        buildCodexBody({
-          conversationId: 'conv-codex-chat-config',
-          message: 'Use runtime config',
-        }),
-      );
+      .send({
+        provider: 'codex',
+        conversationId: 'conv-codex-chat-config',
+        message: 'Use runtime config',
+      });
     assert.equal(response.status, 202);
 
     const deadline = Date.now() + 3000;
@@ -715,7 +714,7 @@ test('codex chat uses chat runtime config file (not base behavior keys)', async 
     assert.equal(capturedOptions.env?.CODEX_HOME, tempCodexHome);
     assert.equal(
       (capturedOptions.config as Record<string, unknown>)?.model,
-      'chat-should-win',
+      'gpt-5.1-codex-max',
     );
 
     const projects =
@@ -1299,6 +1298,159 @@ test('endpoint-unavailable Codex chat falls back to the same provider native pat
       process.env.CODEX_HOME = originalRuntimeCodexHome;
     }
     await fs.rm(codexHome, { recursive: true, force: true });
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('POST /chat accepts a Codex endpoint pinned only in chat config when selectedEndpointId comes from that config', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha-model'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const originalCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const originalRuntimeCodexHome = process.env.CODEX_HOME;
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-home-'));
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    [
+      'model = "alpha-model"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+
+  const mockCodex = new MockCodex('thread-config-pinned-endpoint');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+    }),
+  );
+
+  try {
+    const conversationId = 'conv-codex-config-pinned-endpoint';
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        provider: 'codex',
+        conversationId,
+        message: 'Use the pinned endpoint from config',
+      })
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'alpha-model');
+    assert.equal(mockCodex.lastStartOptions?.model, 'alpha-model');
+    assert.equal(externalServer.requestCount(), 1);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+  } finally {
+    await externalServer.stop();
+    if (originalCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodexHome;
+    }
+    if (originalRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalRuntimeCodexHome;
+    }
+    await fs.rm(codexHome, { recursive: true, force: true });
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
+test('resumed Codex chat treats a missing saved endpoint as provider unavailability instead of request validation failure', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+
+  const conversationId = 'conv-codex-missing-saved-endpoint';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Missing saved endpoint',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-missing-saved-endpoint',
+      endpointId: 'https://missing.example/v1',
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const mockCodex = new MockCodex('thread-missing-saved-endpoint');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        conversationId,
+        message: 'Continue the saved endpoint conversation',
+      })
+      .expect(503);
+
+    assert.equal(response.body.status, 'error');
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(
+      String(response.body.message),
+      /Endpoint "https:\/\/missing\.example\/v1" is unavailable\./u,
+    );
+    assert.equal(mockCodex.lastStartOptions, undefined);
+    assert.equal(mockCodex.lastResumeOptions, undefined);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
     if (originalCompatEndpoints === undefined) {
       delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
     } else {

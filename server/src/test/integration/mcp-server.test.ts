@@ -206,6 +206,45 @@ test('tools/list returns MCP tool definitions', async () => {
   assert.ok(names.includes('AstFindReferences'));
   assert.ok(names.includes('AstCallGraph'));
   assert.ok(names.includes('AstModuleImports'));
+  const listReposTool = (
+    res.body.result.tools as Array<{
+      name: string;
+      outputSchema?: {
+        properties?: {
+          repos?: {
+            items?: {
+              properties?: Record<string, unknown>;
+            };
+          };
+          queueReadDegraded?: Record<string, unknown>;
+          queueReadError?: {
+            properties?: Record<string, unknown>;
+          };
+        };
+      };
+    }>
+  ).find((tool) => tool.name === 'ListIngestedRepositories');
+  assert.ok(listReposTool);
+  assert.ok(
+    listReposTool.outputSchema?.properties?.repos?.items?.properties?.ast,
+  );
+  assert.deepEqual(listReposTool.outputSchema?.properties?.queueReadDegraded, {
+    type: 'boolean',
+  });
+  assert.deepEqual(
+    listReposTool.outputSchema?.properties?.queueReadError?.properties,
+    {
+      error: { type: 'string' },
+      message: { type: 'string' },
+      retryable: { type: 'boolean' },
+      provider: {
+        type: 'string',
+        enum: ['lmstudio', 'openai', 'ingest'],
+      },
+      upstreamStatus: { type: 'integer' },
+      retryAfterMs: { type: 'integer' },
+    },
+  );
 });
 
 test('tools/list does not emit keepalive preamble bytes', async () => {
@@ -236,6 +275,7 @@ test('tools/call executes ListIngestedRepositories', async () => {
   assert.equal(content.type, 'text');
   const parsed = JSON.parse(content.text as string);
   assert.equal(parsed.repos[0].id, 'repo-1');
+  assert.deepEqual(res.body.result.structuredContent, parsed);
 });
 
 test('tools/call emits whitespace preamble and remains parseable JSON', async () => {

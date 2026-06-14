@@ -86,6 +86,23 @@ type Deps = {
 
 type RepositoryField = 'repository' | 'sourceId';
 
+const normalizedRepoErrorSchema = {
+  type: ['object', 'null'],
+  required: ['error', 'message', 'retryable', 'provider'],
+  properties: {
+    error: { type: 'string' },
+    message: { type: 'string' },
+    retryable: { type: 'boolean' },
+    provider: {
+      type: 'string',
+      enum: ['lmstudio', 'openai', 'ingest'],
+    },
+    upstreamStatus: { type: 'integer' },
+    retryAfterMs: { type: 'integer' },
+  },
+  additionalProperties: false,
+} as const;
+
 async function canonicalizeRepositorySelectorArgs(
   args: unknown,
   field: RepositoryField,
@@ -120,6 +137,16 @@ async function canonicalizeRepositorySelectorArgs(
 }
 
 const PROTOCOL_VERSION = '2024-11-05';
+
+function jsonRpcStructuredToolResult<T extends Record<string, unknown>>(
+  id: string | number | null,
+  payload: T,
+) {
+  return jsonRpcResult(id, {
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
+    structuredContent: payload,
+  }) as JsonRpcLikeResponse;
+}
 
 function logLockResolverState(
   requestId: string | undefined,
@@ -262,6 +289,23 @@ const moduleImportsSchema = {
   additionalProperties: false,
 };
 
+const astCoverageSchema = {
+  type: 'object',
+  required: [
+    'supportedFileCount',
+    'skippedFileCount',
+    'failedFileCount',
+    'lastIndexedAt',
+  ],
+  properties: {
+    supportedFileCount: { type: 'integer', minimum: 0 },
+    skippedFileCount: { type: 'integer', minimum: 0 },
+    failedFileCount: { type: 'integer', minimum: 0 },
+    lastIndexedAt: { type: ['string', 'null'], format: 'date-time' },
+  },
+  additionalProperties: false,
+};
+
 const baseToolDefinitions = [
   {
     name: 'ListIngestedRepositories',
@@ -356,23 +400,9 @@ const baseToolDefinitions = [
                   embedded: { type: 'number' },
                 },
               },
+              ast: astCoverageSchema,
               lastError: { type: ['string', 'null'] },
-              error: {
-                type: ['object', 'null'],
-                required: ['error', 'message', 'retryable', 'provider'],
-                properties: {
-                  error: { type: 'string' },
-                  message: { type: 'string' },
-                  retryable: { type: 'boolean' },
-                  provider: {
-                    type: 'string',
-                    enum: ['lmstudio', 'openai', 'ingest'],
-                  },
-                  upstreamStatus: { type: 'integer' },
-                  retryAfterMs: { type: 'integer' },
-                },
-                additionalProperties: false,
-              },
+              error: normalizedRepoErrorSchema,
             },
             additionalProperties: false,
           },
@@ -397,6 +427,8 @@ const baseToolDefinitions = [
         },
         lockedModelId: { type: ['string', 'null'] },
         schemaVersion: { type: 'string' },
+        queueReadDegraded: { type: 'boolean' },
+        queueReadError: normalizedRepoErrorSchema,
       },
       additionalProperties: false,
     },
@@ -424,6 +456,8 @@ const baseToolDefinitions = [
         'operation',
         'runId',
         'sourceId',
+        'resolvedRepositoryId',
+        'completionMode',
         'durationMs',
         'files',
         'chunks',
@@ -435,6 +469,11 @@ const baseToolDefinitions = [
         operation: { type: 'string', enum: ['reembed'] },
         runId: { type: 'string' },
         sourceId: { type: 'string' },
+        resolvedRepositoryId: { type: ['string', 'null'] },
+        completionMode: {
+          type: ['string', 'null'],
+          enum: ['reingested', 'skipped', null],
+        },
         durationMs: { type: 'number', minimum: 0 },
         files: { type: 'number' },
         chunks: { type: 'number' },
@@ -838,11 +877,10 @@ export function createMcpRouter(
                 schemaVersion:
                   payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
               };
-              return jsonRpcResult(id as never, {
-                content: [
-                  { type: 'text', text: JSON.stringify(normalizedPayload) },
-                ],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(
+                id as never,
+                normalizedPayload,
+              );
             }
 
             if (toolCall.name === 'VectorSearch') {
@@ -887,9 +925,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'reingest_repository') {
@@ -947,9 +983,7 @@ export function createMcpRouter(
                   payload: result.value,
                 },
               });
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(result.value) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, result.value);
             }
 
             if (toolCall.name === 'AstListSymbols') {
@@ -972,9 +1006,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstFindDefinition') {
@@ -999,9 +1031,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstFindReferences') {
@@ -1026,9 +1056,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstCallGraph') {
@@ -1054,9 +1082,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             if (toolCall.name === 'AstModuleImports') {
@@ -1073,9 +1099,7 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
-              return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
-              }) as JsonRpcLikeResponse;
+              return jsonRpcStructuredToolResult(id as never, payload);
             }
 
             return invalidParams(id, `Unknown tool ${toolCall.name}`);

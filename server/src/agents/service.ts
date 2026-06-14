@@ -42,6 +42,7 @@ import {
   updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import { resolveOpenAiCompatEndpointRuntimeState } from '../chat/openaiCompatModelDiscovery.js';
+import { buildRuntimeSelectionWarning } from '../chat/providerExecution.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../codex/capabilityResolver.js';
 import {
@@ -812,50 +813,6 @@ async function prepareDirectAgentExecution(params: {
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
   });
-  const buildRuntimeSelectionWarning = (params: {
-    executionPath:
-      | 'configured_endpoint'
-      | 'same_endpoint_repair'
-      | 'same_provider_native_fallback'
-      | 'cross_provider_fallback'
-      | 'unavailable';
-    requestedProvider: ChatProviderId;
-    executionProvider: ChatProviderId;
-    requestedModel: string;
-    executionModel: string;
-    endpointId?: string;
-    endpointReason?: string;
-    requestedReason?: string;
-    fallbackReason?: string;
-  }) => {
-    switch (params.executionPath) {
-      case 'same_endpoint_repair':
-        return `Requested model "${params.requestedModel}" was unavailable on endpoint "${params.endpointId ?? 'unknown'}"; using "${params.executionModel}" instead.`;
-      case 'same_provider_native_fallback':
-        if (!params.endpointId) {
-          return `Requested provider "${params.requestedProvider}" was unavailable; using native ${params.executionProvider} model "${params.executionModel}".`;
-        }
-        return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; falling back to native ${params.executionProvider} model "${params.executionModel}".`;
-      case 'cross_provider_fallback':
-        if (!params.endpointId) {
-          return `Requested provider "${params.requestedProvider}" was unavailable; fell back to provider "${params.executionProvider}" model "${params.executionModel}".`;
-        }
-        return `Endpoint "${params.endpointId ?? 'unknown'}" was unavailable; fell back to provider "${params.executionProvider}" model "${params.executionModel}".`;
-      case 'unavailable':
-        return (
-          params.endpointReason ??
-          params.requestedReason ??
-          params.fallbackReason ??
-          (params.endpointId
-            ? `Endpoint "${params.endpointId}" is unavailable.`
-            : `Provider "${params.requestedProvider}" is unavailable.`)
-        );
-      case 'configured_endpoint':
-      default:
-        return undefined;
-    }
-  };
-
   if (params.pinnedProviderId) {
     const providerState = runtimeProviderStates[params.pinnedProviderId];
     const providerRuntimeResolution = await resolveProviderRuntimeConfigForExecution({
@@ -958,6 +915,7 @@ async function prepareDirectAgentExecution(params: {
         : providerRuntimeResolution.config;
     const runtimeWarning = buildRuntimeSelectionWarning({
       executionPath: runtimeSelection.executionPath,
+      fallbackApplied: runtimeSelection.fallbackApplied,
       requestedProvider: runtimeSelection.requestedProvider,
       executionProvider: runtimeSelection.executionProvider,
       requestedModel: runtimeSelection.requestedModel,
@@ -1130,6 +1088,7 @@ async function prepareDirectAgentExecution(params: {
     }
     const runtimeWarning = buildRuntimeSelectionWarning({
       executionPath: runtimeSelection.executionPath,
+      fallbackApplied: runtimeSelection.fallbackApplied,
       requestedProvider: runtimeSelection.requestedProvider,
       executionProvider: runtimeSelection.executionProvider,
       requestedModel: runtimeSelection.requestedModel,

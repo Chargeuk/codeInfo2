@@ -38,6 +38,10 @@ test('ListIngestedRepositories default MCP path returns documented id, name, and
           lastIngestAt: '2026-01-01T00:00:00.000Z',
           state: 'completed',
           description: 'sample',
+          astSupportedFileCount: 4,
+          astSkippedFileCount: 1,
+          astFailedFileCount: 2,
+          astLastIndexedAt: '2026-01-02T00:00:00.000Z',
           lastError: null,
         },
       ],
@@ -79,6 +83,12 @@ test('ListIngestedRepositories default MCP path returns documented id, name, and
       model: string;
       modelId: string;
       lock: { embeddingModel: string; modelId: string; lockedModelId: string };
+      ast?: {
+        supportedFileCount: number;
+        skippedFileCount: number;
+        failedFileCount: number;
+        lastIndexedAt: string | null;
+      };
     }>;
   };
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
@@ -96,6 +106,10 @@ test('ListIngestedRepositories default MCP path returns documented id, name, and
   assert.equal(parsed.repos[0].lock.modelId, 'embed-model');
   assert.equal(parsed.repos[0].lock.lockedModelId, 'embed-model');
   assert.equal(parsed.repos[0].status, 'completed');
+  assert.equal(parsed.repos[0].ast?.supportedFileCount, 4);
+  assert.equal(parsed.repos[0].ast?.skippedFileCount, 1);
+  assert.equal(parsed.repos[0].ast?.failedFileCount, 2);
+  assert.equal(parsed.repos[0].ast?.lastIndexedAt, '2026-01-02T00:00:00.000Z');
 });
 
 test('ListIngestedRepositories default MCP path preserves documented structured error fields', async () => {

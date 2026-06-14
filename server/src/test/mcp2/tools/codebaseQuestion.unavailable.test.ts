@@ -97,6 +97,28 @@ async function withTempCopilotHome(chatToml: string): Promise<{
   };
 }
 
+async function withTempCodexHome(chatToml: string): Promise<{
+  codexHome: string;
+  cleanup: () => Promise<void>;
+}> {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task4-codex-unavailable-'),
+  );
+  const codexHome = path.join(root, 'codex');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    chatToml,
+    'utf8',
+  );
+  return {
+    codexHome,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
+}
+
 test('codebase_question fails on the selected explicit Codex provider when Codex is unavailable', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
@@ -202,6 +224,60 @@ test('codebase_question fails on the selected explicit provider before unrelated
     } else {
       process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
     }
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question allows same-provider native fallback for explicit Codex endpoint requests when the endpoint is unavailable', async () => {
+  const originalForceCodex = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  const tempHome = await withTempCodexHome(
+    [
+      'model = "google/gemma-4-26b-a4b-qat"',
+      'codeinfo_openai_endpoint = "http://127.0.0.1:65534/v1|responses"',
+      '',
+    ].join('\n'),
+  );
+  process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+
+  try {
+    const capabilities = await resolveCodexCapabilities({
+      consumer: 'chat_validation',
+      codexHome: process.env.CODEX_HOME,
+    });
+    const result = await runCodebaseQuestion(
+      {
+        question: 'Fallback to native codex please',
+        provider: 'codex',
+      },
+      {
+        codexFactory: () => new MockCodex(),
+      },
+    );
+    const payload = JSON.parse(result.content[0].text) as {
+      conversationId: string;
+      modelId: string;
+      segments: Array<{ type: string; text?: string }>;
+    };
+
+    assert.equal(payload.conversationId, 'thread-fallback');
+    assert.equal(payload.segments.at(-1)?.type, 'answer');
+    assert.equal(payload.segments.at(-1)?.text, 'Fallback answer');
+    assert.equal(payload.modelId, capabilities.models[0]?.model);
+  } finally {
+    if (originalForceCodex === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceCodex;
+    }
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeInfoCodeHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
     await tempHome.cleanup();
   }
 });

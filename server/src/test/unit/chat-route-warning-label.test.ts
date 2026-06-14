@@ -133,3 +133,50 @@ test('POST /chat logs defaults-resolution warnings under the provider-neutral va
   const staleEntries = query({ text: 'chat flag ignored' }, 20);
   assert.equal(staleEntries.length, 0);
 });
+
+test('POST /chat includes runtime config warnings from resolveChatRuntimeConfig', async () => {
+  resetStore();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    reason: 'available',
+  });
+
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-runtime-warning-'));
+  tempDirs.push(root);
+  const codexHome = path.join(root, 'codex');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    ['model = "gpt-5.3-codex"', 'approval_policy = "on-failure"', ''].join(
+      '\n',
+    ),
+    'utf8',
+  );
+  setEnv('CODEX_HOME', codexHome);
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex(),
+    }),
+  );
+
+  const res = await request(app).post('/chat').send({
+    provider: 'codex',
+    conversationId: 'runtime-warning-conv',
+    message: 'hello',
+  });
+
+  assert.equal(res.status, 202);
+  assert.equal(
+    res.body.warnings.includes(
+      'codex/chat/config.toml uses legacy approval_policy "on-failure"; normalized to "on-request".',
+    ),
+    true,
+  );
+});

@@ -378,7 +378,7 @@ test('MCP codebase_question passes resolved chat runtime config to Codex', async
   };
 
   try {
-    await runCodebaseQuestion(
+    const result = await runCodebaseQuestion(
       { question: 'Use runtime config please' },
       {
         codexFactory: (options?: CodexOptions) => {
@@ -393,7 +393,13 @@ test('MCP codebase_question passes resolved chat runtime config to Codex', async
       },
     );
 
-    assert.deepEqual(capturedOptions?.config, runtimeConfig);
+    const payload = JSON.parse(result.content[0].text) as {
+      modelId: string;
+    };
+    assert.deepEqual(capturedOptions?.config, {
+      ...runtimeConfig,
+      model: payload.modelId,
+    });
   } finally {
     setCodexDetection(prev);
   }

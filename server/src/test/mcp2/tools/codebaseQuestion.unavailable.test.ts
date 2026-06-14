@@ -265,7 +265,11 @@ test('codebase_question allows same-provider native fallback for explicit Codex 
     assert.equal(typeof payload.modelId, 'string');
     assert.notEqual(payload.modelId, '');
   } finally {
-    process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceCodex;
+    if (originalForceCodex === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceCodex;
+    }
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
     if (originalCodeInfoCodeHome === undefined)

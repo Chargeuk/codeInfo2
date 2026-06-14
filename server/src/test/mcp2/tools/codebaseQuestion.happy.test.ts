@@ -2700,7 +2700,7 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
       | undefined;
 
     assert.equal(payload.modelId, 'gpt-5.3-codex');
-    assert.equal(runtimeConfig?.model, 'gpt-5.1-codex-max');
+    assert.equal(runtimeConfig?.model, 'gpt-5.3-codex');
     assert.equal(
       (capturingChat.lastFlags as { provider?: string; threadId?: unknown })
         ?.provider,

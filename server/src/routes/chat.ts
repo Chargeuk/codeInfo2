@@ -172,6 +172,7 @@ function resolvePinnedOpenAiCompatEndpoint(params: {
 function resolveOpenAiCompatEndpointForChat(params: {
   provider: ChatDefaultProvider;
   endpointId?: string | null;
+  configuredEndpoint?: OpenAiCompatEndpointConfig;
   env?: NodeJS.ProcessEnv;
 }): OpenAiCompatEndpointConfig | undefined {
   if (
@@ -183,6 +184,7 @@ function resolveOpenAiCompatEndpointForChat(params: {
   return resolveOpenAiCompatEndpointById({
     provider: params.provider,
     endpointId: params.endpointId,
+    configuredEndpoint: params.configuredEndpoint,
     env: params.env,
     pathLabel: 'chat.endpointId',
   });
@@ -697,6 +699,7 @@ export function createChatRouter({
       selectedOpenAiCompatEndpoint = resolveOpenAiCompatEndpointForChat({
         provider: effectiveRequestedProvider,
         endpointId: selectedEndpointId,
+        configuredEndpoint: pinnedSelectedEndpoint,
         env: process.env,
       });
     } catch (error) {
@@ -725,18 +728,22 @@ export function createChatRouter({
         providerStates: runtimeProviderStates,
         loadRuntimeConfig: async (provider) => {
           try {
-            const { config } = await resolveChatRuntimeConfig({
+            const resolved = await resolveChatRuntimeConfig({
               provider,
               ...(provider === 'copilot'
                 ? { copilotHome: process.env.CODEINFO_COPILOT_HOME }
                 : {}),
             });
+            const { config } = resolved;
             console.info(T06_SUCCESS_LOG, {
               surface: '/chat',
               provider,
               hasModel: typeof config.model === 'string',
             });
-            return { config, warnings: [] };
+            return {
+              config,
+              warnings: resolved.warnings.map((warning) => warning.message),
+            };
           } catch (error) {
             const code =
               error instanceof RuntimeConfigResolutionError

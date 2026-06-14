@@ -267,8 +267,6 @@ export async function prepareProviderExecution(params: {
         ? effectiveEndpoint
         : undefined,
     runtimeConfig:
-      executionProvider === 'codex' &&
-      endpointId &&
       runtimeConfig !== undefined
         ? cloneRuntimeConfigWithModel(runtimeConfig, executionModel)
         : runtimeConfig,

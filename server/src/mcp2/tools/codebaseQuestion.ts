@@ -52,6 +52,7 @@ import {
   type ChatDefaultProvider,
 } from '../../config/chatDefaults.js';
 import {
+  type RuntimeConfigAppMetadata,
   RuntimeConfigResolutionError,
   resolveChatRuntimeConfig,
 } from '../../config/runtimeConfig.js';
@@ -746,6 +747,61 @@ async function executeCodebaseQuestion(
     : requestedProvider === 'codex'
       ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
       : resolvedDefaults.model;
+  const runtimeConfigResolver =
+    deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
+  const runtimeConfigCache = new Map<
+    Extract<ChatDefaultProvider, 'codex' | 'copilot'>,
+    {
+      config: Awaited<ReturnType<typeof resolveChatRuntimeConfig>>['config'];
+      warnings: string[];
+      endpoint?: RuntimeConfigAppMetadata['codeinfoOpenAiEndpoint'];
+    }
+  >();
+  const loadProviderRuntimeConfig = async (
+    provider: Extract<ChatDefaultProvider, 'codex' | 'copilot'>,
+  ) => {
+    const cached = runtimeConfigCache.get(provider);
+    if (cached) {
+      return cached;
+    }
+    try {
+      const resolved = await runtimeConfigResolver(
+        provider === 'copilot'
+          ? {
+              provider: 'copilot',
+              copilotHome: process.env.CODEINFO_COPILOT_HOME,
+            }
+          : undefined,
+      );
+      const normalized = {
+        config: resolved.config,
+        warnings: resolved.warnings.map((warning) => warning.message),
+        endpoint: resolved.appMetadata?.codeinfoOpenAiEndpoint,
+      };
+      runtimeConfigCache.set(provider, normalized);
+      return normalized;
+    } catch (err) {
+      if (err instanceof RuntimeConfigResolutionError) {
+        throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {
+          code: err.code,
+          surface: err.surface,
+          configPath: err.configPath,
+        });
+      }
+      throw err;
+    }
+  };
+  let requestedCodexRuntimeConfig:
+    | Awaited<ReturnType<typeof loadProviderRuntimeConfig>>
+    | undefined;
+  if (requestedProvider === 'codex') {
+    try {
+      requestedCodexRuntimeConfig = await loadProviderRuntimeConfig('codex');
+    } catch {
+      // Preserve the later runtime-config error path while still allowing
+      // endpoint-backed requests to avoid poisoning native fallback models.
+    }
+  }
 
   if (
     process.env.MCP_FORCE_CODEX_AVAILABLE === 'true' &&
@@ -766,14 +822,23 @@ async function executeCodebaseQuestion(
   const codexWarnings = [
     ...new Set([...codexCapabilities.warnings, ...resolvedDefaults.warnings]),
   ];
+  const requestedCodexUsesEndpoint =
+    requestedProvider === 'codex' &&
+    (Boolean(getSavedEndpointId(existingConversation)) ||
+      requestedCodexRuntimeConfig?.endpoint !== undefined);
+  const codexNativeModels = codexCapabilities.models
+    .map((entry) => entry.model)
+    .filter(
+      (model) => !requestedCodexUsesEndpoint || model !== requestedModel,
+    );
   const codexState = {
     available: codexAvailable,
     models: prioritizeRuntimeProviderModels(
-      codexCapabilities.models.map((entry) => entry.model),
+      codexNativeModels,
       requestedProvider === 'codex'
-        ? requestedModel
+        ? (requestedCodexUsesEndpoint ? undefined : requestedModel)
         : codexRequestedDefaults?.values.model,
-      { includeMissingPreferred: true },
+      { includeMissingPreferred: !requestedCodexUsesEndpoint },
     ),
     reason: codexAvailable ? undefined : 'CODE_INFO_LLM_UNAVAILABLE',
   };
@@ -1073,34 +1138,7 @@ async function executeCodebaseQuestion(
       requestedProvider,
       requestedModel: normalizedRequestedModel,
       providerStates: runtimeProviderStates,
-      loadRuntimeConfig: async (provider) => {
-        const runtimeConfigResolver =
-          deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
-        try {
-          const resolved = await runtimeConfigResolver(
-            provider === 'copilot'
-              ? {
-                  provider: 'copilot',
-                  copilotHome: process.env.CODEINFO_COPILOT_HOME,
-                }
-              : undefined,
-          );
-          return {
-            config: resolved.config,
-            warnings: resolved.warnings.map((warning) => warning.message),
-            endpoint: resolved.appMetadata?.codeinfoOpenAiEndpoint,
-          };
-        } catch (err) {
-          if (err instanceof RuntimeConfigResolutionError) {
-            throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {
-              code: err.code,
-              surface: err.surface,
-              configPath: err.configPath,
-            });
-          }
-          throw err;
-        }
-      },
+      loadRuntimeConfig: loadProviderRuntimeConfig,
       selectedEndpointId: getSavedEndpointId(existingConversation),
       allowCrossProviderFallback: !explicitProviderSelected,
       failInPlaceOnEndpointUnavailable: Boolean(

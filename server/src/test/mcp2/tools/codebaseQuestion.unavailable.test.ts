@@ -244,6 +244,10 @@ test('codebase_question allows same-provider native fallback for explicit Codex 
   process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
 
   try {
+    const capabilities = await resolveCodexCapabilities({
+      consumer: 'chat_validation',
+      codexHome: process.env.CODEX_HOME,
+    });
     const result = await runCodebaseQuestion(
       {
         question: 'Fallback to native codex please',
@@ -262,8 +266,7 @@ test('codebase_question allows same-provider native fallback for explicit Codex 
     assert.equal(payload.conversationId, 'thread-fallback');
     assert.equal(payload.segments.at(-1)?.type, 'answer');
     assert.equal(payload.segments.at(-1)?.text, 'Fallback answer');
-    assert.equal(typeof payload.modelId, 'string');
-    assert.notEqual(payload.modelId, '');
+    assert.equal(payload.modelId, capabilities.models[0]?.model);
   } finally {
     if (originalForceCodex === undefined) {
       delete process.env.MCP_FORCE_CODEX_AVAILABLE;

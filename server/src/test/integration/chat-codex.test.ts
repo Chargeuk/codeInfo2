@@ -1392,6 +1392,126 @@ test('POST /chat accepts a Codex endpoint pinned only in chat config when select
   }
 });
 
+test('POST /chat does not inherit a config-pinned endpoint when the request explicitly selects a native Codex model', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha-model'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const originalCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const originalRuntimeCodexHome = process.env.CODEX_HOME;
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-home-'));
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    [
+      'model = "alpha-model"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEX_HOME = codexHome;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'never',
+      modelReasoningEffort: 'high',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    },
+    models: [
+      {
+        model: 'gpt-5.4',
+        supportedReasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+        defaultReasoningEffort: 'high',
+      },
+    ],
+    byModel: new Map([
+      [
+        'gpt-5.4',
+        {
+          model: 'gpt-5.4',
+          supportedReasoningEfforts: [
+            'minimal',
+            'low',
+            'medium',
+            'high',
+            'xhigh',
+          ],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+    ]),
+    warnings: [],
+    fallbackUsed: false,
+  };
+
+  const mockCodex = new MockCodex('thread-config-pinned-native-model');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      codexCapabilityResolver: async () => fixture,
+    }),
+  );
+
+  try {
+    const conversationId = 'conv-codex-config-pinned-native-model';
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        provider: 'codex',
+        model: 'gpt-5.4',
+        conversationId,
+        message: 'Use the requested native model',
+      })
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.4');
+    assert.deepEqual(response.body.warnings, []);
+    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-5.4');
+    assert.equal(externalServer.requestCount(), 0);
+    assert.equal(memoryConversations.get(conversationId)?.flags?.endpointId, undefined);
+  } finally {
+    await externalServer.stop();
+    if (originalCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodexHome;
+    }
+    if (originalRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalRuntimeCodexHome;
+    }
+    await fs.rm(codexHome, { recursive: true, force: true });
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('resumed Codex chat treats a missing saved endpoint as provider unavailability instead of request validation failure', async () => {
   setCodexDetection({
     available: true,

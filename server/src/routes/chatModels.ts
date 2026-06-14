@@ -132,6 +132,43 @@ const resolveSelectedEndpointId = <T extends { key: string; endpointId?: string 
   return exactMatch?.endpointId;
 };
 
+const normalizeModelIdentity = (value: string | undefined): string | undefined => {
+  const normalized = normalizeString(value);
+  return normalized ? normalized.toLowerCase() : undefined;
+};
+
+const dropSelectedPlainModelDuplicates = <
+  T extends { key: string; endpointId?: string },
+>(
+  models: T[],
+  selectedModel: string | undefined,
+  selectedEndpointId: string | undefined,
+): T[] => {
+  if (!selectedModel || !selectedEndpointId) {
+    return models;
+  }
+
+  const hasEndpointBackedSelection = models.some(
+    (model) =>
+      model.key === selectedModel &&
+      (model.endpointId ?? undefined) === selectedEndpointId,
+  );
+  if (!hasEndpointBackedSelection) {
+    return models;
+  }
+
+  const normalizedSelectedModel = normalizeModelIdentity(selectedModel);
+  if (!normalizedSelectedModel) {
+    return models;
+  }
+
+  return models.filter(
+    (model) =>
+      (model.endpointId ?? undefined) !== undefined ||
+      normalizeModelIdentity(model.key) !== normalizedSelectedModel,
+  );
+};
+
 const normalizeString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -357,6 +394,14 @@ export function createChatModelsRouter({
         codexDefaults,
         codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
       },
+      modelMetadata:
+        provider === 'codex' && externalOpenAiCompatDiscovery.selectedModelKey
+          ? {
+              defaultModel: externalOpenAiCompatDiscovery.selectedModelKey,
+              defaultModelSource: 'config',
+              warnings: [],
+            }
+          : undefined,
     });
     const codexModels = [
       ...capabilities.models.map((capability) => ({
@@ -375,8 +420,13 @@ export function createChatModelsRouter({
       codexProviderInfo.defaultModel,
       externalOpenAiCompatDiscovery.selectedEndpointId,
     );
-    const prioritizedCodexModels = prioritizeModelIdentity(
+    const codexVisibleModels = dropSelectedPlainModelDuplicates(
       codexModels,
+      codexProviderInfo.defaultModel,
+      codexSelectedEndpointId,
+    );
+    const prioritizedCodexModels = prioritizeModelIdentity(
+      codexVisibleModels,
       codexProviderInfo.defaultModel,
       codexSelectedEndpointId,
     );
@@ -464,6 +514,14 @@ export function createChatModelsRouter({
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
       warnings: copilotWarnings,
       liveModels: copilotLiveModels,
+      modelMetadata:
+        provider === 'copilot' && externalOpenAiCompatDiscovery.selectedModelKey
+          ? {
+              defaultModel: externalOpenAiCompatDiscovery.selectedModelKey,
+              defaultModelSource: 'config',
+              warnings: [],
+            }
+          : undefined,
       agentFlags: copilotAgentFlags.agentFlags,
     });
     const copilotSelectedEndpointId = resolveSelectedEndpointId(
@@ -471,8 +529,13 @@ export function createChatModelsRouter({
       copilotProviderInfo.defaultModel,
       externalOpenAiCompatDiscovery.selectedEndpointId,
     );
-    const prioritizedCopilotModels = prioritizeModelIdentity(
+    const copilotVisibleModels = dropSelectedPlainModelDuplicates(
       copilotModels,
+      copilotProviderInfo.defaultModel,
+      copilotSelectedEndpointId,
+    );
+    const prioritizedCopilotModels = prioritizeModelIdentity(
+      copilotVisibleModels,
       copilotProviderInfo.defaultModel,
       copilotSelectedEndpointId,
     );

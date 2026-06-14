@@ -700,16 +700,23 @@ export function createChatRouter({
       }
       throw error;
     }
+    const requestedEndpointId =
+      typeof endpointId === 'string' && endpointId.trim().length > 0
+        ? endpointId.trim()
+        : undefined;
+    const shouldUsePinnedEndpointByDefault =
+      resumedExecutionIdentity === null &&
+      requestedEndpointId === undefined &&
+      defaultsResolution.modelSource !== 'request';
     const selectedEndpointId =
       effectiveRequestedProvider === 'codex' ||
       effectiveRequestedProvider === 'copilot'
         ? resumedExecutionIdentity !== null
           ? (resumedExecutionIdentity.endpointId ?? undefined)
-          : endpointId ?? pinnedSelectedEndpoint?.endpointId ?? undefined
-        : undefined;
-    const requestedEndpointId =
-      typeof endpointId === 'string' && endpointId.trim().length > 0
-        ? endpointId.trim()
+          : requestedEndpointId ??
+            (shouldUsePinnedEndpointByDefault
+              ? pinnedSelectedEndpoint?.endpointId
+              : undefined)
         : undefined;
     const selectedEndpointIdCameFromRequest =
       requestedEndpointId !== undefined &&

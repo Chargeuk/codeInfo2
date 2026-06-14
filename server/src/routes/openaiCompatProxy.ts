@@ -1,5 +1,6 @@
-import { Readable } from 'node:stream';
+import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { StringDecoder } from 'node:string_decoder';
 import express, { Router, type Request, type Response } from 'express';
 
 import {
@@ -10,6 +11,10 @@ import {
   serializeOpenAiCompatModelsForConsumer,
   type OpenAiCompatAdapterConsumer,
 } from '../chat/openaiCompatAdapter.js';
+import {
+  flattenCodexNamespaceToolsForCustomProvider,
+  restoreCodexNamespaceToolCallsFromCustomProviderResponse,
+} from '../chat/openaiCompatToolFlattening.js';
 
 function copyResponseHeaders(source: Headers, res: Response) {
   const blockedHeaders = new Set([
@@ -47,6 +52,45 @@ function parseConsumer(value: string): OpenAiCompatAdapterConsumer | null {
 function isStreamingProxyResponse(response: globalThis.Response): boolean {
   const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
   return contentType.includes('text/event-stream');
+}
+
+function createCodexNamespaceToolCallRestoreStream(params: {
+  restoreResponse: (rawBodyText: string) => string;
+}) {
+  let remainder = '';
+  const decoder = new StringDecoder('utf8');
+
+  const rewriteLine = (line: string) => {
+    const dataPrefix = 'data:';
+    if (!line.startsWith(dataPrefix)) {
+      return `${line}\n`;
+    }
+    const payload = line.slice(dataPrefix.length).trimStart();
+    if (payload === '' || payload === '[DONE]') {
+      return `${line}\n`;
+    }
+    return `data: ${params.restoreResponse(payload)}\n`;
+  };
+
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      remainder += decoder.write(
+        Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)),
+      );
+      const lines = remainder.split('\n');
+      remainder = lines.pop() ?? '';
+      const rewritten = lines.map((line) => rewriteLine(line)).join('');
+      callback(null, rewritten);
+    },
+    flush(callback) {
+      remainder += decoder.end();
+      if (remainder.length === 0) {
+        callback();
+        return;
+      }
+      callback(null, rewriteLine(remainder));
+    },
+  });
 }
 
 export function createOpenAiCompatProxyRouter() {
@@ -114,11 +158,18 @@ export function createOpenAiCompatProxyRouter() {
           : req.body === undefined
             ? undefined
             : JSON.stringify(req.body);
+      const flattenedCodexToolPayload =
+        consumer === 'codex' && path === 'responses'
+          ? flattenCodexNamespaceToolsForCustomProvider(bodyText)
+          : {
+              bodyText,
+              namespaceToolCallMap: {},
+            };
       const response = await forwardOpenAiCompatProxyRequest({
         endpoint,
         method: 'POST',
         path,
-        bodyText,
+        bodyText: flattenedCodexToolPayload.bodyText,
         contentType: req.get('content-type') ?? 'application/json',
         accept: req.get('accept') ?? undefined,
       });
@@ -129,7 +180,17 @@ export function createOpenAiCompatProxyRouter() {
         return res.end();
       }
       if (!isStreamingProxyResponse(response)) {
-        const body = Buffer.from(await response.arrayBuffer());
+        const bodyBuffer = Buffer.from(await response.arrayBuffer());
+        const body =
+          consumer === 'codex' && path === 'responses'
+            ? Buffer.from(
+                restoreCodexNamespaceToolCallsFromCustomProviderResponse(
+                  bodyBuffer.toString('utf8'),
+                  flattenedCodexToolPayload.namespaceToolCallMap,
+                ),
+                'utf8',
+              )
+            : bodyBuffer;
         res.status(response.status);
         copyResponseHeaders(response.headers, res);
         return res.end(body);
@@ -138,7 +199,25 @@ export function createOpenAiCompatProxyRouter() {
       res.status(response.status);
       copyResponseHeaders(response.headers, res);
       try {
-        await pipeline(Readable.fromWeb(response.body as never), res);
+        const upstreamStream = Readable.fromWeb(response.body as never);
+        const restoreResponse = (rawBodyText: string) =>
+          restoreCodexNamespaceToolCallsFromCustomProviderResponse(
+            rawBodyText,
+            flattenedCodexToolPayload.namespaceToolCallMap,
+          );
+        if (
+          consumer === 'codex' &&
+          path === 'responses' &&
+          Object.keys(flattenedCodexToolPayload.namespaceToolCallMap).length > 0
+        ) {
+          await pipeline(
+            upstreamStream,
+            createCodexNamespaceToolCallRestoreStream({ restoreResponse }),
+            res,
+          );
+          return undefined;
+        }
+        await pipeline(upstreamStream, res);
       } catch (error) {
         if (!res.destroyed) {
           res.destroy(error instanceof Error ? error : undefined);

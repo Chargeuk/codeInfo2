@@ -924,6 +924,57 @@ test('providers route collapses env-backed and config-backed copies of the same 
   }
 });
 
+test('providers route preserves endpoint identity for a pinned Codex default when the discovered model casing differs from config', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['unsloth/gemma-4-26B-A4B-it-qat-GGUF'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "unsloth/gemma-4-26b-A4b-it-qat-GGUF"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `SparkUnsloth,${externalServer.baseUrl}/v1|responses`,
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('Codex_model_list', 'unsloth/gemma-4-26b-A4b-it-qat-GGUF,builtin-a');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer).get('/chat/providers').expect(200);
+
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(res.body.selectedModel, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
+    assert.equal(
+      res.body.selectedEndpointId,
+      `${externalServer.baseUrl}/v1`,
+    );
+    assert.equal(
+      res.body.providers[0].defaultModel,
+      'unsloth/gemma-4-26B-A4B-it-qat-GGUF',
+    );
+    assert.equal(res.body.providers[0].defaultModelSource, 'config');
+    assert.equal(externalServer.requestCount(), 1);
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('providers route degrades malformed Copilot chat defaults to warnings instead of failing discovery', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome('reasoning_effort = [\n');

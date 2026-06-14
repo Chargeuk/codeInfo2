@@ -138,6 +138,7 @@ export type OpenAiCompatProviderDiscoveryResult = {
   liveModels: string[];
   warnings: string[];
   selectedEndpointId?: string;
+  selectedModelKey?: string;
 };
 
 type BuildProviderInfoParams = ProviderHomeParams & {
@@ -173,13 +174,16 @@ const providerSupportsOpenAiCompatEndpoint = (
     ? endpoint.capabilities.includes('responses')
     : endpoint.capabilities.includes('completions');
 
-function getProviderChatOpenAiCompatEndpoint(params: {
+function getProviderChatOpenAiCompatDefaults(params: {
   provider: ChatProviderId;
   codexHome?: string;
   copilotHome?: string;
   lmstudioHome?: string;
   warnings: string[];
-}): OpenAiCompatEndpointConfig | undefined {
+}): {
+  configuredModel?: string;
+  pinnedEndpoint?: OpenAiCompatEndpointConfig;
+} {
   try {
     const snapshot = loadProviderChatDefaultsSnapshotSync({
       provider: params.provider,
@@ -187,20 +191,59 @@ function getProviderChatOpenAiCompatEndpoint(params: {
       copilotHome: params.copilotHome,
       lmstudioHome: params.lmstudioHome,
     });
+    const configuredModel = normalizeString(snapshot.config?.model);
     const rawEndpoint = snapshot.config?.codeinfo_openai_endpoint;
     if (typeof rawEndpoint !== 'string') {
-      return undefined;
+      return { configuredModel };
     }
-    return parseOpenAiCompatEndpointConfig(rawEndpoint, {
-      pathLabel: `${snapshot.chatConfigPath}.codeinfo_openai_endpoint`,
-    });
+    return {
+      configuredModel,
+      pinnedEndpoint: parseOpenAiCompatEndpointConfig(rawEndpoint, {
+        pathLabel: `${snapshot.chatConfigPath}.codeinfo_openai_endpoint`,
+      }),
+    };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     params.warnings.push(
       `${params.provider}/chat/config.toml could not be used for external endpoint discovery (${reason}).`,
     );
+    return {};
+  }
+}
+
+const normalizeModelIdentity = (value: string | undefined): string | undefined => {
+  const normalized = normalizeString(value);
+  return normalized ? normalized.toLowerCase() : undefined;
+};
+
+function resolveSelectedPinnedModelKey(params: {
+  models: readonly Pick<ChatModelInfo, 'key' | 'endpointId'>[];
+  configuredModel?: string;
+  selectedEndpointId?: string;
+}): string | undefined {
+  if (!params.configuredModel || !params.selectedEndpointId) {
     return undefined;
   }
+
+  const endpointModels = params.models.filter(
+    (model) => (model.endpointId ?? undefined) === params.selectedEndpointId,
+  );
+  const exactMatch = endpointModels.find(
+    (model) => model.key === params.configuredModel,
+  );
+  if (exactMatch) {
+    return exactMatch.key;
+  }
+
+  const normalizedConfiguredModel = normalizeModelIdentity(params.configuredModel);
+  if (!normalizedConfiguredModel) {
+    return undefined;
+  }
+
+  const normalizedMatches = endpointModels.filter(
+    (model) => normalizeModelIdentity(model.key) === normalizedConfiguredModel,
+  );
+  return normalizedMatches.length === 1 ? normalizedMatches[0].key : undefined;
 }
 
 export async function resolveOpenAiCompatProviderDiscovery(params: {
@@ -218,13 +261,14 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
   });
   warnings.push(...envResolution.warnings);
 
-  const pinnedEndpoint = getProviderChatOpenAiCompatEndpoint({
+  const providerChatDefaults = getProviderChatOpenAiCompatDefaults({
     provider: params.provider,
     codexHome: params.codexHome,
     copilotHome: params.copilotHome,
     lmstudioHome: params.lmstudioHome,
     warnings,
   });
+  const pinnedEndpoint = providerChatDefaults.pinnedEndpoint;
   if (
     pinnedEndpoint &&
     !providerSupportsOpenAiCompatEndpoint(params.provider, pinnedEndpoint)
@@ -269,11 +313,25 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
     }
   }
 
+  const selectedEndpointId =
+    discovery.selectedEndpointId &&
+    models.some(
+      (model) =>
+        (model.endpointId ?? undefined) === discovery.selectedEndpointId,
+    )
+      ? discovery.selectedEndpointId
+      : undefined;
+
   return {
     models,
     liveModels,
     warnings,
-    selectedEndpointId: discovery.selectedEndpointId,
+    selectedEndpointId,
+    selectedModelKey: resolveSelectedPinnedModelKey({
+      models,
+      configuredModel: providerChatDefaults.configuredModel,
+      selectedEndpointId,
+    }),
   };
 }
 

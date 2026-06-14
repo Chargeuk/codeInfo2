@@ -398,6 +398,236 @@ test('OpenAI-compatible proxy does not retry inference POST failures', async () 
   assert.equal(externalServer.requestCount(), 1);
 });
 
+test('OpenAI-compatible proxy flattens Codex namespace tools for custom provider responses requests', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        body: {
+          output: [
+            {
+              type: 'function_call',
+              name: 'mcp__code_info__.ListIngestedRepositories',
+              arguments: '{}',
+              call_id: 'call_123',
+            },
+          ],
+        },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+    },
+    consumer: 'codex',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      input: 'hello',
+      tools: [
+        {
+          type: 'namespace',
+          name: 'mcp__code_info__',
+          description: 'code info tools',
+          tools: [
+            {
+              type: 'function',
+              name: 'ListIngestedRepositories',
+              description: 'list repos',
+              parameters: {
+                type: 'object',
+                properties: {},
+                required: [],
+                additionalProperties: false,
+              },
+            },
+            {
+              type: 'function',
+              name: 'VectorSearch',
+              description: 'search vectors',
+              parameters: {
+                type: 'object',
+                properties: {
+                  query: { type: 'string' },
+                },
+                required: ['query'],
+                additionalProperties: false,
+              },
+            },
+          ],
+        },
+      ],
+    })
+    .expect(200);
+
+  const forwarded = JSON.parse(
+    externalServer.lastRequestBodyText() ?? '{}',
+  ) as { tools?: Array<Record<string, unknown>> };
+
+  assert.deepEqual(
+    forwarded.tools?.map((tool) => tool.name),
+    [
+      'mcp__code_info__.ListIngestedRepositories',
+      'mcp__code_info__.VectorSearch',
+    ],
+  );
+  assert.deepEqual(
+    forwarded.tools?.map((tool) => tool.type),
+    ['function', 'function'],
+  );
+  assert.deepEqual(response.body.output, [
+    {
+      type: 'function_call',
+      name: 'ListIngestedRepositories',
+      namespace: 'mcp__code_info__',
+      arguments: '{}',
+      call_id: 'call_123',
+    },
+  ]);
+});
+
+test('OpenAI-compatible proxy leaves Copilot namespace tools unchanged', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'accepted' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      input: 'hello',
+      tools: [
+        {
+          type: 'namespace',
+          name: 'mcp__code_info__',
+          description: 'code info tools',
+          tools: [
+            {
+              type: 'function',
+              name: 'ListIngestedRepositories',
+              description: 'list repos',
+              parameters: {
+                type: 'object',
+                properties: {},
+                required: [],
+                additionalProperties: false,
+              },
+            },
+          ],
+        },
+      ],
+    })
+    .expect(200);
+
+  const forwarded = JSON.parse(
+    externalServer.lastRequestBodyText() ?? '{}',
+  ) as { tools?: Array<Record<string, unknown>> };
+
+  assert.deepEqual(
+    forwarded.tools?.map((tool) => tool.name),
+    ['mcp__code_info__'],
+  );
+  assert.deepEqual(
+    forwarded.tools?.map((tool) => tool.type),
+    ['namespace'],
+  );
+});
+
+test('OpenAI-compatible proxy restores namespace tool calls inside streamed Codex responses', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        headers: {
+          'content-type': 'text/event-stream',
+        },
+        bodyChunks: [
+          'event: response.output_item.done\n',
+          'data: {"type":"response.output_item.done","item":{"type":"function_call","name":"mcp__code_info__.ListIngestedRepositories","arguments":"{}","call_id":"call_123"}}\n\n',
+          'event: response.completed\n',
+          'data: {"type":"response.completed","response":{"output":[{"type":"function_call","name":"mcp__code_info__.ListIngestedRepositories","arguments":"{}","call_id":"call_123"}]}}\n\n',
+        ],
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+    },
+    consumer: 'codex',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  const response = await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      input: 'hello',
+      tools: [
+        {
+          type: 'namespace',
+          name: 'mcp__code_info__',
+          tools: [
+            {
+              type: 'function',
+              name: 'ListIngestedRepositories',
+              parameters: {
+                type: 'object',
+                properties: {},
+                additionalProperties: false,
+              },
+            },
+          ],
+        },
+      ],
+    })
+    .expect(200);
+
+  assert.match(
+    response.text,
+    /"name":"ListIngestedRepositories".*"namespace":"mcp__code_info__"/,
+  );
+  assert.doesNotMatch(
+    response.text,
+    /"name":"mcp__code_info__\.ListIngestedRepositories"/,
+  );
+});
+
 test('OpenAI-compatible proxy strips upstream content-encoding when relaying decoded JSON bodies', async () => {
   const compressedBody = zlib.gzipSync(
     JSON.stringify({

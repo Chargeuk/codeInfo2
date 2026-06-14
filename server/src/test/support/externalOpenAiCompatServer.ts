@@ -25,6 +25,7 @@ export type ExternalOpenAiCompatServer = {
   baseUrl: string;
   requestCount: () => number;
   lastAuthorizationHeader: () => string | undefined;
+  lastRequestBodyText: () => string | undefined;
   stop: () => Promise<void>;
 };
 
@@ -60,6 +61,7 @@ export async function startExternalOpenAiCompatServer(
 ): Promise<ExternalOpenAiCompatServer> {
   let requestCount = 0;
   let lastAuthorizationHeader: string | undefined;
+  let lastRequestBodyText: string | undefined;
   const responseMode = params.responseMode ?? 'success';
   const models = params.models ?? ['alpha'];
   const modelEntries = params.modelEntries;
@@ -122,6 +124,17 @@ export async function startExternalOpenAiCompatServer(
       typeof req.headers.authorization === 'string'
         ? req.headers.authorization
         : undefined;
+    if (req.method === 'POST') {
+      const bodyChunks: Buffer[] = [];
+      for await (const chunk of req) {
+        bodyChunks.push(
+          Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)),
+        );
+      }
+      lastRequestBodyText = Buffer.concat(bodyChunks).toString('utf8');
+    } else {
+      lastRequestBodyText = undefined;
+    }
     const url = req.url ?? '';
 
     if (
@@ -213,6 +226,7 @@ export async function startExternalOpenAiCompatServer(
     baseUrl: `http://127.0.0.1:${address.port}`,
     requestCount: () => requestCount,
     lastAuthorizationHeader: () => lastAuthorizationHeader,
+    lastRequestBodyText: () => lastRequestBodyText,
     stop: async () =>
       await new Promise<void>((resolve) => httpServer.close(() => resolve())),
   };

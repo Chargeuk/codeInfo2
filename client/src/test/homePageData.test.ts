@@ -9,6 +9,7 @@ function buildProvider(
     label: overrides.label,
     available: overrides.available ?? false,
     toolsAvailable: overrides.toolsAvailable ?? false,
+    endpointOnly: overrides.endpointOnly ?? false,
     reason: overrides.reason,
     defaultModel: overrides.defaultModel,
     defaultModelSource: overrides.defaultModelSource,
@@ -41,9 +42,8 @@ describe('createHomeProviderSummaries', () => {
         label: 'OpenAI Codex',
         available: true,
         toolsAvailable: true,
-        warnings: [
-          'Codex authentication is unavailable; showing external OpenAI-compatible endpoint models only.',
-        ],
+        endpointOnly: true,
+        warnings: ['Server warning copy can change without breaking the UI.'],
       }),
     ]);
 

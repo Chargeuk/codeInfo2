@@ -228,6 +228,8 @@ function isChatProviderInfo(value: unknown): value is ChatProviderInfo {
     typeof value.label === 'string' &&
     typeof value.available === 'boolean' &&
     typeof value.toolsAvailable === 'boolean' &&
+    (value.endpointOnly === undefined ||
+      typeof value.endpointOnly === 'boolean') &&
     (value.reason === undefined || typeof value.reason === 'string')
   );
 }

@@ -36,6 +36,7 @@ function installProviderFetch() {
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
+            endpointOnly: true,
             warnings: [
               'Codex authentication is unavailable; showing external OpenAI-compatible endpoint models only.',
             ],

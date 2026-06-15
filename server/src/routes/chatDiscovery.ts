@@ -39,6 +39,8 @@ import {
   loadProviderChatDefaultsSnapshotSync,
 } from '../config/runtimeConfig.js';
 import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
+import type { CodexDetection } from '../providers/codexRegistry.js';
+import type { CopilotReadinessResult } from '../providers/copilotReadiness.js';
 
 const toChoice = (
   value: ChatAgentFlagValue,
@@ -145,6 +147,7 @@ type BuildProviderInfoParams = ProviderHomeParams & {
   provider: ChatProviderId;
   available: boolean;
   toolsAvailable: boolean;
+  endpointOnly?: boolean;
   reason?: string;
   liveModels?: string[];
   warnings?: string[];
@@ -395,6 +398,32 @@ export function buildEndpointOnlyProviderWarning(
   } authentication is unavailable; showing external OpenAI-compatible endpoint models only.`;
 }
 
+export function isCodexEndpointOnlyAvailable(params: {
+  detection: Pick<CodexDetection, 'available' | 'authPresent'>;
+  bootstrapHealthy: boolean;
+  endpointModelCount: number;
+}): boolean {
+  return (
+    !params.detection.available &&
+    !params.detection.authPresent &&
+    params.bootstrapHealthy &&
+    params.endpointModelCount > 0
+  );
+}
+
+export function isCopilotEndpointOnlyAvailable(params: {
+  readiness: Pick<CopilotReadinessResult, 'available' | 'blockingStage'>;
+  bootstrapHealthy: boolean;
+  endpointModelCount: number;
+}): boolean {
+  return (
+    !params.readiness.available &&
+    params.readiness.blockingStage === 'authentication' &&
+    params.bootstrapHealthy &&
+    params.endpointModelCount > 0
+  );
+}
+
 export function selectProviderNativeAndEndpointModels<T>(params: {
   nativeAvailable: boolean;
   nativeModels: T[];
@@ -583,6 +612,7 @@ export function buildProviderInfo(
     label: PROVIDER_LABELS[params.provider],
     available: params.available,
     toolsAvailable: params.toolsAvailable,
+    endpointOnly: params.endpointOnly ?? false,
     reason: params.reason,
     defaultModel: modelMetadata.defaultModel,
     defaultModelSource: modelMetadata.defaultModelSource,

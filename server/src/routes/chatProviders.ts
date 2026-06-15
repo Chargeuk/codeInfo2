@@ -41,6 +41,8 @@ import {
   buildProvidersResponse,
   getProviderBootstrapReason,
   getProviderBootstrapWarnings,
+  isCodexEndpointOnlyAvailable,
+  isCopilotEndpointOnlyAvailable,
   isProviderBootstrapHealthy,
   resolveOpenAiCompatProviderDiscovery,
   selectProviderNativeAndEndpointLiveModels,
@@ -213,8 +215,11 @@ export function createChatProvidersRouter({
       nativeModels: capabilities.models.map((entry) => entry.model),
       endpointModels: codexExternalOpenAiCompatDiscovery.liveModels,
     });
-    const codexEndpointOnly =
-      !codexNativeAvailable && codexExternalOpenAiCompatDiscovery.liveModels.length > 0;
+    const codexEndpointOnly = isCodexEndpointOnlyAvailable({
+      detection: codex,
+      bootstrapHealthy: codexBootstrapHealthy,
+      endpointModelCount: codexExternalOpenAiCompatDiscovery.liveModels.length,
+    });
     const codexAvailable = codexNativeAvailable || codexEndpointOnly;
     const codexToolsAvailable =
       mcp.available && (codexNativeAvailable || codexEndpointOnly);
@@ -225,9 +230,12 @@ export function createChatProvidersRouter({
       nativeModels: copilot.models,
       endpointModels: copilotExternalOpenAiCompatDiscovery.liveModels,
     });
-    const copilotEndpointOnly =
-      !copilotNativeAvailable &&
-      copilotExternalOpenAiCompatDiscovery.liveModels.length > 0;
+    const copilotEndpointOnly = isCopilotEndpointOnlyAvailable({
+      readiness: copilot,
+      bootstrapHealthy: copilotBootstrapHealthy,
+      endpointModelCount:
+        copilotExternalOpenAiCompatDiscovery.liveModels.length,
+    });
     const copilotAvailable = copilotNativeAvailable || copilotEndpointOnly;
     const copilotToolsAvailable =
       mcp.available && (copilotNativeAvailable || copilotEndpointOnly);
@@ -310,6 +318,7 @@ export function createChatProvidersRouter({
         provider: 'copilot',
         available: copilotAvailable,
         toolsAvailable: copilotToolsAvailable,
+        endpointOnly: copilotEndpointOnly,
         reason:
           copilotAvailable && copilotEndpointOnly
             ? undefined
@@ -338,6 +347,7 @@ export function createChatProvidersRouter({
         provider: 'lmstudio',
         available: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
         toolsAvailable: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
+        endpointOnly: false,
         reason: lmstudioBootstrapHealthy
           ? lmstudioReason
           : (getProviderBootstrapReason('lmstudio') ?? lmstudioReason),
@@ -355,6 +365,7 @@ export function createChatProvidersRouter({
         provider: 'codex',
         available: codexAvailable,
         toolsAvailable: codexToolsAvailable,
+        endpointOnly: codexEndpointOnly,
         reason:
           codexAvailable && codexEndpointOnly
             ? undefined

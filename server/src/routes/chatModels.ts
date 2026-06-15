@@ -37,6 +37,8 @@ import {
   buildCopilotModelFlagOverrides,
   getProviderBootstrapReason,
   getProviderBootstrapWarnings,
+  isCodexEndpointOnlyAvailable,
+  isCopilotEndpointOnlyAvailable,
   isProviderBootstrapHealthy,
   buildLmStudioAgentFlags,
   buildModelsResponse,
@@ -361,8 +363,11 @@ export function createChatModelsRouter({
     });
     const codexEndpointOnly =
       provider === 'codex' &&
-      !codexNativeAvailable &&
-      externalOpenAiCompatDiscovery.liveModels.length > 0;
+      isCodexEndpointOnlyAvailable({
+        detection,
+        bootstrapHealthy: codexBootstrapHealthy,
+        endpointModelCount: externalOpenAiCompatDiscovery.liveModels.length,
+      });
     const codexAvailable = codexNativeAvailable || codexEndpointOnly;
     const codexToolsAvailable =
       mcp.available && (codexNativeAvailable || codexEndpointOnly);
@@ -386,6 +391,7 @@ export function createChatModelsRouter({
       provider: 'codex',
       available: codexAvailable,
       toolsAvailable: codexToolsAvailable,
+      endpointOnly: codexEndpointOnly,
       reason:
         codexEndpointOnly
           ? undefined
@@ -506,8 +512,11 @@ export function createChatModelsRouter({
     });
     const copilotEndpointOnly =
       provider === 'copilot' &&
-      !copilotNativeAvailable &&
-      externalOpenAiCompatDiscovery.liveModels.length > 0;
+      isCopilotEndpointOnlyAvailable({
+        readiness,
+        bootstrapHealthy: copilotBootstrapHealthy,
+        endpointModelCount: externalOpenAiCompatDiscovery.liveModels.length,
+      });
     const copilotAvailable =
       (copilotNativeAvailable || copilotEndpointOnly) &&
       copilotLiveModels.length > 0;
@@ -527,6 +536,7 @@ export function createChatModelsRouter({
       provider: 'copilot',
       available: copilotAvailable,
       toolsAvailable: copilotAvailable ? mcp.available : false,
+      endpointOnly: copilotEndpointOnly,
       reason:
         getProviderBootstrapReason('copilot') ??
         (copilotEndpointOnly
@@ -666,6 +676,7 @@ export function createChatModelsRouter({
         provider: 'lmstudio',
         available: lmstudioAvailable && lmstudioBootstrapHealthy,
         toolsAvailable: lmstudioAvailable && lmstudioBootstrapHealthy,
+        endpointOnly: false,
         reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: [

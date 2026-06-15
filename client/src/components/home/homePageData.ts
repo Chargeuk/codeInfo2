@@ -9,13 +9,7 @@ export type HomeProviderPresentation = {
 
 const isEndpointOnlyUnauthenticatedProvider = (
   provider: ChatProviderInfo,
-): boolean =>
-  provider.available &&
-  (provider.warnings ?? []).some((warning) =>
-    /authentication is unavailable; showing external openai-compatible endpoint models only\./i.test(
-      warning,
-    ),
-  );
+): boolean => provider.available && provider.endpointOnly === true;
 
 function getProviderPresentation(
   provider: ChatProviderInfo,

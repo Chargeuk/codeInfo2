@@ -154,6 +154,9 @@ describe('Conversation row parity', () => {
       getConversationModelPresentation('copilot', 'deepseek/deepseek-r1').label,
     ).toBe('DeepSeek');
     expect(
+      getConversationModelPresentation('copilot', 'notdeepseekmodel').label,
+    ).toBe('Copilot');
+    expect(
       getConversationModelPresentation('copilot', 'qwen/qwen3-32b').label,
     ).toBe('Qwen');
     expect(

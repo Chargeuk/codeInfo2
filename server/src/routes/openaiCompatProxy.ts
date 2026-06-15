@@ -76,7 +76,14 @@ function resolveExplicitWebSearchAvailability(
         ? body.web_search_mode
         : undefined;
   if (mode !== undefined) {
-    return mode === 'live';
+    const normalizedMode = mode.trim().toLowerCase();
+    if (normalizedMode === 'live') {
+      return true;
+    }
+    if (normalizedMode === 'cached') {
+      return false;
+    }
+    return undefined;
   }
 
   if (typeof body.webSearchEnabled === 'boolean') {

@@ -252,7 +252,7 @@ const MODEL_PRESENTATION_MATCHERS: Array<{
   },
   {
     key: 'deepseek',
-    matches: (value) => /deepseek/i.test(value),
+    matches: (value) => /(?:^|[\/\s_-])deepseek(?:$|[\/\s_-])/i.test(value),
   },
   {
     key: 'qwen',

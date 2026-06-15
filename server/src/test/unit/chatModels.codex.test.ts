@@ -1356,17 +1356,20 @@ test('codex models route keeps normalized duplicate endpoint warnings out of the
   });
 
   const markerPayloads: Array<Record<string, unknown>> = [];
-  const originalInfo = console.info;
-  console.info = (...args: unknown[]) => {
-    if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
-      markerPayloads.push(args[1] as Record<string, unknown>);
-    }
-  };
-
-  const server = await startServer({ mcpAvailable: true });
-  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  let server: Awaited<ReturnType<typeof startServer>> | null = null;
+  let originalInfo: typeof console.info = console.info;
 
   try {
+    server = await startServer({ mcpAvailable: true });
+    env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+    originalInfo = console.info;
+    console.info = (...args: unknown[]) => {
+      if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
+        markerPayloads.push(args[1] as Record<string, unknown>);
+      }
+    };
+
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
@@ -1394,7 +1397,9 @@ test('codex models route keeps normalized duplicate endpoint warnings out of the
     );
   } finally {
     console.info = originalInfo;
-    await stopServer(server);
+    if (server) {
+      await stopServer(server);
+    }
   }
 });
 

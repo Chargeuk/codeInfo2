@@ -1,15 +1,32 @@
+import ai21Logo from '@lobehub/icons-static-svg/icons/ai21.svg';
+import arceeLogo from '@lobehub/icons-static-svg/icons/arcee.svg';
+import bytedanceLogo from '@lobehub/icons-static-svg/icons/bytedance.svg';
 import anthropicClaudeLogo from '@lobehub/icons-static-svg/icons/claude.svg';
 import openAiCodexLogo from '@lobehub/icons-static-svg/icons/codex.svg';
 import cohereLogo from '@lobehub/icons-static-svg/icons/cohere.svg';
 import deepSeekLogo from '@lobehub/icons-static-svg/icons/deepseek.svg';
+import essentialAiLogo from '@lobehub/icons-static-svg/icons/essentialai.svg';
 import geminiLogo from '@lobehub/icons-static-svg/icons/gemini.svg';
 import gemmaLogo from '@lobehub/icons-static-svg/icons/gemma.svg';
+import glmLogo from '@lobehub/icons-static-svg/icons/glmv.svg';
 import grokLogo from '@lobehub/icons-static-svg/icons/grok.svg';
+import ibmLogo from '@lobehub/icons-static-svg/icons/ibm.svg';
+import inceptionLogo from '@lobehub/icons-static-svg/icons/inception.svg';
+import kimiLogo from '@lobehub/icons-static-svg/icons/kimi.svg';
+import kwaiPilotLogo from '@lobehub/icons-static-svg/icons/kwaipilot.svg';
 import metaLogo from '@lobehub/icons-static-svg/icons/meta.svg';
+import miniMaxLogo from '@lobehub/icons-static-svg/icons/minimax.svg';
 import mistralLogo from '@lobehub/icons-static-svg/icons/mistral.svg';
 import novaLogo from '@lobehub/icons-static-svg/icons/nova.svg';
+import nvidiaLogo from '@lobehub/icons-static-svg/icons/nvidia.svg';
 import openAiLogo from '@lobehub/icons-static-svg/icons/openai.svg';
+import openRouterLogo from '@lobehub/icons-static-svg/icons/openrouter.svg';
 import qwenLogo from '@lobehub/icons-static-svg/icons/qwen.svg';
+import relaceLogo from '@lobehub/icons-static-svg/icons/relace.svg';
+import stepfunLogo from '@lobehub/icons-static-svg/icons/stepfun.svg';
+import tencentLogo from '@lobehub/icons-static-svg/icons/tencent.svg';
+import upstageLogo from '@lobehub/icons-static-svg/icons/upstage.svg';
+import xiaomiMiMoLogo from '@lobehub/icons-static-svg/icons/xiaomimimo.svg';
 import DevicesOutlinedIcon from '@mui/icons-material/DevicesOutlined';
 import { Box } from '@mui/material';
 import type { ReactNode } from 'react';
@@ -95,26 +112,58 @@ const buildProviderLogoImage = (src: string, alt: string) => (
 );
 
 type ConversationPresentationKey =
+  | 'ai21'
+  | 'arcee'
+  | 'bytedance'
   | 'openai'
   | 'claude'
   | 'codex'
   | 'cohere'
   | 'copilot'
   | 'deepseek'
+  | 'essentialai'
   | 'gemini'
   | 'gemma'
+  | 'glm'
   | 'grok'
+  | 'ibm'
+  | 'inception'
+  | 'kimi'
+  | 'kwaipilot'
   | 'lmstudio'
   | 'meta'
+  | 'minimax'
   | 'mistral'
+  | 'nvidia'
   | 'nova'
+  | 'openrouter'
   | 'qwen'
+  | 'relace'
+  | 'stepfun'
+  | 'tencent'
+  | 'upstage'
+  | 'mimo'
   | 'runtime';
 
 const buildPresentation = (
   key: ConversationPresentationKey,
 ): ConversationProviderPresentation => {
   switch (key) {
+    case 'ai21':
+      return {
+        label: 'AI21',
+        icon: buildProviderLogoImage(ai21Logo, 'AI21 logo'),
+      };
+    case 'arcee':
+      return {
+        label: 'Arcee',
+        icon: buildProviderLogoImage(arceeLogo, 'Arcee logo'),
+      };
+    case 'bytedance':
+      return {
+        label: 'ByteDance',
+        icon: buildProviderLogoImage(bytedanceLogo, 'ByteDance logo'),
+      };
     case 'openai':
       return {
         label: 'OpenAI',
@@ -145,6 +194,11 @@ const buildPresentation = (
         label: 'DeepSeek',
         icon: buildProviderLogoImage(deepSeekLogo, 'DeepSeek logo'),
       };
+    case 'essentialai':
+      return {
+        label: 'Essential AI',
+        icon: buildProviderLogoImage(essentialAiLogo, 'Essential AI logo'),
+      };
     case 'gemini':
       return {
         label: 'Gemini',
@@ -155,10 +209,35 @@ const buildPresentation = (
         label: 'Gemma',
         icon: buildProviderLogoImage(gemmaLogo, 'Gemma logo'),
       };
+    case 'glm':
+      return {
+        label: 'GLM',
+        icon: buildProviderLogoImage(glmLogo, 'GLM logo'),
+      };
     case 'grok':
       return {
         label: 'Grok',
         icon: buildProviderLogoImage(grokLogo, 'Grok logo'),
+      };
+    case 'ibm':
+      return {
+        label: 'IBM Granite',
+        icon: buildProviderLogoImage(ibmLogo, 'IBM logo'),
+      };
+    case 'inception':
+      return {
+        label: 'Inception',
+        icon: buildProviderLogoImage(inceptionLogo, 'Inception logo'),
+      };
+    case 'kimi':
+      return {
+        label: 'Kimi',
+        icon: buildProviderLogoImage(kimiLogo, 'Kimi logo'),
+      };
+    case 'kwaipilot':
+      return {
+        label: 'KwaiPilot',
+        icon: buildProviderLogoImage(kwaiPilotLogo, 'KwaiPilot logo'),
       };
     case 'lmstudio':
       return {
@@ -170,20 +249,60 @@ const buildPresentation = (
         label: 'Meta',
         icon: buildProviderLogoImage(metaLogo, 'Meta logo'),
       };
+    case 'minimax':
+      return {
+        label: 'MiniMax',
+        icon: buildProviderLogoImage(miniMaxLogo, 'MiniMax logo'),
+      };
     case 'mistral':
       return {
         label: 'Mistral',
         icon: buildProviderLogoImage(mistralLogo, 'Mistral logo'),
+      };
+    case 'nvidia':
+      return {
+        label: 'Nvidia',
+        icon: buildProviderLogoImage(nvidiaLogo, 'Nvidia logo'),
       };
     case 'nova':
       return {
         label: 'Nova',
         icon: buildProviderLogoImage(novaLogo, 'Nova logo'),
       };
+    case 'openrouter':
+      return {
+        label: 'OpenRouter',
+        icon: buildProviderLogoImage(openRouterLogo, 'OpenRouter logo'),
+      };
     case 'qwen':
       return {
         label: 'Qwen',
         icon: buildProviderLogoImage(qwenLogo, 'Qwen logo'),
+      };
+    case 'relace':
+      return {
+        label: 'Relace',
+        icon: buildProviderLogoImage(relaceLogo, 'Relace logo'),
+      };
+    case 'stepfun':
+      return {
+        label: 'Stepfun',
+        icon: buildProviderLogoImage(stepfunLogo, 'Stepfun logo'),
+      };
+    case 'tencent':
+      return {
+        label: 'Tencent',
+        icon: buildProviderLogoImage(tencentLogo, 'Tencent logo'),
+      };
+    case 'upstage':
+      return {
+        label: 'Upstage',
+        icon: buildProviderLogoImage(upstageLogo, 'Upstage logo'),
+      };
+    case 'mimo':
+      return {
+        label: 'MiMo',
+        icon: buildProviderLogoImage(xiaomiMiMoLogo, 'MiMo logo'),
       };
     default:
       return {
@@ -224,70 +343,177 @@ const resolveProviderPresentationKey = (
   return 'runtime';
 };
 
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const hasModelToken = (value: string, ...tokens: string[]) =>
+  tokens.some((token) =>
+    new RegExp(
+      `(?:^|[~/\\s:_-])${escapeRegExp(token)}(?:$|[~/\\s:_-])`,
+      'i',
+    ).test(value),
+  );
+
+const extractModelVendorSegment = (value: string) => {
+  const normalized = value.replace(/^~/, '');
+  const slashIndex = normalized.indexOf('/');
+  if (slashIndex <= 0) {
+    return '';
+  }
+  return normalized.slice(0, slashIndex).toLowerCase();
+};
+
+const FALLBACK_VENDOR_LABELS: Record<string, string> = {
+  ai21: 'AI21',
+  'arcee-ai': 'Arcee',
+  'bytedance-seed': 'ByteDance',
+  essentialai: 'Essential AI',
+  'ibm-granite': 'IBM Granite',
+  inception: 'Inception',
+  inclusionai: 'Inclusion AI',
+  kwaipilot: 'KwaiPilot',
+  minimax: 'MiniMax',
+  moonshotai: 'Kimi',
+  'nex-agi': 'Nex',
+  nvidia: 'Nvidia',
+  openrouter: 'OpenRouter',
+  poolside: 'Poolside',
+  'prime-intellect': 'Prime Intellect',
+  rekaai: 'Reka',
+  relace: 'Relace',
+  sao10k: 'Sao10K',
+  stepfun: 'Stepfun',
+  tencent: 'Tencent',
+  thedrummer: 'TheDrummer',
+  upstage: 'Upstage',
+  xiaomi: 'MiMo',
+  'z-ai': 'GLM',
+};
+
+const resolveFallbackVendorLabel = (value: string) =>
+  FALLBACK_VENDOR_LABELS[extractModelVendorSegment(value)] ?? undefined;
+
 const MODEL_PRESENTATION_MATCHERS: Array<{
   key: ConversationPresentationKey;
   matches: (value: string) => boolean;
 }> = [
   {
+    key: 'ai21',
+    matches: (value) => hasModelToken(value, 'ai21'),
+  },
+  {
+    key: 'arcee',
+    matches: (value) => hasModelToken(value, 'arcee', 'arcee-ai'),
+  },
+  {
+    key: 'bytedance',
+    matches: (value) => hasModelToken(value, 'bytedance', 'bytedance-seed'),
+  },
+  {
     key: 'codex',
-    matches: (value) => /\bcodex\b/i.test(value),
+    matches: (value) => hasModelToken(value, 'codex'),
   },
   {
     key: 'claude',
-    matches: (value) => /(?:^|[\/\s_-])claude(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'claude'),
+  },
+  {
+    key: 'essentialai',
+    matches: (value) => hasModelToken(value, 'essentialai'),
   },
   {
     key: 'gemini',
-    matches: (value) => /(?:^|[\/\s_-])gemini(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'gemini'),
   },
   {
     key: 'gemma',
-    matches: (value) => /(?:^|[\/\s_-])gemma(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'gemma'),
+  },
+  {
+    key: 'glm',
+    matches: (value) => hasModelToken(value, 'glm', 'glmv', 'zhipu', 'z-ai'),
   },
   {
     key: 'grok',
     matches: (value) =>
-      /(?:^|[\/\s_-])grok(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])xai(?:$|[\/\s_-])/i.test(value),
+      hasModelToken(value, 'grok', 'x-ai') || /\bxai\b/i.test(value),
   },
   {
     key: 'deepseek',
-    matches: (value) => /(?:^|[\/\s_-])deepseek(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'deepseek'),
+  },
+  {
+    key: 'ibm',
+    matches: (value) => hasModelToken(value, 'ibm', 'ibm-granite', 'granite'),
+  },
+  {
+    key: 'inception',
+    matches: (value) => hasModelToken(value, 'inception'),
+  },
+  {
+    key: 'kimi',
+    matches: (value) => hasModelToken(value, 'moonshot', 'moonshotai', 'kimi'),
+  },
+  {
+    key: 'kwaipilot',
+    matches: (value) => hasModelToken(value, 'kwaipilot', 'kat-coder'),
+  },
+  {
+    key: 'minimax',
+    matches: (value) => hasModelToken(value, 'minimax'),
+  },
+  {
+    key: 'nvidia',
+    matches: (value) => hasModelToken(value, 'nvidia', 'nemotron'),
+  },
+  {
+    key: 'openrouter',
+    matches: (value) => hasModelToken(value, 'openrouter'),
   },
   {
     key: 'qwen',
-    matches: (value) => /(?:^|[\/\s_-])qwen(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'qwen'),
+  },
+  {
+    key: 'relace',
+    matches: (value) => hasModelToken(value, 'relace'),
   },
   {
     key: 'cohere',
     matches: (value) =>
-      /(?:^|[\/\s_-])cohere(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])commanda?(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])aya(?:$|[\/\s_-])/i.test(value),
+      hasModelToken(value, 'cohere', 'command', 'commanda', 'aya'),
+  },
+  {
+    key: 'stepfun',
+    matches: (value) => hasModelToken(value, 'stepfun'),
+  },
+  {
+    key: 'tencent',
+    matches: (value) => hasModelToken(value, 'tencent', 'hunyuan', 'hy3'),
+  },
+  {
+    key: 'upstage',
+    matches: (value) => hasModelToken(value, 'upstage'),
+  },
+  {
+    key: 'mimo',
+    matches: (value) => hasModelToken(value, 'xiaomi', 'mimo'),
   },
   {
     key: 'nova',
-    matches: (value) =>
-      /(?:^|[\/\s_-])nova(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])amazon(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])aws(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'nova', 'amazon', 'aws'),
   },
   {
     key: 'mistral',
-    matches: (value) => /(?:^|[\/\s_-])mistral(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'mistral'),
   },
   {
     key: 'meta',
-    matches: (value) =>
-      /(?:^|[\/\s_-])meta(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])llama(?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'meta', 'meta-llama', 'llama'),
   },
   {
     key: 'openai',
-    matches: (value) =>
-      /(?:^|[\/\s_-])openai(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])gpt(?:$|[\/\s_-])/i.test(value) ||
-      /(?:^|[\/\s_-])o[134](?:$|[\/\s_-])/i.test(value),
+    matches: (value) => hasModelToken(value, 'openai', 'gpt', 'o1', 'o3', 'o4'),
   },
 ];
 
@@ -307,6 +533,14 @@ export const getConversationModelPresentation = (
     if (matcher.matches(normalizedModel)) {
       return buildPresentation(matcher.key);
     }
+  }
+
+  const fallbackVendorLabel = resolveFallbackVendorLabel(normalizedModel);
+  if (fallbackVendorLabel) {
+    return {
+      label: fallbackVendorLabel,
+      icon: buildPresentation('runtime').icon,
+    };
   }
 
   return buildPresentation(resolveProviderPresentationKey(provider, model));

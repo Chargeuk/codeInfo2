@@ -168,6 +168,38 @@ describe('Conversation row parity', () => {
     expect(
       getConversationModelPresentation('copilot', 'amazon/nova-pro').label,
     ).toBe('Nova');
+    expect(
+      getConversationModelPresentation('copilot', 'moonshotai/kimi-k2.7-code')
+        .label,
+    ).toBe('Kimi');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'nvidia/nemotron-3-ultra-550b-a55b',
+      ).label,
+    ).toBe('Nvidia');
+    expect(
+      getConversationModelPresentation('copilot', 'z-ai/glm-5.1').label,
+    ).toBe('GLM');
+    expect(
+      getConversationModelPresentation('copilot', 'minimax/minimax-m3').label,
+    ).toBe('MiniMax');
+    expect(
+      getConversationModelPresentation('copilot', 'ibm-granite/granite-4.1-8b')
+        .label,
+    ).toBe('IBM Granite');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'bytedance-seed/seed-2.0-lite',
+      ).label,
+    ).toBe('ByteDance');
+    expect(
+      getConversationModelPresentation('copilot', 'openrouter/fusion').label,
+    ).toBe('OpenRouter');
+    expect(
+      getConversationModelPresentation('copilot', 'poolside/laguna-m.1').label,
+    ).toBe('Poolside');
   });
 
   it('formats recent timestamps relatively and older timestamps with exact local date and time', () => {

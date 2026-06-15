@@ -724,14 +724,16 @@ describe('Chat page models list', () => {
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
     await user.click(modelSelect);
 
-    const duplicateOptions = screen.getAllByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example/i,
+    const baseOption = screen.getByRole('option', {
+      name: /gpt-5\.2 \(alpha\.example \/ base\)/i,
     });
-    expect(duplicateOptions).toHaveLength(2);
-    expect(duplicateOptions[0]).toHaveAttribute('aria-selected', 'true');
-    expect(duplicateOptions[1]).toHaveAttribute('aria-selected', 'false');
+    const altOption = screen.getByRole('option', {
+      name: /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+    });
+    expect(baseOption).toHaveAttribute('aria-selected', 'true');
+    expect(altOption).toHaveAttribute('aria-selected', 'false');
 
-    await user.click(duplicateOptions[1]);
+    await user.click(altOption);
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
@@ -740,11 +742,14 @@ describe('Chat page models list', () => {
     );
 
     await user.click(screen.getByRole('combobox', { name: /model/i }));
-    const refreshedOptions = screen.getAllByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example/i,
+    const refreshedBaseOption = screen.getByRole('option', {
+      name: /gpt-5\.2 \(alpha\.example \/ base\)/i,
     });
-    expect(refreshedOptions[0]).toHaveAttribute('aria-selected', 'false');
-    expect(refreshedOptions[1]).toHaveAttribute('aria-selected', 'true');
+    const refreshedAltOption = screen.getByRole('option', {
+      name: /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+    });
+    expect(refreshedBaseOption).toHaveAttribute('aria-selected', 'false');
+    expect(refreshedAltOption).toHaveAttribute('aria-selected', 'true');
   });
 
   it('does not re-enable a provider when /chat/models top-level availability is degraded', async () => {
@@ -990,6 +995,122 @@ describe('Chat page models list', () => {
     expect(within(gptOption).getByAltText(/openai logo/i)).toBeVisible();
     expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
   }, 15000);
+
+  it('groups model options by family, sorts within a group, and keeps a visible search filter', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+            selectedProvider: 'copilot',
+            selectedModel: 'moonshotai/kimi-k2.6',
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'copilot',
+            available: true,
+            toolsAvailable: true,
+            models: [
+              {
+                key: 'openai/gpt-5.5',
+                displayName: 'OpenRouter / openai/gpt-5.5',
+                type: 'copilot',
+                endpointId: 'https://openrouter.ai/api/v1',
+                endpointLabel: 'OpenRouter',
+              },
+              {
+                key: 'moonshotai/kimi-k2.7-code',
+                displayName: 'OpenRouter / moonshotai/kimi-k2.7-code',
+                type: 'copilot',
+                endpointId: 'https://openrouter.ai/api/v1',
+                endpointLabel: 'OpenRouter',
+              },
+              {
+                key: 'moonshotai/kimi-k2.6',
+                displayName: 'OpenRouter / moonshotai/kimi-k2.6',
+                type: 'copilot',
+                endpointId: 'https://openrouter.ai/api/v1',
+                endpointLabel: 'OpenRouter',
+              },
+              {
+                key: 'nvidia/nemotron-3-ultra-550b-a55b',
+                displayName: 'OpenRouter / nvidia/nemotron-3-ultra-550b-a55b',
+                type: 'copilot',
+                endpointId: 'https://openrouter.ai/api/v1',
+                endpointLabel: 'OpenRouter',
+              },
+              {
+                key: 'nvidia/nemotron-3-super-120b-a12b',
+                displayName: 'OpenRouter / nvidia/nemotron-3-super-120b-a12b',
+                type: 'copilot',
+                endpointId: 'https://openrouter.ai/api/v1',
+                endpointLabel: 'OpenRouter',
+              },
+            ],
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await user.click(modelSelect);
+
+    expect(await screen.findByTestId('chat-model-search')).toBeVisible();
+    expect(screen.getAllByText('Kimi').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Nvidia').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('OpenAI').length).toBeGreaterThan(0);
+
+    const optionNames = screen
+      .getAllByRole('option')
+      .map((option) => option.getAttribute('aria-label'));
+    expect(optionNames).toEqual([
+      'OpenRouter / moonshotai/kimi-k2.6',
+      'OpenRouter / moonshotai/kimi-k2.7-code',
+      'OpenRouter / nvidia/nemotron-3-super-120b-a12b',
+      'OpenRouter / nvidia/nemotron-3-ultra-550b-a55b',
+      'OpenRouter / openai/gpt-5.5',
+    ]);
+
+    await user.type(screen.getByTestId('chat-model-search'), 'nemotron');
+
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(2));
+    expect(screen.getAllByText('Nvidia').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Kimi')).toBeNull();
+    expect(screen.queryByText('OpenAI')).toBeNull();
+    expect(
+      screen.getByRole('option', {
+        name: /nvidia\/nemotron-3-super-120b-a12b/i,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('option', {
+        name: /nvidia\/nemotron-3-ultra-550b-a55b/i,
+      }),
+    ).toBeVisible();
+  });
 
   it('renders non-standard runtime reasoning values from model capabilities', async () => {
     mockFetch.mockImplementation(

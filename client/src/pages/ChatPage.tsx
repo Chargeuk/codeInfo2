@@ -29,6 +29,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListSubheader,
   Stack,
   TextField,
   Tooltip,
@@ -43,6 +44,7 @@ import {
   type MouseEvent,
   type ReactNode,
   useCallback,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -408,6 +410,7 @@ export default function ChatPage() {
     useState<HTMLElement | null>(null);
   const [composerModelAnchorEl, setComposerModelAnchorEl] =
     useState<HTMLElement | null>(null);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
   const [composerOptionsAnchorEl, setComposerOptionsAnchorEl] =
     useState<HTMLElement | null>(null);
   const metadataLoggedRef = useRef(new Set<string>());
@@ -1348,12 +1351,100 @@ export default function ChatPage() {
   const selectedModelDisplayName = selectedModel
     ? getModelDisplayLabel(selectedModel)
     : formatEndpointAwareModelLabel(selected, selectedEndpointId);
+  const deferredModelSearchQuery = useDeferredValue(modelSearchQuery);
+  const normalizedModelSearchQuery = deferredModelSearchQuery
+    .trim()
+    .toLowerCase();
   const selectedEndpointLabel = selectedModel?.endpointId
     ? formatEndpointIdentityLabel(
         selectedModel.endpointLabel,
         selectedModel.endpointId,
       )
     : undefined;
+  const groupedModelOptions = useMemo(() => {
+    const entries = models
+      .map((model) => {
+        const presentation = getComposerModelPresentation(provider, model.key);
+        const modelLabel = getModelDisplayLabel(model);
+        const searchHaystack = [
+          modelLabel,
+          model.key,
+          model.displayName,
+          presentation.label,
+          model.endpointLabel,
+          model.endpointId,
+        ]
+          .filter((value): value is string => typeof value === 'string')
+          .join(' ')
+          .toLowerCase();
+
+        return {
+          groupLabel: presentation.label,
+          model,
+          modelLabel,
+          presentation,
+          searchHaystack,
+        };
+      })
+      .filter((entry) =>
+        normalizedModelSearchQuery.length === 0
+          ? true
+          : entry.searchHaystack.includes(normalizedModelSearchQuery),
+      )
+      .sort((left, right) => {
+        const groupComparison = left.groupLabel.localeCompare(
+          right.groupLabel,
+          undefined,
+          {
+            numeric: true,
+            sensitivity: 'base',
+          },
+        );
+        if (groupComparison !== 0) {
+          return groupComparison;
+        }
+
+        const modelComparison = left.modelLabel.localeCompare(
+          right.modelLabel,
+          undefined,
+          {
+            numeric: true,
+            sensitivity: 'base',
+          },
+        );
+        if (modelComparison !== 0) {
+          return modelComparison;
+        }
+
+        return (left.model.endpointId ?? '').localeCompare(
+          right.model.endpointId ?? '',
+          undefined,
+          {
+            numeric: true,
+            sensitivity: 'base',
+          },
+        );
+      });
+
+    const groups: Array<{
+      groupLabel: string;
+      options: typeof entries;
+    }> = [];
+
+    entries.forEach((entry) => {
+      const currentGroup = groups.at(-1);
+      if (!currentGroup || currentGroup.groupLabel !== entry.groupLabel) {
+        groups.push({
+          groupLabel: entry.groupLabel,
+          options: [entry],
+        });
+        return;
+      }
+      currentGroup.options.push(entry);
+    });
+
+    return groups;
+  }, [getModelDisplayLabel, models, normalizedModelSearchQuery, provider]);
   const reasoningDescriptor = availableAgentFlags.find(
     (descriptor) => descriptor.key === 'modelReasoningEffort',
   );
@@ -1527,10 +1618,12 @@ export default function ChatPage() {
 
   const handleComposerModelOpen = (event: MouseEvent<HTMLElement>) => {
     closeComposerSurfaces();
+    setModelSearchQuery('');
     setComposerModelAnchorEl(event.currentTarget);
   };
 
   const handleComposerModelClose = () => {
+    setModelSearchQuery('');
     setComposerModelAnchorEl(null);
   };
 
@@ -2170,50 +2263,100 @@ export default function ChatPage() {
         </Stack>
       ) : null}
       {composerReasoningOptions.length > 0 ? <Divider /> : null}
+      {models.length > 0 ? (
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            px: 1,
+            pt: 0.5,
+            pb: 1,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <TextField
+            fullWidth
+            size="small"
+            value={modelSearchQuery}
+            onChange={(event) => setModelSearchQuery(event.target.value)}
+            label="Search models"
+            placeholder="Search models"
+            inputProps={{
+              'aria-label': 'Search models',
+              'data-testid': 'chat-model-search',
+            }}
+          />
+        </Box>
+      ) : null}
       <List disablePadding dense role="listbox" aria-label="Model options">
         {models.length > 0 ? (
-          models.map((model) => {
-            const presentation = getComposerModelPresentation(
-              provider,
-              model.key,
-            );
-            const isSelectedModel =
-              selected === model.key &&
-              (selectedEndpointId ?? undefined) ===
-                (model.endpointId ?? undefined);
-            const modelLabel = getModelDisplayLabel(model);
-
-            return (
-              <ListItemButton
-                key={`${model.key}:${model.endpointId ?? ''}`}
-                component="div"
-                role="option"
-                aria-label={modelLabel}
-                aria-selected={isSelectedModel}
-                selected={isSelectedModel}
-                disabled={
-                  isLoading ||
-                  isError ||
-                  isEmpty ||
-                  !providerAvailable ||
-                  nextSendContextLocked ||
-                  resumedExecutionIdentityLocked
-                }
-                onClick={() => {
-                  handleComposerModelClose();
-                  applyModelSelection(model.key, model.endpointId);
-                }}
+          groupedModelOptions.length > 0 ? (
+            groupedModelOptions.map((group) => (
+              <Box
+                key={group.groupLabel}
+                component="li"
+                sx={{ listStyle: 'none' }}
               >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  {presentation.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={modelLabel}
-                  secondary={presentation.label}
-                />
-              </ListItemButton>
-            );
-          })
+                <ListSubheader
+                  component="div"
+                  disableSticky
+                  sx={{
+                    bgcolor: 'background.paper',
+                    color: 'text.secondary',
+                    lineHeight: 1.8,
+                    typography: 'caption',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {group.groupLabel}
+                </ListSubheader>
+                {group.options.map(({ model, modelLabel, presentation }) => {
+                  const isSelectedModel =
+                    selected === model.key &&
+                    (selectedEndpointId ?? undefined) ===
+                      (model.endpointId ?? undefined);
+
+                  return (
+                    <ListItemButton
+                      key={`${model.key}:${model.endpointId ?? ''}`}
+                      component="div"
+                      role="option"
+                      aria-label={modelLabel}
+                      aria-selected={isSelectedModel}
+                      selected={isSelectedModel}
+                      disabled={
+                        isLoading ||
+                        isError ||
+                        isEmpty ||
+                        !providerAvailable ||
+                        nextSendContextLocked ||
+                        resumedExecutionIdentityLocked
+                      }
+                      onClick={() => {
+                        handleComposerModelClose();
+                        applyModelSelection(model.key, model.endpointId);
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        {presentation.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={modelLabel}
+                        secondary={presentation.label}
+                      />
+                    </ListItemButton>
+                  );
+                })}
+              </Box>
+            ))
+          ) : (
+            <Stack sx={{ px: 1, py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                No models match &quot;{modelSearchQuery.trim()}&quot;.
+              </Typography>
+            </Stack>
+          )
         ) : (
           <Stack sx={{ px: 1, py: 2 }}>
             <Typography variant="body2" color="text.secondary">

@@ -29,6 +29,7 @@ import {
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  buildEndpointOnlyProviderWarning,
   buildCodexAgentFlags,
   buildCodexCompatibilityDefaults,
   buildCodexModelFlagOverrides,
@@ -42,6 +43,8 @@ import {
   buildProviderInfo,
   orderProviders,
   resolveOpenAiCompatProviderDiscovery,
+  selectProviderNativeAndEndpointModels,
+  selectProviderNativeAndEndpointLiveModels,
   toCompatibilityCodexWarnings,
   toCompatibilityReasoningEfforts,
 } from './chatDiscovery.js';
@@ -324,29 +327,13 @@ export function createChatModelsRouter({
     const capabilities = await codexCapabilityResolver({
       consumer: 'chat_models',
     });
-    const codexToolsAvailable =
-      detection.available && codexBootstrapHealthy && mcp.available;
-    const codexRuntimeWarnings: string[] = [];
-    if (capabilities.defaults.webSearchEnabled && !codexToolsAvailable) {
-      codexRuntimeWarnings.push(
-        'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
-      );
-    }
-    const codexWarnings = [
-      ...capabilities.warnings,
-      ...getProviderBootstrapWarnings('codex'),
-      ...codexRuntimeWarnings,
-    ];
+    const codexNativeAvailable = detection.available && codexBootstrapHealthy;
     const codexConfigWarnings: string[] = [];
     const codexDefaults = buildCodexCompatibilityDefaults({
       capabilities,
       codexHome,
       warnings: codexConfigWarnings,
     });
-    codexWarnings.push(...codexConfigWarnings);
-    if (provider === 'codex') {
-      codexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
-    }
     let requestedDefaults: ReturnType<typeof resolveChatDefaults> | undefined =
       undefined;
     try {
@@ -366,22 +353,45 @@ export function createChatModelsRouter({
     });
     const codexExternalModels =
       provider === 'codex' ? externalOpenAiCompatDiscovery.models : [];
-    const codexLiveModels = [
-      ...new Set([
-        ...capabilities.models.map((capability) => capability.model),
-        ...(provider === 'codex'
-          ? externalOpenAiCompatDiscovery.liveModels
-          : []),
-      ]),
+    const codexLiveModels = selectProviderNativeAndEndpointLiveModels({
+      nativeAvailable: codexNativeAvailable,
+      nativeModels: capabilities.models.map((capability) => capability.model),
+      endpointModels:
+        provider === 'codex' ? externalOpenAiCompatDiscovery.liveModels : [],
+    });
+    const codexEndpointOnly =
+      provider === 'codex' &&
+      !codexNativeAvailable &&
+      externalOpenAiCompatDiscovery.liveModels.length > 0;
+    const codexAvailable = codexNativeAvailable || codexEndpointOnly;
+    const codexToolsAvailable =
+      mcp.available && (codexNativeAvailable || codexEndpointOnly);
+    const codexWarnings = [
+      ...capabilities.warnings,
+      ...getProviderBootstrapWarnings('codex'),
+      ...(capabilities.defaults.webSearchEnabled && !codexToolsAvailable
+        ? [
+            'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
+          ]
+        : []),
     ];
+    codexWarnings.push(...codexConfigWarnings);
+    if (provider === 'codex') {
+      codexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
+    }
+    if (codexEndpointOnly) {
+      codexWarnings.push(buildEndpointOnlyProviderWarning('codex'));
+    }
     const codexProviderInfo = buildProviderInfo({
       provider: 'codex',
-      available: detection.available && codexBootstrapHealthy,
+      available: codexAvailable,
       toolsAvailable: codexToolsAvailable,
       reason:
-        getProviderBootstrapReason('codex') ??
-        detection.reason ??
-        (mcp.available ? undefined : mcp.reason),
+        codexEndpointOnly
+          ? undefined
+          : (getProviderBootstrapReason('codex') ??
+            detection.reason ??
+            (mcp.available ? undefined : mcp.reason)),
       codexHome,
       warnings: codexWarnings,
       liveModels: codexLiveModels,
@@ -403,8 +413,8 @@ export function createChatModelsRouter({
             }
           : undefined,
     });
-    const codexModels = [
-      ...capabilities.models.map((capability) => ({
+    const nativeCodexModels: ChatModelInfo[] = capabilities.models.map(
+      (capability) => ({
         key: capability.model,
         displayName: capability.model,
         type: 'codex',
@@ -412,9 +422,13 @@ export function createChatModelsRouter({
           buildCodexModelFlagOverrides(capability),
         ),
         flagOverrides: buildCodexModelFlagOverrides(capability),
-      })),
-      ...codexExternalModels,
-    ];
+      }),
+    );
+    const codexModels: ChatModelInfo[] = selectProviderNativeAndEndpointModels({
+      nativeAvailable: codexNativeAvailable,
+      nativeModels: nativeCodexModels,
+      endpointModels: codexExternalModels,
+    });
     const codexSelectedEndpointId = resolveSelectedEndpointId(
       codexModels,
       codexProviderInfo.defaultModel,
@@ -482,21 +496,28 @@ export function createChatModelsRouter({
       }),
       ...copilotExternalModels,
     ];
-    const copilotLiveModels = [
-      ...new Set([
-        ...copilotModels.map((model) => model.key),
-        ...(provider === 'copilot'
-          ? externalOpenAiCompatDiscovery.liveModels
-          : []),
-      ]),
-    ];
+    const copilotNativeAvailable =
+      readiness.available && copilotBootstrapHealthy;
+    const copilotLiveModels = selectProviderNativeAndEndpointLiveModels({
+      nativeAvailable: copilotNativeAvailable,
+      nativeModels: mappedCopilotModels.map((model) => model.key),
+      endpointModels:
+        provider === 'copilot' ? externalOpenAiCompatDiscovery.liveModels : [],
+    });
+    const copilotEndpointOnly =
+      provider === 'copilot' &&
+      !copilotNativeAvailable &&
+      externalOpenAiCompatDiscovery.liveModels.length > 0;
     const copilotAvailable =
-      readiness.available &&
-      copilotBootstrapHealthy &&
+      (copilotNativeAvailable || copilotEndpointOnly) &&
       copilotLiveModels.length > 0;
     const copilotWarnings = [
       ...getProviderBootstrapWarnings('copilot'),
-      ...(readiness.reason ? [readiness.reason] : []),
+      ...(copilotEndpointOnly
+        ? [buildEndpointOnlyProviderWarning('copilot')]
+        : readiness.reason
+          ? [readiness.reason]
+          : []),
       ...copilotAgentFlags.warnings,
       ...(provider === 'copilot'
         ? externalOpenAiCompatDiscovery.warnings
@@ -505,10 +526,12 @@ export function createChatModelsRouter({
     const copilotProviderInfo = buildProviderInfo({
       provider: 'copilot',
       available: copilotAvailable,
-      toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
+      toolsAvailable: copilotAvailable ? mcp.available : false,
       reason:
         getProviderBootstrapReason('copilot') ??
-        (copilotAvailable
+        (copilotEndpointOnly
+          ? undefined
+          : copilotAvailable
           ? readiness.reason
           : (readiness.reason ?? COPILOT_MODELS_REASON)),
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
@@ -660,16 +683,15 @@ export function createChatModelsRouter({
     if (provider === 'codex') {
       const response = buildModelsResponse({
         provider: 'codex',
-        available: detection.available && codexBootstrapHealthy,
+        available: codexAvailable,
         toolsAvailable: codexToolsAvailable,
         reason:
-          getProviderBootstrapReason('codex') ??
-          detection.reason ??
-          (mcp.available ? undefined : mcp.reason),
-        models:
-          detection.available && codexBootstrapHealthy
-            ? prioritizedCodexModels
-            : [],
+          codexEndpointOnly
+            ? undefined
+            : (getProviderBootstrapReason('codex') ??
+              detection.reason ??
+              (mcp.available ? undefined : mcp.reason)),
+        models: codexAvailable ? prioritizedCodexModels : [],
         providers,
         providerInfo: providerMap.codex,
         selectedEndpointId: codexSelectedEndpointId,
@@ -698,7 +720,7 @@ export function createChatModelsRouter({
         defaults: codexDefaults,
       });
 
-      if (detection.available) {
+      if (codexAvailable) {
         baseLogger.info(
           {
             requestId,

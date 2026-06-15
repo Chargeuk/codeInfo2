@@ -144,6 +144,24 @@ export interface CodexLike {
   resumeThread: (id: string, opts?: CodexThreadOptions) => CodexLikeThread;
 }
 
+const runtimeConfigSupportsEndpointOnlyExecution = (
+  runtimeConfig: CodexOptions['config'] | undefined,
+): boolean => {
+  if (!runtimeConfig || typeof runtimeConfig !== 'object') {
+    return false;
+  }
+
+  const configRecord = runtimeConfig as Record<string, unknown>;
+  const modelProvider = configRecord.model_provider;
+  const modelProviders = configRecord.model_providers;
+  return (
+    typeof modelProvider === 'string' &&
+    modelProvider.trim().length > 0 &&
+    typeof modelProviders === 'object' &&
+    modelProviders !== null
+  );
+};
+
 export class ChatInterfaceCodex extends ChatInterface {
   constructor(
     private readonly codexFactory: (options?: CodexOptions) => CodexLike = (
@@ -176,7 +194,10 @@ export class ChatInterfaceCodex extends ChatInterface {
     const detection = codexHome
       ? refreshCodexDetection({ codexHome })
       : getCodexDetection();
-    if (!detection.available) {
+    const endpointOnlyExecution =
+      !detection.available &&
+      runtimeConfigSupportsEndpointOnlyExecution(runtimeConfig);
+    if (!detection.available && !endpointOnlyExecution) {
       const msg = detection.reason ?? 'codex unavailable';
       this.emitEvent({ type: 'error', message: msg });
       return;

@@ -1132,6 +1132,52 @@ test('codex models route preserves duplicate raw model ids and the selected endp
   }
 });
 
+test('codex models route serves endpoint-only models when Codex auth is missing', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-codex-model'],
+  });
+  tempExternalServers.push(externalServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `${externalServer.baseUrl}/v1|responses`,
+  );
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: 'Missing auth.json in /tmp/codex',
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'codex');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.toolsAvailable, true);
+    assert.equal(res.body.reason, undefined);
+    assert.deepEqual(res.body.models, [
+      {
+        key: 'endpoint-codex-model',
+        displayName: 'endpoint-codex-model',
+        type: 'codex',
+        endpointId: `${externalServer.baseUrl}/v1`,
+      },
+    ]);
+    assert.equal(res.body.providerInfo.defaultModel, 'endpoint-codex-model');
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /Codex authentication is unavailable; showing external OpenAI-compatible endpoint models only\./u,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('codex models route clears stale endpoint identity when the default normalizes back to native', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['shared-model'],

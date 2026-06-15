@@ -387,6 +387,40 @@ export function buildCodexCompatibilityDefaults(params: {
   };
 }
 
+export function buildEndpointOnlyProviderWarning(
+  provider: Extract<ChatProviderId, 'codex' | 'copilot'>,
+): string {
+  return `${
+    provider === 'codex' ? 'Codex' : 'Copilot'
+  } authentication is unavailable; showing external OpenAI-compatible endpoint models only.`;
+}
+
+export function selectProviderNativeAndEndpointModels<T>(params: {
+  nativeAvailable: boolean;
+  nativeModels: T[];
+  endpointModels: T[];
+}): T[] {
+  return params.nativeAvailable
+    ? [...params.nativeModels, ...params.endpointModels]
+    : [...params.endpointModels];
+}
+
+export function selectProviderNativeAndEndpointLiveModels(params: {
+  nativeAvailable: boolean;
+  nativeModels: string[];
+  endpointModels: string[];
+}): string[] {
+  return [
+    ...new Set(
+      selectProviderNativeAndEndpointModels({
+        nativeAvailable: params.nativeAvailable,
+        nativeModels: params.nativeModels,
+        endpointModels: params.endpointModels,
+      }),
+    ),
+  ];
+}
+
 export function getProviderBootstrapWarnings(
   provider: ChatProviderId,
 ): string[] {

@@ -471,6 +471,48 @@ test('copilot models route preserves duplicate raw model ids across distinct end
   }
 });
 
+test('copilot models route serves endpoint-only models when Copilot auth is missing', async () => {
+  const completionsServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-copilot-model'],
+  });
+  tempExternalServers.push(completionsServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `${completionsServer.baseUrl}/v1|completions`,
+  );
+
+  const server = await startServer({
+    copilotModels: [],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'copilot');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.toolsAvailable, true);
+    assert.equal(res.body.reason, undefined);
+    assert.deepEqual(res.body.models, [
+      {
+        key: 'endpoint-copilot-model',
+        displayName: 'endpoint-copilot-model',
+        type: 'copilot',
+        endpointId: `${completionsServer.baseUrl}/v1`,
+      },
+    ]);
+    assert.equal(res.body.providerInfo.available, true);
+    assert.equal(res.body.providerInfo.defaultModel, 'endpoint-copilot-model');
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /Copilot authentication is unavailable; showing external OpenAI-compatible endpoint models only\./u,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('chat providers route keeps same-model-first fallback metadata instead of surfacing the first advertised fallback model', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-providers-copilot-fallback-home-'),

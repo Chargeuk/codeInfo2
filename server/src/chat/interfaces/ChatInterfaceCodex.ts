@@ -1,4 +1,7 @@
-import { SYSTEM_CONTEXT } from '@codeinfo2/common';
+import {
+  SYSTEM_CONTEXT,
+  VECTORSEARCH_PROTOCOL_REMINDER,
+} from '@codeinfo2/common';
 import { Codex } from '@openai/codex-sdk';
 import type {
   CodexOptions,
@@ -281,7 +284,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       promptSections.push(`System:\n${agentSystemPrompt}`);
 
     if (!disableSystemContext && message?.trim().length) {
-      message = `${message}\n- YOU MUST follow the 'VectorSearch-first protocol' UNLESS this is an allowed exception where direct access and/or Python is a better fit. Provide the full path to each file that you reference to generate your answer.`;
+      message = `${message}\n- ${VECTORSEARCH_PROTOCOL_REMINDER}`;
     }
 
     const prompt =

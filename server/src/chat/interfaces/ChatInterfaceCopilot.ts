@@ -1,4 +1,8 @@
 import {
+  SYSTEM_CONTEXT,
+  VECTORSEARCH_PROTOCOL_REMINDER,
+} from '@codeinfo2/common';
+import {
   approveAll,
   type MCPServerConfig,
   type CopilotSession,
@@ -35,6 +39,7 @@ const DEFAULT_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC = 7200;
 type CopilotRunFlags = {
   agentFlags?: Record<string, unknown>;
   codeinfoOpenAiEndpoint?: OpenAiCompatEndpointConfig;
+  disableSystemContext?: boolean;
   systemPrompt?: string;
   workingDirectoryOverride?: string;
   history?: TurnSummary[];
@@ -159,6 +164,23 @@ const disableCopilotMcpServerTools = (
   return normalized;
 };
 
+const buildCopilotSystemMessage = (options: {
+  disableSystemContext?: boolean;
+  isNewConversation: boolean;
+  systemPrompt?: string;
+}): SystemMessageConfig | undefined => {
+  if (!options.isNewConversation) return undefined;
+  const parts = [
+    options.disableSystemContext ? '' : SYSTEM_CONTEXT.trim(),
+    (options.systemPrompt ?? '').trim(),
+  ].filter((part) => part.length > 0);
+  if (parts.length === 0) return undefined;
+  return {
+    mode: 'append',
+    content: parts.join('\n\n'),
+  } satisfies SystemMessageConfig;
+};
+
 export class ChatInterfaceCopilot extends ChatInterface {
   private readonly hooksFactory: NonNullable<
     ChatInterfaceCopilotOptions['hooksFactory']
@@ -202,6 +224,11 @@ export class ChatInterfaceCopilot extends ChatInterface {
   ): SessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
     const { runtimeFlags, mcpServers } = this.resolveSessionFlags(typedFlags);
+    const systemMessage = buildCopilotSystemMessage({
+      disableSystemContext: typedFlags.disableSystemContext,
+      isNewConversation: true,
+      systemPrompt: typedFlags.systemPrompt,
+    });
     const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
       ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
       : true;
@@ -224,14 +251,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
         : {}),
-      ...(typedFlags.systemPrompt
-        ? {
-            systemMessage: {
-              mode: 'append',
-              content: typedFlags.systemPrompt,
-            } satisfies SystemMessageConfig,
-          }
-        : {}),
+      ...(systemMessage ? { systemMessage } : {}),
       ...(typedFlags.workingDirectoryOverride
         ? { workingDirectory: typedFlags.workingDirectoryOverride }
         : {}),
@@ -265,14 +285,6 @@ export class ChatInterfaceCopilot extends ChatInterface {
       ...(mcpServers ? { mcpServers } : {}),
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
-        : {}),
-      ...(typedFlags.systemPrompt
-        ? {
-            systemMessage: {
-              mode: 'append',
-              content: typedFlags.systemPrompt,
-            } satisfies SystemMessageConfig,
-          }
         : {}),
       ...(typedFlags.workingDirectoryOverride
         ? { workingDirectory: typedFlags.workingDirectoryOverride }
@@ -310,6 +322,9 @@ export class ChatInterfaceCopilot extends ChatInterface {
     model: string,
   ): Promise<void> {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
+    if (!typedFlags.disableSystemContext && message?.trim().length) {
+      message = `${message}\n- ${VECTORSEARCH_PROTOCOL_REMINDER}`;
+    }
     const phase: SessionPhase = typedFlags.resumeConversation
       ? 'resume'
       : 'create';

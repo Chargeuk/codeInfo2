@@ -3523,7 +3523,7 @@ flowchart LR
 
 ### Codex MCP flow
 
-- On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution.
+- On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution. That shared prompt explicitly treats general repository-purpose/architecture/summary questions as VectorSearch-first work, disallows starting those flows with `ls`/`fd`/`tree` or `rg`, and requires an explicit "I am skipping VectorSearch because ..." justification whenever VectorSearch is skipped under default conditions.
 - Codex `mcp_tool_call` events are translated into WebSocket `tool_event` updates carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
 - Host auth bootstrap: the checked-in main and e2e compose stacks mount `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` read-only at `/host/codex` and keep a separate writable `/app/codex` runtime home. On startup, if `/app/codex` is missing auth-bearing runtime files that exist in `/host/codex`, the server seeds or repairs the writable runtime home from that read-only host mount without replacing a complete runtime home.
 - Codex home selection:

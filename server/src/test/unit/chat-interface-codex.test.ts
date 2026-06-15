@@ -494,6 +494,51 @@ describe('ChatInterfaceCodex', () => {
     assert.equal(config?.model_verbosity, 'high');
   });
 
+  it('rejects endpoint-only execution when model_provider is not present in model_providers', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      reason: 'Missing auth.json in /tmp/codex',
+    });
+
+    let factoryCalled = false;
+    const errors: string[] = [];
+    const chat = new TestChatInterfaceCodex(() => {
+      factoryCalled = true;
+      return {
+        startThread: () => {
+          throw new Error('should not start thread');
+        },
+        resumeThread: () => {
+          throw new Error('should not resume thread');
+        },
+      };
+    });
+    chat.on('error', (event) => errors.push(event.message));
+
+    await chat.run(
+      'Hello',
+      {
+        threadId: null,
+        runtimeConfig: {
+          model_provider: 'missing-provider',
+          model_providers: {
+            other_provider: {
+              name: 'Other Provider',
+            },
+          },
+        },
+      },
+      'conv-invalid-endpoint-only',
+      'gpt-5',
+    );
+
+    assert.equal(factoryCalled, false);
+    assert.deepEqual(errors, ['Missing auth.json in /tmp/codex']);
+  });
+
   it('leaves missing codex flags undefined in thread options', async () => {
     resetMemory();
     setCodexDetection({

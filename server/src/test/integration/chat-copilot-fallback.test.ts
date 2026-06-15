@@ -252,6 +252,55 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
   }
 });
 
+test('explicit Copilot chat requests fail closed when connectivity is unavailable even if the selected endpoint is healthy', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-copilot-model'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|completions`;
+
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-connectivity-unavailable-with-endpoint',
+      startError: new Error('copilot unavailable'),
+    },
+  });
+
+  try {
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      model: 'endpoint-copilot-model',
+      endpointId: `${externalServer.baseUrl}/v1`,
+      conversationId: 'copilot-explicit-endpoint-connectivity-unavailable',
+      message: 'Do not use the endpoint when Copilot runtime is offline',
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(
+      String(response.body.message),
+      /copilot connectivity unavailable/i,
+    );
+    assert.equal(
+      memoryConversations.get(
+        'copilot-explicit-endpoint-connectivity-unavailable',
+      ),
+      undefined,
+    );
+  } finally {
+    await server.stop();
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('copilot chat still falls back automatically when provider resolution is omitted and runtime selection must recover', async () => {
   const server = await startCopilotChatServer({
     scenario: {

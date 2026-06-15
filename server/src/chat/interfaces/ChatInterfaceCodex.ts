@@ -154,12 +154,13 @@ const runtimeConfigSupportsEndpointOnlyExecution = (
   const configRecord = runtimeConfig as Record<string, unknown>;
   const modelProvider = configRecord.model_provider;
   const modelProviders = configRecord.model_providers;
-  return (
-    typeof modelProvider === 'string' &&
-    modelProvider.trim().length > 0 &&
-    typeof modelProviders === 'object' &&
-    modelProviders !== null
-  );
+  if (typeof modelProvider !== 'string' || modelProvider.trim().length === 0) {
+    return false;
+  }
+  if (!isRecord(modelProviders)) {
+    return false;
+  }
+  return isRecord(modelProviders[modelProvider]);
 };
 
 export class ChatInterfaceCodex extends ChatInterface {

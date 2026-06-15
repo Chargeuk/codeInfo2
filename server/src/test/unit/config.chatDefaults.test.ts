@@ -202,6 +202,7 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
       available: false,
       models: ['gpt-5.1-codex-max'],
       reason: 'codex bootstrap degraded',
+      unavailableKind: 'bootstrap',
     },
     copilot: {
       available: true,
@@ -213,6 +214,7 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
       models: ['qwen2.5'],
       reason: undefined,
     },
+    allowCrossProviderFallback: false,
   });
 
   assert.equal(result.executionProvider, 'codex');
@@ -363,6 +365,42 @@ test('endpoint-aware selection can fail in place when a pinned endpoint becomes 
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'unavailable');
   assert.equal(result.unavailable, true);
+});
+
+test('healthy endpoints still run when the requested provider is unavailable only because auth is missing', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'copilot',
+    requestedModel: 'local-model',
+    endpoint: {
+      endpointId: 'https://alpha.example/v1',
+      available: true,
+      models: ['local-model'],
+      reason: undefined,
+    },
+    allowCrossProviderFallback: false,
+    codex: {
+      available: true,
+      models: ['gpt-5.3-codex'],
+      reason: undefined,
+    },
+    copilot: {
+      available: false,
+      models: [],
+      reason: 'copilot authentication required',
+      unavailableKind: 'authentication',
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'copilot');
+  assert.equal(result.executionModel, 'local-model');
+  assert.equal(result.executionPath, 'configured_endpoint');
+  assert.equal(result.decision, 'selected');
+  assert.equal(result.unavailable, false);
 });
 
 test('defaults applied marker payload includes the resolved runtime path', () => {

@@ -212,6 +212,7 @@ const applyBootstrapStatusToRuntimeProviderState = <
     available: boolean;
     reason?: string;
     models: string[];
+    unavailableKind?: 'authentication' | 'bootstrap' | 'connectivity' | 'models' | 'other';
   },
 >(
   provider: ChatDefaultProvider,
@@ -224,6 +225,7 @@ const applyBootstrapStatusToRuntimeProviderState = <
   return {
     ...state,
     available: false,
+    unavailableKind: 'bootstrap',
     reason:
       bootstrapStatus.reason ??
       `Provider "${provider}" is unavailable because startup bootstrap degraded.`,
@@ -584,6 +586,11 @@ export function createChatRouter({
           : codexPreferredDefaults.values.model,
       ),
       reason: codexDetection.reason ?? 'codex unavailable',
+      unavailableKind: codexDetection.available
+        ? undefined
+        : codexDetection.authPresent
+          ? ('other' as const)
+          : ('authentication' as const),
     });
     const mcp = await getMcpStatus();
 
@@ -666,6 +673,15 @@ export function createChatRouter({
       available: copilotReadiness.available,
       models: [...copilotReadiness.models],
       reason: copilotReadiness.reason,
+      unavailableKind: copilotReadiness.available
+        ? undefined
+        : copilotReadiness.blockingStage === 'authentication'
+          ? ('authentication' as const)
+          : copilotReadiness.blockingStage === 'connectivity'
+            ? ('connectivity' as const)
+            : copilotReadiness.blockingStage === 'models'
+              ? ('models' as const)
+              : ('other' as const),
     });
     const runtimeProviderStates = {
       codex: codexState,

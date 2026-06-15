@@ -2231,6 +2231,65 @@ test('explicit codex request returns PROVIDER_UNAVAILABLE when codex is unavaila
   assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
+test('explicit Codex /chat requests start in endpoint-only mode when Codex auth is missing but the selected endpoint is healthy', async () => {
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: 'Missing auth.json in /tmp/codex',
+  });
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-codex-model'],
+  });
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `${externalServer.baseUrl}/v1|responses`;
+
+  const mockCodex = new MockCodex('thread-codex-endpoint-only');
+  const codexFactory = () => mockCodex;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          endpointId: `${externalServer.baseUrl}/v1`,
+          model: 'endpoint-codex-model',
+          message: 'Run through the local endpoint without Codex auth',
+        }),
+      );
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'endpoint-codex-model');
+    assert.equal(mockCodex.lastStartOptions?.model, 'endpoint-codex-model');
+    assert.equal(
+      memoryConversations.get(response.body.conversationId)?.provider,
+      'codex',
+    );
+  } finally {
+    await externalServer.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('explicit Codex /chat requests fail closed when bootstrap is degraded even if the external endpoint is healthy', async () => {
   setCodexDetection({
     available: true,

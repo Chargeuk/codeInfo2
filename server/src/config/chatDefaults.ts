@@ -42,6 +42,7 @@ export type RuntimeProviderState = {
   available: boolean;
   models: string[];
   reason?: string;
+  unavailableKind?: 'authentication' | 'bootstrap' | 'connectivity' | 'models' | 'other';
 };
 
 export type RuntimeProviderEndpointState = {
@@ -60,10 +61,12 @@ export type RuntimeProviderSelectionPath =
 
 export const buildUnavailableRuntimeProviderState = (
   reason?: string,
+  unavailableKind: RuntimeProviderState['unavailableKind'] = 'other',
 ): RuntimeProviderState => ({
   available: false,
   models: [],
   reason,
+  unavailableKind,
 });
 
 export type RuntimeProviderSelection = {
@@ -608,27 +611,14 @@ export const resolveRuntimeProviderSelection = ({
   const hasEndpoint = endpoint !== undefined;
   const endpointId = endpoint?.endpointId;
   const endpointReason = endpoint?.reason;
-  if (endpoint?.available && !requestedState.available) {
-    return {
-      requestedProvider,
-      requestedModel,
-      executionProvider: requestedProvider,
-      executionModel: requestedModel,
-      executionPath: 'unavailable',
-      endpointId,
-      fallbackApplied: false,
-      unavailable: true,
-      decision: 'unavailable',
-      requestedReason: requestedState.reason ?? endpointReason,
-      fallbackReason: undefined,
-      endpointReason,
-    };
-  }
-
   if (endpoint) {
     if (endpoint.available) {
       const endpointModel = selectEndpointExecutionModel(endpoint, requestedModel);
-      if (endpointModel.model) {
+      if (
+        endpointModel.model &&
+        (requestedState.available ||
+          requestedState.unavailableKind === 'authentication')
+      ) {
         return {
           requestedProvider,
           requestedModel,

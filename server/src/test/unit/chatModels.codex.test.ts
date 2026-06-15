@@ -15,6 +15,10 @@ import {
 } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
@@ -142,6 +146,7 @@ async function setCodexHome(chatToml?: string) {
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  __resetProviderBootstrapStatusForTests();
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 });
@@ -150,6 +155,7 @@ afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  __resetProviderBootstrapStatusForTests();
   while (tempExternalServers.length > 0) {
     await tempExternalServers.pop()!.stop();
   }
@@ -1127,6 +1133,98 @@ test('codex models route preserves duplicate raw model ids and the selected endp
     assert.ok(sharedEndpointIds.includes(`${secondServer.baseUrl}/v1`));
     assert.equal(sharedModels[0]?.type, 'codex');
     assert.ok(sharedModels.some((model) => model.type === 'codex'));
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models route serves endpoint-only models when Codex auth is missing', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-codex-model'],
+  });
+  tempExternalServers.push(externalServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `${externalServer.baseUrl}/v1|responses`,
+  );
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: 'Missing auth.json in /tmp/codex',
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'codex');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.toolsAvailable, true);
+    assert.equal(res.body.reason, undefined);
+    assert.equal(res.body.providerInfo.endpointOnly, true);
+    assert.deepEqual(res.body.models, [
+      {
+        key: 'endpoint-codex-model',
+        displayName: 'endpoint-codex-model',
+        type: 'codex',
+        endpointId: `${externalServer.baseUrl}/v1`,
+      },
+    ]);
+    assert.equal(res.body.providerInfo.defaultModel, 'endpoint-codex-model');
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /Codex authentication is unavailable; showing external OpenAI-compatible endpoint models only\./u,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models route keeps degraded bootstrap unavailable even when authless endpoint models exist', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-codex-model'],
+  });
+  tempExternalServers.push(externalServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `${externalServer.baseUrl}/v1|responses`,
+  );
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: 'Missing auth.json in /tmp/codex',
+  });
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+    warnings: ['codex bootstrap degraded warning'],
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.available, false);
+    assert.equal(res.body.toolsAvailable, false);
+    assert.equal(res.body.reason, 'codex bootstrap degraded');
+    assert.equal(res.body.providerInfo.endpointOnly, false);
+    assert.deepEqual(res.body.models, []);
+    assert.equal(
+      (res.body.warnings ?? []).some((warning: string) =>
+        warning.includes('authentication is unavailable'),
+      ),
+      false,
+    );
   } finally {
     await stopServer(server);
   }

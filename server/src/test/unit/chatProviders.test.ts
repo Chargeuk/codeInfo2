@@ -1062,6 +1062,77 @@ test('providers route collapses env-backed and config-backed copies of the same 
   }
 });
 
+test('providers route keeps normalized duplicate endpoint warnings out of the response while preserving them in logs', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "alpha"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `SparkUnsloth,${externalServer.baseUrl}/v1|responses`,
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('Codex_model_list', 'alpha,builtin-a');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const markerPayloads: Array<Record<string, unknown>> = [];
+  const originalInfo = console.info;
+  console.info = (...args: unknown[]) => {
+    if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
+      markerPayloads.push(args[1] as Record<string, unknown>);
+    }
+  };
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(
+      (res.body.codexWarnings as string[]).some((warning) =>
+        warning.includes('Skipping config-pinned endpoint'),
+      ),
+      false,
+    );
+    assert.equal(
+      (res.body.providers[0].warnings as string[]).some((warning) =>
+        warning.includes('Skipping config-pinned endpoint'),
+      ),
+      false,
+    );
+
+    const marker = markerPayloads.at(-1);
+    assert.ok(marker);
+    assert.equal(
+      (marker.warnings as string[]).some((warning) =>
+        warning.includes('Skipping config-pinned endpoint'),
+      ),
+      true,
+    );
+  } finally {
+    console.info = originalInfo;
+    await stopServer(server);
+  }
+});
+
 test('providers route preserves endpoint identity for a pinned Codex default when the discovered model casing differs from config', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['unsloth/gemma-4-26B-A4B-it-qat-GGUF'],

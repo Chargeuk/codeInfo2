@@ -39,6 +39,7 @@ import {
   buildLmStudioAgentFlags,
   buildProviderInfo,
   buildProvidersResponse,
+  filterUserFacingWarnings,
   getProviderBootstrapReason,
   getProviderBootstrapWarnings,
   isCodexEndpointOnlyAvailable,
@@ -292,10 +293,10 @@ export function createChatProvidersRouter({
             )?.endpointId
           : undefined;
 
-    const codexWarnings = [...capabilities.warnings];
-    codexWarnings.push(...getProviderBootstrapWarnings('codex'));
+    const rawCodexWarnings = [...capabilities.warnings];
+    rawCodexWarnings.push(...getProviderBootstrapWarnings('codex'));
     if (capabilities.defaults.webSearchEnabled && !codexToolsAvailable) {
-      codexWarnings.push(
+      rawCodexWarnings.push(
         'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
       );
     }
@@ -305,14 +306,32 @@ export function createChatProvidersRouter({
       codexHome,
       warnings: codexConfigWarnings,
     });
-    codexWarnings.push(...codexConfigWarnings);
+    rawCodexWarnings.push(...codexConfigWarnings);
     if (requestedDefaults.provider === 'codex') {
-      codexWarnings.push(...codexExternalOpenAiCompatDiscovery.warnings);
+      rawCodexWarnings.push(...codexExternalOpenAiCompatDiscovery.warnings);
     }
     if (codexEndpointOnly) {
-      codexWarnings.push(buildEndpointOnlyProviderWarning('codex'));
+      rawCodexWarnings.push(buildEndpointOnlyProviderWarning('codex'));
     }
+    const codexWarnings = filterUserFacingWarnings(rawCodexWarnings) ?? [];
+    const copilotWarnings =
+      filterUserFacingWarnings([
+        ...getProviderBootstrapWarnings('copilot'),
+        ...(copilotEndpointOnly
+          ? [buildEndpointOnlyProviderWarning('copilot')]
+          : copilot.reason
+            ? [copilot.reason]
+            : []),
+        ...copilotAgentFlags.warnings,
+        ...copilotExternalOpenAiCompatDiscovery.warnings,
+      ]) ?? [];
     const lmstudioAgentFlags = buildLmStudioAgentFlags({});
+    const lmstudioWarnings =
+      filterUserFacingWarnings([
+        ...getProviderBootstrapWarnings('lmstudio'),
+        ...(lmstudioReason ? [lmstudioReason] : []),
+        ...lmstudioAgentFlags.warnings,
+      ]) ?? [];
     const providerMap = {
       copilot: buildProviderInfo({
         provider: 'copilot',
@@ -326,16 +345,7 @@ export function createChatProvidersRouter({
               ? copilot.reason
               : (getProviderBootstrapReason('copilot') ?? copilot.reason),
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        warnings: [
-          ...getProviderBootstrapWarnings('copilot'),
-          ...(copilotEndpointOnly
-            ? [buildEndpointOnlyProviderWarning('copilot')]
-            : copilot.reason
-              ? [copilot.reason]
-              : []),
-          ...copilotAgentFlags.warnings,
-          ...copilotExternalOpenAiCompatDiscovery.warnings,
-        ],
+        warnings: copilotWarnings,
         liveModels: copilotLiveModels,
         modelMetadata:
           requestedDefaults.provider === 'copilot'
@@ -352,11 +362,7 @@ export function createChatProvidersRouter({
           ? lmstudioReason
           : (getProviderBootstrapReason('lmstudio') ?? lmstudioReason),
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
-        warnings: [
-          ...getProviderBootstrapWarnings('lmstudio'),
-          ...(lmstudioReason ? [lmstudioReason] : []),
-          ...lmstudioAgentFlags.warnings,
-        ],
+        warnings: lmstudioWarnings,
         liveModels: lmstudioModels,
         modelMetadata: lmstudioProviderModelMetadata,
         agentFlags: lmstudioAgentFlags.agentFlags,
@@ -466,7 +472,7 @@ export function createChatProvidersRouter({
           requestedDefaults.provider === 'codex'
             ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
             : undefined,
-        warnings: codexWarnings,
+        warnings: rawCodexWarnings,
         extras: {
           ordered_provider_contract: ORDERED_CHAT_PROVIDER_CONTRACT,
         },
@@ -475,7 +481,7 @@ export function createChatProvidersRouter({
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat/providers',
       provider: 'codex',
-      warningCount: codexWarnings.length,
+      warningCount: rawCodexWarnings.length,
       defaults: codexDefaults,
     });
 

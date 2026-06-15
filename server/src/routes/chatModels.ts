@@ -43,6 +43,7 @@ import {
   buildLmStudioAgentFlags,
   buildModelsResponse,
   buildProviderInfo,
+  filterUserFacingWarnings,
   orderProviders,
   resolveOpenAiCompatProviderDiscovery,
   selectProviderNativeAndEndpointModels,
@@ -371,7 +372,7 @@ export function createChatModelsRouter({
     const codexAvailable = codexNativeAvailable || codexEndpointOnly;
     const codexToolsAvailable =
       mcp.available && (codexNativeAvailable || codexEndpointOnly);
-    const codexWarnings = [
+    const rawCodexWarnings = [
       ...capabilities.warnings,
       ...getProviderBootstrapWarnings('codex'),
       ...(capabilities.defaults.webSearchEnabled && !codexToolsAvailable
@@ -380,13 +381,14 @@ export function createChatModelsRouter({
           ]
         : []),
     ];
-    codexWarnings.push(...codexConfigWarnings);
+    rawCodexWarnings.push(...codexConfigWarnings);
     if (provider === 'codex') {
-      codexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
+      rawCodexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
     }
     if (codexEndpointOnly) {
-      codexWarnings.push(buildEndpointOnlyProviderWarning('codex'));
+      rawCodexWarnings.push(buildEndpointOnlyProviderWarning('codex'));
     }
+    const codexWarnings = filterUserFacingWarnings(rawCodexWarnings) ?? [];
     const codexProviderInfo = buildProviderInfo({
       provider: 'codex',
       available: codexAvailable,
@@ -459,9 +461,13 @@ export function createChatModelsRouter({
       },
       '[codex-model-list] using env list',
     );
-    if (codexWarnings.length > 0) {
+    if (rawCodexWarnings.length > 0) {
       baseLogger.warn(
-        { requestId, warningsCount: codexWarnings.length, codexWarnings },
+        {
+          requestId,
+          warningsCount: rawCodexWarnings.length,
+          codexWarnings: rawCodexWarnings,
+        },
         'chat models codex warnings',
       );
     }
@@ -520,7 +526,8 @@ export function createChatModelsRouter({
     const copilotAvailable =
       (copilotNativeAvailable || copilotEndpointOnly) &&
       copilotLiveModels.length > 0;
-    const copilotWarnings = [
+    const copilotWarnings =
+      filterUserFacingWarnings([
       ...getProviderBootstrapWarnings('copilot'),
       ...(copilotEndpointOnly
         ? [buildEndpointOnlyProviderWarning('copilot')]
@@ -531,7 +538,7 @@ export function createChatModelsRouter({
       ...(provider === 'copilot'
         ? externalOpenAiCompatDiscovery.warnings
         : []),
-    ];
+      ]) ?? [];
     const copilotProviderInfo = buildProviderInfo({
       provider: 'copilot',
       available: copilotAvailable,
@@ -668,6 +675,12 @@ export function createChatModelsRouter({
       }
     }
     const lmstudioAgentFlags = buildLmStudioAgentFlags({});
+    const lmstudioWarnings =
+      filterUserFacingWarnings([
+        ...getProviderBootstrapWarnings('lmstudio'),
+        ...(lmstudioReason ? [lmstudioReason] : []),
+        ...lmstudioAgentFlags.warnings,
+      ]) ?? [];
 
     const providerMap = {
       codex: codexProviderInfo,
@@ -679,11 +692,7 @@ export function createChatModelsRouter({
         endpointOnly: false,
         reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
-        warnings: [
-          ...getProviderBootstrapWarnings('lmstudio'),
-          ...(lmstudioReason ? [lmstudioReason] : []),
-          ...lmstudioAgentFlags.warnings,
-        ],
+        warnings: lmstudioWarnings,
         liveModels: lmstudioModels.map((model) => model.key),
         modelMetadata: lmstudioModelMetadata,
         agentFlags: lmstudioAgentFlags.agentFlags,
@@ -712,24 +721,24 @@ export function createChatModelsRouter({
       });
       console.info(
         STORY_47_TASK_1_LOG_MARKER,
-        buildDefaultsAppliedMarkerPayload({
-          surface: '/chat/models',
-          requestedProvider: 'codex',
-          requestedModel: codexPreferredDefaults.values.model,
-          resolvedModel: codexPreferredDefaults.values.model,
-          modelSource: toChatResolutionSource(
-            codexPreferredDefaults.sources.model,
-          ),
-          codexModelSource: codexPreferredDefaults.sources.model,
-          warnings: codexWarnings,
-        }),
-      );
-      console.info(TASK7_LOG_MARKER, {
+      buildDefaultsAppliedMarkerPayload({
         surface: '/chat/models',
-        provider: 'codex',
-        warningCount: codexWarnings.length,
-        defaults: codexDefaults,
-      });
+        requestedProvider: 'codex',
+        requestedModel: codexPreferredDefaults.values.model,
+        resolvedModel: codexPreferredDefaults.values.model,
+          modelSource: toChatResolutionSource(
+          codexPreferredDefaults.sources.model,
+        ),
+        codexModelSource: codexPreferredDefaults.sources.model,
+        warnings: rawCodexWarnings,
+      }),
+    );
+    console.info(TASK7_LOG_MARKER, {
+      surface: '/chat/models',
+      provider: 'codex',
+      warningCount: rawCodexWarnings.length,
+      defaults: codexDefaults,
+    });
 
       if (codexAvailable) {
         baseLogger.info(

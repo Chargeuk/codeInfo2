@@ -49,6 +49,7 @@ type MockCopilotHarnessState = {
   stopCount: number;
   lastCreateSessionConfig?: SessionConfig;
   lastResumeSession?: { sessionId: string; config: ResumeSessionConfig };
+  lastSendAndWaitPrompt?: string;
   lastSendAndWaitTimeoutMs?: number;
   createRegisterHooksCount: number;
   resumeRegisterHooksCount: number;
@@ -279,9 +280,10 @@ class MockCopilotSession {
   }
 
   async sendAndWait(
-    _options?: { prompt?: string },
+    options?: { prompt?: string },
     timeoutMs?: number,
   ): Promise<AssistantMessageEvent | undefined> {
+    this.state.lastSendAndWaitPrompt = options?.prompt;
     this.state.lastSendAndWaitTimeoutMs = timeoutMs;
     if (this.scenario.sendError) throw this.scenario.sendError;
     if (this.scenario.sendDelayMs) {

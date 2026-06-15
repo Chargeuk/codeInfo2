@@ -4,7 +4,10 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
-import { SYSTEM_CONTEXT } from '@codeinfo2/common';
+import {
+  SYSTEM_CONTEXT,
+  VECTORSEARCH_PROTOCOL_REMINDER,
+} from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
   ThreadEvent,
@@ -448,9 +451,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     'prompt should include user text',
   );
   assert.ok(
-    mockCodex.lastThread?.lastPrompt?.includes(
-      'do NOT start with ls, fd, tree, or rg; start with at least 2 VectorSearch queries first.',
-    ),
+    mockCodex.lastThread?.lastPrompt?.includes(VECTORSEARCH_PROTOCOL_REMINDER),
     'prompt should include the stricter VectorSearch-first reminder',
   );
 

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { SYSTEM_CONTEXT } from '@codeinfo2/common';
+import {
+  SYSTEM_CONTEXT,
+  VECTORSEARCH_PROTOCOL_REMINDER,
+} from '@codeinfo2/common';
 import { getChatInterface } from '../../chat/factory.js';
 import type { ChatEvent } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../chat/interfaces/ChatInterfaceCopilot.js';
@@ -88,8 +91,13 @@ test('ChatInterfaceCopilot create-session path maps streamed events into ChatInt
   const createSystemMessageContent =
     harness.getState().lastCreateSessionConfig?.systemMessage?.content;
   assert.ok(createSystemMessageContent);
+  assert.ok(createSystemMessageContent.startsWith(SYSTEM_CONTEXT.trim()));
   assert.ok(
-    createSystemMessageContent.startsWith(SYSTEM_CONTEXT.trim()),
+    harness
+      .getState()
+      .lastSendAndWaitPrompt?.includes(
+        `Hello from Copilot\n- ${VECTORSEARCH_PROTOCOL_REMINDER}`,
+      ),
   );
   assert.deepEqual(
     toComparableJson(harness.getState().lastCreateSessionConfig?.mcpServers),
@@ -134,14 +142,15 @@ test('ChatInterfaceCopilot resume path keeps event mapping aligned with create',
     'copilot-conversation-2',
   );
   assert.equal(
-    harness.getState().lastResumeSession?.config.systemMessage?.mode,
-    'append',
+    harness.getState().lastResumeSession?.config.systemMessage,
+    undefined,
   );
-  const resumeSystemMessageContent =
-    harness.getState().lastResumeSession?.config.systemMessage?.content;
-  assert.ok(resumeSystemMessageContent);
   assert.ok(
-    resumeSystemMessageContent.startsWith(SYSTEM_CONTEXT.trim()),
+    harness
+      .getState()
+      .lastSendAndWaitPrompt?.includes(
+        `Resume this thread\n- ${VECTORSEARCH_PROTOCOL_REMINDER}`,
+      ),
   );
   assert.deepEqual(
     emitted.map((event) => event.type),
@@ -253,6 +262,36 @@ test('ChatInterfaceCopilot appends provider-specific system prompts after the sh
   assert.equal(
     harness.getState().lastCreateSessionConfig?.systemMessage?.content,
     `${SYSTEM_CONTEXT.trim()}\n\nAgent-specific instructions go here.`,
+  );
+});
+
+test('ChatInterfaceCopilot omits the shared system context and inline reminder when disableSystemContext is true', async () => {
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-disable-system-context',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+
+  await chat.run(
+    'Skip the shared prompt',
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: false,
+      disableSystemContext: true,
+      systemPrompt: 'Agent-specific instructions only.',
+    },
+    'copilot-conversation-disable-system-context',
+    'copilot-gpt-5',
+  );
+
+  assert.equal(
+    harness.getState().lastCreateSessionConfig?.systemMessage?.content,
+    'Agent-specific instructions only.',
+  );
+  assert.equal(
+    harness.getState().lastSendAndWaitPrompt,
+    'Skip the shared prompt',
   );
 });
 

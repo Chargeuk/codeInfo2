@@ -34,15 +34,18 @@ function installProviderFetch() {
           {
             id: 'codex',
             label: 'OpenAI Codex',
-            available: false,
-            toolsAvailable: false,
-            reason: 'codex auth required',
+            available: true,
+            toolsAvailable: true,
+            warnings: [
+              'Codex authentication is unavailable; showing external OpenAI-compatible endpoint models only.',
+            ],
           },
           {
             id: 'copilot',
             label: 'GitHub Copilot',
-            available: true,
-            toolsAvailable: true,
+            available: false,
+            toolsAvailable: false,
+            reason: 'copilot authentication required',
           },
           {
             id: 'lmstudio',
@@ -91,11 +94,24 @@ describe('Home page status', () => {
     global.fetch = originalFetch;
   });
 
-  it('shows conservative provider wording and reuses the shared auth dialog', async () => {
+  it('shows local-only and unavailable provider wording and reuses the shared auth dialog', async () => {
     render(<HomePage />);
 
     expect(
-      (await screen.findAllByText('codex auth required')).length,
+      (
+        await screen.findAllByText(
+          'Unauthenticated, local models are available',
+        )
+      ).length,
+    ).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Local Only')).length).toBeGreaterThan(
+      0,
+    );
+    expect((await screen.findAllByText('Unavailable')).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      (await screen.findAllByText('copilot authentication required')).length,
     ).toBeGreaterThan(0);
     expect(
       (await screen.findAllByText('No login required')).length,

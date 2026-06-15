@@ -841,6 +841,11 @@ async function executeCodebaseQuestion(
       { includeMissingPreferred: !requestedCodexUsesEndpoint },
     ),
     reason: codexAvailable ? undefined : 'CODE_INFO_LLM_UNAVAILABLE',
+    unavailableKind: codexAvailable
+      ? undefined
+      : getCodexDetection().authPresent
+        ? ('other' as const)
+        : ('authentication' as const),
   };
 
   const baseUrl =
@@ -926,6 +931,15 @@ async function executeCodebaseQuestion(
         copilotDefaultModel,
       ),
       reason: copilotReadiness.reason,
+      unavailableKind: copilotReadiness.available
+        ? undefined
+        : copilotReadiness.blockingStage === 'authentication'
+          ? ('authentication' as const)
+          : copilotReadiness.blockingStage === 'connectivity'
+            ? ('connectivity' as const)
+            : copilotReadiness.blockingStage === 'models'
+              ? ('models' as const)
+              : ('other' as const),
     },
     lmstudio: lmstudioState,
   };

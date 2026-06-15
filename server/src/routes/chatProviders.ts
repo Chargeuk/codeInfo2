@@ -32,6 +32,7 @@ import {
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  buildEndpointOnlyProviderWarning,
   buildCodexAgentFlags,
   buildCodexCompatibilityDefaults,
   buildCopilotAgentFlags,
@@ -40,8 +41,11 @@ import {
   buildProvidersResponse,
   getProviderBootstrapReason,
   getProviderBootstrapWarnings,
+  isCodexEndpointOnlyAvailable,
+  isCopilotEndpointOnlyAvailable,
   isProviderBootstrapHealthy,
   resolveOpenAiCompatProviderDiscovery,
+  selectProviderNativeAndEndpointLiveModels,
   toCompatibilityCodexWarnings,
 } from './chatDiscovery.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
@@ -133,31 +137,42 @@ export function createChatProvidersRouter({
               requestedModelSource: requestedDefaults.modelSource,
             })
           : requestedDefaults.model;
-    const externalOpenAiCompatDiscovery =
-      requestedDefaults.provider === 'codex' ||
-      requestedDefaults.provider === 'copilot'
-        ? await resolveOpenAiCompatProviderDiscovery({
-            provider: requestedDefaults.provider,
-            codexHome,
-            copilotHome: process.env.CODEINFO_COPILOT_HOME,
-            env: process.env,
-          })
-        : {
-            models: [],
-            liveModels: [],
-            warnings: [],
-          };
+    const codexExternalOpenAiCompatDiscovery =
+      await resolveOpenAiCompatProviderDiscovery({
+        provider: 'codex',
+        codexHome,
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        env: process.env,
+      });
+    const copilotExternalOpenAiCompatDiscovery =
+      await resolveOpenAiCompatProviderDiscovery({
+        provider: 'copilot',
+        codexHome,
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        env: process.env,
+      });
+    const selectedProviderExternalDiscovery =
+      requestedDefaults.provider === 'codex'
+        ? codexExternalOpenAiCompatDiscovery
+        : requestedDefaults.provider === 'copilot'
+          ? copilotExternalOpenAiCompatDiscovery
+          : {
+              models: [],
+              liveModels: [],
+              warnings: [],
+            };
     const resolvedRequestedModel =
       requestedDefaults.provider === 'codex' ||
       requestedDefaults.provider === 'copilot'
-        ? (externalOpenAiCompatDiscovery.selectedModelKey ?? requestedModel)
+        ? (selectedProviderExternalDiscovery.selectedModelKey ??
+          requestedModel)
         : requestedModel;
     const selectedProviderModelMetadata =
-      externalOpenAiCompatDiscovery.selectedModelKey &&
+      selectedProviderExternalDiscovery.selectedModelKey &&
       (requestedDefaults.provider === 'codex' ||
         requestedDefaults.provider === 'copilot')
         ? {
-            defaultModel: externalOpenAiCompatDiscovery.selectedModelKey,
+            defaultModel: selectedProviderExternalDiscovery.selectedModelKey,
             defaultModelSource: 'config' as const,
             warnings: [] as string[],
           }
@@ -194,18 +209,44 @@ export function createChatProvidersRouter({
                   ]
                 : [],
           };
+    const codexNativeAvailable = codex.available && codexBootstrapHealthy;
+    const codexLiveModels = selectProviderNativeAndEndpointLiveModels({
+      nativeAvailable: codexNativeAvailable,
+      nativeModels: capabilities.models.map((entry) => entry.model),
+      endpointModels: codexExternalOpenAiCompatDiscovery.liveModels,
+    });
+    const codexEndpointOnly = isCodexEndpointOnlyAvailable({
+      detection: codex,
+      bootstrapHealthy: codexBootstrapHealthy,
+      endpointModelCount: codexExternalOpenAiCompatDiscovery.liveModels.length,
+    });
+    const codexAvailable = codexNativeAvailable || codexEndpointOnly;
+    const codexToolsAvailable =
+      mcp.available && (codexNativeAvailable || codexEndpointOnly);
+    const copilotNativeAvailable =
+      copilot.available && copilotBootstrapHealthy;
+    const copilotLiveModels = selectProviderNativeAndEndpointLiveModels({
+      nativeAvailable: copilotNativeAvailable,
+      nativeModels: copilot.models,
+      endpointModels: copilotExternalOpenAiCompatDiscovery.liveModels,
+    });
+    const copilotEndpointOnly = isCopilotEndpointOnlyAvailable({
+      readiness: copilot,
+      bootstrapHealthy: copilotBootstrapHealthy,
+      endpointModelCount:
+        copilotExternalOpenAiCompatDiscovery.liveModels.length,
+    });
+    const copilotAvailable = copilotNativeAvailable || copilotEndpointOnly;
+    const copilotToolsAvailable =
+      mcp.available && (copilotNativeAvailable || copilotEndpointOnly);
+
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
       requestedModel: resolvedRequestedModel,
       codex: {
-        available: codex.available && codexBootstrapHealthy,
+        available: codexAvailable,
         models: prioritizeRuntimeProviderModels(
-          [
-            ...capabilities.models.map((entry) => entry.model),
-            ...(requestedDefaults.provider === 'codex'
-              ? externalOpenAiCompatDiscovery.liveModels
-              : []),
-          ],
+          codexLiveModels,
           requestedDefaults.provider === 'codex'
             ? resolvedRequestedModel
             : codexRequestedDefaults?.values.model,
@@ -216,14 +257,9 @@ export function createChatProvidersRouter({
           'codex unavailable',
       },
       copilot: {
-        available: copilot.available && copilotBootstrapHealthy,
+        available: copilotAvailable,
         models: prioritizeRuntimeProviderModels(
-          [
-            ...copilot.models,
-            ...(requestedDefaults.provider === 'copilot'
-              ? externalOpenAiCompatDiscovery.liveModels
-              : []),
-          ],
+          copilotLiveModels,
           requestedDefaults.provider === 'copilot'
             ? resolvedRequestedModel
             : copilotModelMetadata.defaultModel,
@@ -240,19 +276,25 @@ export function createChatProvidersRouter({
       },
     });
     const selectedEndpointId =
-      externalOpenAiCompatDiscovery.models.find(
-        (model) =>
-          model.key === runtimeSelection.executionModel &&
-          (model.endpointId ?? undefined) ===
-            externalOpenAiCompatDiscovery.selectedEndpointId,
-      )?.endpointId;
+      runtimeSelection.executionProvider === 'codex'
+        ? codexExternalOpenAiCompatDiscovery.models.find(
+            (model) =>
+              model.key === runtimeSelection.executionModel &&
+              (model.endpointId ?? undefined) ===
+                codexExternalOpenAiCompatDiscovery.selectedEndpointId,
+          )?.endpointId
+        : runtimeSelection.executionProvider === 'copilot'
+          ? copilotExternalOpenAiCompatDiscovery.models.find(
+              (model) =>
+                model.key === runtimeSelection.executionModel &&
+                (model.endpointId ?? undefined) ===
+                  copilotExternalOpenAiCompatDiscovery.selectedEndpointId,
+            )?.endpointId
+          : undefined;
 
     const codexWarnings = [...capabilities.warnings];
     codexWarnings.push(...getProviderBootstrapWarnings('codex'));
-    if (
-      capabilities.defaults.webSearchEnabled &&
-      !(codex.available && mcp.available)
-    ) {
+    if (capabilities.defaults.webSearchEnabled && !codexToolsAvailable) {
       codexWarnings.push(
         'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
       );
@@ -265,41 +307,34 @@ export function createChatProvidersRouter({
     });
     codexWarnings.push(...codexConfigWarnings);
     if (requestedDefaults.provider === 'codex') {
-      codexWarnings.push(...externalOpenAiCompatDiscovery.warnings);
+      codexWarnings.push(...codexExternalOpenAiCompatDiscovery.warnings);
+    }
+    if (codexEndpointOnly) {
+      codexWarnings.push(buildEndpointOnlyProviderWarning('codex'));
     }
     const lmstudioAgentFlags = buildLmStudioAgentFlags({});
-    const codexLiveModels = [
-      ...new Set([
-        ...capabilities.models.map((entry) => entry.model),
-        ...(requestedDefaults.provider === 'codex'
-          ? externalOpenAiCompatDiscovery.liveModels
-          : []),
-      ]),
-    ];
-    const copilotLiveModels = [
-      ...new Set([
-        ...copilot.models,
-        ...(requestedDefaults.provider === 'copilot'
-          ? externalOpenAiCompatDiscovery.liveModels
-          : []),
-      ]),
-    ];
     const providerMap = {
       copilot: buildProviderInfo({
         provider: 'copilot',
-        available: copilot.available && copilotBootstrapHealthy,
-        toolsAvailable: copilot.toolsAvailable && copilotBootstrapHealthy,
-        reason: copilotBootstrapHealthy
-          ? copilot.reason
-          : (getProviderBootstrapReason('copilot') ?? copilot.reason),
+        available: copilotAvailable,
+        toolsAvailable: copilotToolsAvailable,
+        endpointOnly: copilotEndpointOnly,
+        reason:
+          copilotAvailable && copilotEndpointOnly
+            ? undefined
+            : copilotBootstrapHealthy
+              ? copilot.reason
+              : (getProviderBootstrapReason('copilot') ?? copilot.reason),
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings: [
           ...getProviderBootstrapWarnings('copilot'),
-          ...(copilot.reason ? [copilot.reason] : []),
+          ...(copilotEndpointOnly
+            ? [buildEndpointOnlyProviderWarning('copilot')]
+            : copilot.reason
+              ? [copilot.reason]
+              : []),
           ...copilotAgentFlags.warnings,
-          ...(requestedDefaults.provider === 'copilot'
-            ? externalOpenAiCompatDiscovery.warnings
-            : []),
+          ...copilotExternalOpenAiCompatDiscovery.warnings,
         ],
         liveModels: copilotLiveModels,
         modelMetadata:
@@ -312,6 +347,7 @@ export function createChatProvidersRouter({
         provider: 'lmstudio',
         available: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
         toolsAvailable: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
+        endpointOnly: false,
         reason: lmstudioBootstrapHealthy
           ? lmstudioReason
           : (getProviderBootstrapReason('lmstudio') ?? lmstudioReason),
@@ -327,14 +363,17 @@ export function createChatProvidersRouter({
       }),
       codex: buildProviderInfo({
         provider: 'codex',
-        available: codex.available && codexBootstrapHealthy,
-        toolsAvailable:
-          codex.available && codexBootstrapHealthy && mcp.available,
-        reason: codexBootstrapHealthy
-          ? (codex.reason ?? (mcp.available ? undefined : mcp.reason))
-          : (getProviderBootstrapReason('codex') ??
-            codex.reason ??
-            (mcp.available ? undefined : mcp.reason)),
+        available: codexAvailable,
+        toolsAvailable: codexToolsAvailable,
+        endpointOnly: codexEndpointOnly,
+        reason:
+          codexAvailable && codexEndpointOnly
+            ? undefined
+            : codexBootstrapHealthy
+              ? (codex.reason ?? (mcp.available ? undefined : mcp.reason))
+              : (getProviderBootstrapReason('codex') ??
+                codex.reason ??
+                (mcp.available ? undefined : mcp.reason)),
         codexHome,
         warnings: codexWarnings,
         liveModels: codexLiveModels,
@@ -391,11 +430,11 @@ export function createChatProvidersRouter({
         fallbackApplied: runtimeSelection.fallbackApplied,
         orderedProviderContract: ORDERED_CHAT_PROVIDER_CONTRACT,
         provider: 'codex',
-        available: codex.available,
-        toolsAvailable: codex.available && mcp.available,
+        available: codexAvailable,
+        toolsAvailable: codexToolsAvailable,
         codexReason: codex.reason,
-        copilotAvailable: copilot.available,
-        copilotToolsAvailable: copilot.toolsAvailable,
+        copilotAvailable,
+        copilotToolsAvailable,
         copilotReason: copilot.reason,
         copilotBlockingStage: copilot.blockingStage,
         copilotAuthSource: copilot.authSource,

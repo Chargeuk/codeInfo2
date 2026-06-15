@@ -128,6 +128,7 @@ export type ChatProviderInfo = {
   label: string;
   available: boolean;
   toolsAvailable: boolean;
+  endpointOnly?: boolean;
   reason?: string;
   defaultModel?: string;
   defaultModelSource?: ChatProviderDefaultsSource;

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach, mock } from 'node:test';
 
-import type { ModelInfo } from '@github/copilot-sdk';
+import type { GetAuthStatusResponse, ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
@@ -64,6 +64,7 @@ function createClient(
 async function startServer(params: {
   mcpAvailable?: boolean;
   copilotModels?: ModelInfo[];
+  authStatus?: GetAuthStatusResponse;
   startError?: Error;
   lmstudioModels?: Array<{
     modelKey: string;
@@ -84,6 +85,7 @@ async function startServer(params: {
 
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'chat-models-copilot',
+    authStatus: params.authStatus,
     models: params.copilotModels,
     startError: params.startError,
   });
@@ -466,6 +468,90 @@ test('copilot models route preserves duplicate raw model ids across distinct end
     assert.equal(sharedModels[1]?.endpointId, `${secondServer.baseUrl}/v1`);
     assert.equal(sharedModels[0]?.type, 'copilot');
     assert.equal(sharedModels[1]?.type, 'copilot');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('copilot models route serves endpoint-only models when Copilot auth is missing', async () => {
+  const completionsServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-copilot-model'],
+  });
+  tempExternalServers.push(completionsServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `${completionsServer.baseUrl}/v1|completions`,
+  );
+
+  const server = await startServer({
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'user',
+      statusMessage: 'login required',
+    },
+    copilotModels: [],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'copilot');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.toolsAvailable, true);
+    assert.equal(res.body.reason, undefined);
+    assert.equal(res.body.providerInfo.endpointOnly, true);
+    assert.deepEqual(res.body.models, [
+      {
+        key: 'endpoint-copilot-model',
+        displayName: 'endpoint-copilot-model',
+        type: 'copilot',
+        endpointId: `${completionsServer.baseUrl}/v1`,
+      },
+    ]);
+    assert.equal(res.body.providerInfo.available, true);
+    assert.equal(res.body.providerInfo.defaultModel, 'endpoint-copilot-model');
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /Copilot authentication is unavailable; showing external OpenAI-compatible endpoint models only\./u,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('copilot models route keeps connectivity failures unavailable even when endpoint models exist', async () => {
+  const completionsServer = await startExternalOpenAiCompatServer({
+    models: ['endpoint-copilot-model'],
+  });
+  tempExternalServers.push(completionsServer);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `${completionsServer.baseUrl}/v1|completions`,
+  );
+
+  const server = await startServer({
+    startError: new Error('copilot runtime offline'),
+    copilotModels: [],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.available, false);
+    assert.equal(res.body.toolsAvailable, false);
+    assert.equal(res.body.reason, 'copilot connectivity unavailable');
+    assert.equal(res.body.providerInfo.endpointOnly, false);
+    assert.deepEqual(res.body.models, []);
+    assert.equal(
+      (res.body.warnings ?? []).some((warning: string) =>
+        warning.includes('authentication is unavailable'),
+      ),
+      false,
+    );
   } finally {
     await stopServer(server);
   }

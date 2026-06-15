@@ -438,6 +438,144 @@ test('providers route treats Copilot gh fallback authentication as ready', async
   }
 });
 
+test('providers route keeps Codex and Copilot available in endpoint-only mode when native auth is missing', async () => {
+  await setCodexHome('model = "endpoint-codex-model"\n');
+  await setCopilotHome('model = "endpoint-copilot-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: 'Missing auth.json in /tmp/codex',
+  });
+
+  const codexEndpoint = await startExternalOpenAiCompatServer({
+    models: ['endpoint-codex-model'],
+  });
+  const copilotEndpoint = await startExternalOpenAiCompatServer({
+    models: ['endpoint-copilot-model'],
+  });
+  tempExternalServers.push(codexEndpoint, copilotEndpoint);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    [
+      `${codexEndpoint.baseUrl}/v1|responses`,
+      `${copilotEndpoint.baseUrl}/v1|completions`,
+    ].join(';'),
+  );
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'endpoint-only-copilot',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'user',
+      statusMessage: 'login required',
+    },
+    models: [],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    const codexProvider = res.body.providers.find(
+      (provider: { id: string }) => provider.id === 'codex',
+    );
+    const copilotProvider = res.body.providers.find(
+      (provider: { id: string }) => provider.id === 'copilot',
+    );
+
+    assert.equal(codexProvider?.available, true);
+    assert.equal(codexProvider?.toolsAvailable, true);
+    assert.equal(codexProvider?.endpointOnly, true);
+    assert.equal(codexProvider?.reason, undefined);
+    assert.equal(codexProvider?.defaultModel, 'endpoint-codex-model');
+    assert.match(
+      (codexProvider?.warnings ?? []).join('\n'),
+      /Codex authentication is unavailable; showing external OpenAI-compatible endpoint models only\./u,
+    );
+
+    assert.equal(copilotProvider?.available, true);
+    assert.equal(copilotProvider?.toolsAvailable, true);
+    assert.equal(copilotProvider?.endpointOnly, true);
+    assert.equal(copilotProvider?.reason, undefined);
+    assert.equal(copilotProvider?.defaultModel, 'endpoint-copilot-model');
+    assert.match(
+      (copilotProvider?.warnings ?? []).join('\n'),
+      /Copilot authentication is unavailable; showing external OpenAI-compatible endpoint models only\./u,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route keeps degraded bootstrap authoritative even when authless endpoint models exist', async () => {
+  await setCodexHome('model = "endpoint-codex-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: 'Missing auth.json in /tmp/codex',
+  });
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+    warnings: ['codex bootstrap degraded warning'],
+  });
+
+  const codexEndpoint = await startExternalOpenAiCompatServer({
+    models: ['endpoint-codex-model'],
+  });
+  tempExternalServers.push(codexEndpoint);
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `${codexEndpoint.baseUrl}/v1|responses`,
+  );
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    const codexProvider = res.body.providers.find(
+      (provider: { id: string }) => provider.id === 'codex',
+    );
+
+    assert.equal(codexProvider?.available, false);
+    assert.equal(codexProvider?.toolsAvailable, false);
+    assert.equal(codexProvider?.endpointOnly, false);
+    assert.equal(codexProvider?.reason, 'codex bootstrap degraded');
+    assert.equal(
+      (codexProvider?.warnings ?? []).some((warning: string) =>
+        warning.includes('authentication is unavailable'),
+      ),
+      false,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('providers route surfaces the first startup-stage Copilot failure before later readiness checks', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');

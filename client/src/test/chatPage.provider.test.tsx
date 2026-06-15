@@ -257,13 +257,15 @@ describe('Chat provider selection (WS transport)', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.2 \(/i,
+        /gpt-5\.2 \(alpha\.example \/ base\)/i,
       ),
     );
 
     await userEvent.click(screen.getByRole('combobox', { name: /model/i }));
     expect(
-      screen.getAllByRole('option', { name: /alpha\.example \/ gpt-5\.2/i }),
+      screen.getAllByRole('option', {
+        name: /gpt-5\.2 \(alpha\.example \/ (base|alt)\)/i,
+      }),
     ).toHaveLength(2);
   });
 

@@ -1332,6 +1332,74 @@ test('codex models route promotes a pinned endpoint-backed default once and remo
   }
 });
 
+test('codex models route keeps normalized duplicate endpoint warnings out of the response while preserving them in logs', async (t) => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['alpha'],
+  });
+  tempExternalServers.push(externalServer);
+  await setCodexHome(
+    [
+      'model = "alpha"',
+      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+      '',
+    ].join('\n'),
+  );
+  env.set(
+    'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    `SparkUnsloth,${externalServer.baseUrl}/v1|responses`,
+  );
+  env.set('Codex_model_list', 'alpha,builtin-a');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const markerPayloads: Array<Record<string, unknown>> = [];
+  let server: Awaited<ReturnType<typeof startServer>> | null = null;
+
+  try {
+    server = await startServer({ mcpAvailable: true });
+    env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+    t.mock.method(console, 'info', (...args: unknown[]) => {
+      if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
+        markerPayloads.push(args[1] as Record<string, unknown>);
+      }
+    });
+
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(
+      (res.body.codexWarnings as string[]).some((warning) =>
+        warning.includes('Skipping config-pinned endpoint'),
+      ),
+      false,
+    );
+    assert.equal(
+      (res.body.warnings as string[]).some((warning) =>
+        warning.includes('Skipping config-pinned endpoint'),
+      ),
+      false,
+    );
+
+    const marker = markerPayloads.at(-1);
+    assert.ok(marker);
+    assert.equal(
+      (marker.warnings as string[]).some((warning) =>
+        warning.includes('Skipping config-pinned endpoint'),
+      ),
+      true,
+    );
+  } finally {
+    if (server) {
+      await stopServer(server);
+    }
+  }
+});
+
 test('codex models route uses the configured endpoint label in endpoint-backed display names', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['shared-model'],

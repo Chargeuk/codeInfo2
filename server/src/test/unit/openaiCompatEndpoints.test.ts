@@ -7,6 +7,7 @@ import {
   parseOpenAiCompatEndpointConfig,
   resolveOpenAiCompatEndpointConfigsFromList,
   resolveOpenAiCompatEndpointKeysFromList,
+  supportsOpenAiCompatBuiltInWebSearch,
 } from '../../config/openaiCompatEndpoints.js';
 
 test('accepts explicit http or https /v1 base URLs with normalized capabilities', () => {
@@ -240,6 +241,46 @@ test('attaches matching endpoint keys without changing URL-backed identity', () 
   assert.equal(
     attached.apiKeysByEndpointId.get('https://example.com/alt/v1'),
     undefined,
+  );
+});
+
+test('marks endpoints with sk-unsloth keys as supporting built-in web search', () => {
+  const endpoints = resolveOpenAiCompatEndpointConfigsFromList({
+    value: 'Unsloth,https://example.com/v1|responses',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  });
+  const keys = resolveOpenAiCompatEndpointKeysFromList({
+    value: 'Unsloth,sk-unsloth-test',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+  });
+  const attached = attachOpenAiCompatEndpointKeys({
+    endpoints: endpoints.endpoints,
+    keys: keys.keys,
+  });
+
+  assert.equal(
+    supportsOpenAiCompatBuiltInWebSearch(attached.endpoints[0]),
+    true,
+  );
+});
+
+test('does not mark non-unsloth keyed endpoints as supporting built-in web search', () => {
+  const endpoints = resolveOpenAiCompatEndpointConfigsFromList({
+    value: 'OpenRouter,https://example.com/v1|responses',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  });
+  const keys = resolveOpenAiCompatEndpointKeysFromList({
+    value: 'OpenRouter,sk-or-v1-test',
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+  });
+  const attached = attachOpenAiCompatEndpointKeys({
+    endpoints: endpoints.endpoints,
+    keys: keys.keys,
+  });
+
+  assert.equal(
+    supportsOpenAiCompatBuiltInWebSearch(attached.endpoints[0]),
+    false,
   );
 });
 

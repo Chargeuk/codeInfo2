@@ -571,6 +571,227 @@ test('OpenAI-compatible proxy leaves Copilot namespace tools unchanged', async (
   );
 });
 
+test('OpenAI-compatible proxy enables Unsloth built-in web search when a web-search tool is requested', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'accepted' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+    apiKey: 'sk-unsloth-test',
+    label: 'Unsloth',
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+      displayLabel: 'Unsloth',
+      authLookupKey: 'unsloth',
+      supportsBuiltInWebSearch: true,
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      input: 'hello',
+      tools: [
+        { type: 'web_search_preview' },
+        { type: 'function', name: 'keep_me', parameters: { type: 'object' } },
+      ],
+    })
+    .expect(200);
+
+  const forwarded = JSON.parse(
+    externalServer.lastRequestBodyText() ?? '{}',
+  ) as {
+    enable_tools?: boolean;
+    enabled_tools?: string[];
+    tools?: Array<Record<string, unknown>>;
+  };
+
+  assert.equal(forwarded.enable_tools, true);
+  assert.deepEqual(forwarded.enabled_tools, ['web_search']);
+  assert.deepEqual(
+    forwarded.tools?.map((tool) => tool.type),
+    ['function'],
+  );
+});
+
+test('OpenAI-compatible proxy does not enable Unsloth built-in web search when web search is explicitly not live', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'accepted' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+    apiKey: 'sk-unsloth-test',
+    label: 'Unsloth',
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+      displayLabel: 'Unsloth',
+      authLookupKey: 'unsloth',
+      supportsBuiltInWebSearch: true,
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      input: 'hello',
+      webSearchMode: 'cached',
+      tools: [{ type: 'web_search_preview' }],
+    })
+    .expect(200);
+
+  const forwarded = JSON.parse(
+    externalServer.lastRequestBodyText() ?? '{}',
+  ) as {
+    enable_tools?: boolean;
+    enabled_tools?: string[];
+    tools?: Array<Record<string, unknown>>;
+    webSearchMode?: string;
+  };
+
+  assert.equal(forwarded.enable_tools, undefined);
+  assert.equal(forwarded.enabled_tools, undefined);
+  assert.deepEqual(
+    forwarded.tools?.map((tool) => tool.type),
+    ['web_search_preview'],
+  );
+  assert.equal(forwarded.webSearchMode, 'cached');
+});
+
+test('OpenAI-compatible proxy keeps Unsloth built-in web search disabled when disabled mode is explicit', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'accepted' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+    apiKey: 'sk-unsloth-test',
+    label: 'Unsloth',
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+      displayLabel: 'Unsloth',
+      authLookupKey: 'unsloth',
+      supportsBuiltInWebSearch: true,
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      input: 'hello',
+      webSearchMode: 'disabled',
+      tools: [{ type: 'web_search_preview' }],
+    })
+    .expect(200);
+
+  const forwarded = JSON.parse(
+    externalServer.lastRequestBodyText() ?? '{}',
+  ) as {
+    enable_tools?: boolean;
+    enabled_tools?: string[];
+    tools?: Array<Record<string, unknown>>;
+    webSearchMode?: string;
+  };
+
+  assert.equal(forwarded.enable_tools, undefined);
+  assert.equal(forwarded.enabled_tools, undefined);
+  assert.deepEqual(
+    forwarded.tools?.map((tool) => tool.type),
+    ['web_search_preview'],
+  );
+  assert.equal(forwarded.webSearchMode, 'disabled');
+});
+
+test('OpenAI-compatible proxy enables Unsloth built-in web search for normalized live mode values', async () => {
+  const externalServer = await startExternalOpenAiCompatServer({
+    responsesResponses: [
+      {
+        status: 200,
+        body: { output: [{ type: 'output_text', text: 'accepted' }] },
+      },
+    ],
+  });
+  tempServers.push(externalServer);
+  configureExternalEndpointEnv({
+    endpointId: `${externalServer.baseUrl}/v1`,
+    apiKey: 'sk-unsloth-test',
+    label: 'Unsloth',
+  });
+
+  const proxyBaseUrl = buildOpenAiCompatProxyBaseUrl({
+    endpoint: {
+      endpointId: `${externalServer.baseUrl}/v1`,
+      capabilities: ['responses'],
+      displayLabel: 'Unsloth',
+      authLookupKey: 'unsloth',
+      supportsBuiltInWebSearch: true,
+    },
+    consumer: 'copilot',
+  });
+  const pathName = new URL(`${proxyBaseUrl}/responses`).pathname;
+
+  await request(createApp())
+    .post(pathName)
+    .send({
+      model: 'alpha-model',
+      input: 'hello',
+      webSearchMode: ' LIVE ',
+      tools: [{ type: 'web_search_preview' }],
+    })
+    .expect(200);
+
+  const forwarded = JSON.parse(
+    externalServer.lastRequestBodyText() ?? '{}',
+  ) as {
+    enable_tools?: boolean;
+    enabled_tools?: string[];
+    tools?: Array<Record<string, unknown>>;
+    webSearchMode?: string;
+  };
+
+  assert.equal(forwarded.enable_tools, true);
+  assert.deepEqual(forwarded.enabled_tools, ['web_search']);
+  assert.deepEqual(forwarded.tools, []);
+  assert.equal(forwarded.webSearchMode, ' LIVE ');
+});
+
 test('OpenAI-compatible proxy restores namespace tool calls inside streamed Codex responses', async () => {
   const originalRequestBody = JSON.stringify({
     model: 'alpha-model',

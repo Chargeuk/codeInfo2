@@ -122,8 +122,14 @@ async function withTempCodexHome(chatToml: string): Promise<{
 test('codebase_question fails on the selected explicit Codex provider when Codex is unavailable', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  const originalExternalEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const originalExternalEndpointKeys =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'invalid-url';
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
   resetStore();
 
   const server = http.createServer(handleRpc);
@@ -170,6 +176,18 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
       delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
     } else {
       process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
+    }
+    if (originalExternalEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalExternalEndpoints;
+    }
+    if (originalExternalEndpointKeys === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+        originalExternalEndpointKeys;
     }
     server.close();
   }

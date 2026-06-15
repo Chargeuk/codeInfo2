@@ -146,6 +146,13 @@ function isChatModelInfo(value: unknown): value is ChatModelInfo {
   }
 
   if (
+    value.endpointLabel !== undefined &&
+    typeof value.endpointLabel !== 'string'
+  ) {
+    return false;
+  }
+
+  if (
     value.supportedReasoningEfforts !== undefined &&
     !isStringArray(value.supportedReasoningEfforts)
   ) {

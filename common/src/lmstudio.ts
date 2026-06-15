@@ -33,6 +33,7 @@ export type ChatModelInfo = {
   displayName: string;
   type: string;
   endpointId?: string;
+  endpointLabel?: string;
   // Required for Codex model entries in /chat/models payloads.
   supportedReasoningEfforts?: string[];
   // Required for Codex model entries in /chat/models payloads.

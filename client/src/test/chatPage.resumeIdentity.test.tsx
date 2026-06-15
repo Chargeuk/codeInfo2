@@ -389,8 +389,11 @@ describe('Chat page resumed execution identity', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.1-codex-max/i,
+        /gpt-5\.1-codex-max/i,
       ),
+    );
+    expect(screen.getByTestId('model-select')).not.toHaveTextContent(
+      /alpha\.example/i,
     );
 
     await user.type(
@@ -584,7 +587,7 @@ describe('Chat page resumed execution identity', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.1-codex-max \(\/base\)/i,
+        /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
       ),
     );
 
@@ -773,8 +776,11 @@ describe('Chat page resumed execution identity', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /saved\.example \/ gpt-5\.1-codex-max/i,
+        /gpt-5\.1-codex-max/i,
       ),
+    );
+    expect(screen.getByTestId('model-select')).not.toHaveTextContent(
+      /saved\.example/i,
     );
 
     await user.type(
@@ -968,7 +974,7 @@ describe('Chat page resumed execution identity', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+        /gpt-5\.2 \(alpha\.example \/ alt\)/i,
       ),
     );
 
@@ -981,7 +987,7 @@ describe('Chat page resumed execution identity', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.1-codex-max \(\/alt\)/i,
+        /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
@@ -1013,7 +1019,7 @@ describe('Chat page resumed execution identity', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+        /gpt-5\.2 \(alpha\.example \/ alt\)/i,
       ),
     );
     expect(

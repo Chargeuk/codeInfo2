@@ -3,7 +3,7 @@ import nodeFs from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 
 import type { ModelInfo } from '@github/copilot-sdk';
 import express from 'express';
@@ -28,6 +28,39 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+
+const envSnapshot = new Map<string, string | undefined>();
+
+const setEnv = (key: string, value: string | undefined) => {
+  if (!envSnapshot.has(key)) {
+    envSnapshot.set(key, process.env[key]);
+  }
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+};
+
+const restoreEnv = () => {
+  for (const [key, value] of envSnapshot.entries()) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  envSnapshot.clear();
+};
+
+beforeEach(() => {
+  setEnv('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
+  setEnv('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
+});
+
+afterEach(() => {
+  restoreEnv();
+});
 
 async function writeSeedArtifacts(seedHome: string) {
   await fs.mkdir(path.join(seedHome, 'session-state'), { recursive: true });

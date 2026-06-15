@@ -284,6 +284,8 @@ export async function startNamedCopilotScenarioServer(params: {
     'CODEINFO_LMSTUDIO_BASE_URL',
     scenario.lmstudioAvailable ? 'http://127.0.0.1:1234' : 'http://127.0.0.1:9',
   );
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 
   return {
     scenarioName: scenario.name,

@@ -311,6 +311,7 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
           : modelId,
         type: params.provider,
         endpointId: endpoint.endpoint.endpointId,
+        endpointLabel: endpoint.endpoint.displayLabel?.trim() || undefined,
       });
       liveModels.push(modelId);
     }
@@ -620,6 +621,25 @@ export function buildProviderInfo(
     agentFlags: params.agentFlags,
     compatibility: params.compatibility,
   };
+}
+
+const NON_USER_FACING_WARNING_PATTERNS = [
+  /^Skipping config-pinned endpoint .*; it is already present after normalization$/,
+] as const;
+
+export function filterUserFacingWarnings(
+  warnings?: readonly string[],
+): string[] | undefined {
+  if (!warnings) {
+    return undefined;
+  }
+
+  return warnings.filter(
+    (warning) =>
+      !NON_USER_FACING_WARNING_PATTERNS.some((pattern) =>
+        pattern.test(warning),
+      ),
+  );
 }
 
 export function orderProviders(

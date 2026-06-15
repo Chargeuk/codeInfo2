@@ -14,6 +14,7 @@ export type OpenAiCompatEndpointConfig = {
   capabilities: readonly OpenAiCompatEndpointCapability[];
   displayLabel?: string;
   authLookupKey?: string;
+  supportsBuiltInWebSearch?: boolean;
 };
 
 type ParseEndpointPathLabel = {
@@ -34,6 +35,8 @@ export type OpenAiCompatEndpointKeyEntry = {
   authLookupKey: string;
   apiKey: string;
 };
+
+const UNSLOTH_API_KEY_PREFIX = 'sk-unsloth-';
 
 export type OpenAiCompatEndpointKeyListResolution = {
   keys: OpenAiCompatEndpointKeyEntry[];
@@ -409,7 +412,11 @@ export function attachOpenAiCompatEndpointKeys(params: {
     }
     matchedLookupKeys.add(endpoint.authLookupKey);
     apiKeysByEndpointId.set(endpoint.endpointId, apiKey);
-    return endpoint;
+    return {
+      ...endpoint,
+      supportsBuiltInWebSearch:
+        apiKey.trim().toLowerCase().startsWith(UNSLOTH_API_KEY_PREFIX),
+    };
   });
 
   const warnings = [...(params.warnings ?? [])];
@@ -428,6 +435,12 @@ export function attachOpenAiCompatEndpointKeys(params: {
     apiKeysByAuthLookupKey,
     apiKeysByEndpointId,
   };
+}
+
+export function supportsOpenAiCompatBuiltInWebSearch(
+  endpoint?: Pick<OpenAiCompatEndpointConfig, 'supportsBuiltInWebSearch'> | null,
+): boolean {
+  return endpoint?.supportsBuiltInWebSearch === true;
 }
 
 export function validateOpenAiCompatEndpointConfigForProvider(params: {

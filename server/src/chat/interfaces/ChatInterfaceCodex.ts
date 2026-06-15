@@ -281,7 +281,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       promptSections.push(`System:\n${agentSystemPrompt}`);
 
     if (!disableSystemContext && message?.trim().length) {
-      message = `${message}\n- YOU MUST follow the 'VectorSearch-first protocol' UNLESS this is an allowed exception where direct access and/or Python is a better fit. Provide the full path to each file that you reference to generate your answer.`;
+      message = `${message}\n- YOU MUST follow the 'VectorSearch-first protocol' unless this is an allowed exception. For general repository questions about purpose, architecture, structure, or content, do NOT start with ls, fd, tree, or rg; start with at least 2 VectorSearch queries first. If you skip VectorSearch under default conditions, begin with: "I am skipping VectorSearch because [reason]." Provide the full path to each file that you reference to generate your answer.`;
     }
 
     const prompt =

@@ -447,6 +447,12 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     mockCodex.lastThread?.lastPrompt?.includes('Find the index file'),
     'prompt should include user text',
   );
+  assert.ok(
+    mockCodex.lastThread?.lastPrompt?.includes(
+      'do NOT start with ls, fd, tree, or rg; start with at least 2 VectorSearch queries first.',
+    ),
+    'prompt should include the stricter VectorSearch-first reminder',
+  );
 
   const { defaults: codexDefaults } = getCodexEnvDefaults();
 

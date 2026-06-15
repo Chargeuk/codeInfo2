@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import { getChatInterface } from '../../chat/factory.js';
 import type { ChatEvent } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../chat/interfaces/ChatInterfaceCopilot.js';
@@ -80,6 +81,16 @@ test('ChatInterfaceCopilot create-session path maps streamed events into ChatInt
     harness.getState().lastCreateSessionConfig?.sessionId,
     'copilot-conversation-1',
   );
+  assert.equal(
+    harness.getState().lastCreateSessionConfig?.systemMessage?.mode,
+    'append',
+  );
+  const createSystemMessageContent =
+    harness.getState().lastCreateSessionConfig?.systemMessage?.content;
+  assert.ok(createSystemMessageContent);
+  assert.ok(
+    createSystemMessageContent.startsWith(SYSTEM_CONTEXT.trim()),
+  );
   assert.deepEqual(
     toComparableJson(harness.getState().lastCreateSessionConfig?.mcpServers),
     {
@@ -121,6 +132,16 @@ test('ChatInterfaceCopilot resume path keeps event mapping aligned with create',
   assert.equal(
     harness.getState().lastResumeSession?.sessionId,
     'copilot-conversation-2',
+  );
+  assert.equal(
+    harness.getState().lastResumeSession?.config.systemMessage?.mode,
+    'append',
+  );
+  const resumeSystemMessageContent =
+    harness.getState().lastResumeSession?.config.systemMessage?.content;
+  assert.ok(resumeSystemMessageContent);
+  assert.ok(
+    resumeSystemMessageContent.startsWith(SYSTEM_CONTEXT.trim()),
   );
   assert.deepEqual(
     emitted.map((event) => event.type),
@@ -204,6 +225,35 @@ test('ChatInterfaceCopilot create-session forwards MCP servers without registeri
     },
   );
   assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 7_200_000);
+});
+
+test('ChatInterfaceCopilot appends provider-specific system prompts after the shared system context', async () => {
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-system-message-merge',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+
+  await chat.run(
+    'Use both system prompts',
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: false,
+      systemPrompt: 'Agent-specific instructions go here.',
+    },
+    'copilot-conversation-system-merge',
+    'copilot-gpt-5',
+  );
+
+  assert.equal(
+    harness.getState().lastCreateSessionConfig?.systemMessage?.mode,
+    'append',
+  );
+  assert.equal(
+    harness.getState().lastCreateSessionConfig?.systemMessage?.content,
+    `${SYSTEM_CONTEXT.trim()}\n\nAgent-specific instructions go here.`,
+  );
 });
 
 test('ChatInterfaceCopilot create-session removes all tools when toolAccess is off', async () => {

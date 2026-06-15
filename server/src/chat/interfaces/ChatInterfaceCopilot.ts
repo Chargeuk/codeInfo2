@@ -10,6 +10,7 @@ import {
   type SessionEventHandler,
   type SystemMessageConfig,
 } from '@github/copilot-sdk';
+import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import type { OpenAiCompatEndpointConfig } from '../../config/openaiCompatEndpoints.js';
 import type { RuntimeTomlConfig } from '../../config/runtimeConfig.js';
 import { append } from '../../logStore.js';
@@ -159,6 +160,19 @@ const disableCopilotMcpServerTools = (
   return normalized;
 };
 
+const buildCopilotSystemMessage = (
+  systemPrompt?: string,
+): SystemMessageConfig | undefined => {
+  const parts = [SYSTEM_CONTEXT.trim(), (systemPrompt ?? '').trim()].filter(
+    (part) => part.length > 0,
+  );
+  if (parts.length === 0) return undefined;
+  return {
+    mode: 'append',
+    content: parts.join('\n\n'),
+  } satisfies SystemMessageConfig;
+};
+
 export class ChatInterfaceCopilot extends ChatInterface {
   private readonly hooksFactory: NonNullable<
     ChatInterfaceCopilotOptions['hooksFactory']
@@ -202,6 +216,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
   ): SessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
     const { runtimeFlags, mcpServers } = this.resolveSessionFlags(typedFlags);
+    const systemMessage = buildCopilotSystemMessage(typedFlags.systemPrompt);
     const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
       ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
       : true;
@@ -224,14 +239,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
         : {}),
-      ...(typedFlags.systemPrompt
-        ? {
-            systemMessage: {
-              mode: 'append',
-              content: typedFlags.systemPrompt,
-            } satisfies SystemMessageConfig,
-          }
-        : {}),
+      ...(systemMessage ? { systemMessage } : {}),
       ...(typedFlags.workingDirectoryOverride
         ? { workingDirectory: typedFlags.workingDirectoryOverride }
         : {}),
@@ -245,6 +253,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
   ): ResumeSessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
     const { runtimeFlags, mcpServers } = this.resolveSessionFlags(typedFlags);
+    const systemMessage = buildCopilotSystemMessage(typedFlags.systemPrompt);
     const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
       ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
       : true;
@@ -266,14 +275,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
         : {}),
-      ...(typedFlags.systemPrompt
-        ? {
-            systemMessage: {
-              mode: 'append',
-              content: typedFlags.systemPrompt,
-            } satisfies SystemMessageConfig,
-          }
-        : {}),
+      ...(systemMessage ? { systemMessage } : {}),
       ...(typedFlags.workingDirectoryOverride
         ? { workingDirectory: typedFlags.workingDirectoryOverride }
         : {}),

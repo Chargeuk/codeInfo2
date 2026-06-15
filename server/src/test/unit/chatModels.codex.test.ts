@@ -1332,7 +1332,7 @@ test('codex models route promotes a pinned endpoint-backed default once and remo
   }
 });
 
-test('codex models route keeps normalized duplicate endpoint warnings out of the response while preserving them in logs', async () => {
+test('codex models route keeps normalized duplicate endpoint warnings out of the response while preserving them in logs', async (t) => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['alpha'],
   });
@@ -1357,18 +1357,16 @@ test('codex models route keeps normalized duplicate endpoint warnings out of the
 
   const markerPayloads: Array<Record<string, unknown>> = [];
   let server: Awaited<ReturnType<typeof startServer>> | null = null;
-  let originalInfo: typeof console.info = console.info;
 
   try {
     server = await startServer({ mcpAvailable: true });
     env.set('MCP_URL', `${server.baseUrl}/mcp`);
 
-    originalInfo = console.info;
-    console.info = (...args: unknown[]) => {
+    t.mock.method(console, 'info', (...args: unknown[]) => {
       if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
         markerPayloads.push(args[1] as Record<string, unknown>);
       }
-    };
+    });
 
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
@@ -1396,7 +1394,6 @@ test('codex models route keeps normalized duplicate endpoint warnings out of the
       true,
     );
   } finally {
-    console.info = originalInfo;
     if (server) {
       await stopServer(server);
     }

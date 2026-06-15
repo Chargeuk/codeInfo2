@@ -80,7 +80,7 @@ function resolveExplicitWebSearchAvailability(
     if (normalizedMode === 'live') {
       return true;
     }
-    if (normalizedMode === 'cached') {
+    if (normalizedMode === 'cached' || normalizedMode === 'disabled') {
       return false;
     }
     return undefined;

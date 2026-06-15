@@ -311,6 +311,7 @@ export async function resolveOpenAiCompatProviderDiscovery(params: {
           : modelId,
         type: params.provider,
         endpointId: endpoint.endpoint.endpointId,
+        endpointLabel: endpoint.endpoint.displayLabel?.trim() || undefined,
       });
       liveModels.push(modelId);
     }

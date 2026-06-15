@@ -1067,7 +1067,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.1-codex-max \(\/alt\)/i,
+        /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(

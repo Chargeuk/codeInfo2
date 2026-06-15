@@ -9,6 +9,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LayersRoundedIcon from '@mui/icons-material/LayersRounded';
+import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import SettingsSuggestRoundedIcon from '@mui/icons-material/SettingsSuggestRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import {
@@ -75,6 +76,7 @@ import ThinkingLevelIcon from '../components/workspace/composer/ThinkingLevelIco
 import {
   buildComposerOptionSummary,
   formatEndpointAwareModelLabel,
+  formatEndpointIdentityLabel,
   formatComposerModelLabel,
   formatThinkingModeLabel,
   getComposerModelPresentation,
@@ -1346,6 +1348,12 @@ export default function ChatPage() {
   const selectedModelDisplayName = selectedModel
     ? getModelDisplayLabel(selectedModel)
     : formatEndpointAwareModelLabel(selected, selectedEndpointId);
+  const selectedEndpointLabel = selectedModel?.endpointId
+    ? formatEndpointIdentityLabel(
+        selectedModel.endpointLabel,
+        selectedModel.endpointId,
+      )
+    : undefined;
   const reasoningDescriptor = availableAgentFlags.find(
     (descriptor) => descriptor.key === 'modelReasoningEffort',
   );
@@ -1405,10 +1413,26 @@ export default function ChatPage() {
             value: composerModelValue,
             icon: getComposerModelPresentation(
               provider,
-              selectedModelDisplayName,
+              selectedModel?.key ?? selectedModelDisplayName,
             ).icon,
             iconTestId: 'chat-composer-info-model-icon',
           },
+          ...(selectedModel?.endpointId
+            ? [
+                {
+                  key: 'endpoint',
+                  label: 'Endpoint',
+                  value: selectedEndpointLabel ?? 'External endpoint',
+                  icon: <LayersRoundedIcon fontSize="small" />,
+                },
+                {
+                  key: 'endpoint-url',
+                  label: 'Endpoint URL',
+                  value: selectedModel.endpointId,
+                  icon: <LinkOutlinedIcon fontSize="small" />,
+                },
+              ]
+            : []),
           {
             key: 'thinking-mode',
             label: 'Thinking mode',
@@ -1455,6 +1479,9 @@ export default function ChatPage() {
       composerThinkingMode,
       composerWorkingFolderName,
       provider,
+      selectedEndpointLabel,
+      selectedModel?.endpointId,
+      selectedModel?.key,
       selectedModelDisplayName,
     ],
   );
@@ -2148,7 +2175,7 @@ export default function ChatPage() {
           models.map((model) => {
             const presentation = getComposerModelPresentation(
               provider,
-              model.displayName,
+              model.key,
             );
             const isSelectedModel =
               selected === model.key &&

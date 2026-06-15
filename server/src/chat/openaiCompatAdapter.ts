@@ -225,7 +225,11 @@ export function buildOpenAiCompatProxyBaseUrl(params: {
     Partial<
       Pick<
         OpenAiCompatEndpointConfig,
-        'baseUrl' | 'capabilities' | 'displayLabel' | 'authLookupKey'
+        | 'baseUrl'
+        | 'capabilities'
+        | 'displayLabel'
+        | 'authLookupKey'
+        | 'supportsBuiltInWebSearch'
       >
     >;
   consumer: OpenAiCompatAdapterConsumer;
@@ -238,6 +242,7 @@ export function buildOpenAiCompatProxyBaseUrl(params: {
     capabilities: params.endpoint.capabilities ?? ['responses', 'completions'],
     displayLabel: params.endpoint.displayLabel,
     authLookupKey: params.endpoint.authLookupKey,
+    supportsBuiltInWebSearch: params.endpoint.supportsBuiltInWebSearch,
   });
   return [
     `http://localhost:${port}`,

@@ -25,6 +25,34 @@ const formatEndpointPathHint = (endpointId?: string | null) => {
   }
 };
 
+const formatEndpointDisambiguator = (endpointId?: string | null) => {
+  const cleaned = cleanText(endpointId);
+  if (!cleaned) return '';
+
+  try {
+    const url = new URL(cleaned);
+    const host = cleanText(url.host);
+    const pathHint = formatEndpointPathHint(cleaned);
+    if (host && pathHint) {
+      return `${host} / ${pathHint.replace(/^\//, '')}`;
+    }
+    return host || pathHint || cleaned;
+  } catch {
+    return cleaned;
+  }
+};
+
+export const formatEndpointIdentityLabel = (
+  endpointLabel?: string | null,
+  endpointId?: string | null,
+) => {
+  const cleanedLabel = cleanText(endpointLabel);
+  if (cleanedLabel) {
+    return cleanedLabel;
+  }
+  return formatEndpointDisambiguator(endpointId) || 'External endpoint';
+};
+
 export const formatEndpointAwareModelLabel = (
   model?: string | null,
   endpointId?: string | null,
@@ -35,20 +63,16 @@ export const formatEndpointAwareModelLabel = (
   const cleanedModel = cleanText(model);
   if (!cleanedModel) return 'Select model';
 
-  const cleanedEndpointId = cleanText(endpointId);
-  if (!cleanedEndpointId) return cleanedModel;
-
-  try {
-    const url = new URL(cleanedEndpointId);
-    const host = cleanText(url.host) || cleanedEndpointId;
-    const baseLabel = `${host} / ${cleanedModel}`;
-    if (!options?.includePathHint) return baseLabel;
-
-    const pathHint = formatEndpointPathHint(cleanedEndpointId);
-    return pathHint ? `${baseLabel} (${pathHint})` : baseLabel;
-  } catch {
+  if (!cleanText(endpointId)) {
     return cleanedModel;
   }
+
+  if (!options?.includePathHint) {
+    return cleanedModel;
+  }
+
+  const disambiguator = formatEndpointDisambiguator(endpointId);
+  return disambiguator ? `${cleanedModel} (${disambiguator})` : cleanedModel;
 };
 
 export const getComposerProviderPresentation = (

@@ -386,6 +386,80 @@ describe('Chat page models list', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows endpoint label and URL in the composer info panel for endpoint-backed models', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+            selectedProvider: 'codex',
+            selectedModel: 'unsloth/gemma-3-27b',
+            selectedEndpointId: 'http://192.168.1.3:8888/v1',
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            providerInfo: {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: true,
+            },
+            models: [
+              {
+                key: 'unsloth/gemma-3-27b',
+                displayName: 'SparkUnsloth / unsloth/gemma-3-27b',
+                type: 'codex',
+                endpointId: 'http://192.168.1.3:8888/v1',
+                endpointLabel: 'SparkUnsloth',
+              },
+            ],
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/loading chat providers and models/i),
+      ).toBeNull(),
+    );
+
+    await user.click(await screen.findByTestId('chat-composer-info'));
+    const infoPopover = await screen.findByTestId('chat-composer-info-popover');
+
+    expect(within(infoPopover).getByText('Endpoint')).toBeInTheDocument();
+    expect(within(infoPopover).getByText('SparkUnsloth')).toBeInTheDocument();
+    expect(within(infoPopover).getByText('Endpoint URL')).toBeInTheDocument();
+    expect(
+      within(infoPopover).getByText('http://192.168.1.3:8888/v1'),
+    ).toBeInTheDocument();
+  });
+
   it('surfaces an error alert when model fetch fails without inventing fallback models', async () => {
     mockFetch.mockImplementation(
       asFetchImplementation(async (url: RequestInfo | URL) => {
@@ -643,7 +717,7 @@ describe('Chat page models list', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.2 \(/i,
+        /gpt-5\.2 \(alpha\.example \/ base\)/i,
       ),
     );
 
@@ -651,7 +725,7 @@ describe('Chat page models list', () => {
     await user.click(modelSelect);
 
     const duplicateOptions = screen.getAllByRole('option', {
-      name: /alpha\.example \/ gpt-5\.2/i,
+      name: /gpt-5\.2 \(alpha\.example/i,
     });
     expect(duplicateOptions).toHaveLength(2);
     expect(duplicateOptions[0]).toHaveAttribute('aria-selected', 'true');
@@ -661,13 +735,13 @@ describe('Chat page models list', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /alpha\.example \/ gpt-5\.2 \(\/alt\)/i,
+        /gpt-5\.2 \(alpha\.example \/ alt\)/i,
       ),
     );
 
     await user.click(screen.getByRole('combobox', { name: /model/i }));
     const refreshedOptions = screen.getAllByRole('option', {
-      name: /alpha\.example \/ gpt-5\.2/i,
+      name: /gpt-5\.2 \(alpha\.example/i,
     });
     expect(refreshedOptions[0]).toHaveAttribute('aria-selected', 'false');
     expect(refreshedOptions[1]).toHaveAttribute('aria-selected', 'true');

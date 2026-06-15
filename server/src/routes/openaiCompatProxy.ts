@@ -15,6 +15,7 @@ import {
   flattenCodexNamespaceToolsForCustomProvider,
   restoreCodexNamespaceToolCallsFromCustomProviderResponse,
 } from '../chat/openaiCompatToolFlattening.js';
+import { supportsOpenAiCompatBuiltInWebSearch } from '../config/openaiCompatEndpoints.js';
 
 function copyResponseHeaders(source: Headers, res: Response) {
   const blockedHeaders = new Set([
@@ -52,6 +53,86 @@ function parseConsumer(value: string): OpenAiCompatAdapterConsumer | null {
 function isStreamingProxyResponse(response: globalThis.Response): boolean {
   const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
   return contentType.includes('text/event-stream');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isWebSearchToolEntry(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return typeof value.type === 'string' && /web_search/i.test(value.type);
+}
+
+function resolveExplicitWebSearchAvailability(
+  body: Record<string, unknown>,
+): boolean | undefined {
+  const mode =
+    typeof body.webSearchMode === 'string'
+      ? body.webSearchMode
+      : typeof body.web_search_mode === 'string'
+        ? body.web_search_mode
+        : undefined;
+  if (mode !== undefined) {
+    return mode === 'live';
+  }
+
+  if (typeof body.webSearchEnabled === 'boolean') {
+    return body.webSearchEnabled;
+  }
+  if (typeof body.web_search_enabled === 'boolean') {
+    return body.web_search_enabled;
+  }
+
+  return undefined;
+}
+
+function prepareUnslothBuiltInWebSearchBody(
+  bodyText: string | undefined,
+  endpointSupportsBuiltInWebSearch: boolean,
+): string | undefined {
+  if (!endpointSupportsBuiltInWebSearch || !bodyText) {
+    return bodyText;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return bodyText;
+  }
+
+  if (!isRecord(parsed)) {
+    return bodyText;
+  }
+
+  const explicitAvailability = resolveExplicitWebSearchAvailability(parsed);
+  const existingTools = Array.isArray(parsed.tools) ? parsed.tools : undefined;
+  const hasWebSearchTool = existingTools?.some(isWebSearchToolEntry) ?? false;
+  const shouldEnableWebSearch =
+    explicitAvailability !== undefined
+      ? explicitAvailability
+      : hasWebSearchTool;
+
+  if (!shouldEnableWebSearch) {
+    return bodyText;
+  }
+
+  const nextBody: Record<string, unknown> = { ...parsed };
+  if (existingTools) {
+    nextBody.tools = existingTools.filter((tool) => !isWebSearchToolEntry(tool));
+  }
+  const enabledTools = Array.isArray(nextBody.enabled_tools)
+    ? nextBody.enabled_tools.filter((entry) => typeof entry === 'string')
+    : [];
+  if (!enabledTools.includes('web_search')) {
+    enabledTools.push('web_search');
+  }
+  nextBody.enable_tools = true;
+  nextBody.enabled_tools = enabledTools;
+  return JSON.stringify(nextBody);
 }
 
 function createCodexNamespaceToolCallRestoreStream(params: {
@@ -158,11 +239,15 @@ export function createOpenAiCompatProxyRouter() {
           : req.body === undefined
             ? undefined
             : JSON.stringify(req.body);
+      const preparedBodyText = prepareUnslothBuiltInWebSearchBody(
+        bodyText,
+        supportsOpenAiCompatBuiltInWebSearch(endpoint),
+      );
       const flattenedCodexToolPayload =
         consumer === 'codex' && path === 'responses'
-          ? flattenCodexNamespaceToolsForCustomProvider(bodyText)
+          ? flattenCodexNamespaceToolsForCustomProvider(preparedBodyText)
           : {
-              bodyText,
+              bodyText: preparedBodyText,
               namespaceToolCallMap: {},
             };
       const response = await forwardOpenAiCompatProxyRequest({

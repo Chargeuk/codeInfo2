@@ -77,6 +77,8 @@ beforeEach(() => {
   setEnv('COPILOT_GITHUB_TOKEN', undefined);
   setEnv('GH_TOKEN', undefined);
   setEnv('GITHUB_TOKEN', undefined);
+  setEnv('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
+  setEnv('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 });
 
 afterEach(() => {

@@ -21,6 +21,7 @@
     "@codeinfo2/common": "^0.0.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@lobehub/icons-static-svg": "1.91.0",
     "@mui/icons-material": "^6.4.1",
     "@mui/material": "^6.4.1",
     "@tanstack/react-virtual": "3.13.23",

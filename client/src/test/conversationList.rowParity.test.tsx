@@ -168,6 +168,128 @@ describe('Conversation row parity', () => {
     expect(
       getConversationModelPresentation('copilot', 'amazon/nova-pro').label,
     ).toBe('Nova');
+    expect(
+      getConversationModelPresentation('copilot', 'moonshotai/kimi-k2.7-code')
+        .label,
+    ).toBe('Kimi');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'nvidia/nemotron-3-ultra-550b-a55b',
+      ).label,
+    ).toBe('Nvidia');
+    expect(
+      getConversationModelPresentation('copilot', 'z-ai/glm-5.1').label,
+    ).toBe('GLM');
+    expect(
+      getConversationModelPresentation('copilot', 'minimax/minimax-m3').label,
+    ).toBe('MiniMax');
+    expect(
+      getConversationModelPresentation('copilot', 'ibm-granite/granite-4.1-8b')
+        .label,
+    ).toBe('IBM Granite');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'bytedance-seed/seed-2.0-lite',
+      ).label,
+    ).toBe('ByteDance');
+    expect(
+      getConversationModelPresentation('copilot', 'openrouter/fusion').label,
+    ).toBe('OpenRouter');
+    expect(
+      getConversationModelPresentation('copilot', 'poolside/laguna-m.1').label,
+    ).toBe('Poolside');
+    expect(
+      getConversationModelPresentation('copilot', 'google/lyria-3-pro-preview')
+        .label,
+    ).toBe('Google');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'microsoft/phi-4-mini-instruct',
+      ).label,
+    ).toBe('Microsoft');
+    expect(
+      getConversationModelPresentation('copilot', 'perplexity/sonar-pro-search')
+        .label,
+    ).toBe('Perplexity');
+    expect(
+      getConversationModelPresentation('copilot', 'allenai/olmo-3-32b-think')
+        .label,
+    ).toBe('Ai2');
+    expect(
+      getConversationModelPresentation('copilot', 'liquid/lfm-2-24b-a2b').label,
+    ).toBe('Liquid');
+    expect(
+      getConversationModelPresentation('copilot', 'nousresearch/hermes-4-70b')
+        .label,
+    ).toBe('Nous Research');
+    expect(
+      getConversationModelPresentation('copilot', 'mistralai/devstral-2512')
+        .label,
+    ).toBe('Mistral');
+    expect(
+      getConversationModelPresentation('copilot', 'inclusionai/ring-2.6-1t')
+        .label,
+    ).toBe('Inclusion AI');
+    expect(
+      getConversationModelPresentation('copilot', 'nex-agi/nex-n2-pro').label,
+    ).toBe('Nex');
+    expect(
+      getConversationModelPresentation('copilot', 'prime-intellect/intellect-3')
+        .label,
+    ).toBe('Prime Intellect');
+    expect(
+      getConversationModelPresentation('copilot', 'rekaai/reka-edge').label,
+    ).toBe('Reka');
+    expect(
+      getConversationModelPresentation('copilot', 'sao10k/l3.1-70b-hanami-x1')
+        .label,
+    ).toBe('Sao10K');
+    expect(
+      getConversationModelPresentation('copilot', 'thedrummer/cydonia-24b-v4.1')
+        .label,
+    ).toBe('TheDrummer');
+    expect(
+      getConversationModelPresentation('copilot', 'writer/palmyra-x5').label,
+    ).toBe('Writer');
+    expect(
+      getConversationModelPresentation('copilot', 'switchpoint/router').label,
+    ).toBe('Switchpoint');
+    expect(
+      getConversationModelPresentation('copilot', 'perceptron/perceptron-mk1')
+        .label,
+    ).toBe('Perceptron');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'anthracite-org/magnum-v4-72b',
+      ).label,
+    ).toBe('Anthracite');
+    expect(
+      getConversationModelPresentation('copilot', 'gryphe/mythomax-l2-13b')
+        .label,
+    ).toBe('Gryphe');
+    expect(
+      getConversationModelPresentation('copilot', 'mancer/weaver').label,
+    ).toBe('Mancer');
+    expect(
+      getConversationModelPresentation('copilot', 'undi95/remm-slerp-l2-13b')
+        .label,
+    ).toBe('Undi95');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'text-embedding-nomic-embed-text-v1.5',
+      ).label,
+    ).toBe('Nomic');
+    expect(
+      getConversationModelPresentation(
+        'copilot',
+        'huihui-qwen3.5-9b-abliterated',
+      ).label,
+    ).toBe('Qwen');
   });
 
   it('formats recent timestamps relatively and older timestamps with exact local date and time', () => {

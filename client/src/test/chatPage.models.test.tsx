@@ -996,7 +996,7 @@ describe('Chat page models list', () => {
     expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
   }, 15000);
 
-  it('groups model options by family, sorts within a group, and keeps a visible search filter', async () => {
+  it('groups model options by source first, preserves family sections within each source, and keeps a visible search filter', async () => {
     const user = userEvent.setup();
 
     mockFetch.mockImplementation(
@@ -1020,6 +1020,7 @@ describe('Chat page models list', () => {
             ],
             selectedProvider: 'copilot',
             selectedModel: 'moonshotai/kimi-k2.6',
+            selectedEndpointId: 'https://openrouter.ai/api/v1',
           });
         }
         if (target.includes('/chat/models')) {
@@ -1028,6 +1029,21 @@ describe('Chat page models list', () => {
             available: true,
             toolsAvailable: true,
             models: [
+              {
+                key: 'auto',
+                displayName: 'Auto',
+                type: 'copilot',
+              },
+              {
+                key: 'gpt-5.2',
+                displayName: 'gpt-5.2',
+                type: 'copilot',
+              },
+              {
+                key: 'claude-sonnet-4.6',
+                displayName: 'Claude Sonnet 4.6',
+                type: 'copilot',
+              },
               {
                 key: 'openai/gpt-5.5',
                 displayName: 'OpenRouter / openai/gpt-5.5',
@@ -1063,6 +1079,13 @@ describe('Chat page models list', () => {
                 endpointId: 'https://openrouter.ai/api/v1',
                 endpointLabel: 'OpenRouter',
               },
+              {
+                key: 'google/gemma-4-27b-it',
+                displayName: 'SparkUnsloth / google/gemma-4-27b-it',
+                type: 'copilot',
+                endpointId: 'http://192.168.1.3:8888/v1',
+                endpointLabel: 'SparkUnsloth',
+              },
             ],
           });
         }
@@ -1079,35 +1102,56 @@ describe('Chat page models list', () => {
     await user.click(modelSelect);
 
     expect(await screen.findByTestId('chat-model-search')).toBeVisible();
-    expect(screen.getAllByText('Kimi').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Nvidia').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('OpenAI').length).toBeGreaterThan(0);
+    expect(
+      screen
+        .getAllByTestId('chat-model-source-header')
+        .map((header) => header.textContent),
+    ).toEqual(['GitHub Copilot', 'OpenRouter', 'SparkUnsloth']);
+    expect(
+      screen
+        .getAllByTestId('chat-model-family-header')
+        .map((header) => header.textContent),
+    ).toEqual([
+      'Claude',
+      'GitHub Copilot',
+      'OpenAI',
+      'Kimi',
+      'Nvidia',
+      'OpenAI',
+      'Gemma',
+    ]);
 
     const optionNames = screen
       .getAllByRole('option')
       .map((option) => option.getAttribute('aria-label'));
     expect(optionNames).toEqual([
+      'Claude Sonnet 4.6',
+      'Auto',
+      'gpt-5.2',
       'OpenRouter / moonshotai/kimi-k2.6',
       'OpenRouter / moonshotai/kimi-k2.7-code',
       'OpenRouter / nvidia/nemotron-3-super-120b-a12b',
       'OpenRouter / nvidia/nemotron-3-ultra-550b-a55b',
       'OpenRouter / openai/gpt-5.5',
+      'SparkUnsloth / google/gemma-4-27b-it',
     ]);
 
-    await user.type(screen.getByTestId('chat-model-search'), 'nemotron');
+    await user.type(screen.getByTestId('chat-model-search'), 'sparkunsloth');
 
-    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(2));
-    expect(screen.getAllByText('Nvidia').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Kimi')).toBeNull();
-    expect(screen.queryByText('OpenAI')).toBeNull();
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1));
+    expect(
+      screen
+        .getAllByTestId('chat-model-source-header')
+        .map((header) => header.textContent),
+    ).toEqual(['SparkUnsloth']);
+    expect(
+      screen
+        .getAllByTestId('chat-model-family-header')
+        .map((header) => header.textContent),
+    ).toEqual(['Gemma']);
     expect(
       screen.getByRole('option', {
-        name: /nvidia\/nemotron-3-super-120b-a12b/i,
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('option', {
-        name: /nvidia\/nemotron-3-ultra-550b-a55b/i,
+        name: /sparkunsloth \/ google\/gemma-4-27b-it/i,
       }),
     ).toBeVisible();
   });

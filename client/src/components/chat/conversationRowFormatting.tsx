@@ -661,22 +661,6 @@ const MODEL_PRESENTATION_MATCHERS: Array<{
       hasModelToken(value, 'cohere', 'command', 'commanda', 'aya'),
   },
   {
-    key: 'essentialai',
-    matches: (value) => hasModelToken(value, 'essentialai'),
-  },
-  {
-    key: 'gemini',
-    matches: (value) => hasModelToken(value, 'gemini'),
-  },
-  {
-    key: 'gemma',
-    matches: (value) => hasModelToken(value, 'gemma'),
-  },
-  {
-    key: 'glm',
-    matches: (value) => hasModelToken(value, 'glm', 'glmv', 'zhipu', 'z-ai'),
-  },
-  {
     key: 'google',
     matches: (value) =>
       hasModelToken(value, 'google', 'lyria') || /\bgemini\b/i.test(value),
@@ -684,11 +668,6 @@ const MODEL_PRESENTATION_MATCHERS: Array<{
   {
     key: 'gryphe',
     matches: (value) => hasModelToken(value, 'gryphe', 'mythomax'),
-  },
-  {
-    key: 'grok',
-    matches: (value) =>
-      hasModelToken(value, 'grok', 'x-ai') || /\bxai\b/i.test(value),
   },
   {
     key: 'ibm',

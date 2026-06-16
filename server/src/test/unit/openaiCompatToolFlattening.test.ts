@@ -6,8 +6,16 @@ import {
   restoreCodexNamespaceToolCallsFromCustomProviderResponse,
 } from '../../chat/openaiCompatToolFlattening.js';
 
-const flattenToolName = (namespaceName: string, toolName: string) =>
-  `codexns_n${namespaceName.length}_${namespaceName}_t${toolName.length}_${toolName}`;
+const encodeNamePart = (value: string): string =>
+  /^[A-Za-z0-9_-]+$/.test(value)
+    ? value
+    : Buffer.from(value, 'utf8').toString('base64url');
+
+const flattenToolName = (namespaceName: string, toolName: string) => {
+  const encodedNamespace = encodeNamePart(namespaceName);
+  const encodedTool = encodeNamePart(toolName);
+  return `codexns_n${encodedNamespace.length}_${encodedNamespace}_t${encodedTool.length}_${encodedTool}`;
+};
 
 test('flattenCodexNamespaceToolsForCustomProvider leaves non-JSON bodies unchanged', () => {
   const raw = 'not-json';
@@ -89,10 +97,7 @@ test('flattenCodexNamespaceToolsForCustomProvider flattens namespace tools into 
 
   assert.deepEqual(
     parsed.tools.map((tool) => tool.name),
-    [
-      'exec_command',
-      ...expectedFlattenedToolNames,
-    ],
+    ['exec_command', ...expectedFlattenedToolNames],
   );
   assert.deepEqual(encodedToolNames, expectedFlattenedToolNames);
   for (const tool of parsed.tools.slice(1)) {
@@ -168,5 +173,32 @@ test('restoreCodexNamespaceToolCallsFromCustomProviderResponse restores namespac
     namespace: 'mcp__code_info__',
     arguments: '{}',
     call_id: 'call_123',
+  });
+});
+
+test('flattenCodexNamespaceToolsForCustomProvider encodes unsafe namespace and tool name parts', () => {
+  const namespaceName = 'mcp.code info';
+  const toolName = 'Vector Search';
+  const flattened = flattenCodexNamespaceToolsForCustomProvider(
+    JSON.stringify({
+      tools: [
+        {
+          type: 'namespace',
+          name: namespaceName,
+          tools: [{ type: 'function', name: toolName }],
+        },
+      ],
+    }),
+  );
+
+  const flattenedName = Object.keys(flattened.namespaceToolCallMap)[0];
+  assert.equal(flattenedName, flattenToolName(namespaceName, toolName));
+  assert.match(flattenedName, /^[A-Za-z0-9_-]+$/);
+  assert.doesNotMatch(flattenedName, /[ .]/);
+  assert.deepEqual(flattened.namespaceToolCallMap, {
+    [flattenedName]: {
+      namespace: namespaceName,
+      name: toolName,
+    },
   });
 });

@@ -859,7 +859,7 @@ test('OpenAI-compatible proxy restores namespace tool calls inside streamed Code
   );
   assert.doesNotMatch(
     response.text,
-    /"name":"codexns_[A-Za-z0-9_-]+"/,
+    /"name":"codexns_n\d+_[A-Za-z0-9_-]+_t\d+_[A-Za-z0-9_-]+"/,
   );
 });
 

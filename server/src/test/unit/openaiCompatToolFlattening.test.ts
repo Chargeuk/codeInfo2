@@ -6,6 +6,9 @@ import {
   restoreCodexNamespaceToolCallsFromCustomProviderResponse,
 } from '../../chat/openaiCompatToolFlattening.js';
 
+const flattenToolName = (namespaceName: string, toolName: string) =>
+  `codexns_n${namespaceName.length}_${namespaceName}_t${toolName.length}_${toolName}`;
+
 test('flattenCodexNamespaceToolsForCustomProvider leaves non-JSON bodies unchanged', () => {
   const raw = 'not-json';
   const flattened = flattenCodexNamespaceToolsForCustomProvider(raw);
@@ -79,14 +82,19 @@ test('flattenCodexNamespaceToolsForCustomProvider flattens namespace tools into 
     tools: Array<Record<string, unknown>>;
   };
   const encodedToolNames = Object.keys(flattened.namespaceToolCallMap);
+  const expectedFlattenedToolNames = [
+    flattenToolName('mcp__code_info__', 'ListIngestedRepositories'),
+    flattenToolName('mcp__code_info__', 'VectorSearch'),
+  ];
 
   assert.deepEqual(
     parsed.tools.map((tool) => tool.name),
     [
       'exec_command',
-      ...encodedToolNames,
+      ...expectedFlattenedToolNames,
     ],
   );
+  assert.deepEqual(encodedToolNames, expectedFlattenedToolNames);
   for (const tool of parsed.tools.slice(1)) {
     assert.match(String(tool.name), /^[A-Za-z0-9_-]+$/);
     assert.doesNotMatch(String(tool.name), /\./);
@@ -102,11 +110,11 @@ test('flattenCodexNamespaceToolsForCustomProvider flattens namespace tools into 
     additionalProperties: false,
   });
   assert.deepEqual(flattened.namespaceToolCallMap, {
-    [encodedToolNames[0]]: {
+    [expectedFlattenedToolNames[0]]: {
       namespace: 'mcp__code_info__',
       name: 'ListIngestedRepositories',
     },
-    [encodedToolNames[1]]: {
+    [expectedFlattenedToolNames[1]]: {
       namespace: 'mcp__code_info__',
       name: 'VectorSearch',
     },

@@ -32,7 +32,7 @@ const encodeFlattenedNamespaceToolName = (
   namespaceName: string,
   nestedName: string,
 ) =>
-  `${FLATTENED_NAMESPACE_TOOL_PREFIX}${Buffer.from(namespaceName, 'utf8').toString('base64url')}_${Buffer.from(nestedName, 'utf8').toString('base64url')}`;
+  `${FLATTENED_NAMESPACE_TOOL_PREFIX}n${namespaceName.length}_${namespaceName}_t${nestedName.length}_${nestedName}`;
 
 export type CodexFlattenedNamespaceToolMap = Record<
   string,

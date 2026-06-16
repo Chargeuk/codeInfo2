@@ -27,12 +27,21 @@ type NamespaceToolCallTarget = {
 };
 
 const FLATTENED_NAMESPACE_TOOL_PREFIX = 'codexns_';
+const SAFE_TOOL_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
+const encodeNamePart = (value: string): string =>
+  SAFE_TOOL_NAME_RE.test(value)
+    ? value
+    : Buffer.from(value, 'utf8').toString('base64url');
 
 const encodeFlattenedNamespaceToolName = (
   namespaceName: string,
   nestedName: string,
-) =>
-  `${FLATTENED_NAMESPACE_TOOL_PREFIX}${Buffer.from(namespaceName, 'utf8').toString('base64url')}_${Buffer.from(nestedName, 'utf8').toString('base64url')}`;
+) => {
+  const encodedNamespace = encodeNamePart(namespaceName);
+  const encodedNested = encodeNamePart(nestedName);
+  return `${FLATTENED_NAMESPACE_TOOL_PREFIX}n${encodedNamespace.length}_${encodedNamespace}_t${encodedNested.length}_${encodedNested}`;
+};
 
 export type CodexFlattenedNamespaceToolMap = Record<
   string,

@@ -12,6 +12,7 @@ const createEndpoints = () => ({
   classicMcp: { label: 'classicMcp', url: 'http://host.test:5010/mcp' },
   chatMcp: { label: 'chatMcp', url: 'http://host.test:5011/' },
   agentsMcp: { label: 'agentsMcp', url: 'http://host.test:5012/' },
+  webMcp: { label: 'webMcp', url: 'http://host.test:5013/' },
   playwrightMcp: { label: 'playwrightMcp', url: 'http://host.test:8932/mcp' },
 });
 
@@ -44,6 +45,7 @@ test('main-stack host-network probe succeeds when all required listeners are rea
     classicMcp: 'reachable',
     chatMcp: 'reachable',
     agentsMcp: 'reachable',
+    webMcp: 'reachable',
     playwrightMcp: 'reachable',
     mixedShapeBridge: 'observed',
     result: 'passed',

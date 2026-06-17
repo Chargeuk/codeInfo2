@@ -263,6 +263,7 @@ describe('codexConfig', () => {
     process.env.CODEINFO_SERVER_PORT = '6010';
     process.env.CODEINFO_CHAT_MCP_PORT = '6011';
     process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_WEB_MCP_PORT = '6013';
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
       'http://localhost:6999/mcp/playwright';
 
@@ -271,6 +272,7 @@ describe('codexConfig', () => {
     assert.equal(endpoints.classicMcpUrl, 'http://localhost:6010/mcp');
     assert.equal(endpoints.chatMcpUrl, 'http://localhost:6011/mcp');
     assert.equal(endpoints.agentsMcpUrl, 'http://localhost:6012/mcp');
+    assert.equal(endpoints.webMcpUrl, 'http://localhost:6013/mcp');
     assert.notEqual(endpoints.classicMcpUrl, endpoints.agentsMcpUrl);
   });
 

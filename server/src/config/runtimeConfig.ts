@@ -2,6 +2,7 @@ import fsSync, { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 import { isChatProviderId, type ChatProviderId } from '@codeinfo2/common';
 import toml from 'toml';
@@ -118,6 +119,7 @@ export class RuntimeConfigResolutionError extends Error {
 
 type ChatBootstrapBranch =
   | 'existing_noop'
+  | 'existing_augmented'
   | 'generated_template'
   | 'template_write_failed'
   | 'chat_stat_failed'
@@ -177,8 +179,40 @@ const REQUIRED_MCP_PLACEHOLDER_KEYS = new Set([
   'CODEINFO_SERVER_PORT',
   'CODEINFO_CHAT_MCP_PORT',
   'CODEINFO_AGENTS_MCP_PORT',
+  'CODEINFO_WEB_MCP_PORT',
   'CODEINFO_PLAYWRIGHT_MCP_URL',
 ]);
+const CODE_INFO_MCP_SERVER_BLOCK = [
+  '[mcp_servers.code_info]',
+  'command = "npx"',
+  'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp"]',
+  'startup_timeout_sec = 60',
+  '',
+].join('\n');
+const WEB_TOOLS_MCP_SERVER_BLOCK = [
+  '[mcp_servers.web_tools]',
+  'command = "npx"',
+  'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp"]',
+  'startup_timeout_sec = 60',
+  '',
+].join('\n');
+const RESERVED_PROVIDER_CHAT_MCP_BLOCKS: Record<
+  ChatProviderId,
+  Record<string, string>
+> = {
+  codex: {
+    code_info: CODE_INFO_MCP_SERVER_BLOCK,
+    web_tools: WEB_TOOLS_MCP_SERVER_BLOCK,
+  },
+  copilot: {
+    code_info: CODE_INFO_MCP_SERVER_BLOCK,
+    web_tools: WEB_TOOLS_MCP_SERVER_BLOCK,
+  },
+  lmstudio: {
+    code_info: CODE_INFO_MCP_SERVER_BLOCK,
+    web_tools: WEB_TOOLS_MCP_SERVER_BLOCK,
+  },
+};
 const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
   codex: [
     'model = "gpt-5.3-codex"',
@@ -189,11 +223,17 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     'web_search_mode = "live"',
     'web_search = "live"',
     '',
+    CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
+    WEB_TOOLS_MCP_SERVER_BLOCK.trimEnd(),
+    '',
   ].join('\n'),
   copilot: [
     'model = "copilot-gpt-5"',
     'reasoning_effort = "medium"',
     'tool_access = "on"',
+    '',
+    CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
+    WEB_TOOLS_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
   lmstudio: [
@@ -202,6 +242,9 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     'max_tokens = 4096',
     'context_overflow_policy = "truncateMiddle"',
     'tool_access = "on"',
+    '',
+    CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
+    WEB_TOOLS_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
 };
@@ -419,6 +462,7 @@ function logCheckedInMcpContractLoaded(params: {
     configPath: params.configPath,
     chatPortVar: 'CODEINFO_CHAT_MCP_PORT',
     agentsPortVar: 'CODEINFO_AGENTS_MCP_PORT',
+    webPortVar: 'CODEINFO_WEB_MCP_PORT',
     playwrightUrlVar: 'CODEINFO_PLAYWRIGHT_MCP_URL',
     legacyFallbackUsed: false,
   };
@@ -1308,6 +1352,114 @@ const applyCodexChatConfigRootOverrides = (
   return next;
 };
 
+const stripReservedProviderChatMcpServers = (
+  config: RuntimeTomlConfig,
+  provider: ChatProviderId,
+): RuntimeTomlConfig => {
+  const stripped = cloneConfig(config);
+  const reservedNames = new Set(
+    Object.keys(RESERVED_PROVIDER_CHAT_MCP_BLOCKS[provider]),
+  );
+  if (!isRecord(stripped.mcp_servers)) {
+    return stripped;
+  }
+
+  const nextMcpServers: Record<string, unknown> = {};
+  for (const [name, definition] of Object.entries(stripped.mcp_servers)) {
+    if (!reservedNames.has(name)) {
+      nextMcpServers[name] = definition;
+    }
+  }
+
+  if (Object.keys(nextMcpServers).length === 0) {
+    delete stripped.mcp_servers;
+  } else {
+    stripped.mcp_servers = nextMcpServers;
+  }
+  return stripped;
+};
+
+const appendTomlBlocks = (rawConfig: string, blocks: string[]): string => {
+  const normalizedBlocks = blocks
+    .map((block) => block.trim())
+    .filter((block) => block.length > 0);
+  if (normalizedBlocks.length === 0) {
+    return rawConfig;
+  }
+
+  const trimmed = rawConfig.trimEnd();
+  const prefix = trimmed.length > 0 ? `${trimmed}\n\n` : '';
+  return `${prefix}${normalizedBlocks.join('\n\n')}\n`;
+};
+
+async function maybeAugmentExistingProviderChatConfig(params: {
+  provider: ChatProviderId;
+  chatConfigPath: string;
+}): Promise<boolean> {
+  const reservedBlocks = RESERVED_PROVIDER_CHAT_MCP_BLOCKS[params.provider];
+  const reservedNames = Object.keys(reservedBlocks);
+  if (reservedNames.length === 0) {
+    return false;
+  }
+
+  let rawConfig: string;
+  try {
+    rawConfig = await fs.readFile(params.chatConfigPath, 'utf8');
+  } catch {
+    return false;
+  }
+
+  let currentConfig: RuntimeTomlConfig;
+  let templateConfig: RuntimeTomlConfig;
+  try {
+    currentConfig = parseTomlOrThrow(rawConfig, params.chatConfigPath);
+    templateConfig = parseTomlOrThrow(
+      CHAT_CONFIG_TEMPLATES[params.provider],
+      `CHAT_CONFIG_TEMPLATES.${params.provider}`,
+    );
+  } catch {
+    return false;
+  }
+
+  const currentMcpServers = isRecord(currentConfig.mcp_servers)
+    ? currentConfig.mcp_servers
+    : undefined;
+  const missingReservedNames = reservedNames.filter(
+    (name) => !isRecord(currentMcpServers?.[name]),
+  );
+  if (missingReservedNames.length === 0) {
+    return false;
+  }
+
+  const currentWithoutReserved = stripReservedProviderChatMcpServers(
+    currentConfig,
+    params.provider,
+  );
+  const templateWithoutReserved = stripReservedProviderChatMcpServers(
+    templateConfig,
+    params.provider,
+  );
+  if (!isDeepStrictEqual(currentWithoutReserved, templateWithoutReserved)) {
+    return false;
+  }
+
+  const nextRawConfig = appendTomlBlocks(
+    rawConfig,
+    missingReservedNames.map((name) => reservedBlocks[name]),
+  );
+  const tempPath = buildChatConfigTempPath(params.chatConfigPath);
+  try {
+    await fs.writeFile(tempPath, nextRawConfig, {
+      encoding: 'utf8',
+      flag: 'wx',
+    });
+    await fs.rename(tempPath, params.chatConfigPath);
+    return true;
+  } finally {
+    await cleanupPartialChatConfig(tempPath);
+  }
+}
+
 function readProviderChatConfigSync(params: {
   provider: ChatProviderId;
   codexHome?: string;
@@ -1552,8 +1704,12 @@ export async function ensureProviderChatConfigBootstrapped(params: {
   );
 
   if (chatExists) {
+    const augmented = await maybeAugmentExistingProviderChatConfig({
+      provider: params.provider,
+      chatConfigPath,
+    });
     logTask9Bootstrap({
-      branch: 'existing_noop',
+      branch: augmented ? 'existing_augmented' : 'existing_noop',
       codexHome: providerHome,
       baseConfigPath,
       chatConfigPath,
@@ -1570,7 +1726,7 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       providerHome,
       chatConfigPath,
       generatedTemplate: false,
-      branch: 'existing_noop',
+      branch: augmented ? 'existing_augmented' : 'existing_noop',
     };
   }
 

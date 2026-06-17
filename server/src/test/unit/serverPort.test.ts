@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   resolveCodeinfoAgentsMcpPort,
   resolveCodeinfoChatMcpPort,
+  resolveCodeinfoWebMcpPort,
 } from '../../config/mcpEndpoints.js';
 import {
   DEFAULT_SERVER_PORT,
@@ -81,6 +82,13 @@ describe('MCP port resolvers', () => {
         } as NodeJS.ProcessEnv),
       /CODEINFO_AGENTS_MCP_PORT must be a TCP port integer between 1 and 65535/u,
     );
+    assert.throws(
+      () =>
+        resolveCodeinfoWebMcpPort({
+          CODEINFO_WEB_MCP_PORT: '0',
+        } as NodeJS.ProcessEnv),
+      /CODEINFO_WEB_MCP_PORT must be a TCP port integer between 1 and 65535/u,
+    );
   });
 
   it('normalizes valid port strings', () => {
@@ -96,6 +104,12 @@ describe('MCP port resolvers', () => {
         CODEINFO_AGENTS_MCP_PORT: '05012',
       } as NodeJS.ProcessEnv),
       '5012',
+    );
+    assert.equal(
+      resolveCodeinfoWebMcpPort({
+        CODEINFO_WEB_MCP_PORT: '05013',
+      } as NodeJS.ProcessEnv),
+      '5013',
     );
   });
 });

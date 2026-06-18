@@ -21,8 +21,8 @@ import {
   memoryTurns,
   recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
-import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { resolveProviderRuntimePreferredModel } from '../../config/chatDefaults.js';
+import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { resetStore } from '../../logStore.js';

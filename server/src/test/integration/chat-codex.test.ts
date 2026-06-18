@@ -1180,7 +1180,19 @@ test('implicit chat requests keep threadId until route-level fallback selects co
   });
 
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-copilot-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(tempCopilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+  process.env.CODEINFO_COPILOT_HOME = tempCopilotHome;
 
   const mockCodex = new MockCodex('thread-fallback-eligible');
   const app = express();
@@ -1222,6 +1234,12 @@ test('implicit chat requests keep threadId until route-level fallback selects co
     } else {
       process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
     }
+    if (originalCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = originalCopilotHome;
+    }
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });
 
@@ -2163,6 +2181,96 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
     memoryConversations.get(conversationId)?.flags?.threadId,
     'thread-repo-backed',
   );
+});
+
+test('repository-backed codex chat preserves live web search for Unsloth endpoints', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story59-manual-proof/unsloth-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const externalServer = await startExternalOpenAiCompatServer({
+    models: ['google/gemma-4-27b-it'],
+  });
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const previousCompatEndpointKeys =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+    `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+    'sparkunsloth,sk-unsloth-test';
+
+  const mockCodex = new MockCodex('thread-repo-unsloth');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  try {
+    const conversationId = 'conv-chat-repo-unsloth-live-search';
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          model: 'google/gemma-4-27b-it',
+          endpointId: `${externalServer.baseUrl}/v1`,
+          message: 'Search the web and reply briefly.',
+          working_folder: workingRepo,
+          agentFlags: {
+            webSearchMode: 'live',
+          },
+        }),
+      )
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'google/gemma-4-27b-it');
+    assert.equal(mockCodex.lastStartOptions?.model, undefined);
+    assert.equal(mockCodex.lastStartOptions?.webSearchMode, 'live');
+  } finally {
+    await externalServer.stop();
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    if (previousCompatEndpointKeys === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+        previousCompatEndpointKeys;
+    }
+  }
 });
 
 test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {

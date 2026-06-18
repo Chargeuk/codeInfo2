@@ -18,7 +18,7 @@ const webSearchSchema = z.object({
   safeSearch: z.enum(['strict', 'moderate', 'off']).optional(),
   region: z.string().trim().min(1).max(24).optional(),
   locale: z.string().trim().min(1).max(24).optional(),
-});
+}).strict();
 
 export function webSearchDefinition() {
   return {

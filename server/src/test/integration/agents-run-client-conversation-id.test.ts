@@ -3642,45 +3642,11 @@ test('direct codex agent runs preserve live web search for Unsloth endpoints', a
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const previousCompatEndpointKeys =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
-  const externalServer = await startExternalOpenAiCompatServer({
-    models: ['google/gemma-4-27b-it'],
-  });
-
-  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
-  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-  const agentHome = path.join(agentsHome, 'coding_agent');
-  const endpointId = `${externalServer.baseUrl}/v1`;
-
-  await fs.mkdir(agentHome, { recursive: true });
-  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
-  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
-  await fs.writeFile(
-    path.join(agentHome, 'config.toml'),
-    [
-      'codeinfo_provider = "codex"',
-      'model = "google/gemma-4-27b-it"',
-      `codeinfo_openai_endpoint = "${endpointId}|responses"`,
-      'web_search_mode = "live"',
-      '',
-    ].join('\n'),
-    'utf8',
-  );
-  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
-  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
-  await fs.writeFile(
-    path.join(codexHome, 'chat', 'config.toml'),
-    'model = "google/gemma-4-27b-it"\n',
-    'utf8',
-  );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEX_HOME = codexHome;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `SparkUnsloth,${endpointId}|responses,completions`;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
-    'sparkunsloth,sk-unsloth-test';
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+  let agentsHome: string | undefined;
+  let codexHome: string | undefined;
 
   const capturedFlags: Array<Record<string, unknown>> = [];
 
@@ -3732,6 +3698,46 @@ test('direct codex agent runs preserve live web search for Unsloth endpoints', a
   });
 
   try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['google/gemma-4-27b-it'],
+    });
+
+    agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+    codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const endpointId = `${externalServer.baseUrl}/v1`;
+
+    await fs.mkdir(agentHome, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      [
+        'codeinfo_provider = "codex"',
+        'model = "google/gemma-4-27b-it"',
+        `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+        'web_search_mode = "live"',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "google/gemma-4-27b-it"\n',
+      'utf8',
+    );
+
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+    process.env.CODEX_HOME = codexHome;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `SparkUnsloth,${endpointId}|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      'sparkunsloth,sk-unsloth-test';
+
     const result = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'Search the web and reply briefly.',
@@ -3752,7 +3758,7 @@ test('direct codex agent runs preserve live web search for Unsloth endpoints', a
     );
   } finally {
     __resetAgentServiceDepsForTests();
-    await externalServer.stop();
+    await externalServer?.stop();
     memoryConversations.delete('codex-agent-unsloth-live-search');
     memoryTurns.delete('codex-agent-unsloth-live-search');
     if (previousAgentHome === undefined) {
@@ -3787,8 +3793,12 @@ test('direct codex agent runs preserve live web search for Unsloth endpoints', a
       process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
         previousCompatEndpointKeys;
     }
-    await fs.rm(agentsHome, { recursive: true, force: true });
-    await fs.rm(codexHome, { recursive: true, force: true });
+    if (agentsHome) {
+      await fs.rm(agentsHome, { recursive: true, force: true });
+    }
+    if (codexHome) {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
   }
 });
 

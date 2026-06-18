@@ -1449,12 +1449,16 @@ async function maybeAugmentExistingProviderChatConfig(params: {
   );
   const tempPath = buildChatConfigTempPath(params.chatConfigPath);
   try {
-    await fs.writeFile(tempPath, nextRawConfig, {
-      encoding: 'utf8',
-      flag: 'wx',
-    });
-    await fs.rename(tempPath, params.chatConfigPath);
-    return true;
+    try {
+      await fs.writeFile(tempPath, nextRawConfig, {
+        encoding: 'utf8',
+        flag: 'wx',
+      });
+      await fs.rename(tempPath, params.chatConfigPath);
+      return true;
+    } catch {
+      return false;
+    }
   } finally {
     await cleanupPartialChatConfig(tempPath);
   }

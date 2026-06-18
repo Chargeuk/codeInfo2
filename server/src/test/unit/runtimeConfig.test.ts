@@ -526,6 +526,47 @@ describe('runtimeConfig bootstrap', () => {
     }
   });
 
+  it('treats reserved MCP augmentation write failures as a best-effort no-op', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const originalWriteFile = fs.writeFile.bind(fs);
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          'model_reasoning_effort = "high"',
+          'approval_policy = "on-request"',
+          'sandbox_mode = "danger-full-access"',
+          'network_access_enabled = true',
+          'web_search_mode = "live"',
+          'web_search = "live"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      mock.method(fs, 'writeFile', async (...args: Parameters<typeof fs.writeFile>) => {
+        const [file, data, options] = args;
+        const filePath = String(file);
+        if (filePath.startsWith(`${chatConfigPath}.`) && filePath.endsWith('.tmp')) {
+          throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+        }
+        return originalWriteFile(file, data, options as never);
+      });
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('leaves an existing invalid-TOML chat config untouched', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');

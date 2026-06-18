@@ -2203,36 +2203,40 @@ test('repository-backed codex chat preserves live web search for Unsloth endpoin
     throw error;
   });
 
-  const externalServer = await startExternalOpenAiCompatServer({
-    models: ['google/gemma-4-27b-it'],
-  });
   const previousCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const previousCompatEndpointKeys =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
-    'sparkunsloth,sk-unsloth-test';
-
-  const mockCodex = new MockCodex('thread-repo-unsloth');
-  const app = express();
-  app.use(express.json());
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory: dummyClientFactory,
-      codexFactory: () => mockCodex,
-      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
-      listIngestedRepositoriesFn: async () =>
-        ({
-          repos: [{ containerPath: workingRepo }],
-          lockedModelId: null,
-        }) as never,
-    }),
-  );
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
 
   try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['google/gemma-4-27b-it'],
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      'sparkunsloth,sk-unsloth-test';
+
+    const mockCodex = new MockCodex('thread-repo-unsloth');
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: dummyClientFactory,
+        codexFactory: () => mockCodex,
+        copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+        listIngestedRepositoriesFn: async () =>
+          ({
+            repos: [{ containerPath: workingRepo }],
+            lockedModelId: null,
+          }) as never,
+      }),
+    );
+
     const conversationId = 'conv-chat-repo-unsloth-live-search';
     const response = await request(app)
       .post('/chat')
@@ -2257,7 +2261,7 @@ test('repository-backed codex chat preserves live web search for Unsloth endpoin
     assert.equal(mockCodex.lastStartOptions?.model, undefined);
     assert.equal(mockCodex.lastStartOptions?.webSearchMode, 'live');
   } finally {
-    await externalServer.stop();
+    await externalServer?.stop();
     if (previousCompatEndpoints === undefined) {
       delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
     } else {

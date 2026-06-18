@@ -132,6 +132,7 @@ type PlaywrightRenderPayload = {
 export type ReadWebPageDeps = {
   fetchImpl?: typeof fetch;
   duckDuckSearchImpl?: typeof duckDuckSearch;
+  duckDuckGoHtmlTimeoutMs?: number;
   resolvePlaywrightMcpUrl?: () => string | null;
 };
 
@@ -167,6 +168,11 @@ const mapSafeSearch = (value: WebSearchParams['safeSearch']) => {
   }
 };
 
+const normalizeIpHostLiteral = (value: string): string =>
+  value.startsWith('[') && value.endsWith(']')
+    ? value.slice(1, -1)
+    : value;
+
 const isPrivateIpv4 = (ip: string): boolean => {
   const parts = ip.split('.').map((part) => Number.parseInt(part, 10));
   if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
@@ -178,7 +184,6 @@ const isPrivateIpv4 = (ip: string): boolean => {
     a === 0 ||
     a === 10 ||
     a === 127 ||
-    a === 169 ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
@@ -187,7 +192,35 @@ const isPrivateIpv4 = (ip: string): boolean => {
 };
 
 const isPrivateIpv6 = (ip: string): boolean => {
-  const normalized = ip.toLowerCase();
+  const normalized = normalizeIpHostLiteral(ip).toLowerCase();
+  if (normalized.startsWith('::ffff:')) {
+    const mappedIpv4 = normalized.slice('::ffff:'.length);
+    if (isIP(mappedIpv4) === 4) {
+      return isPrivateIpv4(mappedIpv4);
+    }
+    const mappedSegments = mappedIpv4.split(':');
+    if (mappedSegments.length === 2) {
+      const high = Number.parseInt(mappedSegments[0] ?? '', 16);
+      const low = Number.parseInt(mappedSegments[1] ?? '', 16);
+      if (
+        Number.isInteger(high) &&
+        Number.isInteger(low) &&
+        high >= 0 &&
+        high <= 0xffff &&
+        low >= 0 &&
+        low <= 0xffff
+      ) {
+        return isPrivateIpv4(
+          [
+            (high >> 8) & 0xff,
+            high & 0xff,
+            (low >> 8) & 0xff,
+            low & 0xff,
+          ].join('.'),
+        );
+      }
+    }
+  }
   return (
     normalized === '::1' ||
     normalized.startsWith('fc') ||
@@ -206,6 +239,7 @@ async function assertSafeRemoteUrl(input: string): Promise<URL> {
   }
 
   const hostname = parsed.hostname.trim().toLowerCase();
+  const normalizedHostname = normalizeIpHostLiteral(hostname);
   if (
     hostname === 'localhost' ||
     hostname === 'host.docker.internal' ||
@@ -214,16 +248,19 @@ async function assertSafeRemoteUrl(input: string): Promise<URL> {
     throw new Error(`Blocked local hostname: ${parsed.hostname}`);
   }
 
-  const hostIpVersion = isIP(hostname);
+  const hostIpVersion = isIP(normalizedHostname);
   if (
-    (hostIpVersion === 4 && isPrivateIpv4(hostname)) ||
-    (hostIpVersion === 6 && isPrivateIpv6(hostname))
+    (hostIpVersion === 4 && isPrivateIpv4(normalizedHostname)) ||
+    (hostIpVersion === 6 && isPrivateIpv6(normalizedHostname))
   ) {
     throw new Error(`Blocked private IP address: ${parsed.hostname}`);
   }
 
   if (hostIpVersion === 0) {
-    const addresses = await lookup(hostname, { all: true, verbatim: true });
+    const addresses = await lookup(normalizedHostname, {
+      all: true,
+      verbatim: true,
+    });
     if (addresses.length === 0) {
       throw new Error(`Unable to resolve host: ${parsed.hostname}`);
     }
@@ -548,11 +585,114 @@ async function renderWithPlaywright(params: {
 
   const requestTimeout = Math.max(params.timeoutMs, DEFAULT_PLAYWRIGHT_TIMEOUT_MS);
   const code = `async (page) => {
+    const normalizeIpHostLiteral = (value) =>
+      value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
+    const isPrivateIpv4 = (ip) => {
+      const parts = ip.split('.').map((part) => Number.parseInt(part, 10));
+      if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
+        return false;
+      }
+      const [a, b] = parts;
+      return (
+        a === 0 ||
+        a === 10 ||
+        a === 127 ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168) ||
+        (a === 100 && b >= 64 && b <= 127)
+      );
+    };
+    const isPrivateIpv6 = (ip) => {
+      const normalized = normalizeIpHostLiteral(ip).toLowerCase();
+      if (normalized.startsWith('::ffff:')) {
+        const mappedIpv4 = normalized.slice('::ffff:'.length);
+        if (/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(mappedIpv4)) {
+          return isPrivateIpv4(mappedIpv4);
+        }
+        const mappedSegments = mappedIpv4.split(':');
+        if (mappedSegments.length === 2) {
+          const high = Number.parseInt(mappedSegments[0] ?? '', 16);
+          const low = Number.parseInt(mappedSegments[1] ?? '', 16);
+          if (
+            Number.isInteger(high) &&
+            Number.isInteger(low) &&
+            high >= 0 &&
+            high <= 0xffff &&
+            low >= 0 &&
+            low <= 0xffff
+          ) {
+            return isPrivateIpv4(
+              [
+                (high >> 8) & 0xff,
+                high & 0xff,
+                (low >> 8) & 0xff,
+                low & 0xff,
+              ].join('.')
+            );
+          }
+        }
+      }
+      return (
+        normalized === '::1' ||
+        normalized.startsWith('fc') ||
+        normalized.startsWith('fd') ||
+        normalized.startsWith('fe80:')
+      );
+    };
+    const assertSafeBrowserUrl = (value) => {
+      const parsed = new URL(value);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new Error('Only http and https URLs are allowed');
+      }
+      if (parsed.username || parsed.password) {
+        throw new Error('Embedded URL credentials are not allowed');
+      }
+      const hostname = parsed.hostname.trim().toLowerCase();
+      const normalizedHostname = normalizeIpHostLiteral(hostname);
+      if (
+        hostname === 'localhost' ||
+        hostname === 'host.docker.internal' ||
+        hostname.endsWith('.local')
+      ) {
+        throw new Error('Blocked local hostname: ' + parsed.hostname);
+      }
+      if (
+        isPrivateIpv4(normalizedHostname) ||
+        isPrivateIpv6(normalizedHostname)
+      ) {
+        throw new Error('Blocked private IP address: ' + parsed.hostname);
+      }
+    };
+    let blockedNavigationError = null;
+    await page.route('**/*', async (route) => {
+      const request = route.request();
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+        try {
+          assertSafeBrowserUrl(request.url());
+        } catch (error) {
+          blockedNavigationError =
+            error instanceof Error ? error.message : String(error);
+          await route.abort('blockedbyclient').catch(() => {});
+          return;
+        }
+      }
+      await route.continue();
+    });
     await page.goto(${JSON.stringify(params.url)}, {
       waitUntil: 'domcontentloaded',
       timeout: ${requestTimeout}
+    }).catch((error) => {
+      if (blockedNavigationError) {
+        throw new Error(blockedNavigationError);
+      }
+      throw error;
     });
+    if (blockedNavigationError) {
+      throw new Error(blockedNavigationError);
+    }
     await page.waitForLoadState('load', { timeout: ${requestTimeout} }).catch(() => {});
+    assertSafeBrowserUrl(page.url());
     await page
       .waitForFunction(
         () => (document.body?.innerText ?? '').trim().length > 500,
@@ -604,6 +744,7 @@ async function searchDuckDuckGoHtml(params: {
   maxResults: number;
   region?: string;
   locale?: string;
+  timeoutMs: number;
   fetchImpl: typeof fetch;
 }): Promise<WebSearchResult> {
   const url = new URL('https://html.duckduckgo.com/html/');
@@ -615,19 +756,30 @@ async function searchDuckDuckGoHtml(params: {
     url.searchParams.set('locale', params.locale);
   }
 
-  const response = await params.fetchImpl(url, {
-    method: 'GET',
-    headers: {
-      accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1',
-      'user-agent': DEFAULT_USER_AGENT,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), params.timeoutMs);
+  let html = '';
 
-  if (!response.ok) {
-    throw new Error(`DuckDuckGo HTML search failed (${response.status})`);
+  try {
+    const response = await params.fetchImpl(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1',
+        'user-agent': DEFAULT_USER_AGENT,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`DuckDuckGo HTML search failed (${response.status})`);
+    }
+
+    html = await response.text();
+  } finally {
+    clearTimeout(timeout);
+    await delay(0);
   }
 
-  const html = await response.text();
   const $ = cheerio.load(html);
   const results = $('.result')
     .toArray()
@@ -714,6 +866,7 @@ export async function webSearch(
       maxResults,
       region: params.region ?? 'wt-wt',
       locale: params.locale ?? 'en-us',
+      timeoutMs: deps.duckDuckGoHtmlTimeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
       fetchImpl,
     });
     return {

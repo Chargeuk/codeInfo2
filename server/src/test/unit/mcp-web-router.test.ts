@@ -14,10 +14,28 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
+async function listen(server: http.Server): Promise<number> {
+  await new Promise<void>((resolve) => {
+    server.listen(0, resolve);
+  });
+  return (server.address() as AddressInfo).port;
+}
+
+async function close(server: http.Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 test('web MCP tools/list returns the dedicated web tool definitions', async () => {
   const server = http.createServer(handleWebRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await listen(server);
 
   try {
     const body = await postJson(port, {
@@ -31,7 +49,7 @@ test('web MCP tools/list returns the dedicated web tool definitions', async () =
       ['read_web_page', 'web_search'],
     );
   } finally {
-    server.close();
+    await close(server);
   }
 });
 
@@ -58,8 +76,7 @@ test('web MCP tools/call returns JSON text content for web_search', async () => 
   });
 
   const server = http.createServer(handleWebRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await listen(server);
 
   try {
     const body = await postJson(port, {
@@ -80,14 +97,13 @@ test('web MCP tools/call returns JSON text content for web_search', async () => 
     assert.equal(parsed.results[0].url, 'https://example.com/news');
   } finally {
     resetWebToolDeps();
-    server.close();
+    await close(server);
   }
 });
 
 test('web MCP tools/call returns -32601 for unknown tools', async () => {
   const server = http.createServer(handleWebRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await listen(server);
 
   try {
     const body = await postJson(port, {
@@ -105,6 +121,53 @@ test('web MCP tools/call returns -32601 for unknown tools', async () => {
       message: 'Tool not found: not_a_real_tool',
     });
   } finally {
-    server.close();
+    await close(server);
+  }
+});
+
+test('web MCP tools reject unexpected extra properties in strict schemas', async () => {
+  const server = http.createServer(handleWebRpc);
+  const port = await listen(server);
+
+  try {
+    const webSearchBody = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: {
+        name: 'web_search',
+        arguments: {
+          query: 'latest ai news',
+          unexpected: true,
+        },
+      },
+    });
+
+    assert.equal(webSearchBody.error.code, -32602);
+    assert.match(
+      String(webSearchBody.error.message),
+      /Invalid web_search arguments/u,
+    );
+
+    const readBody = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: {
+        name: 'read_web_page',
+        arguments: {
+          url: 'https://example.com',
+          unexpected: true,
+        },
+      },
+    });
+
+    assert.equal(readBody.error.code, -32602);
+    assert.match(
+      String(readBody.error.message),
+      /Invalid read_web_page arguments/u,
+    );
+  } finally {
+    await close(server);
   }
 });

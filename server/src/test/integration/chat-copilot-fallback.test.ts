@@ -198,27 +198,32 @@ test('explicit copilot chat requests return PROVIDER_UNAVAILABLE instead of fall
 });
 
 test('explicit Copilot chat requests start in endpoint-only mode when Copilot auth is missing but the selected endpoint is healthy', async () => {
-  const externalServer = await startExternalOpenAiCompatServer({
-    models: ['endpoint-copilot-model'],
-  });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|completions`;
-
-  const server = await startCopilotChatServer({
-    scenario: {
-      name: 'copilot-chat-endpoint-only',
-      authStatus: {
-        isAuthenticated: false,
-        authType: 'user',
-        statusMessage: 'login required',
-      },
-      models: [],
-    },
-  });
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+  let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
 
   try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['endpoint-copilot-model'],
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `${externalServer.baseUrl}/v1|completions`;
+
+    server = await startCopilotChatServer({
+      scenario: {
+        name: 'copilot-chat-endpoint-only',
+        authStatus: {
+          isAuthenticated: false,
+          authType: 'user',
+          statusMessage: 'login required',
+        },
+        models: [],
+      },
+    });
+
     const conversationId = 'copilot-endpoint-only';
     const response = await request(server.httpServer).post('/chat').send({
       provider: 'copilot',
@@ -241,8 +246,8 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
       'openai',
     );
   } finally {
-    await server.stop();
-    await externalServer.stop();
+    await server?.stop();
+    await externalServer?.stop();
     if (originalCompatEndpoints === undefined) {
       delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
     } else {
@@ -253,42 +258,48 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
 });
 
 test('explicit Copilot chat requests honor a pinned external endpoint when the request model matches config', async () => {
-  const externalServer = await startExternalOpenAiCompatServer({
-    models: ['endpoint-copilot-model'],
-  });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const copilotHome = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'copilot-chat-pinned-endpoint-'),
-  );
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|completions`;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
-  await fs.writeFile(
-    path.join(copilotHome, 'chat', 'config.toml'),
-    [
-      'model = "copilot-gpt-5"',
-      `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|completions"`,
-      '',
-    ].join('\n'),
-    'utf8',
-  );
-
-  const server = await startCopilotChatServer({
-    scenario: {
-      name: 'copilot-chat-pinned-endpoint-explicit-model',
-      authStatus: {
-        isAuthenticated: false,
-        authType: 'user',
-        statusMessage: 'login required',
-      },
-      models: [],
-    },
-  });
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+  let copilotHome: string | undefined;
+  let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
 
   try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['endpoint-copilot-model'],
+    });
+    copilotHome = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-chat-pinned-endpoint-'),
+    );
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `${externalServer.baseUrl}/v1|completions`;
+    process.env.CODEINFO_COPILOT_HOME = copilotHome;
+    await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+    await fs.writeFile(
+      path.join(copilotHome, 'chat', 'config.toml'),
+      [
+        'model = "copilot-gpt-5"',
+        `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|completions"`,
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    server = await startCopilotChatServer({
+      scenario: {
+        name: 'copilot-chat-pinned-endpoint-explicit-model',
+        authStatus: {
+          isAuthenticated: false,
+          authType: 'user',
+          statusMessage: 'login required',
+        },
+        models: [],
+      },
+    });
+
     const conversationId = 'copilot-pinned-endpoint-explicit-model';
     const response = await request(server.httpServer).post('/chat').send({
       provider: 'copilot',
@@ -310,9 +321,11 @@ test('explicit Copilot chat requests honor a pinned external endpoint when the r
       'openai',
     );
   } finally {
-    await server.stop();
-    await externalServer.stop();
-    await fs.rm(copilotHome, { recursive: true, force: true });
+    await server?.stop();
+    await externalServer?.stop();
+    if (copilotHome) {
+      await fs.rm(copilotHome, { recursive: true, force: true });
+    }
     if (originalCompatEndpoints === undefined) {
       delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
     } else {
@@ -328,27 +341,32 @@ test('explicit Copilot chat requests honor a pinned external endpoint when the r
 });
 
 test('explicit Copilot chat requests infer the external endpoint from the selected endpoint-only model when auth is missing', async () => {
-  const externalServer = await startExternalOpenAiCompatServer({
-    models: ['endpoint-copilot-model'],
-  });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|completions`;
-
-  const server = await startCopilotChatServer({
-    scenario: {
-      name: 'copilot-chat-endpoint-only-inferred-endpoint',
-      authStatus: {
-        isAuthenticated: false,
-        authType: 'user',
-        statusMessage: 'login required',
-      },
-      models: [],
-    },
-  });
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+  let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
 
   try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['endpoint-copilot-model'],
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `${externalServer.baseUrl}/v1|completions`;
+
+    server = await startCopilotChatServer({
+      scenario: {
+        name: 'copilot-chat-endpoint-only-inferred-endpoint',
+        authStatus: {
+          isAuthenticated: false,
+          authType: 'user',
+          statusMessage: 'login required',
+        },
+        models: [],
+      },
+    });
+
     const conversationId = 'copilot-endpoint-only-inferred-endpoint';
     const response = await request(server.httpServer).post('/chat').send({
       provider: 'copilot',
@@ -370,8 +388,8 @@ test('explicit Copilot chat requests infer the external endpoint from the select
       'openai',
     );
   } finally {
-    await server.stop();
-    await externalServer.stop();
+    await server?.stop();
+    await externalServer?.stop();
     if (originalCompatEndpoints === undefined) {
       delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
     } else {

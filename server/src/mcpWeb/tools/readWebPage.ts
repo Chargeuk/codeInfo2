@@ -22,7 +22,7 @@ const readWebPageSchema = z.object({
   maxChars: z.number().int().min(500).max(250_000).optional(),
   timeoutMs: z.number().int().min(1_000).max(60_000).optional(),
   likelyDynamic: z.boolean().optional(),
-});
+}).strict();
 
 export function readWebPageDefinition() {
   return {

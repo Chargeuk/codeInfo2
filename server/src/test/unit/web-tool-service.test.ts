@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { lookup } from 'node:dns/promises';
 import test from 'node:test';
 import {
   readWebPage,
@@ -159,6 +160,84 @@ test('readWebPage allows public 169.x IPv4 hosts outside the link-local range', 
   assert.match(result.text, /Public content/u);
 });
 
+test('readWebPage pins resolved public DNS answers through the direct HTTP path', async () => {
+  let pinnedAddresses:
+    | Array<{ address: string; family: 4 | 6 }>
+    | undefined;
+
+  const result = await readWebPage(
+    {
+      url: 'https://docs.example.dev/article',
+    },
+    {
+      lookupImpl: ((async () => [
+        {
+          address: '93.184.216.34',
+          family: 4 as const,
+        },
+      ]) as unknown) as typeof lookup,
+      requestPinnedImpl: async ({ target }) => {
+        pinnedAddresses = [...target.pinnedAddresses];
+        return {
+          finalUrl: target.url.toString(),
+          html: '<html><body><main><p>Pinned content.</p></main></body></html>',
+          contentType: 'text/html; charset=utf-8',
+          httpStatus: 200,
+        };
+      },
+    },
+  );
+
+  assert.deepEqual(pinnedAddresses, [
+    {
+      address: '93.184.216.34',
+      family: 4,
+    },
+  ]);
+  assert.equal(result.modeUsed, 'http');
+  assert.match(result.text, /Pinned content/u);
+});
+
+test('readWebPage blocks private redirect targets on the pinned HTTP path', async () => {
+  let requestCount = 0;
+
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'https://docs.example.dev/article',
+          mode: 'http',
+        },
+        {
+          lookupImpl: ((async (hostname: string) => {
+            if (hostname === 'docs.example.dev') {
+              return [
+                {
+                  address: '93.184.216.34',
+                  family: 4 as const,
+                },
+              ];
+            }
+            throw new Error(`unexpected lookup for ${hostname}`);
+          }) as unknown) as typeof lookup,
+          requestPinnedImpl: async ({ target }) => {
+            requestCount += 1;
+            return {
+              finalUrl: target.url.toString(),
+              html: '',
+              contentType: 'text/html; charset=utf-8',
+              httpStatus: 302,
+              location: 'http://127.0.0.1/private',
+            };
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
+
+  assert.equal(requestCount, 1);
+});
+
 test('readWebPage auto mode escalates to Playwright when HTTP content is a JS shell', async () => {
   const responses = [
     new Response(
@@ -261,6 +340,8 @@ test('readWebPage sends Playwright code that blocks redirected private navigatio
   assert.match(forwardedCode, /page\.route\('\*\*\/\*'/u);
   assert.match(forwardedCode, /blockedNavigationError/u);
   assert.match(forwardedCode, /assertSafeBrowserUrl/u);
+  assert.match(forwardedCode, /route\.request\(\)\.url\(\)/u);
+  assert.doesNotMatch(forwardedCode, /isNavigationRequest/u);
 });
 
 test('readWebPage blocks private-network URLs before fetching', async () => {

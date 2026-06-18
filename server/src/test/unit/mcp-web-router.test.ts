@@ -2,7 +2,15 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import test from 'node:test';
+import { ArchivedConversationError } from '../../mcp2/errors.js';
+import { createMcpRouter } from '../../mcpCommon/routerFactory.js';
 import { handleWebRpc } from '../../mcpWeb/router.js';
+import {
+  InvalidParamsError,
+  ProviderUnavailableError,
+  ToolExecutionError,
+  ToolNotFoundError,
+} from '../../mcpWeb/tools.js';
 import { resetWebToolDeps, setWebToolDeps } from '../../mcpWeb/tools.js';
 
 async function postJson(port: number, body: unknown) {
@@ -167,6 +175,52 @@ test('web MCP tools reject unexpected extra properties in strict schemas', async
       String(readBody.error.message),
       /Invalid read_web_page arguments/u,
     );
+  } finally {
+    await close(server);
+  }
+});
+
+test('shared MCP router surfaces unexpected tool failures as internal errors', async () => {
+  const failingRouter = createMcpRouter({
+    surface: 'mcpWebTest',
+    serverInfo: {
+      name: 'codeinfo2-web-mcp-test',
+      version: '0.0.0-test',
+    },
+    tools: {
+      listTools: async () => ({ tools: [] }),
+      callTool: async () => {
+        throw new Error('boom');
+      },
+    },
+    errors: {
+      InvalidParamsError,
+      ArchivedConversationError,
+      ProviderUnavailableError,
+      ToolExecutionError,
+      ToolNotFoundError,
+    },
+  });
+  const server = http.createServer(failingRouter);
+  const port = await listen(server);
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 6,
+      method: 'tools/call',
+      params: {
+        name: 'web_search',
+        arguments: {
+          query: 'latest ai news',
+        },
+      },
+    });
+
+    assert.deepEqual(body.error, {
+      code: -32603,
+      message: 'Internal error',
+    });
   } finally {
     await close(server);
   }

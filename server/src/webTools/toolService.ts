@@ -1,4 +1,7 @@
 import { lookup } from 'node:dns/promises';
+import http from 'node:http';
+import https from 'node:https';
+import type { LookupFunction } from 'node:net';
 import { isIP } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Readability, isProbablyReaderable } from '@mozilla/readability';
@@ -129,10 +132,34 @@ type PlaywrightRenderPayload = {
   html: string;
 };
 
+type ResolvedRemoteAddress = {
+  address: string;
+  family: 4 | 6;
+};
+
+type SafeRemoteTarget = {
+  url: URL;
+  normalizedHostname: string;
+  pinnedAddresses: ResolvedRemoteAddress[];
+};
+
+type PinnedHttpResponse = {
+  finalUrl: string;
+  html: string;
+  contentType: string;
+  httpStatus: number;
+  location?: string;
+};
+
 export type ReadWebPageDeps = {
   fetchImpl?: typeof fetch;
   duckDuckSearchImpl?: typeof duckDuckSearch;
   duckDuckGoHtmlTimeoutMs?: number;
+  lookupImpl?: typeof lookup;
+  requestPinnedImpl?: (params: {
+    target: SafeRemoteTarget;
+    timeoutMs: number;
+  }) => Promise<PinnedHttpResponse>;
   resolvePlaywrightMcpUrl?: () => string | null;
 };
 
@@ -229,7 +256,99 @@ const isPrivateIpv6 = (ip: string): boolean => {
   );
 };
 
-async function assertSafeRemoteUrl(input: string): Promise<URL> {
+function buildPinnedLookup(
+  addresses: ReadonlyArray<ResolvedRemoteAddress>,
+): LookupFunction {
+  return (hostname, options, callback) => {
+    const preferredFamily =
+      typeof options === 'number'
+        ? options
+        : typeof options?.family === 'number'
+          ? options.family
+          : 0;
+    const candidates =
+      preferredFamily === 0
+        ? addresses
+        : addresses.filter((entry) => entry.family === preferredFamily);
+
+    if (candidates.length === 0) {
+      callback(
+        new Error(`No validated DNS answers available for ${hostname}`),
+        undefined as never,
+        undefined as never,
+      );
+      return;
+    }
+
+    if (typeof options === 'object' && options?.all) {
+      callback(null, candidates as never);
+      return;
+    }
+
+    callback(null, candidates[0].address, candidates[0].family);
+  };
+}
+
+async function performPinnedHttpRequest(params: {
+  target: SafeRemoteTarget;
+  timeoutMs: number;
+}): Promise<PinnedHttpResponse> {
+  const requestImpl =
+    params.target.url.protocol === 'https:' ? https.request : http.request;
+
+  return new Promise<PinnedHttpResponse>((resolve, reject) => {
+    const request = requestImpl(
+      params.target.url,
+      {
+        method: 'GET',
+        lookup: buildPinnedLookup(params.target.pinnedAddresses),
+        servername: params.target.normalizedHostname,
+        headers: {
+          accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.1',
+          'user-agent': DEFAULT_USER_AGENT,
+        },
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk) => {
+          chunks.push(
+            typeof chunk === 'string' ? Buffer.from(chunk) : chunk,
+          );
+        });
+        response.on('end', () => {
+          const html = Buffer.concat(chunks).toString('utf8');
+          resolve({
+            finalUrl: params.target.url.toString(),
+            html,
+            contentType: String(response.headers['content-type'] ?? ''),
+            httpStatus: response.statusCode ?? 0,
+            location:
+              typeof response.headers.location === 'string'
+                ? response.headers.location
+                : Array.isArray(response.headers.location)
+                  ? response.headers.location[0]
+                  : undefined,
+          });
+        });
+        response.on('error', reject);
+      },
+    );
+
+    request.setTimeout(params.timeoutMs, () => {
+      request.destroy(
+        new Error(`Request timed out after ${params.timeoutMs}ms`),
+      );
+    });
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+async function assertSafeRemoteUrl(
+  input: string,
+  lookupImpl: typeof lookup = lookup,
+): Promise<SafeRemoteTarget> {
   const parsed = new URL(input);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error('Only http and https URLs are allowed');
@@ -256,8 +375,9 @@ async function assertSafeRemoteUrl(input: string): Promise<URL> {
     throw new Error(`Blocked private IP address: ${parsed.hostname}`);
   }
 
+  const pinnedAddresses: ResolvedRemoteAddress[] = [];
   if (hostIpVersion === 0) {
-    const addresses = await lookup(normalizedHostname, {
+    const addresses = await lookupImpl(normalizedHostname, {
       all: true,
       verbatim: true,
     });
@@ -271,16 +391,34 @@ async function assertSafeRemoteUrl(input: string): Promise<URL> {
       ) {
         throw new Error(`Blocked private host resolution for ${parsed.hostname}`);
       }
+      pinnedAddresses.push({
+        address: address.address,
+        family: address.family as 4 | 6,
+      });
     }
+  } else {
+    pinnedAddresses.push({
+      address: normalizedHostname,
+      family: hostIpVersion as 4 | 6,
+    });
   }
 
-  return parsed;
+  return {
+    url: parsed,
+    normalizedHostname,
+    pinnedAddresses,
+  };
 }
 
 async function fetchWithRedirects(params: {
   url: string;
   timeoutMs: number;
   fetchImpl: typeof fetch;
+  lookupImpl?: typeof lookup;
+  requestPinnedImpl?: (params: {
+    target: SafeRemoteTarget;
+    timeoutMs: number;
+  }) => Promise<PinnedHttpResponse>;
 }): Promise<{
   finalUrl: string;
   html: string;
@@ -290,46 +428,96 @@ async function fetchWithRedirects(params: {
   let currentUrl = params.url;
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    await assertSafeRemoteUrl(currentUrl);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), params.timeoutMs);
+    const safeTarget = await assertSafeRemoteUrl(
+      currentUrl,
+      params.lookupImpl ?? lookup,
+    );
 
     try {
-      const response = await params.fetchImpl(currentUrl, {
-        method: 'GET',
-        redirect: 'manual',
-        signal: controller.signal,
-        headers: {
-          accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.1',
-          'user-agent': DEFAULT_USER_AGENT,
-        },
-      });
+      const response =
+        params.fetchImpl === fetch
+          ? await (params.requestPinnedImpl ?? performPinnedHttpRequest)({
+              target: safeTarget,
+              timeoutMs: params.timeoutMs,
+            })
+          : await (async () => {
+              const controller = new AbortController();
+              const timeout = setTimeout(
+                () => controller.abort(),
+                params.timeoutMs,
+              );
+              try {
+                const fetchedResponse = await params.fetchImpl(currentUrl, {
+                  method: 'GET',
+                  redirect: 'manual',
+                  signal: controller.signal,
+                  headers: {
+                    accept:
+                      'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.1',
+                    'user-agent': DEFAULT_USER_AGENT,
+                  },
+                });
+                return {
+                  fetchedResponse,
+                  cleanup: async () => {
+                    clearTimeout(timeout);
+                    await delay(0);
+                  },
+                };
+              } catch (error) {
+                clearTimeout(timeout);
+                await delay(0);
+                throw error;
+              }
+            })();
+
+      if ('fetchedResponse' in response) {
+        const { fetchedResponse } = response;
+        try {
+          if (
+            fetchedResponse.status >= 300 &&
+            fetchedResponse.status < 400 &&
+            fetchedResponse.headers.get('location')
+          ) {
+            currentUrl = new URL(
+              fetchedResponse.headers.get('location') ?? '',
+              currentUrl,
+            ).toString();
+            continue;
+          }
+
+          if (!fetchedResponse.ok) {
+            throw new Error(
+              `HTTP ${fetchedResponse.status} while fetching ${currentUrl}`,
+            );
+          }
+
+          return {
+            finalUrl: fetchedResponse.url || currentUrl,
+            html: await fetchedResponse.text(),
+            contentType: fetchedResponse.headers.get('content-type') ?? '',
+            httpStatus: fetchedResponse.status,
+          };
+        } finally {
+          await response.cleanup();
+        }
+      }
 
       if (
-        response.status >= 300 &&
-        response.status < 400 &&
-        response.headers.get('location')
+        response.httpStatus >= 300 &&
+        response.httpStatus < 400 &&
+        response.location
       ) {
-        currentUrl = new URL(
-          response.headers.get('location') ?? '',
-          currentUrl,
-        ).toString();
+        currentUrl = new URL(response.location, currentUrl).toString();
         continue;
       }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} while fetching ${currentUrl}`);
+      if (response.httpStatus < 200 || response.httpStatus >= 300) {
+        throw new Error(`HTTP ${response.httpStatus} while fetching ${currentUrl}`);
       }
 
-      return {
-        finalUrl: response.url || currentUrl,
-        html: await response.text(),
-        contentType: response.headers.get('content-type') ?? '',
-        httpStatus: response.status,
-      };
+      return response;
     } finally {
-      clearTimeout(timeout);
       await delay(0);
     }
   }
@@ -585,6 +773,8 @@ async function renderWithPlaywright(params: {
 
   const requestTimeout = Math.max(params.timeoutMs, DEFAULT_PLAYWRIGHT_TIMEOUT_MS);
   const code = `async (page) => {
+    const { lookup } = await import('node:dns/promises');
+    const { isIP } = await import('node:net');
     const normalizeIpHostLiteral = (value) =>
       value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
     const isPrivateIpv4 = (ip) => {
@@ -640,7 +830,7 @@ async function renderWithPlaywright(params: {
         normalized.startsWith('fe80:')
       );
     };
-    const assertSafeBrowserUrl = (value) => {
+    const assertSafeBrowserUrl = async (value) => {
       const parsed = new URL(value);
       if (!['http:', 'https:'].includes(parsed.protocol)) {
         throw new Error('Only http and https URLs are allowed');
@@ -663,21 +853,37 @@ async function renderWithPlaywright(params: {
       ) {
         throw new Error('Blocked private IP address: ' + parsed.hostname);
       }
+      if (isIP(normalizedHostname) === 0) {
+        const addresses = await lookup(normalizedHostname, {
+          all: true,
+          verbatim: true,
+        });
+        if (!Array.isArray(addresses) || addresses.length === 0) {
+          throw new Error('Unable to resolve host: ' + parsed.hostname);
+        }
+        for (const address of addresses) {
+          if (
+            (address.family === 4 && isPrivateIpv4(address.address)) ||
+            (address.family === 6 && isPrivateIpv6(address.address))
+          ) {
+            throw new Error(
+              'Blocked private host resolution for ' + parsed.hostname
+            );
+          }
+        }
+      }
     };
     let blockedNavigationError = null;
     await page.route('**/*', async (route) => {
-      const request = route.request();
-      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
-        try {
-          assertSafeBrowserUrl(request.url());
-        } catch (error) {
-          blockedNavigationError =
-            error instanceof Error ? error.message : String(error);
-          await route.abort('blockedbyclient').catch(() => {});
-          return;
-        }
+      try {
+        await assertSafeBrowserUrl(route.request().url());
+      } catch (error) {
+        blockedNavigationError =
+          error instanceof Error ? error.message : String(error);
+        await route.abort('blockedbyclient').catch(() => {});
+        return;
       }
-      await route.continue();
+      await route.continue().catch(async () => {});
     });
     await page.goto(${JSON.stringify(params.url)}, {
       waitUntil: 'domcontentloaded',
@@ -692,7 +898,7 @@ async function renderWithPlaywright(params: {
       throw new Error(blockedNavigationError);
     }
     await page.waitForLoadState('load', { timeout: ${requestTimeout} }).catch(() => {});
-    assertSafeBrowserUrl(page.url());
+    await assertSafeBrowserUrl(page.url());
     await page
       .waitForFunction(
         () => (document.body?.innerText ?? '').trim().length > 500,
@@ -884,6 +1090,7 @@ export async function readWebPage(
   deps: ReadWebPageDeps = {},
 ): Promise<ReadWebPageResult> {
   const fetchImpl = deps.fetchImpl ?? fetch;
+  const lookupImpl = deps.lookupImpl ?? lookup;
   const resolvePlaywrightMcpUrl =
     deps.resolvePlaywrightMcpUrl ??
     (() => resolveCodeinfoMcpEndpointContract().playwrightMcpUrl);
@@ -895,19 +1102,22 @@ export async function readWebPage(
     DEFAULT_PLAYWRIGHT_TIMEOUT_MS,
   );
 
-  const validatedUrl = await assertSafeRemoteUrl(params.url);
+  const validatedUrl = await assertSafeRemoteUrl(params.url, lookupImpl);
 
   if (requestedMode === 'playwright') {
     const renderStartedAt = Date.now();
     const rendered = await renderWithPlaywright({
-      url: validatedUrl.toString(),
+      url: validatedUrl.url.toString(),
       timeoutMs: params.timeoutMs ?? DEFAULT_PLAYWRIGHT_TIMEOUT_MS,
       fetchImpl,
       resolvePlaywrightMcpUrl,
     });
-    const validatedFinalUrl = await assertSafeRemoteUrl(rendered.finalUrl);
+    const validatedFinalUrl = await assertSafeRemoteUrl(
+      rendered.finalUrl,
+      lookupImpl,
+    );
     const extracted = extractFromHtml({
-      url: validatedFinalUrl.toString(),
+      url: validatedFinalUrl.url.toString(),
       html: rendered.html,
       extractReadableContent,
       includeLinks: params.includeLinks ?? false,
@@ -923,19 +1133,24 @@ export async function readWebPage(
     });
     return {
       ...extracted,
-      finalUrl: validatedFinalUrl.toString(),
+      finalUrl: validatedFinalUrl.url.toString(),
     };
   }
 
   const fetchStartedAt = Date.now();
   const fetched = await fetchWithRedirects({
-    url: validatedUrl.toString(),
+    url: validatedUrl.url.toString(),
     timeoutMs: httpTimeoutMs,
     fetchImpl,
+    lookupImpl,
+    requestPinnedImpl: deps.requestPinnedImpl,
   });
-  const validatedFinalUrl = await assertSafeRemoteUrl(fetched.finalUrl);
+  const validatedFinalUrl = await assertSafeRemoteUrl(
+    fetched.finalUrl,
+    lookupImpl,
+  );
   const httpResult = extractFromHtml({
-    url: validatedFinalUrl.toString(),
+    url: validatedFinalUrl.url.toString(),
     html: fetched.html,
     extractReadableContent,
     includeLinks: params.includeLinks ?? false,
@@ -954,7 +1169,7 @@ export async function readWebPage(
   if (requestedMode === 'http') {
     return {
       ...httpResult,
-      finalUrl: validatedFinalUrl.toString(),
+      finalUrl: validatedFinalUrl.url.toString(),
     };
   }
 
@@ -966,21 +1181,24 @@ export async function readWebPage(
   if (!fallbackDecision.shouldFallback) {
     return {
       ...httpResult,
-      finalUrl: validatedFinalUrl.toString(),
+      finalUrl: validatedFinalUrl.url.toString(),
     };
   }
 
   try {
     const renderStartedAt = Date.now();
     const rendered = await renderWithPlaywright({
-      url: validatedFinalUrl.toString(),
+      url: validatedFinalUrl.url.toString(),
       timeoutMs: params.timeoutMs ?? DEFAULT_PLAYWRIGHT_TIMEOUT_MS,
       fetchImpl,
       resolvePlaywrightMcpUrl,
     });
-    const renderedFinalUrl = await assertSafeRemoteUrl(rendered.finalUrl);
+    const renderedFinalUrl = await assertSafeRemoteUrl(
+      rendered.finalUrl,
+      lookupImpl,
+    );
     const renderedResult = extractFromHtml({
-      url: renderedFinalUrl.toString(),
+      url: renderedFinalUrl.url.toString(),
       html: rendered.html,
       extractReadableContent,
       includeLinks: params.includeLinks ?? false,
@@ -999,12 +1217,12 @@ export async function readWebPage(
     });
     return {
       ...renderedResult,
-      finalUrl: renderedFinalUrl.toString(),
+      finalUrl: renderedFinalUrl.url.toString(),
     };
   } catch (error) {
     return {
       ...httpResult,
-      finalUrl: validatedFinalUrl.toString(),
+      finalUrl: validatedFinalUrl.url.toString(),
       diagnostics: {
         ...httpResult.diagnostics,
         fallbackReason:

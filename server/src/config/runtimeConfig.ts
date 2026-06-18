@@ -120,10 +120,17 @@ export class RuntimeConfigResolutionError extends Error {
 type ChatBootstrapBranch =
   | 'existing_noop'
   | 'existing_augmented'
+  | 'existing_augment_failed'
   | 'generated_template'
   | 'template_write_failed'
   | 'chat_stat_failed'
   | 'chat_dir_create_failed';
+
+type ChatConfigAugmentResult = {
+  outcome: 'augmented' | 'noop' | 'failed';
+  warning?: string;
+  warningCode?: string;
+};
 
 export type RuntimeConfigSnapshot = {
   provider: ChatProviderId;
@@ -1395,30 +1402,41 @@ const appendTomlBlocks = (rawConfig: string, blocks: string[]): string => {
 async function maybeAugmentExistingProviderChatConfig(params: {
   provider: ChatProviderId;
   chatConfigPath: string;
-}): Promise<boolean> {
+}): Promise<ChatConfigAugmentResult> {
   const reservedBlocks = RESERVED_PROVIDER_CHAT_MCP_BLOCKS[params.provider];
   const reservedNames = Object.keys(reservedBlocks);
   if (reservedNames.length === 0) {
-    return false;
+    return { outcome: 'noop' };
   }
 
   let rawConfig: string;
   try {
     rawConfig = await fs.readFile(params.chatConfigPath, 'utf8');
   } catch {
-    return false;
+    return { outcome: 'noop' };
   }
 
   let currentConfig: RuntimeTomlConfig;
-  let templateConfig: RuntimeTomlConfig;
   try {
     currentConfig = parseTomlOrThrow(rawConfig, params.chatConfigPath);
+  } catch {
+    return { outcome: 'noop' };
+  }
+
+  let templateConfig: RuntimeTomlConfig;
+  try {
     templateConfig = parseTomlOrThrow(
       CHAT_CONFIG_TEMPLATES[params.provider],
       `CHAT_CONFIG_TEMPLATES.${params.provider}`,
     );
-  } catch {
-    return false;
+  } catch (error) {
+    return {
+      outcome: 'failed',
+      warning:
+        error instanceof Error
+          ? error.message
+          : 'Failed to parse provider chat config template',
+    };
   }
 
   const currentMcpServers = isRecord(currentConfig.mcp_servers)
@@ -1428,7 +1446,7 @@ async function maybeAugmentExistingProviderChatConfig(params: {
     (name) => !isRecord(currentMcpServers?.[name]),
   );
   if (missingReservedNames.length === 0) {
-    return false;
+    return { outcome: 'noop' };
   }
 
   const currentWithoutReserved = stripReservedProviderChatMcpServers(
@@ -1440,7 +1458,7 @@ async function maybeAugmentExistingProviderChatConfig(params: {
     params.provider,
   );
   if (!isDeepStrictEqual(currentWithoutReserved, templateWithoutReserved)) {
-    return false;
+    return { outcome: 'noop' };
   }
 
   const nextRawConfig = appendTomlBlocks(
@@ -1455,9 +1473,16 @@ async function maybeAugmentExistingProviderChatConfig(params: {
         flag: 'wx',
       });
       await fs.rename(tempPath, params.chatConfigPath);
-      return true;
-    } catch {
-      return false;
+      return { outcome: 'augmented' };
+    } catch (error) {
+      return {
+        outcome: 'failed',
+        warning:
+          error instanceof Error
+            ? error.message
+            : 'Failed to augment existing chat config with reserved MCP blocks',
+        warningCode: (error as { code?: string }).code,
+      };
     }
   } finally {
     await cleanupPartialChatConfig(tempPath);
@@ -1708,29 +1733,39 @@ export async function ensureProviderChatConfigBootstrapped(params: {
   );
 
   if (chatExists) {
-    const augmented = await maybeAugmentExistingProviderChatConfig({
+    const augmentResult = await maybeAugmentExistingProviderChatConfig({
       provider: params.provider,
       chatConfigPath,
     });
+    const branch =
+      augmentResult.outcome === 'augmented'
+        ? 'existing_augmented'
+        : augmentResult.outcome === 'failed'
+          ? 'existing_augment_failed'
+          : 'existing_noop';
     logTask9Bootstrap({
-      branch: augmented ? 'existing_augmented' : 'existing_noop',
+      branch,
       codexHome: providerHome,
       baseConfigPath,
       chatConfigPath,
       copied: false,
       generatedTemplate: false,
+      warning: augmentResult.warning,
+      warningCode: augmentResult.warningCode,
     });
     logTask3Bootstrap({
       chatConfigPath,
       outcome: 'existing',
-      success: true,
+      success: augmentResult.outcome !== 'failed',
+      warning: augmentResult.warning,
+      warningCode: augmentResult.warningCode,
     });
     return {
       provider: params.provider,
       providerHome,
       chatConfigPath,
       generatedTemplate: false,
-      branch: augmented ? 'existing_augmented' : 'existing_noop',
+      branch,
     };
   }
 

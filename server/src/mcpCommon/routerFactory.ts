@@ -15,6 +15,7 @@ import { createKeepAliveController } from './keepAlive.js';
 const INVALID_REQUEST_CODE = -32600;
 const METHOD_NOT_FOUND_CODE = -32601;
 const INVALID_PARAMS_CODE = -32602;
+const INTERNAL_ERROR_CODE = -32603;
 const PARSE_ERROR_CODE = -32700;
 
 export type JsonRpcRequestLike = {
@@ -51,6 +52,11 @@ export type CreateMcpRouterOptions = {
     requestIdText?: string;
     result: unknown;
   }) => void;
+  /**
+   * Return true when the callback has handled its own logging/side effects and
+   * the router should suppress normal error mapping and emit a generic internal
+   * error response instead of tool-specific details.
+   */
   onToolError?: (params: {
     name: string;
     requestIdText?: string;
@@ -181,11 +187,7 @@ export function createMcpRouter(options: CreateMcpRouterOptions) {
 
             const handled = onToolError?.({ name, requestIdText, error: err });
             if (handled) {
-              return jsonRpcError(
-                requestId,
-                METHOD_NOT_FOUND_CODE,
-                'Method not found',
-              );
+              return jsonRpcError(requestId, INTERNAL_ERROR_CODE, 'Internal error');
             }
 
             const mappedError = mapToolError?.({
@@ -225,8 +227,8 @@ export function createMcpRouter(options: CreateMcpRouterOptions) {
 
             return jsonRpcError(
               requestId,
-              METHOD_NOT_FOUND_CODE,
-              'Method not found',
+              INTERNAL_ERROR_CODE,
+              'Internal error',
             );
           }
         },

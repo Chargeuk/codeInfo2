@@ -1063,6 +1063,7 @@ export function createChatRouter({
       shouldForceUnslothBuiltInWebSearch({
         endpoint: preparedExecution.openAiCompatEndpoint,
         explicitMode: effectiveCodexFlags.webSearchMode,
+        runtimeConfig: chatRuntimeConfig,
       })
         ? 'live'
         : undefined;

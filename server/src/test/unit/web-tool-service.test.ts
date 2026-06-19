@@ -485,3 +485,34 @@ test('readWebPage rejects oversized bodies on the pinned direct HTTP path', asyn
     /exceeded 2097152 bytes/u,
   );
 });
+
+test('readWebPage rejects oversized remote MCP payloads on the Playwright fallback path', async () => {
+  const oversizedBody = new Uint8Array(2 * 1024 * 1024 + 1).fill(97);
+
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'https://93.184.216.34/react-page',
+          mode: 'playwright',
+        },
+        {
+          fetchImpl: async () =>
+            new Response(
+              new ReadableStream({
+                start(controller) {
+                  controller.enqueue(oversizedBody);
+                  controller.close();
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+          resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
+        },
+      ),
+    /Remote MCP response from http:\/\/playwright\.test\/mcp exceeded 2097152 bytes/u,
+  );
+});

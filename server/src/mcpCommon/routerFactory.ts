@@ -78,6 +78,30 @@ export type CreateMcpRouterOptions = {
   }) => unknown | undefined;
 };
 
+function logHookFailure(params: {
+  surface: string;
+  hook: 'onToolSuccess' | 'onToolError' | 'mapToolError';
+  tool: string;
+  requestIdText?: string;
+  error: unknown;
+}) {
+  append({
+    level: 'error',
+    source: 'server',
+    timestamp: new Date().toISOString(),
+    message: `${params.surface}_router_hook_error`,
+    requestId: params.requestIdText,
+    context: {
+      hook: params.hook,
+      tool: params.tool,
+      error:
+        params.error instanceof Error
+          ? (params.error.stack ?? params.error.message)
+          : String(params.error),
+    },
+  });
+}
+
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -170,7 +194,7 @@ export function createMcpRouter(options: CreateMcpRouterOptions) {
           }),
         resourcesList: (requestId) => jsonRpcResult(requestId, { resources: [] }),
         resourcesListTemplates: (requestId) =>
-          jsonRpcResult(requestId, { resource_templates: [] }),
+          jsonRpcResult(requestId, { resourceTemplates: [] }),
         toolsList: async (requestId) =>
           jsonRpcResult(requestId, await tools.listTools()),
         toolsCall: async (requestId, paramsUnknown) => {
@@ -192,7 +216,19 @@ export function createMcpRouter(options: CreateMcpRouterOptions) {
 
           try {
             const result = await tools.callTool(name, args);
-            onToolSuccess?.({ name, requestIdText, result });
+            if (onToolSuccess) {
+              try {
+                onToolSuccess({ name, requestIdText, result });
+              } catch (hookError) {
+                logHookFailure({
+                  surface,
+                  hook: 'onToolSuccess',
+                  tool: name,
+                  requestIdText,
+                  error: hookError,
+                });
+              }
+            }
             return jsonRpcResult(requestId, result);
           } catch (err) {
             append({
@@ -208,17 +244,43 @@ export function createMcpRouter(options: CreateMcpRouterOptions) {
               },
             });
 
-            const handled = onToolError?.({ name, requestIdText, error: err });
+            let handled = false;
+            if (onToolError) {
+              try {
+                handled = onToolError({ name, requestIdText, error: err });
+              } catch (hookError) {
+                logHookFailure({
+                  surface,
+                  hook: 'onToolError',
+                  tool: name,
+                  requestIdText,
+                  error: hookError,
+                });
+              }
+            }
             if (handled) {
               return jsonRpcError(requestId, INTERNAL_ERROR_CODE, 'Internal error');
             }
 
-            const mappedError = mapToolError?.({
-              error: err,
-              requestId,
-              name,
-              requestIdText,
-            });
+            let mappedError: unknown | undefined;
+            if (mapToolError) {
+              try {
+                mappedError = mapToolError({
+                  error: err,
+                  requestId,
+                  name,
+                  requestIdText,
+                });
+              } catch (hookError) {
+                logHookFailure({
+                  surface,
+                  hook: 'mapToolError',
+                  tool: name,
+                  requestIdText,
+                  error: hookError,
+                });
+              }
+            }
             if (mappedError !== undefined) {
               return mappedError;
             }

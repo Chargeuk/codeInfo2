@@ -788,7 +788,10 @@ async function callRemoteMcp(params: {
         params: params.bodyParams,
       }),
     });
-    const rawBody = await response.text();
+    const rawBody = await readResponseTextCapped(
+      response,
+      `Remote MCP response from ${params.url}`,
+    );
     const payload = parseJsonRpcPayload(rawBody);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} from remote MCP`);

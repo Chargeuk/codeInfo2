@@ -12,8 +12,31 @@ export type ReadWebPageToolDeps = {
   readWebPageImpl?: (params: ReadWebPageParams) => Promise<ReadWebPageResult>;
 };
 
+const httpUrlSchema = z.string().url().superRefine((value, ctx) => {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return;
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'URL must use http or https',
+    });
+  }
+
+  if (parsed.username || parsed.password) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'URL must not include embedded credentials',
+    });
+  }
+});
+
 const readWebPageSchema = z.object({
-  url: z.string().url(),
+  url: httpUrlSchema,
   mode: z.enum(['auto', 'http', 'playwright']).optional(),
   extractReadableContent: z.boolean().optional(),
   includeRawHtml: z.boolean().optional(),

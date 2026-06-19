@@ -166,6 +166,98 @@ const runtimeConfigSupportsEndpointOnlyExecution = (
   return isRecord(modelProviders[modelProvider]);
 };
 
+type CodexErrorDiagnostic = {
+  name?: string;
+  code?: string;
+  message?: string;
+  stderr?: string;
+  stdout?: string;
+};
+
+const trimDiagnosticText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const collectCodexErrorDiagnostics = (
+  err: unknown,
+  seen = new Set<unknown>(),
+  depth = 0,
+): CodexErrorDiagnostic[] => {
+  if (!err || depth > 6 || seen.has(err)) return [];
+  if (typeof err !== 'object') {
+    const text = trimDiagnosticText(String(err));
+    return text ? [{ message: text }] : [];
+  }
+
+  seen.add(err);
+  const record = err as Record<string, unknown>;
+  const current: CodexErrorDiagnostic = {
+    name:
+      typeof record.name === 'string' && record.name.trim().length > 0
+        ? record.name
+        : undefined,
+    code:
+      typeof record.code === 'string' && record.code.trim().length > 0
+        ? record.code
+        : undefined,
+    message:
+      typeof record.message === 'string' && record.message.trim().length > 0
+        ? record.message
+        : err instanceof Error
+          ? trimDiagnosticText(err.message)
+          : trimDiagnosticText(String(err)),
+    stderr: trimDiagnosticText(record.stderr),
+    stdout: trimDiagnosticText(record.stdout),
+  };
+
+  const diagnostics: CodexErrorDiagnostic[] = [
+    ...(current.message || current.stderr || current.stdout ? [current] : []),
+  ];
+
+  const nested = record.cause;
+  if (nested !== undefined) {
+    diagnostics.push(...collectCodexErrorDiagnostics(nested, seen, depth + 1));
+  }
+
+  if (Array.isArray(record.errors)) {
+    for (const child of record.errors) {
+      diagnostics.push(...collectCodexErrorDiagnostics(child, seen, depth + 1));
+    }
+  }
+
+  return diagnostics;
+};
+
+const buildCodexExecutionError = (
+  err: unknown,
+): {
+  message: string;
+  diagnostics: CodexErrorDiagnostic[];
+} => {
+  const diagnostics = collectCodexErrorDiagnostics(err);
+  const blocks: string[] = [];
+  const seenBlocks = new Set<string>();
+  for (const diagnostic of diagnostics) {
+    for (const candidate of [
+      diagnostic.message,
+      diagnostic.stderr,
+      diagnostic.stdout,
+    ]) {
+      const text = trimDiagnosticText(candidate);
+      if (!text || seenBlocks.has(text)) continue;
+      seenBlocks.add(text);
+      blocks.push(text);
+    }
+  }
+
+  return {
+    message: blocks.length > 0 ? blocks.join('\n') : 'codex unavailable',
+    diagnostics,
+  };
+};
+
 export class ChatInterfaceCodex extends ChatInterface {
   constructor(
     private readonly codexFactory: (options?: CodexOptions) => CodexLike = (
@@ -296,10 +388,6 @@ export class ChatInterfaceCodex extends ChatInterface {
       typeof threadId === 'string' && threadId.length > 0
         ? codex.resumeThread(threadId, threadOptions)
         : codex.startThread(threadOptions);
-
-    const { events } = await thread.runStreamed(prompt, {
-      signal,
-    } as CodexTurnOptions);
 
     const codexToolCtx = new Map<
       string,
@@ -494,8 +582,35 @@ export class ChatInterfaceCodex extends ChatInterface {
       emittedAssistantText = composed;
     };
 
+    const emitFormattedCodexExecutionError = (err: unknown) => {
+      const formattedError = buildCodexExecutionError(err);
+      baseLogger.error(
+        {
+          requestId,
+          provider: 'codex',
+          model,
+          conversationId,
+          threadId: activeThreadId,
+          diagnostics: formattedError.diagnostics,
+          err,
+        },
+        'codex streamed execution failed',
+      );
+      this.emitEvent({ type: 'error', message: formattedError.message });
+    };
+
+    let events: AsyncGenerator<unknown>;
     try {
-      for await (const rawEvent of events as AsyncGenerator<unknown>) {
+      ({ events } = await thread.runStreamed(prompt, {
+        signal,
+      } as CodexTurnOptions));
+    } catch (err) {
+      emitFormattedCodexExecutionError(err);
+      return;
+    }
+
+    try {
+      for await (const rawEvent of events) {
         const event = rawEvent as Record<string, unknown>;
         if (signal?.aborted) {
           // stop requested
@@ -696,9 +811,7 @@ export class ChatInterfaceCodex extends ChatInterface {
         }
       }
     } catch (err) {
-      const messageText =
-        (err as Error | undefined)?.message ?? 'codex unavailable';
-      this.emitEvent({ type: 'error', message: messageText });
+      emitFormattedCodexExecutionError(err);
     } finally {
       // persistence is handled by ChatInterface base
     }

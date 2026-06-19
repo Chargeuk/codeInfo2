@@ -866,6 +866,106 @@ test('codex chat emits deterministic T06 error when chat runtime config is missi
   }
 });
 
+test('codex stream preserves nested subprocess cause details when runStreamed throws before any events arrive', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  class ThrowingThread extends MockThread {
+    override async runStreamed(): Promise<{
+      events: AsyncGenerator<ThreadEvent>;
+    }> {
+      throw Object.assign(
+        new Error('Codex Exec exited with code 1: Reading prompt from stdin...'),
+        {
+          cause: new Error(
+            'Error: thread/resume: thread/resume failed: no rollout found for thread id 019ecb2f-2e9a-7401-a449-9633616169a6 (code -32600)',
+          ),
+        },
+      );
+    }
+  }
+
+  class ThrowingCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      return new ThrowingThread(this.id);
+    }
+  }
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new ThrowingCodex('thread-throwing-cause'),
+    }),
+  );
+
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'thread-throwing-cause';
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    const response = await request(httpServer)
+      .post('/chat')
+      .send(buildCodexBody({ conversationId }))
+      .expect(202);
+    const inflightId = response.body.inflightId as string;
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        status?: string;
+        error?: { message?: string };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+          status?: string;
+          error?: { message?: string };
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'failed');
+    assert.match(
+      final.error?.message ?? '',
+      /Codex Exec exited with code 1: Reading prompt from stdin/,
+    );
+    assert.match(
+      final.error?.message ?? '',
+      /thread\/resume failed: no rollout found/,
+    );
+  } finally {
+    await closeWs(ws);
+    wsHandle.close();
+    await new Promise<void>((resolve, reject) =>
+      httpServer.close((err) => (err ? reject(err) : resolve())),
+    );
+  }
+});
+
 test('codex stream publishes one terminal event per turn for tool-interleaved non-prefix updates', async () => {
   setCodexDetection({
     available: true,

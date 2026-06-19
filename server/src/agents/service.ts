@@ -712,6 +712,7 @@ function resolveProviderModelForExecution(params: {
   providerId: ChatProviderId;
   requestedModel?: string;
   providerState: DirectAgentProviderState;
+  preferConfiguredModel?: boolean;
 }): string | null {
   if (!params.providerState.available) return null;
   const defaultModel = resolveChatDefaults({
@@ -727,6 +728,9 @@ function resolveProviderModelForExecution(params: {
           requestedModelSource: 'config',
         })
       : params.requestedModel;
+  if (params.preferConfiguredModel && normalizedRequestedModel) {
+    return normalizedRequestedModel;
+  }
   const preferred =
     params.providerId === 'copilot' &&
     Array.isArray(params.providerState.modelsRaw)
@@ -1034,17 +1038,17 @@ async function prepareDirectAgentExecution(params: {
             reason: `Endpoint "${params.pinnedEndpointId}" is unavailable.`,
           }
         : undefined;
+    const configuredModel = normalizeModel(
+      (providerRuntimeResolution.config as Record<string, unknown>)?.model,
+    );
     const requestedModel =
       resolveProviderModelForExecution({
         providerId,
-        requestedModel: normalizeModel(
-          (providerRuntimeResolution.config as Record<string, unknown>)?.model,
-        ),
+        requestedModel: configuredModel,
         providerState: runtimeProviderState,
+        preferConfiguredModel: endpointState !== undefined,
       }) ??
-      normalizeModel(
-        (providerRuntimeResolution.config as Record<string, unknown>)?.model,
-      ) ??
+      configuredModel ??
       providerState.models[0] ??
       'unknown-model';
     const runtimeSelection = resolveRuntimeProviderSelection({

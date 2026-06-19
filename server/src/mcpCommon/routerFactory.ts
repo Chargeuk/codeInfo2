@@ -17,6 +17,14 @@ const METHOD_NOT_FOUND_CODE = -32601;
 const INVALID_PARAMS_CODE = -32602;
 const INTERNAL_ERROR_CODE = -32603;
 const PARSE_ERROR_CODE = -32700;
+const MAX_RPC_BODY_BYTES = 256 * 1024;
+
+class RequestBodyTooLargeError extends Error {
+  constructor() {
+    super(`Request body exceeded ${MAX_RPC_BODY_BYTES} bytes`);
+    this.name = 'RequestBodyTooLargeError';
+  }
+}
 
 export type JsonRpcRequestLike = {
   jsonrpc: '2.0';
@@ -72,13 +80,15 @@ export type CreateMcpRouterOptions = {
 
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
 
   for await (const chunk of req) {
-    if (typeof chunk === 'string') {
-      chunks.push(Buffer.from(chunk));
-    } else {
-      chunks.push(chunk);
+    const buffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+    totalBytes += buffer.length;
+    if (totalBytes > MAX_RPC_BODY_BYTES) {
+      throw new RequestBodyTooLargeError();
     }
+    chunks.push(buffer);
   }
 
   return Buffer.concat(chunks).toString();
@@ -102,7 +112,20 @@ export function createMcpRouter(options: CreateMcpRouterOptions) {
   } = options;
 
   return async function handleRpc(req: IncomingMessage, res: ServerResponse) {
-    const body = await readBody(req);
+    let body = '';
+    try {
+      body = await readBody(req);
+    } catch (error) {
+      const payload =
+        error instanceof RequestBodyTooLargeError
+          ? jsonRpcError(null, INVALID_REQUEST_CODE, 'Request body too large')
+          : jsonRpcError(null, PARSE_ERROR_CODE, 'Parse error');
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+      });
+      res.end(JSON.stringify(payload));
+      return;
+    }
     const writeHeadersIfNeeded = () => {
       if (res.headersSent) return;
       res.writeHead(200, {

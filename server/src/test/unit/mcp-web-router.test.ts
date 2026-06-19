@@ -22,6 +22,15 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
+async function postRaw(port: number, body: string) {
+  const response = await fetch(`http://127.0.0.1:${port}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body,
+  });
+  return response.json();
+}
+
 async function listen(server: http.Server): Promise<number> {
   await new Promise<void>((resolve) => {
     server.listen(0, resolve);
@@ -220,6 +229,28 @@ test('shared MCP router surfaces unexpected tool failures as internal errors', a
     assert.deepEqual(body.error, {
       code: -32603,
       message: 'Internal error',
+    });
+  } finally {
+    await close(server);
+  }
+});
+
+test('shared MCP router rejects oversized request bodies before dispatch', async () => {
+  const server = http.createServer(handleWebRpc);
+  const port = await listen(server);
+
+  try {
+    const oversizedPayload = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 7,
+      method: 'tools/list',
+      padding: 'x'.repeat(300_000),
+    });
+    const body = await postRaw(port, oversizedPayload);
+
+    assert.deepEqual(body.error, {
+      code: -32600,
+      message: 'Request body too large',
     });
   } finally {
     await close(server);

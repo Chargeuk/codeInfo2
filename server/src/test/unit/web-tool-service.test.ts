@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { lookup } from 'node:dns/promises';
-import test from 'node:test';
+import { EventEmitter } from 'node:events';
+import http from 'node:http';
+import { PassThrough } from 'node:stream';
+import test, { afterEach, mock } from 'node:test';
 import {
   readWebPage,
   webSearch,
 } from '../../webTools/toolService.js';
+
+afterEach(() => {
+  mock.restoreAll();
+});
 
 test('webSearch normalizes duck-duck-scrape results into CodeInfo payloads', async () => {
   const result = await webSearch(
@@ -340,6 +347,8 @@ test('readWebPage sends Playwright code that blocks redirected private navigatio
   assert.match(forwardedCode, /page\.route\('\*\*\/\*'/u);
   assert.match(forwardedCode, /blockedNavigationError/u);
   assert.match(forwardedCode, /assertSafeBrowserUrl/u);
+  assert.match(forwardedCode, /hostnameResolutionCache/u);
+  assert.match(forwardedCode, /Blocked DNS rebinding/u);
   assert.match(forwardedCode, /route\.request\(\)\.url\(\)/u);
   assert.doesNotMatch(forwardedCode, /isNavigationRequest/u);
 });
@@ -375,5 +384,104 @@ test('readWebPage blocks IPv4-mapped IPv6 loopback URLs before fetching', async 
         },
       ),
     /Blocked private IP address/u,
+  );
+});
+
+test('readWebPage blocks IPv6 unspecified URLs before fetching', async () => {
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'http://[::]/private',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('fetch should not be called');
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
+});
+
+test('readWebPage rejects oversized bodies on the custom fetch path', async () => {
+  const oversizedBody = new Uint8Array(2 * 1024 * 1024 + 1).fill(97);
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'https://93.184.216.34/large',
+          mode: 'http',
+        },
+        {
+          fetchImpl: async () =>
+            new Response(
+              new ReadableStream({
+                start(controller) {
+                  controller.enqueue(oversizedBody);
+                  controller.close();
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'text/html; charset=utf-8' },
+              },
+            ),
+        },
+      ),
+    /exceeded 2097152 bytes/u,
+  );
+});
+
+test('readWebPage rejects oversized bodies on the pinned direct HTTP path', async () => {
+  mock.method(http, 'request', (...args: Parameters<typeof http.request>) => {
+    const callback = args[args.length - 1];
+    const response = new PassThrough() as PassThrough & {
+      statusCode?: number;
+      headers?: Record<string, string>;
+    };
+    response.statusCode = 200;
+    response.headers = {
+      'content-type': 'text/html; charset=utf-8',
+    };
+
+    const request = new EventEmitter() as EventEmitter & {
+      setTimeout: (ms: number, listener: () => void) => void;
+      destroy: (error?: Error) => void;
+      end: () => void;
+    };
+    request.setTimeout = (ms, listener) => {
+      void ms;
+      void listener;
+    };
+    request.destroy = (error?: Error) => {
+      void error;
+    };
+    request.end = () => {
+      if (typeof callback === 'function') {
+        callback(response as unknown as Parameters<typeof callback>[0]);
+      }
+      response.emit(
+        'data',
+        Buffer.alloc(2 * 1024 * 1024 + 1, 'a'),
+      );
+      response.emit('end');
+    };
+
+    return request as unknown as ReturnType<typeof http.request>;
+  });
+
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'http://93.184.216.34/large',
+          mode: 'http',
+        },
+        {
+          fetchImpl: fetch,
+        },
+      ),
+    /exceeded 2097152 bytes/u,
   );
 });

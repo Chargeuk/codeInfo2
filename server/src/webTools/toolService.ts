@@ -18,6 +18,7 @@ const DEFAULT_MAX_CHARS = 120_000;
 const DEFAULT_HTTP_TIMEOUT_MS = 15_000;
 const DEFAULT_PLAYWRIGHT_TIMEOUT_MS = 25_000;
 const MAX_REDIRECTS = 5;
+const MAX_FETCHED_BODY_BYTES = 2 * 1024 * 1024;
 const DEFAULT_USER_AGENT =
   'codeinfo2-web-tools/0.0.1 (+https://localhost/codeinfo2)';
 const DYNAMIC_SHELL_MARKERS = [
@@ -249,12 +250,57 @@ const isPrivateIpv6 = (ip: string): boolean => {
     }
   }
   return (
+    normalized === '::' ||
+    normalized === '0:0:0:0:0:0:0:0' ||
     normalized === '::1' ||
     normalized.startsWith('fc') ||
     normalized.startsWith('fd') ||
     normalized.startsWith('fe80:')
   );
 };
+
+function createBodyTooLargeError(context: string): Error {
+  return new Error(
+    `${context} exceeded ${MAX_FETCHED_BODY_BYTES} bytes while buffering response content`,
+  );
+}
+
+async function readResponseTextCapped(
+  response: Response,
+  context: string,
+): Promise<string> {
+  if (!response.body) {
+    return '';
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_FETCHED_BODY_BYTES) {
+        await reader.cancel(createBodyTooLargeError(context)).catch(() => {});
+        throw createBodyTooLargeError(context);
+      }
+
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks).toString('utf8');
+}
 
 function buildPinnedLookup(
   addresses: ReadonlyArray<ResolvedRemoteAddress>,
@@ -297,6 +343,14 @@ async function performPinnedHttpRequest(params: {
     params.target.url.protocol === 'https:' ? https.request : http.request;
 
   return new Promise<PinnedHttpResponse>((resolve, reject) => {
+    let settled = false;
+    const fail = (error: Error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
     const request = requestImpl(
       params.target.url,
       {
@@ -311,12 +365,27 @@ async function performPinnedHttpRequest(params: {
       },
       (response) => {
         const chunks: Buffer[] = [];
+        let totalBytes = 0;
         response.on('data', (chunk) => {
-          chunks.push(
-            typeof chunk === 'string' ? Buffer.from(chunk) : chunk,
-          );
+          const buffer =
+            typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+          totalBytes += buffer.length;
+          if (totalBytes > MAX_FETCHED_BODY_BYTES) {
+            const error = createBodyTooLargeError(
+              `Response body for ${params.target.url}`,
+            );
+            response.destroy(error);
+            request.destroy(error);
+            fail(error);
+            return;
+          }
+          chunks.push(buffer);
         });
         response.on('end', () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
           const html = Buffer.concat(chunks).toString('utf8');
           resolve({
             finalUrl: params.target.url.toString(),
@@ -331,7 +400,9 @@ async function performPinnedHttpRequest(params: {
                   : undefined,
           });
         });
-        response.on('error', reject);
+        response.on('error', (error) => {
+          fail(error instanceof Error ? error : new Error(String(error)));
+        });
       },
     );
 
@@ -340,7 +411,9 @@ async function performPinnedHttpRequest(params: {
         new Error(`Request timed out after ${params.timeoutMs}ms`),
       );
     });
-    request.on('error', reject);
+    request.on('error', (error) => {
+      fail(error instanceof Error ? error : new Error(String(error)));
+    });
     request.end();
   });
 }
@@ -494,7 +567,10 @@ async function fetchWithRedirects(params: {
 
           return {
             finalUrl: fetchedResponse.url || currentUrl,
-            html: await fetchedResponse.text(),
+            html: await readResponseTextCapped(
+              fetchedResponse,
+              `Response body for ${currentUrl}`,
+            ),
             contentType: fetchedResponse.headers.get('content-type') ?? '',
             httpStatus: fetchedResponse.status,
           };
@@ -543,90 +619,96 @@ function extractFromHtml(params: {
 }): ReadWebPageResult {
   const metadataDom = new JSDOM(params.html, { url: params.url });
   const readabilityDom = new JSDOM(params.html, { url: params.url });
-  const $ = cheerio.load(params.html);
-  const metadata: ReadWebPageMetadata | undefined = params.includeMetadata
-    ? {
-        title: normalizeWhitespace(
-          $('meta[property="og:title"]').attr('content') ??
-            $('title').text() ??
-            '',
-        ) || undefined,
-        description: normalizeWhitespace(
-          $('meta[name="description"]').attr('content') ??
-            $('meta[property="og:description"]').attr('content') ??
-            '',
-        ) || undefined,
-        siteName: normalizeWhitespace(
-          $('meta[property="og:site_name"]').attr('content') ?? '',
-        ) || undefined,
-        author: normalizeWhitespace(
-          $('meta[name="author"]').attr('content') ??
-            $('[rel="author"]').first().text() ??
-            '',
-        ) || undefined,
-        publishedTime: normalizeWhitespace(
-          $('meta[property="article:published_time"]').attr('content') ??
-            $('time[datetime]').first().attr('datetime') ??
-            '',
-        ) || undefined,
-        lang: normalizeWhitespace(
-          $('html').attr('lang') ?? metadataDom.window.document.documentElement.lang,
-        ) || undefined,
-      }
-    : undefined;
+  try {
+    const $ = cheerio.load(params.html);
+    const metadata: ReadWebPageMetadata | undefined = params.includeMetadata
+      ? {
+          title: normalizeWhitespace(
+            $('meta[property="og:title"]').attr('content') ??
+              $('title').text() ??
+              '',
+          ) || undefined,
+          description: normalizeWhitespace(
+            $('meta[name="description"]').attr('content') ??
+              $('meta[property="og:description"]').attr('content') ??
+              '',
+          ) || undefined,
+          siteName: normalizeWhitespace(
+            $('meta[property="og:site_name"]').attr('content') ?? '',
+          ) || undefined,
+          author: normalizeWhitespace(
+            $('meta[name="author"]').attr('content') ??
+              $('[rel="author"]').first().text() ??
+              '',
+          ) || undefined,
+          publishedTime: normalizeWhitespace(
+            $('meta[property="article:published_time"]').attr('content') ??
+              $('time[datetime]').first().attr('datetime') ??
+              '',
+          ) || undefined,
+          lang: normalizeWhitespace(
+            $('html').attr('lang') ??
+              metadataDom.window.document.documentElement.lang,
+          ) || undefined,
+        }
+      : undefined;
 
-  const readabilityCandidate = params.extractReadableContent
-    ? new Readability(readabilityDom.window.document).parse()
-    : null;
-  const readerable = params.extractReadableContent
-    ? isProbablyReaderable(metadataDom.window.document)
-    : false;
+    const readabilityCandidate = params.extractReadableContent
+      ? new Readability(readabilityDom.window.document).parse()
+      : null;
+    const readerable = params.extractReadableContent
+      ? isProbablyReaderable(metadataDom.window.document)
+      : false;
 
-  const bodyText = normalizeWhitespace($('body').text());
-  const selectedText = normalizeWhitespace(
-    readabilityCandidate?.textContent ?? bodyText,
-  );
-  const excerpt = normalizeWhitespace(
-    readabilityCandidate?.excerpt ?? selectedText.slice(0, 280),
-  );
-  const truncated = truncateText(selectedText, params.maxChars);
+    const bodyText = normalizeWhitespace($('body').text());
+    const selectedText = normalizeWhitespace(
+      readabilityCandidate?.textContent ?? bodyText,
+    );
+    const excerpt = normalizeWhitespace(
+      readabilityCandidate?.excerpt ?? selectedText.slice(0, 280),
+    );
+    const truncated = truncateText(selectedText, params.maxChars);
 
-  const links = params.includeLinks
-    ? $('a[href]')
-        .toArray()
-        .map((element) => {
-          const href = $(element).attr('href') ?? '';
-          const text = normalizeWhitespace($(element).text());
-          if (!href) return null;
-          try {
-            const absoluteHref = new URL(href, params.url).toString();
-            return {
-              href: absoluteHref,
-              text,
-            };
-          } catch {
-            return null;
-          }
-        })
-        .filter((entry): entry is ReadWebPageLink => Boolean(entry?.href))
-        .slice(0, 25)
-    : undefined;
+    const links = params.includeLinks
+      ? $('a[href]')
+          .toArray()
+          .map((element) => {
+            const href = $(element).attr('href') ?? '';
+            const text = normalizeWhitespace($(element).text());
+            if (!href) return null;
+            try {
+              const absoluteHref = new URL(href, params.url).toString();
+              return {
+                href: absoluteHref,
+                text,
+              };
+            } catch {
+              return null;
+            }
+          })
+          .filter((entry): entry is ReadWebPageLink => Boolean(entry?.href))
+          .slice(0, 25)
+      : undefined;
 
-  return {
-    url: params.url,
-    finalUrl: params.url,
-    modeUsed: params.modeUsed,
-    readabilityApplied: Boolean(readabilityCandidate) && readerable,
-    text: truncated.text,
-    excerpt: excerpt || undefined,
-    ...(metadata ? { metadata } : {}),
-    ...(links ? { links } : {}),
-    ...(params.includeRawHtml ? { rawHtml: params.html } : {}),
-    diagnostics: {
-      ...params.diagnostics,
-      truncated: truncated.truncated,
-    },
-  };
+    return {
+      url: params.url,
+      finalUrl: params.url,
+      modeUsed: params.modeUsed,
+      readabilityApplied: Boolean(readabilityCandidate) && readerable,
+      text: truncated.text,
+      excerpt: excerpt || undefined,
+      ...(metadata ? { metadata } : {}),
+      ...(links ? { links } : {}),
+      ...(params.includeRawHtml ? { rawHtml: params.html } : {}),
+      diagnostics: {
+        ...params.diagnostics,
+        truncated: truncated.truncated,
+      },
+    };
+  } finally {
+    metadataDom.window.close();
+    readabilityDom.window.close();
+  }
 }
 
 function shouldUsePlaywrightFallback(params: {
@@ -775,6 +857,7 @@ async function renderWithPlaywright(params: {
   const code = `async (page) => {
     const { lookup } = await import('node:dns/promises');
     const { isIP } = await import('node:net');
+    const hostnameResolutionCache = new Map();
     const normalizeIpHostLiteral = (value) =>
       value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
     const isPrivateIpv4 = (ip) => {
@@ -824,6 +907,8 @@ async function renderWithPlaywright(params: {
         }
       }
       return (
+        normalized === '::' ||
+        normalized === '0:0:0:0:0:0:0:0' ||
         normalized === '::1' ||
         normalized.startsWith('fc') ||
         normalized.startsWith('fd') ||
@@ -871,6 +956,18 @@ async function renderWithPlaywright(params: {
             );
           }
         }
+        const resolutionSignature = addresses
+          .map((address) => address.family + ':' + address.address)
+          .sort()
+          .join(',');
+        const previousResolution = hostnameResolutionCache.get(normalizedHostname);
+        if (
+          typeof previousResolution === 'string' &&
+          previousResolution !== resolutionSignature
+        ) {
+          throw new Error('Blocked DNS rebinding for ' + parsed.hostname);
+        }
+        hostnameResolutionCache.set(normalizedHostname, resolutionSignature);
       }
     };
     let blockedNavigationError = null;
@@ -980,7 +1077,10 @@ async function searchDuckDuckGoHtml(params: {
       throw new Error(`DuckDuckGo HTML search failed (${response.status})`);
     }
 
-    html = await response.text();
+    html = await readResponseTextCapped(
+      response,
+      `DuckDuckGo HTML search response for ${params.query}`,
+    );
   } finally {
     clearTimeout(timeout);
     await delay(0);

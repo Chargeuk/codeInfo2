@@ -51,7 +51,7 @@ export function readWebPageDefinition() {
   return {
     name: READ_WEB_PAGE_TOOL_NAME,
     description:
-      'Read a web page, extract readable text and metadata, and fall back to rendered browser content when needed.',
+      'Read a web page, extract readable text and metadata, and use a browser fallback only when the runtime can safely render the target.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -68,7 +68,7 @@ export function readWebPageDefinition() {
           type: 'string',
           enum: ['auto', 'http', 'playwright'],
           description:
-            'Optional fetch mode. Defaults to auto, which starts with HTTP and escalates only when needed.',
+            'Optional fetch mode. Defaults to auto, which starts with HTTP and escalates only when needed. Direct Playwright mode currently requires an IP-literal URL.',
         },
         extractReadableContent: {
           type: 'boolean',
@@ -102,7 +102,7 @@ export function readWebPageDefinition() {
         likelyDynamic: {
           type: 'boolean',
           description:
-            'Hint that the page is probably client-rendered and may need the browser fallback.',
+            'Hint that the page is probably client-rendered and may need the browser fallback when the target can be rendered safely.',
         },
       },
     },

@@ -5,44 +5,48 @@ import { handleWebRpc } from './router.js';
 
 let server: http.Server | undefined;
 let stopPromise: Promise<void> | null = null;
+const WEB_MCP_HOST = '127.0.0.1';
 
 export function startWebMcpServer() {
   if (server) {
     return server;
   }
   const nextServer = http.createServer(handleWebRpc);
-  const handleStartupError = (error: Error) => {
+  let listening = false;
+  const handleServerError = (error: Error) => {
     append({
       level: 'error',
       source: 'server',
       timestamp: new Date().toISOString(),
-      message: 'web_mcp_start_error',
+      message: listening ? 'web_mcp_runtime_error' : 'web_mcp_start_error',
       context: {
         error: error.stack ?? error.message,
         port: CODEINFO_WEB_MCP_PORT,
+        host: WEB_MCP_HOST,
       },
     });
-    if (server === nextServer) {
+    if (!listening && server === nextServer) {
       server = undefined;
+      stopPromise = null;
     }
-    stopPromise = null;
   };
 
   server = nextServer;
-  nextServer.once('error', handleStartupError);
+  nextServer.on('error', handleServerError);
   nextServer.once('listening', () => {
-    nextServer.off('error', handleStartupError);
+    listening = true;
   });
   nextServer.on('close', () => {
+    listening = false;
     if (stopPromise) {
       stopPromise = null;
     }
     server = undefined;
   });
   try {
-    nextServer.listen(CODEINFO_WEB_MCP_PORT);
+    nextServer.listen(CODEINFO_WEB_MCP_PORT, WEB_MCP_HOST);
   } catch (error) {
-    handleStartupError(
+    handleServerError(
       error instanceof Error ? error : new Error(String(error)),
     );
     throw error;

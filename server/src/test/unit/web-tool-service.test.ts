@@ -118,6 +118,44 @@ test('webSearch aborts the DuckDuckGo HTML fallback when it exceeds the timeout'
   );
 });
 
+test('webSearch falls back when the primary DuckDuckGo search path times out', async () => {
+  let fallbackFetchCount = 0;
+
+  const result = await webSearch(
+    {
+      query: 'timed out primary search',
+    },
+    {
+      duckDuckSearchImpl: () =>
+        new Promise<never>(() => {
+          // Intentionally never resolves so the wrapper timeout drives fallback.
+        }) as never,
+      duckDuckSearchTimeoutMs: 10,
+      fetchImpl: async () => {
+        fallbackFetchCount += 1;
+        return new Response(
+          [
+            '<html><body>',
+            '<div class="result">',
+            '<h2 class="result__title"><a href="https://example.com/fallback">Fallback Result</a></h2>',
+            '<a class="result__snippet">Fallback search snippet.</a>',
+            '</div>',
+            '</body></html>',
+          ].join(''),
+          {
+            status: 200,
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          },
+        );
+      },
+    },
+  );
+
+  assert.equal(fallbackFetchCount, 1);
+  assert.equal(result.provider, 'duckduckgo-html');
+  assert.equal(result.results[0]?.url, 'https://example.com/fallback');
+});
+
 test('readWebPage returns readable HTTP content when the first fetch is sufficient', async () => {
   const html = [
     '<html lang="en">',
@@ -199,6 +237,40 @@ test('readWebPage allows public 169.x IPv4 hosts outside the link-local range', 
 
   assert.equal(result.modeUsed, 'http');
   assert.match(result.text, /Public content/u);
+});
+
+test('readWebPage blocks IPv4 benchmarking addresses before fetching', async () => {
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'https://198.18.0.10/private',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('fetch should not be called');
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
+});
+
+test('readWebPage blocks IPv4 multicast addresses before fetching', async () => {
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'https://224.0.0.10/private',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('fetch should not be called');
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
 });
 
 test('readWebPage pins resolved public DNS answers through the direct HTTP path', async () => {
@@ -474,6 +546,38 @@ test('readWebPage blocks IPv6 link-local hosts across the full fe80::/10 range',
   );
 });
 
+test('readWebPage blocks IPv6 site-local and multicast hosts before fetching', async () => {
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'http://[fec0::1]/private',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('fetch should not be called');
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
+
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'http://[ff02::1]/private',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('fetch should not be called');
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
+});
+
 test('readWebPage rejects oversized bodies on the custom fetch path', async () => {
   const oversizedBody = new Uint8Array(2 * 1024 * 1024 + 1).fill(97);
   await assert.rejects(
@@ -676,4 +780,34 @@ test('readWebPage explicit Playwright mode rejects hostname URLs to avoid browse
       ),
     /IP-literal URL/u,
   );
+});
+
+test('readWebPage Playwright mode accepts multi-event SSE payloads from remote MCP', async () => {
+  const result = await readWebPage(
+    {
+      url: 'https://93.184.216.34/react-page',
+      mode: 'playwright',
+    },
+    {
+      fetchImpl: async () =>
+        new Response(
+          [
+            'event: message',
+            'data: {"jsonrpc":"2.0","id":"read-web-page-browser_run_code_unsafe","result":{"content":[{"type":"text","text":"progress"}]}}',
+            '',
+            'event: message',
+            'data: {"jsonrpc":"2.0","id":"read-web-page-browser_run_code_unsafe","result":{"content":[{"type":"text","text":"{\\"finalUrl\\":\\"https://93.184.216.34/rendered\\",\\"html\\":\\"<html><body><main><article><p>Rendered from SSE.</p></article></main></body></html>\\"}"}]}}',
+            '',
+          ].join('\n'),
+          {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+          },
+        ),
+      resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
+    },
+  );
+
+  assert.equal(result.modeUsed, 'playwright');
+  assert.match(result.text, /Rendered from SSE/u);
 });

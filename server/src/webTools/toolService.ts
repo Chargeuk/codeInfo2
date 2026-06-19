@@ -156,6 +156,7 @@ type PinnedHttpResponse = {
 export type ReadWebPageDeps = {
   fetchImpl?: typeof fetch;
   duckDuckSearchImpl?: typeof duckDuckSearch;
+  duckDuckSearchTimeoutMs?: number;
   duckDuckGoHtmlTimeoutMs?: number;
   lookupImpl?: typeof lookup;
   requestPinnedImpl?: (params: {
@@ -256,7 +257,9 @@ const isPrivateIpv4 = (ip: string): boolean => {
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
-    (a === 100 && b >= 64 && b <= 127)
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
   );
 };
 
@@ -300,7 +303,16 @@ const isPrivateIpv6 = (ip: string): boolean => {
   const first = hextets[0] ?? 0;
   const uniqueLocal = (first & 0xfe00) === 0xfc00;
   const linkLocal = (first & 0xffc0) === 0xfe80;
-  return allZero || loopback || uniqueLocal || linkLocal;
+  const siteLocal = (first & 0xffc0) === 0xfec0;
+  const multicast = (first & 0xff00) === 0xff00;
+  return (
+    allZero ||
+    loopback ||
+    uniqueLocal ||
+    linkLocal ||
+    siteLocal ||
+    multicast
+  );
 };
 
 const mapDuckDuckGoHtmlSafeSearch = (
@@ -321,6 +333,26 @@ function createBodyTooLargeError(context: string): Error {
   return new Error(
     `${context} exceeded ${MAX_FETCHED_BODY_BYTES} bytes while buffering response content`,
   );
+}
+
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 async function readResponseTextCapped(
@@ -804,21 +836,26 @@ function parseJsonRpcPayload(rawBody: string): ParsedMcpPayload | null {
   try {
     return JSON.parse(trimmed) as ParsedMcpPayload;
   } catch {
-    const sseDataLine = trimmed
+  const ssePayloads = trimmed
       .split('\n')
       .map((line) => line.trim())
-      .find((line) => line.startsWith('data:'));
-    if (!sseDataLine) {
-      return null;
-    }
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice('data:'.length).trim())
+      .filter((line) => line.length > 0);
+  if (ssePayloads.length === 0) {
+    return null;
+  }
+
+  for (let index = ssePayloads.length - 1; index >= 0; index -= 1) {
     try {
-      return JSON.parse(
-        sseDataLine.slice('data:'.length).trim(),
-      ) as ParsedMcpPayload;
+      return JSON.parse(ssePayloads[index] ?? '') as ParsedMcpPayload;
     } catch {
-      return null;
+      continue;
     }
   }
+
+  return null;
+}
 }
 
 async function callRemoteMcp(params: {
@@ -972,7 +1009,9 @@ async function renderWithPlaywright(params: {
         (a === 169 && b === 254) ||
         (a === 172 && b >= 16 && b <= 31) ||
         (a === 192 && b === 168) ||
-        (a === 100 && b >= 64 && b <= 127)
+        (a === 100 && b >= 64 && b <= 127) ||
+        (a === 198 && (b === 18 || b === 19)) ||
+        a >= 224
       );
     };
     const isPrivateIpv6 = (ip) => {
@@ -1015,7 +1054,16 @@ async function renderWithPlaywright(params: {
       const first = hextets[0] ?? 0;
       const uniqueLocal = (first & 0xfe00) === 0xfc00;
       const linkLocal = (first & 0xffc0) === 0xfe80;
-      return allZero || loopback || uniqueLocal || linkLocal;
+      const siteLocal = (first & 0xffc0) === 0xfec0;
+      const multicast = (first & 0xff00) === 0xff00;
+      return (
+        allZero ||
+        loopback ||
+        uniqueLocal ||
+        linkLocal ||
+        siteLocal ||
+        multicast
+      );
     };
     const assertSafeBrowserUrl = async (value) => {
       const parsed = new URL(value);
@@ -1218,13 +1266,16 @@ export async function webSearch(
     10,
   );
   try {
-    const searchResult = await (deps.duckDuckSearchImpl ?? duckDuckSearch)(
-      params.query,
-      {
+    const searchResult = await withTimeout(
+      (deps.duckDuckSearchImpl ?? duckDuckSearch)(params.query, {
         safeSearch: mapSafeSearch(params.safeSearch),
         region: params.region ?? 'wt-wt',
         locale: params.locale ?? 'en-us',
-      },
+      }),
+      deps.duckDuckSearchTimeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
+      `DuckDuckGo search timed out after ${
+        deps.duckDuckSearchTimeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS
+      }ms`,
     );
 
     const results = searchResult.results.slice(0, maxResults).map((entry) => ({

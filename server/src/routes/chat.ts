@@ -60,6 +60,7 @@ import {
   resolveMergedAndValidatedRuntimeConfig,
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
+import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
@@ -157,6 +158,7 @@ async function resolvePinnedOpenAiCompatEndpoint(params: {
   provider: ChatDefaultProvider;
   codexHome?: string;
   copilotHome?: string;
+  env?: NodeJS.ProcessEnv;
 }): Promise<{
   endpoint?: OpenAiCompatEndpointConfig;
 }> {
@@ -173,8 +175,25 @@ async function resolvePinnedOpenAiCompatEndpoint(params: {
     runtimeConfigPath: chatConfigPath,
     runtimeConfigRequired: false,
   });
+  const endpoint = resolved.appMetadata?.codeinfoOpenAiEndpoint;
+  if (!endpoint) {
+    return {};
+  }
+  const envEndpoint = resolveExternalOpenAiCompatEndpoints({
+    env: params.env ?? process.env,
+  }).endpoints.find((entry) => entry.endpointId === endpoint.endpointId);
   return {
-    endpoint: resolved.appMetadata?.codeinfoOpenAiEndpoint,
+    endpoint: envEndpoint
+      ? {
+          ...endpoint,
+          capabilities: envEndpoint.capabilities,
+          displayLabel: envEndpoint.displayLabel ?? endpoint.displayLabel,
+          authLookupKey: envEndpoint.authLookupKey ?? endpoint.authLookupKey,
+          supportsBuiltInWebSearch:
+            envEndpoint.supportsBuiltInWebSearch ??
+            endpoint.supportsBuiltInWebSearch,
+        }
+      : endpoint,
   };
 }
 
@@ -716,6 +735,7 @@ export function createChatRouter({
         provider: effectiveRequestedProvider,
         codexHome,
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        env: process.env,
       });
     } catch (error) {
       const message =

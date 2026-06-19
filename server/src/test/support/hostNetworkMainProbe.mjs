@@ -209,6 +209,8 @@ const defaultMixedShapeRuntimeBridgeProbe = async ({
 
 export const resolveMainStackProbeEndpoints = (env = process.env) => {
   const host = resolveMainStackProbeHost(env);
+  const webMcpHost =
+    trimToUndefined(env.CODEINFO_MAIN_STACK_WEB_MCP_HOST) ?? '127.0.0.1';
 
   return {
     classicMcp: {
@@ -233,7 +235,7 @@ export const resolveMainStackProbeEndpoints = (env = process.env) => {
       label: 'webMcp',
       url:
         trimToUndefined(env.CODEINFO_MAIN_STACK_WEB_MCP_URL) ??
-        buildHttpUrl(host, DEFAULT_WEB_MCP_PORT, '/'),
+        buildHttpUrl(webMcpHost, DEFAULT_WEB_MCP_PORT, '/'),
     },
     playwrightMcp: {
       label: 'playwrightMcp',

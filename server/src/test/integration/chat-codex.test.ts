@@ -2374,6 +2374,105 @@ test('repository-backed codex chat preserves config-owned live web search for Un
   }
 });
 
+test('repository-backed codex chat preserves config-owned live web search for pinned Unsloth endpoints', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story59-manual-proof/unsloth-pinned-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const previousCompatEndpointKeys =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+
+  try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['google/gemma-4-27b-it'],
+    });
+    await fs.writeFile(
+      path.join(String(tempCodexHomeForTest), 'chat', 'config.toml'),
+      [
+        'model = "google/gemma-4-27b-it"',
+        'web_search_mode = "live"',
+        `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|responses"`,
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      'sparkunsloth,sk-unsloth-test';
+
+    const mockCodex = new MockCodex('thread-repo-unsloth-pinned-config-search');
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: dummyClientFactory,
+        codexFactory: () => mockCodex,
+        copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+        listIngestedRepositoriesFn: async () =>
+          ({
+            repos: [{ containerPath: workingRepo }],
+            lockedModelId: null,
+          }) as never,
+      }),
+    );
+
+    const conversationId = 'conv-chat-repo-unsloth-pinned-config-live-search';
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        provider: 'codex',
+        conversationId,
+        message: 'Search the web and reply briefly.',
+        working_folder: workingRepo,
+      })
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'google/gemma-4-27b-it');
+    assert.equal(mockCodex.lastStartOptions?.model, undefined);
+    assert.equal(mockCodex.lastStartOptions?.webSearchMode, 'live');
+  } finally {
+    await externalServer?.stop();
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    if (previousCompatEndpointKeys === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+        previousCompatEndpointKeys;
+    }
+  }
+});
+
 test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
   setCodexDetection({
     available: true,

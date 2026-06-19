@@ -76,6 +76,31 @@ test('web MCP tools/list returns the dedicated web tool definitions', async () =
       String(readWebPageTool.inputSchema.properties.url.description),
       /Embedded credentials are not allowed/u,
     );
+    assert.match(
+      String(readWebPageTool.inputSchema.properties.mode.description),
+      /IP-literal URL/u,
+    );
+  } finally {
+    await close(server);
+  }
+});
+
+test('shared MCP router rejects invalid object-shaped JSON-RPC ids', async () => {
+  const server = http.createServer(handleWebRpc);
+  const port = await listen(server);
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: { nested: true },
+      method: 'tools/list',
+    });
+
+    assert.equal(body.id, null);
+    assert.deepEqual(body.error, {
+      code: -32600,
+      message: 'Invalid Request',
+    });
   } finally {
     await close(server);
   }

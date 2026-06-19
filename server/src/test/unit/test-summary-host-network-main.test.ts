@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   createMainStackProbeMarkerContext,
   probeMainStackEndpoints,
+  resolveMainStackProbeEndpoints,
   renderMainStackProbeReport,
 } from '../support/hostNetworkMainProbe.mjs';
 import type { MainStackProbeEndpoint } from '../support/hostNetworkMainProbe.mjs';
@@ -135,4 +136,13 @@ test('main-stack host-network probe accepts event-stream style initialize respon
 
   assert.equal(result.result, 'passed');
   assert.equal(result.endpoints.playwrightMcp.reachable, true);
+});
+
+test('main-stack host-network probe defaults the web MCP endpoint to loopback', () => {
+  const endpoints = resolveMainStackProbeEndpoints({
+    CODEINFO_TEST_RUNNING_IN_CONTAINER: '1',
+  });
+
+  assert.equal(endpoints.chatMcp.url, 'http://host.docker.internal:5011/');
+  assert.equal(endpoints.webMcp.url, 'http://127.0.0.1:5013/');
 });

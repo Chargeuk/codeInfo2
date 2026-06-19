@@ -120,7 +120,17 @@ async function readBody(req: IncomingMessage): Promise<string> {
 
 function isValidRequest(message: unknown): message is JsonRpcRequestLike {
   if (!isObject(message)) return false;
-  return message.jsonrpc === '2.0' && typeof message.method === 'string';
+  const id = message.id;
+  const hasValidId =
+    id === undefined ||
+    id === null ||
+    typeof id === 'string' ||
+    typeof id === 'number';
+  return (
+    message.jsonrpc === '2.0' &&
+    typeof message.method === 'string' &&
+    hasValidId
+  );
 }
 
 export function createMcpRouter(options: CreateMcpRouterOptions) {
@@ -171,7 +181,11 @@ export function createMcpRouter(options: CreateMcpRouterOptions) {
       return;
     }
 
-    const id: JsonRpcId = (message as { id?: JsonRpcId } | null)?.id ?? null;
+    const rawId = (message as { id?: unknown } | null)?.id;
+    const id: JsonRpcId =
+      rawId === null || typeof rawId === 'string' || typeof rawId === 'number'
+        ? rawId
+        : null;
 
     if (isValidRequest(message) && message.method === 'tools/call') {
       keepAlive.start();

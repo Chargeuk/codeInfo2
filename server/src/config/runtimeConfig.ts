@@ -1,6 +1,7 @@
 import fsSync, { constants as fsConstants } from 'node:fs';
-import fs from 'node:fs/promises';
+import fs, { type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
@@ -390,6 +391,35 @@ function buildChatConfigTempPath(chatConfigPath: string): string {
   return `${chatConfigPath}.${process.pid}.${Date.now()}.${Math.random()
     .toString(16)
     .slice(2)}.tmp`;
+}
+
+const CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 25;
+const CHAT_CONFIG_LOCK_MAX_RETRIES = 20;
+
+async function acquireChatConfigLock(chatConfigPath: string): Promise<() => Promise<void>> {
+  const lockPath = `${chatConfigPath}.codeinfo.lock`;
+
+  for (let attempt = 0; attempt < CHAT_CONFIG_LOCK_MAX_RETRIES; attempt += 1) {
+    let handle: FileHandle | undefined;
+    try {
+      handle = await fs.open(lockPath, 'wx');
+      return async () => {
+        await handle?.close().catch(() => {});
+        await fs.rm(lockPath, { force: true }).catch(() => {});
+      };
+    } catch (error) {
+      await handle?.close().catch(() => {});
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw error;
+      }
+      await delay(CHAT_CONFIG_LOCK_RETRY_DELAY_MS);
+    }
+  }
+
+  throw Object.assign(
+    new Error(`Timed out acquiring chat config lock for ${chatConfigPath}`),
+    { code: 'LOCK_TIMEOUT' },
+  );
 }
 
 async function commitTempFileIfMissing(
@@ -1409,64 +1439,67 @@ async function maybeAugmentExistingProviderChatConfig(params: {
     return { outcome: 'noop' };
   }
 
-  let rawConfig: string;
+  let releaseLock: (() => Promise<void>) | undefined;
   try {
-    rawConfig = await fs.readFile(params.chatConfigPath, 'utf8');
-  } catch {
-    return { outcome: 'noop' };
-  }
+    releaseLock = await acquireChatConfigLock(params.chatConfigPath);
 
-  let currentConfig: RuntimeTomlConfig;
-  try {
-    currentConfig = parseTomlOrThrow(rawConfig, params.chatConfigPath);
-  } catch {
-    return { outcome: 'noop' };
-  }
+    let rawConfig: string;
+    try {
+      rawConfig = await fs.readFile(params.chatConfigPath, 'utf8');
+    } catch {
+      return { outcome: 'noop' };
+    }
 
-  let templateConfig: RuntimeTomlConfig;
-  try {
-    templateConfig = parseTomlOrThrow(
-      CHAT_CONFIG_TEMPLATES[params.provider],
-      `CHAT_CONFIG_TEMPLATES.${params.provider}`,
+    let currentConfig: RuntimeTomlConfig;
+    try {
+      currentConfig = parseTomlOrThrow(rawConfig, params.chatConfigPath);
+    } catch {
+      return { outcome: 'noop' };
+    }
+
+    let templateConfig: RuntimeTomlConfig;
+    try {
+      templateConfig = parseTomlOrThrow(
+        CHAT_CONFIG_TEMPLATES[params.provider],
+        `CHAT_CONFIG_TEMPLATES.${params.provider}`,
+      );
+    } catch (error) {
+      return {
+        outcome: 'failed',
+        warning:
+          error instanceof Error
+            ? error.message
+            : 'Failed to parse provider chat config template',
+      };
+    }
+
+    const currentMcpServers = isRecord(currentConfig.mcp_servers)
+      ? currentConfig.mcp_servers
+      : undefined;
+    const missingReservedNames = reservedNames.filter(
+      (name) => !isRecord(currentMcpServers?.[name]),
     );
-  } catch (error) {
-    return {
-      outcome: 'failed',
-      warning:
-        error instanceof Error
-          ? error.message
-          : 'Failed to parse provider chat config template',
-    };
-  }
+    if (missingReservedNames.length === 0) {
+      return { outcome: 'noop' };
+    }
 
-  const currentMcpServers = isRecord(currentConfig.mcp_servers)
-    ? currentConfig.mcp_servers
-    : undefined;
-  const missingReservedNames = reservedNames.filter(
-    (name) => !isRecord(currentMcpServers?.[name]),
-  );
-  if (missingReservedNames.length === 0) {
-    return { outcome: 'noop' };
-  }
+    const currentWithoutReserved = stripReservedProviderChatMcpServers(
+      currentConfig,
+      params.provider,
+    );
+    const templateWithoutReserved = stripReservedProviderChatMcpServers(
+      templateConfig,
+      params.provider,
+    );
+    if (!isDeepStrictEqual(currentWithoutReserved, templateWithoutReserved)) {
+      return { outcome: 'noop' };
+    }
 
-  const currentWithoutReserved = stripReservedProviderChatMcpServers(
-    currentConfig,
-    params.provider,
-  );
-  const templateWithoutReserved = stripReservedProviderChatMcpServers(
-    templateConfig,
-    params.provider,
-  );
-  if (!isDeepStrictEqual(currentWithoutReserved, templateWithoutReserved)) {
-    return { outcome: 'noop' };
-  }
-
-  const nextRawConfig = appendTomlBlocks(
-    rawConfig,
-    missingReservedNames.map((name) => reservedBlocks[name]),
-  );
-  const tempPath = buildChatConfigTempPath(params.chatConfigPath);
-  try {
+    const nextRawConfig = appendTomlBlocks(
+      rawConfig,
+      missingReservedNames.map((name) => reservedBlocks[name]),
+    );
+    const tempPath = buildChatConfigTempPath(params.chatConfigPath);
     try {
       await fs.writeFile(tempPath, nextRawConfig, {
         encoding: 'utf8',
@@ -1492,9 +1525,11 @@ async function maybeAugmentExistingProviderChatConfig(params: {
             : 'Failed to augment existing chat config with reserved MCP blocks',
         warningCode: (error as { code?: string }).code,
       };
+    } finally {
+      await cleanupPartialChatConfig(tempPath);
     }
   } finally {
-    await cleanupPartialChatConfig(tempPath);
+    await releaseLock?.();
   }
 }
 

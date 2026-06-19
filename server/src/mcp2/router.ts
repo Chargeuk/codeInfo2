@@ -48,19 +48,6 @@ export const handleRpc = createMcpRouter({
     });
   },
   onToolError: ({ name, requestIdText, error }) => {
-    try {
-      console.error('mcp2_tools_call_error', {
-        tool: name,
-        err: JSON.stringify(error, Object.getOwnPropertyNames(error), 2),
-      });
-    } catch (stringifyError) {
-      console.error('mcp2_tools_call_error_cant_stringify', {
-        tool: name,
-        stringifyError: String(stringifyError),
-      });
-      console.error('mcp2_tools_call_error_raw', error);
-    }
-
     if (name === REINGEST_REPOSITORY_TOOL_NAME) {
       if (error instanceof InvalidParamsError) {
         append({

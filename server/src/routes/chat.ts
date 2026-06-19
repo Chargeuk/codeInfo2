@@ -768,7 +768,7 @@ export function createChatRouter({
                   typeof model.endpointId === 'string' &&
                   model.endpointId.trim().length > 0,
               )
-              .map((model) => model.endpointId as string),
+              .map((model) => model.endpointId?.trim() ?? ''),
           ),
         );
         if (matchingEndpointIds.length === 1) {

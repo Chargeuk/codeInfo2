@@ -4,7 +4,7 @@ import https from 'node:https';
 import type { LookupFunction } from 'node:net';
 import { isIP } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Readability, isProbablyReaderable } from '@mozilla/readability';
+import { Readability } from '@mozilla/readability';
 import * as cheerio from 'cheerio';
 import {
   SafeSearchType,
@@ -141,6 +141,7 @@ type ResolvedRemoteAddress = {
 type SafeRemoteTarget = {
   url: URL;
   normalizedHostname: string;
+  hostIpVersion: 0 | 4 | 6;
   pinnedAddresses: ResolvedRemoteAddress[];
 };
 
@@ -201,6 +202,46 @@ const normalizeIpHostLiteral = (value: string): string =>
     ? value.slice(1, -1)
     : value;
 
+const parseIpv6Hextets = (value: string): number[] | null => {
+  const normalized = normalizeIpHostLiteral(value).toLowerCase();
+  const parts = normalized.split('::');
+  if (parts.length > 2) {
+    return null;
+  }
+
+  const parseSection = (section: string): number[] | null => {
+    if (!section) {
+      return [];
+    }
+
+    const entries = section.split(':');
+    const values: number[] = [];
+    for (const entry of entries) {
+      if (!/^[0-9a-f]{1,4}$/u.test(entry)) {
+        return null;
+      }
+      values.push(Number.parseInt(entry, 16));
+    }
+    return values;
+  };
+
+  const left = parseSection(parts[0] ?? '');
+  const right = parseSection(parts[1] ?? '');
+  if (!left || !right) {
+    return null;
+  }
+
+  if (parts.length === 1) {
+    return left.length === 8 ? left : null;
+  }
+
+  const missing = 8 - (left.length + right.length);
+  if (missing < 1) {
+    return null;
+  }
+  return [...left, ...new Array<number>(missing).fill(0), ...right];
+};
+
 const isPrivateIpv4 = (ip: string): boolean => {
   const parts = ip.split('.').map((part) => Number.parseInt(part, 10));
   if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
@@ -249,14 +290,31 @@ const isPrivateIpv6 = (ip: string): boolean => {
       }
     }
   }
-  return (
-    normalized === '::' ||
-    normalized === '0:0:0:0:0:0:0:0' ||
-    normalized === '::1' ||
-    normalized.startsWith('fc') ||
-    normalized.startsWith('fd') ||
-    normalized.startsWith('fe80:')
-  );
+  const hextets = parseIpv6Hextets(normalized);
+  if (!hextets) {
+    return false;
+  }
+  const allZero = hextets.every((entry) => entry === 0);
+  const loopback =
+    hextets.slice(0, 7).every((entry) => entry === 0) && hextets[7] === 1;
+  const first = hextets[0] ?? 0;
+  const uniqueLocal = (first & 0xfe00) === 0xfc00;
+  const linkLocal = (first & 0xffc0) === 0xfe80;
+  return allZero || loopback || uniqueLocal || linkLocal;
+};
+
+const mapDuckDuckGoHtmlSafeSearch = (
+  value: WebSearchParams['safeSearch'],
+): string => {
+  switch (value) {
+    case 'strict':
+      return '1';
+    case 'off':
+      return '-2';
+    case 'moderate':
+    default:
+      return '-1';
+  }
 };
 
 function createBodyTooLargeError(context: string): Error {
@@ -479,6 +537,7 @@ async function assertSafeRemoteUrl(
   return {
     url: parsed,
     normalizedHostname,
+    hostIpVersion: hostIpVersion as 0 | 4 | 6,
     pinnedAddresses,
   };
 }
@@ -656,14 +715,13 @@ function extractFromHtml(params: {
     const readabilityCandidate = params.extractReadableContent
       ? new Readability(readabilityDom.window.document).parse()
       : null;
-    const readerable = params.extractReadableContent
-      ? isProbablyReaderable(metadataDom.window.document)
-      : false;
 
     const bodyText = normalizeWhitespace($('body').text());
-    const selectedText = normalizeWhitespace(
-      readabilityCandidate?.textContent ?? bodyText,
+    const readabilityText = normalizeWhitespace(
+      readabilityCandidate?.textContent ?? '',
     );
+    const usedReadability = readabilityText.length > 0;
+    const selectedText = usedReadability ? readabilityText : bodyText;
     const excerpt = normalizeWhitespace(
       readabilityCandidate?.excerpt ?? selectedText.slice(0, 280),
     );
@@ -694,7 +752,7 @@ function extractFromHtml(params: {
       url: params.url,
       finalUrl: params.url,
       modeUsed: params.modeUsed,
-      readabilityApplied: Boolean(readabilityCandidate) && readerable,
+      readabilityApplied: usedReadability,
       text: truncated.text,
       excerpt: excerpt || undefined,
       ...(metadata ? { metadata } : {}),
@@ -851,18 +909,56 @@ async function renderWithPlaywright(params: {
   fetchImpl: typeof fetch;
   resolvePlaywrightMcpUrl: () => string | null;
 }): Promise<PlaywrightRenderPayload> {
+  const parsedUrl = new URL(params.url);
+  if (isIP(normalizeIpHostLiteral(parsedUrl.hostname)) === 0) {
+    throw new Error(
+      'Playwright fallback requires an IP-literal URL to avoid DNS rebinding',
+    );
+  }
   const playwrightMcpUrl = params.resolvePlaywrightMcpUrl();
   if (!playwrightMcpUrl) {
     throw new Error('Playwright MCP URL is not configured');
   }
 
-  const requestTimeout = Math.max(params.timeoutMs, DEFAULT_PLAYWRIGHT_TIMEOUT_MS);
+  const requestTimeout = params.timeoutMs;
   const code = `async (page) => {
-    const { lookup } = await import('node:dns/promises');
     const { isIP } = await import('node:net');
-    const hostnameResolutionCache = new Map();
     const normalizeIpHostLiteral = (value) =>
       value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
+    const parseIpv6Hextets = (value) => {
+      const normalized = normalizeIpHostLiteral(value).toLowerCase();
+      const parts = normalized.split('::');
+      if (parts.length > 2) {
+        return null;
+      }
+      const parseSection = (section) => {
+        if (!section) {
+          return [];
+        }
+        const entries = section.split(':');
+        const values = [];
+        for (const entry of entries) {
+          if (!/^[0-9a-f]{1,4}$/.test(entry)) {
+            return null;
+          }
+          values.push(Number.parseInt(entry, 16));
+        }
+        return values;
+      };
+      const left = parseSection(parts[0] ?? '');
+      const right = parseSection(parts[1] ?? '');
+      if (!left || !right) {
+        return null;
+      }
+      if (parts.length === 1) {
+        return left.length === 8 ? left : null;
+      }
+      const missing = 8 - (left.length + right.length);
+      if (missing < 1) {
+        return null;
+      }
+      return [...left, ...new Array(missing).fill(0), ...right];
+    };
     const isPrivateIpv4 = (ip) => {
       const parts = ip.split('.').map((part) => Number.parseInt(part, 10));
       if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
@@ -909,14 +1005,17 @@ async function renderWithPlaywright(params: {
           }
         }
       }
-      return (
-        normalized === '::' ||
-        normalized === '0:0:0:0:0:0:0:0' ||
-        normalized === '::1' ||
-        normalized.startsWith('fc') ||
-        normalized.startsWith('fd') ||
-        normalized.startsWith('fe80:')
-      );
+      const hextets = parseIpv6Hextets(normalized);
+      if (!hextets) {
+        return false;
+      }
+      const allZero = hextets.every((entry) => entry === 0);
+      const loopback =
+        hextets.slice(0, 7).every((entry) => entry === 0) && hextets[7] === 1;
+      const first = hextets[0] ?? 0;
+      const uniqueLocal = (first & 0xfe00) === 0xfc00;
+      const linkLocal = (first & 0xffc0) === 0xfe80;
+      return allZero || loopback || uniqueLocal || linkLocal;
     };
     const assertSafeBrowserUrl = async (value) => {
       const parsed = new URL(value);
@@ -935,42 +1034,17 @@ async function renderWithPlaywright(params: {
       ) {
         throw new Error('Blocked local hostname: ' + parsed.hostname);
       }
+      const hostIpVersion = isIP(normalizedHostname);
+      if (hostIpVersion === 0) {
+        throw new Error(
+          'Blocked non-IP hostname in Playwright fallback: ' + parsed.hostname
+        );
+      }
       if (
-        isPrivateIpv4(normalizedHostname) ||
-        isPrivateIpv6(normalizedHostname)
+        (hostIpVersion === 4 && isPrivateIpv4(normalizedHostname)) ||
+        (hostIpVersion === 6 && isPrivateIpv6(normalizedHostname))
       ) {
         throw new Error('Blocked private IP address: ' + parsed.hostname);
-      }
-      if (isIP(normalizedHostname) === 0) {
-        const addresses = await lookup(normalizedHostname, {
-          all: true,
-          verbatim: true,
-        });
-        if (!Array.isArray(addresses) || addresses.length === 0) {
-          throw new Error('Unable to resolve host: ' + parsed.hostname);
-        }
-        for (const address of addresses) {
-          if (
-            (address.family === 4 && isPrivateIpv4(address.address)) ||
-            (address.family === 6 && isPrivateIpv6(address.address))
-          ) {
-            throw new Error(
-              'Blocked private host resolution for ' + parsed.hostname
-            );
-          }
-        }
-        const resolutionSignature = addresses
-          .map((address) => address.family + ':' + address.address)
-          .sort()
-          .join(',');
-        const previousResolution = hostnameResolutionCache.get(normalizedHostname);
-        if (
-          typeof previousResolution === 'string' &&
-          previousResolution !== resolutionSignature
-        ) {
-          throw new Error('Blocked DNS rebinding for ' + parsed.hostname);
-        }
-        hostnameResolutionCache.set(normalizedHostname, resolutionSignature);
       }
     };
     let blockedNavigationError = null;
@@ -1048,6 +1122,7 @@ async function renderWithPlaywright(params: {
 async function searchDuckDuckGoHtml(params: {
   query: string;
   maxResults: number;
+  safeSearch?: WebSearchParams['safeSearch'];
   region?: string;
   locale?: string;
   timeoutMs: number;
@@ -1061,6 +1136,7 @@ async function searchDuckDuckGoHtml(params: {
   if (params.locale) {
     url.searchParams.set('locale', params.locale);
   }
+  url.searchParams.set('kp', mapDuckDuckGoHtmlSafeSearch(params.safeSearch));
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), params.timeoutMs);
@@ -1173,6 +1249,7 @@ export async function webSearch(
     const fallback = await searchDuckDuckGoHtml({
       query: params.query,
       maxResults,
+      safeSearch: params.safeSearch,
       region: params.region ?? 'wt-wt',
       locale: params.locale ?? 'en-us',
       timeoutMs: deps.duckDuckGoHtmlTimeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
@@ -1200,10 +1277,7 @@ export async function readWebPage(
   const requestedMode = params.mode ?? 'auto';
   const extractReadableContent = params.extractReadableContent ?? true;
   const maxChars = params.maxChars ?? DEFAULT_MAX_CHARS;
-  const httpTimeoutMs = Math.min(
-    params.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
-    DEFAULT_PLAYWRIGHT_TIMEOUT_MS,
-  );
+  const httpTimeoutMs = params.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS;
 
   const validatedUrl = await assertSafeRemoteUrl(params.url, lookupImpl);
 

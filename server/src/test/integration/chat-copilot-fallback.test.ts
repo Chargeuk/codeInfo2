@@ -399,6 +399,60 @@ test('explicit Copilot chat requests infer the external endpoint from the select
   }
 });
 
+test('explicit Copilot chat requests normalize inferred external endpoint ids before selection', async () => {
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+  let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
+
+  try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['endpoint-copilot-model'],
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `  ${externalServer.baseUrl}/v1  |completions`;
+
+    server = await startCopilotChatServer({
+      scenario: {
+        name: 'copilot-chat-endpoint-only-inferred-endpoint-trimmed',
+        authStatus: {
+          isAuthenticated: false,
+          authType: 'user',
+          statusMessage: 'login required',
+        },
+        models: [],
+      },
+    });
+
+    const conversationId = 'copilot-endpoint-only-inferred-endpoint-trimmed';
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      model: 'endpoint-copilot-model',
+      conversationId,
+      message: 'Infer the external endpoint from the selected model',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.body.model, 'endpoint-copilot-model');
+    assert.equal(
+      server.harness.getState().lastCreateSessionConfig?.provider?.type,
+      'openai',
+    );
+  } finally {
+    await server?.stop();
+    await externalServer?.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+  }
+});
+
 test('explicit Copilot chat requests fail closed when connectivity is unavailable even if the selected endpoint is healthy', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['endpoint-copilot-model'],

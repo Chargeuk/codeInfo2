@@ -1,5 +1,6 @@
 import http from 'http';
 import { CODEINFO_WEB_MCP_PORT } from '../config.js';
+import { append } from '../logStore.js';
 import { handleWebRpc } from './router.js';
 
 let server: http.Server | undefined;
@@ -9,15 +10,44 @@ export function startWebMcpServer() {
   if (server) {
     return server;
   }
-  server = http.createServer(handleWebRpc);
-  server.on('close', () => {
+  const nextServer = http.createServer(handleWebRpc);
+  const handleStartupError = (error: Error) => {
+    append({
+      level: 'error',
+      source: 'server',
+      timestamp: new Date().toISOString(),
+      message: 'web_mcp_start_error',
+      context: {
+        error: error.stack ?? error.message,
+        port: CODEINFO_WEB_MCP_PORT,
+      },
+    });
+    if (server === nextServer) {
+      server = undefined;
+    }
+    stopPromise = null;
+  };
+
+  server = nextServer;
+  nextServer.once('error', handleStartupError);
+  nextServer.once('listening', () => {
+    nextServer.off('error', handleStartupError);
+  });
+  nextServer.on('close', () => {
     if (stopPromise) {
       stopPromise = null;
     }
     server = undefined;
   });
-  server.listen(CODEINFO_WEB_MCP_PORT);
-  return server;
+  try {
+    nextServer.listen(CODEINFO_WEB_MCP_PORT);
+  } catch (error) {
+    handleStartupError(
+      error instanceof Error ? error : new Error(String(error)),
+    );
+    throw error;
+  }
+  return nextServer;
 }
 
 export function stopWebMcpServer() {

@@ -60,7 +60,9 @@ export function readWebPageDefinition() {
         url: {
           type: 'string',
           format: 'uri',
-          description: 'The page URL to read.',
+          pattern: '^https?://',
+          description:
+            'The http or https page URL to read. Embedded credentials are not allowed.',
         },
         mode: {
           type: 'string',

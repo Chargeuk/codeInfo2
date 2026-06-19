@@ -1472,6 +1472,15 @@ async function maybeAugmentExistingProviderChatConfig(params: {
         encoding: 'utf8',
         flag: 'wx',
       });
+      const currentRawConfig = await fs.readFile(params.chatConfigPath, 'utf8');
+      if (currentRawConfig !== rawConfig) {
+        return {
+          outcome: 'failed',
+          warning:
+            'Chat config changed while augmenting reserved MCP blocks; leaving newer file untouched',
+          warningCode: 'CONFIG_CHANGED',
+        };
+      }
       await fs.rename(tempPath, params.chatConfigPath);
       return { outcome: 'augmented' };
     } catch (error) {

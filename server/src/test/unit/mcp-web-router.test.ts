@@ -65,6 +65,17 @@ test('web MCP tools/list returns the dedicated web tool definitions', async () =
       body.result.tools.map((entry: { name: string }) => entry.name).sort(),
       ['read_web_page', 'web_search'],
     );
+    const readWebPageTool = body.result.tools.find(
+      (entry: { name: string }) => entry.name === 'read_web_page',
+    );
+    assert.equal(
+      readWebPageTool.inputSchema.properties.url.pattern,
+      '^https?://',
+    );
+    assert.match(
+      String(readWebPageTool.inputSchema.properties.url.description),
+      /Embedded credentials are not allowed/u,
+    );
   } finally {
     await close(server);
   }

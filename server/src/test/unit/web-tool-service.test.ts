@@ -43,10 +43,12 @@ test('webSearch normalizes duck-duck-scrape results into CodeInfo payloads', asy
 });
 
 test('webSearch falls back to DuckDuckGo HTML scraping when duck-duck-scrape is blocked', async () => {
+  let fallbackUrl: URL | undefined;
   const result = await webSearch(
     {
       query: 'OpenAI latest news',
       maxResults: 2,
+      safeSearch: 'strict',
     },
     {
       duckDuckSearchImpl: async () => {
@@ -54,7 +56,9 @@ test('webSearch falls back to DuckDuckGo HTML scraping when duck-duck-scrape is 
           'DDG detected an anomaly in the request, you are likely making requests too quickly.',
         );
       },
-      fetchImpl: async () =>
+      fetchImpl: async (input) => {
+        fallbackUrl = new URL(String(input));
+        return (
         new Response(
           [
             '<html><body>',
@@ -70,7 +74,9 @@ test('webSearch falls back to DuckDuckGo HTML scraping when duck-duck-scrape is 
             status: 200,
             headers: { 'content-type': 'text/html; charset=utf-8' },
           },
-        ),
+        )
+        );
+      },
     },
   );
 
@@ -78,6 +84,7 @@ test('webSearch falls back to DuckDuckGo HTML scraping when duck-duck-scrape is 
   assert.equal(result.results[0]?.url, 'https://openai.com/news/');
   assert.equal(result.results[0]?.hostname, 'openai.com');
   assert.equal(result.results[0]?.snippet, 'Latest updates from OpenAI.');
+  assert.equal(fallbackUrl?.searchParams.get('kp'), '1');
 });
 
 test('webSearch aborts the DuckDuckGo HTML fallback when it exceeds the timeout', async () => {
@@ -145,8 +152,35 @@ test('readWebPage returns readable HTTP content when the first fetch is sufficie
   );
 
   assert.equal(result.modeUsed, 'http');
+  assert.equal(result.readabilityApplied, true);
   assert.match(result.text, /long enough article body/u);
   assert.equal(result.metadata?.title, 'Example article');
+});
+
+test('readWebPage reports readabilityApplied false when readable extraction is disabled', async () => {
+  const html = [
+    '<html lang="en">',
+    '<head><title>Simple page</title></head>',
+    '<body><main><p>Visible body text.</p></main></body>',
+    '</html>',
+  ].join('');
+
+  const result = await readWebPage(
+    {
+      url: 'https://93.184.216.34/simple',
+      extractReadableContent: false,
+    },
+    {
+      fetchImpl: async () =>
+        new Response(html, {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    },
+  );
+
+  assert.equal(result.readabilityApplied, false);
+  assert.match(result.text, /Visible body text/u);
 });
 
 test('readWebPage allows public 169.x IPv4 hosts outside the link-local range', async () => {
@@ -347,10 +381,12 @@ test('readWebPage sends Playwright code that blocks redirected private navigatio
   assert.match(forwardedCode, /page\.route\('\*\*\/\*'/u);
   assert.match(forwardedCode, /blockedNavigationError/u);
   assert.match(forwardedCode, /assertSafeBrowserUrl/u);
-  assert.match(forwardedCode, /hostnameResolutionCache/u);
-  assert.match(forwardedCode, /Blocked DNS rebinding/u);
+  assert.match(forwardedCode, /hostIpVersion === 0/u);
+  assert.match(forwardedCode, /Blocked non-IP hostname in Playwright fallback/u);
   assert.match(forwardedCode, /route\.request\(\)\.url\(\)/u);
   assert.doesNotMatch(forwardedCode, /isNavigationRequest/u);
+  assert.doesNotMatch(forwardedCode, /hostnameResolutionCache/u);
+  assert.doesNotMatch(forwardedCode, /lookup\(normalizedHostname/u);
 });
 
 test('readWebPage blocks private-network URLs before fetching', async () => {
@@ -393,6 +429,40 @@ test('readWebPage blocks IPv6 unspecified URLs before fetching', async () => {
       readWebPage(
         {
           url: 'http://[::]/private',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('fetch should not be called');
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
+});
+
+test('readWebPage blocks expanded IPv6 loopback URLs before fetching', async () => {
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'http://[0:0:0:0:0:0:0:1]/private',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('fetch should not be called');
+          },
+        },
+      ),
+    /Blocked private IP address/u,
+  );
+});
+
+test('readWebPage blocks IPv6 link-local hosts across the full fe80::/10 range', async () => {
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'http://[fe90::1]/private',
         },
         {
           fetchImpl: async () => {
@@ -514,5 +584,96 @@ test('readWebPage rejects oversized remote MCP payloads on the Playwright fallba
         },
       ),
     /Remote MCP response from http:\/\/playwright\.test\/mcp exceeded 2097152 bytes/u,
+  );
+});
+
+test('readWebPage forwards longer explicit HTTP timeouts without clamping them to the Playwright default', async () => {
+  let observedTimeoutMs: number | undefined;
+
+  const result = await readWebPage(
+    {
+      url: 'https://93.184.216.34/article',
+      mode: 'http',
+      timeoutMs: 60_000,
+    },
+    {
+      requestPinnedImpl: async ({ target, timeoutMs }) => {
+        observedTimeoutMs = timeoutMs;
+        return {
+          finalUrl: target.url.toString(),
+          html: '<html><body><main><p>Timeout preserved.</p></main></body></html>',
+          contentType: 'text/html; charset=utf-8',
+          httpStatus: 200,
+        };
+      },
+    },
+  );
+
+  assert.equal(observedTimeoutMs, 60_000);
+  assert.match(result.text, /Timeout preserved/u);
+});
+
+test('readWebPage Playwright mode honors shorter explicit timeouts in generated browser code', async () => {
+  let forwardedCode = '';
+
+  const result = await readWebPage(
+    {
+      url: 'https://93.184.216.34/react-page',
+      mode: 'playwright',
+      timeoutMs: 1_234,
+    },
+    {
+      fetchImpl: async (_input, init) => {
+        const payload = JSON.parse(String(init?.body)) as {
+          params?: { arguments?: { code?: string } };
+        };
+        forwardedCode = payload.params?.arguments?.code ?? '';
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'read-web-page-browser_run_code_unsafe',
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    finalUrl: 'https://93.184.216.34/rendered',
+                    html: '<html><body><main><article><p>Rendered text.</p></article></main></body></html>',
+                  }),
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        );
+      },
+      resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
+    },
+  );
+
+  assert.equal(result.modeUsed, 'playwright');
+  assert.match(forwardedCode, /timeout: 1234/u);
+  assert.match(forwardedCode, /waitForLoadState\('load', \{ timeout: 1234 \}\)/u);
+});
+
+test('readWebPage explicit Playwright mode rejects hostname URLs to avoid browser-path DNS rebinding', async () => {
+  await assert.rejects(
+    () =>
+      readWebPage(
+        {
+          url: 'https://example.com/react-page',
+          mode: 'playwright',
+        },
+        {
+          fetchImpl: async () => {
+            throw new Error('remote MCP should not be called');
+          },
+          resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
+        },
+      ),
+    /IP-literal URL/u,
   );
 });

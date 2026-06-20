@@ -102,6 +102,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     mainServer,
     /CODEINFO_PLAYWRIGHT_MCP_URL=http:\/\/host\.docker\.internal:8932\/mcp/u,
   );
+  assert.match(mainServer, /CODEINFO_WEB_MCP_PORT=5013/u);
   assert.match(
     mainServer,
     /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
@@ -116,6 +117,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012,5013/u);
   assert.match(
     mainServer,
     /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
@@ -171,6 +173,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/flows:\/app\/flows/u);
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
+  assert.match(localServer, /CODEINFO_WEB_MCP_PORT=5513/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(localServer, /\n\s+- HOME=\$\{HOME\}/u);
   assert.match(localServer, /\n\s+- TMP=\/tmp/u);
@@ -191,6 +194,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );
   assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
+  assert.match(localServer, /CODEINFO_RUNTIME_SERVER_PORTS=5510,5511,5512,5513/u);
 
   const localPlaywright = getServiceBlock(localCompose, 'playwright-mcp');
   assert.match(localPlaywright, /network_mode: host/u);
@@ -219,12 +223,14 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.match(e2eServer, /\.\/scripts:\/app\/scripts:ro/u);
   assert.match(e2eServer, /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u);
   assert.match(e2eServer, /CODEINFO_SERVER_PORT=6010/u);
+  assert.match(e2eServer, /CODEINFO_WEB_MCP_PORT=6013/u);
   assert.match(e2eServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(
     e2eServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,
   );
   assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=3/u);
+  assert.match(e2eServer, /CODEINFO_RUNTIME_SERVER_PORTS=6010,6011,6012,6013/u);
   assert.match(
     e2eServer,
     /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,

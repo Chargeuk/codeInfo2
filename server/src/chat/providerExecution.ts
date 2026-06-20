@@ -160,7 +160,8 @@ export async function prepareProviderExecution(params: {
   }
 
   const selectedEndpointId = params.selectedEndpointId?.trim() || undefined;
-  const configuredEndpoint = params.selectedEndpoint ?? requestedRuntimeResolution?.endpoint;
+  const configuredEndpoint =
+    params.selectedEndpoint ?? requestedRuntimeResolution?.endpoint;
   const effectiveEndpoint =
     selectedEndpointId &&
     (params.requestedProvider === 'codex' ||

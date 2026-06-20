@@ -41,6 +41,7 @@ import {
   updateMemoryConversationMeta,
   updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
+import { shouldForceUnslothBuiltInWebSearch } from '../chat/openAiCompatBuiltInWebSearch.js';
 import { resolveOpenAiCompatEndpointRuntimeState } from '../chat/openaiCompatModelDiscovery.js';
 import { buildRuntimeSelectionWarning } from '../chat/providerExecution.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
@@ -631,6 +632,8 @@ function enrichOpenAiCompatEndpointFromEnv(
     capabilities: envEndpoint.capabilities,
     displayLabel: envEndpoint.displayLabel ?? endpoint.displayLabel,
     authLookupKey: envEndpoint.authLookupKey ?? endpoint.authLookupKey,
+    supportsBuiltInWebSearch:
+      envEndpoint.supportsBuiltInWebSearch ?? endpoint.supportsBuiltInWebSearch,
   };
 }
 
@@ -2823,6 +2826,13 @@ export async function runAgentInstructionUnlocked(params: {
                     : undefined,
                 useConfigDefaults: true,
                 runtimeConfig: preparedExecution.runtimeConfig,
+                forceWebSearchModeWhenUsingConfigDefaults:
+                  shouldForceUnslothBuiltInWebSearch({
+                    endpoint: preparedExecution.openAiCompatEndpoint,
+                    runtimeConfig: preparedExecution.runtimeConfig,
+                  })
+                    ? 'live'
+                    : undefined,
                 workingDirectoryOverride:
                   preparedExecution.workingDirectoryOverride,
               }

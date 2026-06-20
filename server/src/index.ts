@@ -39,6 +39,7 @@ import {
   startAgentsMcpServer,
   stopAgentsMcpServer,
 } from './mcpAgents/server.js';
+import { startWebMcpServer, stopWebMcpServer } from './mcpWeb/server.js';
 import {
   connectMongo,
   disconnectMongo,
@@ -237,6 +238,7 @@ baseLogger.info(
     classicMcpUrl: mcpEndpoints.classicMcpUrl,
     chatMcpUrl: mcpEndpoints.chatMcpUrl,
     agentsMcpUrl: mcpEndpoints.agentsMcpUrl,
+    webMcpUrl: mcpEndpoints.webMcpUrl,
     playwrightMcpUrl: mcpEndpoints.playwrightMcpUrl,
     placeholderFree: mcpEndpoints.placeholderFree,
     mcpDockerUrl: `http://server:${CODEINFO_SERVER_PORT}/mcp`,
@@ -472,6 +474,7 @@ const start = async () => {
   void warmAstParserQueries();
   startMcp2Server();
   startAgentsMcpServer();
+  startWebMcpServer();
 };
 
 void start().catch((err) => {
@@ -496,6 +499,11 @@ const shutdown = async (signal: NodeJS.Signals) => {
     await stopAgentsMcpServer();
   } catch (err) {
     baseLogger.error({ err }, 'Failed to close Agents MCP server');
+  }
+  try {
+    await stopWebMcpServer();
+  } catch (err) {
+    baseLogger.error({ err }, 'Failed to close Web MCP server');
   }
   try {
     await wsServer?.close();

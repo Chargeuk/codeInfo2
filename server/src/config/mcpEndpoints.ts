@@ -8,6 +8,7 @@ const REQUIRED_ENDPOINT_PLACEHOLDERS = new Set([
   'CODEINFO_SERVER_PORT',
   'CODEINFO_CHAT_MCP_PORT',
   'CODEINFO_AGENTS_MCP_PORT',
+  'CODEINFO_WEB_MCP_PORT',
   'CODEINFO_PLAYWRIGHT_MCP_URL',
 ]);
 const DEV_0000050_T06_MCP_ENDPOINTS_NORMALIZED =
@@ -17,9 +18,11 @@ export type CodeinfoMcpEndpointContract = {
   serverPort: string;
   chatMcpPort: string;
   agentsMcpPort: string;
+  webMcpPort: string;
   classicMcpUrl: string;
   chatMcpUrl: string;
   agentsMcpUrl: string;
+  webMcpUrl: string;
   playwrightMcpUrl: string | null;
   placeholderFree: boolean;
 };
@@ -92,6 +95,18 @@ export function resolveCodeinfoAgentsMcpPort(
   );
 }
 
+export function resolveCodeinfoWebMcpPort(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return assertValidPortString(
+    'CODEINFO_WEB_MCP_PORT',
+    assertPlaceholderFreeValue({
+      label: 'CODEINFO_WEB_MCP_PORT',
+      value: readNonEmpty(env.CODEINFO_WEB_MCP_PORT) ?? '5013',
+    }),
+  );
+}
+
 export function resolveOptionalCodeinfoPlaywrightMcpUrl(
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
@@ -119,6 +134,8 @@ export function resolveRequiredCodeinfoPlaceholderValue(
       return resolveCodeinfoChatMcpPort(env);
     case 'CODEINFO_AGENTS_MCP_PORT':
       return resolveCodeinfoAgentsMcpPort(env);
+    case 'CODEINFO_WEB_MCP_PORT':
+      return resolveCodeinfoWebMcpPort(env);
     case 'CODEINFO_PLAYWRIGHT_MCP_URL': {
       const value = resolveOptionalCodeinfoPlaywrightMcpUrl(env);
       if (!value) {
@@ -150,20 +167,27 @@ export function resolveCodeinfoMcpEndpointContract(
     'CODEINFO_AGENTS_MCP_PORT',
     env,
   );
+  const webMcpPort = resolveRequiredCodeinfoPlaceholderValue(
+    'CODEINFO_WEB_MCP_PORT',
+    env,
+  );
   const playwrightMcpUrl = resolveOptionalCodeinfoPlaywrightMcpUrl(env) ?? null;
 
   const contract: CodeinfoMcpEndpointContract = {
     serverPort,
     chatMcpPort,
     agentsMcpPort,
+    webMcpPort,
     classicMcpUrl: buildLocalMcpUrl(serverPort),
     chatMcpUrl: buildLocalMcpUrl(chatMcpPort),
     agentsMcpUrl: buildLocalMcpUrl(agentsMcpPort),
+    webMcpUrl: buildLocalMcpUrl(webMcpPort),
     playwrightMcpUrl,
     placeholderFree:
       isPlaceholderFree(buildLocalMcpUrl(serverPort)) &&
       isPlaceholderFree(buildLocalMcpUrl(chatMcpPort)) &&
       isPlaceholderFree(buildLocalMcpUrl(agentsMcpPort)) &&
+      isPlaceholderFree(buildLocalMcpUrl(webMcpPort)) &&
       isPlaceholderFree(playwrightMcpUrl),
   };
 
@@ -179,6 +203,7 @@ export function resolveCodeinfoMcpEndpointContract(
         classicMcpUrl: contract.classicMcpUrl,
         chatMcpUrl: contract.chatMcpUrl,
         agentsMcpUrl: contract.agentsMcpUrl,
+        webMcpUrl: contract.webMcpUrl,
         playwrightMcpUrl: contract.playwrightMcpUrl,
         placeholderFree: contract.placeholderFree,
       },

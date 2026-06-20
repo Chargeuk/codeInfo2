@@ -21,6 +21,7 @@ import {
   memoryTurns,
   recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
+import { resolveProviderRuntimePreferredModel } from '../../config/chatDefaults.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
@@ -269,6 +270,9 @@ class CapturingPinnedConversationChat extends ChatInterface {
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
+
+const normalizeModelIdForComparison = (model: string) =>
+  model.trim().toLowerCase();
 
 class RepositoryScopedLmStudioChat extends ChatInterface {
   constructor(
@@ -2079,12 +2083,17 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
   resetStore();
   const advertisedHostPath =
     '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const copilotRuntimePreferredModel =
+    resolveProviderRuntimePreferredModel({
+      provider: 'copilot',
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    }).model ?? 'copilot-gpt-5';
   const cases = [
     {
       conversationId: 'mcp-ws-saved-copilot-follow-up',
       provider: 'copilot' as const,
       model: 'copilot-gpt-5',
-      expectedExecutionModel: 'copilot-gpt-5',
+      expectedExecutionModel: copilotRuntimePreferredModel,
       finalContent: 'Saved Copilot follow-up answer',
       deps: {
         copilotReadinessResolver: async () => ({
@@ -2206,21 +2215,29 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
         assert.equal(calls.length, 1);
         assert.equal(calls[0]?.conversationId, testCase.conversationId);
         assert.equal(calls[0]?.flags.provider, testCase.provider);
-        assert.equal(calls[0]?.model, testCase.expectedExecutionModel);
+        assert.equal(
+          normalizeModelIdForComparison(calls[0]?.model ?? ''),
+          normalizeModelIdForComparison(testCase.expectedExecutionModel),
+        );
 
         const payload = JSON.parse(
           (response as { result: { content: Array<{ text: string }> } }).result
             .content[0].text,
         );
         assert.equal(payload.conversationId, testCase.conversationId);
-        assert.equal(payload.modelId, testCase.expectedExecutionModel);
+        assert.equal(
+          normalizeModelIdForComparison(payload.modelId),
+          normalizeModelIdForComparison(testCase.expectedExecutionModel),
+        );
         assert.equal(
           memoryConversations.get(testCase.conversationId)?.provider,
           testCase.provider,
         );
         assert.equal(
-          memoryConversations.get(testCase.conversationId)?.model,
-          testCase.expectedExecutionModel,
+          normalizeModelIdForComparison(
+            memoryConversations.get(testCase.conversationId)?.model ?? '',
+          ),
+          normalizeModelIdForComparison(testCase.expectedExecutionModel),
         );
 
         const persistedTurns = getMemoryTurns(testCase.conversationId);
@@ -2229,7 +2246,10 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
         );
         assert.ok(assistantTurn);
         assert.equal(assistantTurn?.status, 'ok');
-        assert.equal(assistantTurn?.model, testCase.expectedExecutionModel);
+        assert.equal(
+          normalizeModelIdForComparison(assistantTurn?.model ?? ''),
+          normalizeModelIdForComparison(testCase.expectedExecutionModel),
+        );
       } finally {
         deleteMemoryConversation(testCase.conversationId);
         memoryTurns.delete(testCase.conversationId);

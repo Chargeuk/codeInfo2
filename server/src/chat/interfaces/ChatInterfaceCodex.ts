@@ -27,6 +27,7 @@ type CodexRunFlags = {
   envOverrides?: NodeJS.ProcessEnv;
   threadId?: string | null;
   codexFlags?: CodexExecutionFlags;
+  forceWebSearchModeWhenUsingConfigDefaults?: 'live';
   codexHome?: string;
   disableSystemContext?: boolean;
   systemPrompt?: string;
@@ -285,6 +286,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       workingDirectoryOverride,
       envOverrides,
       runtimeConfig,
+      forceWebSearchModeWhenUsingConfigDefaults,
     } = (flags ?? {}) as CodexRunFlags;
     const effectiveCodexFlags = codexFlags ?? {};
     const detection = codexHome
@@ -319,6 +321,9 @@ export class ChatInterfaceCodex extends ChatInterface {
       ? {
           workingDirectory: codexWorkingDirectory,
           skipGitRepoCheck: true,
+          ...(forceWebSearchModeWhenUsingConfigDefaults === 'live'
+            ? { webSearchMode: 'live' as const }
+            : {}),
         }
       : {
           model,

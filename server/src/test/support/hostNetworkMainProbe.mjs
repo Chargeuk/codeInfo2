@@ -9,6 +9,7 @@ import {
 const DEFAULT_CLASSIC_MCP_PORT = 5010;
 const DEFAULT_CHAT_MCP_PORT = 5011;
 const DEFAULT_AGENTS_MCP_PORT = 5012;
+const DEFAULT_WEB_MCP_PORT = 5013;
 const DEFAULT_PLAYWRIGHT_MCP_PORT = 8932;
 const DEFAULT_CHROMA_PORT = 8300;
 const MIXED_SHAPE_RUNTIME_BRIDGE_RELATIVE_PATH =
@@ -208,6 +209,8 @@ const defaultMixedShapeRuntimeBridgeProbe = async ({
 
 export const resolveMainStackProbeEndpoints = (env = process.env) => {
   const host = resolveMainStackProbeHost(env);
+  const webMcpHost =
+    trimToUndefined(env.CODEINFO_MAIN_STACK_WEB_MCP_HOST) ?? '127.0.0.1';
 
   return {
     classicMcp: {
@@ -228,6 +231,12 @@ export const resolveMainStackProbeEndpoints = (env = process.env) => {
         trimToUndefined(env.CODEINFO_MAIN_STACK_AGENTS_MCP_URL) ??
         buildHttpUrl(host, DEFAULT_AGENTS_MCP_PORT, '/'),
     },
+    webMcp: {
+      label: 'webMcp',
+      url:
+        trimToUndefined(env.CODEINFO_MAIN_STACK_WEB_MCP_URL) ??
+        buildHttpUrl(webMcpHost, DEFAULT_WEB_MCP_PORT, '/'),
+    },
     playwrightMcp: {
       label: 'playwrightMcp',
       url:
@@ -243,6 +252,7 @@ export const createMainStackProbeMarkerContext = (result) => ({
     : 'unreachable',
   chatMcp: result.endpoints.chatMcp.reachable ? 'reachable' : 'unreachable',
   agentsMcp: result.endpoints.agentsMcp.reachable ? 'reachable' : 'unreachable',
+  webMcp: result.endpoints.webMcp.reachable ? 'reachable' : 'unreachable',
   playwrightMcp: result.endpoints.playwrightMcp.reachable
     ? 'reachable'
     : 'unreachable',

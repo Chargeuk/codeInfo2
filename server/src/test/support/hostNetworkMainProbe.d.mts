@@ -7,6 +7,7 @@ export type MainStackProbeEndpoints = {
   classicMcp: MainStackProbeEndpoint;
   chatMcp: MainStackProbeEndpoint;
   agentsMcp: MainStackProbeEndpoint;
+  webMcp: MainStackProbeEndpoint;
   playwrightMcp: MainStackProbeEndpoint;
 };
 
@@ -23,6 +24,7 @@ export type MainStackProbeResult = {
     classicMcp: MainStackProbeEndpointResult;
     chatMcp: MainStackProbeEndpointResult;
     agentsMcp: MainStackProbeEndpointResult;
+    webMcp: MainStackProbeEndpointResult;
     playwrightMcp: MainStackProbeEndpointResult;
   };
   mixedShapeBridge: {
@@ -58,6 +60,7 @@ export function createMainStackProbeMarkerContext(
   classicMcp: 'reachable' | 'unreachable';
   chatMcp: 'reachable' | 'unreachable';
   agentsMcp: 'reachable' | 'unreachable';
+  webMcp: 'reachable' | 'unreachable';
   playwrightMcp: 'reachable' | 'unreachable';
   mixedShapeBridge: 'observed' | 'failed';
   result: 'passed' | 'failed';

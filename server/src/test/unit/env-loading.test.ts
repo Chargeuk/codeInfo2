@@ -172,6 +172,7 @@ test('runtime server env rename inventory is surfaced through startup env resolu
       'CODEINFO_CHROMA_URL=http://example:8000',
       'CODEINFO_CHAT_MCP_PORT=5511',
       'CODEINFO_AGENTS_MCP_PORT=5512',
+      'CODEINFO_WEB_MCP_PORT=5513',
       'CODEINFO_HOST_INGEST_DIR=/host/base',
       'CODEINFO_OPENAI_INGEST_MAX_RETRIES=8',
       'CODEINFO_INGEST_OPENAI_MAX_BATCH_SIZE=16',
@@ -195,6 +196,7 @@ test('runtime server env rename inventory is surfaced through startup env resolu
     'CODEINFO_CHROMA_URL',
     'CODEINFO_CHAT_MCP_PORT',
     'CODEINFO_AGENTS_MCP_PORT',
+    'CODEINFO_WEB_MCP_PORT',
     'CODEINFO_HOST_INGEST_DIR',
     'CODEINFO_OPENAI_INGEST_MAX_RETRIES',
     'CODEINFO_INGEST_OPENAI_MAX_BATCH_SIZE',
@@ -244,6 +246,34 @@ test('runtime startup env resolution also surfaces CODEINFO_CHAT_MCP_PORT when i
   assert.equal(
     resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_MCP_PORT')
       ?.source,
+    'server/.env',
+  );
+});
+
+test('runtime startup env resolution also surfaces CODEINFO_WEB_MCP_PORT when it is defined', () => {
+  const serverRoot = createServerRoot();
+  const targetEnv: Record<string, string | undefined> = {};
+
+  writeEnvFile(
+    serverRoot,
+    '.env',
+    ['CODEINFO_WEB_MCP_PORT=6513', ''].join('\n'),
+  );
+
+  const result = loadStartupEnv({ serverRoot, targetEnv });
+  const resolutions = resolveCodeinfoEnvResolutions({
+    env: targetEnv,
+    loadResult: result,
+  });
+
+  assert.equal(targetEnv.CODEINFO_WEB_MCP_PORT, '6513');
+  assert.equal(
+    resolutions.find((entry) => entry.name === 'CODEINFO_WEB_MCP_PORT')
+      ?.defined,
+    true,
+  );
+  assert.equal(
+    resolutions.find((entry) => entry.name === 'CODEINFO_WEB_MCP_PORT')?.source,
     'server/.env',
   );
 });

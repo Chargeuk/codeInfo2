@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   createMainStackProbeMarkerContext,
   probeMainStackEndpoints,
+  resolveMainStackProbeEndpoints,
   renderMainStackProbeReport,
 } from '../support/hostNetworkMainProbe.mjs';
 import type { MainStackProbeEndpoint } from '../support/hostNetworkMainProbe.mjs';
@@ -12,6 +13,7 @@ const createEndpoints = () => ({
   classicMcp: { label: 'classicMcp', url: 'http://host.test:5010/mcp' },
   chatMcp: { label: 'chatMcp', url: 'http://host.test:5011/' },
   agentsMcp: { label: 'agentsMcp', url: 'http://host.test:5012/' },
+  webMcp: { label: 'webMcp', url: 'http://host.test:5013/' },
   playwrightMcp: { label: 'playwrightMcp', url: 'http://host.test:8932/mcp' },
 });
 
@@ -44,6 +46,7 @@ test('main-stack host-network probe succeeds when all required listeners are rea
     classicMcp: 'reachable',
     chatMcp: 'reachable',
     agentsMcp: 'reachable',
+    webMcp: 'reachable',
     playwrightMcp: 'reachable',
     mixedShapeBridge: 'observed',
     result: 'passed',
@@ -133,4 +136,13 @@ test('main-stack host-network probe accepts event-stream style initialize respon
 
   assert.equal(result.result, 'passed');
   assert.equal(result.endpoints.playwrightMcp.reachable, true);
+});
+
+test('main-stack host-network probe defaults the web MCP endpoint to loopback', () => {
+  const endpoints = resolveMainStackProbeEndpoints({
+    CODEINFO_TEST_RUNNING_IN_CONTAINER: '1',
+  });
+
+  assert.equal(endpoints.chatMcp.url, 'http://host.docker.internal:5011/');
+  assert.equal(endpoints.webMcp.url, 'http://127.0.0.1:5013/');
 });

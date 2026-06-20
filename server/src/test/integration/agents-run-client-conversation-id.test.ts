@@ -3394,6 +3394,7 @@ test('direct Copilot agent runs carry the configured external endpoint through t
       capabilities: ['responses', 'completions'],
       displayLabel: 'OpenRouter',
       authLookupKey: 'openrouter',
+      supportsBuiltInWebSearch: false,
     });
   } finally {
     __resetAgentServiceDepsForTests();
@@ -3629,6 +3630,175 @@ test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is 
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
+test('direct codex agent runs preserve live web search for Unsloth endpoints', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousRuntimeCodexHome = process.env.CODEX_HOME;
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const previousCompatEndpointKeys =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+  let agentsHome: string | undefined;
+  let codexHome: string | undefined;
+
+  const capturedFlags: Array<Record<string, unknown>> = [];
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: true,
+        webSearchMode: 'live',
+      },
+      models: [
+        {
+          model: 'google/gemma-4-27b-it',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['google/gemma-4-27b-it'],
+    });
+
+    agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+    codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const endpointId = `${externalServer.baseUrl}/v1`;
+
+    await fs.mkdir(agentHome, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      [
+        'codeinfo_provider = "codex"',
+        'model = "google/gemma-4-27b-it"',
+        `codeinfo_openai_endpoint = "${endpointId}|responses"`,
+        'web_search_mode = "live"',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "google/gemma-4-27b-it"\n',
+      'utf8',
+    );
+
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+    process.env.CODEX_HOME = codexHome;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `SparkUnsloth,${endpointId}|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      'sparkunsloth,sk-unsloth-test';
+
+    const result = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Search the web and reply briefly.',
+      conversationId: 'codex-agent-unsloth-live-search',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          capturedFlags.push(flags);
+        }),
+    });
+
+    assert.equal(result.providerId, 'codex');
+    assert.equal(capturedFlags.length, 1);
+    assert.equal(capturedFlags[0]?.useConfigDefaults, true);
+    assert.equal(
+      capturedFlags[0]?.forceWebSearchModeWhenUsingConfigDefaults,
+      'live',
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    await externalServer?.stop();
+    memoryConversations.delete('codex-agent-unsloth-live-search');
+    memoryTurns.delete('codex-agent-unsloth-live-search');
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousRuntimeCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousRuntimeCodexHome;
+    }
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    if (previousCompatEndpointKeys === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+        previousCompatEndpointKeys;
+    }
+    if (agentsHome) {
+      await fs.rm(agentsHome, { recursive: true, force: true });
+    }
+    if (codexHome) {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
   }
 });
 

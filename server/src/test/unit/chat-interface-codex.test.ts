@@ -308,6 +308,51 @@ describe('ChatInterfaceCodex', () => {
     });
   });
 
+  it('preserves live web search when config defaults are used for an Unsloth-backed run', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    const captured: { start?: CodexThreadOptions } = {};
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-live-search' };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: 'ok' },
+      };
+      yield { type: 'turn.completed' };
+    };
+
+    const thread = {
+      id: 'tid-live-search',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const chat = new TestChatInterfaceCodex(() => ({
+      startThread: (opts?: CodexThreadOptions) => {
+        captured.start = opts;
+        return thread;
+      },
+      resumeThread: () => thread,
+    }));
+
+    await chat.run(
+      'Hello',
+      {
+        threadId: null,
+        useConfigDefaults: true,
+        forceWebSearchModeWhenUsingConfigDefaults: 'live',
+      },
+      'conv-live-search',
+      'gpt-5',
+    );
+
+    assert.equal(captured.start?.model, undefined);
+    assert.equal(captured.start?.webSearchMode, 'live');
+  });
+
   it('handles missing cached input tokens', async () => {
     resetMemory();
     setCodexDetection({

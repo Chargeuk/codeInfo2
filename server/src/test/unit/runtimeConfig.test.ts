@@ -54,6 +54,7 @@ const originalServerPort = process.env.CODEINFO_SERVER_PORT;
 const originalChatMcpPort = process.env.CODEINFO_CHAT_MCP_PORT;
 const originalLegacyMcpPort = process.env.CODEINFO_MCP_PORT;
 const originalAgentsMcpPort = process.env.CODEINFO_AGENTS_MCP_PORT;
+const originalWebMcpPort = process.env.CODEINFO_WEB_MCP_PORT;
 const originalPlaywrightMcpUrl = process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -87,6 +88,11 @@ afterEach(() => {
     delete process.env.CODEINFO_AGENTS_MCP_PORT;
   } else {
     process.env.CODEINFO_AGENTS_MCP_PORT = originalAgentsMcpPort;
+  }
+  if (originalWebMcpPort === undefined) {
+    delete process.env.CODEINFO_WEB_MCP_PORT;
+  } else {
+    process.env.CODEINFO_WEB_MCP_PORT = originalWebMcpPort;
   }
   if (originalPlaywrightMcpUrl === undefined) {
     delete process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
@@ -324,6 +330,16 @@ describe('runtimeConfig bootstrap', () => {
       assert.match(content, /approval_policy = "on-request"/u);
       assert.match(content, /sandbox_mode = "danger-full-access"/u);
       assert.match(content, /web_search = "live"/u);
+      assert.match(content, /\[mcp_servers\.code_info\]/u);
+      assert.match(
+        content,
+        /http:\/\/localhost:\$\{CODEINFO_SERVER_PORT\}\/mcp/u,
+      );
+      assert.match(content, /\[mcp_servers\.web_tools\]/u);
+      assert.match(
+        content,
+        /http:\/\/localhost:\$\{CODEINFO_WEB_MCP_PORT\}\/mcp/u,
+      );
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
@@ -355,6 +371,8 @@ describe('runtimeConfig bootstrap', () => {
       assert.match(chatContents, /model = "gpt-5.3-codex"/u);
       assert.doesNotMatch(chatContents, /base-model/u);
       assert.doesNotMatch(chatContents, /\[mcp_servers\.context7\]/u);
+      assert.match(chatContents, /\[mcp_servers\.code_info\]/u);
+      assert.match(chatContents, /\[mcp_servers\.web_tools\]/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
@@ -462,6 +480,180 @@ describe('runtimeConfig bootstrap', () => {
 
       assert.equal(result.branch, 'existing_noop');
       assert.equal(chatContents, '');
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('augments a legacy generated chat config with reserved MCP servers', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          'model_reasoning_effort = "high"',
+          'approval_policy = "on-request"',
+          'sandbox_mode = "danger-full-access"',
+          'network_access_enabled = true',
+          'web_search_mode = "live"',
+          'web_search = "live"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_augmented');
+      assert.match(chatContents, /\[mcp_servers\.code_info\]/u);
+      assert.match(
+        chatContents,
+        /http:\/\/localhost:\$\{CODEINFO_SERVER_PORT\}\/mcp/u,
+      );
+      assert.match(chatContents, /\[mcp_servers\.web_tools\]/u);
+      assert.match(
+        chatContents,
+        /http:\/\/localhost:\$\{CODEINFO_WEB_MCP_PORT\}\/mcp/u,
+      );
+      assert.match(chatContents, /model = "gpt-5.3-codex"/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('treats reserved MCP augmentation write failures as a best-effort no-op', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const originalWriteFile = fs.writeFile.bind(fs);
+    const legacyConfig = [
+      'model = "gpt-5.3-codex"',
+      'model_reasoning_effort = "high"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "danger-full-access"',
+      'network_access_enabled = true',
+      'web_search_mode = "live"',
+      'web_search = "live"',
+      '',
+    ].join('\n');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
+
+      mock.method(fs, 'writeFile', async (...args: Parameters<typeof fs.writeFile>) => {
+        const [file, data, options] = args;
+        const filePath = String(file);
+        if (filePath.startsWith(`${chatConfigPath}.`) && filePath.endsWith('.tmp')) {
+          throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+        }
+        return originalWriteFile(file, data, options as never);
+      });
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_augment_failed');
+      assert.equal(chatContents, legacyConfig);
+      assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('fails reserved MCP augmentation when the chat config changes before rename and preserves the newer file', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const originalWriteFile = fs.writeFile.bind(fs);
+    const legacyConfig = [
+      'model = "gpt-5.3-codex"',
+      'model_reasoning_effort = "high"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "danger-full-access"',
+      'network_access_enabled = true',
+      'web_search_mode = "live"',
+      'web_search = "live"',
+      '',
+    ].join('\n');
+    const concurrentConfig = [
+      'model = "gpt-5.3-codex"',
+      'model_reasoning_effort = "medium"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "danger-full-access"',
+      'network_access_enabled = true',
+      'web_search_mode = "live"',
+      'web_search = "live"',
+      '',
+    ].join('\n');
+    let injectedConcurrentWrite = false;
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
+
+      mock.method(fs, 'writeFile', async (...args: Parameters<typeof fs.writeFile>) => {
+        const [file, data, options] = args;
+        const filePath = String(file);
+        const result = await originalWriteFile(file, data, options as never);
+        if (
+          !injectedConcurrentWrite &&
+          filePath.startsWith(`${chatConfigPath}.`) &&
+          filePath.endsWith('.tmp')
+        ) {
+          injectedConcurrentWrite = true;
+          await originalWriteFile(chatConfigPath, concurrentConfig, 'utf8');
+        }
+        return result;
+      });
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_augment_failed');
+      assert.equal(chatContents, concurrentConfig);
+      assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('treats reserved MCP augmentation lock timeouts as a best-effort failure branch', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const originalOpen = fs.open.bind(fs);
+    const legacyConfig = [
+      'model = "gpt-5.3-codex"',
+      'model_reasoning_effort = "high"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "danger-full-access"',
+      'network_access_enabled = true',
+      'web_search_mode = "live"',
+      'web_search = "live"',
+      '',
+    ].join('\n');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
+
+      mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+        const [filePath] = args;
+        if (String(filePath) === `${chatConfigPath}.codeinfo.lock`) {
+          throw Object.assign(new Error('lock busy'), { code: 'EEXIST' });
+        }
+        return originalOpen(...args);
+      });
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_augment_failed');
+      assert.equal(chatContents, legacyConfig);
+      assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
@@ -1223,6 +1415,22 @@ describe('runtimeConfig Context7 overlay', () => {
     });
   });
 
+  it('resolves CODEINFO_WEB_MCP_PORT placeholders through the shared runtime path', () => {
+    process.env.CODEINFO_WEB_MCP_PORT = '6513';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        web_tools: {
+          url: 'http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      web_tools: { url: 'http://localhost:6513/mcp' },
+    });
+  });
+
   it('resolves CODEINFO_PLAYWRIGHT_MCP_URL through the shared runtime path', () => {
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
       'http://localhost:8931/mcp/playwright';
@@ -1281,6 +1489,7 @@ describe('runtimeConfig Context7 overlay', () => {
       CODEINFO_SERVER_PORT: '6010',
       CODEINFO_CHAT_MCP_PORT: '6011',
       CODEINFO_AGENTS_MCP_PORT: '6012',
+      CODEINFO_WEB_MCP_PORT: '6013',
       CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8932/mcp',
     });
 
@@ -1332,6 +1541,7 @@ describe('runtimeConfig Context7 overlay', () => {
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(parsed!, {
       CODEINFO_CHAT_MCP_PORT: '6511',
       CODEINFO_AGENTS_MCP_PORT: '6512',
+      CODEINFO_WEB_MCP_PORT: '6513',
       CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8931/mcp',
     });
 
@@ -1367,6 +1577,14 @@ describe('runtimeConfig Context7 overlay', () => {
         startup_timeout_sec: 60,
       },
     );
+    assert.deepEqual(
+      (normalized.mcp_servers as Record<string, unknown>).web_tools,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6013/mcp'],
+        startup_timeout_sec: 60,
+      },
+    );
   });
 
   it('does not let legacy CODEINFO_MCP_PORT satisfy checked-in chat MCP placeholders', async () => {
@@ -1396,6 +1614,7 @@ describe('runtimeConfig Context7 overlay', () => {
     process.env.CODEINFO_SERVER_PORT = '6010';
     process.env.CODEINFO_CHAT_MCP_PORT = '6011';
     process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_WEB_MCP_PORT = '6013';
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
       'http://localhost:8932/mcp/playwright';
 
@@ -1425,6 +1644,7 @@ describe('runtimeConfig Context7 overlay', () => {
                 configPath?: string;
                 chatPortVar?: string;
                 agentsPortVar?: string;
+                webPortVar?: string;
                 playwrightUrlVar?: string;
                 legacyFallbackUsed?: boolean;
               }
@@ -1434,6 +1654,7 @@ describe('runtimeConfig Context7 overlay', () => {
             payload?.configPath === path.join(codexHome, 'chat/config.toml') &&
             payload.chatPortVar === 'CODEINFO_CHAT_MCP_PORT' &&
             payload.agentsPortVar === 'CODEINFO_AGENTS_MCP_PORT' &&
+            payload.webPortVar === 'CODEINFO_WEB_MCP_PORT' &&
             payload.playwrightUrlVar === 'CODEINFO_PLAYWRIGHT_MCP_URL' &&
             payload.legacyFallbackUsed === false
           );
@@ -1449,6 +1670,7 @@ describe('runtimeConfig Context7 overlay', () => {
     delete process.env.CODEINFO_CHAT_MCP_PORT;
     process.env.CODEINFO_MCP_PORT = '6011';
     process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_WEB_MCP_PORT = '6013';
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
       'http://localhost:8932/mcp/playwright';
 
@@ -1491,6 +1713,7 @@ describe('runtimeConfig Context7 overlay', () => {
     process.env.CODEINFO_SERVER_PORT = '5510';
     process.env.CODEINFO_CHAT_MCP_PORT = '5511';
     process.env.CODEINFO_AGENTS_MCP_PORT = '5512';
+    process.env.CODEINFO_WEB_MCP_PORT = '5513';
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL = 'http://localhost:8931/mcp';
 
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
@@ -1509,6 +1732,9 @@ describe('runtimeConfig Context7 overlay', () => {
         agents: {
           url: 'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
         },
+        web_tools: {
+          url: 'http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp',
+        },
         playwright: {
           url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
         },
@@ -1525,6 +1751,9 @@ describe('runtimeConfig Context7 overlay', () => {
       },
       agents: {
         url: 'http://localhost:5512/mcp',
+      },
+      web_tools: {
+        url: 'http://localhost:5513/mcp',
       },
       playwright: {
         url: 'http://localhost:8931/mcp',
@@ -2149,6 +2378,43 @@ describe('runtimeConfig deterministic resolver failures', () => {
       assert.deepEqual(runtimeEntries, []);
     } finally {
       mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves required MCP placeholders in materialized repository-backed chat configs', async () => {
+    process.env.CODEINFO_SERVER_PORT = '7410';
+    process.env.CODEINFO_WEB_MCP_PORT = '7413';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'codex/chat/config.toml'),
+        chatConfigPath,
+      );
+
+      const materialized = await materializeRepositoryBackedCodexChatHome({
+        conversationId: 'conv:placeholder-resolution',
+        codexHome,
+        overrides: { model: 'gpt-5.3-codex' },
+      });
+
+      const runtimeChatConfig = await fs.readFile(
+        materialized.chatConfigPath,
+        'utf8',
+      );
+
+      assert.match(runtimeChatConfig, /http:\/\/localhost:7410\/mcp/u);
+      assert.match(runtimeChatConfig, /http:\/\/localhost:7413\/mcp/u);
+      assert.doesNotMatch(
+        runtimeChatConfig,
+        /\$\{CODEINFO_(SERVER|WEB_MCP)_PORT\}/u,
+      );
+    } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });

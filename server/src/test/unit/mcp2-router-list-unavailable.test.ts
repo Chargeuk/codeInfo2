@@ -121,7 +121,7 @@ test('resources/list and resources/listTemplates return empty arrays', async () 
     const templates = await postJson(port, templatesPayload);
 
     assert.deepEqual(resources.result, { resources: [] });
-    assert.deepEqual(templates.result, { resource_templates: [] });
+    assert.deepEqual(templates.result, { resourceTemplates: [] });
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     server.close();

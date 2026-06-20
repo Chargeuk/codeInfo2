@@ -198,6 +198,18 @@ class ThrowingBannerOnlyCodex {
   }
 }
 
+class EmitsSpecificErrorThenThrowsBannerChat extends ChatInterface {
+  async execute() {
+    this.emit('thread', { type: 'thread', threadId: 'thread-specific-error' });
+    this.emit('error', {
+      type: 'error',
+      message:
+        'stream disconnected before completion: stream closed before response.completed',
+    });
+    throw new Error('Codex Exec exited with code 1: Reading prompt from stdin...');
+  }
+}
+
 class CapturingSelectionChat extends ChatInterface {
   constructor(
     private readonly calls: Array<{
@@ -2522,6 +2534,73 @@ test('codebase_question logs structured MCP and Codex diagnostics when startup f
     assert.match(
       routerFailureContext?.errorMessage ?? '',
       /Codex Exec exited with code 1: Reading prompt from stdin/,
+    );
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
+test('codebase_question preserves a concrete streamed provider error over a later generic Codex banner', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const tempHome = await withTempCodexHome({
+    chatToml: 'web_search_request = false\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+  setToolDeps({
+    chatFactory: () => new EmitsSpecificErrorThenThrowsBannerChat(),
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 13,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Why did streaming fail?' },
+      },
+    });
+
+    assert.equal(response.error?.code, -32002);
+    assert.match(
+      response.error?.message ?? '',
+      /stream disconnected before completion: stream closed before response\.completed/,
+    );
+    assert.doesNotMatch(
+      response.error?.message ?? '',
+      /Codex Exec exited with code 1: Reading prompt from stdin/,
+    );
+
+    const mcpFailureLog = query({
+      source: ['server'],
+      text: 'DEV-0000053:T1:mcp_codebase_question_execution_failed',
+    }).at(-1);
+    const mcpFailureContext = mcpFailureLog?.context as
+      | {
+          genericCodexBannerOnly?: boolean;
+          message?: string;
+        }
+      | undefined;
+    assert.ok(mcpFailureContext);
+    assert.equal(mcpFailureContext?.genericCodexBannerOnly, false);
+    assert.match(
+      mcpFailureContext?.message ?? '',
+      /stream disconnected before completion: stream closed before response\.completed/,
     );
   } finally {
     resetToolDeps();

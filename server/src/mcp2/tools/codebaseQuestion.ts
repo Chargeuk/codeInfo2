@@ -620,6 +620,24 @@ function isGenericCodexExecStartupBanner(message: string): boolean {
   return message.trim() === GENERIC_CODEX_EXEC_STARTUP_BANNER;
 }
 
+function preferResponderErrorMessage(
+  responderMessage: string | null,
+  fallbackMessage: string,
+): string {
+  if (!responderMessage || responderMessage.trim().length === 0) {
+    return fallbackMessage;
+  }
+  if (isGenericCodexExecStartupBanner(responderMessage)) {
+    return fallbackMessage;
+  }
+  if (isGenericCodexExecStartupBanner(fallbackMessage)) {
+    return responderMessage;
+  }
+  return responderMessage.length >= fallbackMessage.length
+    ? responderMessage
+    : fallbackMessage;
+}
+
 function logCodebaseQuestionExecutionFailure(params: {
   callerConversationId?: string;
   resolvedConversationId: string;
@@ -1543,10 +1561,14 @@ async function executeCodebaseQuestion(
     } catch (error) {
       options?.onReplayClaimVisible?.();
       if (error instanceof ToolExecutionError) throw error;
-      const message =
+      const fallbackMessage =
         error instanceof Error && error.message.trim().length > 0
           ? error.message
           : 'TOOL_EXECUTION_FAILED';
+      const message = preferResponderErrorMessage(
+        responder.getErrorMessage(),
+        fallbackMessage,
+      );
       logCodebaseQuestionExecutionFailure({
         callerConversationId: conversationId,
         resolvedConversationId,
@@ -1604,10 +1626,14 @@ async function executeCodebaseQuestion(
     });
   } catch (error) {
     if (error instanceof ToolExecutionError) throw error;
-    const message =
+    const fallbackMessage =
       error instanceof Error && error.message.trim().length > 0
         ? error.message
         : 'TOOL_EXECUTION_FAILED';
+    const message = preferResponderErrorMessage(
+      responder.getErrorMessage(),
+      fallbackMessage,
+    );
     logCodebaseQuestionExecutionFailure({
       callerConversationId: conversationId,
       resolvedConversationId,

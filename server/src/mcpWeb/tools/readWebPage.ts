@@ -1,4 +1,3 @@
-import { isIP } from 'node:net';
 import { z } from 'zod';
 import { InvalidParamsError, ToolExecutionError } from '../../mcp2/errors.js';
 import {
@@ -46,25 +45,7 @@ const readWebPageSchema = z.object({
   maxChars: z.number().int().min(500).max(250_000).optional(),
   timeoutMs: z.number().int().min(1_000).max(60_000).optional(),
   likelyDynamic: z.boolean().optional(),
-}).strict().superRefine((value, ctx) => {
-  if (value.mode !== 'playwright') {
-    return;
-  }
-
-  try {
-    const hostname = new URL(value.url).hostname;
-    if (isIP(hostname) === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['url'],
-        message:
-          'Playwright mode currently requires an IP-literal URL',
-      });
-    }
-  } catch {
-    // URL shape issues are already reported by the base url validator.
-  }
-});
+}).strict();
 
 export function readWebPageDefinition() {
   return {
@@ -87,7 +68,7 @@ export function readWebPageDefinition() {
           type: 'string',
           enum: ['auto', 'http', 'playwright'],
           description:
-            'Optional fetch mode. Defaults to auto, which starts with HTTP and escalates only when needed. Direct Playwright mode currently requires an IP-literal URL.',
+            'Optional fetch mode. Defaults to auto, which starts with HTTP and escalates to a browser render when needed.',
         },
         extractReadableContent: {
           type: 'boolean',
@@ -121,7 +102,7 @@ export function readWebPageDefinition() {
         likelyDynamic: {
           type: 'boolean',
           description:
-            'Hint that the page is probably client-rendered and may need the browser fallback when the target can be rendered safely.',
+            'Hint that the page is probably client-rendered and may need the browser fallback.',
         },
       },
     },

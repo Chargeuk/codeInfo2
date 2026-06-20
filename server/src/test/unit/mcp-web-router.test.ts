@@ -76,7 +76,7 @@ test('web MCP tools/list returns the dedicated web tool definitions', async () =
       String(readWebPageTool.inputSchema.properties.url.description),
       /Embedded credentials are not allowed/u,
     );
-    assert.match(
+    assert.doesNotMatch(
       String(readWebPageTool.inputSchema.properties.mode.description),
       /IP-literal URL/u,
     );
@@ -287,11 +287,25 @@ test('web MCP read_web_page rejects non-http schemes and credentialed URLs as in
   }
 });
 
-test('web MCP read_web_page rejects hostname URLs for explicit Playwright mode as invalid params', async () => {
+test('web MCP read_web_page accepts hostname URLs for explicit Playwright mode', async () => {
   const server = http.createServer(handleWebRpc);
   const port = await listen(server);
 
   try {
+    setWebToolDeps({
+      readWebPageImpl: async (params) => ({
+        url: params.url,
+        finalUrl: params.url,
+        modeUsed: 'playwright',
+        readabilityApplied: false,
+        text: 'rendered',
+        diagnostics: {
+          fetchMs: 0,
+          renderMs: 1,
+          truncated: false,
+        },
+      }),
+    });
     const body = await postJson(port, {
       jsonrpc: '2.0',
       id: 203,
@@ -305,9 +319,12 @@ test('web MCP read_web_page rejects hostname URLs for explicit Playwright mode a
       },
     });
 
-    assert.equal(body.error.code, -32602);
-    assert.match(JSON.stringify(body.error), /IP-literal URL/u);
+    assert.equal(body.error, undefined);
+    const payload = JSON.parse(body.result.content[0].text as string);
+    assert.equal(payload.modeUsed, 'playwright');
+    assert.equal(payload.finalUrl, 'https://example.com/article');
   } finally {
+    resetWebToolDeps();
     await close(server);
   }
 });

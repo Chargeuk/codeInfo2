@@ -351,38 +351,40 @@ test('readWebPage allows public 169.x IPv4 hosts outside the link-local range', 
   assert.match(result.text, /Public content/u);
 });
 
-test('readWebPage blocks IPv4 benchmarking addresses before fetching', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'https://198.18.0.10/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
+test('readWebPage allows local-network IPv4 targets', async () => {
+  const result = await readWebPage(
+    {
+      url: 'https://198.18.0.10/private',
+    },
+    {
+      fetchImpl: async () =>
+        new Response('<html><body><main><p>Local content.</p></main></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    },
   );
+
+  assert.equal(result.modeUsed, 'http');
+  assert.match(result.text, /Local content/u);
 });
 
-test('readWebPage blocks IPv4 multicast addresses before fetching', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'https://224.0.0.10/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
+test('readWebPage allows multicast-style IPv4 targets when explicitly requested', async () => {
+  const result = await readWebPage(
+    {
+      url: 'https://224.0.0.10/private',
+    },
+    {
+      fetchImpl: async () =>
+        new Response('<html><body><main><p>Multicast content.</p></main></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    },
   );
+
+  assert.equal(result.modeUsed, 'http');
+  assert.match(result.text, /Multicast content/u);
 });
 
 test('readWebPage pins resolved public DNS answers through the direct HTTP path', async () => {
@@ -423,44 +425,43 @@ test('readWebPage pins resolved public DNS answers through the direct HTTP path'
   assert.match(result.text, /Pinned content/u);
 });
 
-test('readWebPage blocks private redirect targets on the pinned HTTP path', async () => {
+test('readWebPage allows redirect targets on the pinned HTTP path when they stay http/https', async () => {
   let requestCount = 0;
 
-  await assert.rejects(
-    () =>
-      readWebPage(
+  const result = await readWebPage(
+    {
+      url: 'https://docs.example.dev/article',
+      mode: 'http',
+    },
+    {
+      lookupImpl: ((async () => [
         {
-          url: 'https://docs.example.dev/article',
-          mode: 'http',
+          address: '93.184.216.34',
+          family: 4 as const,
         },
-        {
-          lookupImpl: ((async (hostname: string) => {
-            if (hostname === 'docs.example.dev') {
-              return [
-                {
-                  address: '93.184.216.34',
-                  family: 4 as const,
-                },
-              ];
-            }
-            throw new Error(`unexpected lookup for ${hostname}`);
-          }) as unknown) as typeof lookup,
-          requestPinnedImpl: async ({ target }) => {
-            requestCount += 1;
-            return {
+      ]) as unknown) as typeof lookup,
+      requestPinnedImpl: async ({ target }) => {
+        requestCount += 1;
+        return requestCount === 1
+          ? {
               finalUrl: target.url.toString(),
               html: '',
               contentType: 'text/html; charset=utf-8',
               httpStatus: 302,
               location: 'http://127.0.0.1/private',
+            }
+          : {
+              finalUrl: 'http://127.0.0.1/private',
+              html: '<html><body><main><p>Redirected local content.</p></main></body></html>',
+              contentType: 'text/html; charset=utf-8',
+              httpStatus: 200,
             };
-          },
-        },
-      ),
-    /Blocked private IP address/u,
+      },
+    },
   );
 
-  assert.equal(requestCount, 1);
+  assert.equal(requestCount, 2);
+  assert.match(result.text, /Redirected local content/u);
 });
 
 test('readWebPage auto mode escalates to Playwright when HTTP content is a JS shell', async () => {
@@ -565,129 +566,51 @@ test('readWebPage sends Playwright code that blocks redirected private navigatio
   assert.match(forwardedCode, /page\.route\('\*\*\/\*'/u);
   assert.match(forwardedCode, /blockedNavigationError/u);
   assert.match(forwardedCode, /assertSafeBrowserUrl/u);
-  assert.match(forwardedCode, /hostIpVersion === 0/u);
-  assert.match(forwardedCode, /Blocked non-IP hostname in Playwright fallback/u);
   assert.match(forwardedCode, /route\.request\(\)\.url\(\)/u);
-  assert.doesNotMatch(forwardedCode, /isNavigationRequest/u);
-  assert.doesNotMatch(forwardedCode, /hostnameResolutionCache/u);
-  assert.doesNotMatch(forwardedCode, /lookup\(normalizedHostname/u);
 });
 
-test('readWebPage blocks private-network URLs before fetching', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'http://localhost:3000/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked local hostname/u,
+test('readWebPage allows localhost and private-address URLs before fetching', async () => {
+  const localhost = await readWebPage(
+    {
+      url: 'http://localhost:3000/private',
+    },
+    {
+      fetchImpl: async () =>
+        new Response('<html><body><main><p>Localhost content.</p></main></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    },
   );
-});
+  assert.match(localhost.text, /Localhost content/u);
 
-test('readWebPage blocks IPv4-mapped IPv6 loopback URLs before fetching', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'http://[::ffff:127.0.0.1]/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
+  const mappedIpv6 = await readWebPage(
+    {
+      url: 'http://[::ffff:127.0.0.1]/private',
+    },
+    {
+      fetchImpl: async () =>
+        new Response('<html><body><main><p>IPv6 mapped content.</p></main></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    },
   );
-});
+  assert.match(mappedIpv6.text, /IPv6 mapped content/u);
 
-test('readWebPage blocks IPv6 unspecified URLs before fetching', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'http://[::]/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
+  const expandedLoopback = await readWebPage(
+    {
+      url: 'http://[0:0:0:0:0:0:0:1]/private',
+    },
+    {
+      fetchImpl: async () =>
+        new Response('<html><body><main><p>Expanded loopback content.</p></main></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    },
   );
-});
-
-test('readWebPage blocks expanded IPv6 loopback URLs before fetching', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'http://[0:0:0:0:0:0:0:1]/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
-  );
-});
-
-test('readWebPage blocks IPv6 link-local hosts across the full fe80::/10 range', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'http://[fe90::1]/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
-  );
-});
-
-test('readWebPage blocks IPv6 site-local and multicast hosts before fetching', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'http://[fec0::1]/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
-  );
-
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'http://[ff02::1]/private',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('fetch should not be called');
-          },
-        },
-      ),
-    /Blocked private IP address/u,
-  );
+  assert.match(expandedLoopback.text, /Expanded loopback content/u);
 });
 
 test('readWebPage rejects oversized bodies on the custom fetch path', async () => {
@@ -875,23 +798,41 @@ test('readWebPage Playwright mode honors shorter explicit timeouts in generated 
   assert.match(forwardedCode, /waitForLoadState\('load', \{ timeout: 1234 \}\)/u);
 });
 
-test('readWebPage explicit Playwright mode rejects hostname URLs to avoid browser-path DNS rebinding', async () => {
-  await assert.rejects(
-    () =>
-      readWebPage(
-        {
-          url: 'https://example.com/react-page',
-          mode: 'playwright',
-        },
-        {
-          fetchImpl: async () => {
-            throw new Error('remote MCP should not be called');
+test('readWebPage explicit Playwright mode accepts hostname URLs', async () => {
+  const result = await readWebPage(
+    {
+      url: 'https://example.com/react-page',
+      mode: 'playwright',
+    },
+    {
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'read-web-page-browser_run_code_unsafe',
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    finalUrl: 'https://example.com/rendered',
+                    html: '<html><body><main><article><p>Rendered hostname content.</p></article></main></body></html>',
+                  }),
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
           },
-          resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
-        },
-      ),
-    /IP-literal URL/u,
+        ),
+      resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
+    },
   );
+
+  assert.equal(result.modeUsed, 'playwright');
+  assert.match(result.text, /Rendered hostname content/u);
 });
 
 test('readWebPage Playwright mode accepts multi-event SSE payloads from remote MCP', async () => {

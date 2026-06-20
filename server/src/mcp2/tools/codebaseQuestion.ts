@@ -92,6 +92,8 @@ import {
 } from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
+const GENERIC_CODEX_EXEC_STARTUP_BANNER =
+  'Codex Exec exited with code 1: Reading prompt from stdin...';
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
 const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
 const paramsSchema = z
@@ -596,7 +598,9 @@ async function ensureConversation(
       );
     }
     if (metaOutcome.outcome === 'retry_exhausted') {
-      throw new Error('codebase question conversation metadata update exhausted');
+      throw new Error(
+        'codebase question conversation metadata update exhausted',
+      );
     }
     return;
   }
@@ -609,6 +613,52 @@ async function ensureConversation(
     source: 'MCP',
     flags: sanitizeFlagsForProvider(provider, flags),
     lastMessageAt: now,
+  });
+}
+
+function isGenericCodexExecStartupBanner(message: string): boolean {
+  return message.trim() === GENERIC_CODEX_EXEC_STARTUP_BANNER;
+}
+
+function logCodebaseQuestionExecutionFailure(params: {
+  callerConversationId?: string;
+  resolvedConversationId: string;
+  replayId?: string;
+  requestedProvider: string;
+  requestedModel: string;
+  executionProvider: string;
+  executionModel: string;
+  executionEndpointId?: string;
+  effectiveWorkingFolder?: string;
+  selectedRepositoryPath: string;
+  reusedCodexThread: boolean;
+  savedCodexThreadId?: string | null;
+  providerThreadId?: string | null;
+  message: string;
+}) {
+  append({
+    level: 'error',
+    message: 'DEV-0000053:T1:mcp_codebase_question_execution_failed',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      callerConversationId: params.callerConversationId ?? null,
+      resolvedConversationId: params.resolvedConversationId,
+      replayId: params.replayId ?? null,
+      requestedProvider: params.requestedProvider,
+      requestedModel: params.requestedModel,
+      executionProvider: params.executionProvider,
+      executionModel: params.executionModel,
+      executionEndpointId: params.executionEndpointId ?? null,
+      effectiveWorkingFolder: params.effectiveWorkingFolder ?? null,
+      selectedRepositoryPath: params.selectedRepositoryPath,
+      reusedCodexThread: params.reusedCodexThread,
+      savedCodexThreadId: params.savedCodexThreadId ?? null,
+      providerThreadId: params.providerThreadId ?? null,
+      genericCodexBannerOnly: isGenericCodexExecStartupBanner(params.message),
+      message: params.message,
+    },
   });
 }
 
@@ -828,15 +878,15 @@ async function executeCodebaseQuestion(
       requestedCodexRuntimeConfig?.endpoint !== undefined);
   const codexNativeModels = codexCapabilities.models
     .map((entry) => entry.model)
-    .filter(
-      (model) => !requestedCodexUsesEndpoint || model !== requestedModel,
-    );
+    .filter((model) => !requestedCodexUsesEndpoint || model !== requestedModel);
   const codexState = {
     available: codexAvailable,
     models: prioritizeRuntimeProviderModels(
       codexNativeModels,
       requestedProvider === 'codex'
-        ? (requestedCodexUsesEndpoint ? undefined : requestedModel)
+        ? requestedCodexUsesEndpoint
+          ? undefined
+          : requestedModel
         : codexRequestedDefaults?.values.model,
       { includeMissingPreferred: !requestedCodexUsesEndpoint },
     ),
@@ -1467,8 +1517,7 @@ async function executeCodebaseQuestion(
                     executionContext.workingDirectoryOverride,
                 }
               : {}),
-            ...(executionUsesEndpoint &&
-            preparedExecution.openAiCompatEndpoint
+            ...(executionUsesEndpoint && preparedExecution.openAiCompatEndpoint
               ? {
                   codeinfoOpenAiEndpoint:
                     preparedExecution.openAiCompatEndpoint,
@@ -1498,6 +1547,25 @@ async function executeCodebaseQuestion(
         error instanceof Error && error.message.trim().length > 0
           ? error.message
           : 'TOOL_EXECUTION_FAILED';
+      logCodebaseQuestionExecutionFailure({
+        callerConversationId: conversationId,
+        resolvedConversationId,
+        replayId,
+        requestedProvider: runtimeSelection.requestedProvider,
+        requestedModel: runtimeSelection.requestedModel,
+        executionProvider,
+        executionModel,
+        executionEndpointId,
+        effectiveWorkingFolder,
+        selectedRepositoryPath:
+          executionContext.repositoryMetadata.selectedRepositoryPath,
+        reusedCodexThread: canReuseCodexThread,
+        savedCodexThreadId: canReuseCodexThread
+          ? getSavedCodexThreadId(mutableConversation)
+          : null,
+        providerThreadId: responder.getProviderThreadId(),
+        message,
+      });
       throw new ToolExecutionError(-32002, message);
     }
   } finally {
@@ -1527,21 +1595,12 @@ async function executeCodebaseQuestion(
       question.trim().slice(0, 80) || 'Untitled conversation',
       nextFlags,
     );
-    if (!conversationId && providerThreadId !== resolvedConversationId) {
-      await ensureConversation(
-        providerThreadId,
-        executionProvider,
-        executionModel,
-        question.trim().slice(0, 80) || 'Untitled conversation',
-        nextFlags,
-      );
-    }
   }
 
   let payload: CodebaseQuestionResult;
   try {
     payload = responder.toResult(executionModel, resolvedConversationId, {
-      preferFallbackConversationId: typeof conversationId === 'string',
+      preferFallbackConversationId: true,
     });
   } catch (error) {
     if (error instanceof ToolExecutionError) throw error;
@@ -1549,6 +1608,25 @@ async function executeCodebaseQuestion(
       error instanceof Error && error.message.trim().length > 0
         ? error.message
         : 'TOOL_EXECUTION_FAILED';
+    logCodebaseQuestionExecutionFailure({
+      callerConversationId: conversationId,
+      resolvedConversationId,
+      replayId,
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      executionProvider,
+      executionModel,
+      executionEndpointId,
+      effectiveWorkingFolder,
+      selectedRepositoryPath:
+        executionContext.repositoryMetadata.selectedRepositoryPath,
+      reusedCodexThread: canReuseCodexThread,
+      savedCodexThreadId: canReuseCodexThread
+        ? getSavedCodexThreadId(mutableConversation)
+        : null,
+      providerThreadId: responder.getProviderThreadId(),
+      message,
+    });
     throw new ToolExecutionError(-32002, message);
   }
   logSummaryContractRead({

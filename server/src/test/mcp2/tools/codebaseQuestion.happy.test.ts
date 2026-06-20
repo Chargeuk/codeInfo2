@@ -21,9 +21,7 @@ import {
 } from '../../../chat/memoryPersistence.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
-import {
-  applyCodexOpenAiCompatEndpointToRuntimeConfig,
-} from '../../../config/codexConfig.js';
+import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../../../config/codexConfig.js';
 import { resetCollectionsForTests } from '../../../ingest/chromaClient.js';
 import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
@@ -179,6 +177,24 @@ class MockCodex {
     this.lastResumeId = threadId;
     this.lastResumeOptions = opts;
     return new MockThread(threadId);
+  }
+}
+
+class ThrowingBannerOnlyThread {
+  async runStreamed(): Promise<{ events: AsyncGenerator<unknown> }> {
+    throw new Error(
+      'Codex Exec exited with code 1: Reading prompt from stdin...',
+    );
+  }
+}
+
+class ThrowingBannerOnlyCodex {
+  startThread() {
+    return new ThrowingBannerOnlyThread();
+  }
+
+  resumeThread() {
+    return new ThrowingBannerOnlyThread();
   }
 }
 
@@ -596,11 +612,15 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     const firstPayload = JSON.parse(firstCall.result.content[0].text);
     const defaults = resolveChatDefaults({ requestProvider: 'codex' });
 
-    assert.equal(firstPayload.conversationId, 'thread-abc');
+    assert.ok(firstPayload.conversationId.startsWith('codex-thread-'));
     assert.equal(firstPayload.modelId, defaults.model);
     assert.deepEqual(
       firstPayload.segments.map((s: { type: string }) => s.type),
       ['answer'],
+    );
+    assert.equal(
+      memoryConversations.get(firstPayload.conversationId)?.flags?.threadId,
+      'thread-abc',
     );
     assert.equal(firstPayload.segments[0].text, 'Here you go');
 
@@ -619,7 +639,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
 
     assert.ok(secondCall.result);
     const secondPayload = JSON.parse(secondCall.result.content[0].text);
-    assert.equal(secondPayload.conversationId, 'thread-abc');
+    assert.equal(secondPayload.conversationId, firstPayload.conversationId);
     assert.equal(mockCodex.lastResumeId, 'thread-abc');
     assert.equal(
       (mockCodex.lastStartOptions as { sandboxMode?: string }).sandboxMode,
@@ -1705,11 +1725,9 @@ test('codebase_question stops before chat construction when persisted metadata r
             lockedModelId: null,
           }),
         });
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => null,
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => null,
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
         try {
           await assert.rejects(
             runCodebaseQuestion(
@@ -1828,7 +1846,10 @@ test('codebase_question stops before chat construction when persisted metadata r
 
           assert.ok(response.error);
           assert.equal(response.error.code, 410);
-          assert.equal(response.error.message, 'Conversation is archived and must be restored before use');
+          assert.equal(
+            response.error.message,
+            'Conversation is archived and must be restored before use',
+          );
           assert.equal(conversations.get(conversationId), undefined);
           assert.equal(capturedUpdates.length, 1);
         } finally {
@@ -1982,6 +2003,64 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
     delete process.env.Codex_network_access_enabled;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
+test('codebase_question fresh Codex runs keep one canonical conversation and persist the provider thread in flags only', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const tempHome = await withTempCodexHome({
+    chatToml: 'web_search_request = false\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+  setToolDeps({
+    codexFactory: () => new MockCodex('provider-thread-fresh-only'),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 11,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Keep one conversation please' },
+      },
+    });
+
+    assert.ok(response.result);
+    const payload = JSON.parse(response.result.content[0].text);
+    assert.equal(typeof payload.conversationId, 'string');
+    assert.ok(payload.conversationId.startsWith('codex-thread-'));
+    assert.equal(memoryConversations.size, 1);
+    assert.ok(memoryConversations.has(payload.conversationId));
+    assert.equal(memoryConversations.has('provider-thread-fresh-only'), false);
+    assert.equal(
+      memoryConversations.get(payload.conversationId)?.flags?.threadId,
+      'provider-thread-fresh-only',
+    );
+
+    const persistedTurns = getMemoryTurns(payload.conversationId);
+    assert.equal(persistedTurns.length, 2);
+    assert.equal(persistedTurns[0]?.role, 'user');
+    assert.equal(persistedTurns[1]?.role, 'assistant');
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
     await tempHome.cleanup();
     server.closeAllConnections();
     await new Promise<void>((resolve) => {
@@ -2350,6 +2429,100 @@ test('codebase_question returns an empty answer segment when no answer emitted',
       ['answer'],
     );
     assert.equal(payload.segments[0].text, '');
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
+test('codebase_question logs structured MCP and Codex diagnostics when startup fails with only the stdin banner', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const tempHome = await withTempCodexHome({
+    chatToml: 'web_search_request = false\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+  setToolDeps({
+    codexFactory: () => new ThrowingBannerOnlyCodex(),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 12,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Why did startup fail?' },
+      },
+    });
+
+    assert.equal(response.error?.code, -32002);
+    assert.match(
+      response.error?.message ?? '',
+      /Codex Exec exited with code 1: Reading prompt from stdin/,
+    );
+
+    const codexFailureLog = query({
+      source: ['server'],
+      text: 'DEV-0000053:T2:codex_generic_startup_failure',
+    }).at(-1);
+    const codexFailureContext = codexFailureLog?.context as
+      | {
+          conversationId?: string;
+          resumeRequested?: boolean;
+          codexHome?: string | null;
+        }
+      | undefined;
+    assert.ok(codexFailureContext);
+    assert.equal(codexFailureContext?.resumeRequested, false);
+    assert.equal(typeof codexFailureContext?.conversationId, 'string');
+    assert.equal(codexFailureContext?.codexHome, tempHome.codexHome);
+
+    const mcpFailureLog = query({
+      source: ['server'],
+      text: 'DEV-0000053:T1:mcp_codebase_question_execution_failed',
+    }).at(-1);
+    const mcpFailureContext = mcpFailureLog?.context as
+      | {
+          genericCodexBannerOnly?: boolean;
+          resolvedConversationId?: string;
+        }
+      | undefined;
+    assert.ok(mcpFailureContext);
+    assert.equal(mcpFailureContext?.genericCodexBannerOnly, true);
+    assert.equal(typeof mcpFailureContext?.resolvedConversationId, 'string');
+
+    const routerFailureLog = query({
+      source: ['server'],
+      text: 'DEV-0000053:T3:mcp2_codebase_question_tool_error',
+    }).at(-1);
+    const routerFailureContext = routerFailureLog?.context as
+      | {
+          errorCode?: number | null;
+          errorMessage?: string;
+        }
+      | undefined;
+    assert.ok(routerFailureContext);
+    assert.equal(routerFailureContext?.errorCode, -32002);
+    assert.match(
+      routerFailureContext?.errorMessage ?? '',
+      /Codex Exec exited with code 1: Reading prompt from stdin/,
+    );
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
@@ -3135,8 +3308,7 @@ test('codebase_question resolves saved env-backed endpoint ids through the share
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['google/gemma-4-26b-a4b-qat'],
   });
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses`;
   const tempHome = await withTempCodexHome({
     chatToml: 'model = "google/gemma-4-26b-a4b-qat"\n',
   });

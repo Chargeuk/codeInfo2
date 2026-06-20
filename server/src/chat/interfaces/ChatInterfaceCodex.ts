@@ -80,6 +80,13 @@ type CodexUsagePayload = {
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
+const GENERIC_CODEX_EXEC_STARTUP_BANNER =
+  'Codex Exec exited with code 1: Reading prompt from stdin...';
+
+const isGenericCodexExecStartupBanner = (value: unknown): boolean =>
+  typeof value === 'string' &&
+  trimDiagnosticText(value) === GENERIC_CODEX_EXEC_STARTUP_BANNER;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -363,13 +370,12 @@ export class ChatInterfaceCodex extends ChatInterface {
       '[codex-thread-options] prepared',
     );
 
-    const codex = this.codexFactory(
-      buildCodexOptions({
-        codexHome,
-        runtimeConfig: effectiveRuntimeConfig,
-        envOverrides,
-      }),
-    );
+    const codexOptions = buildCodexOptions({
+      codexHome,
+      runtimeConfig: effectiveRuntimeConfig,
+      envOverrides,
+    });
+    const codex = this.codexFactory(codexOptions);
 
     const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT;
     const agentSystemPrompt = (systemPrompt ?? '').trim();
@@ -589,6 +595,15 @@ export class ChatInterfaceCodex extends ChatInterface {
 
     const emitFormattedCodexExecutionError = (err: unknown) => {
       const formattedError = buildCodexExecutionError(err);
+      const genericStartupFailure =
+        formattedError.diagnostics.length > 0 &&
+        formattedError.diagnostics.every(
+          (diagnostic) =>
+            isGenericCodexExecStartupBanner(diagnostic.message) &&
+            !diagnostic.stderr &&
+            !diagnostic.stdout,
+        ) &&
+        isGenericCodexExecStartupBanner(formattedError.message);
       baseLogger.error(
         {
           requestId,
@@ -601,6 +616,39 @@ export class ChatInterfaceCodex extends ChatInterface {
         },
         'codex streamed execution failed',
       );
+      if (genericStartupFailure) {
+        append({
+          level: 'error',
+          message: 'DEV-0000053:T2:codex_generic_startup_failure',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            provider: 'codex',
+            model,
+            conversationId,
+            threadId: activeThreadId,
+            requestedThreadId:
+              typeof threadId === 'string' && threadId.trim().length > 0
+                ? threadId
+                : null,
+            resumeRequested:
+              typeof threadId === 'string' && threadId.trim().length > 0,
+            workingDirectory: codexWorkingDirectory,
+            codexHome:
+              typeof codexOptions?.env?.CODEX_HOME === 'string'
+                ? codexOptions.env.CODEX_HOME
+                : null,
+            runtimeConfigKeys: effectiveRuntimeConfig
+              ? Object.keys(effectiveRuntimeConfig).sort()
+              : [],
+            envOverrideKeys: Object.keys(envOverrides ?? {}).sort(),
+            useConfigDefaults: Boolean(useConfigDefaults),
+            endpointOnlyExecution,
+            undefinedFlags,
+          },
+        });
+      }
       this.emitEvent({ type: 'error', message: formattedError.message });
     };
 

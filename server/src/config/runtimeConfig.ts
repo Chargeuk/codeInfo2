@@ -1475,11 +1475,15 @@ const stripNamedMcpServerBlockFromRawConfig = (
 ): string => {
   const escapedServerName = serverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const blockPattern = new RegExp(
-    `(?:^|\\n)\\[mcp_servers\\.${escapedServerName}\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`,
+    `(?:^|\\r?\\n)\\[mcp_servers\\.${escapedServerName}\\]\\r?\\n[\\s\\S]*?(?=\\r?\\n\\[[^\\r\\n]+\\]|$)`,
     'u',
   );
-  const stripped = rawConfig.replace(blockPattern, '\n');
-  return stripped.replace(/\n{3,}/gu, '\n\n').replace(/\s+$/u, '') + '\n';
+  const normalizedNewlines = rawConfig.includes('\r\n') ? '\r\n' : '\n';
+  const stripped = rawConfig.replace(blockPattern, normalizedNewlines);
+  const collapsed = stripped
+    .replace(/\r?\n(?:\r?\n){2,}/gu, `${normalizedNewlines}${normalizedNewlines}`)
+    .replace(/\s+$/u, '');
+  return `${collapsed}${normalizedNewlines}`;
 };
 
 async function maybeAugmentExistingProviderChatConfig(params: {

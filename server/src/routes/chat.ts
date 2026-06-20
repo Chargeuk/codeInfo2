@@ -64,6 +64,7 @@ import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import {
   resolveConfiguredWebSearchMode,
   shouldInjectManagedWebTools,
+  type WebSearchMode,
 } from '../config/webSearchMcp.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
@@ -980,13 +981,22 @@ export function createChatRouter({
     const executionUsesEndpoint = preparedExecution.executionUsesEndpoint;
     const executionEndpointId = preparedExecution.endpointId;
     const chatRuntimeConfig = preparedExecution.runtimeConfig;
+    const resolvedRuntimeWebSearchMode = resolveConfiguredWebSearchMode(
+      (chatRuntimeConfig as Record<string, unknown> | undefined) ?? {},
+    );
+    const effectiveRuntimeWebSearchMode: WebSearchMode | undefined =
+      executionProvider === 'codex'
+        ? (effectiveCodexFlags.webSearchMode === 'live' ||
+            effectiveCodexFlags.webSearchMode === 'cached' ||
+            effectiveCodexFlags.webSearchMode === 'disabled'
+            ? effectiveCodexFlags.webSearchMode
+            : resolvedRuntimeWebSearchMode)
+        : undefined;
     const injectRepositoryBackedWebTools =
       executionProvider === 'codex'
         ? shouldInjectManagedWebTools({
             provider: 'codex',
-            webSearchMode: resolveConfiguredWebSearchMode(
-              (chatRuntimeConfig as Record<string, unknown> | undefined) ?? {},
-            ),
+            webSearchMode: effectiveRuntimeWebSearchMode,
             usesOpenAiCompatEndpoint: Boolean(
               preparedExecution.openAiCompatEndpoint,
             ),

@@ -2255,11 +2255,135 @@ test('repository-backed codex chat preserves live web search for Unsloth endpoin
       .expect(202);
 
     await waitForAssistantTurn(conversationId);
+    const materializedChatConfig = await fs.readFile(
+      path.join(
+        buildRepositoryBackedRuntimeHome(
+          String(tempCodexHomeForTest),
+          conversationId,
+        ),
+        'chat',
+        'config.toml',
+      ),
+      'utf8',
+    );
 
     assert.equal(response.body.provider, 'codex');
     assert.equal(response.body.model, 'google/gemma-4-27b-it');
     assert.equal(mockCodex.lastStartOptions?.model, undefined);
     assert.equal(mockCodex.lastStartOptions?.webSearchMode, 'live');
+    assert.match(materializedChatConfig, /\[mcp_servers\.web_tools\]/u);
+  } finally {
+    await externalServer?.stop();
+    if (previousCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        previousCompatEndpoints;
+    }
+    if (previousCompatEndpointKeys === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+        previousCompatEndpointKeys;
+    }
+  }
+});
+
+test('repository-backed codex chat skips managed web_tools when request-time web search is disabled', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story59-manual-proof/unsloth-disabled-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const previousCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const previousCompatEndpointKeys =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+
+  try {
+    await fs.writeFile(
+      path.join(String(tempCodexHomeForTest), 'chat', 'config.toml'),
+      ['model = "gpt-5.1-codex-max"', 'web_search = "live"', ''].join('\n'),
+      'utf8',
+    );
+
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['google/gemma-4-27b-it'],
+    });
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
+      'sparkunsloth,sk-unsloth-test';
+
+    const mockCodex = new MockCodex('thread-repo-unsloth-disabled');
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: dummyClientFactory,
+        codexFactory: () => mockCodex,
+        copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+        listIngestedRepositoriesFn: async () =>
+          ({
+            repos: [{ containerPath: workingRepo }],
+            lockedModelId: null,
+          }) as never,
+      }),
+    );
+
+    const conversationId = 'conv-chat-repo-unsloth-disabled-search';
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          model: 'google/gemma-4-27b-it',
+          endpointId: `${externalServer.baseUrl}/v1`,
+          message: 'Do not search the web.',
+          working_folder: workingRepo,
+          agentFlags: {
+            webSearchMode: 'disabled',
+          },
+        }),
+      )
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+    const materializedChatConfig = await fs.readFile(
+      path.join(
+        buildRepositoryBackedRuntimeHome(
+          String(tempCodexHomeForTest),
+          conversationId,
+        ),
+        'chat',
+        'config.toml',
+      ),
+      'utf8',
+    );
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'google/gemma-4-27b-it');
+    assert.equal(mockCodex.lastStartOptions?.model, undefined);
+    assert.notEqual(mockCodex.lastStartOptions?.webSearchMode, 'live');
+    assert.doesNotMatch(materializedChatConfig, /\[mcp_servers\.web_tools\]/u);
   } finally {
     await externalServer?.stop();
     if (previousCompatEndpoints === undefined) {

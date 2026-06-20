@@ -2441,6 +2441,105 @@ describe('runtimeConfig deterministic resolver failures', () => {
     }
   });
 
+  it('replaces CRLF web_tools blocks cleanly when materialized repository-backed injection is enabled', async () => {
+    process.env.CODEINFO_SERVER_PORT = '7420';
+    process.env.CODEINFO_WEB_MCP_PORT = '7423';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          '',
+          '[mcp_servers.code_info]',
+          'command = "npx"',
+          'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp"]',
+          'startup_timeout_sec = 60',
+          '',
+          '[mcp_servers.web_tools]',
+          'command = "npx"',
+          'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp"]',
+          'startup_timeout_sec = 60',
+          '',
+        ].join('\r\n'),
+        'utf8',
+      );
+
+      const materialized = await materializeRepositoryBackedCodexChatHome({
+        conversationId: 'conv:managed-web-tools-crlf',
+        codexHome,
+        overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
+        injectWebTools: true,
+      });
+
+      const runtimeChatConfig = await fs.readFile(
+        materialized.chatConfigPath,
+        'utf8',
+      );
+
+      assert.equal(
+        runtimeChatConfig.match(/\[mcp_servers\.web_tools\]/gu)?.length ?? 0,
+        1,
+      );
+      assert.match(runtimeChatConfig, /http:\/\/localhost:7423\/mcp/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('removes CRLF web_tools blocks when repository-backed materialization does not inject them', async () => {
+    process.env.CODEINFO_SERVER_PORT = '7430';
+    process.env.CODEINFO_WEB_MCP_PORT = '7433';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          '',
+          '[mcp_servers.code_info]',
+          'command = "npx"',
+          'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp"]',
+          'startup_timeout_sec = 60',
+          '',
+          '[mcp_servers.web_tools]',
+          'command = "npx"',
+          'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp"]',
+          'startup_timeout_sec = 60',
+          '',
+        ].join('\r\n'),
+        'utf8',
+      );
+
+      const materialized = await materializeRepositoryBackedCodexChatHome({
+        conversationId: 'conv:managed-web-tools-crlf-removed',
+        codexHome,
+        overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
+        injectWebTools: false,
+      });
+
+      const runtimeChatConfig = await fs.readFile(
+        materialized.chatConfigPath,
+        'utf8',
+      );
+
+      assert.doesNotMatch(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
+      assert.match(runtimeChatConfig, /\[mcp_servers\.code_info\]/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('injects managed web_tools into copilot runtime config when web_search is live', async () => {
     process.env.CODEINFO_WEB_MCP_PORT = '7513';
     const copilotHome = await fs.mkdtemp(

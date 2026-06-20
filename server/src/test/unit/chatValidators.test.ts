@@ -90,7 +90,7 @@ test('resolver defaults apply when agentFlags are omitted', async () => {
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 model_reasoning_effort = "medium"
-web_search_mode = "disabled"
+web_search = "disabled"
 `);
   setEnv({
     Codex_network_access_enabled: 'false',

@@ -8,6 +8,7 @@ import {
   resolveRequiredCodeinfoPlaceholderValue,
 } from './mcpEndpoints.js';
 import type { OpenAiCompatEndpointConfig } from './openaiCompatEndpoints.js';
+import { applyManagedWebToolsToRuntimeConfig } from './webSearchMcp.js';
 
 const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
 
@@ -142,7 +143,7 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
     ...(baseConfig as Record<string, unknown>),
   };
   delete baseConfigWithoutCatalog.model_catalog_json;
-  return {
+  const mergedConfig = {
     ...baseConfigWithoutCatalog,
     ...generatedConfig,
     model_providers: {
@@ -152,6 +153,13 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
       ...(generatedConfig.model_providers as Record<string, unknown>),
     },
   } as CodexOptions['config'];
+
+  return applyManagedWebToolsToRuntimeConfig({
+    config: mergedConfig as Record<string, unknown>,
+    provider: 'codex',
+    env: params?.env,
+    usesOpenAiCompatEndpoint: true,
+  }) as CodexOptions['config'];
 }
 
 export function applyResolvedServerPortToCodexConfig(

@@ -61,6 +61,10 @@ import {
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
 import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
+import {
+  resolveConfiguredWebSearchMode,
+  shouldInjectManagedWebTools,
+} from '../config/webSearchMcp.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
@@ -976,6 +980,18 @@ export function createChatRouter({
     const executionUsesEndpoint = preparedExecution.executionUsesEndpoint;
     const executionEndpointId = preparedExecution.endpointId;
     const chatRuntimeConfig = preparedExecution.runtimeConfig;
+    const injectRepositoryBackedWebTools =
+      executionProvider === 'codex'
+        ? shouldInjectManagedWebTools({
+            provider: 'codex',
+            webSearchMode: resolveConfiguredWebSearchMode(
+              (chatRuntimeConfig as Record<string, unknown> | undefined) ?? {},
+            ),
+            usesOpenAiCompatEndpoint: Boolean(
+              preparedExecution.openAiCompatEndpoint,
+            ),
+          })
+        : false;
 
     const fallbackLogContext = {
       requestId,
@@ -1308,6 +1324,7 @@ export function createChatRouter({
           const materializedRuntimeHome =
             await materializeRepositoryBackedCodexChatHome({
               conversationId,
+              injectWebTools: injectRepositoryBackedWebTools,
               overrides: {
                 model: executionModel,
                 sandbox_mode:

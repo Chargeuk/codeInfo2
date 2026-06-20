@@ -16,6 +16,10 @@ import {
 } from '../config/openaiCompatEndpoints.js';
 import type { RuntimeTomlConfig } from '../config/runtimeConfig.js';
 import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
+import {
+  buildManagedWebToolsWarning,
+  resolveConfiguredWebSearchMode,
+} from '../config/webSearchMcp.js';
 
 import { resolveOpenAiCompatEndpointRuntimeState } from './openaiCompatModelDiscovery.js';
 
@@ -254,6 +258,19 @@ export async function prepareProviderExecution(params: {
     requestedReason: runtimeSelection.requestedReason,
     fallbackReason: runtimeSelection.fallbackReason,
   });
+  const managedWebToolsWarning =
+    executionProvider === 'codex' &&
+    endpointId &&
+    effectiveEndpoint &&
+    executionRuntimeResolution?.config
+      ? buildManagedWebToolsWarning({
+          provider: 'codex',
+          webSearchMode: resolveConfiguredWebSearchMode(
+            executionRuntimeResolution.config as Record<string, unknown>,
+          ),
+          usesOpenAiCompatEndpoint: true,
+        })
+      : undefined;
 
   return {
     runtimeSelection,
@@ -275,6 +292,7 @@ export async function prepareProviderExecution(params: {
       requestedRuntimeWarnings,
       executionRuntimeResolution?.warnings,
       runtimeSelectionWarning ? [runtimeSelectionWarning] : undefined,
+      managedWebToolsWarning ? [managedWebToolsWarning] : undefined,
     ),
   };
 }

@@ -33,6 +33,11 @@ import {
   parseOpenAiCompatEndpointConfig,
   validateOpenAiCompatEndpointConfigForProvider,
 } from './openaiCompatEndpoints.js';
+import {
+  applyManagedWebToolsToRuntimeConfig,
+  buildManagedWebToolsWarning,
+  resolveConfiguredWebSearchMode,
+} from './webSearchMcp.js';
 
 const T03_SUCCESS_LOG =
   '[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success';
@@ -210,15 +215,12 @@ const RESERVED_PROVIDER_CHAT_MCP_BLOCKS: Record<
 > = {
   codex: {
     code_info: CODE_INFO_MCP_SERVER_BLOCK,
-    web_tools: WEB_TOOLS_MCP_SERVER_BLOCK,
   },
   copilot: {
     code_info: CODE_INFO_MCP_SERVER_BLOCK,
-    web_tools: WEB_TOOLS_MCP_SERVER_BLOCK,
   },
   lmstudio: {
     code_info: CODE_INFO_MCP_SERVER_BLOCK,
-    web_tools: WEB_TOOLS_MCP_SERVER_BLOCK,
   },
 };
 const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
@@ -228,20 +230,18 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     'approval_policy = "on-request"',
     'sandbox_mode = "danger-full-access"',
     'network_access_enabled = true',
-    'web_search_mode = "live"',
     'web_search = "live"',
     '',
     CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
-    WEB_TOOLS_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
   copilot: [
     'model = "copilot-gpt-5"',
     'reasoning_effort = "medium"',
     'tool_access = "on"',
+    'web_search = "live"',
     '',
     CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
-    WEB_TOOLS_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
   lmstudio: [
@@ -250,9 +250,9 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     'max_tokens = 4096',
     'context_overflow_policy = "truncateMiddle"',
     'tool_access = "on"',
+    'web_search = "live"',
     '',
     CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
-    WEB_TOOLS_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
 };
@@ -717,6 +717,9 @@ export function normalizeRuntimeConfig(
   }
 
   const hasCanonicalWebSearch = hasOwn(normalized, 'web_search');
+  const rootWebSearchMode = hasOwn(normalized, 'web_search_mode')
+    ? toWebSearchMode(normalized.web_search_mode)
+    : undefined;
   const rootWebSearchAlias = hasOwn(normalized, 'web_search_request')
     ? toWebSearchMode(normalized.web_search_request)
     : undefined;
@@ -724,12 +727,16 @@ export function normalizeRuntimeConfig(
     ? toWebSearchMode(features.web_search_request)
     : undefined;
   if (!hasCanonicalWebSearch) {
-    const aliasWebSearch = rootWebSearchAlias ?? featureWebSearchAlias;
+    const aliasWebSearch =
+      rootWebSearchMode ?? rootWebSearchAlias ?? featureWebSearchAlias;
     if (aliasWebSearch !== undefined) {
       normalized.web_search = aliasWebSearch;
     }
   }
 
+  if (rootWebSearchMode !== undefined) {
+    delete normalized.web_search_mode;
+  }
   if (rootWebSearchAlias !== undefined) {
     delete normalized.web_search_request;
   }
@@ -1037,6 +1044,39 @@ function stripAppOwnedRuntimeMetadata(params: {
   return {
     config: sanitized,
     appMetadata,
+  };
+}
+
+function applyManagedWebToolsToValidatedConfig(params: {
+  config: RuntimeTomlConfig;
+  provider: ChatProviderId;
+  appMetadata?: RuntimeConfigAppMetadata;
+  env?: NodeJS.ProcessEnv;
+  warningPath: string;
+}): { config: RuntimeTomlConfig; warnings: RuntimeConfigWarning[] } {
+  const warning = buildManagedWebToolsWarning({
+    provider: params.provider,
+    webSearchMode: resolveConfiguredWebSearchMode(params.config),
+    usesOpenAiCompatEndpoint:
+      params.provider === 'codex'
+        ? Boolean(params.appMetadata?.codeinfoOpenAiEndpoint)
+        : false,
+  });
+
+  return {
+    config: applyManagedWebToolsToRuntimeConfig({
+      config: params.config,
+      provider: params.provider,
+      env: params.env,
+      usesOpenAiCompatEndpoint:
+        params.provider === 'codex'
+          ? Boolean(params.appMetadata?.codeinfoOpenAiEndpoint)
+          : false,
+    }),
+    warnings:
+      typeof warning === 'string'
+        ? [{ path: params.warningPath, message: warning }]
+        : [],
   };
 }
 
@@ -1429,6 +1469,19 @@ const appendTomlBlocks = (rawConfig: string, blocks: string[]): string => {
   return `${prefix}${normalizedBlocks.join('\n\n')}\n`;
 };
 
+const stripNamedMcpServerBlockFromRawConfig = (
+  rawConfig: string,
+  serverName: string,
+): string => {
+  const escapedServerName = serverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const blockPattern = new RegExp(
+    `(?:^|\\n)\\[mcp_servers\\.${escapedServerName}\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`,
+    'u',
+  );
+  const stripped = rawConfig.replace(blockPattern, '\n');
+  return stripped.replace(/\n{3,}/gu, '\n\n').replace(/\s+$/u, '') + '\n';
+};
+
 async function maybeAugmentExistingProviderChatConfig(params: {
   provider: ChatProviderId;
   chatConfigPath: string;
@@ -1505,7 +1558,12 @@ async function maybeAugmentExistingProviderChatConfig(params: {
       templateConfig,
       params.provider,
     );
-    if (!isDeepStrictEqual(currentWithoutReserved, templateWithoutReserved)) {
+    if (
+      !isDeepStrictEqual(
+        normalizeRuntimeConfig(currentWithoutReserved),
+        normalizeRuntimeConfig(templateWithoutReserved),
+      )
+    ) {
       return { outcome: 'noop' };
     }
 
@@ -1641,6 +1699,15 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
     });
     validated.warnings.unshift(...metadataWarnings);
     validated.appMetadata = stripped.appMetadata;
+    const managedWebToolsResult = applyManagedWebToolsToValidatedConfig({
+      config: validated.config,
+      provider: effectiveProvider,
+      appMetadata: stripped.appMetadata,
+      env: process.env,
+      warningPath: `${params.surface}.mcp_servers.web_tools`,
+    });
+    validated.config = managedWebToolsResult.config;
+    validated.warnings.push(...managedWebToolsResult.warnings);
     logValidationWarnings(validated.warnings);
     console.info(T04_RUNTIME_INHERITANCE_MARKER, {
       surface: params.surface,
@@ -1954,6 +2021,7 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
   conversationId: string;
   codexHome?: string;
   overrides: CodexChatConfigRootOverrides;
+  injectWebTools?: boolean;
 }): Promise<{
   sourceCodexHome: string;
   runtimeCodexHome: string;
@@ -1998,11 +2066,17 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
       fs.readFile(sourceChatConfigPath, 'utf8'),
     ]);
     const runtimeChatConfig = applyCodexChatConfigRootOverrides(
-      chatConfigRaw,
+      stripNamedMcpServerBlockFromRawConfig(chatConfigRaw, 'web_tools'),
       params.overrides,
     );
+    const runtimeChatConfigWithManagedWebTools = params.injectWebTools
+      ? appendTomlBlocks(runtimeChatConfig, [WEB_TOOLS_MCP_SERVER_BLOCK])
+      : runtimeChatConfig;
     const normalizedRuntimeChatConfig =
-      replaceCodeinfoEnvPlaceholdersInString(runtimeChatConfig, process.env);
+      replaceCodeinfoEnvPlaceholdersInString(
+        runtimeChatConfigWithManagedWebTools,
+        process.env,
+      );
     assertNoUnresolvedRequiredMcpPlaceholders(normalizedRuntimeChatConfig);
 
     await Promise.all([

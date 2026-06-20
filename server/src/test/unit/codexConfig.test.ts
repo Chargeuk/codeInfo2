@@ -235,6 +235,43 @@ describe('codexConfig', () => {
     });
   });
 
+  it('applyCodexOpenAiCompatEndpointToRuntimeConfig injects managed web_tools when web_search is live', () => {
+    const config = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+      {
+        web_search: 'live',
+        mcp_servers: {
+          code_info: {
+            command: 'npx',
+            args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+          },
+        },
+      } as unknown as Parameters<
+        typeof applyCodexOpenAiCompatEndpointToRuntimeConfig
+      >[0],
+      {
+        endpointId: 'https://openrouter.ai/api/v1',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        capabilities: ['responses', 'completions'],
+        displayLabel: 'OpenRouter',
+        authLookupKey: 'openrouter',
+      },
+      {
+        env: {
+          CODEINFO_WEB_MCP_PORT: '6513',
+        },
+      },
+    ) as Record<string, unknown>;
+
+    assert.deepEqual(
+      (config.mcp_servers as Record<string, unknown>).web_tools,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6513/mcp'],
+        startup_timeout_sec: 60,
+      },
+    );
+  });
+
   it('applyResolvedServerPortToCodexConfig rewrites legacy hard-coded MCP urls', () => {
     const input = [
       'host = "http://localhost:5010/mcp"',

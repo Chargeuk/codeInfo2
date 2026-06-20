@@ -621,6 +621,44 @@ describe('runtimeConfig bootstrap', () => {
     }
   });
 
+  it('treats reserved MCP augmentation lock timeouts as a best-effort failure branch', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const originalOpen = fs.open.bind(fs);
+    const legacyConfig = [
+      'model = "gpt-5.3-codex"',
+      'model_reasoning_effort = "high"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "danger-full-access"',
+      'network_access_enabled = true',
+      'web_search_mode = "live"',
+      'web_search = "live"',
+      '',
+    ].join('\n');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
+
+      mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+        const [filePath] = args;
+        if (String(filePath) === `${chatConfigPath}.codeinfo.lock`) {
+          throw Object.assign(new Error('lock busy'), { code: 'EEXIST' });
+        }
+        return originalOpen(...args);
+      });
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_augment_failed');
+      assert.equal(chatContents, legacyConfig);
+      assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('leaves an existing invalid-TOML chat config untouched', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2340,6 +2378,43 @@ describe('runtimeConfig deterministic resolver failures', () => {
       assert.deepEqual(runtimeEntries, []);
     } finally {
       mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves required MCP placeholders in materialized repository-backed chat configs', async () => {
+    process.env.CODEINFO_SERVER_PORT = '7410';
+    process.env.CODEINFO_WEB_MCP_PORT = '7413';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'codex/chat/config.toml'),
+        chatConfigPath,
+      );
+
+      const materialized = await materializeRepositoryBackedCodexChatHome({
+        conversationId: 'conv:placeholder-resolution',
+        codexHome,
+        overrides: { model: 'gpt-5.3-codex' },
+      });
+
+      const runtimeChatConfig = await fs.readFile(
+        materialized.chatConfigPath,
+        'utf8',
+      );
+
+      assert.match(runtimeChatConfig, /http:\/\/localhost:7410\/mcp/u);
+      assert.match(runtimeChatConfig, /http:\/\/localhost:7413\/mcp/u);
+      assert.doesNotMatch(
+        runtimeChatConfig,
+        /\$\{CODEINFO_(SERVER|WEB_MCP)_PORT\}/u,
+      );
+    } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });

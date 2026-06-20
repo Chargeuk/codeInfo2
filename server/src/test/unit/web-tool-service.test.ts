@@ -42,6 +42,74 @@ test('webSearch normalizes duck-duck-scrape results into CodeInfo payloads', asy
   assert.equal(result.results[0]?.snippet, 'Official compiler docs');
 });
 
+test('webSearch drops non-http result URLs from the primary DuckDuckGo path and keeps noResults consistent', async () => {
+  const result = await webSearch(
+    {
+      query: 'filtered results',
+      maxResults: 5,
+    },
+    {
+      duckDuckSearchImpl: async () => ({
+        noResults: false,
+        vqd: 'demo',
+        results: [
+          {
+            hostname: 'bad.example',
+            url: 'javascript:alert(1)',
+            title: 'Bad result',
+            description: 'Should be dropped',
+            rawDescription: 'Should be dropped',
+            icon: '',
+          },
+          {
+            hostname: 'good.example',
+            url: 'https://example.com/good',
+            title: 'Good &amp; result',
+            description: 'Kept result',
+            rawDescription: 'Kept result',
+            icon: '',
+          },
+        ],
+      }),
+    },
+  );
+
+  assert.equal(result.noResults, false);
+  assert.deepEqual(
+    result.results.map((entry) => entry.url),
+    ['https://example.com/good'],
+  );
+  assert.equal(result.results[0]?.title, 'Good & result');
+});
+
+test('webSearch reports noResults when primary DuckDuckGo results are all filtered out', async () => {
+  const result = await webSearch(
+    {
+      query: 'all filtered',
+      maxResults: 5,
+    },
+    {
+      duckDuckSearchImpl: async () => ({
+        noResults: false,
+        vqd: 'demo',
+        results: [
+          {
+            hostname: 'bad.example',
+            url: 'file:///etc/passwd',
+            title: 'Bad result',
+            description: 'Should be dropped',
+            rawDescription: 'Should be dropped',
+            icon: '',
+          },
+        ],
+      }),
+    },
+  );
+
+  assert.equal(result.noResults, true);
+  assert.deepEqual(result.results, []);
+});
+
 test('webSearch falls back to DuckDuckGo HTML scraping when duck-duck-scrape is blocked', async () => {
   let fallbackUrl: URL | undefined;
   const result = await webSearch(
@@ -85,6 +153,50 @@ test('webSearch falls back to DuckDuckGo HTML scraping when duck-duck-scrape is 
   assert.equal(result.results[0]?.hostname, 'openai.com');
   assert.equal(result.results[0]?.snippet, 'Latest updates from OpenAI.');
   assert.equal(fallbackUrl?.searchParams.get('kp'), '1');
+});
+
+test('webSearch HTML fallback drops malformed and non-http result URLs', async () => {
+  const result = await webSearch(
+    {
+      query: 'OpenAI latest news',
+      maxResults: 5,
+    },
+    {
+      duckDuckSearchImpl: async () => {
+        throw new Error('primary path unavailable');
+      },
+      fetchImpl: async () =>
+        new Response(
+          [
+            '<html><body>',
+            '<div class="result">',
+            '<h2 class="result__title"><a href="javascript:alert(1)">Bad One</a></h2>',
+            '<a class="result__snippet">Dropped.</a>',
+            '</div>',
+            '<div class="result">',
+            '<h2 class="result__title"><a href="file:///etc/passwd">Bad Two</a></h2>',
+            '<a class="result__snippet">Dropped too.</a>',
+            '</div>',
+            '<div class="result">',
+            '<h2 class="result__title"><a href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fopenai.com%2Fnews%2F">OpenAI News</a></h2>',
+            '<a class="result__snippet">Latest updates from OpenAI.</a>',
+            '</div>',
+            '</body></html>',
+          ].join(''),
+          {
+            status: 200,
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          },
+        ),
+    },
+  );
+
+  assert.equal(result.provider, 'duckduckgo-html');
+  assert.deepEqual(
+    result.results.map((entry) => entry.url),
+    ['https://openai.com/news/'],
+  );
+  assert.equal(result.noResults, false);
 });
 
 test('webSearch aborts the DuckDuckGo HTML fallback when it exceeds the timeout', async () => {
@@ -810,4 +922,72 @@ test('readWebPage Playwright mode accepts multi-event SSE payloads from remote M
 
   assert.equal(result.modeUsed, 'playwright');
   assert.match(result.text, /Rendered from SSE/u);
+});
+
+test('readWebPage Playwright mode accepts multi-line SSE event payloads from remote MCP', async () => {
+  const result = await readWebPage(
+    {
+      url: 'https://93.184.216.34/react-page',
+      mode: 'playwright',
+    },
+    {
+      fetchImpl: async () =>
+        new Response(
+          [
+            'event: message',
+            'data: {',
+            'data: "jsonrpc":"2.0",',
+            'data: "id":"read-web-page-browser_run_code_unsafe",',
+            'data: "result":{"content":[{"type":"text","text":"{\\"finalUrl\\":\\"https://93.184.216.34/rendered\\",\\"html\\":\\"<html><body><main><article><p>Rendered from multi-line SSE.</p></article></main></body></html>\\"}"}]}}',
+            '',
+          ].join('\n'),
+          {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+          },
+        ),
+      resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
+    },
+  );
+
+  assert.equal(result.modeUsed, 'playwright');
+  assert.match(result.text, /Rendered from multi-line SSE/u);
+});
+
+test('readWebPage Playwright mode prefers the final JSON text chunk when remote MCP content includes progress text', async () => {
+  const result = await readWebPage(
+    {
+      url: 'https://93.184.216.34/react-page',
+      mode: 'playwright',
+    },
+    {
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'read-web-page-browser_run_code_unsafe',
+            result: {
+              content: [
+                { type: 'text', text: 'progress' },
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    finalUrl: 'https://93.184.216.34/rendered',
+                    html: '<html><body><main><article><p>Rendered from final JSON.</p></article></main></body></html>',
+                  }),
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      resolvePlaywrightMcpUrl: () => 'http://playwright.test/mcp',
+    },
+  );
+
+  assert.equal(result.modeUsed, 'playwright');
+  assert.match(result.text, /Rendered from final JSON/u);
 });

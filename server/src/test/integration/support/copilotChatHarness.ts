@@ -12,6 +12,7 @@ import {
 import { resetStore } from '../../../logStore.js';
 import { setCodexDetection } from '../../../providers/codexRegistry.js';
 import { createChatRouter } from '../../../routes/chat.js';
+import type { resolveOpenAiCompatProviderDiscovery } from '../../../routes/chatDiscovery.js';
 import { attachWs, type WsServerHandle } from '../../../ws/server.js';
 import {
   createMockCopilotSdkHarness,
@@ -80,6 +81,7 @@ export async function startCopilotChatServer(params?: {
   lmstudioAvailable?: boolean;
   mcpAvailable?: boolean;
   lmstudioClientFactory?: (baseUrl: string) => LMStudioClient;
+  providerDiscoveryResolver?: typeof resolveOpenAiCompatProviderDiscovery;
 }) {
   memoryConversations.clear();
   memoryTurns.clear();
@@ -112,6 +114,7 @@ export async function startCopilotChatServer(params?: {
         params?.lmstudioClientFactory ??
         createDummyClientFactory(params?.lmstudioAvailable === true),
       copilotLifecycleFactory: () => harness.createLifecycle(),
+      providerDiscoveryResolver: params?.providerDiscoveryResolver,
     }),
   );
 

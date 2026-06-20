@@ -328,6 +328,7 @@ export function createChatRouter({
   cleanupInflightFn = cleanupInflight,
   releaseConversationLockFn = releaseConversationLock,
   copilotLifecycleFactory,
+  providerDiscoveryResolver = resolveOpenAiCompatProviderDiscovery,
 }: {
   clientFactory: ClientFactory;
   codexFactory?: CodexFactory;
@@ -342,6 +343,7 @@ export function createChatRouter({
   copilotLifecycleFactory?: (params?: {
     env?: NodeJS.ProcessEnv;
   }) => CopilotLifecycle;
+  providerDiscoveryResolver?: typeof resolveOpenAiCompatProviderDiscovery;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -770,31 +772,34 @@ export function createChatRouter({
       defaultsResolution.modelSource === 'request' &&
       copilotReadiness.blockingStage === 'authentication'
     ) {
-      const externalDiscovery = await resolveOpenAiCompatProviderDiscovery({
-        provider: 'copilot',
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        env: process.env,
-      });
-      const requestedModelIdentity = normalizeModelIdentity(
-        normalizedRequestedModel,
-      );
-      if (requestedModelIdentity) {
-        const matchingEndpointIds = Array.from(
-          new Set(
-            externalDiscovery.models
-              .filter(
-                (model) =>
-                  normalizeModelIdentity(model.key) === requestedModelIdentity &&
-                  typeof model.endpointId === 'string' &&
-                  model.endpointId.trim().length > 0,
-              )
-              .map((model) => model.endpointId?.trim() ?? ''),
-          ),
+      try {
+        const externalDiscovery = await providerDiscoveryResolver({
+          provider: 'copilot',
+          copilotHome: process.env.CODEINFO_COPILOT_HOME,
+          env: process.env,
+        });
+        const requestedModelIdentity = normalizeModelIdentity(
+          normalizedRequestedModel,
         );
-        if (matchingEndpointIds.length === 1) {
-          [inferredCopilotEndpointId] = matchingEndpointIds;
+        if (requestedModelIdentity) {
+          const matchingEndpointIds = Array.from(
+            new Set(
+              externalDiscovery.models
+                .filter(
+                  (model) =>
+                    normalizeModelIdentity(model.key) ===
+                      requestedModelIdentity &&
+                    typeof model.endpointId === 'string' &&
+                    model.endpointId.trim().length > 0,
+                )
+                .map((model) => model.endpointId?.trim() ?? ''),
+            ),
+          );
+          if (matchingEndpointIds.length === 1) {
+            [inferredCopilotEndpointId] = matchingEndpointIds;
+          }
         }
-      }
+      } catch {}
     }
     const shouldUsePinnedCopilotEndpointByDefault =
       effectiveRequestedProvider === 'copilot' &&

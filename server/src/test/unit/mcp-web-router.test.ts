@@ -287,6 +287,31 @@ test('web MCP read_web_page rejects non-http schemes and credentialed URLs as in
   }
 });
 
+test('web MCP read_web_page rejects hostname URLs for explicit Playwright mode as invalid params', async () => {
+  const server = http.createServer(handleWebRpc);
+  const port = await listen(server);
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 203,
+      method: 'tools/call',
+      params: {
+        name: 'read_web_page',
+        arguments: {
+          url: 'https://example.com/article',
+          mode: 'playwright',
+        },
+      },
+    });
+
+    assert.equal(body.error.code, -32602);
+    assert.match(JSON.stringify(body.error), /IP-literal URL/u);
+  } finally {
+    await close(server);
+  }
+});
+
 test('shared MCP router surfaces unexpected tool failures as internal errors', async () => {
   const failingRouter = createMcpRouter({
     surface: 'mcpWebTest',

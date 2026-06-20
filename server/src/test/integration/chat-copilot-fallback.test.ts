@@ -257,6 +257,43 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
   }
 });
 
+test('explicit Copilot chat requests tolerate endpoint discovery failures during inference', async () => {
+  let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
+
+  try {
+    server = await startCopilotChatServer({
+      scenario: {
+        name: 'copilot-chat-discovery-failure-tolerated',
+        authStatus: {
+          isAuthenticated: false,
+          authType: 'user',
+          statusMessage: 'login required',
+        },
+        models: [],
+      },
+      providerDiscoveryResolver: async () => {
+        throw new Error('discovery exploded');
+      },
+    });
+
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      model: 'endpoint-copilot-model',
+      conversationId: 'copilot-discovery-failure-tolerated',
+      message: 'Continue even if endpoint discovery throws',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(
+      memoryConversations.get('copilot-discovery-failure-tolerated')?.provider,
+      'copilot',
+    );
+  } finally {
+    await server?.stop();
+  }
+});
+
 test('explicit Copilot chat requests honor a pinned external endpoint when the request model matches config', async () => {
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;

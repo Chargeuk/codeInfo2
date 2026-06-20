@@ -172,18 +172,27 @@ const normalizeWhitespace = (value: string): string =>
 const decodeHtmlText = (value: string): string =>
   normalizeWhitespace(cheerio.load(`<div>${value}</div>`)('div').text());
 
-const resolveDuckDuckGoResultUrl = (value: string): string => {
-  const candidate = value.startsWith('//') ? `https:${value}` : value;
+const toPublicHttpUrl = (value: string, base?: string): URL | undefined => {
   try {
-    const parsed = new URL(candidate, 'https://duckduckgo.com');
-    const redirected = parsed.searchParams.get('uddg');
-    if (redirected) {
-      return redirected;
+    const parsed = base ? new URL(value, base) : new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return undefined;
     }
-    return parsed.toString();
+    return parsed;
   } catch {
-    return candidate;
+    return undefined;
   }
+};
+
+const resolveDuckDuckGoResultUrl = (value: string): string | undefined => {
+  const candidate = value.startsWith('//') ? `https:${value}` : value;
+  const parsed = toPublicHttpUrl(candidate, 'https://duckduckgo.com');
+  if (!parsed) {
+    return undefined;
+  }
+  const redirected = parsed.searchParams.get('uddg');
+  const resolved = redirected ? toPublicHttpUrl(redirected) : parsed;
+  return resolved?.toString();
 };
 
 const mapSafeSearch = (value: WebSearchParams['safeSearch']) => {
@@ -836,26 +845,32 @@ function parseJsonRpcPayload(rawBody: string): ParsedMcpPayload | null {
   try {
     return JSON.parse(trimmed) as ParsedMcpPayload;
   } catch {
-  const ssePayloads = trimmed
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith('data:'))
-      .map((line) => line.slice('data:'.length).trim())
-      .filter((line) => line.length > 0);
-  if (ssePayloads.length === 0) {
+    const ssePayloads = trimmed
+      .split(/\r?\n\r?\n/u)
+      .map((event) =>
+        event
+          .split(/\r?\n/u)
+          .map((line) => line.trim())
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice('data:'.length).trim())
+          .join('\n')
+          .trim(),
+      )
+      .filter((payload) => payload.length > 0);
+    if (ssePayloads.length === 0) {
+      return null;
+    }
+
+    for (let index = ssePayloads.length - 1; index >= 0; index -= 1) {
+      try {
+        return JSON.parse(ssePayloads[index] ?? '') as ParsedMcpPayload;
+      } catch {
+        continue;
+      }
+    }
+
     return null;
   }
-
-  for (let index = ssePayloads.length - 1; index >= 0; index -= 1) {
-    try {
-      return JSON.parse(ssePayloads[index] ?? '') as ParsedMcpPayload;
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
 }
 
 async function callRemoteMcp(params: {
@@ -932,6 +947,14 @@ function extractMcpTextResult(result: unknown): string {
           : null,
       )
       .filter((entry): entry is string => typeof entry === 'string');
+    for (let index = textParts.length - 1; index >= 0; index -= 1) {
+      try {
+        JSON.parse(textParts[index] ?? '');
+        return textParts[index] ?? '';
+      } catch {
+        continue;
+      }
+    }
     if (textParts.length > 0) {
       return textParts.join('\n');
     }
@@ -1226,6 +1249,9 @@ async function searchDuckDuckGoHtml(params: {
         return null;
       }
       const urlValue = resolveDuckDuckGoResultUrl(href);
+      if (!urlValue) {
+        return null;
+      }
       let hostname = '';
       try {
         hostname = new URL(urlValue).hostname;
@@ -1278,17 +1304,32 @@ export async function webSearch(
       }ms`,
     );
 
-    const results = searchResult.results.slice(0, maxResults).map((entry) => ({
-      title: decodeHtmlText(entry.title),
-      url: entry.url,
-      hostname: entry.hostname,
-      snippet: decodeHtmlText(entry.description),
-    }));
+    const results = searchResult.results
+      .map((entry) => {
+        const url = toPublicHttpUrl(entry.url)?.toString();
+        if (!url) {
+          return null;
+        }
+        let hostname = '';
+        try {
+          hostname = new URL(url).hostname;
+        } catch {
+          hostname = '';
+        }
+        return {
+          title: decodeHtmlText(entry.title),
+          url,
+          hostname,
+          snippet: decodeHtmlText(entry.description),
+        };
+      })
+      .filter((entry): entry is WebSearchResultItem => Boolean(entry))
+      .slice(0, maxResults);
 
     return {
       query: params.query,
       provider: 'duck-duck-scrape',
-      noResults: searchResult.noResults,
+      noResults: results.length === 0,
       results,
       diagnostics: {
         maxResults,

@@ -1441,7 +1441,21 @@ async function maybeAugmentExistingProviderChatConfig(params: {
 
   let releaseLock: (() => Promise<void>) | undefined;
   try {
-    releaseLock = await acquireChatConfigLock(params.chatConfigPath);
+    try {
+      releaseLock = await acquireChatConfigLock(params.chatConfigPath);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'LOCK_TIMEOUT') {
+        return {
+          outcome: 'failed',
+          warning:
+            error instanceof Error
+              ? error.message
+              : 'Timed out acquiring chat config lock',
+          warningCode: 'LOCK_TIMEOUT',
+        };
+      }
+      throw error;
+    }
 
     let rawConfig: string;
     try {
@@ -1987,10 +2001,13 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
       chatConfigRaw,
       params.overrides,
     );
+    const normalizedRuntimeChatConfig =
+      replaceCodeinfoEnvPlaceholdersInString(runtimeChatConfig, process.env);
+    assertNoUnresolvedRequiredMcpPlaceholders(normalizedRuntimeChatConfig);
 
     await Promise.all([
       fs.writeFile(runtimeBaseConfigPath, baseConfigRaw, 'utf8'),
-      fs.writeFile(runtimeChatConfigPath, runtimeChatConfig, 'utf8'),
+      fs.writeFile(runtimeChatConfigPath, normalizedRuntimeChatConfig, 'utf8'),
     ]);
 
     const authConfigRaw = await fs

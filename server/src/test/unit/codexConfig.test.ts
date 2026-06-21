@@ -170,24 +170,30 @@ describe('codexConfig', () => {
       },
     ) as Record<string, unknown>;
 
-    assert.deepEqual(config, {
-      model_provider: 'codeinfo_openai_endpoint',
-      model_providers: {
-        codeinfo_openai_endpoint: {
-          name: 'codeinfo_openai_endpoint',
-          base_url: buildOpenAiCompatProxyBaseUrl({
-            endpoint: {
-              endpointId: 'https://openrouter.ai/api/v1',
-            },
-            consumer: 'codex',
-            env: {
-              CODEINFO_SERVER_PORT: '5710',
-            },
-          }),
-          wire_api: 'responses',
-        },
+    assert.equal(config.model_provider, 'codeinfo_openai_endpoint');
+    assert.deepEqual(config.model_providers, {
+      codeinfo_openai_endpoint: {
+        name: 'codeinfo_openai_endpoint',
+        base_url: buildOpenAiCompatProxyBaseUrl({
+          endpoint: {
+            endpointId: 'https://openrouter.ai/api/v1',
+          },
+          consumer: 'codex',
+          env: {
+            CODEINFO_SERVER_PORT: '5710',
+          },
+        }),
+        wire_api: 'responses',
       },
     });
+    assert.deepEqual(
+      (config.mcp_servers as Record<string, unknown>).web_tools,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5013/mcp'],
+        startup_timeout_sec: 60,
+      },
+    );
   });
 
   it('applyCodexOpenAiCompatEndpointToRuntimeConfig strips stale model_catalog_json while preserving other base config fields', () => {
@@ -239,6 +245,42 @@ describe('codexConfig', () => {
     const config = applyCodexOpenAiCompatEndpointToRuntimeConfig(
       {
         web_search: 'live',
+        mcp_servers: {
+          code_info: {
+            command: 'npx',
+            args: ['-y', 'mcp-remote', 'http://localhost:5010/mcp'],
+          },
+        },
+      } as unknown as Parameters<
+        typeof applyCodexOpenAiCompatEndpointToRuntimeConfig
+      >[0],
+      {
+        endpointId: 'https://openrouter.ai/api/v1',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        capabilities: ['responses', 'completions'],
+        displayLabel: 'OpenRouter',
+        authLookupKey: 'openrouter',
+      },
+      {
+        env: {
+          CODEINFO_WEB_MCP_PORT: '6513',
+        },
+      },
+    ) as Record<string, unknown>;
+
+    assert.deepEqual(
+      (config.mcp_servers as Record<string, unknown>).web_tools,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6513/mcp'],
+        startup_timeout_sec: 60,
+      },
+    );
+  });
+
+  it('applyCodexOpenAiCompatEndpointToRuntimeConfig injects managed web_tools when endpoint execution inherits the default live mode', () => {
+    const config = applyCodexOpenAiCompatEndpointToRuntimeConfig(
+      {
         mcp_servers: {
           code_info: {
             command: 'npx',

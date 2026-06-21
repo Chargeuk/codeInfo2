@@ -15,6 +15,22 @@ describe('webSearchMcp runtime helpers', () => {
       'live',
     );
     assert.equal(
+      resolveConfiguredWebSearchMode({ web_search: true }),
+      'live',
+    );
+    assert.equal(
+      resolveConfiguredWebSearchMode({ web_search: false }),
+      'disabled',
+    );
+    assert.equal(
+      resolveConfiguredWebSearchMode({ web_search: 'true' }),
+      'live',
+    );
+    assert.equal(
+      resolveConfiguredWebSearchMode({ web_search: 'false' }),
+      'disabled',
+    );
+    assert.equal(
       resolveConfiguredWebSearchMode({ web_search_mode: 'cached' }),
       'cached',
     );

@@ -14,10 +14,19 @@ const isRecord = (value: unknown): value is RuntimeRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const normalizeMode = (value: unknown): WebSearchMode | undefined => {
+  if (typeof value === 'boolean') {
+    return value ? 'live' : 'disabled';
+  }
   if (typeof value !== 'string') {
     return undefined;
   }
   const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') {
+    return 'live';
+  }
+  if (normalized === 'false') {
+    return 'disabled';
+  }
   if (
     normalized === 'live' ||
     normalized === 'cached' ||

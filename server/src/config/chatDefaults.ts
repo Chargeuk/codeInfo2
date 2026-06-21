@@ -408,7 +408,9 @@ export const resolveCodexChatDefaults = (params?: {
     warnings.push(warningForLegacyCodexWebSearch('web_search_request'));
   }
   const effectiveConfigWebSearch =
-    configWebSearch ?? configWebSearchMode ?? configWebSearchAlias;
+    config && hasOwn(config, 'web_search')
+      ? configWebSearch
+      : configWebSearch ?? configWebSearchMode ?? configWebSearchAlias;
 
   const overrideWebSearch =
     params?.overrides?.webSearch ??

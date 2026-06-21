@@ -2441,7 +2441,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
     }
   });
 
-  it('replaces CRLF web_tools blocks cleanly when materialized repository-backed injection is enabled', async () => {
+  it('replaces indented CRLF web_tools blocks cleanly when materialized repository-backed injection is enabled', async () => {
     process.env.CODEINFO_SERVER_PORT = '7420';
     process.env.CODEINFO_WEB_MCP_PORT = '7423';
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -2461,10 +2461,13 @@ describe('runtimeConfig deterministic resolver failures', () => {
           'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp"]',
           'startup_timeout_sec = 60',
           '',
-          '[mcp_servers.web_tools]',
+          '  [mcp_servers.web_tools]',
           'command = "npx"',
           'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp"]',
           'startup_timeout_sec = 60',
+          '',
+          '  [tools]',
+          'view_image = true',
           '',
         ].join('\r\n'),
         'utf8',
@@ -2487,12 +2490,13 @@ describe('runtimeConfig deterministic resolver failures', () => {
         1,
       );
       assert.match(runtimeChatConfig, /http:\/\/localhost:7423\/mcp/u);
+      assert.match(runtimeChatConfig, /[ \t]*\[tools\]\r?\nview_image = true/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
 
-  it('removes CRLF web_tools blocks when repository-backed materialization does not inject them', async () => {
+  it('removes indented CRLF web_tools blocks when repository-backed materialization does not inject them', async () => {
     process.env.CODEINFO_SERVER_PORT = '7430';
     process.env.CODEINFO_WEB_MCP_PORT = '7433';
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -2512,10 +2516,13 @@ describe('runtimeConfig deterministic resolver failures', () => {
           'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp"]',
           'startup_timeout_sec = 60',
           '',
-          '[mcp_servers.web_tools]',
+          '  [mcp_servers.web_tools]',
           'command = "npx"',
           'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp"]',
           'startup_timeout_sec = 60',
+          '',
+          '  [tools]',
+          'view_image = true',
           '',
         ].join('\r\n'),
         'utf8',
@@ -2535,6 +2542,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
 
       assert.doesNotMatch(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
       assert.match(runtimeChatConfig, /\[mcp_servers\.code_info\]/u);
+      assert.match(runtimeChatConfig, /[ \t]*\[tools\]\r?\nview_image = true/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }

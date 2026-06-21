@@ -1477,7 +1477,7 @@ const stripNamedMcpServerBlockFromRawConfig = (
   const escapedServerName = serverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const blockPattern = new RegExp(
     `(?:^|\\r?\\n)\\s*\\[mcp_servers\\.${escapedServerName}\\]\\r?\\n[\\s\\S]*?(?=\\r?\\n\\s*\\[[^\\r\\n]+\\]|$)`,
-    'u',
+    'gu',
   );
   const normalizedNewlines = rawConfig.includes('\r\n') ? '\r\n' : '\n';
   const stripped = rawConfig.replace(blockPattern, normalizedNewlines);

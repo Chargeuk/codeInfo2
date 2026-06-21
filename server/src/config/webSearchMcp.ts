@@ -4,6 +4,11 @@ import { resolveRequiredCodeinfoPlaceholderValue } from './mcpEndpoints.js';
 export type WebSearchMode = 'live' | 'cached' | 'disabled';
 
 type RuntimeRecord = Record<string, unknown>;
+type ManagedWebToolsMcpServerDefinition = {
+  command: string;
+  args: string[];
+  startup_timeout_sec: number;
+};
 
 const isRecord = (value: unknown): value is RuntimeRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -52,8 +57,10 @@ export function resolveConfiguredWebSearchMode(
   if (!config) {
     return undefined;
   }
+  if (Object.prototype.hasOwnProperty.call(config, 'web_search')) {
+    return normalizeMode(config.web_search);
+  }
   return (
-    normalizeMode(config.web_search) ??
     normalizeMode(config.web_search_mode) ??
     resolveRootAliasMode(config.web_search_request) ??
     resolveLegacyAliasMode(config.features)
@@ -62,7 +69,7 @@ export function resolveConfiguredWebSearchMode(
 
 export function buildManagedWebToolsMcpServerDefinition(
   env: NodeJS.ProcessEnv = process.env,
-): Record<string, unknown> {
+): ManagedWebToolsMcpServerDefinition {
   const port = resolveRequiredCodeinfoPlaceholderValue(
     'CODEINFO_WEB_MCP_PORT',
     env,
@@ -73,6 +80,27 @@ export function buildManagedWebToolsMcpServerDefinition(
     startup_timeout_sec: 60,
   };
 }
+
+const isManagedWebToolsMcpServerDefinition = (
+  value: unknown,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const managedDefinition = buildManagedWebToolsMcpServerDefinition(env);
+  return (
+    value.command === managedDefinition.command &&
+    Array.isArray(value.args) &&
+    value.args.length === managedDefinition.args.length &&
+    value.args.every((entry, index) => entry === managedDefinition.args[index]) &&
+    value.startup_timeout_sec === managedDefinition.startup_timeout_sec &&
+    Object.keys(value).every((key) =>
+      ['command', 'args', 'startup_timeout_sec'].includes(key),
+    )
+  );
+};
 
 export function shouldInjectManagedWebTools(params: {
   provider: ChatProviderId;
@@ -124,8 +152,11 @@ export function applyManagedWebToolsToRuntimeConfigForMode(params: {
   const currentMcpServers = isRecord(cloned.mcp_servers)
     ? { ...cloned.mcp_servers }
     : {};
-
-  delete currentMcpServers.web_tools;
+  const currentWebTools = currentMcpServers.web_tools;
+  const currentWebToolsIsManaged = isManagedWebToolsMcpServerDefinition(
+    currentWebTools,
+    params.env,
+  );
 
   if (
     shouldInjectManagedWebTools({
@@ -134,9 +165,13 @@ export function applyManagedWebToolsToRuntimeConfigForMode(params: {
       usesOpenAiCompatEndpoint: params.usesOpenAiCompatEndpoint,
     })
   ) {
-    currentMcpServers.web_tools = buildManagedWebToolsMcpServerDefinition(
-      params.env,
-    );
+    if (currentWebTools === undefined || currentWebToolsIsManaged) {
+      currentMcpServers.web_tools = buildManagedWebToolsMcpServerDefinition(
+        params.env,
+      );
+    }
+  } else if (currentWebToolsIsManaged) {
+    delete currentMcpServers.web_tools;
   }
 
   if (Object.keys(currentMcpServers).length > 0) {

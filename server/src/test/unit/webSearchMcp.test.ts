@@ -32,6 +32,14 @@ describe('webSearchMcp runtime helpers', () => {
       resolveConfiguredWebSearchMode({ web_search_request: false }),
       'disabled',
     );
+    assert.equal(
+      resolveConfiguredWebSearchMode({
+        web_search: 'disable',
+        web_search_mode: 'live',
+        web_search_request: true,
+      }),
+      undefined,
+    );
   });
 
   it('injects managed web_tools for copilot live search and strips them when disabled', () => {
@@ -60,7 +68,11 @@ describe('webSearchMcp runtime helpers', () => {
         web_search: 'disabled',
         mcp_servers: {
           code_info: { url: 'http://localhost:5010/mcp' },
-          web_tools: { url: 'http://localhost:9999/mcp' },
+          web_tools: {
+            command: 'npx',
+            args: ['-y', 'mcp-remote', 'http://localhost:6513/mcp'],
+            startup_timeout_sec: 60,
+          },
         },
       },
       provider: 'copilot',
@@ -70,6 +82,31 @@ describe('webSearchMcp runtime helpers', () => {
     assert.equal(
       (stripped.mcp_servers as Record<string, unknown>).web_tools,
       undefined,
+    );
+  });
+
+  it('preserves manual web_tools configs when the runtime is not using managed injection', () => {
+    const manualWebTools = {
+      command: 'custom-mcp',
+      args: ['http://manual.example/mcp'],
+      startup_timeout_sec: 15,
+    };
+
+    const preserved = applyManagedWebToolsToRuntimeConfig({
+      config: {
+        web_search: 'live',
+        mcp_servers: {
+          code_info: { url: 'http://localhost:5010/mcp' },
+          web_tools: manualWebTools,
+        },
+      },
+      provider: 'lmstudio',
+      env: { CODEINFO_WEB_MCP_PORT: '6513' } as NodeJS.ProcessEnv,
+    });
+
+    assert.deepEqual(
+      (preserved.mcp_servers as Record<string, unknown>).web_tools,
+      manualWebTools,
     );
   });
 
@@ -105,7 +142,11 @@ describe('webSearchMcp runtime helpers', () => {
         web_search: 'live',
         mcp_servers: {
           code_info: { url: 'http://localhost:5010/mcp' },
-          web_tools: { url: 'http://localhost:9999/mcp' },
+          web_tools: {
+            command: 'npx',
+            args: ['-y', 'mcp-remote', 'http://localhost:6513/mcp'],
+            startup_timeout_sec: 60,
+          },
         },
       },
       provider: 'codex',
@@ -137,6 +178,32 @@ describe('webSearchMcp runtime helpers', () => {
         command: 'npx',
         args: ['-y', 'mcp-remote', 'http://localhost:6513/mcp'],
         startup_timeout_sec: 60,
+      },
+    );
+
+    const preservedManual = applyManagedWebToolsToRuntimeConfigForMode({
+      config: {
+        mcp_servers: {
+          code_info: { url: 'http://localhost:5010/mcp' },
+          web_tools: {
+            command: 'custom-mcp',
+            args: ['http://manual.example/mcp'],
+            startup_timeout_sec: 15,
+          },
+        },
+      },
+      provider: 'codex',
+      webSearchMode: 'live',
+      usesOpenAiCompatEndpoint: true,
+      env: { CODEINFO_WEB_MCP_PORT: '6513' } as NodeJS.ProcessEnv,
+    });
+
+    assert.deepEqual(
+      (preservedManual.mcp_servers as Record<string, unknown>).web_tools,
+      {
+        command: 'custom-mcp',
+        args: ['http://manual.example/mcp'],
+        startup_timeout_sec: 15,
       },
     );
   });

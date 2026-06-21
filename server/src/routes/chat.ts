@@ -62,6 +62,7 @@ import {
 } from '../config/runtimeConfig.js';
 import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import {
+  applyManagedWebToolsToRuntimeConfigForMode,
   resolveConfiguredWebSearchMode,
   shouldInjectManagedWebTools,
   type WebSearchMode,
@@ -992,6 +993,19 @@ export function createChatRouter({
             ? effectiveCodexFlags.webSearchMode
             : resolvedRuntimeWebSearchMode)
         : undefined;
+    const effectiveCodexRuntimeConfig =
+      executionProvider === 'codex' &&
+      chatRuntimeConfig &&
+      typeof chatRuntimeConfig === 'object'
+        ? applyManagedWebToolsToRuntimeConfigForMode({
+            config: chatRuntimeConfig as Record<string, unknown>,
+            provider: 'codex',
+            webSearchMode: effectiveRuntimeWebSearchMode,
+            usesOpenAiCompatEndpoint: Boolean(
+              preparedExecution.openAiCompatEndpoint,
+            ),
+          })
+        : chatRuntimeConfig;
     const injectRepositoryBackedWebTools =
       executionProvider === 'codex'
         ? shouldInjectManagedWebTools({
@@ -1525,12 +1539,14 @@ export function createChatRouter({
                   null)
                 : null) ??
               null;
-            const codexChatRuntimeConfig = chatRuntimeConfig as
+            const effectiveCodexChatRuntimeConfig = effectiveCodexRuntimeConfig as
               | CodexOptions['config']
               | undefined;
             const codexRuntimeConfig = repositoryBackedCodexRun
-              ? omitCodexRuntimeModelForConfigDefaults(codexChatRuntimeConfig)
-              : codexChatRuntimeConfig;
+              ? omitCodexRuntimeModelForConfigDefaults(
+                  effectiveCodexChatRuntimeConfig,
+                )
+              : effectiveCodexChatRuntimeConfig;
 
             await chat.run(
               message,

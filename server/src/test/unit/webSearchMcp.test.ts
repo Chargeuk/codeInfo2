@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   applyManagedWebToolsToRuntimeConfig,
+  applyManagedWebToolsToRuntimeConfigForMode,
   resolveConfiguredWebSearchMode,
   shouldInjectManagedWebTools,
 } from '../../config/webSearchMcp.js';
@@ -21,6 +22,14 @@ describe('webSearchMcp runtime helpers', () => {
       resolveConfiguredWebSearchMode({
         features: { web_search_request: false },
       }),
+      'disabled',
+    );
+    assert.equal(
+      resolveConfiguredWebSearchMode({ web_search_request: true }),
+      'live',
+    );
+    assert.equal(
+      resolveConfiguredWebSearchMode({ web_search_request: false }),
       'disabled',
     );
   });
@@ -87,6 +96,48 @@ describe('webSearchMcp runtime helpers', () => {
         webSearchMode: 'live',
       }),
       true,
+    );
+  });
+
+  it('can reapply managed web_tools using an explicit effective mode', () => {
+    const stripped = applyManagedWebToolsToRuntimeConfigForMode({
+      config: {
+        web_search: 'live',
+        mcp_servers: {
+          code_info: { url: 'http://localhost:5010/mcp' },
+          web_tools: { url: 'http://localhost:9999/mcp' },
+        },
+      },
+      provider: 'codex',
+      webSearchMode: 'disabled',
+      usesOpenAiCompatEndpoint: true,
+      env: { CODEINFO_WEB_MCP_PORT: '6513' } as NodeJS.ProcessEnv,
+    });
+
+    assert.equal(
+      (stripped.mcp_servers as Record<string, unknown>).web_tools,
+      undefined,
+    );
+
+    const reinjected = applyManagedWebToolsToRuntimeConfigForMode({
+      config: {
+        mcp_servers: {
+          code_info: { url: 'http://localhost:5010/mcp' },
+        },
+      },
+      provider: 'codex',
+      webSearchMode: 'live',
+      usesOpenAiCompatEndpoint: true,
+      env: { CODEINFO_WEB_MCP_PORT: '6513' } as NodeJS.ProcessEnv,
+    });
+
+    assert.deepEqual(
+      (reinjected.mcp_servers as Record<string, unknown>).web_tools,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6513/mcp'],
+        startup_timeout_sec: 60,
+      },
     );
   });
 });

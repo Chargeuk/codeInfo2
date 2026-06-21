@@ -2221,13 +2221,17 @@ test('repository-backed codex chat preserves live web search for Unsloth endpoin
       'sparkunsloth,sk-unsloth-test';
 
     const mockCodex = new MockCodex('thread-repo-unsloth');
+    let lastCapturedCodexOptions: CodexOptions | undefined;
     const app = express();
     app.use(express.json());
     app.use(
       '/chat',
       createChatRouter({
         clientFactory: dummyClientFactory,
-        codexFactory: () => mockCodex,
+        codexFactory: (options?: CodexOptions) => {
+          lastCapturedCodexOptions = options;
+          return mockCodex;
+        },
         copilotLifecycleFactory: createUnavailableCopilotLifecycle,
         listIngestedRepositoriesFn: async () =>
           ({
@@ -2271,6 +2275,10 @@ test('repository-backed codex chat preserves live web search for Unsloth endpoin
     assert.equal(response.body.model, 'google/gemma-4-27b-it');
     assert.equal(mockCodex.lastStartOptions?.model, undefined);
     assert.equal(mockCodex.lastStartOptions?.webSearchMode, 'live');
+    assert.match(
+      JSON.stringify(lastCapturedCodexOptions?.config ?? {}),
+      /"web_tools"/u,
+    );
     assert.match(materializedChatConfig, /\[mcp_servers\.web_tools\]/u);
   } finally {
     await externalServer?.stop();
@@ -2333,13 +2341,17 @@ test('repository-backed codex chat skips managed web_tools when request-time web
       'sparkunsloth,sk-unsloth-test';
 
     const mockCodex = new MockCodex('thread-repo-unsloth-disabled');
+    let lastCapturedCodexOptions: CodexOptions | undefined;
     const app = express();
     app.use(express.json());
     app.use(
       '/chat',
       createChatRouter({
         clientFactory: dummyClientFactory,
-        codexFactory: () => mockCodex,
+        codexFactory: (options?: CodexOptions) => {
+          lastCapturedCodexOptions = options;
+          return mockCodex;
+        },
         copilotLifecycleFactory: createUnavailableCopilotLifecycle,
         listIngestedRepositoriesFn: async () =>
           ({
@@ -2383,6 +2395,10 @@ test('repository-backed codex chat skips managed web_tools when request-time web
     assert.equal(response.body.model, 'google/gemma-4-27b-it');
     assert.equal(mockCodex.lastStartOptions?.model, undefined);
     assert.notEqual(mockCodex.lastStartOptions?.webSearchMode, 'live');
+    assert.doesNotMatch(
+      JSON.stringify(lastCapturedCodexOptions?.config ?? {}),
+      /"web_tools"/u,
+    );
     assert.doesNotMatch(materializedChatConfig, /\[mcp_servers\.web_tools\]/u);
   } finally {
     await externalServer?.stop();

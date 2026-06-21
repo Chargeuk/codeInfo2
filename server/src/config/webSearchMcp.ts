@@ -36,6 +36,16 @@ const resolveLegacyAliasMode = (features: unknown): WebSearchMode | undefined =>
   return undefined;
 };
 
+const resolveRootAliasMode = (value: unknown): WebSearchMode | undefined => {
+  if (value === true) {
+    return 'live';
+  }
+  if (value === false) {
+    return 'disabled';
+  }
+  return undefined;
+};
+
 export function resolveConfiguredWebSearchMode(
   config: RuntimeRecord | undefined,
 ): WebSearchMode | undefined {
@@ -45,6 +55,7 @@ export function resolveConfiguredWebSearchMode(
   return (
     normalizeMode(config.web_search) ??
     normalizeMode(config.web_search_mode) ??
+    resolveRootAliasMode(config.web_search_request) ??
     resolveLegacyAliasMode(config.features)
   );
 }
@@ -102,14 +113,14 @@ export function buildManagedWebToolsWarning(params: {
   return undefined;
 }
 
-export function applyManagedWebToolsToRuntimeConfig(params: {
+export function applyManagedWebToolsToRuntimeConfigForMode(params: {
   config: RuntimeRecord;
   provider: ChatProviderId;
+  webSearchMode?: WebSearchMode;
   env?: NodeJS.ProcessEnv;
   usesOpenAiCompatEndpoint?: boolean;
 }): RuntimeRecord {
   const cloned: RuntimeRecord = { ...params.config };
-  const mode = resolveConfiguredWebSearchMode(cloned);
   const currentMcpServers = isRecord(cloned.mcp_servers)
     ? { ...cloned.mcp_servers }
     : {};
@@ -119,7 +130,7 @@ export function applyManagedWebToolsToRuntimeConfig(params: {
   if (
     shouldInjectManagedWebTools({
       provider: params.provider,
-      webSearchMode: mode,
+      webSearchMode: params.webSearchMode,
       usesOpenAiCompatEndpoint: params.usesOpenAiCompatEndpoint,
     })
   ) {
@@ -135,4 +146,16 @@ export function applyManagedWebToolsToRuntimeConfig(params: {
   }
 
   return cloned;
+}
+
+export function applyManagedWebToolsToRuntimeConfig(params: {
+  config: RuntimeRecord;
+  provider: ChatProviderId;
+  env?: NodeJS.ProcessEnv;
+  usesOpenAiCompatEndpoint?: boolean;
+}): RuntimeRecord {
+  return applyManagedWebToolsToRuntimeConfigForMode({
+    ...params,
+    webSearchMode: resolveConfiguredWebSearchMode(params.config),
+  });
 }

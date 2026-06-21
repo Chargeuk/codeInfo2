@@ -1,29 +1,12 @@
-codeinfo_provider = "codex"
-model = "gpt-5.4-mini"
+model = "gpt-5.3-codex-spark"
 model_reasoning_effort = "low"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-web_search_mode = "disabled"
-model_auto_compact_token_limit=300000
-
-[features]
-view_image_tool = true
-
-[mcp_servers]
-[mcp_servers.context7]
-args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
-command = 'npx'
-startup_timeout_sec = 20.0
-
-[mcp_servers.deepwiki]
-url = "https://mcp.deepwiki.com/mcp"
-startup_timeout_sec = 20.0
-
-[mcp_servers.code_info]
-command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
-startup_timeout_sec = 60
-tool_timeout_sec = 1800
+personality = "friendly"
+model_auto_compact_token_limit=180000
+web_search_mode = "disabled" 
+hide_agent_reasoning = true
+model_reasoning_summary = "none"
 
 [projects]
 [projects."/data"]

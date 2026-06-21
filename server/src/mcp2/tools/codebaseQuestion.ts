@@ -57,6 +57,10 @@ import {
   resolveChatRuntimeConfig,
 } from '../../config/runtimeConfig.js';
 import {
+  buildManagedWebToolsWarning,
+  resolveConfiguredWebSearchMode,
+} from '../../config/webSearchMcp.js';
+import {
   getAdvertisedRepositoryIdentityPaths,
   listIngestedRepositories,
 } from '../../lmstudio/toolService.js';
@@ -1236,8 +1240,23 @@ async function executeCodebaseQuestion(
     throw error;
   }
   const runtimeSelection = preparedExecution.runtimeSelection;
+  const managedWebToolsWarning =
+    preparedExecution.executionProvider === 'codex' &&
+    preparedExecution.openAiCompatEndpoint
+      ? buildManagedWebToolsWarning({
+          provider: 'codex',
+          webSearchMode: resolveConfiguredWebSearchMode(
+            (preparedExecution.runtimeConfig as Record<string, unknown>) ?? {},
+          ),
+          usesOpenAiCompatEndpoint: true,
+        })
+      : undefined;
   const executionWarnings = [
-    ...new Set([...codexWarnings, ...preparedExecution.warnings]),
+    ...new Set([
+      ...codexWarnings,
+      ...preparedExecution.warnings,
+      ...(managedWebToolsWarning ? [managedWebToolsWarning] : []),
+    ]),
   ];
   append({
     level: 'info',

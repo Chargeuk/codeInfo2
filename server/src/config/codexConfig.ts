@@ -8,6 +8,11 @@ import {
   resolveRequiredCodeinfoPlaceholderValue,
 } from './mcpEndpoints.js';
 import type { OpenAiCompatEndpointConfig } from './openaiCompatEndpoints.js';
+import {
+  applyManagedWebToolsToRuntimeConfigForMode,
+  resolveConfiguredWebSearchMode,
+  type WebSearchMode,
+} from './webSearchMcp.js';
 
 const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
 
@@ -96,6 +101,24 @@ const resolveOpenAiCompatWireApi = (
 ): 'responses' | 'completions' =>
   endpoint.capabilities.includes('responses') ? 'responses' : 'completions';
 
+const hasExplicitWebSearchSetting = (config: Record<string, unknown>): boolean => {
+  if (
+    Object.prototype.hasOwnProperty.call(config, 'web_search') ||
+    Object.prototype.hasOwnProperty.call(config, 'web_search_mode') ||
+    Object.prototype.hasOwnProperty.call(config, 'web_search_request')
+  ) {
+    return true;
+  }
+
+  const features = config.features;
+  return (
+    typeof features === 'object' &&
+    features !== null &&
+    !Array.isArray(features) &&
+    Object.prototype.hasOwnProperty.call(features, 'web_search_request')
+  );
+};
+
 export function buildCodexOpenAiCompatRuntimeConfig(
   endpoint: OpenAiCompatEndpointConfig,
   params?: {
@@ -142,7 +165,7 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
     ...(baseConfig as Record<string, unknown>),
   };
   delete baseConfigWithoutCatalog.model_catalog_json;
-  return {
+  const mergedConfig = {
     ...baseConfigWithoutCatalog,
     ...generatedConfig,
     model_providers: {
@@ -152,6 +175,20 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
       ...(generatedConfig.model_providers as Record<string, unknown>),
     },
   } as CodexOptions['config'];
+
+  const mergedRecord = mergedConfig as Record<string, unknown>;
+  const configuredWebSearchMode = resolveConfiguredWebSearchMode(mergedRecord);
+  const effectiveWebSearchMode: WebSearchMode | undefined =
+    configuredWebSearchMode ??
+    (hasExplicitWebSearchSetting(mergedRecord) ? undefined : 'live');
+
+  return applyManagedWebToolsToRuntimeConfigForMode({
+    config: mergedRecord,
+    provider: 'codex',
+    webSearchMode: effectiveWebSearchMode,
+    env: params?.env,
+    usesOpenAiCompatEndpoint: true,
+  }) as CodexOptions['config'];
 }
 
 export function applyResolvedServerPortToCodexConfig(

@@ -3227,6 +3227,17 @@ web_search = "live"
   - if canonical and alias keys both exist, canonical value wins
 - Emission/storage rule:
   - aliases are accepted for compatibility input only and are not emitted as canonical output
+- Runtime ownership rule:
+  - CodeInfo2-managed `codex` and `copilot` chat runtimes should prefer `web_search = "live"` as the single user-facing search setting.
+  - Those managed runtimes inject `mcp_servers.web_tools` automatically only when the active execution path needs the web MCP.
+  - Separate MCP consumers that connect directly to the web MCP still need the explicit block:
+
+```toml
+[mcp_servers.web_tools]
+command = "npx"
+args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_WEB_MCP_PORT}/mcp"]
+startup_timeout_sec = 60
+```
 
 ## Story 0000037 Task 23 codex_agents command-family status
 

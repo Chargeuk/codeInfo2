@@ -788,6 +788,21 @@ web_search_request = true
   assert.equal(result.sources.webSearch, 'config');
 });
 
+test('invalid canonical web_search does not fall through to legacy aliases', async () => {
+  const codexHome = await createCodexHome(`
+web_search = "disable"
+web_search_mode = "live"
+web_search_request = true
+`);
+
+  const result = await resolveCodexChatDefaults({ codexHome });
+  assert.equal(result.values.webSearch, 'live');
+  assert.equal(result.sources.webSearch, 'hardcoded');
+  assert.ok(
+    result.warnings.some((warning) => warning.includes('invalid value for "web_search"')),
+  );
+});
+
 test('alias web_search=true maps to live when canonical is not set', async () => {
   const codexHome = await createCodexHome('web_search_request = true\n');
   const result = await resolveCodexChatDefaults({ codexHome });

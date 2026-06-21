@@ -254,7 +254,6 @@ export async function prepareProviderExecution(params: {
     requestedReason: runtimeSelection.requestedReason,
     fallbackReason: runtimeSelection.fallbackReason,
   });
-
   return {
     runtimeSelection,
     executionProvider,

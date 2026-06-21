@@ -90,6 +90,7 @@ type CodexChatConfigRootOverrides = {
   approval_policy?: string;
   sandbox_mode?: string;
   network_access_enabled?: boolean;
+  web_search?: string;
   web_search_mode?: string;
   model_reasoning_effort?: string;
   model_reasoning_summary?: string;

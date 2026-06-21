@@ -6656,7 +6656,7 @@ web_search = "live"
 
 Managed web search runtime note:
 
-- For CodeInfo2-managed `codex`, `copilot`, and `lmstudio` chat homes, `web_search = "live"` is the only setting users need. Runtime config materialization injects `mcp_servers.web_tools` automatically when the active execution path needs the web MCP.
+- For CodeInfo2-managed `codex` and `copilot` chat homes, `web_search = "live"` is the only setting users need. Runtime config materialization injects `mcp_servers.web_tools` automatically when the active execution path needs the web MCP.
 - Native Codex execution keeps using the provider's built-in web search path, so `web_tools` is not injected for that case.
 - External MCP consumers that are not started through CodeInfo2 runtime materialization still need the explicit block:
 

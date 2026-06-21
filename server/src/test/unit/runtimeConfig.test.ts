@@ -2617,6 +2617,40 @@ describe('runtimeConfig deterministic resolver failures', () => {
     }
   });
 
+  it('does not inject managed web_tools into lmstudio runtime config when web_search is live', async () => {
+    process.env.CODEINFO_WEB_MCP_PORT = '7523';
+    const lmstudioHome = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'lmstudio-home-'),
+    );
+    const { chatConfigPath } = getProviderChatConfigPath({
+      provider: 'lmstudio',
+      lmstudioHome,
+    });
+
+    try {
+      await ensureProviderChatConfigBootstrapped({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+      await fs.writeFile(
+        chatConfigPath,
+        ['model = "model-1"', 'web_search = "live"', ''].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveChatRuntimeConfig({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+
+      const resolvedMcpServers = (resolved.config.mcp_servers ??
+        {}) as Record<string, unknown>;
+      assert.equal(resolvedMcpServers.web_tools, undefined);
+    } finally {
+      await fs.rm(lmstudioHome, { recursive: true, force: true });
+    }
+  });
+
   it('injects managed web_tools into pinned codex external-endpoint runtime config when web_search is live', async () => {
     process.env.CODEINFO_WEB_MCP_PORT = '7613';
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));

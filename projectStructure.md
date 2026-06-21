@@ -3228,7 +3228,7 @@ web_search = "live"
 - Emission/storage rule:
   - aliases are accepted for compatibility input only and are not emitted as canonical output
 - Runtime ownership rule:
-  - CodeInfo2-managed `codex`, `copilot`, and `lmstudio` chat runtimes should prefer `web_search = "live"` as the single user-facing search setting.
+  - CodeInfo2-managed `codex` and `copilot` chat runtimes should prefer `web_search = "live"` as the single user-facing search setting.
   - Those managed runtimes inject `mcp_servers.web_tools` automatically only when the active execution path needs the web MCP.
   - Separate MCP consumers that connect directly to the web MCP still need the explicit block:
 

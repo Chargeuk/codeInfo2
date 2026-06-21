@@ -87,7 +87,7 @@ export function shouldInjectManagedWebTools(params: {
     return params.usesOpenAiCompatEndpoint === true;
   }
 
-  return params.provider === 'copilot' || params.provider === 'lmstudio';
+  return params.provider === 'copilot';
 }
 
 export function buildManagedWebToolsWarning(params: {
@@ -106,7 +106,7 @@ export function buildManagedWebToolsWarning(params: {
     return 'codex/chat/config.toml sets web_search = "cached", but cached mode is only supported by native Codex web search; web_tools will not be injected for external endpoint execution.';
   }
 
-  if (params.provider === 'copilot' || params.provider === 'lmstudio') {
+  if (params.provider === 'copilot') {
     return `${params.provider}/chat/config.toml sets web_search = "cached", but cached mode is only supported by native Codex web search; web_tools will not be injected.`;
   }
 

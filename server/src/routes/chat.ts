@@ -63,6 +63,7 @@ import {
 import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import {
   applyManagedWebToolsToRuntimeConfigForMode,
+  buildManagedWebToolsWarning,
   resolveConfiguredWebSearchMode,
   shouldInjectManagedWebTools,
   type WebSearchMode,
@@ -973,12 +974,6 @@ export function createChatRouter({
             modelVerbosity: effectiveAgentFlags.modelVerbosity,
           }
         : {};
-    console.info(TASK7_LOG_MARKER, {
-      surface: '/chat',
-      provider: executionProvider,
-      warningCount: responseWarningsWithAgentFlags.length,
-      defaultsResolution,
-    });
     const executionUsesEndpoint = preparedExecution.executionUsesEndpoint;
     const executionEndpointId = preparedExecution.endpointId;
     const chatRuntimeConfig = preparedExecution.runtimeConfig;
@@ -1016,6 +1011,43 @@ export function createChatRouter({
             ),
           })
         : false;
+    const staleCodexManagedWebToolsWarning =
+      executionProvider === 'codex' &&
+      preparedExecution.openAiCompatEndpoint &&
+      resolvedRuntimeWebSearchMode
+        ? buildManagedWebToolsWarning({
+            provider: 'codex',
+            webSearchMode: resolvedRuntimeWebSearchMode,
+            usesOpenAiCompatEndpoint: true,
+          })
+        : undefined;
+    const effectiveCodexManagedWebToolsWarning =
+      executionProvider === 'codex' &&
+      preparedExecution.openAiCompatEndpoint &&
+      effectiveRuntimeWebSearchMode
+        ? buildManagedWebToolsWarning({
+            provider: 'codex',
+            webSearchMode: effectiveRuntimeWebSearchMode,
+            usesOpenAiCompatEndpoint: true,
+          })
+        : undefined;
+    const finalResponseWarnings =
+      executionProvider === 'codex'
+        ? mergeWarningMessages(
+            responseWarningsWithAgentFlags.filter(
+              (warning) => warning !== staleCodexManagedWebToolsWarning,
+            ),
+            effectiveCodexManagedWebToolsWarning
+              ? [effectiveCodexManagedWebToolsWarning]
+              : undefined,
+          )
+        : responseWarningsWithAgentFlags;
+    console.info(TASK7_LOG_MARKER, {
+      surface: '/chat',
+      provider: executionProvider,
+      warningCount: finalResponseWarnings.length,
+      defaultsResolution,
+    });
 
     const fallbackLogContext = {
       requestId,
@@ -1263,7 +1295,7 @@ export function createChatRouter({
             .lean()
             .exec()) as Turn[]);
 
-    responseWarningsWithAgentFlags.forEach((warning) => {
+    finalResponseWarnings.forEach((warning) => {
       append({
         level: 'warn',
         message: 'chat validation warning',
@@ -1374,6 +1406,10 @@ export function createChatRouter({
                 network_access_enabled:
                   typeof effectiveCodexFlags.networkAccessEnabled === 'boolean'
                     ? effectiveCodexFlags.networkAccessEnabled
+                    : undefined,
+                web_search:
+                  typeof effectiveCodexFlags.webSearchMode === 'string'
+                    ? effectiveCodexFlags.webSearchMode
                     : undefined,
                 web_search_mode:
                   typeof effectiveCodexFlags.webSearchMode === 'string'
@@ -1520,7 +1556,7 @@ export function createChatRouter({
         inflightId,
         provider: executionProvider,
         model: executionModel,
-        warnings: responseWarningsWithAgentFlags,
+        warnings: finalResponseWarnings,
       });
       backgroundRunStarted = true;
 

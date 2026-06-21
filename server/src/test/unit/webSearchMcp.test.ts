@@ -95,7 +95,7 @@ describe('webSearchMcp runtime helpers', () => {
         provider: 'lmstudio',
         webSearchMode: 'live',
       }),
-      true,
+      false,
     );
   });
 

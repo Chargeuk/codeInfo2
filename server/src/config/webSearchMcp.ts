@@ -81,7 +81,7 @@ export function buildManagedWebToolsMcpServerDefinition(
   };
 }
 
-const isManagedWebToolsMcpServerDefinition = (
+export const isManagedWebToolsMcpServerDefinition = (
   value: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean => {

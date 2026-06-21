@@ -2558,6 +2558,112 @@ describe('runtimeConfig deterministic resolver failures', () => {
     }
   });
 
+  it('preserves manual web_tools blocks during repository-backed materialization when managed injection is disabled', async () => {
+    process.env.CODEINFO_SERVER_PORT = '7530';
+    process.env.CODEINFO_WEB_MCP_PORT = '7533';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          '',
+          '[mcp_servers.web_tools]',
+          'command = "node"',
+          'args = ["./manual-web-tools.js", "--port", "9911"]',
+          'startup_timeout_sec = 15',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const materialized = await materializeRepositoryBackedCodexChatHome({
+        conversationId: 'conv:manual-web-tools-kept-disabled',
+        codexHome,
+        overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
+        injectWebTools: false,
+      });
+
+      const runtimeChatConfig = await fs.readFile(
+        materialized.chatConfigPath,
+        'utf8',
+      );
+
+      assert.match(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
+      assert.match(runtimeChatConfig, /command = "node"/u);
+      assert.match(
+        runtimeChatConfig,
+        /args = \["\.\/manual-web-tools\.js", "--port", "9911"\]/u,
+      );
+      assert.doesNotMatch(
+        runtimeChatConfig,
+        /http:\/\/localhost:7533\/mcp/u,
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves manual web_tools blocks during repository-backed materialization when managed injection is enabled', async () => {
+    process.env.CODEINFO_SERVER_PORT = '7540';
+    process.env.CODEINFO_WEB_MCP_PORT = '7543';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          '',
+          '[mcp_servers.web_tools]',
+          'command = "node"',
+          'args = ["./manual-web-tools.js", "--port", "9911"]',
+          'startup_timeout_sec = 15',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const materialized = await materializeRepositoryBackedCodexChatHome({
+        conversationId: 'conv:manual-web-tools-kept-enabled',
+        codexHome,
+        overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
+        injectWebTools: true,
+      });
+
+      const runtimeChatConfig = await fs.readFile(
+        materialized.chatConfigPath,
+        'utf8',
+      );
+
+      assert.match(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
+      assert.match(runtimeChatConfig, /command = "node"/u);
+      assert.match(
+        runtimeChatConfig,
+        /args = \["\.\/manual-web-tools\.js", "--port", "9911"\]/u,
+      );
+      assert.doesNotMatch(
+        runtimeChatConfig,
+        /http:\/\/localhost:7543\/mcp/u,
+      );
+      assert.equal(
+        runtimeChatConfig.match(/\[mcp_servers\.web_tools\]/gu)?.length ?? 0,
+        1,
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('injects managed web_tools into copilot runtime config when web_search is live', async () => {
     process.env.CODEINFO_WEB_MCP_PORT = '7513';
     const copilotHome = await fs.mkdtemp(

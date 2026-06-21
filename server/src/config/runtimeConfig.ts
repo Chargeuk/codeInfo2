@@ -36,6 +36,7 @@ import {
 import {
   applyManagedWebToolsToRuntimeConfig,
   buildManagedWebToolsWarning,
+  isManagedWebToolsMcpServerDefinition,
   resolveConfiguredWebSearchMode,
 } from './webSearchMcp.js';
 
@@ -1470,21 +1471,46 @@ const appendTomlBlocks = (rawConfig: string, blocks: string[]): string => {
   return `${prefix}${normalizedBlocks.join('\n\n')}\n`;
 };
 
-const stripNamedMcpServerBlockFromRawConfig = (
+const stripManagedWebToolsBlocksFromRawConfig = (
   rawConfig: string,
-  serverName: string,
-): string => {
-  const escapedServerName = serverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const blockPattern = new RegExp(
-    `(?:^|\\r?\\n)\\s*\\[mcp_servers\\.${escapedServerName}\\]\\r?\\n[\\s\\S]*?(?=\\r?\\n\\s*\\[[^\\r\\n]+\\]|$)`,
-    'gu',
-  );
+  env: NodeJS.ProcessEnv = process.env,
+): { rawConfig: string; hasManualWebToolsBlock: boolean } => {
+  const blockPattern =
+    /(?:^|\r?\n)\s*\[mcp_servers\.web_tools\]\r?\n[\s\S]*?(?=\r?\n\s*\[[^\r\n]+\]|$)/gu;
   const normalizedNewlines = rawConfig.includes('\r\n') ? '\r\n' : '\n';
-  const stripped = rawConfig.replace(blockPattern, normalizedNewlines);
+  let hasManualWebToolsBlock = false;
+
+  const stripped = rawConfig.replace(blockPattern, (block) => {
+    try {
+      const normalizedBlock = replaceCodeinfoEnvPlaceholdersInString(block, env);
+      const parsedBlock = parseTomlOrThrow(
+        normalizedBlock,
+        '<inline web_tools block>',
+      );
+      const blockMcpServers = isRecord(parsedBlock.mcp_servers)
+        ? parsedBlock.mcp_servers
+        : undefined;
+      const webToolsDefinition = isRecord(blockMcpServers)
+        ? blockMcpServers.web_tools
+        : undefined;
+      if (isManagedWebToolsMcpServerDefinition(webToolsDefinition, env)) {
+        return normalizedNewlines;
+      }
+    } catch {
+      // Preserve unparseable source blocks rather than risk deleting a manual entry.
+    }
+
+    hasManualWebToolsBlock = true;
+    return block;
+  });
+
   const collapsed = stripped
     .replace(/\r?\n(?:\r?\n){2,}/gu, `${normalizedNewlines}${normalizedNewlines}`)
     .replace(/\s+$/u, '');
-  return `${collapsed}${normalizedNewlines}`;
+  return {
+    rawConfig: `${collapsed}${normalizedNewlines}`,
+    hasManualWebToolsBlock,
+  };
 };
 
 async function maybeAugmentExistingProviderChatConfig(params: {
@@ -2070,11 +2096,17 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
       fs.readFile(sourceBaseConfigPath, 'utf8'),
       fs.readFile(sourceChatConfigPath, 'utf8'),
     ]);
+    const strippedWebTools = stripManagedWebToolsBlocksFromRawConfig(
+      chatConfigRaw,
+      process.env,
+    );
     const runtimeChatConfig = applyCodexChatConfigRootOverrides(
-      stripNamedMcpServerBlockFromRawConfig(chatConfigRaw, 'web_tools'),
+      strippedWebTools.rawConfig,
       params.overrides,
     );
-    const runtimeChatConfigWithManagedWebTools = params.injectWebTools
+    const shouldAppendManagedWebTools =
+      params.injectWebTools && !strippedWebTools.hasManualWebToolsBlock;
+    const runtimeChatConfigWithManagedWebTools = shouldAppendManagedWebTools
       ? appendTomlBlocks(runtimeChatConfig, [WEB_TOOLS_MCP_SERVER_BLOCK])
       : runtimeChatConfig;
     const normalizedRuntimeChatConfig =

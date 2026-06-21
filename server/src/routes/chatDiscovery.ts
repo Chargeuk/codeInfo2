@@ -39,6 +39,7 @@ import {
   loadProviderChatDefaultsSnapshotSync,
 } from '../config/runtimeConfig.js';
 import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
+import { resolveConfiguredWebSearchMode } from '../config/webSearchMcp.js';
 import type { CodexDetection } from '../providers/codexRegistry.js';
 import type { CopilotReadinessResult } from '../providers/copilotReadiness.js';
 
@@ -365,7 +366,7 @@ export function buildCodexCompatibilityDefaults(params: {
 
   const modelReasoningSummary = normalizeString(config.model_reasoning_summary);
   const modelVerbosity = normalizeString(config.model_verbosity);
-  const webSearchMode = normalizeString(config.web_search_mode);
+  const webSearchMode = resolveConfiguredWebSearchMode(config);
 
   return {
     ...params.capabilities.defaults,
@@ -383,11 +384,7 @@ export function buildCodexCompatibilityDefaults(params: {
         ? modelVerbosity
         : DEFAULT_CODEX_VERBOSITY,
     webSearchMode:
-      webSearchMode === 'disabled' ||
-      webSearchMode === 'cached' ||
-      webSearchMode === 'live'
-        ? webSearchMode
-        : (params.capabilities.defaults.webSearchMode ?? 'live'),
+      webSearchMode ?? (params.capabilities.defaults.webSearchMode ?? 'live'),
   };
 }
 

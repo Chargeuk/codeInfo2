@@ -253,8 +253,11 @@ const warningForInvalidProviderConfig = (
 const warningForLegacyCodexApproval = (value: string) =>
   `codex/chat/config.toml uses legacy approval_policy "${value}"; normalized to "on-request".`;
 
-const warningForLegacyCodexWebSearch = (field: string) =>
-  `codex/chat/config.toml uses legacy ${field}; normalized to web_search_mode.`;
+const warningForLegacyCodexWebSearch = (
+  field: string,
+  normalizedField = 'web_search',
+) =>
+  `codex/chat/config.toml uses legacy ${field}; normalized to ${normalizedField}.`;
 
 const readProviderConfigSafely = (params: {
   provider: ChatDefaultProvider;
@@ -380,6 +383,10 @@ export const resolveCodexChatDefaults = (params?: {
     warnings.push(warningForInvalidChatConfig('model'));
   }
 
+  const configWebSearch = parseModeBoolean(config?.web_search);
+  if (config && hasOwn(config, 'web_search') && configWebSearch === undefined) {
+    warnings.push(warningForInvalidChatConfig('web_search'));
+  }
   const configWebSearchMode = parseModeBoolean(config?.web_search_mode);
   if (
     config &&
@@ -387,12 +394,8 @@ export const resolveCodexChatDefaults = (params?: {
     configWebSearchMode === undefined
   ) {
     warnings.push(warningForInvalidChatConfig('web_search_mode'));
-  }
-  const configWebSearch = parseModeBoolean(config?.web_search);
-  if (config && hasOwn(config, 'web_search') && configWebSearch === undefined) {
-    warnings.push(warningForInvalidChatConfig('web_search'));
-  } else if (config && hasOwn(config, 'web_search')) {
-    warnings.push(warningForLegacyCodexWebSearch('web_search'));
+  } else if (config && hasOwn(config, 'web_search_mode')) {
+    warnings.push(warningForLegacyCodexWebSearch('web_search_mode'));
   }
   const configWebSearchAlias = parseModeBoolean(config?.web_search_request);
   if (
@@ -405,7 +408,9 @@ export const resolveCodexChatDefaults = (params?: {
     warnings.push(warningForLegacyCodexWebSearch('web_search_request'));
   }
   const effectiveConfigWebSearch =
-    configWebSearchMode ?? configWebSearch ?? configWebSearchAlias;
+    config && hasOwn(config, 'web_search')
+      ? configWebSearch
+      : configWebSearch ?? configWebSearchMode ?? configWebSearchAlias;
 
   const overrideWebSearch =
     params?.overrides?.webSearch ??

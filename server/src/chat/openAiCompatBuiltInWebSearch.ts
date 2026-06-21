@@ -36,10 +36,11 @@ export function resolveCodexWebSearchMode(params: {
   }
 
   const runtimeRecord = runtimeConfig as Record<string, unknown>;
-  return (
-    normalizeWebSearchMode(runtimeRecord.web_search) ??
-    normalizeWebSearchMode(runtimeRecord.web_search_mode)
-  );
+  if (Object.prototype.hasOwnProperty.call(runtimeRecord, 'web_search')) {
+    return normalizeWebSearchMode(runtimeRecord.web_search);
+  }
+
+  return normalizeWebSearchMode(runtimeRecord.web_search_mode);
 }
 
 export function shouldForceUnslothBuiltInWebSearch(params: {

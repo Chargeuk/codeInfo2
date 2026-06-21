@@ -2477,7 +2477,6 @@ test('codebase_question marker emits the shared warning_count and warnings field
     assert.equal(story47Context?.warning_count, context.warningCount);
     assert.deepEqual(story47Context?.warnings, [
       'codex/chat/config.toml uses legacy approval_policy "on-failure"; normalized to "on-request".',
-      'codex/chat/config.toml uses legacy web_search; normalized to web_search_mode.',
     ]);
   } finally {
     resetToolDeps();

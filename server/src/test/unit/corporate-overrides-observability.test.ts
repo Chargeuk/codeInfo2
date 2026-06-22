@@ -141,7 +141,7 @@ test('docker-compose.local.yml passes the docker socket gid as a supplemental ru
 
   assert.match(
     content,
-    /- CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS=\$\{CODEINFO_DOCKER_SOCK_GID:-0\}/,
+    /- CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS=\$\{CODEINFO_DOCKER_RUNTIME_SUPPLEMENTARY_GIDS:-\$\{CODEINFO_DOCKER_SOCK_GID:-0\}\}/,
   );
 });
 

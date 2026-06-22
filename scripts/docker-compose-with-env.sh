@@ -741,6 +741,7 @@ ensure_repo_bind_mount_dirs_for_profile
 SOCKET_PATH="$(resolve_docker_socket)"
 SOCKET_GID="$(stat -c %g "${SOCKET_PATH}" 2>/dev/null || stat -f %g "${SOCKET_PATH}" 2>/dev/null || echo 0)"
 CONTAINER_SOCKET_GID="${SOCKET_GID}"
+RUNTIME_SUPPLEMENTARY_GIDS="${SOCKET_GID}"
 HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
 DOCKER_OPERATING_SYSTEM="$(docker_server_operating_system)"
 DOCKER_OPERATING_SYSTEM_LC="$(printf '%s' "${DOCKER_OPERATING_SYSTEM}" | tr '[:upper:]' '[:lower:]')"
@@ -748,11 +749,16 @@ DOCKER_OPERATING_SYSTEM_LC="$(printf '%s' "${DOCKER_OPERATING_SYSTEM}" | tr '[:u
 DOCKER_UID="$(id -u)"
 DOCKER_GID="$(id -g)"
 
-# Docker Desktop sockets can be user-owned on the host yet still appear as
-# root:root 660 inside Linux containers, so the container runtime needs the
-# root group even when the host socket gid is non-zero.
+# Docker Desktop socket ownership can change across Linux container mounts.
+# Some hosts surface the mounted socket as root:root 660, while others keep the
+# original socket gid. Preserve the actual socket gid for the bind mount and
+# add root as a runtime fallback so the server process can reach either shape.
 if [[ "${DOCKER_OPERATING_SYSTEM_LC}" == *"docker desktop"* ]]; then
-  CONTAINER_SOCKET_GID=0
+  if [ "${SOCKET_GID}" = "0" ]; then
+    RUNTIME_SUPPLEMENTARY_GIDS="0"
+  else
+    RUNTIME_SUPPLEMENTARY_GIDS="${SOCKET_GID},0"
+  fi
 fi
 
 # macOS default:
@@ -773,6 +779,7 @@ fi
 export CODEINFO_DOCKER_UID="${DOCKER_UID}"
 export CODEINFO_DOCKER_GID="${DOCKER_GID}"
 export CODEINFO_DOCKER_SOCK_GID="${CONTAINER_SOCKET_GID}"
+export CODEINFO_DOCKER_RUNTIME_SUPPLEMENTARY_GIDS="${RUNTIME_SUPPLEMENTARY_GIDS}"
 export CODEINFO_DOCKER_SOCKET_PATH="${SOCKET_PATH}"
 export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="$(resolve_runtime_codeinfo_config_dir)"
 export CODEINFO_HOST_CODEX_HOME="$(resolve_host_codex_home_dir)"

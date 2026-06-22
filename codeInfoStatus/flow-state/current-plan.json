@@ -1,5 +1,5 @@
 {
-  "plan_path": "planning/0000059-users-can-use-external-openai-compatible-endpoints-with-codex-and-copilot.md",
+  "plan_path": "planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md",
   "branched_from": "main",
   "additional_repositories": []
 }

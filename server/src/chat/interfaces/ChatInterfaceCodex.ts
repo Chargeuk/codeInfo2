@@ -215,7 +215,7 @@ const collectCodexErrorDiagnostics = (
         ? record.message
         : err instanceof Error
           ? trimDiagnosticText(err.message)
-          : trimDiagnosticText(String(err)),
+          : undefined,
     stderr: trimDiagnosticText(record.stderr),
     stdout: trimDiagnosticText(record.stdout),
   };

@@ -27,7 +27,7 @@ teardown() {
   assert_success
   assert_output --partial "DRY RUN docker build -f ${CODEINFO2_REPO_ROOT}/Dockerfile.local-restarter -t codeinfo2-local-restarter:latest ${CODEINFO2_REPO_ROOT}"
   assert_output --partial "DRY RUN docker rm -f codeinfo2-local-restarter"
-  assert_output --partial "DRY RUN docker run -d --name codeinfo2-local-restarter"
+  assert_output --partial "DRY RUN docker run -d --name codeinfo2-local-restarter --group-add"
   assert_output --partial "bash /workspace/scripts/local-stack-helper-restart.sh --repo-root /workspace --delay-seconds 0 --log-path /workspace/logs/helper-dry-run.log --dry-run"
 }
 
@@ -47,6 +47,6 @@ teardown() {
   assert_success
   run grep -F "rm -f codeinfo2-local-restarter" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
   assert_success
-  run grep -F "run -d --name codeinfo2-local-restarter" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  run grep -F "run -d --name codeinfo2-local-restarter --group-add" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
   assert_success
 }

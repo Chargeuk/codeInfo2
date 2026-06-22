@@ -1,6 +1,7 @@
 import serverPackage from '../../package.json' with { type: 'json' };
 import { append } from '../logStore.js';
 import { createMcpRouter } from '../mcpCommon/routerFactory.js';
+import { CODEBASE_QUESTION_TOOL_NAME } from './tools/codebaseQuestion.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
@@ -48,6 +49,27 @@ export const handleRpc = createMcpRouter({
     });
   },
   onToolError: ({ name, requestIdText, error }) => {
+    if (name === CODEBASE_QUESTION_TOOL_NAME) {
+      append({
+        level: 'error',
+        source: 'server',
+        timestamp: new Date().toISOString(),
+        message: 'DEV-0000053:T3:mcp2_codebase_question_tool_error',
+        requestId: requestIdText,
+        context: {
+          tool: name,
+          errorName: error instanceof Error ? error.name : typeof error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorCode:
+            typeof (error as { code?: unknown } | null)?.code === 'number'
+              ? (error as { code: number }).code
+              : null,
+          hasErrorData:
+            ((error as { data?: unknown } | null)?.data ?? undefined) !==
+            undefined,
+        },
+      });
+    }
     if (name === REINGEST_REPOSITORY_TOOL_NAME) {
       if (error instanceof InvalidParamsError) {
         append({

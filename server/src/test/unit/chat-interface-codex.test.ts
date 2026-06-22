@@ -265,6 +265,65 @@ describe('ChatInterfaceCodex', () => {
     assert.equal(finals[0]?.content, 'Hello there world!');
   });
 
+  it('prefers stderr details over [object Object] when streamed startup throws a plain object', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    const errors: string[] = [];
+    const thread = {
+      id: 'tid-object-stderr',
+      runStreamed: async () => {
+        throw {
+          code: 'ENOENT',
+          stderr: 'spawn codex ENOENT',
+        };
+      },
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+    chat.on('error', (event) => errors.push(event.message));
+
+    await chat.run('Hello', { threadId: null }, 'conv-object-stderr', 'gpt-5');
+
+    assert.deepEqual(errors, ['spawn codex ENOENT']);
+  });
+
+  it('falls back to a generic error when streamed startup throws a plain object with no text diagnostics', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    const errors: string[] = [];
+    const thread = {
+      id: 'tid-object-generic',
+      runStreamed: async () => {
+        throw {
+          code: 'ENOENT',
+        };
+      },
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+    chat.on('error', (event) => errors.push(event.message));
+
+    await chat.run('Hello', { threadId: null }, 'conv-object-generic', 'gpt-5');
+
+    assert.deepEqual(errors, ['codex unavailable']);
+  });
+
   it('persists usage metadata from turn.completed', async () => {
     resetMemory();
     setCodexDetection({

@@ -54,7 +54,7 @@ A typical cycle is:
 - if there are no comments, or every comment is judged invalid or already non-actionable, treat the review cycle as clean and keep the PR open for human inspection;
 - if valid issues exist, fix the small ones immediately, encode larger ones as tasks in the story, close that PR, and loop back into implementation and proof before opening a fresh PR for the next review cycle.
 
-The GitHub integration for this story intentionally uses the simplest operational model. The server image may include the `gh` CLI and use a repository-specific fine-grained GitHub token loaded from the `CODEINFO_PR_TOKEN` value in a `.env.local` file in the repository being worked in for GitHub PR API operations. Normal git credentials in the worked repository remain the preferred path for git fetch and push behavior when they are already configured. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date, and ignore closed PRs.
+The GitHub integration for this story intentionally uses the simplest operational model. If this story keeps the `gh` transport, the supported flow runtime must provide `gh` inside that runtime, including the checked-in main Docker Compose server path used for proof; a host-only `gh` install is not sufficient because the flow runtime executes inside the server environment. GitHub PR API operations use a repository-specific fine-grained token read from the `CODEINFO_PR_TOKEN` value in the worked repository's `.env.local` file at step runtime rather than from the server startup env files. When the `gh` path is used against github.com, the step maps that value into `GH_TOKEN` for the child process so the CLI runs headlessly without depending on previously stored interactive credentials. Normal git credentials in the worked repository remain the preferred path for git fetch and push behavior when they are already configured. The PR steps do not act as the currently logged-in browser user, and that is acceptable for this first version. Likewise, the "latest open PR for the branch" lookup rule is intentionally simple for this story: use the latest still-open PR for the current branch by open date and ignore closed PRs, but resolve that latest PR through explicit repository plus branch filtering rather than through an implicit "current branch PR" shortcut.
 
 If the repository being worked in does not provide the expected `CODEINFO_PR_TOKEN` value in its `.env.local` file, the GitHub PR and external-review path should not execute for that cycle. The flow should record in the plan that external GitHub review was skipped because the repository-specific token was not configured, then continue or complete without treating missing GitHub review comments as implementation feedback.
 
@@ -63,6 +63,8 @@ If the current branch has not yet been pushed, the PR flow should push it automa
 When GitHub review is skipped for a supported reason such as missing `CODEINFO_PR_TOKEN`, the flow result should not pretend that a full clean external review happened. It should finish as completed with warning so the final status remains truthful: the implementation flow completed, but the optional GitHub review stage did not run for that cycle.
 
 Fetched GitHub review comments should also be kept separate from the existing external-review ingest files. They should be stored as JSON in their own transient GitHub-review scratch file under `codeInfoTmp/reviews/`, plus only the minimum additional persisted state needed for wait/resume and later classification.
+
+This story also changes one stateful runtime surface even though it does not add browser UI: a flow run can now move between fresh execution, paused wait, resumed execution, supported GitHub-review skip, and fresh next-cycle replacement of the transient GitHub-review scratch state. The plan therefore needs explicit rules for when state is reused versus replaced. Resume must continue the same flow execution and the same selected PR or scratch context for that execution rather than silently opening a fresh PR, selecting a different PR, or mixing stale review data from an older cycle into the resumed run. A fresh GitHub review cycle for the same story may replace its own prior transient review scratch state, but stale scratch must not stay active once a new fetch has succeeded.
 
 This story should remain focused on enabling that review-loop orchestration. It is not trying to build a full GitHub integration platform, a general per-user GitHub auth model, or a fully generic workflow-state store for every future step type.
 
@@ -88,8 +90,11 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 - For this story, "review comments" means PR review feedback from other users, including inline review comments and review submissions with reviewer-authored bodies, rather than generic issue-thread discussion.
 - The GitHub comment-fetch step is a retrieval primitive only and does not embed completion policy, implicit waiting, or hidden conditional behavior.
 - The GitHub steps use `gh` plus a repository-specific fine-grained token loaded from the `CODEINFO_PR_TOKEN` value in the worked repository's `.env.local` file for PR API operations, or an equivalent thin wrapper around that same model.
+- If the `gh` transport is used, the supported server runtime that executes flows, including the checked-in main Docker Compose stack, provides `gh` inside that runtime rather than relying on a host-only installation.
 - The story documents the minimum GitHub permissions needed for open-PR, read-review-comments, and close-PR behavior, and keeps them restricted to that scope.
 - The flow reads `CODEINFO_PR_TOKEN` only from the worked repository's `.env.local` file and does not fall back to `.env` in this story.
+- The flow reads `CODEINFO_PR_TOKEN` by parsing the worked repository root's `.env.local` at step runtime, then maps it only into the GitHub step invocation environment; it does not depend on the server startup env loader, `server/.env.local`, or the worked repository's `.env`.
+- When the `gh` transport is used for github.com, the step maps `CODEINFO_PR_TOKEN` into `GH_TOKEN` for that child process. It does not require `gh auth login`, does not write the token into the user's persisted `gh` credential store, and does not promote the token into the long-lived server process environment.
 - If the expected `CODEINFO_PR_TOKEN` value is missing from the worked repository's `.env.local`, the flow skips PR creation and external-review ingestion for that cycle and records a concise plan note explaining why.
 - Normal git credentials remain the preferred auth path for branch fetch and push behavior when they are already configured in the worked repository.
 - If the current branch is not yet pushed, the PR creation path pushes automatically to the branch's existing upstream remote using the repository's normal git credentials when available.
@@ -97,7 +102,10 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 - If PR creation fails, the flow can complete without attempting the GitHub wait or comment-ingestion steps for that cycle.
 - If GitHub review is skipped for a supported reason, the flow finishes as completed with warning rather than as a plain clean completion.
 - The first-version PR lookup rule is explicit: use the latest open PR for the current branch by open date and ignore closed PRs.
+- The first-version PR lookup is implemented with explicit repository plus head-branch filtering and created-date ordering, not by relying on whichever PR `gh pr view` happens to choose for the current checkout.
 - The first-version implementation does not attempt per-user GitHub execution identity or browser-user impersonation.
+- PR creation does not rely on interactive `gh` prompts. The step passes explicit `--title`, `--body`, `--head`, and `--base` values, and if the create command succeeds it treats the printed PR URL as a success indicator before resolving canonical PR metadata through an explicit follow-up lookup.
+- The PR open step resolves and passes an explicit base branch instead of relying on repo-local hidden `gh-merge-base` configuration. If the implementation cannot determine a trustworthy base branch from repository state plus the supported GitHub lookup path, it records a concise skip note and finishes that GitHub review cycle as completed with warning rather than creating a PR against an accidental base.
 - The story does not edit currently in-use flow files in place under `flows/` when wiring in the new review-cycle behavior.
 - When an existing checked-in flow needs the new review-cycle behavior, the implementation creates a copied and renamed flow-definition variant first, then applies the new step composition to that new variant.
 - The first practical review-cycle wiring for this story lands in newly created flow-definition variants rather than by mutating the current `flows/implement_next_plan.json`, `flows/review_plan.json`, or other already in-use flow files directly.
@@ -110,11 +118,15 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 - The final clean PR is intentionally left open for human review rather than being automatically closed at the end of a clean cycle.
 - The new primitives are structured so they can later be reused by `flows/implement_next_plan.json` and adjacent review or implementation flows without needing a second incompatible step family.
 - When the timed wait window ends, the flow resumes automatically without requiring human intervention.
+- When a paused wait resumes, it continues the same flow execution identity and the same in-progress GitHub-review cycle state for that execution rather than silently creating a fresh run or selecting a different PR.
 - The timed wait contract uses positive integer seconds. Zero, negative, fractional, or non-numeric wait values are rejected at flow-definition validation time rather than clamped silently at runtime.
 - The direct Python decision path executes a checked-in repository-relative Python entrypoint from the worked repository root, treats missing files, timeouts, non-zero exit codes, malformed JSON, extra top-level keys, or non-`yes`/`no` answers as hard step failures, and does not reinterpret those failures as a decision.
 - A blank or whitespace-only `CODEINFO_PR_TOKEN` value in `.env.local` is treated the same as a missing token and therefore triggers the supported completed-with-warning skip path.
 - The story documents one minimum fine-grained token permission set for the GitHub PR cycle: repository `Pull requests` permission at write level, because open or close operations require write access while review and review-comment retrieval requires read access.
-- Fetched GitHub review comments are written as JSON to a separate transient GitHub-review scratch file under `codeInfoTmp/reviews/` rather than to the existing external-review ingest files, and only the minimal extra persisted state needed for resume and classification is stored alongside that scratch path.
+- Fetched GitHub review data is written as JSON to a separate transient GitHub-review scratch file under `codeInfoTmp/reviews/` rather than to the existing external-review ingest files, and only the minimal extra persisted state needed for resume and classification is stored alongside that scratch path.
+- The fetch step gathers both review submissions and inline review comments, because GitHub review feedback is split across those two endpoint families rather than returned as one complete combined payload.
+- The review-fetch implementation paginates GitHub list responses so it does not silently truncate larger review sets at the first page.
+- When a fresh GitHub fetch succeeds for the current story and branch, later reader steps consume that fresh fetched state only. Older transient review scratch from a prior cycle may be replaced, but it must not remain the active classification input for the new cycle.
 - Automated tests cover the new schema shapes, runtime behavior, persisted wait behavior, Python decision execution path, GitHub step wiring, and the review-loop composition points touched by this story.
 
 ### Out Of Scope
@@ -217,6 +229,56 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
    - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/write_review_no_findings_closeout.md`, `codeinfo_markdown/review_disposition.md`, `scripts/flow_state_utils.py`, and the broader `codeInfoTmp/reviews/<story>-current-review.json` handoff pattern already used by review flows.
    - Why it is the best answer: It matches the repository's existing transient review-artifact patterns, keeps the GitHub-review state clearly non-durable, and avoids mixing it with the existing external-review input file.
 
+## Feasibility Proof Pass
+
+### 1. Flow runtime and schema extensions
+
+- Already existing capabilities:
+  - `server/src/flows/flowSchema.ts` already owns the flow-step schema union and recursive nested-step parsing.
+  - `server/src/flows/service.ts` already owns the step dispatcher, existing `break` and `continue` flow-control behavior, and persisted flow-run orchestration.
+  - `server/src/test/unit/flows-schema.test.ts` and `server/src/test/integration/flows.run.*.test.ts` already provide schema and runtime proof homes for new step types.
+- Missing prerequisite capabilities:
+  - There is no existing `if` step in the flow schema or dispatcher.
+  - There is no existing persisted timed wait step in the flow runtime.
+  - There is no existing flow-native script decision path for `if`, `break`, or `continue`; the runtime must add that seam explicitly instead of assuming it already exists.
+- Assumptions currently invalid:
+  - Later tasking must not assume agent command JSON needs matching support in this story.
+  - Later tasking must not assume a plain in-memory timer is enough for the wait step, because restart-safe persistence is part of the accepted contract.
+- Feasibility and sequencing note:
+  - This area is feasible as an extension of existing flow-only seams, but the schema, runtime dispatcher, and persisted resume-state contract must be updated before any copied flow variant can rely on the new steps.
+
+### 2. GitHub PR transport and worked-repository contracts
+
+- Already existing capabilities:
+  - The repository already has branch-state helpers in `scripts/flow_state_utils.py`.
+  - The repository already has review scratch and disposition conventions under `codeInfoTmp/reviews/` plus `codeinfo_markdown/review_disposition.md`.
+  - The checked-in main Docker stack in `docker-compose.yml` is the supported manual-proof path.
+- Missing prerequisite capabilities:
+  - `server/Dockerfile` and `server/npm-global.txt` do not currently provide `gh` in the supported server runtime.
+  - `server/src/config/startupEnv.ts` only loads `server/.env` and `server/.env.local`; there is no existing worked-repository `.env.local` reader for `CODEINFO_PR_TOKEN`.
+  - The runtime does not yet have a thin GitHub adapter that resolves explicit repo, branch, PR, review-submission, and inline-comment calls.
+- Assumptions currently invalid:
+  - Later tasking must not assume a host-installed `gh` is sufficient.
+  - Later tasking must not assume `gh pr view` or another convenience command will always identify the right PR without explicit repo and branch filtering.
+- Feasibility and sequencing note:
+  - This area is feasible, but the story must first establish one honest transport path inside the supported server runtime and one worked-repository token-read seam before the copied review-cycle flows can depend on GitHub behavior.
+
+### 3. Proof and manual-validation path
+
+- Already existing capabilities:
+  - Server unit and integration wrappers already exist through `npm run test:summary:server:unit`.
+  - Server cucumber wrappers already exist through `npm run test:summary:server:cucumber`.
+  - Browser-level flow proof already has a home in `e2e/flows-execution-runs.spec.ts`.
+  - The supported human stack already exists in `docker-compose.yml` and is started through `npm run compose:build` plus `npm run compose:up`.
+- Missing prerequisite capabilities:
+  - No new harness is inherently required for the flow-only `if` and wait primitives.
+  - GitHub-cycle proof will need either mocked CLI or fixture-backed tests around the adapter, plus a small amount of live manual validation in a sandbox repository.
+- Assumptions currently invalid:
+  - Later tasking must not assume a new frontend harness or a browser redesign is required.
+  - Later tasking must not assume manual proof should happen against the local development stack instead of the checked-in main human stack.
+- Feasibility and sequencing note:
+  - Existing proof surfaces are enough for this story as long as GitHub-specific proof is added to the current backend-focused harnesses and manual GitHub validation stays on a dedicated sandbox repository.
+
 ## Story Behavior Lock
 
 - The only approved user-facing behavior change in this story is the addition of new flow-only orchestration capabilities plus newly copied opt-in flow-definition variants that can run one external GitHub PR review cycle.
@@ -228,33 +290,92 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 
 - Flow-schema additions stay within the existing flow step family in `server/src/flows/flowSchema.ts`; this story does not add matching schema items to agent-command JSON.
 - The new `if` step owns one explicit condition plus `then` steps and optional `else` steps. It must not hide extra implicit branching inside the GitHub step implementations.
+- The `if` step, `break`, and `continue` all share one condition contract: either the existing AI yes-or-no path or one repository-relative Python entrypoint evaluated from the worked repository root. This story does not introduce a third condition family such as shell snippets or inline JavaScript.
 - The direct Python decision path follows the repository's existing `scripts/flow_control/*.py` wrapper style: a checked-in repository-relative Python entrypoint runs from the worked repository root and prints exactly `{\"answer\":\"yes\"}` or `{\"answer\":\"no\"}` to stdout with no alternate success shape.
 - The timed wait step persists enough state to resume safely after restart, including the current execution identity, the next step location, the resume timestamp, and any loop context needed to continue the same flow run rather than launching a fresh run.
+- The wait-step schema stores whole-second workflow-authored delay input, while the persisted runtime state stores an absolute resume timestamp. The runtime must compare current time against that resume timestamp rather than repeatedly decrementing an in-memory counter.
+- Resume state is run-scoped, not global. Persisted wait state and GitHub-review scratch for one execution are either reused by that same execution on resume or replaced by a later fresh cycle for that same story; they must never be merged across different executions or contradictory branch or PR identities.
+- Repository-local GitHub token lookup is a per-step file read from the worked repository root's `.env.local`. When the `gh` path is used, the step maps `CODEINFO_PR_TOKEN` into the CLI-supported authentication environment for that invocation only instead of promoting it into the server process startup environment.
 - GitHub review scratch state lives in `codeInfoTmp/reviews/<story-number>-current-review.json` as transient workflow state. At minimum it must identify the canonical `plan_path`, the active repository alias or root, the branch or HEAD being reviewed, the selected open PR identity, the raw fetched review artifact path, and any supported skip or failure reason that caused a completed-with-warning outcome.
-- The fetch step stores raw GitHub review data in a separate JSON scratch artifact under `codeInfoTmp/reviews/`. Classification and later review-disposition work read that scratch state rather than reusing the existing external-review input markdown path.
+- The raw fetched GitHub-review artifact is a JSON object under `codeInfoTmp/reviews/` with one canonical top-level record for repository and PR metadata plus separate arrays for review submissions and inline review comments. At minimum it preserves `repository.owner`, `repository.name`, `pullRequest.number`, `pullRequest.url`, `pullRequest.headRefName`, `pullRequest.baseRefName`, `pullRequest.authorLogin`, `pullRequest.createdAt`, `fetchedAt`, `reviews`, and `reviewComments`.
+- Each preserved `reviews[]` entry keeps the GitHub review identity and classification fields needed later: `id`, `user.login`, `body`, `state`, `submitted_at` when present, `commit_id`, `html_url`, and `author_association`.
+- Each preserved `reviewComments[]` entry keeps the inline-comment identity and classification fields needed later: `id`, `pull_request_review_id`, `user.login`, `body`, `path`, `line`, `start_line` when present, `side`, `commit_id`, `in_reply_to_id` when present, `created_at`, `updated_at`, `html_url`, and `author_association`.
+- Classification and later review-disposition work read that scratch state rather than reusing the existing external-review input markdown path.
+- The GitHub fetch step is the only writer for the raw fetched review artifact and the `codeInfoTmp/reviews/<story-number>-current-review.json` handoff for this story. Classification, review disposition, and later routing steps are readers only unless a later story explicitly broadens that ownership.
+- Because the existing repository guidance defines transient review handoff files but not a shared TypeScript atomic-write helper, this story must either reuse a shared helper if one appears during implementation or introduce one small shared safe-write utility so reader steps see either the previous valid JSON object or the new valid JSON object, never a delete-first gap treated as a clean review.
+- Stale GitHub-review scratch cleanup belongs to the review-cycle lifecycle rather than to unrelated startup code: a fresh review cycle may replace its own prior transient GitHub-review files for the same story, but unrelated flows must not delete or rewrite them opportunistically.
 - Plan notes remain the durable source for supported skip or failure explanations in this story. Scratch review JSON is transient workflow state and must not become the only durable record of why external review was skipped.
+
+## Test Harnesses
+
+- No new frontend harness is required for this story. The story is backend-first and flow-runtime-focused.
+- The primary automated proof homes already exist:
+  - schema parsing and flow-file validation in `server/src/test/unit/flows-schema.test.ts`;
+  - flow runtime, resume, error, loop, and command behavior in `server/src/test/integration/flows.run.*.test.ts`;
+  - cucumber coverage in `server/src/test/features/flows-execution-runs.feature` plus `server/src/test/steps/flows-execution-runs.steps.ts`;
+  - browser-level flow regression coverage in `e2e/flows-execution-runs.spec.ts` only where a browser-visible proof path is still honest after the runtime changes.
+- GitHub-specific automated proof should stay in backend-owned tests by mocking or fixture-driving the GitHub CLI or thin adapter seam rather than weakening production behavior for testability.
+- Order-sensitive proof should stay deterministic: wait-resume, cancel, skip, and scratch-read assertions should observe explicit persisted state transitions or emitted outcomes rather than arbitrary fixed sleeps that only usually pass.
+- Manual proof should use the checked-in main human stack via `npm run compose:build` plus `npm run compose:up` unless repository-owned guidance later proves that only a minimal test-only harness adjustment is needed for sandbox GitHub access.
+
+## Log Or Proof Markers
+
+- Flow schema proof home:
+  - `server/src/test/unit/flows-schema.test.ts` should prove new step-shape acceptance and invalid wait-value rejection.
+- Runtime orchestration proof home:
+  - `server/src/test/integration/flows.run.*.test.ts` should prove `if`, script-driven yes or no decisions, persisted wait state, cancel-safety, and completed-with-warning skip outcomes.
+- Cucumber proof home:
+  - `server/src/test/features/flows-execution-runs.feature` should cover one end-to-end flow composition that exercises the new primitives in the order this story introduces them.
+- Opt-in flow-variant proof home:
+  - copied-flow proof should confirm the new GitHub review cycle only appears in the newly created variants and that the existing default checked-in entrypoints remain unchanged unless an operator intentionally selects a copied variant.
+- GitHub adapter proof home:
+  - backend-owned tests should prove explicit base resolution, upstream-push behavior, explicit PR lookup, pagination across review payloads, author filtering, and supported skip or failure notes without requiring live GitHub for every path.
+- Manual proof artifact expectations:
+  - story-level manual proof should retain sandbox evidence under `codeInfoTmp/manual-testing/<story-number>/...` using deterministic names such as `proof-01-open-pr.png`, `proof-02-fetched-review.json`, `support-console.txt`, and `support-network.json` when those artifacts are actually captured.
 
 ## Edge Cases And Failure Modes
 
 - If `.env.local` is missing, unreadable, lacks `CODEINFO_PR_TOKEN`, or contains only blank or whitespace for that variable, the flow records a concise plan note, skips the GitHub review cycle for that pass, and finishes as completed with warning.
+- If `.env.local` exists but cannot be parsed into a valid key-value map, the flow treats that the same way as unreadable GitHub-review configuration for this story: record a concise plan note, skip the GitHub cycle for that pass, and finish as completed with warning rather than guessing at partial values.
 - If the current branch does not already have a usable upstream remote, or the automatic push fails, the flow records a concise plan note, does not guess alternate remotes or forks, and skips the GitHub review cycle for that pass with completed-with-warning status.
 - If multiple open PRs exist for the same branch, the flow selects the newest still-open PR for that branch by open time and ignores closed PRs.
 - If the fetch or close step cannot identify any open PR for the current branch, it must fail or skip in a way that does not mutate an unrelated PR on another branch.
+- If the `gh pr create` command succeeds but only returns a URL on stdout, the step must perform one explicit post-create PR lookup to resolve canonical PR metadata such as number and branch identity before writing scratch state or moving into the wait step.
+- If the PR lookup API or CLI returns more than one page of review submissions or inline comments, the flow must continue pagination until exhaustion rather than silently accepting first-page-only evidence as complete.
+- If a listed review submission is still `PENDING` and therefore lacks `submitted_at`, the raw artifact may preserve it but classification must not treat it as completed outside feedback.
+- If persisted wait state, selected PR metadata, current branch identity, or transient review scratch disagree in a way that suggests mixed old and new execution state, the runtime must fail or skip clearly for that execution rather than submitting, restoring, or classifying contradictory combined state.
 - Review ingestion must ignore PR-author-authored review submissions and inline comments so the GitHub review cycle only classifies outside feedback from other users.
 - Malformed or partially written GitHub-review scratch JSON must not be treated as an empty clean review. Reader steps should fail clearly or trigger a supported rerun path rather than silently downgrading the evidence.
+- If a prior review cycle left stale GitHub-review scratch files for the same story, the next fresh GitHub fetch for that story must replace its own transient review artifacts through the shared safe-write path before later reader steps consume them, so old findings are not mistaken for current-branch evidence.
 - The timed wait step must remain safe across restart and cancellation boundaries: resumed execution continues the same flow run, while cancelled or terminal runs do not wake up later and keep mutating state after the run is already over.
+- Ordering matters for wait and cancellation proof: later validation must show that a cancelled or terminal run cannot emit a delayed resume side effect after cancellation, not merely that cancellation and resume each work in isolation.
 
 ## Implementation Ideas
 
-- Extend `server/src/flows/flowSchema.ts` and the flow dispatcher in `server/src/flows/service.ts` with one coherent flow-only step family for `if`, timed wait, and thin GitHub PR actions, while leaving agent-command JSON unchanged.
-- Refactor the existing `break` and `continue` runtime so AI decisions and repository-relative Python wrapper-script decisions share one strict yes-or-no parsing, timeout, and failure contract.
-- Persist timed wait state through the existing flow resume machinery so one run can pause, survive refresh or restart, and resume automatically at the right step without creating a second run.
-- Add a thin GitHub adapter that reads repository owner, branch, head commit, and `.env.local` token configuration from the worked repository, pushes only to the existing upstream remote when needed, and records supported skip or failure outcomes as completed-with-warning rather than guessing remotes or forking behavior.
-- Generate reviewer-facing PR title and body content from the current story and implementation context using the repository's existing reviewer-summary conventions, including the no-out-of-scope-behavior-change rule.
-- Persist fetched GitHub review data under `codeInfoTmp/reviews/` as transient GitHub-review scratch state that later classification, minor-fix, and task-up routing can consume without reusing the existing external-review input markdown path.
-- Keep the first practical workflow wiring opt-in by copying and renaming the existing in-use flow definitions before composing the new review-cycle loop into those new variants.
-- Route actionable GitHub review findings back through the repository's existing minor-fix and task-up repair patterns instead of introducing a second competing findings lifecycle.
-- Add focused proof for schema parsing, strict decision-script handling, persisted wait or resume behavior, supported skip paths, GitHub PR open or fetch or close wiring, latest-open-PR branch selection, review-author filtering, and both clean-cycle and more-work-needed flow compositions.
+- Add the new flow-step schema entries in `server/src/flows/flowSchema.ts` for `if`, timed wait, and the thin GitHub PR actions, while keeping agent-command JSON unchanged.
+- Add the matching runtime dispatcher entries in `server/src/flows/service.ts` so each new step type has one explicit execution seam instead of hidden behavior inside another step.
+- Extract one shared decision-evaluation seam for `if`, `break`, and `continue` so AI yes-or-no answers and repository-relative Python wrapper-script answers reuse the same timeout, stdout parsing, and hard-failure contract.
+- Add the timed wait definition seam that validates whole-second positive integer delay input at flow-parse time before any runtime pause behavior is attempted.
+- Add the timed wait persistence writer seam in `server/src/flows/flowState.ts` plus `server/src/flows/service.ts` so a running flow records execution identity, next-step location, resume timestamp, and loop context before it pauses.
+- Add the timed wait resume reader and wake-up seam in `server/src/flows/service.ts` so restart, refresh, cancellation, and terminal-run checks are handled separately from the write side.
+- Add one run-state reconciliation seam that checks whether resumed wait state, selected PR metadata, branch identity, and transient review scratch still belong to the same execution before the resumed flow continues.
+- Add one worked-repository `.env.local` reader seam for `CODEINFO_PR_TOKEN` that runs at GitHub-step execution time and stays separate from `server/.env` startup loading.
+- Add one subprocess-launch seam for GitHub operations that reuses the repository's existing cwd-scoped, env-injected child-process conventions instead of inventing a special launcher with different timeout or stdout behavior.
+- Add one runtime-availability seam for the chosen GitHub transport so the supported server runtime, including the checked-in main Docker Compose path, either provides `gh` honestly or fails the GitHub cycle through the supported completed-with-warning path.
+- Add one repository-state seam that resolves owner, repository name, current branch, current HEAD, upstream remote, and a trustworthy base branch before any PR mutation is attempted.
+- Add one PR-open seam that creates the PR non-interactively from explicit `--title`, `--body`, `--head`, and `--base` inputs and treats the immediate create output separately from later canonical PR metadata lookup.
+- Add one PR-selection seam that resolves the newest still-open PR for the current branch through explicit repository plus head-branch filtering and created-date ordering.
+- Add one review-submission fetch seam that reads paginated PR review submissions and preserves the documented review fields needed later for filtering and classification.
+- Add one inline-review-comment fetch seam that reads paginated PR review comments and preserves the documented inline-comment fields needed later for filtering and classification.
+- Add one GitHub-review scratch writer seam that writes the canonical metadata record plus the `reviews` and `reviewComments` arrays into `codeInfoTmp/reviews/` through a shared safe-write path instead of delete-first replacement.
+- Add one GitHub-review scratch reader seam for later classification and routing so malformed, partial, missing, or contradictory stale-versus-fresh scratch data fails clearly instead of being silently interpreted as a clean review.
+- Add one reviewer-facing PR-summary generation seam that builds the title and body from current story and implementation context, including the explicit no-out-of-scope-behavior-change instruction to reviewers.
+- Add one copied-flow-variant seam that duplicates and renames the currently in-use flow definitions before composing the new review-cycle steps into those opt-in variants.
+- Add one findings-routing seam that maps valid GitHub review issues back into the repository's existing minor-fix and task-up repair patterns without replacing the broader review lifecycle.
+- Add one schema-proof seam in `server/src/test/unit/flows-schema.test.ts` for new step acceptance, nested-step structure, and invalid timed-wait values.
+- Add one flow-runtime proof seam in `server/src/test/integration/flows.run.*.test.ts` for shared decision evaluation, timed-wait persistence and resume, cancel-safety, and completed-with-warning skip outcomes.
+- Add one GitHub-adapter proof seam in backend-owned tests for worked-repository token reading, transport availability checks, upstream-push behavior, explicit PR lookup, base-branch resolution, author filtering, pagination, and safe scratch-file handling.
+- Add one opt-in flow-composition proof seam in cucumber or browser-level flow tests so one clean review cycle and one more-work-needed review cycle are proved without mutating the current default flow entrypoints.
 
 ## Questions
 

@@ -4447,6 +4447,22 @@ async function runFlowUnlocked(params: {
     });
 
     try {
+      await Promise.all(
+        childRuns.map(async (childRun) => {
+          const status = await getFlowConversationTerminalStatus({
+            conversationId: childRun.conversationId,
+            runToken: childRun.runToken,
+          });
+          if (status || getActiveRunOwnership(childRun.conversationId)) {
+            return;
+          }
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+          );
+        }),
+      );
+
       for (const flowName of childFlowNames) {
         if (rememberedSubflowsByName.has(flowName)) {
           continue;

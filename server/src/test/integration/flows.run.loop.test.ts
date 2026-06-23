@@ -25,6 +25,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -184,9 +185,40 @@ const fixturesDir = path.resolve(
   '../fixtures/flows',
 );
 
+const buildHarnessRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'flow-test-repo',
+  description: null,
+  containerPath,
+  hostPath: `/host${containerPath}`,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+});
+
+const listHarnessRepo = async (containerPath: string): Promise<ListReposResult> => ({
+  repos: [buildHarnessRepoEntry(containerPath)],
+  lockedModelId: null,
+});
+
 const withFlowServer = async (
   responder: (message: string) => string,
-  task: (params: { baseUrl: string; wsUrl: WebSocket }) => Promise<void>,
+  task: (params: {
+    baseUrl: string;
+    wsUrl: WebSocket;
+    tmpDir: string;
+  }) => Promise<void>,
   options?: {
     cleanupInflightFn?: (params: {
       conversationId: string;
@@ -201,6 +233,7 @@ const withFlowServer = async (
       conversationId: string;
       detail?: string;
     }) => void | Promise<void>;
+    registerTmpDirAsRepo?: boolean;
   },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -218,6 +251,9 @@ const withFlowServer = async (
         startFlowRun({
           ...params,
           chatFactory: () => new ScriptedChat(responder),
+          listIngestedRepositories: options?.registerTmpDirAsRepo
+            ? () => listHarnessRepo(tmpDir)
+            : undefined,
           onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
           cleanupInflightFn: options?.cleanupInflightFn,
           releaseConversationLockFn: options?.releaseConversationLockFn,
@@ -234,7 +270,7 @@ const withFlowServer = async (
   const ws = await connectWs({ baseUrl });
 
   try {
-    await task({ baseUrl, wsUrl: ws });
+    await task({ baseUrl, wsUrl: ws, tmpDir });
   } finally {
     await closeFlowHarness({ ws, wsHandle, httpServer });
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
@@ -2333,134 +2369,339 @@ test('flow stop during a looped flow prevents later iterations from continuing',
       },
     },
   );
+});
 
 
 test('shared decision seam follows valid script-driven if branch through happy path', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-if-flow.json'),
+        JSON.stringify({
+          description: 'Flow with if-step using script decision',
+          steps: [
+            {
+              type: 'if',
+              condition: 'flow-control/decision-yes.py',
+              then: [
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Decision was yes, proceeding with then branch.'],
+                    },
+                  ],
+                },
+              ],
+              else: [
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Else branch should not run.'],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
 
-    // Write a flow that uses if-step with script-driven decision
-    await fs.writeFile(
-      path.join(tmpDir, 'flows', 'shared-decision-if-flow.json'),
-      JSON.stringify({
-        description: 'Flow with if-step using script decision',
-        steps: [
-          {
-            type: 'if',
-            condition: 'script_decision',
-            then: [
-              {
-                type: 'llm',
-                agentType: 'coding_agent',
-                identifier: 'main',
-                messages: [{ role: 'user', content: ['Decision was yes, proceeding with then branch.'] }],
-              },
-            ],
-          },
-        ],
-      }),
-    );
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-if-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
 
-    // Write a script that returns {"answer":"yes"}
-    await fs.writeFile(
-      path.join(tmpDir, 'flows', 'decision-yes.py'),
-      '#!/usr/bin/env python3\nimport json\nprint(json.dumps({{"answer":"yes"}}))\n',
-    );
-
-    const result = await supertest(baseUrl)
-      .post('/flows/shared-decision-if-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+      const conversationId = result.body.conversationId;
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (event: unknown): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            candidate.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
       });
-    assert.equal(result.status, 200);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-
-    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
-    // The flow should have executed the then branch (llm step)
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.ok(assistantTurns.length >= 1);
-  });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Decision was yes, proceeding with then branch.'),
+          ),
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Decision was yes, proceeding with then branch.'),
+        ).length,
+        1,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Else branch should not run.'),
+        ).length,
+        0,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });
 
 test('shared decision seam follows valid script-driven break branch through happy path', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-break-flow.json'),
+        JSON.stringify({
+          description: 'Flow with break-step using script decision',
+          steps: [
+            {
+              type: 'startLoop',
+              steps: [
+                {
+                  type: 'break',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-yes.py',
+                  breakOn: 'yes',
+                },
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Loop body should stop before this step.'],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Break exited the loop cleanly.'],
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
 
-    // Write a flow that uses break-step with script-driven decision
-    await fs.writeFile(
-      path.join(tmpDir, 'flows', 'shared-decision-break-flow.json'),
-      JSON.stringify({
-        description: 'Flow with break-step using script decision',
-        steps: [
-          {
-            type: 'break',
-            agentType: 'coding_agent',
-            identifier: 'main',
-            question: 'Should we break?',
-            breakOn: 'yes',
-          },
-        ],
-      }),
-    );
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-break-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
 
-    const result = await supertest(baseUrl)
-      .post('/flows/shared-decision-break-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+      const conversationId = result.body.conversationId;
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (event: unknown): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            candidate.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
       });
-    assert.equal(result.status, 200);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-
-    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.ok(assistantTurns.length >= 1);
-  });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Break exited the loop cleanly.'),
+          ),
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Loop body should stop before this step.'),
+        ).length,
+        0,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Break exited the loop cleanly.'),
+        ).length,
+        1,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });
 
 test('shared decision seam follows valid script-driven continue branch through happy path', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'flow-control', 'decision-continue-once.py'),
+        [
+          '#!/usr/bin/env python3',
+          'import json',
+          'from pathlib import Path',
+          '',
+          "state_file = Path('.continue-once-state')",
+          'count = int(state_file.read_text()) if state_file.exists() else 0',
+          'count += 1',
+          'state_file.write_text(str(count))',
+          "answer = 'yes' if count == 1 else 'no'",
+          'print(json.dumps({"answer": answer}))',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-continue-flow.json'),
+        JSON.stringify({
+          description: 'Flow with continue-step using script decision',
+          steps: [
+            {
+              type: 'startLoop',
+              steps: [
+                {
+                  type: 'continue',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-continue-once.py',
+                  continueOn: 'yes',
+                },
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Reached post-continue step.'],
+                    },
+                  ],
+                },
+                {
+                  type: 'break',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-yes.py',
+                  breakOn: 'yes',
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
 
-    // Write a flow that uses continue-step with script-driven decision
-    await fs.writeFile(
-      path.join(tmpDir, 'flows', 'shared-decision-continue-flow.json'),
-      JSON.stringify({
-        description: 'Flow with continue-step using script decision',
-        steps: [
-          {
-            type: 'continue',
-            agentType: 'coding_agent',
-            identifier: 'main',
-            question: 'Should we continue?',
-            continueOn: 'yes',
-          },
-        ],
-      }),
-    );
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-continue-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
 
-    const result = await supertest(baseUrl)
-      .post('/flows/shared-decision-continue-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+      const conversationId = result.body.conversationId;
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (event: unknown): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            candidate.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
       });
-    assert.equal(result.status, 200);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-
-    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.ok(assistantTurns.length >= 1);
-  });
-});
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Reached post-continue step.'),
+          ).length === 1,
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Reached post-continue step.'),
+        ).length,
+        1,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });

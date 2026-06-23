@@ -122,6 +122,7 @@ import {
   type FlowBreakStep,
   type FlowContinueStep,
   type FlowCommandStep,
+  type FlowIfStep,
   type FlowLlmStep,
   type FlowReingestStep,
   type FlowStartLoopStep,
@@ -1672,6 +1673,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowLlmStep
     | FlowBreakStep
     | FlowContinueStep
+    | FlowIfStep
     | FlowCommandStep
     | FlowSubflowStep
     | FlowReingestStep;
@@ -2816,6 +2818,7 @@ type FlowDecisionKind = 'break' | 'continue' | 'if';
 
 const MAX_BREAK_PARSE_SCAN_LENGTH = 20_000;
 const MAX_BREAK_PARSE_CANDIDATES = 100;
+const FLOW_DECISION_SCRIPT_TIMEOUT_MS = 1000;
 
 const getFlowDecisionLabel = (kind: FlowDecisionKind) =>
   kind === 'break' ? 'Break' : kind === 'continue' ? 'Continue' : 'If';
@@ -3035,13 +3038,28 @@ type SharedDecisionResult =
   | { ok: true; answer: 'yes' | 'no'; reason: 'ai' | 'script' }
   | { ok: false; reason: string };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _evaluateScriptDecision = async (params: {
+  kind: FlowDecisionKind;
   scriptPath: string;
   workingRepositoryRoot: string;
   timeoutMs: number;
 }): Promise<SharedDecisionResult> => {
-  const fullPath = path.resolve(workingRepositoryRoot, scriptPath);
+  const normalizedScriptPath = path.normalize(params.scriptPath.trim());
+  if (
+    path.isAbsolute(normalizedScriptPath) ||
+    normalizedScriptPath === '..' ||
+    normalizedScriptPath.startsWith(`..${path.sep}`)
+  ) {
+    return {
+      ok: false,
+      reason: `Script path must stay inside the worked repository root: ${params.scriptPath}`,
+    };
+  }
+
+  const fullPath = path.resolve(
+    params.workingRepositoryRoot,
+    normalizedScriptPath,
+  );
   let fileContent: string;
   try {
     fileContent = await fs.readFile(fullPath, 'utf8');
@@ -3054,39 +3072,69 @@ const _evaluateScriptDecision = async (params: {
   }
 
   try {
-    const result = await new Promise<{ stdout: string; exitCode: number }>(
-      (resolve, reject) => {
+    const result = await new Promise<{
+      stdout: string;
+      stderr: string;
+      exitCode: number | null;
+      signal: NodeJS.Signals | null;
+      timedOut: boolean;
+    }>((resolve, reject) => {
         const child = spawn('python3', [fullPath], {
-          cwd: workingRepositoryRoot,
-          timeout: params.timeoutMs,
+          cwd: params.workingRepositoryRoot,
         });
         let stdout = '';
-        let _stderr = '';
+        let stderr = '';
+        let timedOut = false;
+        const timeoutHandle = setTimeout(() => {
+          timedOut = true;
+          child.kill('SIGKILL');
+        }, params.timeoutMs);
         child.stdout.on('data', (data: Buffer) => {
           stdout += data.toString();
         });
         child.stderr.on('data', (data: Buffer) => {
-          _stderr += data.toString();
+          stderr += data.toString();
         });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _stderrUsed = _stderr;
-        child.on('error', reject);
-        child.on('close', (exitCode) => {
-          resolve({ stdout, exitCode: exitCode ?? -1 });
+        child.on('error', (error) => {
+          clearTimeout(timeoutHandle);
+          reject(error);
         });
-      },
-    );
+        child.on('close', (exitCode, signal) => {
+          clearTimeout(timeoutHandle);
+          resolve({
+            stdout,
+            stderr,
+            exitCode,
+            signal,
+            timedOut,
+          });
+        });
+      });
 
-    if (result.exitCode !== 0) {
+    if (result.timedOut) {
       return {
         ok: false,
-        reason: `Script exited with code ${result.exitCode}: ${result.stdout.trim()}${result.exitCode !== 0 ? `\nstderr: ${_stderr.trim()}` : ''}`,
+        reason: `Script timed out after ${params.timeoutMs}ms: ${normalizedScriptPath}`,
       };
     }
 
-    const parsed = parseFlowDecisionAnswer('if', result.stdout.trim());
+    if ((result.exitCode ?? -1) !== 0) {
+      const stderrSection = result.stderr.trim().length
+        ? `\nstderr: ${result.stderr.trim()}`
+        : '';
+      const signalSection = result.signal ? ` (signal ${result.signal})` : '';
+      return {
+        ok: false,
+        reason: `Script exited with code ${String(result.exitCode ?? -1)}${signalSection}: ${result.stdout.trim()}${stderrSection}`,
+      };
+    }
+
+    const parsed = parseFlowDecisionAnswer(params.kind, result.stdout.trim());
     if (!parsed.ok) {
-      return { ok: false, reason: `Script output failed decision parsing: ${parsed.message}` };
+      return {
+        ok: false,
+        reason: `Script output failed decision parsing: ${parsed.message}`,
+      };
     }
 
     return { ok: true, answer: parsed.answer, reason: 'script' };
@@ -3096,6 +3144,56 @@ const _evaluateScriptDecision = async (params: {
   }
 };
 
+const isFlowDecisionScriptPath = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed.endsWith('.py') || path.isAbsolute(trimmed)) {
+    return false;
+  }
+  const normalized = path.normalize(trimmed);
+  return normalized !== '..' && !normalized.startsWith(`..${path.sep}`);
+};
+
+const getInvalidDecisionResponseCode = (kind: FlowDecisionKind): string =>
+  `INVALID_${kind.toUpperCase()}_RESPONSE`;
+
+const getScriptDecisionFailureCode = (kind: FlowDecisionKind): string =>
+  `${kind.toUpperCase()}_DECISION_SCRIPT_FAILED`;
+
+const getFlowDecisionLogMessages = (kind: FlowDecisionKind) => ({
+  attempted: `flows.run.${kind}_parse_strategy_attempted`,
+  parsed: `flows.run.${kind}_parse_result`,
+  decision: `flows.run.${kind}_decision`,
+});
+
+const appendFlowDecisionParseLogs = (
+  kind: FlowDecisionKind,
+  parsed: BreakParseSuccess | BreakParseFailure,
+) => {
+  const messages = getFlowDecisionLogMessages(kind);
+  parsed.attempts.forEach((attempt) => {
+    append({
+      level: 'info',
+      message: messages.attempted,
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        strategy: attempt.strategy,
+        candidateCount: attempt.candidateCount,
+      },
+    });
+  });
+  append({
+    level: parsed.ok ? 'info' : 'warn',
+    message: messages.parsed,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      accepted: parsed.ok,
+      reasonCode: parsed.reasonCode,
+    },
+  });
+};
+
 
 const findFirstAgentStep = (
   steps: FlowStep[],
@@ -3103,16 +3201,33 @@ const findFirstAgentStep = (
   | FlowLlmStep
   | FlowBreakStep
   | FlowContinueStep
+  | FlowIfStep
   | FlowCommandStep
   | undefined => {
   for (const step of steps) {
+    if (step.type === 'llm' || step.type === 'command') {
+      return step;
+    }
     if (
-      step.type === 'llm' ||
-      step.type === 'break' ||
-      step.type === 'continue' ||
-      step.type === 'command'
+      (step.type === 'break' || step.type === 'continue') &&
+      !isFlowDecisionScriptPath(step.question)
     ) {
       return step;
+    }
+    if (step.type === 'if') {
+      if (
+        step.agentType &&
+        step.identifier &&
+        !isFlowDecisionScriptPath(step.condition)
+      ) {
+        return step;
+      }
+      const nestedThen = findFirstAgentStep(step.then);
+      if (nestedThen) return nestedThen;
+      if (step.else) {
+        const nestedElse = findFirstAgentStep(step.else);
+        if (nestedElse) return nestedElse;
+      }
     }
     if (step.type === 'startLoop') {
       const nested = findFirstAgentStep(step.steps);
@@ -3129,6 +3244,7 @@ const findRuntimeIdentityStep = (
   | FlowLlmStep
   | FlowBreakStep
   | FlowContinueStep
+  | FlowIfStep
   | FlowCommandStep
   | undefined => {
   let resumePathRemaining =
@@ -3165,13 +3281,29 @@ const findRuntimeIdentityStep = (
       continue;
     }
 
+    if (step.type === 'llm' || step.type === 'command') {
+      return step;
+    }
     if (
-      step.type === 'llm' ||
-      step.type === 'break' ||
-      step.type === 'continue' ||
-      step.type === 'command'
+      (step.type === 'break' || step.type === 'continue') &&
+      !isFlowDecisionScriptPath(step.question)
     ) {
       return step;
+    }
+    if (step.type === 'if') {
+      if (
+        step.agentType &&
+        step.identifier &&
+        !isFlowDecisionScriptPath(step.condition)
+      ) {
+        return step;
+      }
+      const nestedThen = findRuntimeIdentityStep(step.then, null);
+      if (nestedThen) return nestedThen;
+      if (step.else) {
+        const nestedElse = findRuntimeIdentityStep(step.else, null);
+        if (nestedElse) return nestedElse;
+      }
     }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);
@@ -3190,6 +3322,46 @@ const validateCommandSteps = async (
   for (const step of steps) {
     if (step.type === 'startLoop') {
       await validateCommandSteps(step.steps, agentByName, repositoryContext);
+      continue;
+    }
+    if (step.type === 'if') {
+      if (
+        !isFlowDecisionScriptPath(step.condition) &&
+        (!step.agentType || !step.identifier)
+      ) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'If steps that use the AI decision path must provide agentType and identifier.',
+        );
+      }
+      if (step.agentType) {
+        const validatedAgentType = validateRepositoryBackedAgentType(
+          step.agentType,
+        );
+        if (!validatedAgentType.ok) {
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            `Flow agent "${step.agentType}" ${validatedAgentType.message}.`,
+          );
+        }
+        const agent = agentByName.get(step.agentType);
+        if (!agent) {
+          throw toFlowRunError(
+            'AGENT_NOT_FOUND',
+            `Agent ${step.agentType} not found`,
+          );
+        }
+      }
+      await validateCommandSteps(step.then, agentByName, repositoryContext);
+      if (step.else) {
+        await validateCommandSteps(step.else, agentByName, repositoryContext);
+      }
+      continue;
+    }
+    if (
+      (step.type === 'break' || step.type === 'continue') &&
+      isFlowDecisionScriptPath(step.question)
+    ) {
       continue;
     }
     if (step.type === 'command') {
@@ -4182,49 +4354,98 @@ async function runFlowUnlocked(params: {
     return result.status;
   };
 
-  const runBreakStep = async (
-    step: FlowBreakStep,
-    command: TurnCommandMetadata,
-  ): Promise<{
+  const runSharedDecisionStep = async (paramsForDecision: {
+    kind: FlowDecisionKind;
+    decisionInput: string;
+    command: TurnCommandMetadata;
+    agentType?: string;
+    identifier?: string;
+    instructionLabel: string;
+  }): Promise<{
     status: TurnStatus;
-    shouldBreak: boolean;
+    answer?: 'yes' | 'no';
+    source?: 'ai' | 'script';
   }> => {
-    let breakAnswer: 'yes' | 'no' | undefined;
+    if (isFlowDecisionScriptPath(paramsForDecision.decisionInput)) {
+      const workingRepositoryRoot =
+        params.repositoryContext.workingRepositoryPath;
+      if (!workingRepositoryRoot) {
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command: paramsForDecision.command,
+          message:
+            'Script-backed flow decisions require a worked repository root.',
+          errorCode: getScriptDecisionFailureCode(paramsForDecision.kind),
+        });
+        return { status: 'failed' };
+      }
+
+      const evaluated = await _evaluateScriptDecision({
+        kind: paramsForDecision.kind,
+        scriptPath: paramsForDecision.decisionInput,
+        workingRepositoryRoot,
+        timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
+      });
+      if (!evaluated.ok) {
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command: paramsForDecision.command,
+          message: evaluated.reason,
+          errorCode: getScriptDecisionFailureCode(paramsForDecision.kind),
+        });
+        return { status: 'failed' };
+      }
+      return {
+        status: 'ok',
+        answer: evaluated.answer,
+        source: evaluated.reason,
+      };
+    }
+
+    if (!paramsForDecision.agentType || !paramsForDecision.identifier) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command: paramsForDecision.command,
+        message:
+          'AI-backed flow decisions require both agentType and identifier.',
+        errorCode: getInvalidDecisionResponseCode(paramsForDecision.kind),
+      });
+      return { status: 'failed' };
+    }
+
+    let answer: 'yes' | 'no' | undefined;
     const instruction = [
       'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
-      `Question: ${step.question}`,
+      `Question: ${paramsForDecision.decisionInput}`,
     ].join('\n');
 
     const result = await runInstruction({
-      agentType: step.agentType,
-      identifier: step.identifier,
+      agentType: paramsForDecision.agentType,
+      identifier: paramsForDecision.identifier,
       instruction,
       deferFinal: true,
-      command,
+      command: paramsForDecision.command,
       postProcess: (candidate) => {
-        const parsed = parseBreakAnswer(candidate.content);
-        parsed.attempts.forEach((attempt) => {
-          append({
-            level: 'info',
-            message: 'DEV-0000036:T4:break_parse_strategy_attempted',
-            timestamp: new Date().toISOString(),
-            source: 'server',
-            context: {
-              strategy: attempt.strategy,
-              candidateCount: attempt.candidateCount,
-            },
-          });
-        });
-        append({
-          level: parsed.ok ? 'info' : 'warn',
-          message: 'DEV-0000036:T4:break_parse_result',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            accepted: parsed.ok,
-            reasonCode: parsed.reasonCode,
-          },
-        });
+        const parsed = parseFlowDecisionAnswer(
+          paramsForDecision.kind,
+          candidate.content,
+        );
+        appendFlowDecisionParseLogs(paramsForDecision.kind, parsed);
 
         if (!parsed.ok) {
           return {
@@ -4233,18 +4454,49 @@ async function runFlowUnlocked(params: {
             finalOverride: {
               status: 'failed',
               error: {
-                code: 'INVALID_BREAK_RESPONSE',
+                code: getInvalidDecisionResponseCode(paramsForDecision.kind),
                 message: parsed.message,
               },
             },
           };
         }
 
-        breakAnswer = parsed.answer;
+        answer = parsed.answer;
         return {
           content: parsed.normalizedContent,
         };
       },
+    });
+
+    if (shouldStopAfter(result.status)) {
+      return { status: result.status };
+    }
+
+    if (!answer) {
+      return { status: 'failed' };
+    }
+
+    return {
+      status: 'ok',
+      answer,
+      source: 'ai',
+    };
+  };
+
+  const runBreakStep = async (
+    step: FlowBreakStep,
+    command: TurnCommandMetadata,
+  ): Promise<{
+    status: TurnStatus;
+    shouldBreak: boolean;
+  }> => {
+    const result = await runSharedDecisionStep({
+      kind: 'break',
+      decisionInput: step.question,
+      command,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instructionLabel: 'Break decision',
     });
 
     if (shouldStopAfter(result.status)) {
@@ -4256,26 +4508,27 @@ async function runFlowUnlocked(params: {
       return { status: result.status, shouldBreak: false };
     }
 
-    if (!breakAnswer) {
+    if (!result.answer) {
       return { status: 'failed', shouldBreak: false };
     }
 
     append({
       level: 'info',
-      message: 'flows.run.break_decision',
+      message: getFlowDecisionLogMessages('break').decision,
       timestamp: new Date().toISOString(),
       source: 'server',
       context: {
         flowName: params.flowName,
-        answer: breakAnswer,
+        answer: result.answer,
         breakOn: step.breakOn,
         loopDepth: loopStack.length,
+        source: result.source,
       },
     });
 
     return {
       status: 'ok',
-      shouldBreak: breakAnswer === step.breakOn,
+      shouldBreak: result.answer === step.breakOn,
     };
   };
 
@@ -4286,89 +4539,86 @@ async function runFlowUnlocked(params: {
     status: TurnStatus;
     shouldContinue: boolean;
   }> => {
-    let continueAnswer: 'yes' | 'no' | undefined;
-    const instruction = [
-      'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
-      `Question: ${step.question}`,
-    ].join('\n');
-
-    const result = await runInstruction({
+    const result = await runSharedDecisionStep({
+      kind: 'continue',
+      decisionInput: step.question,
+      command,
       agentType: step.agentType,
       identifier: step.identifier,
-      instruction,
-      deferFinal: true,
-      command,
-      postProcess: (candidate) => {
-        const parsed = parseContinueAnswer(candidate.content);
-        parsed.attempts.forEach((attempt) => {
-          append({
-            level: 'info',
-            message: 'DEV-0000036:T4:continue_parse_strategy_attempted',
-            timestamp: new Date().toISOString(),
-            source: 'server',
-            context: {
-              strategy: attempt.strategy,
-              candidateCount: attempt.candidateCount,
-            },
-          });
-        });
-        append({
-          level: parsed.ok ? 'info' : 'warn',
-          message: 'DEV-0000036:T4:continue_parse_result',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            accepted: parsed.ok,
-            reasonCode: parsed.reasonCode,
-          },
-        });
-
-        if (!parsed.ok) {
-          return {
-            status: 'failed',
-            content: parsed.message,
-            finalOverride: {
-              status: 'failed',
-              error: {
-                code: 'INVALID_CONTINUE_RESPONSE',
-                message: parsed.message,
-              },
-            },
-          };
-        }
-
-        continueAnswer = parsed.answer;
-        return {
-          content: parsed.normalizedContent,
-        };
-      },
+      instructionLabel: 'Continue decision',
     });
 
     if (shouldStopAfter(result.status)) {
       return { status: result.status, shouldContinue: false };
     }
 
-    if (!continueAnswer) {
+    if (!result.answer) {
       return { status: 'failed', shouldContinue: false };
     }
 
     append({
       level: 'info',
-      message: 'flows.run.continue_decision',
+      message: getFlowDecisionLogMessages('continue').decision,
       timestamp: new Date().toISOString(),
       source: 'server',
       context: {
         flowName: params.flowName,
-        answer: continueAnswer,
+        answer: result.answer,
         continueOn: step.continueOn,
         loopDepth: loopStack.length,
+        source: result.source,
       },
     });
 
     return {
       status: 'ok',
-      shouldContinue: continueAnswer === step.continueOn,
+      shouldContinue: result.answer === step.continueOn,
     };
+  };
+
+  const runIfStep = async (
+    step: FlowIfStep,
+    command: TurnCommandMetadata,
+    nextPath: number[],
+  ): Promise<FlowStepOutcome> => {
+    const result = await runSharedDecisionStep({
+      kind: 'if',
+      decisionInput: step.condition,
+      command,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instructionLabel: 'If condition',
+    });
+
+    if (shouldStopAfter(result.status)) {
+      return result.status;
+    }
+
+    if (!result.answer) {
+      return 'failed';
+    }
+
+    const branch = result.answer === 'yes' ? step.then : (step.else ?? []);
+    append({
+      level: 'info',
+      message: getFlowDecisionLogMessages('if').decision,
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        answer: result.answer,
+        branch: result.answer === 'yes' ? 'then' : 'else',
+        branchLength: branch.length,
+        loopDepth: loopStack.length,
+        source: result.source,
+      },
+    });
+
+    if (branch.length === 0) {
+      return 'ok';
+    }
+
+    return runSteps(branch, nextPath, null);
   };
 
   const requestActiveSubflowStop = (params: {
@@ -5386,6 +5636,34 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'if') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const outcome = await runIfStep(step, command, nextPath);
+        if (outcome !== 'ok') {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return outcome;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
+      }
+
       if (step.type === 'startLoop') {
         const outcome = await runStartLoopStep(step, nextPath, null);
         if (outcome !== 'ok') return outcome;
@@ -5695,24 +5973,31 @@ export async function startFlowRun(
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
     if (firstAgentStep) {
+      const firstAgentType = firstAgentStep.agentType;
+      if (!firstAgentType) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'AI-backed flow decisions require an agentType.',
+        );
+      }
       const validatedAgentType = validateRepositoryBackedAgentType(
-        firstAgentStep.agentType,
+        firstAgentType,
       );
       if (!validatedAgentType.ok) {
         throw toFlowRunError(
           'INVALID_REQUEST',
-          `Flow agent "${firstAgentStep.agentType}" ${validatedAgentType.message}.`,
+          `Flow agent "${firstAgentType}" ${validatedAgentType.message}.`,
         );
       }
-      const agent = agentByName.get(firstAgentStep.agentType);
+      const agent = agentByName.get(firstAgentType);
       if (!agent) {
         throw toFlowRunError(
           'AGENT_NOT_FOUND',
-          `Agent ${firstAgentStep.agentType} not found`,
+          `Agent ${firstAgentType} not found`,
         );
       }
       const prepared = await resolveFlowAgentRuntimeExecution({
-        agentName: firstAgentStep.agentType,
+        agentName: firstAgentType,
         configPath: agent.configPath,
         workingFolder: effectiveWorkingFolder,
         defaultRepositoryRoot: flowRunDefaultRepositoryRoot,

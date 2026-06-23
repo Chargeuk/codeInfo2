@@ -320,10 +320,14 @@ async function withFlowHarness(
     baseUrl: string;
     ws: WebSocket;
   }) => Promise<void>,
+  options?: {
+    registerTmpDirAsRepo?: boolean;
+  },
 ): Promise<void> {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-reingest-'));
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
@@ -335,6 +339,17 @@ async function withFlowHarness(
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
+          listIngestedRepositories: options?.registerTmpDirAsRepo
+            ? async () => ({
+                repos: [
+                  buildRepoEntry({
+                    id: 'flow-test-repo',
+                    containerPath: tmpDir,
+                  }),
+                ],
+                lockedModelId: null,
+              })
+            : undefined,
         }),
     }),
   );
@@ -2674,22 +2689,21 @@ test('multiple dedicated reingest steps targeting the same sourceId keep distinc
       ['call-a', 'call-b'],
     );
   });
+});
 
 
 test('shared decision seam fails hard for missing script file', async () => {
   await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
-    // Write a flow that references a non-existent script
     await writeFlowFile({
       tmpDir,
       flowName: 'missing-script-flow',
       steps: [
         {
-          type: 'llm',
+          type: 'break',
           agentType: 'coding_agent',
           identifier: 'main',
-          messages: [{ role: 'user', content: ['Test'] }],
+          question: 'flow-control/missing-script.py',
+          breakOn: 'yes',
         },
       ],
     });
@@ -2700,31 +2714,32 @@ test('shared decision seam fails hard for missing script file', async () => {
         source: 'REST',
         working_folder: tmpDir,
       });
-    assert.equal(result.status, 200);
+    assert.equal(result.status, 202);
 
     const conversationId = result.body.conversationId;
     subscribeConversation(ws, conversationId);
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-
-    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.ok(assistantTurns.length >= 1);
-  });
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId,
+      status: 'failed',
+    });
+    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+    assert.match(final.error?.message ?? '', /Script file not found/);
+  }, { registerTmpDirAsRepo: true });
 });
 
 test('shared decision seam fails hard for malformed JSON output', async () => {
   await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
     await writeFlowFile({
       tmpDir,
       flowName: 'malformed-json-flow',
       steps: [
         {
-          type: 'llm',
+          type: 'break',
           agentType: 'coding_agent',
           identifier: 'main',
-          messages: [{ role: 'user', content: ['Test'] }],
+          question: 'flow-control/decision-malformed-json.py',
+          breakOn: 'yes',
         },
       ],
     });
@@ -2735,31 +2750,35 @@ test('shared decision seam fails hard for malformed JSON output', async () => {
         source: 'REST',
         working_folder: tmpDir,
       });
-    assert.equal(result.status, 200);
+    assert.equal(result.status, 202);
 
     const conversationId = result.body.conversationId;
     subscribeConversation(ws, conversationId);
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-
-    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.ok(assistantTurns.length >= 1);
-  });
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId,
+      status: 'failed',
+    });
+    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+    assert.match(
+      final.error?.message ?? '',
+      /Script output failed decision parsing/,
+    );
+  }, { registerTmpDirAsRepo: true });
 });
 
 test('shared decision seam fails hard for non-zero exit code', async () => {
   await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
     await writeFlowFile({
       tmpDir,
       flowName: 'nonzero-exit-flow',
       steps: [
         {
-          type: 'llm',
+          type: 'break',
           agentType: 'coding_agent',
           identifier: 'main',
-          messages: [{ role: 'user', content: ['Test'] }],
+          question: 'flow-control/decision-nonzero-exit.py',
+          breakOn: 'yes',
         },
       ],
     });
@@ -2770,31 +2789,32 @@ test('shared decision seam fails hard for non-zero exit code', async () => {
         source: 'REST',
         working_folder: tmpDir,
       });
-    assert.equal(result.status, 200);
+    assert.equal(result.status, 202);
 
     const conversationId = result.body.conversationId;
     subscribeConversation(ws, conversationId);
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-
-    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.ok(assistantTurns.length >= 1);
-  });
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId,
+      status: 'failed',
+    });
+    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+    assert.match(final.error?.message ?? '', /Script exited with code 1/);
+  }, { registerTmpDirAsRepo: true });
 });
 
 test('shared decision seam fails hard for invalid answer values', async () => {
   await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
     await writeFlowFile({
       tmpDir,
       flowName: 'invalid-answer-flow',
       steps: [
         {
-          type: 'llm',
+          type: 'break',
           agentType: 'coding_agent',
           identifier: 'main',
-          messages: [{ role: 'user', content: ['Test'] }],
+          question: 'flow-control/decision-invalid-answer.py',
+          breakOn: 'yes',
         },
       ],
     });
@@ -2805,15 +2825,89 @@ test('shared decision seam fails hard for invalid answer values', async () => {
         source: 'REST',
         working_folder: tmpDir,
       });
-    assert.equal(result.status, 200);
+    assert.equal(result.status, 202);
 
     const conversationId = result.body.conversationId;
     subscribeConversation(ws, conversationId);
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-
-    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.ok(assistantTurns.length >= 1);
-  });
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId,
+      status: 'failed',
+    });
+    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+    assert.match(final.error?.message ?? '', /answer "yes" or "no"/);
+  }, { registerTmpDirAsRepo: true });
 });
+
+test('shared decision seam fails hard for extra-key script output', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'extra-keys-flow',
+      steps: [
+        {
+          type: 'break',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          question: 'flow-control/decision-extra-keys.py',
+          breakOn: 'yes',
+        },
+      ],
+    });
+
+    const result = await supertest(baseUrl)
+      .post('/flows/extra-keys-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 202);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId,
+      status: 'failed',
+    });
+    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+    assert.match(final.error?.message ?? '', /exactly/);
+  }, { registerTmpDirAsRepo: true });
+});
+
+test('shared decision seam fails hard for timeout script output', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'timeout-flow',
+      steps: [
+        {
+          type: 'break',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          question: 'flow-control/decision-timeout.py',
+          breakOn: 'yes',
+        },
+      ],
+    });
+
+    const result = await supertest(baseUrl)
+      .post('/flows/timeout-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 202);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId,
+      status: 'failed',
+      timeoutMs: 5000,
+    });
+    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+    assert.match(final.error?.message ?? '', /timed out/);
+  }, { registerTmpDirAsRepo: true });
 });

@@ -74,6 +74,8 @@ export type FlowReingestStep = {
 export type FlowIfStep = {
   type: 'if';
   label?: string;
+  agentType?: string;
+  identifier?: string;
   condition: string;
   then: FlowStep[];
   else?: FlowStep[];
@@ -220,11 +222,23 @@ const FlowIfStepSchema = z
   .object({
     type: z.literal('if'),
     label: trimmedNonEmptyString.optional(),
+    agentType: trimmedNonEmptyString.optional(),
+    identifier: trimmedNonEmptyString.optional(),
     condition: trimmedNonEmptyString,
     then: z.array(z.lazy(() => FlowStepSchema)).min(1),
     else: z.array(z.lazy(() => FlowStepSchema)).min(1).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasAgentType = typeof value.agentType === 'string';
+    const hasIdentifier = typeof value.identifier === 'string';
+    if (hasAgentType !== hasIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'if steps must provide both agentType and identifier together.',
+      });
+    }
+  });
 
 // Story 60: wait step schema – positive integer only
 const FlowWaitStepSchema = z

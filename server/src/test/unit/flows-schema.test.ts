@@ -1043,6 +1043,17 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
     if (!parsed.ok) return;
     assert.equal(parsed.flow.steps[0].type, 'wait');
+    assert.equal(parsed.flow.steps[1].type, 'wait');
+    assert.equal(parsed.flow.steps[2].type, 'wait');
+    assert.equal(parsed.flow.steps[3].type, 'wait');
+    if (
+      parsed.flow.steps[0].type !== 'wait' ||
+      parsed.flow.steps[1].type !== 'wait' ||
+      parsed.flow.steps[2].type !== 'wait' ||
+      parsed.flow.steps[3].type !== 'wait'
+    ) {
+      throw new Error('Expected wait steps');
+    }
     assert.equal(parsed.flow.steps[0].seconds, 1);
     assert.equal(parsed.flow.steps[1].seconds, 60);
     assert.equal(parsed.flow.steps[2].seconds, 900);

@@ -306,6 +306,49 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 - Stale GitHub-review scratch cleanup belongs to the review-cycle lifecycle rather than to unrelated startup code: a fresh review cycle may replace its own prior transient GitHub-review files for the same story, but unrelated flows must not delete or rewrite them opportunistically.
 - Plan notes remain the durable source for supported skip or failure explanations in this story. Scratch review JSON is transient workflow state and must not become the only durable record of why external review was skipped.
 
+## Confirmed Internal Patterns And External Contracts
+
+- Flow-only step-shape work should extend the existing `server/src/flows/flowSchema.ts`, `server/src/flows/service.ts`, and `server/src/flows/flowState.ts` seams. The repository already treats these files as the canonical flow schema, dispatcher, and persisted resume-state owners, so later tasking must not invent a second flow-contract surface.
+- Shared yes-or-no condition evaluation is reusable in two parts today: `parseFlowDecisionAnswer` in `server/src/flows/service.ts` already owns strict answer parsing, and `scripts/flow_control/decision.py` already demonstrates the checked-in Python wrapper shape that prints only `{"answer":"yes"}` or `{"answer":"no"}`. The missing piece is one shared runtime launcher that lets `if`, `break`, and `continue` all use the same AI-or-script decision seam.
+- The strongest local safe-write precedent is the staged publish pattern in `server/src/config/copilotSeedBootstrap.ts`, with supporting compare-and-rename patterns in `server/src/config/runtimeConfig.ts` and `server/src/config/copilotConfig.ts`. Later tasking should treat that family as the preferred model for replacing GitHub review scratch artifacts so readers observe either the previous valid file or the next valid file, never a delete-first gap or partially written JSON.
+- A worked-repository `.env.local` reader for `CODEINFO_PR_TOKEN` is still missing. The available building blocks are only partial: `dotenv.parse` usage in `server/src/config/startupEnv.ts`, trimmed usable-value handling in `server/src/config/runtimeConfig.ts`, and missing-versus-empty warning patterns in `server/src/config/codexEnvDefaults.ts`. Later tasking must add a new runtime file-reader seam rather than extending startup env loading or promoting repository-local GitHub credentials into process startup state.
+- The GitHub review fetch step is the sole intended writer for Story 60 transient review scratch under `codeInfoTmp/reviews/`. Confirmed downstream readers already exist in repository guidance such as `codeinfo_markdown/review_disposition.md`, `codeinfo_markdown/classify_review_disposition.md`, `codeinfo_markdown/write_review_no_findings_closeout.md`, and related review-flow steps, so later tasking must preserve the handoff role of `codeInfoTmp/reviews/<story-number>-current-review.json` instead of creating a second scratch format.
+- Official GitHub CLI and REST contract evidence confirms the thin GitHub helper should stay explicit rather than inference-heavy:
+  - `gh pr create` supports explicit `--title`, `--body`, `--head`, and `--base`, and if `--base` is omitted GitHub CLI falls back to branch config or the repository default branch. Story 60 should still provide the base explicitly so review-cycle behavior stays deterministic.
+  - GitHub CLI accepts authentication through `GH_TOKEN` or `GITHUB_TOKEN`, in that order of precedence, for `github.com` targets. Story 60 should map `CODEINFO_PR_TOKEN` into that child-process env only for the GitHub invocation rather than renaming the repository-local key itself.
+  - The REST `List pull requests` contract supports `state=open`, `head=<owner>:<branch>`, optional `base=<branch>`, `sort=created`, and `direction=desc`, which is sufficient to resolve the newest still-open PR for the current branch without trusting `gh pr view` convenience inference.
+  - The REST `List reviews for a pull request` and `List review comments on a pull request` endpoints both require fine-grained `Pull requests` repository permission `read`, while `Create a pull request` requires fine-grained `Pull requests` repository permission `write`.
+  - `gh api --paginate` is a supported repository-owned way to exhaust paginated GitHub data, so later tasking should treat first-page-only fetches as incorrect for review submissions or inline review comments.
+- The controlling unchanged files that later tasking and proof must keep naming honestly are: `server/src/flows/flowSchema.ts`, `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/config/startupEnv.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/codexEnvDefaults.ts`, `server/src/config/copilotSeedBootstrap.ts`, `scripts/flow_control/decision.py`, `docker-compose.yml`, `server/Dockerfile`, and `server/npm-global.txt`.
+
+## Early Risk-Invariant Matrix
+
+- Shared condition-evaluation seam
+  - Invariant: `if`, `break`, and `continue` must all accept only the existing AI yes-or-no path or one repository-relative Python wrapper that returns exactly `{"answer":"yes"}` or `{"answer":"no"}`.
+  - Likely contradiction: a malformed script result, extra top-level JSON keys, timeout, non-zero exit, or invalid answer accidentally falling through as a clean `no` or silently switching back to AI behavior.
+  - Proof strength today: direct internal precedent for strict parsing exists; script-launch proof is still missing.
+  - Future task home: the future flow-contract and shared decision task must own both schema proof and runtime failure proof for this seam.
+- Persisted wait and resume seam
+  - Invariant: a paused flow resumes only the same execution identity, step path, and loop context after the absolute resume timestamp elapses.
+  - Likely contradiction: a cancelled or terminal run wakes later and mutates state anyway, or a resumed run mixes stale wait state with a newer execution or newer PR-cycle state.
+  - Proof strength today: direct internal precedent exists for persisted flow resume identity, but timed wait semantics are still missing.
+  - Future task home: the future wait-lifecycle task must own persisted-state writer and reader proof, including cancel, terminal, restart, and contradictory-state behavior.
+- GitHub transport and PR-selection seam
+  - Invariant: every GitHub mutation or fetch is tied to the explicit worked repository, current branch, existing upstream remote, resolved base branch, and selected newest open PR for that branch.
+  - Likely contradiction: convenience inference chooses the wrong remote, wrong repository, wrong PR, or a stale closed PR because the helper trusted checkout context instead of explicit repo plus branch filters.
+  - Proof strength today: external contract evidence is confirmed, but the runtime helper seam is still missing.
+  - Future task home: the future GitHub transport task must own explicit repo-resolution, push, PR-selection, and pagination proof.
+- GitHub scratch writer and reader seam
+  - Invariant: later readers either see the previous valid review scratch artifact or the newly written valid artifact, and stale scratch is replaced only by the active review-cycle owner for the same story.
+  - Likely contradiction: delete-first replacement leaves a temporary missing file that a reader interprets as a clean review, or a partial write or stale artifact is consumed as current-branch evidence.
+  - Proof strength today: direct atomic replacement precedent exists elsewhere in the repo, and downstream review readers are already known; the shared TypeScript scratch writer is still missing.
+  - Future task home: the future GitHub transport task must own the safe-write seam, and the future opt-in review-cycle composition task must own stale-scratch replacement proof during end-to-end flow execution.
+- Opt-in copied flow entrypoint seam
+  - Invariant: Story 60 behavior appears only in copied opt-in flow variants, and existing checked-in default flow entrypoints stay unchanged unless an operator intentionally selects a new variant.
+  - Likely contradiction: later implementation mutates `flows/implement_next_plan.json` or another in-use default flow directly, causing GitHub review behavior to appear in the default path.
+  - Proof strength today: the repository already has copied flow definitions to use as structural precedent; opt-in review-cycle composition proof is still missing.
+  - Future task home: the future copied-flow composition task must own direct proof that default entrypoints remain unchanged while the new variant exercises the GitHub review loop.
+
 ## Test Harnesses
 
 - No new frontend harness is required for this story. The story is backend-first and flow-runtime-focused.
@@ -380,3 +423,318 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 ## Questions
 
 - No Further Questions
+
+# Tasks
+
+### Task 1. Define Flow Step Contracts And Shared Condition Evaluation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Add the new flow-only step contracts that Story 60 needs, and make `if`, `break`, and `continue` share one strict AI-or-script decision path. This task owns schema and runtime contract definition, but it does not yet own persisted wait lifecycle or live GitHub transport behavior.
+
+#### Task Exit Criteria
+
+- [ ] Flow definitions can express a dedicated `if` step, a positive-integer `wait` step, and thin GitHub PR step shapes without adding matching support to agent command JSON.
+- [ ] `if`, `break`, and `continue` all use one shared AI-or-script decision contract, and malformed script output fails the step instead of producing a guessed decision.
+- [ ] Proof owners exist for accepted schema shapes, rejected invalid wait values, valid script decisions, and hard failure on malformed script output.
+
+#### Documentation Locations
+
+- Context7 `/colinhacks/zod` - use for strict object, union, and recursive schema patterns in the flow step schema.
+- Context7 `/nodejs/node/v22.17.0` - use for child-process execution, timeout handling, and stdout parsing rules for the direct Python decision path.
+
+#### Subtasks
+
+1. [ ] Extend `server/src/flows/flowSchema.ts` so flow definitions accept a first-class `if` step with `then` and optional `else`. Keep the new branch shape flow-only and do not add matching support to `server/src/agents/commandsSchema.ts`. Purpose: add the approved conditional flow contract without widening story scope into agent commands. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+2. [ ] Extend `server/src/flows/flowSchema.ts` so flow definitions accept a positive-integer `wait` step and reject zero, negative, fractional, or non-numeric wait values during validation. Purpose: keep the wait contract strict at definition time instead of clamping bad values at runtime. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+3. [ ] Extend `server/src/flows/flowSchema.ts` so flow definitions accept the thin GitHub PR step shapes needed for open, fetch, and close actions. Purpose: add the approved GitHub step family to the flow schema without hiding policy inside other step types. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+4. [ ] Update any exported flow types in `server/src/flows/types.ts` that must reflect the new `if`, `wait`, and GitHub PR step shapes. Purpose: keep the typed runtime contract aligned with the updated schema. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+5. [ ] Extract a shared decision-evaluation launcher inside `server/src/flows/service.ts` so `if`, `break`, and `continue` can all call either the existing AI yes-or-no path or one repository-relative Python entrypoint executed from the worked repository root. Purpose: give all three control-flow surfaces one runtime decision seam instead of three slightly different ones. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+6. [ ] Update `server/src/flows/service.ts` so the shared decision-evaluation seam reuses the repository's strict answer parsing rules and treats missing files, timeouts, non-zero exits, malformed JSON, extra top-level keys, and non-`yes`/`no` answers as hard failures. Purpose: keep ambiguous script output from being silently reinterpreted as a branch decision. Proof owners: `server/src/test/unit/flows.break-parser.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`.
+7. [ ] Proof type: checked-in fixture. Location: `server/src/test/fixtures/flows/flow-control/`. Description: add happy-path direct-Python yes or no fixtures that the shared decision launcher in `server/src/flows/service.ts` can consume from the worked repository root. Purpose: give the valid script-decision path stable checked-in proof inputs instead of ad hoc temp scripts. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+8. [ ] Proof type: checked-in fixture. Location: `server/src/test/fixtures/flows/flow-control/`. Description: add malformed JSON, extra-key output, timeout, and non-zero-exit fixtures for the shared decision launcher in `server/src/flows/service.ts`. Purpose: give the hard-failure script-decision paths stable checked-in proof inputs instead of implicit inline setup. Proof owners: `server/src/test/integration/flows.run.errors.test.ts`.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/flows-schema.test.ts`. Description: prove the `if`-step schema owned by `server/src/flows/flowSchema.ts` accepts valid `then` and optional `else` shapes. Rename any misleading test titles in this file if the old names no longer match the invariant. Purpose: give the dedicated conditional flow shape its own explicit proof home. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/flows-schema.test.ts`. Description: prove the `wait`-step schema owned by `server/src/flows/flowSchema.ts` accepts positive-integer seconds and rejects zero, negative, fractional, and non-numeric values. Purpose: give the constrained wait-input contract its own explicit proof home. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/flows-schema.test.ts`. Description: prove the thin GitHub PR step shapes owned by `server/src/flows/flowSchema.ts` and `server/src/flows/types.ts` validate open, fetch, and close actions. Purpose: give the new GitHub flow-step family its own explicit proof home. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: prove the strict valid-answer parser path owned by `server/src/flows/service.ts` accepts script output that returns only `{"answer":"yes"}` or `{"answer":"no"}` for `break`, `continue`, and any new shared `if` decision entrypoint proved at parser level. Rename or split any reused test titles if they would still read as break-only coverage after the shared `if` parser path is added. Purpose: keep the parser-level success contract directly proved instead of only indirectly through integration tests. Proof owners: `server/src/test/unit/flows.break-parser.test.ts`.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: prove the hard-failure parser path owned by `server/src/flows/service.ts` rejects malformed JSON, extra top-level keys, and invalid non-`yes` or `no` answers for the shared decision parser surface. Purpose: keep ambiguous script output from being silently reinterpreted as a decision. Proof owners: `server/src/test/unit/flows.break-parser.test.ts`.
+14. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: prove the shared runtime decision seam owned by `server/src/flows/service.ts` follows a valid script-driven branch through `if`, `break`, or `continue` without falling back to a different control-flow path. Purpose: give the end-to-end happy path for the shared decision seam its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+15. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.errors.test.ts`. Description: prove the shared runtime decision seam owned by `server/src/flows/service.ts` fails hard for missing script files, timeouts, non-zero exits, malformed JSON, extra keys, and invalid answers. Rename or split any reused error tests if the old title would still read as a flow-launch or unrelated runtime failure after the new step-level decision-failure scenario is added. Purpose: give the shared decision seam's runtime failure modes their own explicit proof home. Proof owners: `server/src/test/integration/flows.run.errors.test.ts`.
+16. [ ] Run `npm run lint` for the files changed by this task and fix any issues found, using `npm run lint:fix` before manual cleanup when possible. Purpose: leave the shared flow-contract surface in an honestly lint-clean state. Proof owners: `npm run lint` output for the changed Task 1 files.
+17. [ ] Run `npm run format:check` for the files changed by this task and fix any issues found, using `npm run format` before manual cleanup when possible. Purpose: leave the shared flow-contract surface in an honestly formatted state. Proof owners: `npm run format:check` output for the changed Task 1 files.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` because this task changes server flow schema and runtime code. Use the wrapper log only if the summary ends with `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit` because this task changes flow schema parsing and shared runtime decision execution.
+3. [ ] Run `npm run test:summary:server:cucumber` because authored flow-control behavior changed and the repository's flow cucumber coverage must still pass.
+4. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 2. Add Persisted Wait Lifecycle And Resume Reconciliation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `1`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Implement the persisted `wait` runtime lifecycle so a paused review cycle resumes the same flow execution after delay or restart. This task owns wait-state storage, wake-up behavior, contradiction checks, and cancellation or terminal safety for the new stateful flow step.
+
+#### Task Exit Criteria
+
+- [ ] The `wait` step persists enough state to resume the same execution after the authored delay or a server restart, using an absolute resume timestamp instead of an in-memory countdown.
+- [ ] Cancelled or terminal runs do not wake later and mutate state, and contradictory persisted wait state is rejected clearly instead of being merged into a fresh run.
+- [ ] Lifecycle proof owners cover waiting, resumed, cancel, terminal, contradictory-state, and startup-recovery rows before formal wrapper execution begins.
+
+#### Documentation Locations
+
+- Context7 `/nodejs/node/v22.17.0` - use for timers, abort behavior, and filesystem persistence patterns that affect restart-safe wait handling.
+- https://nodejs.org/api/timers.html - use to keep the implementation aligned with Node timer behavior while persisting absolute resume timestamps instead of trusting live in-memory timers.
+
+#### Subtasks
+
+1. [ ] Extend `server/src/flows/flowState.ts` so a paused `wait` step records the execution identity, step path, loop context, active subflow state, worked repository path, and one absolute resume timestamp for the same run. Purpose: make the persisted wait payload explicit and run-scoped instead of implicit or global. Proof owners: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+2. [ ] Update the persisted-state read and write handling in `server/src/flows/service.ts` so the new `wait` fields are stored and restored without creating a fresh execution identity. Purpose: keep wait persistence aligned with the repository's existing resume-state contract. Proof owners: `server/src/test/integration/flows.run.resume.backfill.test.ts`.
+3. [ ] Implement the `wait` write path in `server/src/flows/service.ts` so a running flow records its resume timestamp and pause context before it yields control. Purpose: ensure the wait step survives refresh and restart instead of behaving like an in-memory sleep. Proof owners: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+4. [ ] Implement the `wait` wake and restart-resume path in `server/src/flows/service.ts` so expiry resumes the same execution instead of starting a fresh run. Purpose: preserve the story's restart-safe lifecycle contract after the authored delay elapses. Proof owners: `server/src/test/integration/flows.run.resume.backfill.test.ts`.
+5. [ ] Add reconciliation checks in `server/src/flows/service.ts` that compare resumed wait state against the current execution identity and any in-progress GitHub-review context, and fail clearly when those no longer match. Purpose: prevent mixed old and new state from being combined during resume. Proof owners: `server/src/test/integration/flows.run.errors.test.ts`.
+6. [ ] Add cancel safety guards in `server/src/flows/service.ts` and any wait scheduling helper so a delayed wake-up cannot continue mutating state after the flow has been cancelled. Purpose: cover the lifecycle-sensitive contradiction where cancellation and resume interleave incorrectly together. Proof owners: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+7. [ ] Add terminal-run safety guards in `server/src/flows/service.ts` and any wait scheduling helper so a delayed wake-up cannot continue mutating state after the flow has already failed or completed. Purpose: keep terminal runs from emitting a late resume side effect. Proof owners: `server/src/test/integration/flows.run.errors.test.ts`.
+8. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.resume.identity.test.ts`. Description: prove the persisted-state identity invariant owned by `server/src/flows/flowState.ts` and `server/src/flows/service.ts` for a paused wait that resumes the same execution after the authored delay. Use an explicit persisted-state or scheduler boundary instead of a hidden fixed-delay sleep. Purpose: give the primary waiting and resumed lifecycle rows their own explicit proof home. Proof owners: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+9. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.resume.identity.test.ts`. Description: prove the cancel-ordering invariant owned by `server/src/flows/service.ts` for a cancelled wait that must not emit a later resume side effect. State the teardown and isolation expectation for any shared timer, wake callback, or persisted state touched by the scenario. Purpose: give the lifecycle-sensitive cancel row its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+10. [ ] Test maintenance. Location: `server/src/test/integration/flows.run.resume.identity.test.ts`. Description: rename or split any reused generic resume tests and helper-flow fixtures so the new paused-wait resume and paused-wait cancel scenarios are titled around wait lifecycle identity rather than only legacy execution-id recovery. Purpose: prevent wait-specific lifecycle proof from hiding behind older generic resume wording. Proof owners: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+11. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.resume.backfill.test.ts`. Description: prove the startup-recovery invariant owned by `server/src/flows/service.ts` for persisted wait state loaded after restart. Purpose: give the restart-safe resume row its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.resume.backfill.test.ts`.
+12. [ ] Test maintenance. Location: `server/src/test/integration/flows.run.resume.backfill.test.ts`. Description: rename or split any reused generic backfill tests and helper-flow fixtures so restart-after-wait scenarios are titled around wait resume backfill rather than only legacy child-conversation execution-id repair. Purpose: keep restart-safe wait semantics explicit in the proof file that owns them. Proof owners: `server/src/test/integration/flows.run.resume.backfill.test.ts`.
+13. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.errors.test.ts`. Description: prove the contradictory persisted-state invariant owned by `server/src/flows/service.ts` when resumed wait state no longer matches the current execution or GitHub-review context. Purpose: give the mixed old and new state failure mode its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.errors.test.ts`.
+14. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.errors.test.ts`. Description: prove the terminal-run no-resume invariant owned by `server/src/flows/service.ts` when a wait would otherwise wake after the flow has already failed or completed. State the teardown and isolation expectation for any shared timer or persisted state touched by the scenario. Purpose: give the terminal lifecycle row its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.errors.test.ts`.
+15. [ ] Test type: cucumber. Location: `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts`. Description: author one deterministic wait-resume scenario for the flow execution surface owned by `server/src/flows/service.ts`, naming the explicit state boundary that proves resume happened rather than depending on a hidden long sleep. Rename the feature heading or split the scenarios if the current retry-ownership feature title would otherwise misdescribe the new wait lifecycle coverage. Purpose: carry the shipped wait lifecycle into the repository's cucumber proof surface without semantic drift. Proof owners: `server/src/test/features/flows-execution-runs.feature`, `server/src/test/steps/flows-execution-runs.steps.ts`.
+16. [ ] Run `npm run lint` for the files changed by this task and fix any issues found, using `npm run lint:fix` before manual cleanup when possible. Purpose: leave the wait lifecycle and persisted-state surface in an honestly lint-clean state. Proof owners: `npm run lint` output for the changed Task 2 files.
+17. [ ] Run `npm run format:check` for the files changed by this task and fix any issues found, using `npm run format` before manual cleanup when possible. Purpose: leave the wait lifecycle and persisted-state surface in an honestly formatted state. Proof owners: `npm run format:check` output for the changed Task 2 files.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` because this task changes persisted wait and resume runtime code.
+2. [ ] Run `npm run test:summary:server:unit` because this task changes stateful orchestration, persisted resume identity, and cancel handling.
+3. [ ] Run `npm run test:summary:server:cucumber` because the new wait lifecycle changes authored flow execution behavior and restart-safe resume expectations.
+4. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 3. Add GitHub Transport, Repo-Local Token Loading, And Safe Review Scratch Ownership
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `1`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Add the thin GitHub PR transport layer, the worked-repository `.env.local` token read, and the safe writer for transient review scratch under `codeInfoTmp/reviews/`. This task owns the runtime transport and scratch contract, but not yet the copied flow composition that uses it.
+
+#### Task Exit Criteria
+
+- [ ] The supported server runtime, including the checked-in main Docker Compose server image, provides `gh`, and GitHub steps read `CODEINFO_PR_TOKEN` only from the worked repository `.env.local`, mapping it only into child-process auth env for that invocation.
+- [ ] The GitHub helper resolves explicit repository, branch, upstream, base branch, and latest open PR state; fetches both review submissions and inline review comments with pagination; and avoids checkout-based PR inference.
+- [ ] Transient GitHub review scratch under `codeInfoTmp/reviews/` is safely replaced, preserves the required metadata fields, and has direct unit proof for skip, failure, pagination, and replacement paths.
+
+#### Documentation Locations
+
+- https://cli.github.com/manual/gh_pr_create - use for explicit non-interactive `gh pr create` flags and behavior.
+- https://cli.github.com/manual/gh_api - use for authenticated API calls and pagination rules.
+- https://docs.github.com/en/rest/pulls/pulls - use for PR create, list, and close behavior plus the explicit latest-open-PR lookup model.
+- https://docs.github.com/en/rest/pulls/reviews - use for review submission fields and fine-grained read permission.
+- https://docs.github.com/en/rest/pulls/comments - use for inline review comment fields and fine-grained read permission.
+- https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens - use for the minimum fine-grained `Pull requests` permission statement.
+- Context7 `/nodejs/node/v22.17.0` - use for runtime env parsing, subprocess launch, and safe file replacement patterns.
+
+#### Subtasks
+
+1. [ ] Update `server/Dockerfile` so the supported server runtime includes `gh`. Purpose: preserve the story's supported runtime contract for automated and manual proof inside the server container. Proof owners: the main Docker build path exercised later by `npm run compose:build`.
+2. [ ] Update `server/npm-global.txt` if that file must also name `gh` for the supported server runtime build path. Purpose: keep the repository's package-managed runtime inventory aligned with the Docker image. Proof owners: the main Docker build path exercised later by `npm run compose:build`.
+3. [ ] Add a worked-repository `.env.local` reader seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` that uses `dotenv.parse` and reads only the worked repository root `.env.local` at GitHub-step execution time. Purpose: keep GitHub credentials repository-local and opt-in instead of extending startup env loading. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+4. [ ] Update that `.env.local` reader seam so missing file, missing key, blank or whitespace-only token, and malformed file are returned as separate supported skip reasons. Do not extend `server/src/config/startupEnv.ts` or promote repository-local GitHub credentials into process startup state. Purpose: make the config-domain handling explicit before GitHub transport code consumes it. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+5. [ ] Implement the GitHub child-process env builder in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` so only `CODEINFO_PR_TOKEN` is mapped to `GH_TOKEN` for the `gh` invocation, unrelated keys from the worked repository `.env.local` are ignored, and neither `process.env` nor child agent conversations gain the token. Purpose: preserve the current startup-env contract while keeping GitHub auth scoped to one subprocess. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+6. [ ] Implement explicit repository-state resolution in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` for repository owner, repository name, current branch, current HEAD, existing upstream remote, and a trustworthy base branch. Purpose: bind the GitHub review cycle to explicit repository state instead of checkout inference. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+7. [ ] Implement the upstream push seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` so the current branch can be pushed only to its existing upstream remote before PR creation. Purpose: support non-interactive PR creation without guessing alternate remotes or forks. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+8. [ ] Implement the raw `gh` transport normalizer in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` so missing binaries, subprocess spawn failures, and non-zero `gh` exits are converted into explicit Story 60 GitHub-step results with preserved stderr context and a clear skip-with-warning versus hard-failure outcome. Purpose: keep raw subprocess failures from leaking through as ambiguous runtime errors. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`.
+9. [ ] Implement the non-interactive PR-open seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` for `gh pr create --title --body --head --base`. Purpose: satisfy the explicit PR-open contract without relying on interactive prompts. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+10. [ ] Implement the explicit post-create PR lookup seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` so canonical PR metadata is resolved even when create output only returns a URL. Purpose: keep later wait and scratch state tied to authoritative PR identity. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+11. [ ] Implement the latest-open-PR selection seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` using explicit repository plus head-branch filtering and created-date ordering. Purpose: avoid `gh pr view` convenience inference and keep PR selection deterministic. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+12. [ ] Implement the review-submission fetch seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` so paginated PR review submissions are fetched and preserved with the required metadata fields. Purpose: cover one half of the GitHub review feedback family explicitly. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/fixtures/flows/github-review/`.
+13. [ ] Implement the inline review-comment fetch seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` so paginated inline PR review comments are fetched and preserved with the required metadata fields. Purpose: cover the second half of the GitHub review feedback family explicitly. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/fixtures/flows/github-review/`.
+14. [ ] Implement the close-PR seam in `server/src/flows/service.ts` or a new adjacent helper under `server/src/flows/` so the latest open PR for the current branch can be closed without touching unrelated branches. Purpose: support the findings-present loopback path with the same explicit PR identity rules used elsewhere. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+15. [ ] Implement the transient GitHub review scratch writer for `codeInfoTmp/reviews/<story-number>-current-review.json` using a staged safe-replacement path instead of delete-first replacement. Purpose: give later readers either the previous valid handoff or the new valid handoff, never a missing-file gap. Proof owners: `server/src/test/unit/flows.github-scratch.test.ts`.
+16. [ ] Implement the companion raw fetched JSON artifact writer under `codeInfoTmp/reviews/` so repository and PR metadata, review submissions, and inline review comments are preserved with the required fields. Purpose: keep the fetched review data separate from the handoff metadata while preserving the documented scratch contract. Proof owners: `server/src/test/unit/flows.github-scratch.test.ts`, `server/src/test/fixtures/flows/github-review/`.
+17. [ ] Update the GitHub scratch reader or validator in `server/src/flows/service.ts` or the new adjacent helper so malformed or partial state fails clearly instead of being read as a clean review. Purpose: preserve the producer-consumer contract over the same persisted artifact. Proof owners: `server/src/test/unit/flows.github-scratch.test.ts`.
+18. [ ] Define scratch cleanup and replacement ownership in `server/src/flows/service.ts` or the new adjacent helper so the GitHub fetch writer is the only seam allowed to replace or clean story-local review scratch, while readers and classifiers may validate freshness but must not delete or reset the files. Purpose: make persisted review-state ownership explicit before later lifecycle and classification work depends on it. Proof owners: `server/src/test/unit/flows.github-scratch.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`.
+19. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-adapter.test.ts`. Description: prove the repo-local token-reader invariant owned by `server/src/flows/service.ts` or the new adjacent helper for missing `.env.local`, missing `CODEINFO_PR_TOKEN`, blank token, and malformed `.env.local`. Purpose: give the constrained config-domain, blank-input, and malformed-input paths their own explicit proof home. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+20. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-adapter.test.ts`. Description: prove the runtime-contract-preservation invariant owned by `server/src/flows/service.ts` or the new adjacent helper: the worked-repository `.env.local` reader does not populate `process.env`, does not fall back to startup-loaded `server/.env.local`, and ignores unrelated keys from the worked repository file. Purpose: keep Story 60 from silently changing the repository's known-working startup env behavior. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+21. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-adapter.test.ts`. Description: prove the child-process env-scoping invariant owned by `server/src/flows/service.ts` or the new adjacent helper: `GH_TOKEN` is injected only for the `gh` subprocess, is not forwarded to unrelated child execution paths, and does not persist after the subprocess completes. Purpose: keep GitHub auth scoped to the transport step that needs it. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+22. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-adapter.test.ts`. Description: prove the repository-state and launcher invariant owned by `server/src/flows/service.ts` or the new adjacent helper for missing trustworthy base branch and upstream push failure. Purpose: give the explicit repository-state and failure-note paths their own explicit proof home. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+23. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-adapter.test.ts`. Description: prove raw `gh` transport failures owned by `server/src/flows/service.ts` or the new adjacent helper are normalized into the expected Story 60 skip-with-warning or hard-failure result before later plan-note or status consumers run. Cover at least one missing-binary or spawn-failure path and one non-zero `gh` exit path. Purpose: keep producer and consumer error expectations aligned across the GitHub step boundary. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`.
+24. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-adapter.test.ts`. Description: prove the PR identity invariant owned by `server/src/flows/service.ts` or the new adjacent helper for explicit post-create metadata lookup and latest-open-PR selection through repository plus head-branch filtering. Purpose: give the explicit PR-selection contract its own direct proof home. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+25. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-adapter.test.ts`. Description: prove the scale-bounded review-fetch invariant owned by `server/src/flows/service.ts` or the new adjacent helper for paginated review submissions and paginated inline review comments. Purpose: give the multi-page GitHub review fetch paths their own explicit proof home. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`.
+26. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-scratch.test.ts`. Description: prove the safe replacement invariant owned by `server/src/flows/service.ts` or the new adjacent helper for `codeInfoTmp/reviews/<story-number>-current-review.json` and the companion raw fetched artifact. State the reader or filesystem boundary that proves partial writes are not exposed. Purpose: give the scratch writer's reader-safe replacement contract its own explicit proof home. Proof owners: `server/src/test/unit/flows.github-scratch.test.ts`.
+27. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-scratch.test.ts`. Description: prove the producer-consumer failure invariant owned by `server/src/flows/service.ts` or the new adjacent helper for malformed or partial scratch state being rejected instead of read as a clean review. Purpose: give the stale-versus-live and partial-state handling contract its own explicit proof home. Proof owners: `server/src/test/unit/flows.github-scratch.test.ts`.
+28. [ ] Test type: server unit. Location: `server/src/test/unit/flows.github-scratch.test.ts`. Description: prove the cleanup-ownership invariant owned by `server/src/flows/service.ts` or the new adjacent helper: readers may detect stale scratch but only the fetch writer may replace or clean the story-local handoff files. Purpose: keep persisted-state cleanup responsibilities explicit and non-overlapping. Proof owners: `server/src/test/unit/flows.github-scratch.test.ts`.
+29. [ ] Proof type: checked-in fixture. Location: `server/src/test/fixtures/flows/github-review/`. Description: add or update explicit PR lookup, paginated review payload, safe scratch replacement, raw `gh` failure, and scratch-file readback failure fixtures consumed by `server/src/test/unit/flows.github-adapter.test.ts` and `server/src/test/unit/flows.github-scratch.test.ts`. Purpose: keep the GitHub transport and scratch proof surfaces stable, deterministic, and checked in. Proof owners: `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/unit/flows.github-scratch.test.ts`.
+30. [ ] Run `npm run lint` for the files changed by this task and fix any issues found, using `npm run lint:fix` before manual cleanup when possible. Purpose: leave the GitHub transport and scratch surface in an honestly lint-clean state. Proof owners: `npm run lint` output for the changed Task 3 files.
+31. [ ] Run `npm run format:check` for the files changed by this task and fix any issues found, using `npm run format` before manual cleanup when possible. Purpose: leave the GitHub transport and scratch surface in an honestly formatted state. Proof owners: `npm run format:check` output for the changed Task 3 files.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build` because this task changes the supported server image and must prove the normal main-stack Docker build path still works.
+2. [ ] Run `npm run build:summary:server` because this task changes server runtime helpers and step execution code.
+3. [ ] Run `npm run test:summary:server:unit` because this task changes env parsing, subprocess transport, explicit selector logic, and scratch-file behavior.
+4. [ ] Run `npm run compose:up` because this task changes main-stack server runtime packaging and env wiring, and the supported human stack must still start successfully after the image change. This smoke step owns container startup only, not the full Story 60 GitHub review-cycle behavior.
+5. [ ] Run `npm run compose:down` because the previous step started the normal supported main stack and this task must leave that shared baseline stopped again after smoke validation.
+6. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+7. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `1, 2, 3`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Wire the new primitives into one copied opt-in implementation flow that can run an external GitHub review cycle without changing existing default entrypoints. This task owns PR-summary generation, findings routing, default-path preservation, and the final flow-composition proof surfaces.
+
+#### Task Exit Criteria
+
+- [ ] A copied opt-in flow variant can open a PR, wait, fetch outside review feedback, classify valid findings, leave clean-cycle PRs open, and close the PR only when more work was found.
+- [ ] Existing default checked-in flow entrypoints remain unchanged unless an operator intentionally selects the new copied variant.
+- [ ] Proof owners cover clean cycle, supported skip, valid findings loopback, stale scratch replacement, and default-entrypoint preservation.
+
+#### Documentation Locations
+
+- https://cli.github.com/manual/gh_pr_create - use for the reviewer-facing PR creation contract that the opt-in flow composes.
+- https://cli.github.com/manual/gh_api - use for the explicit API lookup and pagination behavior that the opt-in flow depends on.
+- https://docs.github.com/en/rest/pulls/reviews - use for the review submission shape consumed during later classification.
+- https://docs.github.com/en/rest/pulls/comments - use for the inline review comment shape consumed during later classification.
+
+#### Subtasks
+
+1. [ ] Copy `flows/implement_next_plan.json` to `flows/implement_next_plan_github_review.json`. Purpose: create the required opt-in entrypoint before any Story 60 review-cycle composition is added. Proof owners: `server/src/test/integration/flows.run.basic.test.ts`, `e2e/flows-execution-runs.spec.ts`.
+2. [ ] Compose the new `if`, `wait`, and GitHub PR steps into `flows/implement_next_plan_github_review.json`. Purpose: wire the new primitives into one copied implementation flow without mutating the existing default flow. Proof owners: `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`.
+3. [ ] If Story 60 composition needs any other already in-use checked-in flow file, create a second copied variant for that exact file instead of editing the original in place. Purpose: preserve the story's default-entrypoint boundary even when adjacent in-use flow files must participate. Proof owners: `server/src/test/integration/flows.run.basic.test.ts`, `e2e/flows-execution-runs.spec.ts`.
+4. [ ] Test maintenance. Location: `server/src/test/unit/flows-schema.test.ts`. Description: extend the existing production-flow validation block to include `flows/implement_next_plan_github_review.json` and any other copied Story 60 flow variants, and rename or split the current production-flow validation test if its title would otherwise still imply only the older default flow set. Purpose: keep schema proof semantics aligned with the expanded opt-in flow inventory. Proof owners: `server/src/test/unit/flows-schema.test.ts`.
+5. [ ] In `server/src/flows/service.ts` and the GitHub helper file(s) created in Task 3 under `server/src/flows/`, build the PR title string from the active story context instead of hard-coding it in `flows/implement_next_plan_github_review.json`. The output must be a reviewer-facing title that stays stable for the same story and branch. Do not move this title text into agent command JSON or back into the default flow files. Purpose: keep the PR title consistent and reviewer-facing without scattering long text across flow definitions. Proof owners: `server/src/test/integration/flows.run.command.test.ts`.
+6. [ ] In `server/src/flows/service.ts` and the GitHub helper file(s) created in Task 3 under `server/src/flows/`, build the PR body string from the active story context. The output must include the implemented work summary and the no-out-of-scope-behavior-change instruction to reviewers, while leaving `flows/implement_next_plan_github_review.json` as a thin flow definition rather than a long prose container. Purpose: keep the reviewer context complete without making the copied flow JSON carry bespoke multi-paragraph text. Proof owners: `server/src/test/integration/flows.run.command.test.ts`.
+7. [ ] In `server/src/flows/service.ts`, write supported GitHub-review skip or failure reasons into the active plan notes at the point where the GitHub stage stops. Use the same durable plan-note surface already used by flow runs, and do not leave the skip or failure explanation only in transient scratch JSON. Purpose: keep skip and failure outcomes durable in the plan instead of only in transient scratch state. Proof owners: `server/src/test/integration/flows.run.basic.test.ts`.
+8. [ ] In `server/src/flows/service.ts`, map supported GitHub-review skip outcomes to the flow status used for completed-with-warning, and leave clean completion reserved for cycles where the GitHub stage actually ran and produced a clean result. Do not change the status contract for non-GitHub flows. Purpose: keep flow status truthful when the optional GitHub stage did not run. Proof owners: `server/src/test/integration/flows.run.basic.test.ts`.
+9. [ ] In `server/src/flows/service.ts`, change the review-classification read path so it reads the current story and branch from the fresh GitHub scratch handoff written by Task 3, not from stale scratch left by an older cycle. Do not add a second scratch format or a second classification input source. Purpose: stop stale scratch from remaining the classification input after a successful new fetch. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+10. [ ] In the review-classification code path in `server/src/flows/service.ts`, filter out review submissions and inline comments authored by the PR author before outside-feedback classification begins. Leave reviewer-authored comments unchanged. Purpose: keep the GitHub review cycle limited to feedback from other users. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+11. [ ] In the review-classification code path in `server/src/flows/service.ts`, treat an empty fetched review set and a fully non-actionable fetched review set as clean-cycle outcomes. The clean path must leave the PR open and must not enter the findings loopback branch. Purpose: preserve the clean-review-cycle contract without forcing unnecessary PR closure. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/features/flows-execution-runs.feature`.
+12. [ ] In the review-classification and loopback code path in `server/src/flows/service.ts`, close the PR only after valid findings have been identified and the flow has decided more work is required. Do not close the PR before classification completes, and do not close clean-cycle PRs. Purpose: preserve the findings-present loopback contract without closing clean-cycle PRs. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/features/flows-execution-runs.feature`.
+13. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.basic.test.ts`. Description: prove the default-entrypoint preservation invariant owned by `flows/implement_next_plan.json`, the copied flow variant file(s), and `server/src/flows/service.ts` when the copied variant is not selected. Purpose: give the opt-in default-path boundary its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.basic.test.ts`.
+14. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.basic.test.ts`. Description: prove the completed-with-warning skip invariant owned by `server/src/flows/service.ts` and the Task 3 GitHub helper files when GitHub review is skipped for a supported reason. Purpose: give the truthful skip-status path its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.basic.test.ts`.
+15. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.command.test.ts`. Description: prove the generated reviewer-facing PR title invariant owned by `server/src/flows/service.ts` and the Task 3 GitHub helper files. Purpose: give the PR title-generation seam its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.command.test.ts`.
+16. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.command.test.ts`. Description: prove the generated reviewer-facing PR body invariant owned by `server/src/flows/service.ts` and the Task 3 GitHub helper files, including the no-out-of-scope-behavior-change instruction. Purpose: give the PR body-generation seam its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.command.test.ts`.
+17. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: prove the clean-cycle invariant owned by `server/src/flows/service.ts`, the copied flow variant file(s), and the Task 3 GitHub helper files when a review cycle leaves the PR open. Purpose: give the clean review-loop outcome its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+18. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: prove the findings-present loopback invariant owned by `server/src/flows/service.ts`, the copied flow variant file(s), and the Task 3 GitHub helper files when valid findings close the PR before loopback. Purpose: give the more-work-needed review-loop outcome its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+19. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: prove the fresh-scratch precedence invariant owned by `server/src/flows/service.ts` and the Task 3 scratch helper files when stale review scratch must be replaced before readback. Use an explicit file or state boundary instead of adjacent success proof. Purpose: give the stale-versus-fresh scratch contract its own explicit proof home. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+20. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: prove the exact review-cycle ordering boundary owned by `server/src/flows/service.ts`, the copied flow variant file(s), and the Task 3 GitHub helper files in one scenario: PR open completes before wait persistence, wait resume completes before review fetch dispatch, fresh scratch replacement completes before classification reads it, and PR close happens before loopback when valid findings exist. Purpose: stop the composed Story 60 lifecycle from being proved only by adjacent step-local assertions. Proof owners: `server/src/test/integration/flows.run.loop.test.ts`.
+21. [ ] Test type: cucumber. Location: `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts`. Description: prove the clean review-cycle invariant owned by the copied flow variant file(s) and `server/src/flows/service.ts`. Rename the feature heading or split the scenarios if the current retry-ownership feature title would otherwise misdescribe the new Story 60 clean-cycle coverage. Purpose: carry the clean Story 60 loop into the authored flow proof surface without semantic drift. Proof owners: `server/src/test/features/flows-execution-runs.feature`, `server/src/test/steps/flows-execution-runs.steps.ts`.
+22. [ ] Test type: cucumber. Location: `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts`. Description: prove the findings-present review-cycle invariant owned by the copied flow variant file(s) and `server/src/flows/service.ts`. Keep the review-cycle scenario title separate from retry-ownership wording so ordering-sensitive PR-close-before-loopback assertions are claimed directly. Purpose: carry the more-work-needed Story 60 loop into the authored flow proof surface. Proof owners: `server/src/test/features/flows-execution-runs.feature`, `server/src/test/steps/flows-execution-runs.steps.ts`.
+23. [ ] Test type: e2e. Location: `e2e/flows-execution-runs.spec.ts`. Description: prove the operator-facing flow-selection invariant owned by the copied flow variant file(s) and the default entrypoint files when the copied variant is selected without mutating current defaults. Keep this as a distinct Story 60 browser test with its own title instead of broadening the existing retry-ownership test title to cover adjacent behavior. Purpose: keep the browser-visible flow-selection surface honest for operators. Proof owners: `e2e/flows-execution-runs.spec.ts`.
+24. [ ] Run `npm run lint` for the files changed by this task and fix any issues found, using `npm run lint:fix` before manual cleanup when possible. Purpose: leave the opt-in flow composition and status-routing surface in an honestly lint-clean state. Proof owners: `npm run lint` output for the changed Task 4 files.
+25. [ ] Run `npm run format:check` for the files changed by this task and fix any issues found, using `npm run format` before manual cleanup when possible. Purpose: leave the opt-in flow composition and status-routing surface in an honestly formatted state. Proof owners: `npm run format:check` output for the changed Task 4 files.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` because this task changes flow composition and server runtime orchestration.
+2. [ ] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
+3. [ ] Run `npm run test:summary:server:cucumber` because this task changes authored flow behavior and loop routing through the repository's flow execution surface.
+4. [ ] Run `npm run test:summary:e2e` because this task changes a browser-visible flow execution path and must keep the supported automated end-to-end surface honest. This wrapper owns its own automated setup and teardown; Task 5 owns the separate normal main-stack compose smoke for the human Docker path.
+5. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 5. Final Story Validation And Close-Out
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `1, 2, 3, 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Validate the entire Story 60 surface after the implementation tasks land, then update the repository documentation and close-out artifacts to match the final shipped behavior. This task owns the full acceptance-criteria trace, the final wrapper-based proof run, and the manual-testing guidance for the supported main stack.
+
+#### Task Exit Criteria
+
+- [ ] Every Acceptance Criterion, important Description requirement, and explicit Out Of Scope boundary is matched to the final implementation, named proof surfaces, or explicit preserved default-path behavior.
+- [ ] Final documentation and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` describe the shipped flow contract, GitHub token and permission rules, copied flow variant name(s), and supported completed-with-warning cases.
+- [ ] Full wrapper-based automated validation passes, and final manual guidance points the later tester to the supported main stack, readiness checks, worked-repository path namespace, artifact destinations, and honest skip rules.
+
+#### Documentation Locations
+
+- https://cli.github.com/manual/gh_pr_create - final documentation and PR summary must match the shipped PR creation contract.
+- https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens - final documentation and PR summary must preserve the minimum fine-grained token permission statement.
+- Context7 `/nodejs/node/v22.17.0` - final validation must stay aligned with the shipped wait and resume runtime contract.
+
+#### Subtasks
+
+1. [ ] Re-read the `Description`, `Acceptance Criteria`, and `Out Of Scope` sections in this plan file, then compare each item to the implementation surfaces from Tasks 1 through 4 and their named proof owners. If any in-scope behavior or preserved boundary is still missing a proof home, fix that mismatch in the owned code or documentation files before the final wrapper runs. Purpose: make the final validation task prove the full in-scope behavior instead of only adjacent behavior. Proof owners: this plan file, the Task 1 through Task 4 proof owners, and the final wrapper runs in this task's `Testing` section.
+2. [ ] Re-open `flows/implement_next_plan.json` and the copied Story 60 flow variant file(s) created earlier in this story, and compare them directly. Confirm the default file still preserves its pre-Story-60 behavior while the copied variant alone carries the new GitHub review-cycle path. Do not rely on memory or on test names alone for this check. Purpose: make the final validation task prove that Story 60 did not widen beyond its approved behavior envelope. Proof owners: `flows/implement_next_plan.json`, the copied flow variant file(s), and the final wrapper runs in this task's `Testing` section.
+3. [ ] Re-open the Task 1 through Task 4 proof-owner files for the lifecycle-sensitive rows that Story 60 changes: waiting, resumed, skipped-with-warning, error, cancel, startup recovery, stale-scratch replacement, and default-path preservation. Confirm each row has one direct proof home before final wrapper runs start. Purpose: keep the highest-risk invariants visible in the final validation pass instead of assuming broad wrapper success is enough. Proof owners: the Task 1 through Task 4 proof owners and the final wrapper runs in this task's `Testing` section.
+4. [ ] Update `design.md` so it documents the final flow-only primitive set and the shared AI-or-script decision contract. Purpose: keep repository architecture guidance aligned with the shipped Story 60 control-flow surface. Proof owners: `design.md`.
+5. [ ] Update `design.md` so it documents the persisted wait lifecycle, the repository-local `CODEINFO_PR_TOKEN` contract, and the exact copied opt-in flow variant name(s) created by this story. Purpose: keep repository architecture guidance aligned with the shipped Story 60 lifecycle and GitHub transport behavior. Proof owners: `design.md`.
+6. [ ] Update `projectStructure.md` so it lists any new flow runtime helpers and GitHub review scratch helpers introduced by Story 60. Purpose: give later developers a truthful file-level map of the new runtime seams. Proof owners: `projectStructure.md`.
+7. [ ] Update `projectStructure.md` so it lists any new checked-in fixtures and copied flow files introduced by Story 60. Purpose: give later developers a truthful file-level map of the new proof surfaces and opt-in entrypoints. Proof owners: `projectStructure.md`.
+8. [ ] Create or refresh `codeInfoStatus/pr-summaries/0000060-pr-summary.md` with the final behavior summary and the minimum GitHub permission contract. Purpose: produce the repository's derived close-out artifact for Story 60 with the final external contract details. Proof owners: `codeInfoStatus/pr-summaries/0000060-pr-summary.md`.
+9. [ ] Update `codeInfoStatus/pr-summaries/0000060-pr-summary.md` with the supported completed-with-warning cases, the named proof surfaces, and any final manual-proof notes that a reviewer needs to understand the story outcome quickly. Purpose: complete the derived close-out artifact without replacing the executable plan as source of truth. Proof owners: `codeInfoStatus/pr-summaries/0000060-pr-summary.md`.
+10. [ ] Run `npm run lint` for the files changed by this task and fix any issues found, using `npm run lint:fix` before manual cleanup when possible. Purpose: leave the close-out docs and story artifacts in an honestly lint-clean state. Proof owners: `npm run lint` output for the changed Task 5 files.
+11. [ ] Run `npm run format:check` for the files changed by this task and fix any issues found, using `npm run format` before manual cleanup when possible. Purpose: leave the close-out docs and story artifacts in an honestly formatted state. Proof owners: `npm run format:check` output for the changed Task 5 files.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build` because the final story proof must include the shipped main-stack Docker build path that now carries `gh`, the copied flow assets, and the final server runtime wiring.
+2. [ ] Run `npm run build:summary:server` because Story 60 changes server flow schema, runtime orchestration, GitHub transport, and copied flow definitions.
+3. [ ] Run `npm run test:summary:server:unit` because the final story changes schema parsing, lifecycle-sensitive state, transport helpers, and review-scratch producer-consumer behavior.
+4. [ ] Run `npm run test:summary:server:cucumber` because the final story changes authored flow behavior, wait resume, and review-loop routing.
+5. [ ] Run `npm run test:summary:e2e` because the final story changes the supported browser-visible flow execution surface and must keep end-to-end automation honest.
+6. [ ] Run `npm run compose:up` because the final story changes the normal supported human stack and needs an explicit smoke start through `docker-compose.yml` after the main-stack build and automated suites complete. If this step fails before server health and client readiness are reachable, treat that as a main-stack baseline or harness failure to diagnose separately from Story 60 flow logic.
+7. [ ] Run `npm run compose:down` because the previous step started the normal supported main stack and final proof must leave that shared baseline stopped again after smoke validation.
+8. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+9. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Use the checked-in main human stack for Story 60 manual proof: run `npm run compose:build`, then `npm run compose:up`. These wrappers already load `server/.env` and `server/.env.local` for the main stack. Before starting story proof, confirm the server health surface at `http://localhost:5010/health` is ready and the normal client surface at `http://localhost:5001` is responding. Use `npm run compose:down` when you are done.
+- Use a dedicated sandbox worked repository on the Story 60 branch with its normal upstream remote already configured. Place that sandbox repository under the host ingest root exposed to the main stack through `CODEINFO_HOST_INGEST_DIR` so the server can reach it through the normal container workdir namespace at `/data`. Put `CODEINFO_PR_TOKEN` only in that worked repository's `.env.local`; do not move it into `server/.env` or `server/.env.local`.
+- Prove the full story with at least two manual cycles: one short-wait clean cycle that opens a PR, resumes automatically after the authored delay, fetches outside review data, and leaves the PR open; and one findings-present cycle that proves valid outside findings close the PR before loopback and route follow-up work through the existing repair path instead of a bespoke review workflow.
+- If time allows, also verify the supported completed-with-warning skip path by removing or blanking `CODEINFO_PR_TOKEN` in the worked repository `.env.local` and confirming the flow records a concise skip note instead of pretending a clean external review occurred.
+- Save any manual screenshots, exported JSON, logs, or similar proof artifacts under `codeInfoTmp/manual-testing/0000060/5/` and do not commit them. Recommended basenames: `proof-01-variant-selection.png`, `proof-02-open-pr.png`, `proof-03-clean-cycle-status.png`, `proof-04-finding-cycle-status.png`, `proof-05-skip-warning-status.png`, `support-current-review.json`, `support-console.txt`, and `support-network.json`.
+- Treat the Task 5 screenshots and retained support artifacts as the primary closeout proof for the story's final observable flow state. Keep earlier task-level screenshots in the later durable bundle only when they still prove something unique that these final Story 60 artifacts do not re-cover.
+- If you use Playwright MCP screenshots, capture them to a staging path such as `/tmp/playwright-output/0000060/task-5/proof-01-variant-selection.png` first, then transfer them from `$CODEINFO_ROOT/playwright-output-local/0000060/task-5/` into `codeInfoTmp/manual-testing/0000060/5/`. If the runtime artifact source is unclear, inspect the available runtime handoff JSON for the artifact-source and destination details by meaning rather than by exact property names.
+- If any auth-dependent provider surface cannot be exercised because restoring login would require human-controlled two-factor authentication, skip only that affected surface, record the limitation honestly, and rely on the automated proof plus retained logs for that seam. Do not attempt `Re-authenticate` during autonomous manual proof.
+- Later closeout should promote the curated durable proof bundle for this story into `codeInfoStatus/manual-proof/0000060/`.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.

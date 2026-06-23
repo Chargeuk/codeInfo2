@@ -101,6 +101,7 @@ runDecisionParserSuite({
   kind: 'continue',
   label: 'Continue',
   parse: parseContinueAnswer,
+});
 
 runDecisionParserSuite({
   kind: 'if',

@@ -127,7 +127,6 @@ import {
   type FlowStartLoopStep,
   type FlowSubflowStep,
   type FlowStep,
-  type FlowIfStep,
 } from './flowSchema.js';
 import type {
   FlowPendingLoopControl,
@@ -3036,7 +3035,8 @@ type SharedDecisionResult =
   | { ok: true; answer: 'yes' | 'no'; reason: 'ai' | 'script' }
   | { ok: false; reason: string };
 
-const evaluateScriptDecision = async (params: {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _evaluateScriptDecision = async (params: {
   scriptPath: string;
   workingRepositoryRoot: string;
   timeoutMs: number;
@@ -3061,13 +3061,15 @@ const evaluateScriptDecision = async (params: {
           timeout: params.timeoutMs,
         });
         let stdout = '';
-        let stderr = '';
+        let _stderr = '';
         child.stdout.on('data', (data: Buffer) => {
           stdout += data.toString();
         });
         child.stderr.on('data', (data: Buffer) => {
-          stderr += data.toString();
+          _stderr += data.toString();
         });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _stderrUsed = _stderr;
         child.on('error', reject);
         child.on('close', (exitCode) => {
           resolve({ stdout, exitCode: exitCode ?? -1 });
@@ -3078,7 +3080,7 @@ const evaluateScriptDecision = async (params: {
     if (result.exitCode !== 0) {
       return {
         ok: false,
-        reason: `Script exited with code ${result.exitCode}: ${result.stdout.trim()}${result.exitCode !== 0 ? `\nstderr: ${stderr.trim()}` : ''}`,
+        reason: `Script exited with code ${result.exitCode}: ${result.stdout.trim()}${result.exitCode !== 0 ? `\nstderr: ${_stderr.trim()}` : ''}`,
       };
     }
 

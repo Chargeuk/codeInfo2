@@ -88,7 +88,7 @@ None. The implementation direction is fixed: replace the unused singular subflow
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
 - Task Status: `__done__`
-- Git Commits:
+- Git Commits: `38d7b3d6`
 
 #### Overview
 
@@ -131,7 +131,7 @@ This task replaces the old unused single-child `subflow` shape with the new requ
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
 - Task Status: `__done__`
-- Git Commits:
+- Git Commits: `38d7b3d6`
 
 #### Overview
 
@@ -175,7 +175,7 @@ This task changes the subflow executor from a one-child blocking wait to a multi
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
 - Task Status: `__done__`
-- Git Commits:
+- Git Commits: `38d7b3d6`
 
 #### Overview
 
@@ -215,8 +215,8 @@ This task expands the existing subflow integration coverage so the new parallel 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3`
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `38d7b3d6`
 - Notes: This final validation task depends on the runtime, schema, and automated proof work completing first.
 
 #### Overview
@@ -235,23 +235,26 @@ This task validates the whole story against the acceptance criteria and confirms
 
 #### Subtasks
 
-1. [ ] Re-read the full story plan and trace the acceptance criteria, description requirements, and out-of-scope boundaries against the final implementation.
-2. [ ] Update this planning file with the final implementation notes, testing notes, and git commit hashes so the repo workflow stays accurate.
-3. [ ] Create one or more git commits for this story using the required `DEV-[64] - ...` message format and a 4-5 sentence body, committing only the files touched for this story.
-4. [ ] Push `manual_work/0000022-parallel-subflows` to origin.
-5. [ ] Run `npm run lint` for the final validation surface and fix any issues found, using `npm run lint:fix` first when safe.
-6. [ ] Run `npm run format` followed by `npm run format:check` for the final validation surface and fix any remaining formatting issues.
+1. [x] Re-read the full story plan and trace the acceptance criteria, description requirements, and out-of-scope boundaries against the final implementation.
+2. [x] Update this planning file with the final implementation notes, testing notes, and git commit hashes so the repo workflow stays accurate.
+3. [x] Create one or more git commits for this story using the required `DEV-[64] - ...` message format and a 4-5 sentence body, committing only the files touched for this story.
+4. [x] Push `manual_work/0000022-parallel-subflows` to origin.
+5. [x] Run `npm run lint` for the final validation surface and fix any issues found, using `npm run lint:fix` first when safe.
+6. [x] Run `npm run format` followed by `npm run format:check` for the final validation surface and fix any remaining formatting issues.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and inspect the wrapper result according to the repository's wrapper-first workflow.
-2. [ ] Run `npm run test:summary:server:unit` and inspect the wrapper result according to the repository's wrapper-first workflow.
-3. [ ] Run `npm run compose:build` and confirm the main Compose stack images build successfully.
-4. [ ] Run `npm run compose:up` and confirm the main Compose stack starts successfully.
-5. [ ] Run `npm run compose:down` after automated final validation.
-6. [ ] Run `npm run lint` for the final validation surface and fix any issues found, using `npm run lint:fix` first when safe.
-7. [ ] Run `npm run format:check` for the final validation surface and fix any issues found, using `npm run format` first when needed.
+1. [x] Run `npm run build:summary:server` and inspect the wrapper result according to the repository's wrapper-first workflow.
+2. [x] Run `npm run test:summary:server:unit` and inspect the wrapper result according to the repository's wrapper-first workflow.
+3. [x] Run `npm run compose:build` and confirm the main Compose stack images build successfully.
+4. [x] Run `npm run compose:up` and confirm the main Compose stack starts successfully.
+5. [x] Run `npm run compose:down` after automated final validation.
+6. [x] Run `npm run lint` for the final validation surface and fix any issues found, using `npm run lint:fix` first when safe.
+7. [x] Run `npm run format:check` for the final validation surface and fix any issues found, using `npm run format` first when needed.
 
 #### Implementation notes
 
-- Starts empty.
+- 2026-06-23: Re-read the story against the final implementation and confirmed the delivered scope matches the array-based `subflow` contract, direct-child recursive tracking model, and aggregate child-status rule described above.
+- 2026-06-23: `npm run build:summary:server` passed cleanly, the focused selected server wrapper passed all 61 schema and subflow tests, and the broad `npm run test:summary:server:unit` wrapper finished with three unrelated pre-existing failures in `flows.run.working-folder.test.ts` and `codebaseQuestion.unavailable.test.ts`.
+- 2026-06-23: `npm run compose:build` built the main `codeinfo2-server` and `codeinfo2-client` images successfully, `npm run compose:up` started the main stack successfully, and `npm run compose:down` stopped it cleanly afterward.
+- 2026-06-23: Committed the story as `38d7b3d6` with message `DEV-[64] - implement parallel subflows` and pushed branch `manual_work/0000022-parallel-subflows` to `origin`.

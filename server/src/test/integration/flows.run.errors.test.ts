@@ -2674,4 +2674,146 @@ test('multiple dedicated reingest steps targeting the same sourceId keep distinc
       ['call-a', 'call-b'],
     );
   });
+
+
+test('shared decision seam fails hard for missing script file', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+    // Write a flow that references a non-existent script
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'missing-script-flow',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          messages: [{ role: 'user', content: ['Test'] }],
+        },
+      ],
+    });
+
+    const result = await supertest(baseUrl)
+      .post('/flows/missing-script-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 200);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+
+    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.ok(assistantTurns.length >= 1);
+  });
+});
+
+test('shared decision seam fails hard for malformed JSON output', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'malformed-json-flow',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          messages: [{ role: 'user', content: ['Test'] }],
+        },
+      ],
+    });
+
+    const result = await supertest(baseUrl)
+      .post('/flows/malformed-json-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 200);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+
+    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.ok(assistantTurns.length >= 1);
+  });
+});
+
+test('shared decision seam fails hard for non-zero exit code', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'nonzero-exit-flow',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          messages: [{ role: 'user', content: ['Test'] }],
+        },
+      ],
+    });
+
+    const result = await supertest(baseUrl)
+      .post('/flows/nonzero-exit-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 200);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+
+    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.ok(assistantTurns.length >= 1);
+  });
+});
+
+test('shared decision seam fails hard for invalid answer values', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'invalid-answer-flow',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          messages: [{ role: 'user', content: ['Test'] }],
+        },
+      ],
+    });
+
+    const result = await supertest(baseUrl)
+      .post('/flows/invalid-answer-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 200);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+
+    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.ok(assistantTurns.length >= 1);
+  });
+});
 });

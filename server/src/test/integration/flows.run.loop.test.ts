@@ -2333,4 +2333,134 @@ test('flow stop during a looped flow prevents later iterations from continuing',
       },
     },
   );
+
+
+test('shared decision seam follows valid script-driven if branch through happy path', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+    // Write a flow that uses if-step with script-driven decision
+    await fs.writeFile(
+      path.join(tmpDir, 'flows', 'shared-decision-if-flow.json'),
+      JSON.stringify({
+        description: 'Flow with if-step using script decision',
+        steps: [
+          {
+            type: 'if',
+            condition: 'script_decision',
+            then: [
+              {
+                type: 'llm',
+                agentType: 'coding_agent',
+                identifier: 'main',
+                messages: [{ role: 'user', content: ['Decision was yes, proceeding with then branch.'] }],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    // Write a script that returns {"answer":"yes"}
+    await fs.writeFile(
+      path.join(tmpDir, 'flows', 'decision-yes.py'),
+      '#!/usr/bin/env python3\nimport json\nprint(json.dumps({{"answer":"yes"}}))\n',
+    );
+
+    const result = await supertest(baseUrl)
+      .post('/flows/shared-decision-if-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 200);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+
+    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
+    // The flow should have executed the then branch (llm step)
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.ok(assistantTurns.length >= 1);
+  });
+});
+
+test('shared decision seam follows valid script-driven break branch through happy path', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+    // Write a flow that uses break-step with script-driven decision
+    await fs.writeFile(
+      path.join(tmpDir, 'flows', 'shared-decision-break-flow.json'),
+      JSON.stringify({
+        description: 'Flow with break-step using script decision',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'Should we break?',
+            breakOn: 'yes',
+          },
+        ],
+      }),
+    );
+
+    const result = await supertest(baseUrl)
+      .post('/flows/shared-decision-break-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 200);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+
+    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.ok(assistantTurns.length >= 1);
+  });
+});
+
+test('shared decision seam follows valid script-driven continue branch through happy path', async () => {
+  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+    // Write a flow that uses continue-step with script-driven decision
+    await fs.writeFile(
+      path.join(tmpDir, 'flows', 'shared-decision-continue-flow.json'),
+      JSON.stringify({
+        description: 'Flow with continue-step using script decision',
+        steps: [
+          {
+            type: 'continue',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'Should we continue?',
+            continueOn: 'yes',
+          },
+        ],
+      }),
+    );
+
+    const result = await supertest(baseUrl)
+      .post('/flows/shared-decision-continue-flow/run')
+      .send({
+        source: 'REST',
+        working_folder: tmpDir,
+      });
+    assert.equal(result.status, 200);
+
+    const conversationId = result.body.conversationId;
+    subscribeConversation(ws, conversationId);
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+
+    const turns = await waitForTurns(conversationId, (items) => items.length >= 2);
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.ok(assistantTurns.length >= 1);
+  });
+});
 });

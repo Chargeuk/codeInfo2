@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -126,6 +127,7 @@ import {
   type FlowStartLoopStep,
   type FlowSubflowStep,
   type FlowStep,
+  type FlowIfStep,
 } from './flowSchema.js';
 import type {
   FlowPendingLoopControl,
@@ -2811,13 +2813,13 @@ type BreakParseFailure = {
   reasonCode: BreakParseReasonCode;
 };
 
-type FlowDecisionKind = 'break' | 'continue';
+type FlowDecisionKind = 'break' | 'continue' | 'if';
 
 const MAX_BREAK_PARSE_SCAN_LENGTH = 20_000;
 const MAX_BREAK_PARSE_CANDIDATES = 100;
 
 const getFlowDecisionLabel = (kind: FlowDecisionKind) =>
-  kind === 'break' ? 'Break' : 'Continue';
+  kind === 'break' ? 'Break' : kind === 'continue' ? 'Continue' : 'If';
 
 const validateFlowDecisionPayload = (
   kind: FlowDecisionKind,
@@ -3018,6 +3020,80 @@ export const parseBreakAnswer = (content: string) =>
 
 export const parseContinueAnswer = (content: string) =>
   parseFlowDecisionAnswer('continue', content);
+
+export const parseIfAnswer = (content: string) =>
+  parseFlowDecisionAnswer('if', content);
+
+/**
+ * Story 60: Shared decision-evaluation launcher.
+ * Called by if, break, and continue steps to evaluate a condition
+ * via either the existing AI yes-or-no path or a direct Python script.
+ *
+ * @param kind - The decision kind: 'break', 'continue', or 'if'.
+ * @param params - Decision evaluation parameters.
+ */
+type SharedDecisionResult =
+  | { ok: true; answer: 'yes' | 'no'; reason: 'ai' | 'script' }
+  | { ok: false; reason: string };
+
+const evaluateScriptDecision = async (params: {
+  scriptPath: string;
+  workingRepositoryRoot: string;
+  timeoutMs: number;
+}): Promise<SharedDecisionResult> => {
+  const fullPath = path.resolve(workingRepositoryRoot, scriptPath);
+  let fileContent: string;
+  try {
+    fileContent = await fs.readFile(fullPath, 'utf8');
+  } catch {
+    return { ok: false, reason: `Script file not found: ${fullPath}` };
+  }
+
+  if (!fileContent.trim().length) {
+    return { ok: false, reason: `Script file is empty: ${fullPath}` };
+  }
+
+  try {
+    const result = await new Promise<{ stdout: string; exitCode: number }>(
+      (resolve, reject) => {
+        const child = spawn('python3', [fullPath], {
+          cwd: workingRepositoryRoot,
+          timeout: params.timeoutMs,
+        });
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (data: Buffer) => {
+          stdout += data.toString();
+        });
+        child.stderr.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+        child.on('error', reject);
+        child.on('close', (exitCode) => {
+          resolve({ stdout, exitCode: exitCode ?? -1 });
+        });
+      },
+    );
+
+    if (result.exitCode !== 0) {
+      return {
+        ok: false,
+        reason: `Script exited with code ${result.exitCode}: ${result.stdout.trim()}${result.exitCode !== 0 ? `\nstderr: ${stderr.trim()}` : ''}`,
+      };
+    }
+
+    const parsed = parseFlowDecisionAnswer('if', result.stdout.trim());
+    if (!parsed.ok) {
+      return { ok: false, reason: `Script output failed decision parsing: ${parsed.message}` };
+    }
+
+    return { ok: true, answer: parsed.answer, reason: 'script' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, reason: `Script execution failed: ${message}` };
+  }
+};
+
 
 const findFirstAgentStep = (
   steps: FlowStep[],

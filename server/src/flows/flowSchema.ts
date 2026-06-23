@@ -70,6 +70,40 @@ export type FlowReingestStep = {
   label?: string;
 } & ({ sourceId: string } | { target: 'working' | 'plan_scope' });
 
+/** Story 60: conditional if step with then/else branches */
+export type FlowIfStep = {
+  type: 'if';
+  label?: string;
+  condition: string;
+  then: FlowStep[];
+  else?: FlowStep[];
+};
+
+/** Story 60: persisted timed wait step */
+export type FlowWaitStep = {
+  type: 'wait';
+  label?: string;
+  seconds: number;
+};
+
+/** Story 60: thin GitHub PR open step */
+export type FlowGitHubOpenPrStep = {
+  type: 'github_open_pr';
+  label?: string;
+};
+
+/** Story 60: thin GitHub PR fetch-reviews step */
+export type FlowGitHubFetchReviewsStep = {
+  type: 'github_fetch_reviews';
+  label?: string;
+};
+
+/** Story 60: thin GitHub PR close step */
+export type FlowGitHubClosePrStep = {
+  type: 'github_close_pr';
+  label?: string;
+};
+
 export type FlowStep =
   | FlowStartLoopStep
   | FlowLlmStep
@@ -77,7 +111,12 @@ export type FlowStep =
   | FlowContinueStep
   | FlowCommandStep
   | FlowSubflowStep
-  | FlowReingestStep;
+  | FlowReingestStep
+  | FlowIfStep
+  | FlowWaitStep
+  | FlowGitHubOpenPrStep
+  | FlowGitHubFetchReviewsStep
+  | FlowGitHubClosePrStep;
 
 export type FlowFile = {
   description?: string;
@@ -176,6 +215,48 @@ const FlowReingestPlanScopeTargetStepSchema = z
   })
   .strict();
 
+// Story 60: if step schema
+const FlowIfStepSchema = z
+  .object({
+    type: z.literal('if'),
+    label: trimmedNonEmptyString.optional(),
+    condition: trimmedNonEmptyString,
+    then: z.array(z.lazy(() => FlowStepSchema)).min(1),
+    else: z.array(z.lazy(() => FlowStepSchema)).min(1).optional(),
+  })
+  .strict();
+
+// Story 60: wait step schema – positive integer only
+const FlowWaitStepSchema = z
+  .object({
+    type: z.literal('wait'),
+    label: trimmedNonEmptyString.optional(),
+    seconds: z.number().int().positive(),
+  })
+  .strict();
+
+// Story 60: GitHub PR step schemas
+const FlowGitHubOpenPrStepSchema = z
+  .object({
+    type: z.literal('github_open_pr'),
+    label: trimmedNonEmptyString.optional(),
+  })
+  .strict();
+
+const FlowGitHubFetchReviewsStepSchema = z
+  .object({
+    type: z.literal('github_fetch_reviews'),
+    label: trimmedNonEmptyString.optional(),
+  })
+  .strict();
+
+const FlowGitHubClosePrStepSchema = z
+  .object({
+    type: z.literal('github_close_pr'),
+    label: trimmedNonEmptyString.optional(),
+  })
+  .strict();
+
 function flowStepUnionSchema() {
   return z.union([
     FlowStartLoopStepSchema,
@@ -187,6 +268,11 @@ function flowStepUnionSchema() {
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,
     FlowReingestPlanScopeTargetStepSchema,
+    FlowIfStepSchema,
+    FlowWaitStepSchema,
+    FlowGitHubOpenPrStepSchema,
+    FlowGitHubFetchReviewsStepSchema,
+    FlowGitHubClosePrStepSchema,
   ]);
 }
 

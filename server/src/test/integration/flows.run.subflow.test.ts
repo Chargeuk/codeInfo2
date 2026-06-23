@@ -1163,6 +1163,87 @@ test('resume reattaches to an already running child subflow instead of launching
   }
 });
 
+test('resume reattaches when persisted state still uses legacy activeSubflow', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-resume-legacy-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-resume-legacy',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-resume-legacy',
+      steps: [subflowStep('Run Slow Child', 'child-resume-legacy')],
+    });
+
+    let childRunToken: string | undefined;
+    const childStart = await startFlowRun({
+      flowName: 'child-resume-legacy',
+      customTitle: 'Resume Parent-Run Slow Child',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(180),
+      onOwnershipReady: ({ runToken }) => {
+        childRunToken = runToken;
+      },
+    });
+    assert.ok(childRunToken);
+
+    const parentConversationId = 'resume-parent-legacy-conversation';
+    const now = new Date();
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Parent',
+      flowName: 'parent-resume-legacy',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-parent-legacy-execution',
+          stepPath: [],
+          loopStack: [],
+          activeSubflow: activeSubflowState({
+            stepPath: [0],
+            flowName: 'child-resume-legacy',
+            conversationId: childStart.conversationId,
+            runToken: childRunToken as string,
+            title: 'Resume Parent-Run Slow Child',
+          }),
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-resume-legacy',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(180),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    await waitForAssistantStatus(parentConversationId, 'ok');
+
+    const childFlowConversations = Array.from(
+      memoryConversations.values(),
+    ).filter((conversation) => conversation.flowName === 'child-resume-legacy');
+    assert.equal(childFlowConversations.length, 1);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resume reattaches to already running parallel child subflows instead of launching duplicate runs', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-parallel-'),
@@ -1453,6 +1534,101 @@ test('resume fails stale subflows that have no active child run or terminal resu
     assert.equal(
       finalAssistant?.content,
       `Subflow child-stale could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resume fails stale legacy activeSubflow state that has no active child run or terminal result', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-resume-stale-legacy-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-stale-legacy',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-stale-legacy',
+      steps: [subflowStep('Run Stale Child', 'child-stale-legacy')],
+    });
+
+    const childConversationId = 'stale-legacy-child-conversation';
+    const parentConversationId = 'stale-legacy-parent-conversation';
+    const now = new Date();
+
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Stale Child',
+      flowName: 'child-stale-legacy',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'stale-legacy-child-execution',
+          stepPath: [],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Stale Parent',
+      flowName: 'parent-stale-legacy',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'stale-legacy-parent-execution',
+          stepPath: [],
+          loopStack: [],
+          activeSubflow: activeSubflowState({
+            stepPath: [0],
+            flowName: 'child-stale-legacy',
+            conversationId: childConversationId,
+            runToken: 'stale-legacy-child-run-token',
+            title: 'Stale Parent-Run Stale Child',
+          }),
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-stale-legacy',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    const finalAssistant = await waitForAssistantStatus(
+      parentConversationId,
+      'failed',
+    );
+    assert.equal(
+      finalAssistant?.content,
+      `Subflow child-stale-legacy could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

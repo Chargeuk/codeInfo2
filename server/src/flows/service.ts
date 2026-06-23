@@ -865,7 +865,12 @@ const parseFlowResumeState = (
     ? flow.activeSubflows
         .map((item) => normalizeActiveSubflow(item))
         .filter((item): item is FlowActiveSubflow => Boolean(item))
-    : [];
+    : (() => {
+        const legacyActiveSubflow = normalizeActiveSubflow(
+          (flow as { activeSubflow?: unknown }).activeSubflow,
+        );
+        return legacyActiveSubflow ? [legacyActiveSubflow] : [];
+      })();
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {

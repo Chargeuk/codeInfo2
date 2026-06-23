@@ -95,7 +95,7 @@ describe('flow schema (v1)', () => {
         {
           type: 'subflow',
           label: 'Run child',
-          flowName: 'child-flow',
+          flowNames: ['child-flow'],
         },
       ],
     });
@@ -104,14 +104,30 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
-  test('subflow step requires non-empty flowName', () => {
+  test('subflow step requires non-empty flowNames entries', () => {
     const json = JSON.stringify({
       description: 'Subflow parent',
       steps: [
         {
           type: 'subflow',
           label: 'Run child',
-          flowName: '   ',
+          flowNames: ['   '],
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('subflow step rejects duplicate flowNames', () => {
+    const json = JSON.stringify({
+      description: 'Subflow parent',
+      steps: [
+        {
+          type: 'subflow',
+          label: 'Run child',
+          flowNames: ['child-flow', 'child-flow'],
         },
       ],
     });

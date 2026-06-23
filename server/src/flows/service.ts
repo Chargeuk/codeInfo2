@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as scheduleTimeout } from 'node:timers';
 
 import type { CodexOptions } from '@openai/codex-sdk';
 
@@ -127,11 +128,13 @@ import {
   type FlowReingestStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
+  type FlowWaitStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
   FlowPendingLoopControl,
   FlowResumeState,
+  FlowWaitState,
   FreshRunRetryOwnershipCompletion,
 } from './flowState.js';
 import {
@@ -245,6 +248,18 @@ type FreshRunRetryOwnershipLaunch = {
   customTitle?: string;
 };
 
+type ScheduledWaitHandle = {
+  cancel: () => void;
+};
+
+type FlowWaitResumeDeps = {
+  now: () => number;
+  scheduleWake: (params: {
+    resumeAt: number;
+    onWake: () => void;
+  }) => ScheduledWaitHandle;
+};
+
 const freshRunRetryOwnershipByKey = new Map<
   string,
   FreshRunRetryOwnershipRecord
@@ -315,9 +330,7 @@ const rememberFreshRunRetryOwnershipCompletion = (params: {
       retryOwnershipId: params.retryOwnershipId,
       sourceId: params.sourceId?.trim() || undefined,
       result: cloneFlowRunStartResult(params.result),
-      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
-        params.launch,
-      ),
+      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(params.launch),
       completedAt: Date.now(),
     },
   );
@@ -333,7 +346,8 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? completion.retryOwnershipId.trim()
       : undefined;
   const sourceId =
-    typeof completion.sourceId === 'string' && completion.sourceId.trim().length > 0
+    typeof completion.sourceId === 'string' &&
+    completion.sourceId.trim().length > 0
       ? completion.sourceId.trim()
       : undefined;
   const launchSignature =
@@ -377,18 +391,13 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? result.modelId.trim()
       : undefined;
   const warnings =
-    Array.isArray(result.warnings) && result.warnings.every((item) =>
-      typeof item === 'string',
-    )
-      ? result.warnings.filter((item): item is string => typeof item === 'string')
+    Array.isArray(result.warnings) &&
+    result.warnings.every((item) => typeof item === 'string')
+      ? result.warnings.filter(
+          (item): item is string => typeof item === 'string',
+        )
       : undefined;
-  if (
-    !flowName ||
-    !conversationId ||
-    !inflightId ||
-    !providerId ||
-    !modelId
-  ) {
+  if (!flowName || !conversationId || !inflightId || !providerId || !modelId) {
     return null;
   }
   return {
@@ -682,14 +691,12 @@ export function __resetFreshRunRetryOwnershipCompletionForTests() {
   freshRunRetryOwnershipCompletedByKey.clear();
 }
 
-export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(
-  params: {
-    flowName: string;
-    sourceId?: string;
-    retryOwnershipId: string;
-    launch: FreshRunRetryOwnershipLaunch;
-  },
-) {
+export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}) {
   return getPersistedFreshRunRetryOwnershipCompletion(params);
 }
 
@@ -776,12 +783,96 @@ const normalizeOptionalString = (value: unknown): string | undefined =>
     ? value.trim()
     : undefined;
 
+const normalizeOptionalFiniteNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
 const normalizeStringMap = (value: unknown): Record<string, string> => {
   if (!isRecord(value)) return {};
   const entries = Object.entries(value).filter(
     ([, item]) => typeof item === 'string',
   ) as Array<[string, string]>;
   return Object.fromEntries(entries);
+};
+
+const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
+  if (!isRecord(value)) return null;
+  const executionId = normalizeOptionalString(value.executionId);
+  const resumeAt = normalizeOptionalFiniteNumber(value.resumeAt);
+  if (!executionId || resumeAt === undefined) return null;
+
+  const activeSubflow = isRecord(value.activeSubflow)
+    ? (() => {
+        const flowName = normalizeOptionalString(value.activeSubflow.flowName);
+        const conversationId = normalizeOptionalString(
+          value.activeSubflow.conversationId,
+        );
+        const runToken = normalizeOptionalString(value.activeSubflow.runToken);
+        if (!flowName || !conversationId || !runToken) return null;
+        return {
+          stepPath: normalizeNumberArray(value.activeSubflow.stepPath),
+          flowName,
+          conversationId,
+          runToken,
+          ...(normalizeOptionalString(value.activeSubflow.title)
+            ? { title: normalizeOptionalString(value.activeSubflow.title) }
+            : {}),
+        };
+      })()
+    : null;
+
+  const githubReviewContext = isRecord(value.githubReviewContext)
+    ? {
+        ...(typeof value.githubReviewContext.prNumber === 'number' &&
+        Number.isFinite(value.githubReviewContext.prNumber)
+          ? { prNumber: value.githubReviewContext.prNumber }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.storyNumber)
+          ? {
+              storyNumber: normalizeOptionalString(
+                value.githubReviewContext.storyNumber,
+              ),
+            }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.branchName)
+          ? {
+              branchName: normalizeOptionalString(
+                value.githubReviewContext.branchName,
+              ),
+            }
+          : {}),
+      }
+    : undefined;
+
+  return {
+    executionId,
+    stepPath: normalizeNumberArray(value.stepPath),
+    loopStack: Array.isArray(value.loopStack)
+      ? value.loopStack
+          .map((item) => {
+            if (!isRecord(item)) return null;
+            return {
+              loopStepPath: normalizeNumberArray(item.loopStepPath),
+              iteration:
+                typeof item.iteration === 'number' &&
+                Number.isFinite(item.iteration)
+                  ? item.iteration
+                  : 0,
+            };
+          })
+          .filter(
+            (item): item is { loopStepPath: number[]; iteration: number } =>
+              Boolean(item),
+          )
+      : [],
+    ...(activeSubflow ? { activeSubflow } : {}),
+    ...(normalizeOptionalString(value.workingFolder)
+      ? { workingFolder: normalizeOptionalString(value.workingFolder) }
+      : {}),
+    resumeAt,
+    ...(githubReviewContext && Object.keys(githubReviewContext).length > 0
+      ? { githubReviewContext }
+      : {}),
+  };
 };
 
 const buildFlowReingestRequestLogContext = (params: {
@@ -840,6 +931,7 @@ const parseFlowResumeState = (
   const retryOwnershipCompletion = parseFreshRunRetryOwnershipCompletion(
     flow.retryOwnershipCompletion,
   );
+  const wait = parseFlowWaitState(flow.wait);
   const activeSubflow = isRecord(flow.activeSubflow)
     ? (() => {
         const flowName = normalizeOptionalString(flow.activeSubflow.flowName);
@@ -894,9 +986,8 @@ const parseFlowResumeState = (
       ? { agentRequestedProviders }
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
-    ...(retryOwnershipCompletion
-      ? { retryOwnershipCompletion }
-      : {}),
+    ...(wait ? { wait } : {}),
+    ...(retryOwnershipCompletion ? { retryOwnershipCompletion } : {}),
   };
 };
 
@@ -910,6 +1001,60 @@ async function getConversation(
     .lean()
     .exec()) as Conversation | null;
 }
+
+const latestAssistantStatusForConversation = async (
+  conversationId: string,
+): Promise<TurnStatus | null> => {
+  if (shouldUseMemoryPersistence()) {
+    const turns = memoryTurns.get(conversationId) ?? [];
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+      const turn = turns[index];
+      if (turn?.role === 'assistant') {
+        return turn.status;
+      }
+    }
+    return null;
+  }
+
+  const persistedTurns = await listTurns({
+    conversationId,
+    limit: 10,
+  });
+  const assistantTurn = persistedTurns.items.find(
+    (turn) => turn.role === 'assistant',
+  );
+  return assistantTurn?.status ?? null;
+};
+
+const clearScheduledFlowWait = (conversationId: string) => {
+  const scheduled = scheduledFlowWaits.get(conversationId);
+  if (!scheduled) return;
+  scheduled.handle.cancel();
+  scheduledFlowWaits.delete(conversationId);
+};
+
+const clearPersistedWaitStateIfPresent = async (conversationId: string) => {
+  clearScheduledFlowWait(conversationId);
+  const conversation = await getConversation(conversationId);
+  if (!conversation) return;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow) || !isRecord(flow.wait)) return;
+  const nextFlow = { ...flow } as Record<string, unknown>;
+  delete nextFlow.wait;
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(conversationId, {
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: nextFlow,
+      },
+    });
+    return;
+  }
+  await updateConversationFlowState({
+    conversationId,
+    flow: nextFlow as FlowResumeState,
+  });
+};
 
 const getFlowChildExecutionId = (
   conversation: Conversation | null | undefined,
@@ -1010,6 +1155,34 @@ const flowResumeTestDeps: FlowResumeTestDeps = {
   ...defaultFlowResumeTestDeps,
 };
 
+const defaultFlowWaitResumeDeps: FlowWaitResumeDeps = {
+  now: () => Date.now(),
+  scheduleWake: ({ resumeAt, onWake }) => {
+    const delayMs = Math.max(resumeAt - Date.now(), 0);
+    const timeout = scheduleTimeout(() => {
+      onWake();
+    }, delayMs);
+    timeout.unref?.();
+    return {
+      cancel: () => clearTimeout(timeout),
+    };
+  },
+};
+
+const flowWaitResumeDeps: FlowWaitResumeDeps = {
+  ...defaultFlowWaitResumeDeps,
+};
+
+const scheduledFlowWaits = new Map<
+  string,
+  {
+    executionId: string;
+    resumeAt: number;
+    stepPath: number[];
+    handle: ScheduledWaitHandle;
+  }
+>();
+
 export function __setFlowResumeTestDepsForTests(
   overrides: Partial<FlowResumeTestDeps>,
 ) {
@@ -1022,6 +1195,20 @@ export function __resetFlowResumeTestDepsForTests() {
 
 export function __getFlowResumeTestDepsForTests(): FlowResumeTestDeps {
   return defaultFlowResumeTestDeps;
+}
+
+export function __setFlowWaitResumeDepsForTests(
+  overrides: Partial<FlowWaitResumeDeps>,
+) {
+  Object.assign(flowWaitResumeDeps, overrides);
+}
+
+export function __resetFlowWaitResumeDepsForTests() {
+  Object.assign(flowWaitResumeDeps, defaultFlowWaitResumeDeps);
+  for (const scheduled of scheduledFlowWaits.values()) {
+    scheduled.handle.cancel();
+  }
+  scheduledFlowWaits.clear();
 }
 
 const persistConversationWorkingFolder = async (params: {
@@ -1245,7 +1432,9 @@ const ensureFlowAgentConversation = async (params: {
         ...(params.requestedProviderId?.trim()
           ? { requestedProviderId: params.requestedProviderId.trim() }
           : {}),
-        ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+        ...(params.endpointId?.trim()
+          ? { endpointId: params.endpointId.trim() }
+          : {}),
         flowChild: { executionId: params.executionId },
       },
       lastMessageAt: now,
@@ -1318,7 +1507,9 @@ const ensureFlowAgentConversation = async (params: {
       ...(params.requestedProviderId?.trim()
         ? { requestedProviderId: params.requestedProviderId.trim() }
         : {}),
-      ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+      ...(params.endpointId?.trim()
+        ? { endpointId: params.endpointId.trim() }
+        : {}),
       flowChild: { executionId: params.executionId },
     },
     lastMessageAt: now,
@@ -1419,7 +1610,7 @@ const ensureAgentState = async (params: {
     const existingConversation = await getConversation(existing.conversationId);
     const requestedProviderIdToUse =
       typeof params.requestedProviderId === 'string' &&
-        params.requestedProviderId.trim()
+      params.requestedProviderId.trim()
         ? params.requestedProviderId.trim()
         : getSavedRequestedProviderId(existingConversation);
     const savedEndpointId =
@@ -2425,9 +2616,11 @@ const persistUnexpectedFlowFailureIfNeeded = async (params: {
     (latestAssistantTurn.status === 'failed' ||
       latestAssistantTurn.status === 'stopped')
   ) {
+    await clearPersistedWaitStateIfPresent(params.conversationId);
     return;
   }
 
+  await clearPersistedWaitStateIfPresent(params.conversationId);
   await persistFlowTurn({
     conversationId: params.conversationId,
     role: 'assistant',
@@ -2452,6 +2645,7 @@ const emitFailedFlowStep = async (params: {
   errorCode?: string;
   command?: TurnCommandMetadata;
 }) => {
+  await clearPersistedWaitStateIfPresent(params.flowConversationId);
   const createdAtIso = new Date().toISOString();
   const providerId = params.providerId ?? 'codex';
   createInflight({
@@ -2547,6 +2741,7 @@ const emitStoppedFlowStep = async (params: {
   source: 'REST' | 'MCP';
   command?: TurnCommandMetadata;
 }) => {
+  await clearPersistedWaitStateIfPresent(params.flowConversationId);
   const createdAtIso = new Date().toISOString();
   const providerId = params.providerId ?? 'codex';
   createInflight({
@@ -2639,7 +2834,7 @@ const emitStoppedFlowStep = async (params: {
   });
 };
 
-type FlowStepOutcome = TurnStatus | 'break' | 'continue';
+type FlowStepOutcome = TurnStatus | 'break' | 'continue' | 'paused';
 
 type LoopFrame = {
   loopStepPath: number[];
@@ -2653,6 +2848,7 @@ const buildFlowResumeState = (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflow?: FlowResumeState['activeSubflow'];
+  wait?: FlowWaitState;
   workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
@@ -2712,6 +2908,42 @@ const buildFlowResumeState = (params: {
           },
         }
       : {}),
+    ...(params.wait
+      ? {
+          wait: {
+            executionId: params.wait.executionId,
+            stepPath: [...params.wait.stepPath],
+            loopStack: params.wait.loopStack.map((frame) => ({
+              loopStepPath: [...frame.loopStepPath],
+              iteration: frame.iteration,
+            })),
+            ...(params.wait.activeSubflow
+              ? {
+                  activeSubflow: {
+                    stepPath: [...params.wait.activeSubflow.stepPath],
+                    flowName: params.wait.activeSubflow.flowName,
+                    conversationId: params.wait.activeSubflow.conversationId,
+                    runToken: params.wait.activeSubflow.runToken,
+                    ...(params.wait.activeSubflow.title
+                      ? { title: params.wait.activeSubflow.title }
+                      : {}),
+                  },
+                }
+              : {}),
+            ...(params.wait.workingFolder
+              ? { workingFolder: params.wait.workingFolder }
+              : {}),
+            resumeAt: params.wait.resumeAt,
+            ...(params.wait.githubReviewContext
+              ? {
+                  githubReviewContext: {
+                    ...params.wait.githubReviewContext,
+                  },
+                }
+              : {}),
+          },
+        }
+      : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
@@ -2735,6 +2967,7 @@ const persistFlowResumeState = async (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflow?: FlowResumeState['activeSubflow'];
+  wait?: FlowWaitState;
   workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
@@ -2744,6 +2977,7 @@ const persistFlowResumeState = async (params: {
     loopStack: params.loopStack,
     pendingLoopControl: params.pendingLoopControl,
     activeSubflow: params.activeSubflow,
+    wait: params.wait,
     workingFolder: params.workingFolder,
   });
   const existingConversation = await getConversation(params.conversationId);
@@ -3079,37 +3313,37 @@ const _evaluateScriptDecision = async (params: {
       signal: NodeJS.Signals | null;
       timedOut: boolean;
     }>((resolve, reject) => {
-        const child = spawn('python3', [fullPath], {
-          cwd: params.workingRepositoryRoot,
-        });
-        let stdout = '';
-        let stderr = '';
-        let timedOut = false;
-        const timeoutHandle = setTimeout(() => {
-          timedOut = true;
-          child.kill('SIGKILL');
-        }, params.timeoutMs);
-        child.stdout.on('data', (data: Buffer) => {
-          stdout += data.toString();
-        });
-        child.stderr.on('data', (data: Buffer) => {
-          stderr += data.toString();
-        });
-        child.on('error', (error) => {
-          clearTimeout(timeoutHandle);
-          reject(error);
-        });
-        child.on('close', (exitCode, signal) => {
-          clearTimeout(timeoutHandle);
-          resolve({
-            stdout,
-            stderr,
-            exitCode,
-            signal,
-            timedOut,
-          });
+      const child = spawn('python3', [fullPath], {
+        cwd: params.workingRepositoryRoot,
+      });
+      let stdout = '';
+      let stderr = '';
+      let timedOut = false;
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGKILL');
+      }, params.timeoutMs);
+      child.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+      child.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+      child.on('error', (error) => {
+        clearTimeout(timeoutHandle);
+        reject(error);
+      });
+      child.on('close', (exitCode, signal) => {
+        clearTimeout(timeoutHandle);
+        resolve({
+          stdout,
+          stderr,
+          exitCode,
+          signal,
+          timedOut,
         });
       });
+    });
 
     if (result.timedOut) {
       return {
@@ -3143,6 +3377,109 @@ const _evaluateScriptDecision = async (params: {
     return { ok: false, reason: `Script execution failed: ${message}` };
   }
 };
+
+const schedulePersistedWaitResume = (params: {
+  conversationId: string;
+  flowName: string;
+  source: 'REST' | 'MCP';
+  wait: FlowWaitState;
+}) => {
+  clearScheduledFlowWait(params.conversationId);
+  const handle = flowWaitResumeDeps.scheduleWake({
+    resumeAt: params.wait.resumeAt,
+    onWake: () => {
+      void (async () => {
+        scheduledFlowWaits.delete(params.conversationId);
+        const conversation = await getConversation(params.conversationId);
+        if (!conversation || conversation.flowName !== params.flowName) return;
+        const persistedState = parseFlowResumeState(
+          (conversation.flags ?? undefined) as
+            | Record<string, unknown>
+            | undefined,
+        );
+        const persistedWait = persistedState?.wait;
+        if (!persistedWait) return;
+        if (persistedWait.executionId !== params.wait.executionId) return;
+        if (
+          getStepPathKey(persistedWait.stepPath) !==
+          getStepPathKey(params.wait.stepPath)
+        ) {
+          return;
+        }
+        const latestAssistantStatus =
+          await latestAssistantStatusForConversation(params.conversationId);
+        if (
+          latestAssistantStatus === 'failed' ||
+          latestAssistantStatus === 'stopped'
+        ) {
+          return;
+        }
+        try {
+          await startFlowRun({
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            resumeStepPath: persistedWait.stepPath,
+            source: params.source,
+          });
+        } catch (error) {
+          if ((error as FlowRunError | undefined)?.code === 'RUN_IN_PROGRESS') {
+            baseLogger.info(
+              {
+                conversationId: params.conversationId,
+                flowName: params.flowName,
+                waitStepPath: persistedWait.stepPath,
+              },
+              'flows.wait.resume.skipped_run_in_progress',
+            );
+            return;
+          }
+          baseLogger.error(
+            {
+              conversationId: params.conversationId,
+              flowName: params.flowName,
+              error,
+            },
+            'flows.wait.resume.failed',
+          );
+        }
+      })();
+    },
+  });
+  scheduledFlowWaits.set(params.conversationId, {
+    executionId: params.wait.executionId,
+    resumeAt: params.wait.resumeAt,
+    stepPath: [...params.wait.stepPath],
+    handle,
+  });
+};
+
+export async function __resumePendingFlowWaitsForTests(
+  conversationIds?: string[],
+) {
+  const candidates: Conversation[] = shouldUseMemoryPersistence()
+    ? [...memoryConversations.values()]
+    : ((await ConversationModel.find({
+        flowName: { $exists: true, $ne: null },
+        'flags.flow.wait.resumeAt': { $exists: true },
+      })
+        .lean()
+        .exec()) as Conversation[]);
+  const candidateIds = conversationIds ? new Set(conversationIds) : null;
+  for (const conversation of candidates) {
+    if (candidateIds && !candidateIds.has(conversation._id)) continue;
+    if (!conversation.flowName) continue;
+    const state = parseFlowResumeState(
+      (conversation.flags ?? undefined) as Record<string, unknown> | undefined,
+    );
+    if (!state?.wait) continue;
+    schedulePersistedWaitResume({
+      conversationId: conversation._id,
+      flowName: conversation.flowName,
+      source: conversation.source,
+      wait: state.wait,
+    });
+  }
+}
 
 const isFlowDecisionScriptPath = (value: string): boolean => {
   const trimmed = value.trim();
@@ -3193,7 +3530,6 @@ const appendFlowDecisionParseLogs = (
     },
   });
 };
-
 
 const findFirstAgentStep = (
   steps: FlowStep[],
@@ -3808,6 +4144,41 @@ async function runFlowUnlocked(params: {
           : {}),
       }
     : undefined;
+  let activeWait = params.resumeState?.wait
+    ? {
+        executionId: params.resumeState.wait.executionId,
+        stepPath: [...params.resumeState.wait.stepPath],
+        loopStack: params.resumeState.wait.loopStack.map((frame) => ({
+          loopStepPath: [...frame.loopStepPath],
+          iteration: frame.iteration,
+        })),
+        ...(params.resumeState.wait.activeSubflow
+          ? {
+              activeSubflow: {
+                stepPath: [...params.resumeState.wait.activeSubflow.stepPath],
+                flowName: params.resumeState.wait.activeSubflow.flowName,
+                conversationId:
+                  params.resumeState.wait.activeSubflow.conversationId,
+                runToken: params.resumeState.wait.activeSubflow.runToken,
+                ...(params.resumeState.wait.activeSubflow.title
+                  ? { title: params.resumeState.wait.activeSubflow.title }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(params.resumeState.wait.workingFolder
+          ? { workingFolder: params.resumeState.wait.workingFolder }
+          : {}),
+        resumeAt: params.resumeState.wait.resumeAt,
+        ...(params.resumeState.wait.githubReviewContext
+          ? {
+              githubReviewContext: {
+                ...params.resumeState.wait.githubReviewContext,
+              },
+            }
+          : {}),
+      }
+    : undefined;
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
@@ -3833,6 +4204,7 @@ async function runFlowUnlocked(params: {
       loopStack,
       pendingLoopControl,
       activeSubflow,
+      wait: activeWait,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
   const clearContinueBoundaryForActiveLoop = () => {
@@ -3847,6 +4219,56 @@ async function runFlowUnlocked(params: {
     pendingLoopControl = null;
     continueBoundaryLoopKey = null;
   };
+
+  if (resumeStepPath && activeWait) {
+    if (activeWait.executionId !== params.executionId) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state executionId no longer matches the resumed flow execution.',
+      );
+    }
+    if (
+      getStepPathKey(activeWait.stepPath) !== getStepPathKey(resumeStepPath)
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state stepPath no longer matches the requested resumeStepPath.',
+      );
+    }
+    if (
+      activeWait.workingFolder &&
+      params.repositoryContext.workingRepositoryPath &&
+      activeWait.workingFolder !==
+        params.repositoryContext.workingRepositoryPath
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state workingFolder no longer matches the resumed flow execution.',
+      );
+    }
+    const savedLoopKey = activeWait.loopStack.map(
+      (frame) => `${getStepPathKey(frame.loopStepPath)}:${frame.iteration}`,
+    );
+    const currentLoopKey = (params.resumeState?.loopStack ?? []).map(
+      (frame) => `${getStepPathKey(frame.loopStepPath)}:${frame.iteration}`,
+    );
+    if (savedLoopKey.join('|') !== currentLoopKey.join('|')) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state loop context no longer matches the resumed flow execution.',
+      );
+    }
+    if (
+      activeWait.githubReviewContext &&
+      Object.keys(activeWait.githubReviewContext).length > 0
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state GitHub review context could not be reconciled during resume.',
+      );
+    }
+    activeWait = undefined;
+  }
 
   const finalizeFlowRuntime = () => {
     if (finalizedFlowRuntime) return;
@@ -3973,37 +4395,37 @@ async function runFlowUnlocked(params: {
       );
     }
 
-  const agentState = runtimeState.get(
-    getAgentKey(params.agentType, params.identifier),
-  );
-  if (agentState?.conversationId) {
-    const persistedConversation = await getConversation(
-      agentState.conversationId,
+    const agentState = runtimeState.get(
+      getAgentKey(params.agentType, params.identifier),
     );
-    if (persistedConversation?.agentName === params.agentType) {
-      const savedEndpointId =
-        typeof persistedConversation.flags?.endpointId === 'string' &&
-        persistedConversation.flags.endpointId.trim().length > 0
-          ? persistedConversation.flags.endpointId.trim()
-          : undefined;
-      if (!agentState.providerId || !agentState.modelId) {
-        agentState.providerId = persistedConversation.provider;
-        agentState.modelId = persistedConversation.model;
-        agentState.requestedProviderId = getSavedRequestedProviderId(
-          persistedConversation,
-        );
-      }
-      if (savedEndpointId) {
-        agentState.endpointId = savedEndpointId;
+    if (agentState?.conversationId) {
+      const persistedConversation = await getConversation(
+        agentState.conversationId,
+      );
+      if (persistedConversation?.agentName === params.agentType) {
+        const savedEndpointId =
+          typeof persistedConversation.flags?.endpointId === 'string' &&
+          persistedConversation.flags.endpointId.trim().length > 0
+            ? persistedConversation.flags.endpointId.trim()
+            : undefined;
+        if (!agentState.providerId || !agentState.modelId) {
+          agentState.providerId = persistedConversation.provider;
+          agentState.modelId = persistedConversation.model;
+          agentState.requestedProviderId = getSavedRequestedProviderId(
+            persistedConversation,
+          );
+        }
+        if (savedEndpointId) {
+          agentState.endpointId = savedEndpointId;
+        }
       }
     }
-  }
-  const providerBootstrapReady =
-    agentState?.providerId !== undefined
-      ? getProviderBootstrapStatus(
-          agentState.providerId as ConversationProvider,
-        ).healthy
-      : true;
+    const providerBootstrapReady =
+      agentState?.providerId !== undefined
+        ? getProviderBootstrapStatus(
+            agentState.providerId as ConversationProvider,
+          ).healthy
+        : true;
 
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
@@ -4619,6 +5041,58 @@ async function runFlowUnlocked(params: {
     }
 
     return runSteps(branch, nextPath, null);
+  };
+
+  const runWaitStep = async (
+    step: FlowWaitStep,
+    nextPath: number[],
+  ): Promise<'paused'> => {
+    const resumeAt = flowWaitResumeDeps.now() + step.seconds * 1000;
+    activeWait = {
+      executionId: params.executionId,
+      stepPath: [...nextPath],
+      loopStack: loopStack.map((frame) => ({
+        loopStepPath: [...frame.loopStepPath],
+        iteration: frame.iteration,
+      })),
+      ...(activeSubflow
+        ? {
+            activeSubflow: {
+              stepPath: [...activeSubflow.stepPath],
+              flowName: activeSubflow.flowName,
+              conversationId: activeSubflow.conversationId,
+              runToken: activeSubflow.runToken,
+              ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
+            },
+          }
+        : {}),
+      ...(params.repositoryContext.workingRepositoryPath
+        ? { workingFolder: params.repositoryContext.workingRepositoryPath }
+        : {}),
+      resumeAt,
+    };
+    lastCompletedStepPath = nextPath;
+    await persistRuntimeResumeState(nextPath);
+    schedulePersistedWaitResume({
+      conversationId: params.conversationId,
+      flowName: params.flowName,
+      source: params.source,
+      wait: activeWait,
+    });
+    append({
+      level: 'info',
+      message: 'flows.wait.persisted',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        stepPath: nextPath,
+        seconds: step.seconds,
+        resumeAt,
+      },
+    });
+    return 'paused';
   };
 
   const requestActiveSubflowStop = (params: {
@@ -5664,6 +6138,18 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'wait') {
+        const outcome = await runWaitStep(step, nextPath);
+        if (outcome === 'paused') {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.paused.wait',
+            conversationId: params.conversationId,
+            detail: `stepPath=${nextPath.join('.')} seconds=${step.seconds}`,
+          });
+          return 'paused';
+        }
+      }
+
       if (step.type === 'startLoop') {
         const outcome = await runStartLoopStep(step, nextPath, null);
         if (outcome !== 'ok') return outcome;
@@ -5781,6 +6267,13 @@ async function runFlowUnlocked(params: {
 
   try {
     const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
+    if (outcome === 'paused') {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.return.paused',
+        conversationId: params.conversationId,
+      });
+      return 'paused';
+    }
     if (outcome !== 'ok') {
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'runFlowUnlocked.return.non_ok',
@@ -5980,9 +6473,8 @@ export async function startFlowRun(
           'AI-backed flow decisions require an agentType.',
         );
       }
-      const validatedAgentType = validateRepositoryBackedAgentType(
-        firstAgentType,
-      );
+      const validatedAgentType =
+        validateRepositoryBackedAgentType(firstAgentType);
       if (!validatedAgentType.ok) {
         throw toFlowRunError(
           'INVALID_REQUEST',
@@ -6065,6 +6557,8 @@ export async function startFlowRun(
           executionId,
         });
       }
+    } else {
+      clearScheduledFlowWait(conversationId);
     }
     // Build runtimeState from the persisted resumeState and backfill requestedProviderId
     // from the parent flow's canonical requested provider first, then fall back to
@@ -6112,6 +6606,7 @@ export async function startFlowRun(
               : {}),
           }
         : undefined,
+      wait: undefined,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
     });
     if (retryOwnershipId && !resumeStepPath) {
@@ -6162,7 +6657,7 @@ export async function startFlowRun(
           defaultRepositoryRoot: repositoryContext.defaultRepositoryRoot,
         })
       ).workingDirectoryOverride;
-      await runFlowUnlocked({
+      const runOutcome = await runFlowUnlocked({
         flowName,
         flow,
         flowPath,
@@ -6183,10 +6678,11 @@ export async function startFlowRun(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      completedSuccessfully = true;
+      completedSuccessfully = runOutcome !== 'paused';
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
         conversationId,
+        detail: `outcome=${runOutcome}`,
       });
     } catch (err) {
       const failureMessage = isFlowRunError(err)

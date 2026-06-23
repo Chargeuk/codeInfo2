@@ -13,6 +13,26 @@ export type FreshRunRetryOwnershipCompletion = {
   result: FlowRunStartResult;
 };
 
+export type FlowWaitState = {
+  executionId: string;
+  stepPath: number[];
+  loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
+  activeSubflow?: {
+    stepPath: number[];
+    flowName: string;
+    conversationId: string;
+    runToken: string;
+    title?: string;
+  };
+  workingFolder?: string;
+  resumeAt: number;
+  githubReviewContext?: {
+    prNumber?: number;
+    storyNumber?: string;
+    branchName?: string;
+  };
+};
+
 export type FlowResumeState = {
   executionId: string;
   stepPath: number[];
@@ -33,5 +53,6 @@ export type FlowResumeState = {
   agentModels?: Record<string, string>;
   agentRequestedProviders?: Record<string, string>;
   agentEndpointIds?: Record<string, string>;
+  wait?: FlowWaitState;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion;
 };

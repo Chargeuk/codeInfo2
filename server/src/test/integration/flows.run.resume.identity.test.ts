@@ -24,7 +24,9 @@ import {
 import { startFlowRun } from '../../flows/service.js';
 import {
   __resetFlowResumeTestDepsForTests,
+  __resetFlowWaitResumeDepsForTests,
   __setFlowResumeTestDepsForTests,
+  __setFlowWaitResumeDepsForTests,
 } from '../../flows/service.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -42,6 +44,7 @@ beforeEach(() => {
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetProviderBootstrapStatusForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 const waitFor = async (
@@ -56,6 +59,11 @@ const waitFor = async (
   }
   throw new Error('Timed out waiting for predicate');
 };
+
+const getAssistantTurnCount = (conversationId: string) =>
+  (memoryTurns.get(conversationId) ?? []).filter(
+    (turn) => turn?.role === 'assistant',
+  ).length;
 
 const writeResumeFlow = async (dir: string) => {
   const flow = {
@@ -105,6 +113,37 @@ const writeDualAgentResumeFlow = async (dir: string) => {
   };
   await fs.writeFile(
     path.join(dir, 'resume-dual-identity.json'),
+    JSON.stringify(flow, null, 2),
+  );
+};
+
+const writeWaitResumeFlow = async (dir: string) => {
+  const flow = {
+    description: 'Wait resume test flow',
+    steps: [
+      {
+        type: 'llm',
+        label: 'Step 1',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 1'] }],
+      },
+      {
+        type: 'wait',
+        label: 'Wait step',
+        seconds: 60,
+      },
+      {
+        type: 'llm',
+        label: 'Step 2',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 2'] }],
+      },
+    ],
+  };
+  await fs.writeFile(
+    path.join(dir, 'wait-resume.json'),
     JSON.stringify(flow, null, 2),
   );
 };
@@ -603,7 +642,10 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
           endpointId,
         );
         assert.equal(conversations.get(childConversationId)?.provider, 'codex');
-        assert.equal(conversations.get(childConversationId)?.model, 'gpt-5.2-codex');
+        assert.equal(
+          conversations.get(childConversationId)?.model,
+          'gpt-5.2-codex',
+        );
       },
     });
   } finally {
@@ -638,7 +680,8 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
     if (prevCompatEndpoints === undefined) {
       delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
     } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = prevCompatEndpoints;
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        prevCompatEndpoints;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.rm(agentsHome, { recursive: true, force: true });
@@ -1040,7 +1083,10 @@ test('Task 15 keeps the saved child endpoint record untouched when degraded code
           endpointId,
         );
         assert.equal(conversations.get(childConversationId)?.provider, 'codex');
-        assert.equal(conversations.get(childConversationId)?.model, 'flow-current-model');
+        assert.equal(
+          conversations.get(childConversationId)?.model,
+          'flow-current-model',
+        );
       },
     });
   } finally {
@@ -1249,7 +1295,9 @@ test('Task 9 rejects stale flow replay before mutating the existing child conver
     );
 
     assert.deepEqual(
-      snapshotFlowChildConversation(memoryConversations.get(childConversationId)),
+      snapshotFlowChildConversation(
+        memoryConversations.get(childConversationId),
+      ),
       beforeChild,
     );
   } finally {
@@ -1865,6 +1913,181 @@ test('POST /flows/:flowName/run rejects invalid resumeStepPath', async () => {
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'invalid_request');
   } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('paused wait resumes the same execution after the authored delay using an explicit wake boundary', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-identity-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-wait-resume-identity';
+  const captured: string[] = [];
+  let wake: (() => void) | null = null;
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    scheduleWake: ({ onWake }) => {
+      wake = onWake;
+      return { cancel: () => {} };
+    },
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName: 'wait-resume',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+    });
+
+    assert.equal(result.conversationId, conversationId);
+    await waitFor(() => captured.length === 1);
+
+    const executionId = getFlowExecutionId(conversationId);
+    const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
+      flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
+    };
+    assert.deepEqual(flags.flow?.wait?.stepPath, [1]);
+    assert.equal(flags.flow?.wait?.resumeAt, 1_700_000_060_000);
+    assert.ok(wake, 'expected wait wake callback to be captured');
+
+    wake?.();
+    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+
+    assert.equal(getFlowExecutionId(conversationId), executionId);
+    assert.equal(
+      (
+        (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: { wait?: unknown };
+        }
+      ).flow?.wait,
+      undefined,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('cancelled wait does not emit a later resume side effect when the persisted wait state is cleared before wake', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-cancel-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-wait-resume-cancel';
+  const captured: string[] = [];
+  let wake: (() => void) | null = null;
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      wake = onWake;
+      return { cancel: () => {} };
+    },
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'wait-resume',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+    });
+
+    await waitFor(() => captured.length === 1);
+    const conversation = memoryConversations.get(conversationId);
+    assert.ok(conversation);
+    memoryConversations.set(conversationId, {
+      ...conversation,
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: {
+          ...(((conversation.flags ?? {}) as { flow?: Record<string, unknown> })
+            .flow ?? {}),
+          wait: undefined,
+        },
+      },
+      updatedAt: new Date(),
+    });
+
+    wake?.();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(captured.length, 1);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

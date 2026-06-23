@@ -4,6 +4,7 @@ import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -12,7 +13,10 @@ import {
 import {
   __getFlowResumeTestDepsForTests,
   __resetFlowResumeTestDepsForTests,
+  __resetFlowWaitResumeDepsForTests,
+  __resumePendingFlowWaitsForTests,
   __setFlowResumeTestDepsForTests,
+  __setFlowWaitResumeDepsForTests,
   startFlowRun,
 } from '../../flows/service.js';
 import {
@@ -33,6 +37,11 @@ const waitFor = async (
   throw new Error('Timed out waiting for predicate');
 };
 
+const getAssistantTurnCount = (conversationId: string) =>
+  (memoryTurns.get(conversationId) ?? []).filter(
+    (turn) => turn?.role === 'assistant',
+  ).length;
+
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
@@ -40,6 +49,7 @@ beforeEach(() => {
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetFlowResumeTestDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 const writeResumeFlow = async (dir: string) => {
@@ -90,6 +100,37 @@ const writeResumeDualAgentFlow = async (dir: string) => {
   };
   await fs.writeFile(
     path.join(dir, 'resume-dual-agent.json'),
+    JSON.stringify(flow, null, 2),
+  );
+};
+
+const writeWaitResumeFlow = async (dir: string) => {
+  const flow = {
+    description: 'Wait resume backfill flow',
+    steps: [
+      {
+        type: 'llm',
+        label: 'Step 1',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 1'] }],
+      },
+      {
+        type: 'wait',
+        label: 'Wait step',
+        seconds: 60,
+      },
+      {
+        type: 'llm',
+        label: 'Step 2',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 2'] }],
+      },
+    ],
+  };
+  await fs.writeFile(
+    path.join(dir, 'wait-resume.json'),
     JSON.stringify(flow, null, 2),
   );
 };
@@ -688,6 +729,110 @@ test('startFlowRun leaves a fresher child execution id intact when it appears af
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startup recovery reloads persisted wait state and resumes the same execution after an explicit backfill wake', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-backfill-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-wait-resume-backfill';
+  const captured: string[] = [];
+  let wake: (() => void) | null = null;
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    scheduleWake: ({ onWake }) => {
+      wake = onWake;
+      return { cancel: () => {} };
+    },
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'wait-resume',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+    });
+
+    await waitFor(() => captured.length === 1);
+    await waitFor(() => {
+      const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
+        flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
+      };
+      return (
+        Array.isArray(flags.flow?.wait?.stepPath) &&
+        flags.flow?.wait?.stepPath?.length === 1 &&
+        flags.flow?.wait?.stepPath?.[0] === 1 &&
+        typeof flags.flow?.wait?.resumeAt === 'number'
+      );
+    });
+    await waitFor(() => getActiveRunOwnership(conversationId) === null);
+    const executionId = getFlowExecutionId(conversationId);
+    __resetFlowWaitResumeDepsForTests();
+
+    __setFlowWaitResumeDepsForTests({
+      scheduleWake: ({ onWake }) => {
+        wake = onWake;
+        return { cancel: () => {} };
+      },
+    });
+
+    await __resumePendingFlowWaitsForTests([conversationId]);
+    assert.ok(wake, 'expected startup backfill to register a wake callback');
+
+    wake?.();
+    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    assert.equal(
+      (
+        (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: { wait?: unknown };
+        }
+      ).flow?.wait,
+      undefined,
+    );
+    assert.equal(getFlowExecutionId(conversationId), executionId);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

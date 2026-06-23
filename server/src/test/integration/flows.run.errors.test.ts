@@ -31,6 +31,8 @@ import {
 import { startFlowRun } from '../../flows/service.js';
 import {
   __resetFlowServiceDepsForTests,
+  __resetFlowWaitResumeDepsForTests,
+  __setFlowWaitResumeDepsForTests,
   __setFlowServiceDepsForTests,
 } from '../../flows/service.js';
 import type {
@@ -61,11 +63,25 @@ beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
 
+const waitFor = async (
+  predicate: () => boolean,
+  timeoutMs = 5000,
+  intervalMs = 50,
+) => {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error('Timed out waiting for predicate');
+};
+
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   memoryConversations.clear();
   memoryTurns.clear();
   __resetAgentServiceDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 class MinimalChat extends ChatInterface {
@@ -408,6 +424,17 @@ const makeLlmStep = () => ({
   identifier: 'planner',
   messages: [{ role: 'user' as const, content: ['after'] }],
 });
+
+const getLatestAssistantTurn = (conversationId: string) => {
+  const turns = memoryTurns.get(conversationId) ?? [];
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const turn = turns[index];
+    if (turn?.role === 'assistant') {
+      return turn;
+    }
+  }
+  return null;
+};
 
 const waitForFlowFinal = async (params: {
   ws: WebSocket;
@@ -2248,10 +2275,7 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
 
     assert.deepEqual(replayResult, firstResult);
     await delay(150);
-    assert.equal(
-      (memoryTurns.get(firstResult.conversationId) ?? []).length,
-      2,
-    );
+    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
   });
 });
 
@@ -2335,10 +2359,7 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
     await waitForConversationUnlocked(secondResult.conversationId);
 
     assert.notEqual(secondResult.conversationId, firstResult.conversationId);
-    assert.equal(
-      (memoryTurns.get(firstResult.conversationId) ?? []).length,
-      2,
-    );
+    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
     assert.equal(
       (memoryTurns.get(secondResult.conversationId) ?? []).length,
       2,
@@ -2691,223 +2712,374 @@ test('multiple dedicated reingest steps targeting the same sourceId keep distinc
   });
 });
 
-
 test('shared decision seam fails hard for missing script file', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await writeFlowFile({
-      tmpDir,
-      flowName: 'missing-script-flow',
-      steps: [
-        {
-          type: 'break',
-          agentType: 'coding_agent',
-          identifier: 'main',
-          question: 'flow-control/missing-script.py',
-          breakOn: 'yes',
-        },
-      ],
-    });
-
-    const result = await supertest(baseUrl)
-      .post('/flows/missing-script-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'missing-script-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/missing-script.py',
+            breakOn: 'yes',
+          },
+        ],
       });
-    assert.equal(result.status, 202);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    const final = await waitForFlowFinal({
-      ws,
-      conversationId,
-      status: 'failed',
-    });
-    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-    assert.match(final.error?.message ?? '', /Script file not found/);
-  }, { registerTmpDirAsRepo: true });
+      const result = await supertest(baseUrl)
+        .post('/flows/missing-script-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script file not found/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });
 
 test('shared decision seam fails hard for malformed JSON output', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await writeFlowFile({
-      tmpDir,
-      flowName: 'malformed-json-flow',
-      steps: [
-        {
-          type: 'break',
-          agentType: 'coding_agent',
-          identifier: 'main',
-          question: 'flow-control/decision-malformed-json.py',
-          breakOn: 'yes',
-        },
-      ],
-    });
-
-    const result = await supertest(baseUrl)
-      .post('/flows/malformed-json-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'malformed-json-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-malformed-json.py',
+            breakOn: 'yes',
+          },
+        ],
       });
-    assert.equal(result.status, 202);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    const final = await waitForFlowFinal({
-      ws,
-      conversationId,
-      status: 'failed',
-    });
-    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-    assert.match(
-      final.error?.message ?? '',
-      /Script output failed decision parsing/,
-    );
-  }, { registerTmpDirAsRepo: true });
+      const result = await supertest(baseUrl)
+        .post('/flows/malformed-json-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(
+        final.error?.message ?? '',
+        /Script output failed decision parsing/,
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });
 
 test('shared decision seam fails hard for non-zero exit code', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await writeFlowFile({
-      tmpDir,
-      flowName: 'nonzero-exit-flow',
-      steps: [
-        {
-          type: 'break',
-          agentType: 'coding_agent',
-          identifier: 'main',
-          question: 'flow-control/decision-nonzero-exit.py',
-          breakOn: 'yes',
-        },
-      ],
-    });
-
-    const result = await supertest(baseUrl)
-      .post('/flows/nonzero-exit-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'nonzero-exit-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-nonzero-exit.py',
+            breakOn: 'yes',
+          },
+        ],
       });
-    assert.equal(result.status, 202);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    const final = await waitForFlowFinal({
-      ws,
-      conversationId,
-      status: 'failed',
-    });
-    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-    assert.match(final.error?.message ?? '', /Script exited with code 1/);
-  }, { registerTmpDirAsRepo: true });
+      const result = await supertest(baseUrl)
+        .post('/flows/nonzero-exit-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script exited with code 1/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });
 
 test('shared decision seam fails hard for invalid answer values', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await writeFlowFile({
-      tmpDir,
-      flowName: 'invalid-answer-flow',
-      steps: [
-        {
-          type: 'break',
-          agentType: 'coding_agent',
-          identifier: 'main',
-          question: 'flow-control/decision-invalid-answer.py',
-          breakOn: 'yes',
-        },
-      ],
-    });
-
-    const result = await supertest(baseUrl)
-      .post('/flows/invalid-answer-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'invalid-answer-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-invalid-answer.py',
+            breakOn: 'yes',
+          },
+        ],
       });
-    assert.equal(result.status, 202);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    const final = await waitForFlowFinal({
-      ws,
-      conversationId,
-      status: 'failed',
-    });
-    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-    assert.match(final.error?.message ?? '', /answer "yes" or "no"/);
-  }, { registerTmpDirAsRepo: true });
+      const result = await supertest(baseUrl)
+        .post('/flows/invalid-answer-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /answer "yes" or "no"/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });
 
 test('shared decision seam fails hard for extra-key script output', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await writeFlowFile({
-      tmpDir,
-      flowName: 'extra-keys-flow',
-      steps: [
-        {
-          type: 'break',
-          agentType: 'coding_agent',
-          identifier: 'main',
-          question: 'flow-control/decision-extra-keys.py',
-          breakOn: 'yes',
-        },
-      ],
-    });
-
-    const result = await supertest(baseUrl)
-      .post('/flows/extra-keys-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'extra-keys-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-extra-keys.py',
+            breakOn: 'yes',
+          },
+        ],
       });
-    assert.equal(result.status, 202);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    const final = await waitForFlowFinal({
-      ws,
-      conversationId,
-      status: 'failed',
-    });
-    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-    assert.match(final.error?.message ?? '', /exactly/);
-  }, { registerTmpDirAsRepo: true });
+      const result = await supertest(baseUrl)
+        .post('/flows/extra-keys-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /exactly/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });
 
 test('shared decision seam fails hard for timeout script output', async () => {
-  await withFlowHarness(async ({ tmpDir, ws, baseUrl }) => {
-    await writeFlowFile({
-      tmpDir,
-      flowName: 'timeout-flow',
-      steps: [
-        {
-          type: 'break',
-          agentType: 'coding_agent',
-          identifier: 'main',
-          question: 'flow-control/decision-timeout.py',
-          breakOn: 'yes',
-        },
-      ],
-    });
-
-    const result = await supertest(baseUrl)
-      .post('/flows/timeout-flow/run')
-      .send({
-        source: 'REST',
-        working_folder: tmpDir,
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'timeout-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-timeout.py',
+            breakOn: 'yes',
+          },
+        ],
       });
-    assert.equal(result.status, 202);
 
-    const conversationId = result.body.conversationId;
-    subscribeConversation(ws, conversationId);
-    const final = await waitForFlowFinal({
-      ws,
-      conversationId,
-      status: 'failed',
-      timeoutMs: 5000,
-    });
-    assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-    assert.match(final.error?.message ?? '', /timed out/);
-  }, { registerTmpDirAsRepo: true });
+      const result = await supertest(baseUrl)
+        .post('/flows/timeout-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+        timeoutMs: 5000,
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /timed out/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('wait resume fails clearly when persisted wait execution identity no longer matches the resumed flow execution', async () => {
+  await withFlowHarness(
+    async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'wait-contradiction',
+        steps: [makeLlmStep(), { type: 'wait', seconds: 60 }, makeLlmStep()],
+      });
+
+      const conversationId = 'wait-contradiction-conversation';
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.2-codex',
+        title: 'Flow: wait-contradiction',
+        flowName: 'wait-contradiction',
+        source: 'REST',
+        flags: {
+          flow: {
+            executionId: 'resume-execution-current',
+            stepPath: [1],
+            loopStack: [],
+            wait: {
+              executionId: 'resume-execution-stale',
+              stepPath: [1],
+              loopStack: [],
+              resumeAt: Date.now() + 60_000,
+            },
+            agentConversations: {},
+            agentThreads: {},
+          },
+        },
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await startFlowRun({
+        flowName: 'wait-contradiction',
+        conversationId,
+        resumeStepPath: [1],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+
+      assert.equal(result.conversationId, conversationId);
+      await waitFor(
+        () => getLatestAssistantTurn(conversationId)?.status === 'failed',
+      );
+      assert.match(
+        getLatestAssistantTurn(conversationId)?.content ?? '',
+        /Persisted wait state executionId no longer matches/,
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('wait wake does not resume after the flow has already reached a terminal status', async () => {
+  await withFlowHarness(
+    async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'wait-terminal-guard',
+        steps: [makeLlmStep(), { type: 'wait', seconds: 60 }, makeLlmStep()],
+      });
+
+      const conversationId = 'wait-terminal-guard-conversation';
+      const captured: string[] = [];
+      let wake: (() => void) | null = null;
+
+      class TrackingChat extends ChatInterface {
+        async execute(
+          message: string,
+          _flags: Record<string, unknown>,
+          childConversationId: string,
+          _model: string,
+        ) {
+          void _flags;
+          void _model;
+          captured.push(message);
+          this.emit('thread', {
+            type: 'thread',
+            threadId: childConversationId,
+          });
+          this.emit('final', { type: 'final', content: 'ok' });
+          this.emit('complete', {
+            type: 'complete',
+            threadId: childConversationId,
+          });
+        }
+      }
+
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: ({ onWake }) => {
+          wake = onWake;
+          return { cancel: () => {} };
+        },
+      });
+
+      await startFlowRun({
+        flowName: 'wait-terminal-guard',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new TrackingChat(),
+      });
+
+      await waitFor(() => captured.length === 1);
+      const conversation = memoryConversations.get(conversationId);
+      assert.ok(conversation);
+      memoryTurns.set(conversationId, [
+        ...(memoryTurns.get(conversationId) ?? []),
+        {
+          conversationId,
+          role: 'assistant',
+          content: 'terminal',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          source: 'REST',
+          toolCalls: null,
+          status: 'failed',
+          createdAt: new Date(),
+        } as Turn,
+      ]);
+
+      wake?.();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(captured.length, 1);
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });

@@ -1,5 +1,5 @@
 @mongo
-Feature: Flow execution retry ownership
+Feature: Flow execution retry ownership and wait resume
 
   Scenario: Pre-launch persistence failure clears retry ownership before accepted replay reuse
     Given a flow execution test server
@@ -13,3 +13,12 @@ Feature: Flow execution retry ownership
     And I start flow "llm-basic" with conversation id "retry-attempt-3" and retry ownership "retry-1"
     Then the flow execution response status code is 202
     And the latest started conversation matches "acceptedRun"
+
+  Scenario: Persisted wait resumes from an explicit wake boundary
+    Given a flow execution test server
+    And the wait resume flow execution fixture is available
+    When I start flow "wait-resume" with conversation id "wait-resume-1"
+    Then the flow execution response status code is 202
+    And the active flow conversation stores a persisted wait at step path "1"
+    When I trigger the captured wait wake
+    Then the active flow conversation clears its persisted wait

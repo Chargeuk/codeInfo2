@@ -16,7 +16,11 @@ import {
   memoryConversations,
   shouldUseMemoryPersistence,
 } from '../../chat/memoryPersistence.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __resetFlowWaitResumeDepsForTests,
+  __setFlowWaitResumeDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import { TurnModel } from '../../mongo/turn.js';
@@ -63,6 +67,7 @@ let originalConversationFindByIdAndUpdate:
   | null = null;
 let originalMemoryConversationsSet: typeof memoryConversations.set | null =
   null;
+let capturedWaitWake: (() => void) | null = null;
 
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
@@ -206,6 +211,8 @@ After({ tags: '@mongo' }, async () => {
     memoryConversations.set = originalMemoryConversationsSet;
     originalMemoryConversationsSet = null;
   }
+  capturedWaitWake = null;
+  __resetFlowWaitResumeDepsForTests();
 });
 
 Given('a flow execution test server', () => {
@@ -245,6 +252,48 @@ Given(
     );
   },
 );
+
+Given('the wait resume flow execution fixture is available', async () => {
+  assert(tempDir, 'expected temporary flows directory');
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      capturedWaitWake = onWake;
+      return { cancel: () => {} };
+    },
+  });
+  await fs.writeFile(
+    path.join(tempDir, 'wait-resume.json'),
+    JSON.stringify(
+      {
+        description: 'Story 60 wait resume fixture',
+        steps: [
+          {
+            type: 'llm',
+            label: 'Before wait',
+            agentType: 'coding_agent',
+            identifier: 'resume-test',
+            messages: [{ role: 'user', content: ['Step 1'] }],
+          },
+          {
+            type: 'wait',
+            label: 'Pause here',
+            seconds: 60,
+          },
+          {
+            type: 'llm',
+            label: 'After wait',
+            agentType: 'coding_agent',
+            identifier: 'resume-test',
+            messages: [{ role: 'user', content: ['Step 2'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+});
 
 Given('the flow state write fails once', () => {
   // Keep a DB-level override when running against Mongo, but fall back to
@@ -490,3 +539,62 @@ Then(
     );
   },
 );
+
+Then(
+  'the active flow conversation stores a persisted wait at step path {string}',
+  async (expectedPath: string) => {
+    assert(lastResponse, 'expected flow execution response');
+    const conversationId = String(lastResponse.body.conversationId ?? '');
+    assert(conversationId, 'expected started conversation id');
+    const expectedStepPath = expectedPath.split('.').map(Number);
+
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const conversation = await waitForConversation(conversationId);
+      const waitState = (
+        (conversation.flags ?? {}) as {
+          flow?: { wait?: { stepPath?: number[] } };
+        }
+      ).flow?.wait;
+      if (
+        Array.isArray(waitState?.stepPath) &&
+        waitState.stepPath.length === expectedStepPath.length &&
+        waitState.stepPath.every(
+          (value, index) => value === expectedStepPath[index],
+        )
+      ) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    assert.fail(
+      `Timed out waiting for persisted wait step path ${expectedPath} on conversation ${conversationId}`,
+    );
+  },
+);
+
+When('I trigger the captured wait wake', async () => {
+  assert(capturedWaitWake, 'expected a captured wait wake callback');
+  capturedWaitWake();
+});
+
+Then('the active flow conversation clears its persisted wait', async () => {
+  assert(lastResponse, 'expected flow execution response');
+  const conversationId = String(lastResponse.body.conversationId ?? '');
+  assert(conversationId, 'expected started conversation id');
+
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const conversation = await waitForConversation(conversationId);
+    const waitState = (
+      (conversation.flags ?? {}) as {
+        flow?: { wait?: unknown };
+      }
+    ).flow?.wait;
+    if (waitState === undefined) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  assert.fail('Timed out waiting for persisted wait state to clear');
+});

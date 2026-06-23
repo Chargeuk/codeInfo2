@@ -278,11 +278,10 @@ test('a stale saved path yields to a newer saved working folder before a flow re
           params.expectedWorkingFolder === staleWorkingFolder
         ) {
           updateHookUsed = true;
-          updateMemoryConversationWorkingFolder({
+          return updateMemoryConversationWorkingFolder({
             conversationId: 'flow-stale-restore',
             workingFolder: refreshedWorkingFolder,
           });
-          return null;
         }
 
         return (

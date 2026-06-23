@@ -209,8 +209,7 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
     externalServer = await startExternalOpenAiCompatServer({
       models: ['endpoint-copilot-model'],
     });
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `${externalServer.baseUrl}/v1|completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|completions`;
 
     server = await startCopilotChatServer({
       scenario: {
@@ -225,13 +224,15 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
     });
 
     const conversationId = 'copilot-endpoint-only';
-    const response = await request(server.httpServer).post('/chat').send({
-      provider: 'copilot',
-      model: 'endpoint-copilot-model',
-      endpointId: `${externalServer.baseUrl}/v1`,
-      conversationId,
-      message: 'Use the external endpoint without Copilot auth',
-    });
+    const response = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'endpoint-copilot-model',
+        endpointId: `${externalServer.baseUrl}/v1`,
+        conversationId,
+        message: 'Use the external endpoint without Copilot auth',
+      });
 
     assert.equal(response.status, 202);
     assert.equal(response.body.provider, 'copilot');
@@ -258,9 +259,35 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
 });
 
 test('explicit Copilot chat requests tolerate endpoint discovery failures during inference', async () => {
+  const originalCompatEndpoints =
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  let externalServer:
+    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
+    | undefined;
+  let copilotHome: string | undefined;
   let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
 
   try {
+    externalServer = await startExternalOpenAiCompatServer({
+      models: ['endpoint-copilot-model'],
+    });
+    copilotHome = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-chat-discovery-tolerated-'),
+    );
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|completions`;
+    process.env.CODEINFO_COPILOT_HOME = copilotHome;
+    await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+    await fs.writeFile(
+      path.join(copilotHome, 'chat', 'config.toml'),
+      [
+        'model = "copilot-gpt-5"',
+        `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|completions"`,
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
     server = await startCopilotChatServer({
       scenario: {
         name: 'copilot-chat-discovery-failure-tolerated',
@@ -291,6 +318,21 @@ test('explicit Copilot chat requests tolerate endpoint discovery failures during
     );
   } finally {
     await server?.stop();
+    await externalServer?.stop();
+    if (originalCompatEndpoints === undefined) {
+      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+    } else {
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
+        originalCompatEndpoints;
+    }
+    if (originalCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = originalCopilotHome;
+    }
+    if (copilotHome) {
+      await fs.rm(copilotHome, { recursive: true, force: true });
+    }
   }
 });
 
@@ -311,8 +353,7 @@ test('explicit Copilot chat requests honor a pinned external endpoint when the r
     copilotHome = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-chat-pinned-endpoint-'),
     );
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `${externalServer.baseUrl}/v1|completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|completions`;
     process.env.CODEINFO_COPILOT_HOME = copilotHome;
     await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
     await fs.writeFile(
@@ -389,8 +430,7 @@ test('explicit Copilot chat requests infer the external endpoint from the select
     externalServer = await startExternalOpenAiCompatServer({
       models: ['endpoint-copilot-model'],
     });
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `${externalServer.baseUrl}/v1|completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|completions`;
 
     server = await startCopilotChatServer({
       scenario: {
@@ -448,8 +488,7 @@ test('explicit Copilot chat requests normalize inferred external endpoint ids be
     externalServer = await startExternalOpenAiCompatServer({
       models: ['endpoint-copilot-model'],
     });
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `  ${externalServer.baseUrl}/v1  |completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `  ${externalServer.baseUrl}/v1  |completions`;
 
     server = await startCopilotChatServer({
       scenario: {
@@ -496,8 +535,7 @@ test('explicit Copilot chat requests fail closed when connectivity is unavailabl
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|completions`;
 
   const server = await startCopilotChatServer({
     scenario: {
@@ -507,13 +545,15 @@ test('explicit Copilot chat requests fail closed when connectivity is unavailabl
   });
 
   try {
-    const response = await request(server.httpServer).post('/chat').send({
-      provider: 'copilot',
-      model: 'endpoint-copilot-model',
-      endpointId: `${externalServer.baseUrl}/v1`,
-      conversationId: 'copilot-explicit-endpoint-connectivity-unavailable',
-      message: 'Do not use the endpoint when Copilot runtime is offline',
-    });
+    const response = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'endpoint-copilot-model',
+        endpointId: `${externalServer.baseUrl}/v1`,
+        conversationId: 'copilot-explicit-endpoint-connectivity-unavailable',
+        message: 'Do not use the endpoint when Copilot runtime is offline',
+      });
 
     assert.equal(response.status, 503);
     assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
@@ -735,8 +775,7 @@ test('endpoint-unavailable Copilot chat falls back to the same provider native p
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses,completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses,completions`;
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-endpoint-native-fallback',
@@ -746,13 +785,15 @@ test('endpoint-unavailable Copilot chat falls back to the same provider native p
 
   try {
     const conversationId = 'copilot-endpoint-native-fallback';
-    const response = await request(server.httpServer).post('/chat').send({
-      provider: 'copilot',
-      endpointId: `${externalServer.baseUrl}/v1`,
-      model: 'missing-copilot-model',
-      conversationId,
-      message: 'Use native Copilot before any cross-provider fallback',
-    });
+    const response = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        endpointId: `${externalServer.baseUrl}/v1`,
+        model: 'missing-copilot-model',
+        conversationId,
+        message: 'Use native Copilot before any cross-provider fallback',
+      });
 
     assert.equal(response.status, 202);
     assert.equal(response.body.provider, 'copilot');
@@ -783,8 +824,7 @@ test('endpoint-aware Copilot chat repairs to the first selectable model on the s
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses,completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses,completions`;
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-endpoint-repair',
@@ -794,13 +834,15 @@ test('endpoint-aware Copilot chat repairs to the first selectable model on the s
 
   try {
     const conversationId = 'copilot-endpoint-repair';
-    const response = await request(server.httpServer).post('/chat').send({
-      provider: 'copilot',
-      endpointId: `${externalServer.baseUrl}/v1`,
-      model: 'missing-copilot-model',
-      conversationId,
-      message: 'Repair to the first selectable model on the endpoint',
-    });
+    const response = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        endpointId: `${externalServer.baseUrl}/v1`,
+        model: 'missing-copilot-model',
+        conversationId,
+        message: 'Repair to the first selectable model on the endpoint',
+      });
 
     assert.equal(response.status, 202);
     assert.equal(response.body.provider, 'copilot');

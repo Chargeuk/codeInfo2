@@ -21,7 +21,6 @@ import {
   memoryTurns,
   recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
-import { resolveProviderRuntimePreferredModel } from '../../config/chatDefaults.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
@@ -2083,17 +2082,12 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
   resetStore();
   const advertisedHostPath =
     '/home/d_a_s/code/story55-manual-proof/queued-repo';
-  const copilotRuntimePreferredModel =
-    resolveProviderRuntimePreferredModel({
-      provider: 'copilot',
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
-    }).model ?? 'copilot-gpt-5';
   const cases = [
     {
       conversationId: 'mcp-ws-saved-copilot-follow-up',
       provider: 'copilot' as const,
       model: 'copilot-gpt-5',
-      expectedExecutionModel: copilotRuntimePreferredModel,
+      expectedExecutionModel: 'copilot-gpt-5',
       finalContent: 'Saved Copilot follow-up answer',
       deps: {
         copilotReadinessResolver: async () => ({

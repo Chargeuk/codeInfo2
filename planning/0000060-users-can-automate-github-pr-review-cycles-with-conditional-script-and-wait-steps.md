@@ -217,17 +217,20 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
    - Where the answer came from: User direction, plus Story 60's existing repository-local token model and the harness-vs-target repository contract in `AGENTS.md` and `codeinfo_markdown/repository_information.md`, with supporting Node.js documentation showing env files are loaded only when the application explicitly chooses to read them.
    - Why it is the best answer: It keeps GitHub review as an explicit per-repository opt-in and avoids silently pulling credentials from broader environment files.
 10. Where skip notes belong
-   - The question being addressed: When GitHub review is skipped or PR creation fails, should the note go in the plan, the PR summary, or both?
-   - Why the question matters: The story says to record a note, but the canonical immediate location needs to be clear so the implementation writes one trustworthy trail instead of scattering status across multiple outputs.
-   - What the answer is: Put a concise note in the plan immediately, and let the later PR summary reflect it when a PR summary is generated.
-   - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/preserve_external_review_adjudication_trail.md`, `codeinfo_markdown/create_pr_summary.md`, and `codeinfo_markdown/task_up/01-shared-contract.md`.
-   - Why it is the best answer: The plan is the active source of truth during implementation, while the PR summary is a derived closeout artifact that may not exist yet when the skip or failure happens.
+
+- The question being addressed: When GitHub review is skipped or PR creation fails, should the note go in the plan, the PR summary, or both?
+- Why the question matters: The story says to record a note, but the canonical immediate location needs to be clear so the implementation writes one trustworthy trail instead of scattering status across multiple outputs.
+- What the answer is: Put a concise note in the plan immediately, and let the later PR summary reflect it when a PR summary is generated.
+- Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/preserve_external_review_adjudication_trail.md`, `codeinfo_markdown/create_pr_summary.md`, and `codeinfo_markdown/task_up/01-shared-contract.md`.
+- Why it is the best answer: The plan is the active source of truth during implementation, while the PR summary is a derived closeout artifact that may not exist yet when the skip or failure happens.
+
 11. GitHub review scratch-file contract
-   - The question being addressed: Should GitHub review scratch live in `codeInfoTmp/reviews/` as JSON, or somewhere else?
-   - Why the question matters: The story already requires restart-safe scratch state, but the exact file contract affects how later steps find and reuse the review input.
-   - What the answer is: Store GitHub review scratch as JSON under `codeInfoTmp/reviews/` in a separate GitHub-review handoff file.
-   - Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/write_review_no_findings_closeout.md`, `codeinfo_markdown/review_disposition.md`, `scripts/flow_state_utils.py`, and the broader `codeInfoTmp/reviews/<story>-current-review.json` handoff pattern already used by review flows.
-   - Why it is the best answer: It matches the repository's existing transient review-artifact patterns, keeps the GitHub-review state clearly non-durable, and avoids mixing it with the existing external-review input file.
+
+- The question being addressed: Should GitHub review scratch live in `codeInfoTmp/reviews/` as JSON, or somewhere else?
+- Why the question matters: The story already requires restart-safe scratch state, but the exact file contract affects how later steps find and reuse the review input.
+- What the answer is: Store GitHub review scratch as JSON under `codeInfoTmp/reviews/` in a separate GitHub-review handoff file.
+- Where the answer came from: User direction, plus local repo precedent in `codeinfo_markdown/write_review_no_findings_closeout.md`, `codeinfo_markdown/review_disposition.md`, `scripts/flow_state_utils.py`, and the broader `codeInfoTmp/reviews/<story>-current-review.json` handoff pattern already used by review flows.
+- Why it is the best answer: It matches the repository's existing transient review-artifact patterns, keeps the GitHub-review state clearly non-durable, and avoids mixing it with the existing external-review input file.
 
 ## Feasibility Proof Pass
 
@@ -430,7 +433,7 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -471,8 +474,8 @@ Add the new flow-only step contracts that Story 60 needs, and make `if`, `break`
 #### Testing
 
 1. [x] Run `npm run build:summary:server` because this task changes server flow schema and runtime code. Use the wrapper log only if the summary ends with `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit` because this task changes flow schema parsing and shared runtime decision execution.
-3. [ ] Run `npm run test:summary:server:cucumber` because authored flow-control behavior changed and the repository's flow cucumber coverage must still pass.
+2. [x] Run `npm run test:summary:server:unit` because this task changes flow schema parsing and shared runtime decision execution.
+3. [x] Run `npm run test:summary:server:cucumber` because authored flow-control behavior changed and the repository's flow cucumber coverage must still pass.
 4. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 5. [x] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
@@ -482,7 +485,7 @@ Add the new flow-only step contracts that Story 60 needs, and make `if`, `break`
 - 2026-06-23: Repaired the shared decision seam in `server/src/flows/service.ts` so `if`, `break`, and `continue` now share the same AI-or-script launcher, reuse the strict yes-or-no parser, and fail hard on missing files, bad JSON, extra keys, invalid answers, non-zero exits, and timeouts. Updated the loop and error integration harnesses to register their temp working folders as known repos, copied the checked-in `flow-control` fixtures into the error harness temp repo, and corrected the new `/flows/:flowName/run` assertions to the route's `202` contract. Targeted proof passed with `TS_NODE_TRANSPILE_ONLY=1 NODE_OPTIONS="--import ./scripts/register-ts-node-esm-loader.mjs --disable-warning=DEP0180" node --test --test-concurrency=1 src/test/unit/flows.break-parser.test.ts src/test/unit/flows-schema.test.ts`, `... src/test/integration/flows.run.loop.test.ts --test-name-pattern "shared decision seam"`, and `... src/test/integration/flows.run.errors.test.ts --test-name-pattern "shared decision seam"`; the wrapper-owned Testing 1-3 rows remain open for the later full proof pass.
 - **RESOLVED ISSUE** Audit normalization reopened Subtasks 5, 6, 14, and 15 because the shared script-decision seam was only partially wired. The deeper repair completed the runtime seam, restored honest happy-path and error-path integration coverage, and cleared the live blocker without changing task ownership or plan shape.
 - Audit 2026-06-23: Marked Testing 1 complete from `logs/test-summaries/build-server-latest.log`, which was refreshed at 15:46 UTC and shows a clean `npm run build --workspace server` after the Story 60 Task 1 repairs landed.
-- **BLOCKER** Audit 2026-06-23: Testing items 2 and 3 remain open after audit normalization. Evidence checked: `test-results/server-unit-tests-2026-06-23T15-46-23-994Z.log` still contains failing tests 121 in `server/src/test/integration/chat-copilot-fallback.test.ts`, 461 in `server/src/test/integration/flows.run.working-folder.test.ts`, and 515 in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`; `test-results/server-cucumber-tests-2026-06-23T14-58-54-932Z.log` ends with `129 scenarios (1 failed, 128 passed)` because `src/test/features/chat_models.feature` still fails its provider metadata assertion. Implementation cannot continue honestly without repair, narrower ownership, or planner intervention because the remaining automated proof rows for this task are not fully passing.
+- **RESOLVED ISSUE** Audit 2026-06-23: cleared the remaining wrapper-owned proof rows after refreshing the failing automation with narrower repairs. `npm run test:summary:server:unit` now passes cleanly via `test-results/server-unit-tests-2026-06-23T17-49-49-980Z.log` after making the Copilot discovery fallback test self-contained, aligning the saved-conversation MCP websocket expectation with the saved execution identity contract, and returning the refreshed conversation from the stale-working-folder test hook. `npm run test:summary:server:cucumber` now passes cleanly via `test-results/server-cucumber-tests-2026-06-23T18-39-49-447Z.log` after updating `common/src/fixtures/mockModels.ts` to include the provider-info `endpointOnly: false` field now emitted by chat models responses.
 
 ### Task 2. Add Persisted Wait Lifecycle And Resume Reconciliation
 

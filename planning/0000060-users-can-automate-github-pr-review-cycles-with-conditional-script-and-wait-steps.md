@@ -492,7 +492,7 @@ Add the new flow-only step contracts that Story 60 needs, and make `if`, `break`
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

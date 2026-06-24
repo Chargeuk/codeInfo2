@@ -22,6 +22,10 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+const checkedInRepoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
 
 const buildRepoEntry = (params: {
   id: string;
@@ -1036,7 +1040,7 @@ describe('GET /flows', () => {
     await fs.mkdir(path.join(ingestedRoot, 'flows'), { recursive: true });
     await fs.copyFile(
       path.join(
-        process.cwd(),
+        checkedInRepoRoot,
         'flows',
         'implement_next_plan_github_review.json',
       ),

@@ -693,8 +693,8 @@ Wire the new primitives into one copied opt-in implementation flow that can run 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` because this task changes flow composition and server runtime orchestration.
-2. [ ] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
+1. [x] Run `npm run build:summary:server` because this task changes flow composition and server runtime orchestration.
+2. [x] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
 3. [x] Run `npm run test:summary:server:cucumber` because this task changes authored flow behavior and loop routing through the repository's flow execution surface.
 4. [x] Run `npm run test:summary:e2e` because this task changes a browser-visible flow execution path and must keep the supported automated end-to-end surface honest. This wrapper owns its own automated setup and teardown; Task 5 owns the separate normal main-stack compose smoke for the human Docker path.
 5. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
@@ -745,6 +745,8 @@ Use the supported main stack at `http://localhost:5001/flows`. With `review_agen
 - Subtask 28: ran targeted ESLint on `server/src/flows/discovery.ts`, `server/src/test/integration/flows.list.test.ts`, and `client/src/test/flowsPage.runGuard.test.tsx`; the reopened discovery follow-up stayed lint-clean without further code changes.
 - Subtask 29: ran targeted Prettier checks on the reopened discovery and proof files, used `prettier --write` on the two drifted test files, and re-ran `--check` to confirm the follow-up surface is formatter-clean.
 - Audit 2026-06-24: marked Testing 5 and 6 complete from the immediately preceding discovery follow-up pass because Subtasks 28 and 29 already recorded honest task-surface lint and format reruns. `npm run build:summary:server` and `npm run test:summary:server:unit` remain open for the later wrapper-backed proof rerun after the reopened nested-agent discovery fix.
+- 2026-06-24: Reopened `npm run build:summary:server` passed cleanly after the nested-agent discovery follow-up landed, so the server compile surface remained intact for Task 4 before the final unit rerun.
+- 2026-06-24: Reopened `npm run test:summary:server:unit` failed first on one more wrapper-cwd regression in `server/src/test/integration/flows.list.test.ts`, where the new disabled-variant proof copied the checked-in GitHub review flow from `server/flows/...` instead of the repository root. Pointing that copy to the actual repository root fixed the issue, and the full wrapper rerun then passed cleanly with 2,474 passing tests.
 
 ### Task 5. Final Story Validation And Close-Out
 

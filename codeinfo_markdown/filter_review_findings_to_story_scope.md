@@ -23,11 +23,13 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 
 1. Read `codeInfoStatus/flow-state/current-plan.json` from disk and extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
 2. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
-3. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename.
-4. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and treat it as the only actionable-routing input for this step.
-5. Preserve all non-finding routing metadata in the state file unless this step must update it to reflect filtered findings honestly.
-6. Read `codeInfoTmp/reviews/<story-number>-current-review.json` and the `findings_file` it references only when needed to determine whether a finding is story-introduced, story-regressive, explicitly required, or pre-existing.
-7. If the review handoff or referenced findings artifact is missing, unreadable, or unusable, do not guess from memory or rediscover by timestamp. Keep the existing actionable routing state unless a safe rejection or narrowing decision can still be made from the canonical plan and current review disposition state alone.
+3. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no edits and treat this step as a clean skip for the current pass.
+4. Verify the canonical plan exists and that the current repository branch story number matches the story number in the selected plan filename. If the canonical plan is missing, unreadable, or unusable, make no edits and treat this step as a clean skip for the current pass.
+5. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and treat it as the only actionable-routing input for this step. If `review-disposition-state.json` is missing, unreadable, malformed, or unusable, make no edits and treat this step as a clean skip for the current pass.
+6. Preserve all non-finding routing metadata in the state file unless this step must update it to reflect filtered findings honestly.
+7. Read `codeInfoTmp/reviews/<story-number>-current-review.json` and the `findings_file` it references only when needed to determine whether a finding is story-introduced, story-regressive, explicitly required, or pre-existing.
+8. Treat the current review handoff and its referenced findings artifact as optional evidence inputs, not required routing inputs.
+9. If the review handoff or referenced findings artifact is missing, unreadable, or unusable, do not guess from memory or rediscover by timestamp. Do not newly reject a finding solely because that optional evidence is unavailable. Keep the finding unchanged unless a safe rejection or narrowing decision can still be made from the canonical plan and current review disposition state alone.
 
 </scope_rules>
 
@@ -78,7 +80,8 @@ Reject a finding if any of the following are true.
 
 - If scope is ambiguous, prefer rejection over scope expansion.
 - Do not keep a finding actionable by giving it the benefit of the doubt.
-- If evidence is incomplete, move the finding to `rejected_or_non_actionable_findings` and explain that in-scope status was not proven.
+- If evidence is incomplete because optional review artifacts are unavailable, do not newly reject on that basis alone. Keep the finding unchanged unless a safe rejection or narrowing decision can still be made from the canonical plan and current review disposition state alone.
+- If evidence is incomplete even though the core routing inputs are present and usable, and the remaining authoritative evidence still does not prove in-scope status, move the finding to `rejected_or_non_actionable_findings` and explain that in-scope status was not proven.
 
 </ambiguity_rules>
 
@@ -146,6 +149,8 @@ Never leave the state in a shape where:
 <output_contract>
 
 - Leave `codeInfoStatus/flow-state/review-disposition-state.json` in a state where downstream steps can trust that all remaining actionable findings are in scope for the current story.
+- If the step clean-skips because `current-plan.json`, the canonical plan, or `review-disposition-state.json` is missing or unusable, make no edits to `review-disposition-state.json`.
+- If optional review evidence inputs are unavailable, leave any evidence-dependent findings unchanged unless a safe rejection or narrowing decision can still be made from the canonical plan and current review disposition state alone.
 - Do not invent new findings, new tasks, new scope, or new product decisions.
 - Stop once every actionable finding has either:
   - survived all rejection gates and remained actionable;
@@ -159,10 +164,12 @@ Never leave the state in a shape where:
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
 - Confirm the exact canonical plan was re-opened from disk before filtering findings.
 - Confirm `story_behavior_lock.md` was read and applied.
+- Confirm that if `current-plan.json`, the canonical plan, or `review-disposition-state.json` was missing or unusable, the step made no edits and clean-skipped the current pass.
 - Confirm every actionable finding was evaluated against all rejection gates.
 - Confirm no rejected finding remained in an actionable bucket.
 - Confirm every newly rejected finding records the gate number and explanation.
 - Confirm any narrowed finding now describes only the in-scope core issue.
+- Confirm that missing optional review evidence did not by itself cause any new finding rejection.
 - Confirm counts and derived booleans in `review-disposition-state.json` match the filtered arrays.
 - Confirm the filtered state would make the minor-fix path, task-up path, and outer review-loop exits route honestly if the loop-control scripts were run immediately after this step.
 - Confirm the updated state file is valid JSON after writing.

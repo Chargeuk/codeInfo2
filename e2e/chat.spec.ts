@@ -641,7 +641,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.2/i,
+    /gpt-5\.2 \(alpha\.example \/ base\)/i,
   );
 
   await page
@@ -858,7 +858,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
   );
 
   await page.getByRole('button', { name: /new conversation/i }).click();
@@ -866,7 +866,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
   );
 
   await page.getByTestId('provider-select').click();
@@ -894,7 +894,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
   );
 
   await page

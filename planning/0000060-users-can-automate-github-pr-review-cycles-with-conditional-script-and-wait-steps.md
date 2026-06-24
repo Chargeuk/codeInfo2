@@ -688,12 +688,12 @@ Wire the new primitives into one copied opt-in implementation flow that can run 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` because this task changes flow composition and server runtime orchestration.
-2. [ ] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
-3. [ ] Run `npm run test:summary:server:cucumber` because this task changes authored flow behavior and loop routing through the repository's flow execution surface.
-4. [ ] Run `npm run test:summary:e2e` because this task changes a browser-visible flow execution path and must keep the supported automated end-to-end surface honest. This wrapper owns its own automated setup and teardown; Task 5 owns the separate normal main-stack compose smoke for the human Docker path.
-5. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [x] Run `npm run build:summary:server` because this task changes flow composition and server runtime orchestration.
+2. [x] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
+3. [x] Run `npm run test:summary:server:cucumber` because this task changes authored flow behavior and loop routing through the repository's flow execution surface.
+4. [x] Run `npm run test:summary:e2e` because this task changes a browser-visible flow execution path and must keep the supported automated end-to-end surface honest. This wrapper owns its own automated setup and teardown; Task 5 owns the separate normal main-stack compose smoke for the human Docker path.
+5. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+6. [x] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -722,6 +722,12 @@ Wire the new primitives into one copied opt-in implementation flow that can run 
 - Subtask 23: added the e2e proof that operators can select `implement_next_plan_github_review` without mutating the existing default entrypoint.
 - Subtask 24: ran targeted ESLint over the changed Task 4 TypeScript and e2e files, then removed unused proof scaffolding and fixed import-order drift until the Task 4 surface was lint-clean.
 - Subtask 25: ran targeted Prettier checks on the changed Task 4 files, used `prettier --write` for the files that drifted, and re-ran `--check` to confirm the Task 4 surface was formatted cleanly.
+- 2026-06-24: `npm run build:summary:server` passed cleanly on the supported wrapper path after the Task 4 flow-composition, status-routing, and review-cycle orchestration changes, so no compile follow-up was needed before broader proof.
+- 2026-06-24: `npm run test:summary:server:unit` failed first on two checked-in flow path regressions in the new Task 4 integration tests, then once more on a temp-fixture-versus-repo-root mix-up in the skip-note assertion. Updating those tests to read checked-in flow JSON from the actual repository root fixed the issue, and the full wrapper rerun then passed cleanly with 2,473 passing tests.
+- 2026-06-24: `npm run test:summary:server:cucumber` passed cleanly with 132 passing authored-flow tests after the Task 4 GitHub review-cycle composition and loop-routing updates landed.
+- 2026-06-24: `npm run test:summary:e2e` failed first on stale browser expectations for the shipped endpoint-aware model-label format and one crossed expectation in the mobile history-versus-fresh reset path. Updating the affected Playwright assertions to the current `model (endpoint)` label contract and the actual saved-history/fresh-conversation state transitions fixed the issue, and the full wrapper rerun then passed cleanly with 77 passing tests.
+- 2026-06-24: `npm run lint` passed cleanly after the Task 4 integration-test and Playwright expectation repairs, so the broadened proof surface is currently lint-clean.
+- 2026-06-24: `npm run format:check` passed cleanly after the Task 4 test-path and Playwright expectation repairs, so the current proof surface remains formatter-clean as well.
 
 ### Task 5. Final Story Validation And Close-Out
 

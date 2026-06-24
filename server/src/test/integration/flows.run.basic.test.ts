@@ -58,6 +58,10 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+const checkedInRepoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
@@ -2156,14 +2160,14 @@ test('github review skip leaves the default entrypoint untouched and records a d
 
     const defaultFlow = JSON.parse(
       await fs.readFile(
-        path.join(process.cwd(), 'flows/implement_next_plan.json'),
+        path.join(checkedInRepoRoot, 'flows/implement_next_plan.json'),
         'utf8',
       ),
     ) as { steps: unknown[] };
     const variantFlow = JSON.parse(
       await fs.readFile(
         path.join(
-          process.cwd(),
+          checkedInRepoRoot,
           'flows/implement_next_plan_github_review.json',
         ),
         'utf8',

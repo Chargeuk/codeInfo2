@@ -717,7 +717,7 @@ test('github review materialization replaces stale scratch with fresh reviewer f
 test('checked-in GitHub review flow variant keeps clean ordering and closes PRs only inside findings repair paths', async () => {
   const variant = JSON.parse(
     await fs.readFile(
-      path.join(process.cwd(), 'flows/implement_next_plan_github_review.json'),
+      path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
       'utf8',
     ),
   ) as {

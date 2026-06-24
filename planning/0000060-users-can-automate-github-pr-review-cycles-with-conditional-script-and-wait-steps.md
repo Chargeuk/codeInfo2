@@ -638,7 +638,7 @@ Add the thin GitHub PR transport layer, the worked-repository `.env.local` token
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -747,6 +747,7 @@ Use the supported main stack at `http://localhost:5001/flows`. With `review_agen
 - Audit 2026-06-24: marked Testing 5 and 6 complete from the immediately preceding discovery follow-up pass because Subtasks 28 and 29 already recorded honest task-surface lint and format reruns. `npm run build:summary:server` and `npm run test:summary:server:unit` remain open for the later wrapper-backed proof rerun after the reopened nested-agent discovery fix.
 - 2026-06-24: Reopened `npm run build:summary:server` passed cleanly after the nested-agent discovery follow-up landed, so the server compile surface remained intact for Task 4 before the final unit rerun.
 - 2026-06-24: Reopened `npm run test:summary:server:unit` failed first on one more wrapper-cwd regression in `server/src/test/integration/flows.list.test.ts`, where the new disabled-variant proof copied the checked-in GitHub review flow from `server/flows/...` instead of the repository root. Pointing that copy to the actual repository root fixed the issue, and the full wrapper rerun then passed cleanly with 2,474 passing tests.
+- Audit note: Task 4 is now `__done__` because its reopened nested-agent discovery follow-up, automated-proof checklist, and blocker check are all complete. The final proof rerun repair stayed inside `server/src/test/integration/flows.list.test.ts` and plan-maintenance surfaces, and this audit found no remaining story-caused preserved-behavior regression or other approved-scope gap that would justify keeping the task open.
 
 ### Task 5. Final Story Validation And Close-Out
 

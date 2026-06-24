@@ -206,6 +206,8 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("using explicit shell reads such as `sed`, `cat`, or `rg`", text)
         self.assertIn("Do not answer from conversational memory", text)
         self.assertIn("After making any repair edit, re-open the exact canonical plan from disk again", text)
+        self.assertIn("This step runs only after a separate loop preflight", text)
+        self.assertIn("If the context became unusable after the loop preflight", text)
         self.assertIn("Task Exit Criteria", text)
         self.assertIn("Addresses Findings", text)
         self.assertIn("Risk Ownership", text)

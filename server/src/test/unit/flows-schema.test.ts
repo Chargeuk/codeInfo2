@@ -351,6 +351,9 @@ describe('flow schema (v1)', () => {
       const ensureTestingIndex = markers.indexOf(
         'ensure_task_testing_matches_current_contract.md',
       );
+      const preflightScopeIndex = markers.indexOf(
+        'Exit Review-Created Task Scope Loop If Context Is Not Safely Usable',
+      );
       const repairScopeIndex = markers.indexOf(
         'repair_review_created_task_scope.md',
       );
@@ -365,6 +368,11 @@ describe('flow schema (v1)', () => {
         ensureTestingIndex,
         -1,
         `${flowFile} should normalize review-created testing before scope audit`,
+      );
+      assert.notEqual(
+        preflightScopeIndex,
+        -1,
+        `${flowFile} should preflight review-created task scope loop context`,
       );
       assert.notEqual(
         repairScopeIndex,
@@ -382,10 +390,11 @@ describe('flow schema (v1)', () => {
         `${flowFile} should refresh the simple story after scope audit`,
       );
       assert.ok(
-        ensureTestingIndex < repairScopeIndex &&
+        ensureTestingIndex < preflightScopeIndex &&
+          preflightScopeIndex < repairScopeIndex &&
           repairScopeIndex < verifyScopeIndex &&
           verifyScopeIndex < simpleStoryIndex,
-        `${flowFile} should scope-audit review-created tasks after testing normalization and before simple-story refresh`,
+        `${flowFile} should preflight and scope-audit review-created tasks after testing normalization and before simple-story refresh`,
       );
     }
   });

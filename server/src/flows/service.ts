@@ -138,6 +138,16 @@ import type {
   FreshRunRetryOwnershipCompletion,
 } from './flowState.js';
 import {
+  closePullRequest,
+  createPullRequest,
+  fetchPullRequestReviews,
+  lookupLatestOpenPullRequest,
+  pushBranchToExistingUpstream,
+  readWorkedRepositoryGitHubToken,
+  resolveGitHubRepositoryState,
+  writeGitHubReviewScratch,
+} from './githubReview.js';
+import {
   normalizeSourceLabel,
   prepareMarkdownInstruction,
 } from './markdownFileResolver.js';
@@ -5095,6 +5105,316 @@ async function runFlowUnlocked(params: {
     return 'paused';
   };
 
+  const emitGitHubStepFailure = async (paramsForFailure: {
+    instruction: string;
+    message: string;
+    errorCode: string;
+  }) => {
+    await emitFailedFlowStep({
+      flowConversationId: params.conversationId,
+      inflightId: stepInflightId,
+      instruction: paramsForFailure.instruction,
+      modelId: params.modelId,
+      providerId: params.providerId,
+      source: params.source,
+      message: paramsForFailure.message,
+      errorCode: paramsForFailure.errorCode,
+    });
+  };
+
+  const resolveGitHubStepContext = async () => {
+    const workingRepositoryRoot =
+      params.repositoryContext.workingRepositoryPath;
+    if (!workingRepositoryRoot) {
+      return {
+        kind: 'error' as const,
+        reason: 'INVALID_REQUEST' as const,
+        message:
+          'GitHub flow steps require a worked repository root for repository-local git and .env.local access.',
+      };
+    }
+    const tokenResult = await readWorkedRepositoryGitHubToken({
+      workingRepositoryRoot,
+    });
+    if (tokenResult.kind !== 'ok') {
+      return tokenResult;
+    }
+    const repositoryResult = await resolveGitHubRepositoryState({
+      workingRepositoryRoot,
+    });
+    if (repositoryResult.kind !== 'ok') {
+      return repositoryResult;
+    }
+    return {
+      kind: 'ok' as const,
+      value: {
+        token: tokenResult.value.token,
+        repository: repositoryResult.value,
+      },
+    };
+  };
+
+  const runGitHubOpenPrStep = async (): Promise<TurnStatus> => {
+    const context = await resolveGitHubStepContext();
+    if (context.kind === 'skip') {
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: context.reason,
+          detail: context.message,
+        },
+      });
+      return 'ok';
+    }
+    if (context.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: context.message,
+        errorCode: context.reason,
+      });
+      return 'failed';
+    }
+    const pushResult = await pushBranchToExistingUpstream({
+      repository: context.value.repository,
+    });
+    if (pushResult.kind === 'skip') {
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: pushResult.reason,
+          detail: pushResult.message,
+        },
+      });
+      return 'ok';
+    }
+    if (pushResult.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: pushResult.message,
+        errorCode: pushResult.reason,
+      });
+      return 'failed';
+    }
+    const title = `Story review: ${context.value.repository.currentBranch}`;
+    const body = [
+      `Automated Story 60 GitHub review cycle for branch \`${context.value.repository.currentBranch}\`.`,
+      '',
+      `Flow: ${params.flowName}`,
+      `Repository: ${context.value.repository.repositoryFullName}`,
+    ].join('\n');
+    const createResult = await createPullRequest({
+      repository: context.value.repository,
+      token: context.value.token,
+      title,
+      body,
+    });
+    if (createResult.kind === 'skip') {
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: createResult.reason,
+          detail: createResult.message,
+        },
+      });
+      return 'ok';
+    }
+    if (createResult.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: createResult.message,
+        errorCode: createResult.reason,
+      });
+      return 'failed';
+    }
+    append({
+      level: 'info',
+      message: 'flows.github.open_pr.created',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        repository: context.value.repository.repositoryFullName,
+        branch: context.value.repository.currentBranch,
+        prNumber: createResult.value.number,
+        prUrl: createResult.value.url,
+      },
+    });
+    return 'ok';
+  };
+
+  const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> => {
+    const context = await resolveGitHubStepContext();
+    if (context.kind === 'skip') {
+      append({
+        level: 'warn',
+        message: 'flows.github.fetch_reviews.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: context.reason,
+          detail: context.message,
+        },
+      });
+      return 'ok';
+    }
+    if (context.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: context.message,
+        errorCode: context.reason,
+      });
+      return 'failed';
+    }
+    const pullRequestResult = await lookupLatestOpenPullRequest({
+      repository: context.value.repository,
+      token: context.value.token,
+    });
+    if (pullRequestResult.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: pullRequestResult.message,
+        errorCode: pullRequestResult.reason,
+      });
+      return 'failed';
+    }
+    if (!pullRequestResult.value) {
+      append({
+        level: 'info',
+        message: 'flows.github.fetch_reviews.no_open_pr',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          repository: context.value.repository.repositoryFullName,
+          branch: context.value.repository.currentBranch,
+        },
+      });
+      return 'ok';
+    }
+    const reviewArtifactResult = await fetchPullRequestReviews({
+      repository: context.value.repository,
+      token: context.value.token,
+      pullRequest: pullRequestResult.value,
+    });
+    if (reviewArtifactResult.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: reviewArtifactResult.message,
+        errorCode: reviewArtifactResult.reason,
+      });
+      return 'failed';
+    }
+    const scratchWriteResult = await writeGitHubReviewScratch({
+      repository: context.value.repository,
+      pullRequest: pullRequestResult.value,
+      artifact: reviewArtifactResult.value,
+    });
+    if (scratchWriteResult.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: scratchWriteResult.message,
+        errorCode: scratchWriteResult.reason,
+      });
+      return 'failed';
+    }
+    append({
+      level: 'info',
+      message: 'flows.github.fetch_reviews.recorded',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        repository: context.value.repository.repositoryFullName,
+        branch: context.value.repository.currentBranch,
+        prNumber: pullRequestResult.value.number,
+        reviewCount: reviewArtifactResult.value.reviews.length,
+        reviewCommentCount: reviewArtifactResult.value.reviewComments.length,
+        handoffPath: scratchWriteResult.value.raw_review_artifact_path,
+      },
+    });
+    return 'ok';
+  };
+
+  const runGitHubClosePrStep = async (): Promise<TurnStatus> => {
+    const context = await resolveGitHubStepContext();
+    if (context.kind === 'skip') {
+      append({
+        level: 'warn',
+        message: 'flows.github.close_pr.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: context.reason,
+          detail: context.message,
+        },
+      });
+      return 'ok';
+    }
+    if (context.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub close PR step',
+        message: context.message,
+        errorCode: context.reason,
+      });
+      return 'failed';
+    }
+    const pullRequestResult = await lookupLatestOpenPullRequest({
+      repository: context.value.repository,
+      token: context.value.token,
+    });
+    if (pullRequestResult.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub close PR step',
+        message: pullRequestResult.message,
+        errorCode: pullRequestResult.reason,
+      });
+      return 'failed';
+    }
+    if (!pullRequestResult.value) {
+      return 'ok';
+    }
+    const closeResult = await closePullRequest({
+      repository: context.value.repository,
+      token: context.value.token,
+      pullRequest: pullRequestResult.value,
+    });
+    if (closeResult.kind !== 'ok') {
+      await emitGitHubStepFailure({
+        instruction: 'GitHub close PR step',
+        message: closeResult.message,
+        errorCode: closeResult.reason,
+      });
+      return 'failed';
+    }
+    append({
+      level: 'info',
+      message: 'flows.github.close_pr.closed',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        repository: context.value.repository.repositoryFullName,
+        branch: context.value.repository.currentBranch,
+        prNumber: pullRequestResult.value.number,
+      },
+    });
+    return 'ok';
+  };
+
   const requestActiveSubflowStop = (params: {
     conversationId: string;
     runToken?: string;
@@ -6148,6 +6468,42 @@ async function runFlowUnlocked(params: {
           });
           return 'paused';
         }
+      }
+
+      if (step.type === 'github_open_pr') {
+        const status = await runGitHubOpenPrStep();
+        if (shouldStopAfter(status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
+      }
+
+      if (step.type === 'github_fetch_reviews') {
+        const status = await runGitHubFetchReviewsStep();
+        if (shouldStopAfter(status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
+      }
+
+      if (step.type === 'github_close_pr') {
+        const status = await runGitHubClosePrStep();
+        if (shouldStopAfter(status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
       }
 
       if (step.type === 'startLoop') {

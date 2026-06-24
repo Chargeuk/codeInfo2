@@ -1,0 +1,36 @@
+[
+  [
+    {
+      "id": 2001,
+      "pull_request_review_id": 1002,
+      "user": { "login": "bob" },
+      "body": "This should be paginated too.",
+      "path": "server/src/flows/service.ts",
+      "line": 42,
+      "side": "RIGHT",
+      "commit_id": "def456",
+      "created_at": "2026-06-24T10:07:00Z",
+      "updated_at": "2026-06-24T10:07:00Z",
+      "html_url": "https://github.com/example/repo/pull/45#discussion_r2001",
+      "author_association": "CONTRIBUTOR"
+    }
+  ],
+  [
+    {
+      "id": 2002,
+      "pull_request_review_id": 1002,
+      "user": { "login": "carol" },
+      "body": "Second page inline note.",
+      "path": "server/src/flows/githubReview.ts",
+      "line": 88,
+      "start_line": 86,
+      "side": "RIGHT",
+      "commit_id": "ghi789",
+      "in_reply_to_id": 2001,
+      "created_at": "2026-06-24T10:08:00Z",
+      "updated_at": "2026-06-24T10:08:00Z",
+      "html_url": "https://github.com/example/repo/pull/45#discussion_r2002",
+      "author_association": "MEMBER"
+    }
+  ]
+]

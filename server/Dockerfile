@@ -85,6 +85,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
     curl \
     git \
+    gh \
     git-lfs \
     jq \
     netcat-openbsd \

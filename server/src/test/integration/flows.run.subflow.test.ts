@@ -1443,6 +1443,137 @@ test('resumed parent stop wins when the restored child already finished', async 
   }
 });
 
+test('resumed parent stop clears remembered terminal parallel child tracking before returning stopped', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-resume-terminal-parallel-stop-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-resume-terminal-a',
+      steps: [llmStep('child ok')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-resume-terminal-b',
+      steps: [llmStep('child ok')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-resume-terminal-parallel',
+      steps: [
+        subflowStep(
+          'Run Finished Batch',
+          'child-resume-terminal-a',
+          'child-resume-terminal-b',
+        ),
+      ],
+    });
+
+    let childRunTokenA: string | undefined;
+    let childRunTokenB: string | undefined;
+    const childStartA = await startFlowRun({
+      flowName: 'child-resume-terminal-a',
+      customTitle: 'Resume Parent-Run Finished Batch-child-resume-terminal-a',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+      onOwnershipReady: ({ runToken }) => {
+        childRunTokenA = runToken;
+      },
+    });
+    const childStartB = await startFlowRun({
+      flowName: 'child-resume-terminal-b',
+      customTitle: 'Resume Parent-Run Finished Batch-child-resume-terminal-b',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+      onOwnershipReady: ({ runToken }) => {
+        childRunTokenB = runToken;
+      },
+    });
+    assert.ok(childRunTokenA);
+    assert.ok(childRunTokenB);
+    await waitForAssistantStatus(childStartA.conversationId, 'ok');
+    await waitForAssistantStatus(childStartB.conversationId, 'ok');
+
+    const parentConversationId = 'resume-parent-terminal-parallel-conversation';
+    const now = new Date();
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Parent',
+      flowName: 'parent-resume-terminal-parallel',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-parent-terminal-parallel-execution',
+          stepPath: [],
+          loopStack: [],
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [0],
+              flowName: 'child-resume-terminal-a',
+              conversationId: childStartA.conversationId,
+              runToken: childRunTokenA as string,
+              title:
+                'Resume Parent-Run Finished Batch-child-resume-terminal-a',
+            }),
+            activeSubflowState({
+              stepPath: [0],
+              flowName: 'child-resume-terminal-b',
+              conversationId: childStartB.conversationId,
+              runToken: childRunTokenB as string,
+              title:
+                'Resume Parent-Run Finished Batch-child-resume-terminal-b',
+            }),
+          ],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-resume-terminal-parallel',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(100),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
+      },
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    const finalAssistant = await waitForAssistantStatus(
+      parentConversationId,
+      'stopped',
+    );
+    assert.equal(finalAssistant?.content, 'Stopped');
+
+    const parentConversation = memoryConversations.get(parentConversationId);
+    assert.equal(
+      (
+        parentConversation?.flags as
+          | { flow?: { activeSubflows?: unknown } }
+          | undefined
+      )?.flow?.activeSubflows,
+      undefined,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resume fails stale subflows that have no active child run or terminal result', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-'),

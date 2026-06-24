@@ -4405,6 +4405,7 @@ async function runFlowUnlocked(params: {
       });
       if (!consumedPendingCancel) return false;
 
+      setActiveSubflowsForStep(nextPath, []);
       await emitStoppedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,

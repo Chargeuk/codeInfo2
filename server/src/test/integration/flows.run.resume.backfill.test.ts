@@ -819,7 +819,7 @@ test('startup recovery reloads persisted wait state and resumes the same executi
     await __resumePendingFlowWaitsForTests([conversationId]);
     assert.ok(wake, 'expected startup backfill to register a wake callback');
 
-    wake?.();
+    (wake as () => void)();
     await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
     assert.equal(
       (

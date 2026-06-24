@@ -101,6 +101,12 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetAgentServiceDepsForTests();
+  __resetFlowServiceDepsForTests();
+  memoryConversations.clear();
+  memoryTurns.clear();
+  setWorkingFolderStatForTests(undefined);
+  resetStore();
 });
 
 const fixturesDir = path.resolve(

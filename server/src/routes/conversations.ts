@@ -604,8 +604,10 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
               workingFolder: null,
               expectedWorkingFolder,
             });
-            if (updatedConversation) {
-              return updatedConversation.flags?.workingFolder?.trim();
+            const updatedWorkingFolder =
+              updatedConversation?.flags?.workingFolder?.trim();
+            if (updatedWorkingFolder) {
+              return updatedWorkingFolder;
             }
             if (shouldUseMemoryPersistence()) {
               return (

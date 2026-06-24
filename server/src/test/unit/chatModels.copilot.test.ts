@@ -126,6 +126,8 @@ async function stopServer(server: { httpServer: http.Server }) {
 beforeEach(() => {
   resetMcpStatusCache();
   __resetProviderBootstrapStatusForTests();
+  env.set('CODEX_HOME', undefined);
+  env.set('CODEINFO_CODEX_HOME', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 });

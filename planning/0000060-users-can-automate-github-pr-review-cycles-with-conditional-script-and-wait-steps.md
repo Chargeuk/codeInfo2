@@ -532,9 +532,9 @@ Implement the persisted `wait` runtime lifecycle so a paused review cycle resume
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` because this task changes persisted wait and resume runtime code.
-2. [ ] Run `npm run test:summary:server:unit` because this task changes stateful orchestration, persisted resume identity, and cancel handling.
-3. [ ] Run `npm run test:summary:server:cucumber` because the new wait lifecycle changes authored flow execution behavior and restart-safe resume expectations.
+1. [x] Run `npm run build:summary:server` because this task changes persisted wait and resume runtime code.
+2. [x] Run `npm run test:summary:server:unit` because this task changes stateful orchestration, persisted resume identity, and cancel handling.
+3. [x] Run `npm run test:summary:server:cucumber` because the new wait lifecycle changes authored flow execution behavior and restart-safe resume expectations.
 4. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 5. [x] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
@@ -544,6 +544,9 @@ Implement the persisted `wait` runtime lifecycle so a paused review cycle resume
 - Added Task 2 integration coverage in `server/src/test/integration/flows.run.resume.identity.test.ts`, `server/src/test/integration/flows.run.resume.backfill.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`; the proof seams were tightened to watch flow-owned assistant-turn and persisted-wait boundaries instead of assuming the same in-memory chat stub would be reused after resume or restart.
 - Added the deterministic wait-resume cucumber scenario in `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts`, then fixed the step definition to poll for persisted wait state before asserting so the authored-flow proof uses the same explicit state boundary as the integration tests.
 - Ran targeted Task 2 proof commands: the Node integration bundle for `flows.run.resume.identity`, `flows.run.resume.backfill`, and `flows.run.errors`; `npx cucumber-js ... --name "Persisted wait resumes from an explicit wake boundary"` after a broader feature run exposed unrelated setup noise plus a race in the new step; `npx eslint` on the changed TypeScript files; and `npx prettier --write` followed by `npx prettier --check --ignore-unknown` on the changed Task 2 files.
+- `npm run build:summary:server` failed first on TypeScript `never` call-site errors in the new wait-resume tests, so the wake callback invocations were narrowed with explicit function casts in the affected integration files and the wrapper then passed cleanly.
+- `npm run test:summary:server:unit` first exposed unrelated Codex-home leakage and a full-suite-only working-folder restore failure; isolating the Codex-unavailable tests, rereading persisted working folders after clear attempts, and resetting shared working-folder test state between cases brought the targeted proofs and the full wrapper back to green.
+- `npm run test:summary:server:cucumber` passed cleanly on the first wrapper run after the unit-suite fixes, so the authored wait lifecycle coverage is now green alongside the build and full server-unit wrapper.
 
 ### Task 3. Add GitHub Transport, Repo-Local Token Loading, And Safe Review Scratch Ownership
 

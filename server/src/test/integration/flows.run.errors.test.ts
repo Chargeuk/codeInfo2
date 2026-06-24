@@ -3076,7 +3076,8 @@ test('wait wake does not resume after the flow has already reached a terminal st
         } as Turn,
       ]);
 
-      wake?.();
+      assert.ok(wake, 'expected wait wake callback to be captured');
+      (wake as () => void)();
       await new Promise((resolve) => setTimeout(resolve, 50));
       assert.equal(captured.length, 1);
     },

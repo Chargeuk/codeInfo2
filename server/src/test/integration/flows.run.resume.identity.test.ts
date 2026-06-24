@@ -1988,7 +1988,7 @@ test('paused wait resumes the same execution after the authored delay using an e
     assert.equal(flags.flow?.wait?.resumeAt, 1_700_000_060_000);
     assert.ok(wake, 'expected wait wake callback to be captured');
 
-    wake?.();
+    (wake as () => void)();
     await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
 
     assert.equal(getFlowExecutionId(conversationId), executionId);
@@ -2082,7 +2082,8 @@ test('cancelled wait does not emit a later resume side effect when the persisted
       updatedAt: new Date(),
     });
 
-    wake?.();
+    assert.ok(wake, 'expected wait wake callback to be captured');
+    (wake as () => void)();
     await new Promise((resolve) => setTimeout(resolve, 50));
     assert.equal(captured.length, 1);
   } finally {

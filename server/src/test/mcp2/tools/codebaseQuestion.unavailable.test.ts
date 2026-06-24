@@ -121,6 +121,8 @@ async function withTempCodexHome(chatToml: string): Promise<{
 
 test('codebase_question fails on the selected explicit Codex provider when Codex is unavailable', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodexHome = process.env.CODEX_HOME;
+  const originalCodeinfoCodexHome = process.env.CODEINFO_CODEX_HOME;
   const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   const originalExternalEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
@@ -131,6 +133,12 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
   delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
   resetStore();
+
+  const tempHome = await withTempCodexHome(
+    ['model = "codex-default-model"', 'tool_access = "off"', ''].join('\n'),
+  );
+  process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
 
   const server = http.createServer(handleRpc);
   server.listen(0);
@@ -172,6 +180,16 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
     assert.deepEqual(context?.defaults, capabilities.defaults);
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodexHome;
+    }
+    if (originalCodeinfoCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeinfoCodexHome;
+    }
     if (originalLmBaseUrl === undefined) {
       delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
     } else {
@@ -190,6 +208,7 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
         originalExternalEndpointKeys;
     }
     server.close();
+    await tempHome.cleanup();
   }
 });
 

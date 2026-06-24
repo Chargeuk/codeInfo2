@@ -1561,9 +1561,10 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
     assert.equal(finalAssistant?.content, 'Stopped');
 
     const parentConversation = memoryConversations.get(parentConversationId);
+    assert.ok(parentConversation);
     assert.equal(
       (
-        parentConversation?.flags as
+        parentConversation.flags as
           | { flow?: { activeSubflows?: unknown } }
           | undefined
       )?.flow?.activeSubflows,

@@ -125,10 +125,11 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('production review and implementation flows remain valid JSON and schema', async () => {
+  test('production review and implementation flow entrypoints remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/task_and_implement_plan.json',
@@ -906,7 +907,6 @@ describe('flow schema (v1)', () => {
     assert.equal(logs[1]?.context?.outcome, 'rejected_removed_target');
     assert.equal(logs[1]?.context?.removedTarget, 'all');
   });
-
 
   // Story 60: if-step schema tests (subtask 9)
   test('if-step schema accepts valid then and optional else shapes', () => {

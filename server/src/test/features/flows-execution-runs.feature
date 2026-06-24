@@ -1,5 +1,5 @@
 @mongo
-Feature: Flow execution retry ownership and wait resume
+Feature: Flow execution lifecycle and GitHub review-cycle composition
 
   Scenario: Pre-launch persistence failure clears retry ownership before accepted replay reuse
     Given a flow execution test server
@@ -22,3 +22,12 @@ Feature: Flow execution retry ownership and wait resume
     And the active flow conversation stores a persisted wait at step path "1"
     When I trigger the captured wait wake
     Then the active flow conversation clears its persisted wait
+
+  Scenario: Checked-in GitHub review flow variant keeps clean cycles out of the findings loopback branch
+    Given the checked-in GitHub review flow variant exists
+    Then the GitHub review flow variant waits before fetching reviews
+    And the GitHub review flow variant checks for reviewer feedback before the external review loop
+
+  Scenario: Checked-in GitHub review flow variant closes findings-present PRs only inside repair paths
+    Given the checked-in GitHub review flow variant exists
+    Then the GitHub review flow variant closes PRs only inside the findings repair paths

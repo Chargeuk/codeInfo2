@@ -24,6 +24,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
+import { __resetGitHubReviewDepsForTests } from '../../flows/githubReview.js';
 import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
@@ -253,6 +254,7 @@ beforeEach(() => {
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetFreshRunRetryOwnershipCompletionForTests();
+  __resetGitHubReviewDepsForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -305,6 +307,22 @@ const writeFlowFile = async (params: {
   );
 };
 
+const flowContainsStepType = (value: unknown, stepType: string): boolean => {
+  if (Array.isArray(value)) {
+    return value.some((entry) => flowContainsStepType(entry, stepType));
+  }
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.type === stepType) {
+    return true;
+  }
+  return Object.values(record).some((entry) =>
+    flowContainsStepType(entry, stepType),
+  );
+};
+
 const writeMarkdownFile = async (params: {
   repoRoot: string;
   relativePath: string;
@@ -323,6 +341,82 @@ const writeMarkdownFile = async (params: {
     await fs.writeFile(filePath, params.content ?? '', 'utf8');
   }
   return filePath;
+};
+
+const createGitHubReviewRepoFixture = async (params?: {
+  repoRoot?: string;
+  flowTaskNumber?: number;
+}) => {
+  const repoRoot =
+    params?.repoRoot ??
+    (await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-repo-')));
+  const taskNumber = params?.flowTaskNumber ?? 4;
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, 'scripts/flow_control'), {
+    recursive: true,
+  });
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      { plan_path: planPath, additional_repositories: [] },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: taskNumber,
+          title: 'Task 4',
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      '### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints',
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.copyFile(
+    path.join(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        '../../../../scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+      ),
+    ),
+    path.join(
+      repoRoot,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+  );
+  return repoRoot;
 };
 
 const getAgentConversationId = (conversationId: string) => {
@@ -1268,10 +1362,7 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
     assert.deepEqual(replayResult, firstResult);
     await waitForTurnCountToStay(firstResult.conversationId, 2);
   } finally {
-    cleanupMemory(
-      'flow-retry-ownership-a',
-      'flow-retry-ownership-b',
-    );
+    cleanupMemory('flow-retry-ownership-a', 'flow-retry-ownership-b');
     __resetFreshRunRetryOwnershipCompletionForTests();
     await closeWs(ws);
     await wsHandle.close();
@@ -1415,7 +1506,7 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
     await withMockedMongoConversationPersistence({
       seedConversations: [],
       run: async ({ conversations, turns }) => {
-        ConversationModel.prototype.save = (async function save(this: unknown) {
+        ConversationModel.prototype.save = async function save(this: unknown) {
           const doc = this as { _id?: unknown; toObject?: () => unknown };
           const saved = {
             ...structuredClone(doc.toObject?.() ?? doc),
@@ -1423,15 +1514,13 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
           } as Conversation;
           conversations.set(String(saved._id), saved);
           return saved;
-        }) as typeof ConversationModel.prototype.save;
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => {
-              updateAttempts += 1;
-              return null;
-            },
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        } as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => {
+            updateAttempts += 1;
+            return null;
+          },
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         const result = await startFlowRun({
           flowName: 'llm-basic',
@@ -1445,10 +1534,7 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
         });
 
         assert.equal(result.conversationId, conversationId);
-        await waitFor(
-          () => updateAttempts > 0,
-          20000,
-        );
+        await waitFor(() => updateAttempts > 0, 20000);
         await waitForConversationUnlocked(conversationId, 20000);
 
         assert.ok(updateAttempts > 0);
@@ -1460,7 +1546,10 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
   } finally {
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
     ConversationModel.prototype.save = originalSave;
-    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
     __resetFreshRunRetryOwnershipCompletionForTests();
     if (prevNodeEnv === undefined) {
       delete process.env.NODE_ENV;
@@ -1746,7 +1835,7 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
     await withMockedMongoConversationPersistence({
       seedConversations: [],
       run: async ({ conversations, turns }) => {
-        ConversationModel.prototype.save = (async function save(this: unknown) {
+        ConversationModel.prototype.save = async function save(this: unknown) {
           const doc = this as { _id?: unknown; toObject?: () => unknown };
           const saved = {
             ...structuredClone(doc.toObject?.() ?? doc),
@@ -1754,16 +1843,14 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
           } as Conversation;
           conversations.set(String(saved._id), saved);
           return saved;
-        }) as typeof ConversationModel.prototype.save;
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => {
-              updateAttempts += 1;
-              conversations.delete(conversationId);
-              return null;
-            },
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        } as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => {
+            updateAttempts += 1;
+            conversations.delete(conversationId);
+            return null;
+          },
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         const app = express();
         app.use(
@@ -2027,6 +2114,79 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
       assert.deepEqual(messages, ['source markdown']);
     },
   );
+});
+
+test('github review skip leaves the default entrypoint untouched and records a durable plan note', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
+  const repoRoot = await createGitHubReviewRepoFixture();
+  process.env.FLOWS_DIR = tempFlowsDir;
+
+  try {
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-skip',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+
+    await startFlowRun({
+      flowName: 'github-skip',
+      conversationId: 'github-skip-conversation',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(async () => {
+      const planRaw = await fs.readFile(
+        path.join(
+          repoRoot,
+          'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        ),
+        'utf8',
+      );
+      return planRaw.includes(
+        'GitHub review stage skipped during PR open: The repository-local GitHub token file `.env.local` is missing.',
+      );
+    }, 4000);
+
+    const defaultFlow = JSON.parse(
+      await fs.readFile(
+        path.join(process.cwd(), 'flows/implement_next_plan.json'),
+        'utf8',
+      ),
+    ) as { steps: unknown[] };
+    const variantFlow = JSON.parse(
+      await fs.readFile(
+        path.join(
+          process.cwd(),
+          'flows/implement_next_plan_github_review.json',
+        ),
+        'utf8',
+      ),
+    ) as { steps: unknown[] };
+
+    assert.equal(
+      flowContainsStepType(defaultFlow.steps, 'github_open_pr'),
+      false,
+    );
+    assert.equal(
+      flowContainsStepType(variantFlow.steps, 'github_open_pr'),
+      true,
+    );
+  } finally {
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
 });
 
 test('flow llm.markdownFile passes loaded markdown through verbatim as one instruction', async () => {

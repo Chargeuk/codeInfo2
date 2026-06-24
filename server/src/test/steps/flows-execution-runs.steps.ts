@@ -68,6 +68,52 @@ let originalConversationFindByIdAndUpdate:
 let originalMemoryConversationsSet: typeof memoryConversations.set | null =
   null;
 let capturedWaitWake: (() => void) | null = null;
+let checkedInGitHubReviewFlow: {
+  steps?: Array<Record<string, unknown>>;
+} | null = null;
+
+const flattenFlowSteps = (
+  steps: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> => {
+  const flattened: Array<Record<string, unknown>> = [];
+  for (const step of steps) {
+    flattened.push(step);
+    const nested = step.steps;
+    if (Array.isArray(nested)) {
+      flattened.push(
+        ...flattenFlowSteps(
+          nested.filter(
+            (candidate): candidate is Record<string, unknown> =>
+              Boolean(candidate) && typeof candidate === 'object',
+          ),
+        ),
+      );
+    }
+    const thenBranch = step.then;
+    if (Array.isArray(thenBranch)) {
+      flattened.push(
+        ...flattenFlowSteps(
+          thenBranch.filter(
+            (candidate): candidate is Record<string, unknown> =>
+              Boolean(candidate) && typeof candidate === 'object',
+          ),
+        ),
+      );
+    }
+    const elseBranch = step.else;
+    if (Array.isArray(elseBranch)) {
+      flattened.push(
+        ...flattenFlowSteps(
+          elseBranch.filter(
+            (candidate): candidate is Record<string, unknown> =>
+              Boolean(candidate) && typeof candidate === 'object',
+          ),
+        ),
+      );
+    }
+  }
+  return flattened;
+};
 
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
@@ -212,8 +258,78 @@ After({ tags: '@mongo' }, async () => {
     originalMemoryConversationsSet = null;
   }
   capturedWaitWake = null;
+  checkedInGitHubReviewFlow = null;
   __resetFlowWaitResumeDepsForTests();
 });
+
+Given('the checked-in GitHub review flow variant exists', async () => {
+  const raw = await fs.readFile(
+    path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
+    'utf8',
+  );
+  checkedInGitHubReviewFlow = JSON.parse(raw) as {
+    steps?: Array<Record<string, unknown>>;
+  };
+  assert.ok(Array.isArray(checkedInGitHubReviewFlow.steps));
+});
+
+Then('the GitHub review flow variant waits before fetching reviews', () => {
+  assert.ok(checkedInGitHubReviewFlow?.steps);
+  const flattened = flattenFlowSteps(checkedInGitHubReviewFlow.steps ?? []);
+  const openIndex = flattened.findIndex(
+    (step) => step.type === 'github_open_pr',
+  );
+  const waitIndex = flattened.findIndex((step) => step.type === 'wait');
+  const fetchIndex = flattened.findIndex(
+    (step) => step.type === 'github_fetch_reviews',
+  );
+  assert.ok(openIndex > -1);
+  assert.ok(waitIndex > openIndex);
+  assert.ok(fetchIndex > waitIndex);
+});
+
+Then(
+  'the GitHub review flow variant checks for reviewer feedback before the external review loop',
+  () => {
+    assert.ok(checkedInGitHubReviewFlow?.steps);
+    const flattened = flattenFlowSteps(checkedInGitHubReviewFlow.steps ?? []);
+    const ifStep = flattened.find(
+      (step) =>
+        step.type === 'if' &&
+        step.condition ===
+          'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    );
+    assert.ok(ifStep);
+    const thenBranch = Array.isArray(ifStep.then)
+      ? (ifStep.then as Array<Record<string, unknown>>)
+      : [];
+    assert.ok(
+      flattenFlowSteps(thenBranch).some(
+        (step) => step.commandName === 'external_review_findings',
+      ),
+    );
+  },
+);
+
+Then(
+  'the GitHub review flow variant closes PRs only inside the findings repair paths',
+  () => {
+    assert.ok(checkedInGitHubReviewFlow?.steps);
+    const flattened = flattenFlowSteps(checkedInGitHubReviewFlow.steps ?? []);
+    const closeSteps = flattened.filter(
+      (step) => step.type === 'github_close_pr',
+    );
+    assert.equal(closeSteps.length, 2);
+    assert.ok(
+      closeSteps.every((step) =>
+        typeof step.label === 'string'
+          ? step.label.includes('Before Minor Fix Loopback') ||
+            step.label.includes('Before Task-Up Loopback')
+          : false,
+      ),
+    );
+  },
+);
 
 Given('a flow execution test server', () => {
   assert.ok(server, 'expected test server to be running');

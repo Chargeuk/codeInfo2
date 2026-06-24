@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +25,14 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __resetGitHubReviewDepsForTests,
+  materializeGitHubExternalReviewInput,
+} from '../../flows/githubReview.js';
+import {
+  __resetFlowWaitResumeDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -49,6 +57,8 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetGitHubReviewDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 const withTimeout = async <T>(
@@ -184,6 +194,85 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+const githubReviewFixturesDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../fixtures/flows/github-review',
+);
+
+const createGitHubReviewRepoFixture = async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-loop-repo-'),
+  );
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, 'scripts/flow_control'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      { plan_path: planPath, additional_repositories: [] },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: 4,
+          title: 'Task 4',
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      '### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints',
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.copyFile(
+    path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../../scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+    path.join(
+      repoRoot,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+  );
+  await fs.writeFile(
+    path.join(repoRoot, '.env.local'),
+    'CODEINFO_PR_TOKEN=secret\n',
+    'utf8',
+  );
+  return repoRoot;
+};
 
 const buildHarnessRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'flow-test-repo',
@@ -207,7 +296,9 @@ const buildHarnessRepoEntry = (containerPath: string): RepoEntry => ({
   lastError: null,
 });
 
-const listHarnessRepo = async (containerPath: string): Promise<ListReposResult> => ({
+const listHarnessRepo = async (
+  containerPath: string,
+): Promise<ListReposResult> => ({
   repos: [buildHarnessRepoEntry(containerPath)],
   lockedModelId: null,
 });
@@ -511,6 +602,167 @@ test('flow loops until break answer matches breakOn', async () => {
       assert.equal(agentConversation?.title, `${customTitle} (outer)`);
       await cleanupConversationRuntime(conversationId, agentConversationId);
     },
+  );
+});
+
+test('github review materialization replaces stale scratch with fresh reviewer feedback before classification', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-current-review.json',
+    );
+    const rawArtifactPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-pr-45.json',
+    );
+    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-external-review-input.md',
+      ),
+      'stale input\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name: 'feature/0000060-demo',
+          head_sha: 'deadbeef',
+          raw_review_artifact_path: rawArtifactPath,
+          pull_request: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      rawArtifactPath,
+      JSON.stringify(
+        {
+          repository: { owner: 'example', name: 'repo' },
+          pullRequest: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+          fetchedAt: '2026-06-24T12:00:00.000Z',
+          reviews: JSON.parse(
+            await fs.readFile(
+              path.join(githubReviewFixturesDir, 'reviews-slurp.json'),
+              'utf8',
+            ),
+          ).flat(),
+          reviewComments: JSON.parse(
+            await fs.readFile(
+              path.join(githubReviewFixturesDir, 'comments-slurp.json'),
+              'utf8',
+            ),
+          ).flat(),
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const result = await materializeGitHubExternalReviewInput({
+      handoff: JSON.parse(await fs.readFile(handoffPath, 'utf8')),
+    });
+    assert.equal(result.kind, 'ok');
+
+    const updatedHandoff = JSON.parse(
+      await fs.readFile(handoffPath, 'utf8'),
+    ) as {
+      filtered_review_count?: number;
+      filtered_review_comment_count?: number;
+      external_review_input_file?: string;
+    };
+    const externalInput = await fs.readFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-external-review-input.md',
+      ),
+      'utf8',
+    );
+    assert.equal(updatedHandoff.filtered_review_count, 2);
+    assert.equal(updatedHandoff.filtered_review_comment_count, 2);
+    assert.match(
+      updatedHandoff.external_review_input_file ?? '',
+      /0000060-external-review-input\.md$/,
+    );
+    assert.match(externalInput, /Please revisit the retry wording\./);
+    assert.match(externalInput, /Second page inline note\./);
+    assert.doesNotMatch(externalInput, /stale input/);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('checked-in GitHub review flow variant keeps clean ordering and closes PRs only inside findings repair paths', async () => {
+  const variant = JSON.parse(
+    await fs.readFile(
+      path.join(process.cwd(), 'flows/implement_next_plan_github_review.json'),
+      'utf8',
+    ),
+  ) as {
+    steps: Array<Record<string, unknown>>;
+  };
+
+  const flattenSteps = (
+    steps: Array<Record<string, unknown>>,
+  ): Array<Record<string, unknown>> =>
+    steps.flatMap((step) => {
+      const nested = Array.isArray(step.steps)
+        ? flattenSteps(step.steps as Array<Record<string, unknown>>)
+        : [];
+      const thenBranch = Array.isArray(step.then)
+        ? flattenSteps(step.then as Array<Record<string, unknown>>)
+        : [];
+      const elseBranch = Array.isArray(step.else)
+        ? flattenSteps(step.else as Array<Record<string, unknown>>)
+        : [];
+      return [step, ...nested, ...thenBranch, ...elseBranch];
+    });
+
+  const flattened = flattenSteps(variant.steps);
+  const openIndex = flattened.findIndex(
+    (step) => step.type === 'github_open_pr',
+  );
+  const waitIndex = flattened.findIndex((step) => step.type === 'wait');
+  const fetchIndex = flattened.findIndex(
+    (step) => step.type === 'github_fetch_reviews',
+  );
+  const ifIndex = flattened.findIndex((step) => step.type === 'if');
+  const closeLabels = flattened
+    .filter((step) => step.type === 'github_close_pr')
+    .map((step) => step.label);
+
+  assert.ok(openIndex > -1);
+  assert.ok(waitIndex > openIndex);
+  assert.ok(fetchIndex > waitIndex);
+  assert.ok(ifIndex > fetchIndex);
+  assert.deepEqual(closeLabels, [
+    'Close GitHub Review Pull Request Before Minor Fix Loopback',
+    'Close GitHub Review Pull Request Before Task-Up Loopback',
+  ]);
+  assert.ok(
+    flattened.some((step) => step.commandName === 'external_review_findings'),
   );
 });
 
@@ -2371,7 +2623,6 @@ test('flow stop during a looped flow prevents later iterations from continuing',
   );
 });
 
-
 test('shared decision seam follows valid script-driven if branch through happy path', async () => {
   await withFlowServer(
     () => 'ok',
@@ -2392,7 +2643,9 @@ test('shared decision seam follows valid script-driven if branch through happy p
                   messages: [
                     {
                       role: 'user',
-                      content: ['Decision was yes, proceeding with then branch.'],
+                      content: [
+                        'Decision was yes, proceeding with then branch.',
+                      ],
                     },
                   ],
                 },
@@ -2428,7 +2681,9 @@ test('shared decision seam follows valid script-driven if branch through happy p
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await waitForEvent({
         ws: wsUrl,
-        predicate: (event: unknown): event is { type: 'turn_final'; status: string } => {
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
           const candidate = event as {
             type?: string;
             conversationId?: string;
@@ -2449,7 +2704,9 @@ test('shared decision seam follows valid script-driven if branch through happy p
           items.some(
             (turn) =>
               turn.role === 'user' &&
-              turn.content.includes('Decision was yes, proceeding with then branch.'),
+              turn.content.includes(
+                'Decision was yes, proceeding with then branch.',
+              ),
           ),
         4000,
       );
@@ -2457,7 +2714,9 @@ test('shared decision seam follows valid script-driven if branch through happy p
         turns.filter(
           (turn) =>
             turn.role === 'user' &&
-            turn.content.includes('Decision was yes, proceeding with then branch.'),
+            turn.content.includes(
+              'Decision was yes, proceeding with then branch.',
+            ),
         ).length,
         1,
       );
@@ -2539,7 +2798,9 @@ test('shared decision seam follows valid script-driven break branch through happ
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await waitForEvent({
         ws: wsUrl,
-        predicate: (event: unknown): event is { type: 'turn_final'; status: string } => {
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
           const candidate = event as {
             type?: string;
             conversationId?: string;
@@ -2663,7 +2924,9 @@ test('shared decision seam follows valid script-driven continue branch through h
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await waitForEvent({
         ws: wsUrl,
-        predicate: (event: unknown): event is { type: 'turn_final'; status: string } => {
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
           const candidate = event as {
             type?: string;
             conversationId?: string;

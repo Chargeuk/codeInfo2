@@ -110,10 +110,32 @@ export type GitHubCurrentReviewHandoff = {
   head_sha: string;
   pull_request: GitHubPullRequestIdentity;
   raw_review_artifact_path: string;
+  external_review_input_file?: string;
+  filtered_review_count?: number;
+  filtered_review_comment_count?: number;
   repository_alias?: string;
   skip_reason?: string;
   failure_reason?: string;
 };
+
+export type GitHubReviewFeedbackEntry =
+  | {
+      kind: 'review';
+      reviewer: string;
+      body: string;
+      state: string;
+      url?: string;
+      submittedAt?: string;
+    }
+  | {
+      kind: 'inline_comment';
+      reviewer: string;
+      body: string;
+      path: string;
+      line?: number;
+      url?: string;
+      createdAt?: string;
+    };
 
 type CommandResult = {
   exitCode: number | null;
@@ -368,7 +390,7 @@ export const readWorkedRepositoryGitHubToken = async (params: {
         kind: 'skip',
         reason: 'MISSING_ENV_LOCAL',
         message:
-          'The worked repository does not provide a .env.local file for CODEINFO_PR_TOKEN.',
+          'The repository-local GitHub token file `.env.local` is missing.',
       };
     }
     return {
@@ -937,6 +959,357 @@ const writeJsonAtomically = async (params: {
   }
 };
 
+const writeTextAtomically = async (params: {
+  targetPath: string;
+  value: string;
+}) => {
+  const parentDir = path.dirname(params.targetPath);
+  const tempPath = buildTempPath(params.targetPath);
+  await githubReviewDeps.mkdir(parentDir, { recursive: true });
+  try {
+    await githubReviewDeps.writeFile(tempPath, params.value, {
+      encoding: 'utf8',
+      flag: 'wx',
+    });
+    await githubReviewDeps.rename(tempPath, params.targetPath);
+  } finally {
+    await githubReviewDeps.rm(tempPath, { force: true, recursive: true });
+  }
+};
+
+const readJsonFile = async <T>(
+  targetPath: string,
+): Promise<GitHubStepOutcome<T>> => {
+  let raw: string;
+  try {
+    raw = await githubReviewDeps.readFile(targetPath, 'utf8');
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : `Unable to read ${targetPath}.`,
+    };
+  }
+  return parseJson<T>(raw, `JSON file is invalid: ${targetPath}`);
+};
+
+const updateJsonAtomically = async <T extends Record<string, unknown>>(params: {
+  targetPath: string;
+  update: (current: T) => T;
+}): Promise<GitHubStepOutcome<T>> => {
+  const current = await readJsonFile<T>(params.targetPath);
+  if (current.kind !== 'ok') return current;
+  try {
+    const next = params.update(current.value);
+    await writeJsonAtomically({ targetPath: params.targetPath, value: next });
+    return { kind: 'ok', value: next };
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : `Unable to update JSON file: ${params.targetPath}`,
+    };
+  }
+};
+
+const readCurrentTaskNumber = async (
+  workingRepositoryRoot: string,
+): Promise<string | undefined> => {
+  const currentTaskPath = path.join(
+    workingRepositoryRoot,
+    'codeInfoStatus/flow-state/current-task.json',
+  );
+  let raw: string;
+  try {
+    raw = await githubReviewDeps.readFile(currentTaskPath, 'utf8');
+  } catch {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const direct =
+    typeof (parsed as { task_number?: unknown }).task_number === 'number'
+      ? String((parsed as { task_number: number }).task_number)
+      : normalizeTrimmedString(
+          (parsed as { task_number?: unknown }).task_number,
+        );
+  if (direct) return direct;
+  const selectedTask = (parsed as { selected_task?: { number?: unknown } })
+    .selected_task;
+  if (
+    selectedTask &&
+    typeof selectedTask === 'object' &&
+    selectedTask.number !== undefined
+  ) {
+    const number =
+      typeof selectedTask.number === 'number'
+        ? String(selectedTask.number)
+        : normalizeTrimmedString(selectedTask.number);
+    if (number) return number;
+  }
+  return undefined;
+};
+
+const appendImplementationNoteToPlan = async (params: {
+  workingRepositoryRoot: string;
+  note: string;
+}): Promise<GitHubStepOutcome<null>> => {
+  const planContext = await readCurrentPlanContext(
+    params.workingRepositoryRoot,
+  );
+  if (planContext.kind !== 'ok') return planContext as GitHubStepOutcome<null>;
+  const planFullPath = path.join(
+    params.workingRepositoryRoot,
+    planContext.value.planPath,
+  );
+  let planRaw: string;
+  try {
+    planRaw = await githubReviewDeps.readFile(planFullPath, 'utf8');
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Unable to read active plan for GitHub review note append.',
+    };
+  }
+
+  const taskNumber = await readCurrentTaskNumber(params.workingRepositoryRoot);
+  const taskHeading = taskNumber
+    ? new RegExp(
+        String.raw`((?:^|\n)### Task ${taskNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\.[\s\S]*?)(?=\n### Task \d+\.|$)`,
+      )
+    : null;
+  const taskMatch = taskHeading ? planRaw.match(taskHeading) : null;
+  const targetBlock = taskMatch?.[1]?.replace(/^\n/, '');
+  if (!targetBlock) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'The active plan task could not be resolved for GitHub review note append.',
+    };
+  }
+  const implHeading = '#### Implementation notes';
+  const implIndex = targetBlock.indexOf(implHeading);
+  if (implIndex === -1) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'The active task does not expose an Implementation notes section for GitHub review note append.',
+    };
+  }
+  const blockPrefix = targetBlock.slice(0, implIndex + implHeading.length);
+  const blockSuffix = targetBlock.slice(implIndex + implHeading.length);
+  const bullet = `- ${params.note}`;
+  const nextBlock = blockSuffix.includes(bullet)
+    ? targetBlock
+    : `${blockPrefix}${blockSuffix.endsWith('\n') ? '' : '\n'}\n${bullet}\n`;
+  const taskMatchIndex = taskMatch?.index ?? 0;
+  const nextPlan = `${planRaw.slice(0, taskMatchIndex)}${nextBlock}${planRaw.slice(taskMatchIndex + targetBlock.length)}`;
+  try {
+    await writeTextAtomically({ targetPath: planFullPath, value: nextPlan });
+    return { kind: 'ok', value: null };
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Unable to append GitHub review note to active plan.',
+    };
+  }
+};
+
+export const filterGitHubReviewFeedback = (params: {
+  artifact: GitHubReviewArtifact;
+}): GitHubReviewFeedbackEntry[] => {
+  const prAuthor = normalizeTrimmedString(
+    params.artifact.pullRequest.authorLogin,
+  );
+  const isReviewerAuthored = (login: string) =>
+    !prAuthor || login.trim().toLowerCase() !== prAuthor.toLowerCase();
+
+  const submissions: GitHubReviewFeedbackEntry[] = params.artifact.reviews
+    .filter(
+      (review) =>
+        isReviewerAuthored(review.user.login) && review.body.trim().length > 0,
+    )
+    .map((review) => ({
+      kind: 'review' as const,
+      reviewer: review.user.login,
+      body: review.body.trim(),
+      state: review.state,
+      ...(review.html_url ? { url: review.html_url } : {}),
+      ...(review.submitted_at ? { submittedAt: review.submitted_at } : {}),
+    }));
+
+  const inlineComments: GitHubReviewFeedbackEntry[] =
+    params.artifact.reviewComments
+      .filter(
+        (comment) =>
+          isReviewerAuthored(comment.user.login) &&
+          comment.body.trim().length > 0,
+      )
+      .map((comment) => ({
+        kind: 'inline_comment' as const,
+        reviewer: comment.user.login,
+        body: comment.body.trim(),
+        path: comment.path,
+        ...(comment.line !== undefined ? { line: comment.line } : {}),
+        ...(comment.html_url ? { url: comment.html_url } : {}),
+        ...(comment.created_at ? { createdAt: comment.created_at } : {}),
+      }));
+
+  return [...submissions, ...inlineComments];
+};
+
+export const buildGitHubExternalReviewInputMarkdown = (params: {
+  artifact: GitHubReviewArtifact;
+  feedback: GitHubReviewFeedbackEntry[];
+}): string => {
+  const lines = [
+    '# GitHub External Review Input',
+    '',
+    `Repository: ${params.artifact.repository.owner}/${params.artifact.repository.name}`,
+    `Pull Request: #${String(params.artifact.pullRequest.number)} ${params.artifact.pullRequest.url}`,
+    `Branch: ${params.artifact.pullRequest.headRefName}`,
+    `Fetched At: ${params.artifact.fetchedAt}`,
+    '',
+    '## Reviewer Feedback',
+  ];
+
+  if (params.feedback.length === 0) {
+    lines.push(
+      '',
+      'No reviewer-authored review submissions or inline comments were found.',
+    );
+    return `${lines.join('\n')}\n`;
+  }
+
+  for (const entry of params.feedback) {
+    lines.push('');
+    if (entry.kind === 'review') {
+      lines.push(`### Review Submission - ${entry.reviewer}`);
+      lines.push(`- State: ${entry.state}`);
+      if (entry.submittedAt) lines.push(`- Submitted At: ${entry.submittedAt}`);
+      if (entry.url) lines.push(`- URL: ${entry.url}`);
+      lines.push('- Body:');
+      lines.push(entry.body);
+      continue;
+    }
+    lines.push(`### Inline Comment - ${entry.reviewer}`);
+    lines.push(`- File: ${entry.path}`);
+    if (entry.line !== undefined) lines.push(`- Line: ${String(entry.line)}`);
+    if (entry.createdAt) lines.push(`- Created At: ${entry.createdAt}`);
+    if (entry.url) lines.push(`- URL: ${entry.url}`);
+    lines.push('- Body:');
+    lines.push(entry.body);
+  }
+
+  return `${lines.join('\n')}\n`;
+};
+
+export const materializeGitHubExternalReviewInput = async (params: {
+  handoff: GitHubCurrentReviewHandoff;
+}): Promise<
+  GitHubStepOutcome<{
+    externalReviewInputPath: string;
+    feedback: GitHubReviewFeedbackEntry[];
+  }>
+> => {
+  const artifactResult = await readJsonFile<GitHubReviewArtifact>(
+    params.handoff.raw_review_artifact_path,
+  );
+  if (artifactResult.kind !== 'ok') {
+    return artifactResult as GitHubStepOutcome<{
+      externalReviewInputPath: string;
+      feedback: GitHubReviewFeedbackEntry[];
+    }>;
+  }
+  const feedback = filterGitHubReviewFeedback({
+    artifact: artifactResult.value,
+  });
+  const reviewsRoot = path.join(
+    params.handoff.repository_root,
+    'codeInfoTmp/reviews',
+  );
+  const externalReviewInputPath = path.join(
+    reviewsRoot,
+    `${params.handoff.story_number}-external-review-input.md`,
+  );
+  try {
+    await writeTextAtomically({
+      targetPath: externalReviewInputPath,
+      value: buildGitHubExternalReviewInputMarkdown({
+        artifact: artifactResult.value,
+        feedback,
+      }),
+    });
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Unable to write GitHub external review input.',
+    };
+  }
+
+  const handoffPath = path.join(
+    params.handoff.repository_root,
+    'codeInfoTmp/reviews',
+    `${params.handoff.story_number}-current-review.json`,
+  );
+  const updatedHandoff = await updateJsonAtomically<GitHubCurrentReviewHandoff>(
+    {
+      targetPath: handoffPath,
+      update: (current) => ({
+        ...current,
+        external_review_input_file: externalReviewInputPath,
+        filtered_review_count: feedback.filter(
+          (entry) => entry.kind === 'review',
+        ).length,
+        filtered_review_comment_count: feedback.filter(
+          (entry) => entry.kind === 'inline_comment',
+        ).length,
+      }),
+    },
+  );
+  if (updatedHandoff.kind !== 'ok') {
+    return updatedHandoff as GitHubStepOutcome<{
+      externalReviewInputPath: string;
+      feedback: GitHubReviewFeedbackEntry[];
+    }>;
+  }
+  return {
+    kind: 'ok',
+    value: { externalReviewInputPath, feedback },
+  };
+};
+
+export const appendGitHubReviewPlanNote = async (params: {
+  workingRepositoryRoot: string;
+  note: string;
+}): Promise<GitHubStepOutcome<null>> =>
+  await appendImplementationNoteToPlan(params);
+
 export const writeGitHubReviewScratch = async (params: {
   repository: GitHubRepositoryState;
   pullRequest: GitHubPullRequestIdentity;
@@ -1034,6 +1407,9 @@ export const readGitHubReviewScratch = async (params: {
   const rawReviewArtifactPath = normalizeTrimmedString(
     record.raw_review_artifact_path,
   );
+  const externalReviewInputFile = normalizeTrimmedString(
+    record.external_review_input_file,
+  );
   const pullRequest = normalizePullRequestIdentity(record.pull_request);
   if (
     !planPath ||
@@ -1061,6 +1437,19 @@ export const readGitHubReviewScratch = async (params: {
       head_sha: headSha,
       pull_request: pullRequest,
       raw_review_artifact_path: rawReviewArtifactPath,
+      ...(externalReviewInputFile
+        ? { external_review_input_file: externalReviewInputFile }
+        : {}),
+      ...(typeof record.filtered_review_count === 'number' &&
+      Number.isFinite(record.filtered_review_count)
+        ? { filtered_review_count: record.filtered_review_count }
+        : {}),
+      ...(typeof record.filtered_review_comment_count === 'number' &&
+      Number.isFinite(record.filtered_review_comment_count)
+        ? {
+            filtered_review_comment_count: record.filtered_review_comment_count,
+          }
+        : {}),
       ...(normalizeTrimmedString(record.repository_alias)
         ? { repository_alias: normalizeTrimmedString(record.repository_alias) }
         : {}),

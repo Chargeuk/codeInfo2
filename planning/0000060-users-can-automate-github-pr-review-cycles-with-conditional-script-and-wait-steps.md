@@ -697,8 +697,8 @@ Wire the new primitives into one copied opt-in implementation flow that can run 
 2. [ ] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
 3. [x] Run `npm run test:summary:server:cucumber` because this task changes authored flow behavior and loop routing through the repository's flow execution surface.
 4. [x] Run `npm run test:summary:e2e` because this task changes a browser-visible flow execution path and must keep the supported automated end-to-end surface honest. This wrapper owns its own automated setup and teardown; Task 5 owns the separate normal main-stack compose smoke for the human Docker path.
-5. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+5. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+6. [x] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -744,6 +744,7 @@ Use the supported main stack at `http://localhost:5001/flows`. With `review_agen
 - Subtask 27: added focused server and client proof that the ingested `implement_next_plan_github_review /data/codeInfo2` row is disabled with `agent_not_found` when only nested `review_agent` availability is missing and that the active runnable selection stays on `echo`.
 - Subtask 28: ran targeted ESLint on `server/src/flows/discovery.ts`, `server/src/test/integration/flows.list.test.ts`, and `client/src/test/flowsPage.runGuard.test.tsx`; the reopened discovery follow-up stayed lint-clean without further code changes.
 - Subtask 29: ran targeted Prettier checks on the reopened discovery and proof files, used `prettier --write` on the two drifted test files, and re-ran `--check` to confirm the follow-up surface is formatter-clean.
+- Audit 2026-06-24: marked Testing 5 and 6 complete from the immediately preceding discovery follow-up pass because Subtasks 28 and 29 already recorded honest task-surface lint and format reruns. `npm run build:summary:server` and `npm run test:summary:server:unit` remain open for the later wrapper-backed proof rerun after the reopened nested-agent discovery fix.
 
 ### Task 5. Final Story Validation And Close-Out
 

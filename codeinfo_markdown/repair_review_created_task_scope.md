@@ -24,7 +24,7 @@ This step is the final scope-repair authority for review-created tasks. It may r
 2. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
 3. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename.
 4. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists and is valid enough to provide the active `review_cycle_id`, `review_pass_id`, and `task_up_owned_final_revalidation_task_title`.
-5. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, only when `review-disposition-state.json` is missing, unreadable, malformed, or does not clearly belong to the same story and plan.
+5. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, whenever the current review handoff is needed to identify the active review-created block safely.
 6. If both the review disposition state and the current review handoff are missing, unreadable, malformed, or otherwise unusable for safe block identification, make no plan edits and treat this step as a clean skip for the current pass.
 7. Inspect only the current review cycle's newly added or updated review-created task block. Do not rewrite older non-review-created tasks except for minimal numbering, dependency, or cross-reference repairs that are strictly required to keep the plan executable and truthful.
 
@@ -126,6 +126,7 @@ Repair or narrow any review-created task content that fails one or more of these
 - Leave the canonical plan in a state where the current review-created task block is fully within current-story scope across all relevant sections.
 - Make no edits outside the current review-created block except for minimal numbering, dependency, or cross-reference repairs required by those scope fixes.
 - If the current review-created block cannot be identified safely because the required review disposition state or current review handoff is unavailable or unusable, make no plan edits and treat the step as a clean skip for the current pass.
+- If multiple plausible current-cycle blocks remain after the selector order, or if the block still cannot be identified safely after applying that selector order, make no plan edits and treat the step as a clean skip for the current pass.
 - Do not create code changes.
 - Do not create new review findings.
 - Do not widen story scope.

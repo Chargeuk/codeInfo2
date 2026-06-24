@@ -13,7 +13,7 @@ This step is the final scope-repair authority for review-created tasks. It may r
 - Do not answer from conversational memory, prior loop passes, earlier summaries, or an earlier snapshot when the plan can be re-read from disk now.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"` strictly.
 - Do not rediscover the story, review cycle, or review-created task block by timestamp alone.
-- Do not edit code, tests, docs outside the canonical plan, flow-state JSON, or configuration in this step.
+- Do not edit code, tests, docs, flow-state JSON, review handoff files, or configuration in this step.
 - The only file this step may update is the canonical plan selected by `current-plan.json`.
 
 </critical_rules>
@@ -24,8 +24,9 @@ This step is the final scope-repair authority for review-created tasks. It may r
 2. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
 3. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename.
 4. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists and is valid enough to provide the active `review_cycle_id`, `review_pass_id`, and `task_up_owned_final_revalidation_task_title`.
-5. If `review-disposition-state.json` is missing, unreadable, malformed, or does not clearly belong to the same story and plan, fall back to the canonical plan text and current review handoff only as far as needed to identify the latest review-created task block safely.
-6. Inspect only the current review cycle's newly added or updated review-created task block. Do not rewrite older non-review-created tasks except for minimal numbering, dependency, or cross-reference repairs that are strictly required to keep the plan executable and truthful.
+5. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, only when `review-disposition-state.json` is missing, unreadable, malformed, or does not clearly belong to the same story and plan.
+6. If both the review disposition state and the current review handoff are missing, unreadable, malformed, or otherwise unusable for safe block identification, make no plan edits and treat this step as a clean skip for the current pass.
+7. Inspect only the current review cycle's newly added or updated review-created task block. Do not rewrite older non-review-created tasks except for minimal numbering, dependency, or cross-reference repairs that are strictly required to keep the plan executable and truthful.
 
 </scope_rules>
 
@@ -34,8 +35,8 @@ This step is the final scope-repair authority for review-created tasks. It may r
 - Prefer `review-disposition-state.json` as the source of truth for the current review cycle.
 - When `task_up_owned_final_revalidation_task_title` is present, use it to help identify the trailing boundary of the current review-created block.
 - When the current review handoff or plan text names a `review_pass_id`, use that review pass id plus the nearest appended `Code Review Findings` section to identify the current review-created block.
-- Treat the current review-created block as the contiguous appended review-created tasks and their shared final revalidation task for the active review cycle, not as all tasks in the story.
-- If the current review-created block cannot be identified safely, repair only by narrowing obviously current-cycle review-created tasks that are explicitly tied to the active review pass or review cycle. Otherwise stop and say the review-created task block cannot be identified honestly.
+- Treat the current review-created block as the tasks for the active review cycle that were newly appended or updated in place, plus their shared final revalidation task when one exists, not as all tasks in the story.
+- If the current review-created block cannot be identified safely, repair only by narrowing obviously current-cycle review-created tasks that are explicitly tied to the active review pass or review cycle. If even that cannot be done safely, make no plan edits and treat this step as a clean skip for the current pass.
 
 </review_created_block_identification_rules>
 
@@ -77,7 +78,7 @@ Repair or narrow any review-created task content that fails one or more of these
 6. Reject or narrow content that introduces a user-facing behavior change that was not explicitly requested by the story or later explicitly approved by the user.
 7. Reject or narrow content that broadens cleanup, refactor, redesign, compatibility, portability, hardening, or polish work beyond what is required for the current review-created finding.
 8. Reject or narrow content that uses `Testing`, `Manual Testing Guidance`, `Requirement-To-Proof Mapping`, `Proof Mapping`, `Risk Ownership`, or `Implementation Notes` to smuggle in implementation or behavior scope that the finding itself did not justify.
-9. Reject or narrow content that broadens `Affected Repositories`, `Owner Map`, or dependencies beyond the narrowest honest implementation and proof surface needed for the finding.
+9. Reject or narrow content that broadens `Affected Repositories`, `Owner Map`, or dependencies beyond the narrowest honest implementation and proof surface needed for the finding, except that the shared final revalidation task may name every affected repository and proof surface honestly required to validate the full current review-created findings block.
 10. Reject or narrow content when the reviewer's preferred remedy was broader than allowed and the task wording silently turned that broader remedy into current-story scope instead of preserving the constrained in-scope fix.
 
 </rejection_gates>
@@ -118,6 +119,7 @@ Repair or narrow any review-created task content that fails one or more of these
 
 - Leave the canonical plan in a state where the current review-created task block is fully within current-story scope across all relevant sections.
 - Make no edits outside the current review-created block except for minimal numbering, dependency, or cross-reference repairs required by those scope fixes.
+- If the current review-created block cannot be identified safely because the required review disposition state or current review handoff is unavailable or unusable, make no plan edits and treat the step as a clean skip for the current pass.
 - Do not create code changes.
 - Do not create new review findings.
 - Do not widen story scope.
@@ -131,6 +133,7 @@ Repair or narrow any review-created task content that fails one or more of these
 - Confirm the exact canonical `plan_path` was re-opened from disk using `sed`, `cat`, or `rg` immediately before making scope judgments.
 - Confirm the canonical plan was re-opened from disk again after any repair edits.
 - Confirm only the current review cycle's newly added or updated review-created task block was substantively rewritten.
+- Confirm that if the current review-created block could not be identified safely because required review-state or review-handoff files were unavailable or unusable, the step made no plan edits and treated the pass as a clean skip.
 - Confirm each repaired task was checked section-by-section rather than only through `Subtasks`.
 - Confirm no repaired section now conflicts with `### Acceptance Criteria`, `### Out Of Scope`, or the story behavior lock.
 - Confirm no repaired task silently broadened cleanup, compatibility, portability, hardening, or redesign work beyond the justified finding scope.

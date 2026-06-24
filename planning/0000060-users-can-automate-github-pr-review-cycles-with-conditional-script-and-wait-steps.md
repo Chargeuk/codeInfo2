@@ -554,7 +554,7 @@ Implement the persisted `wait` runtime lifecycle so a paused review cycle resume
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -630,6 +630,7 @@ Add the thin GitHub PR transport layer, the worked-repository `.env.local` token
 - 2026-06-24: `npm run build:summary:server` passed cleanly on the supported wrapper path after the Task 3 GitHub transport, repo-local token loading, and scratch-ownership changes, so no extra runtime compile fixes were needed before broader proof.
 - 2026-06-24: `npm run test:summary:server:unit` passed cleanly with 2,469 passing tests, covering the broader server suite after the Task 3 GitHub transport, repo-local token loading, and scratch-file ownership changes without requiring follow-up repairs.
 - 2026-06-24: `npm run compose:up` passed on the supported main stack after the Task 3 image and env-wiring changes; the server reached healthy status and the client started successfully, so the startup smoke surface stayed intact.
+- Audit note: Task 3 is now `__done__` because its subtasks, automated proof checklist, and blocker check are all complete, and this audit found no story-caused preserved-behavior regression or other approved-scope gap that would justify keeping the task open.
 - 2026-06-24: `npm run compose:down` passed after the Task 3 startup smoke step, removing the supported main-stack containers and network again so the shared baseline was left stopped cleanly.
 
 ### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints

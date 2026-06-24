@@ -638,7 +638,7 @@ Add the thin GitHub PR transport layer, the worked-repository `.env.local` token
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

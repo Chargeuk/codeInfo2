@@ -638,7 +638,7 @@ Add the thin GitHub PR transport layer, the worked-repository `.env.local` token
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -728,6 +728,7 @@ Wire the new primitives into one copied opt-in implementation flow that can run 
 - 2026-06-24: `npm run test:summary:e2e` failed first on stale browser expectations for the shipped endpoint-aware model-label format and one crossed expectation in the mobile history-versus-fresh reset path. Updating the affected Playwright assertions to the current `model (endpoint)` label contract and the actual saved-history/fresh-conversation state transitions fixed the issue, and the full wrapper rerun then passed cleanly with 77 passing tests.
 - 2026-06-24: `npm run lint` passed cleanly after the Task 4 integration-test and Playwright expectation repairs, so the broadened proof surface is currently lint-clean.
 - 2026-06-24: `npm run format:check` passed cleanly after the Task 4 test-path and Playwright expectation repairs, so the current proof surface remains formatter-clean as well.
+- Audit note: Task 4 is now `__done__` because its subtasks, automated proof checklist, and blocker check are all complete. The wrapper-backed proof repairs stayed inside test and plan-maintenance surfaces, and this audit found no story-caused preserved-behavior regression or other approved-scope gap that would justify keeping the task open.
 
 ### Task 5. Final Story Validation And Close-Out
 

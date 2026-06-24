@@ -21,14 +21,15 @@ This step is the final scope-repair authority for review-created tasks. It may r
 <scope_rules>
 
 1. Read `codeInfoStatus/flow-state/current-plan.json` from disk and extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
-2. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
-3. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no plan edits and treat this step as a clean skip for the current pass.
-4. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename. If the canonical plan is missing, unreadable, or unusable, make no plan edits and treat this step as a clean skip for the current pass.
-5. Treat `review-disposition-state.json` and `codeInfoTmp/reviews/<story-number>-current-review.json` as review-cycle identification aids, not as substitutes for the canonical plan.
-6. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists and is valid enough to provide the active `review_cycle_id`, `review_pass_id`, and `task_up_owned_final_revalidation_task_title`.
-7. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, whenever the current review handoff is needed to identify the active review-created block safely.
-8. If both the review disposition state and the current review handoff are missing, unreadable, malformed, or otherwise unusable for active review-cycle identification, make no plan edits and treat this step as a clean skip for the current pass.
-9. Inspect only the current review cycle's newly added or updated review-created task block. Do not rewrite older non-review-created tasks except for minimal numbering, dependency, or cross-reference repairs that are strictly required to keep the plan executable and truthful.
+2. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no plan edits and treat this step as a clean skip for the current pass.
+3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
+4. If the canonical plan is missing, unreadable, or unusable, make no plan edits and treat this step as a clean skip for the current pass.
+5. Verify the current repository branch story number matches the story number in the selected plan filename.
+6. Treat `review-disposition-state.json` and `codeInfoTmp/reviews/<story-number>-current-review.json` as review-cycle identification aids, not as substitutes for the canonical plan.
+7. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists and is valid enough to provide the active `review_cycle_id`, `review_pass_id`, and `task_up_owned_final_revalidation_task_title`.
+8. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, whenever the current review handoff is needed to identify the active review-created block safely.
+9. If both the review disposition state and the current review handoff are missing, unreadable, malformed, or otherwise unusable for active review-cycle identification, make no plan edits and treat this step as a clean skip for the current pass.
+10. Inspect only the current review cycle's newly added or updated review-created task block. Do not rewrite older non-review-created tasks except for minimal numbering, dependency, or cross-reference repairs that are strictly required to keep the plan executable and truthful.
 
 </scope_rules>
 

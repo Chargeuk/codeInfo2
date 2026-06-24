@@ -754,7 +754,7 @@ Use the supported main stack at `http://localhost:5001/flows`. With `review_agen
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -832,3 +832,4 @@ Validate the entire Story 60 surface after the implementation tasks land, then u
 - Testing 5: `npm run test:summary:e2e` passed cleanly with 77 passing tests and no failures, so the final browser-visible Story 60 flow surface stayed honest through the checked-in compose build, host-network wiring, automated browser run, and teardown path.
 - Testing 6: the first `npm run compose:up` attempt failed on a port-5010 preflight collision from an already-running main-stack instance under the same `docker-compose.yml`; bringing that stale main stack down and rerunning `npm run compose:up` then succeeded with the server healthy and client started, so the supported human stack still comes up cleanly after the final Story 60 proof suite.
 - Testing 7: `npm run compose:down` then completed cleanly after the successful smoke start, leaving the checked-in main stack stopped again so the final Story 60 automated proof closes in the expected shared-baseline state.
+- Audit note: Task 5 is now `__done__` because its close-out subtasks, automated-proof checklist, and blocker check are all complete. The final wrapper pass and the bounded compose-up retry stayed inside approved Story 60 validation scope, and this audit found no remaining story-caused preserved-behavior regression or other approved-scope gap that would justify keeping the task open before later manual proof.

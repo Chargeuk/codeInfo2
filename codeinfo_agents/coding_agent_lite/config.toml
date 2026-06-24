@@ -1,12 +1,9 @@
 codeinfo_provider = "codex"
-model_reasoning_effort = "medium"
-model = "deepseek/deepseek-v4-flash"
-codeinfo_openai_endpoint = "https://openrouter.ai/api/v1|responses,completions"
+model = "gpt-5.4"
+model_reasoning_effort = "low"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-personality = "friendly"
-model_auto_compact_token_limit=300000
-web_search_mode = "live" 
+web_search_mode = "disabled"
 
 [features]
 view_image_tool = true

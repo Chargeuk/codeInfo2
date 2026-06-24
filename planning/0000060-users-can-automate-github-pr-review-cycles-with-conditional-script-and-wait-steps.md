@@ -492,7 +492,7 @@ Add the new flow-only step contracts that Story 60 needs, and make `if`, `break`
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -547,6 +547,7 @@ Implement the persisted `wait` runtime lifecycle so a paused review cycle resume
 - `npm run build:summary:server` failed first on TypeScript `never` call-site errors in the new wait-resume tests, so the wake callback invocations were narrowed with explicit function casts in the affected integration files and the wrapper then passed cleanly.
 - `npm run test:summary:server:unit` first exposed unrelated Codex-home leakage and a full-suite-only working-folder restore failure; isolating the Codex-unavailable tests, rereading persisted working folders after clear attempts, and resetting shared working-folder test state between cases brought the targeted proofs and the full wrapper back to green.
 - `npm run test:summary:server:cucumber` passed cleanly on the first wrapper run after the unit-suite fixes, so the authored wait lifecycle coverage is now green alongside the build and full server-unit wrapper.
+- Audit note: Task 2 is now `__done__` because its subtasks, wrapper-backed automated proof, and blocker check are all complete; the `server/src/routes/conversations.ts` working-folder reread tweak that surfaced during the full server-unit pass touched an out-of-scope conversations-list restore path and is recorded here as discovered drift rather than as Story 60 wait-lifecycle scope expansion.
 
 ### Task 3. Add GitHub Transport, Repo-Local Token Loading, And Safe Review Scratch Ownership
 

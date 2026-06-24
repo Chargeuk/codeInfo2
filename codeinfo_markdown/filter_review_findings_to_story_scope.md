@@ -25,7 +25,7 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 2. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no edits and treat this step as a clean skip for the current pass.
 3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
 4. If the canonical plan is missing, unreadable, or unusable, make no edits and treat this step as a clean skip for the current pass.
-5. Verify the current repository branch story number matches the story number in the selected plan filename.
+5. Verify the current repository branch story number matches the story number in the selected plan filename. If it does not match, make no edits and treat this step as a clean skip for the current pass.
 6. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and treat it as the only actionable-routing input for this step.
 7. If `review-disposition-state.json` is missing, unreadable, malformed, or unusable, make no edits and treat this step as a clean skip for the current pass.
 8. Preserve all non-finding routing metadata in the state file unless this step must update it to reflect filtered findings honestly.
@@ -155,10 +155,11 @@ Never leave the state in a shape where:
 - When optional review evidence is unavailable, any unchanged actionable finding must be understood as preserved pending stronger evidence, not as newly re-verified by this step.
 - If optional review evidence inputs are unavailable, leave any evidence-dependent findings unchanged unless a safe rejection or narrowing decision can still be made from the canonical plan and current review disposition state alone.
 - Do not invent new findings, new tasks, new scope, or new product decisions.
-- Stop once every actionable finding has either:
+- If the step did not clean-skip, stop once every actionable finding has either:
   - survived all rejection gates and remained actionable;
   - been narrowed to an in-scope core issue;
   - or been moved to `rejected_or_non_actionable_findings`.
+- If the step clean-skipped because required routing inputs were unavailable or mismatched, stop after making no edits.
 
 </output_contract>
 
@@ -168,12 +169,14 @@ Never leave the state in a shape where:
 - Confirm the exact canonical plan was re-opened from disk before filtering findings.
 - Confirm `story_behavior_lock.md` was read and applied.
 - Confirm that if `current-plan.json`, the canonical plan, or `review-disposition-state.json` was missing or unusable, the step made no edits and clean-skipped the current pass.
+- Confirm that if the current branch story number did not match the selected plan filename, the step made no edits and clean-skipped the current pass.
 - Confirm every actionable finding was evaluated against all rejection gates.
 - Confirm no rejected finding remained in an actionable bucket.
 - Confirm every newly rejected finding records the gate number and explanation.
 - Confirm any narrowed finding now describes only the in-scope core issue.
 - Confirm that missing optional review evidence did not by itself cause any new finding rejection.
 - Confirm the step did not claim to newly verify any unchanged evidence-dependent finding when optional review artifacts were unavailable.
+- Confirm the stop condition matched the actual path taken: full finding filtering on a normal pass, or no-edit exit on a clean-skip pass.
 - Confirm counts and derived booleans in `review-disposition-state.json` match the filtered arrays.
 - Confirm the filtered state would make the minor-fix path, task-up path, and outer review-loop exits route honestly if the loop-control scripts were run immediately after this step.
 - Confirm the updated state file is valid JSON after writing.

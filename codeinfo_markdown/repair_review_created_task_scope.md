@@ -24,7 +24,7 @@ This step is the final scope-repair authority for review-created tasks. It may r
 2. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no plan edits and treat this step as a clean skip for the current pass.
 3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
 4. If the canonical plan is missing, unreadable, or unusable, make no plan edits and treat this step as a clean skip for the current pass.
-5. Verify the current repository branch story number matches the story number in the selected plan filename.
+5. Verify the current repository branch story number matches the story number in the selected plan filename. If it does not match, make no plan edits and treat this step as a clean skip for the current pass.
 6. Treat `review-disposition-state.json` and `codeInfoTmp/reviews/<story-number>-current-review.json` as review-cycle identification aids, not as substitutes for the canonical plan.
 7. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists and is valid enough to provide the active `review_cycle_id`, `review_pass_id`, and `task_up_owned_final_revalidation_task_title`.
 8. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, whenever the current review handoff is needed to identify the active review-created block safely.
@@ -121,17 +121,19 @@ Repair or narrow any review-created task content that fails one or more of these
 - Prefer direct plan repair over advisory notes.
 - Keep critical constraints above general explanation.
 - Optimize for deterministic, outcome-first edits rather than open-ended commentary.
-- Stop once the current review-created block is narrowed to honest current-story scope and the canonical plan on disk reflects that repaired state.
+- If the current review-created block was identified safely, stop once that block is narrowed to honest current-story scope and the canonical plan on disk reflects that repaired state.
+- If the step clean-skipped because required identification inputs were unavailable, mismatched, or the active block could not be identified safely, stop after making no plan edits.
 
 </prompt_quality_rules>
 
 <output_contract>
 
-- Leave the canonical plan in a state where the current review-created task block is fully within current-story scope across all relevant sections.
+- When the current review-created task block was identified safely, leave the canonical plan in a state where that block is fully within current-story scope across all relevant sections.
 - Make no edits outside the current review-created block except for minimal numbering, dependency, or cross-reference repairs required by those scope fixes.
 - If `current-plan.json` or the canonical plan is unavailable or unusable, make no plan edits and treat the step as a clean skip for the current pass.
 - If the current review-created block cannot be identified safely because both the required review disposition state and current review handoff are unavailable or unusable for active review-cycle identification, make no plan edits and treat the step as a clean skip for the current pass.
 - If multiple plausible current-cycle blocks remain after the selector order, or if the block still cannot be identified safely after applying that selector order, make no plan edits and treat the step as a clean skip for the current pass.
+- When the step clean-skips because required identification inputs were unavailable or the active block could not be identified safely, make no plan edits and do not claim that the current review-created block was re-verified by this step.
 - Do not create code changes.
 - Do not create new review findings.
 - Do not widen story scope.
@@ -146,7 +148,10 @@ Repair or narrow any review-created task content that fails one or more of these
 - Confirm the canonical plan was re-opened from disk again after any repair edits.
 - Confirm only the current review cycle's newly added or updated review-created task block was substantively rewritten.
 - Confirm that if `current-plan.json` or the canonical plan was unavailable or unusable, the step made no plan edits and treated the pass as a clean skip.
+- Confirm that if the current branch story number did not match the selected plan filename, the step made no plan edits and treated the pass as a clean skip.
 - Confirm that if the current review-created block could not be identified safely because required review-state or review-handoff files were unavailable or unusable, the step made no plan edits and treated the pass as a clean skip.
+- Confirm the step did not claim to re-verify the current review-created block on any clean-skip pass.
+- Confirm the stop condition matched the actual path taken: repaired in-scope block on a normal pass, or no-edit exit on a clean-skip pass.
 - Confirm each repaired task was checked section-by-section rather than only through `Subtasks`.
 - Confirm no repaired section now conflicts with `### Acceptance Criteria`, `### Out Of Scope`, or the story behavior lock.
 - Confirm no repaired task silently broadened cleanup, compatibility, portability, hardening, or redesign work beyond the justified finding scope.

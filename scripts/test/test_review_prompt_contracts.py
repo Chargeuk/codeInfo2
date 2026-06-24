@@ -196,6 +196,26 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("preserved behavior proof", ensure_text)
         self.assertIn("contract-shape assertions", compact_text)
 
+    def test_review_created_task_scope_prompt_requires_disk_rereads_and_section_gates(
+        self,
+    ) -> None:
+        text = read_text("codeinfo_markdown/repair_review_created_task_scope.md")
+
+        self.assertIn("Read `codeInfoStatus/flow-state/current-plan.json` from disk first", text)
+        self.assertIn("Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`", text)
+        self.assertIn("using explicit shell reads such as `sed`, `cat`, or `rg`", text)
+        self.assertIn("Do not answer from conversational memory", text)
+        self.assertIn("After making any repair edit, re-open the exact canonical plan from disk again", text)
+        self.assertIn("Task Exit Criteria", text)
+        self.assertIn("Addresses Findings", text)
+        self.assertIn("Risk Ownership", text)
+        self.assertIn("Owner Map", text)
+        self.assertIn("Requirement-To-Proof Mapping", text)
+        self.assertIn("Testing", text)
+        self.assertIn("Manual Testing Guidance", text)
+        self.assertIn("Implementation Notes", text)
+        self.assertIn("restores previously approved or preserved behavior", text)
+
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())
         expected = {

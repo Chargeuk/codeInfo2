@@ -36,7 +36,13 @@ This step is the final scope-repair authority for review-created tasks. It may r
 - When `task_up_owned_final_revalidation_task_title` is present, use it to help identify the trailing boundary of the current review-created block.
 - When the current review handoff or plan text names a `review_pass_id`, use that review pass id plus the nearest appended `Code Review Findings` section to identify the current review-created block.
 - Treat the current review-created block as the tasks for the active review cycle that were newly appended or updated in place, plus their shared final revalidation task when one exists, not as all tasks in the story.
-- If the current review-created block cannot be identified safely, repair only by narrowing obviously current-cycle review-created tasks that are explicitly tied to the active review pass or review cycle. If even that cannot be done safely, make no plan edits and treat this step as a clean skip for the current pass.
+- Use this fallback selector order when the active review-created block is not obvious from the state alone:
+  1. tasks explicitly tied to the active `review_cycle_id`;
+  2. tasks explicitly tied to the active `review_pass_id`;
+  3. the review-created block directly associated with the nearest appended `Code Review Findings` section for the active review pass.
+- Do not rewrite a task merely because it looks review-related. It must be tied to the active review cycle or active review pass by explicit plan text or active review-state metadata.
+- If multiple plausible current-cycle blocks still remain after applying the selector order, make no plan edits and treat this step as a clean skip for the current pass.
+- If the current review-created block still cannot be identified safely after applying the selector order, make no plan edits and treat this step as a clean skip for the current pass.
 
 </review_created_block_identification_rules>
 

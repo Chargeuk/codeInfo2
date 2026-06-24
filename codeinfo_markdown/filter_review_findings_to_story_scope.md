@@ -10,6 +10,7 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Re-open the exact canonical plan from disk before filtering any finding, using explicit shell reads such as `sed`, `cat`, or `rg`.
 - Read `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"` and follow it strictly.
+- Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk using explicit shell reads such as `cat`, `sed`, or `rg` whenever review-handoff context is needed. Read the `findings_file` referenced by that handoff from disk before relying on its review evidence.
 - Use the stored review handoff plus the artifacts it references only when needed to verify whether a finding is in scope. Do not rediscover review artifacts by timestamp.
 - Do not edit the canonical plan, code, tests, docs, or configuration in this step.
 - The only file this step may create or update is `codeInfoStatus/flow-state/review-disposition-state.json`.
@@ -25,7 +26,8 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 3. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename.
 4. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and treat it as the only actionable-routing input for this step.
 5. Preserve all non-finding routing metadata in the state file unless this step must update it to reflect filtered findings honestly.
-6. Read the stored review handoff and findings artifact only when needed to determine whether a finding is story-introduced, story-regressive, explicitly required, or pre-existing.
+6. Read `codeInfoTmp/reviews/<story-number>-current-review.json` and the `findings_file` it references only when needed to determine whether a finding is story-introduced, story-regressive, explicitly required, or pre-existing.
+7. If the review handoff or referenced findings artifact is missing, unreadable, or unusable, do not guess from memory or rediscover by timestamp. Keep the existing actionable routing state unless a safe rejection or narrowing decision can still be made from the canonical plan and current review disposition state alone.
 
 </scope_rules>
 

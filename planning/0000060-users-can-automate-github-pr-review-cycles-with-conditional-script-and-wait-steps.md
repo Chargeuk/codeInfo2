@@ -613,11 +613,11 @@ Add the thin GitHub PR transport layer, the worked-repository `.env.local` token
 
 #### Testing
 
-1. [ ] Run `npm run compose:build` because this task changes the supported server image and must prove the normal main-stack Docker build path still works.
-2. [ ] Run `npm run build:summary:server` because this task changes server runtime helpers and step execution code.
-3. [ ] Run `npm run test:summary:server:unit` because this task changes env parsing, subprocess transport, explicit selector logic, and scratch-file behavior.
-4. [ ] Run `npm run compose:up` because this task changes main-stack server runtime packaging and env wiring, and the supported human stack must still start successfully after the image change. This smoke step owns container startup only, not the full Story 60 GitHub review-cycle behavior.
-5. [ ] Run `npm run compose:down` because the previous step started the normal supported main stack and this task must leave that shared baseline stopped again after smoke validation.
+1. [x] Run `npm run compose:build` because this task changes the supported server image and must prove the normal main-stack Docker build path still works.
+2. [x] Run `npm run build:summary:server` because this task changes server runtime helpers and step execution code.
+3. [x] Run `npm run test:summary:server:unit` because this task changes env parsing, subprocess transport, explicit selector logic, and scratch-file behavior.
+4. [x] Run `npm run compose:up` because this task changes main-stack server runtime packaging and env wiring, and the supported human stack must still start successfully after the image change. This smoke step owns container startup only, not the full Story 60 GitHub review-cycle behavior.
+5. [x] Run `npm run compose:down` because the previous step started the normal supported main stack and this task must leave that shared baseline stopped again after smoke validation.
 6. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 7. [x] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
@@ -626,6 +626,11 @@ Add the thin GitHub PR transport layer, the worked-repository `.env.local` token
 - 2026-06-24: Added `server/src/flows/githubReview.ts` as the Story 60 transport and scratch seam, wired `service.ts` to execute `github_open_pr`, `github_fetch_reviews`, and `github_close_pr`, and updated `server/Dockerfile` to install `gh` in the supported runtime. `server/npm-global.txt` did not need a matching change because this runtime path installs `gh` through apt rather than the global npm tool layer.
 - 2026-06-24: Added deterministic GitHub review fixtures plus unit coverage in `server/src/test/unit/flows.github-adapter.test.ts` and `server/src/test/unit/flows.github-scratch.test.ts` for repo-local token reads, child-process env scoping, explicit repository and PR resolution, paginated review fetch, staged scratch replacement, malformed scratch rejection, and reader-only cleanup ownership. Targeted proof passed with `TS_NODE_TRANSPILE_ONLY=1 NODE_OPTIONS="--import ./scripts/register-ts-node-esm-loader.mjs --disable-warning=DEP0180" node --test --test-concurrency=1 src/test/unit/flows.github-adapter.test.ts src/test/unit/flows.github-scratch.test.ts`.
 - 2026-06-24: Verified the new runtime seam compiles with `npm run build --workspace server`. `npm run lint --workspace server -- src/flows/service.ts src/flows/githubReview.ts src/test/unit/flows.github-adapter.test.ts src/test/unit/flows.github-scratch.test.ts` passed cleanly; the workspace `format:check` script widened into unrelated existing server formatting debt and rejected repo-root-relative paths, so the task-scoped replacement check used `npx prettier --check --ignore-unknown` on the changed Task 3 files and passed cleanly without widening this task into unrelated formatting cleanup.
+- 2026-06-24: `npm run compose:build` passed on the supported main-stack Docker path, including the updated server image that now packages `gh` alongside the existing runtime tooling.
+- 2026-06-24: `npm run build:summary:server` passed cleanly on the supported wrapper path after the Task 3 GitHub transport, repo-local token loading, and scratch-ownership changes, so no extra runtime compile fixes were needed before broader proof.
+- 2026-06-24: `npm run test:summary:server:unit` passed cleanly with 2,469 passing tests, covering the broader server suite after the Task 3 GitHub transport, repo-local token loading, and scratch-file ownership changes without requiring follow-up repairs.
+- 2026-06-24: `npm run compose:up` passed on the supported main stack after the Task 3 image and env-wiring changes; the server reached healthy status and the client started successfully, so the startup smoke surface stayed intact.
+- 2026-06-24: `npm run compose:down` passed after the Task 3 startup smoke step, removing the supported main-stack containers and network again so the shared baseline was left stopped cleanly.
 
 ### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints
 

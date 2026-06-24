@@ -638,7 +638,7 @@ Add the thin GitHub PR transport layer, the worked-repository `.env.local` token
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -685,15 +685,19 @@ Wire the new primitives into one copied opt-in implementation flow that can run 
 23. [x] Test type: e2e. Location: `e2e/flows-execution-runs.spec.ts`. Description: prove the operator-facing flow-selection invariant owned by the copied flow variant file(s) and the default entrypoint files when the copied variant is selected without mutating current defaults. Keep this as a distinct Story 60 browser test with its own title instead of broadening the existing retry-ownership test title to cover adjacent behavior. Purpose: keep the browser-visible flow-selection surface honest for operators. Proof owners: `e2e/flows-execution-runs.spec.ts`.
 24. [x] Run `npm run lint` for the files changed by this task and fix any issues found, using `npm run lint:fix` before manual cleanup when possible. Purpose: leave the opt-in flow composition and status-routing surface in an honestly lint-clean state. Proof owners: `npm run lint` output for the changed Task 4 files.
 25. [x] Run `npm run format:check` for the files changed by this task and fix any issues found, using `npm run format` before manual cleanup when possible. Purpose: leave the opt-in flow composition and status-routing surface in an honestly formatted state. Proof owners: `npm run format:check` output for the changed Task 4 files.
+26. [ ] In `server/src/flows/discovery.ts`, extend the recursive flow-agent discovery used by `/flows` and flow details so it also walks nested agent-bearing branches inside composed containers used by `flows/implement_next_plan_github_review.json`, including the `if`/branch path that reaches `review_agent`. The supported main stack must not advertise the opt-in GitHub review variant as runnable when a nested required agent is absent from `manual_testing/codeinfo_agents`. Purpose: keep the operator-facing disabled-state contract aligned with the actual run-time agent requirements of the copied Story 60 variant. Proof owners: `server/src/test/integration/flows.list.test.ts`, `e2e/flows-execution-runs.spec.ts`.
+27. [ ] Test type: server integration. Location: `server/src/test/integration/flows.list.test.ts`. Description: add a focused Task 4 listing proof that `implement_next_plan_github_review` is returned as disabled with the shared `agent_not_found` reason when `review_agent` is unavailable only through a nested branch in the copied flow, instead of appearing runnable until `POST /flows/:flowName/run` fails with `AGENT_NOT_FOUND`. Purpose: give the misleading operator-facing availability seam its own automated proof home. Proof owners: `server/src/test/integration/flows.list.test.ts`.
+28. [ ] Run `npm run lint` for the files changed by this follow-up and fix any issues found, using `npm run lint:fix` before manual cleanup when possible. Purpose: leave the reopened Task 4 flow-discovery and proof surface in an honestly lint-clean state. Proof owners: `npm run lint` output for the changed Task 4 files.
+29. [ ] Run `npm run format:check` for the files changed by this follow-up and fix any issues found, using `npm run format` before manual cleanup when possible. Purpose: leave the reopened Task 4 flow-discovery and proof surface in an honestly formatted state. Proof owners: `npm run format:check` output for the changed Task 4 files.
 
 #### Testing
 
-1. [x] Run `npm run build:summary:server` because this task changes flow composition and server runtime orchestration.
-2. [x] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
+1. [ ] Run `npm run build:summary:server` because this task changes flow composition and server runtime orchestration.
+2. [ ] Run `npm run test:summary:server:unit` because this task changes runtime orchestration, copied flow definitions, and producer-consumer review-scratch behavior.
 3. [x] Run `npm run test:summary:server:cucumber` because this task changes authored flow behavior and loop routing through the repository's flow execution surface.
 4. [x] Run `npm run test:summary:e2e` because this task changes a browser-visible flow execution path and must keep the supported automated end-to-end surface honest. This wrapper owns its own automated setup and teardown; Task 5 owns the separate normal main-stack compose smoke for the human Docker path.
-5. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [x] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+5. [ ] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -729,6 +733,7 @@ Wire the new primitives into one copied opt-in implementation flow that can run 
 - 2026-06-24: `npm run lint` passed cleanly after the Task 4 integration-test and Playwright expectation repairs, so the broadened proof surface is currently lint-clean.
 - 2026-06-24: `npm run format:check` passed cleanly after the Task 4 test-path and Playwright expectation repairs, so the current proof surface remains formatter-clean as well.
 - Audit note: Task 4 is now `__done__` because its subtasks, automated proof checklist, and blocker check are all complete. The wrapper-backed proof repairs stayed inside test and plan-maintenance surfaces, and this audit found no story-caused preserved-behavior regression or other approved-scope gap that would justify keeping the task open.
+- 2026-06-24: Manual testing ran on the supported main compose stack and proved startup, health, `/flows` reachability, and the operator-facing selection surface for `implement_next_plan_github_review`, with scratch proof saved under `codeInfoTmp/manual-testing/0000060/4/`. The browser proof showed the GitHub review variant selectable while `echo` remained the default, but the first honest run failed with `AGENT_NOT_FOUND` because `review_agent` is absent from `manual_testing/codeinfo_agents` and `server/src/flows/discovery.ts` did not disable the variant when that dependency appeared only in a nested branch. Added concrete follow-up subtasks in `server/src/flows/discovery.ts` and `server/src/test/integration/flows.list.test.ts`, and reopened build, server-unit, lint, and format proof because automated validation must rerun before a later manual retest.
 
 ### Task 5. Final Story Validation And Close-Out
 

@@ -554,7 +554,7 @@ Implement the persisted `wait` runtime lifecycle so a paused review cycle resume
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

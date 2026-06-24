@@ -789,13 +789,13 @@ Validate the entire Story 60 surface after the implementation tasks land, then u
 
 #### Testing
 
-1. [ ] Run `npm run compose:build` because the final story proof must include the shipped main-stack Docker build path that now carries `gh`, the copied flow assets, and the final server runtime wiring.
-2. [ ] Run `npm run build:summary:server` because Story 60 changes server flow schema, runtime orchestration, GitHub transport, and copied flow definitions.
-3. [ ] Run `npm run test:summary:server:unit` because the final story changes schema parsing, lifecycle-sensitive state, transport helpers, and review-scratch producer-consumer behavior.
-4. [ ] Run `npm run test:summary:server:cucumber` because the final story changes authored flow behavior, wait resume, and review-loop routing.
-5. [ ] Run `npm run test:summary:e2e` because the final story changes the supported browser-visible flow execution surface and must keep end-to-end automation honest.
-6. [ ] Run `npm run compose:up` because the final story changes the normal supported human stack and needs an explicit smoke start through `docker-compose.yml` after the main-stack build and automated suites complete. If this step fails before server health and client readiness are reachable, treat that as a main-stack baseline or harness failure to diagnose separately from Story 60 flow logic.
-7. [ ] Run `npm run compose:down` because the previous step started the normal supported main stack and final proof must leave that shared baseline stopped again after smoke validation.
+1. [x] Run `npm run compose:build` because the final story proof must include the shipped main-stack Docker build path that now carries `gh`, the copied flow assets, and the final server runtime wiring.
+2. [x] Run `npm run build:summary:server` because Story 60 changes server flow schema, runtime orchestration, GitHub transport, and copied flow definitions.
+3. [x] Run `npm run test:summary:server:unit` because the final story changes schema parsing, lifecycle-sensitive state, transport helpers, and review-scratch producer-consumer behavior.
+4. [x] Run `npm run test:summary:server:cucumber` because the final story changes authored flow behavior, wait resume, and review-loop routing.
+5. [x] Run `npm run test:summary:e2e` because the final story changes the supported browser-visible flow execution surface and must keep end-to-end automation honest.
+6. [x] Run `npm run compose:up` because the final story changes the normal supported human stack and needs an explicit smoke start through `docker-compose.yml` after the main-stack build and automated suites complete. If this step fails before server health and client readiness are reachable, treat that as a main-stack baseline or harness failure to diagnose separately from Story 60 flow logic.
+7. [x] Run `npm run compose:down` because the previous step started the normal supported main stack and final proof must leave that shared baseline stopped again after smoke validation.
 8. [x] Run `npm run lint` for this task's surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 9. [x] Run `npm run format:check` for this task's surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
@@ -825,3 +825,10 @@ Validate the entire Story 60 surface after the implementation tasks land, then u
 - Subtask 9: extended the Story 60 PR summary with the completed-with-warning cases, named proof surfaces, and final manual-proof guidance pointers while keeping the executable plan as the source of truth for later wrapper and manual proof.
 - Subtask 10: `npm run lint` passed cleanly on the current Story 60 close-out branch state, so the documentation-only Task 5 surface introduced no lint regression before the final wrapper suite.
 - Subtask 11: `npm run format:check` passed cleanly, confirming the updated Story 60 docs, plan notes, and PR summary stayed formatter-clean before the later full validation task runs.
+- Testing 1: `npm run compose:build` passed cleanly on the main stack, proving the shipped Docker build still carries the Story 60 `gh` tooling, copied flow assets, and final runtime wiring without any extra repair work.
+- Testing 2: `npm run build:summary:server` passed cleanly on the first rerun, so the final Story 60 server compile surface still matches the shipped flow schema, runtime orchestration, GitHub transport, and copied flow definitions.
+- Testing 3: `npm run test:summary:server:unit` passed cleanly with 2,474 passing tests and no failures, so the final Story 60 schema parsing, lifecycle-sensitive state, transport helpers, and review-scratch producer-consumer coverage all held without further repair work.
+- Testing 4: `npm run test:summary:server:cucumber` passed cleanly with 132 passing scenarios and no failures, so the final authored-flow wait, resume, review-loop routing, and default-path behavior all stayed green in the executable feature coverage.
+- Testing 5: `npm run test:summary:e2e` passed cleanly with 77 passing tests and no failures, so the final browser-visible Story 60 flow surface stayed honest through the checked-in compose build, host-network wiring, automated browser run, and teardown path.
+- Testing 6: the first `npm run compose:up` attempt failed on a port-5010 preflight collision from an already-running main-stack instance under the same `docker-compose.yml`; bringing that stale main stack down and rerunning `npm run compose:up` then succeeded with the server healthy and client started, so the supported human stack still comes up cleanly after the final Story 60 proof suite.
+- Testing 7: `npm run compose:down` then completed cleanly after the successful smoke start, leaving the checked-in main stack stopped again so the final Story 60 automated proof closes in the expected shared-baseline state.

@@ -121,11 +121,19 @@ Preserve unless inconsistency requires repair:
 
 When preserving an existing same-cycle field, do not preserve it blindly. Verify it still agrees with the filtered findings state. If it no longer agrees, repair it to the minimum extent needed to restore honest loop routing.
 
+When checking blocker-style state for consistency:
+
+- Do not preserve an `incomplete_review_blocker` or `operationally_blocked_minor_finding` if it is tied only to a finding that this step rejected or narrowed out of its previous actionable contract.
+- If a blocker or blocked-minor entry still has a valid in-scope core issue after filtering, narrow that blocker entry so it describes only the remaining in-scope condition.
+- Remove or reclassify any blocker entry that no longer has a surviving actionable finding, surviving in-scope blocker condition, or other current-cycle routing basis after filtering.
+
 Never leave the state in a shape where:
 
 - `needs_minor_fix_path` is false while unresolved minor findings still remain.
 - `needs_task_up_path` is false while unresolved task-required findings or incomplete-review blockers still remain.
 - `safe_to_exit_review_loop_without_tasking` is true while any unresolved findings, blocked minor findings, rerun requirement, or final revalidation requirement still remains.
+- `needs_task_up_path` remains true only because an `incomplete_review_blocker` tied solely to a rejected finding was preserved.
+- `safe_to_exit_review_loop_without_tasking` remains false only because a blocker tied solely to a rejected finding was preserved.
 - downstream loop-control scripts would decide the review loop can finish cleanly only because stale state was preserved.
 
 </full_state_coherence_rules>
@@ -134,7 +142,9 @@ Never leave the state in a shape where:
 
 - Rewrite `unresolved_task_required_findings` so it contains only findings that survived every rejection gate.
 - Rewrite `unresolved_minor_batchable_findings` so it contains only findings that survived every rejection gate.
-- Preserve `resolved_minor_findings`, `operationally_blocked_minor_findings`, and `incomplete_review_blockers` exactly as they already stand unless a state-consistency repair is required.
+- Preserve `resolved_minor_findings` exactly as it already stands unless a state-consistency repair is required.
+- Preserve `operationally_blocked_minor_findings` and `incomplete_review_blockers` only when each preserved entry still matches a surviving actionable finding or other surviving current-cycle blocker basis after filtering.
+- Narrow or remove any `operationally_blocked_minor_findings` or `incomplete_review_blockers` entry whose prior contract depended on a finding that this step rejected or narrowed out of its previous actionable form.
 - Preserve existing `rejected_or_non_actionable_findings` entries and append newly rejected findings there.
 - For every finding rejected by this step, record:
   - the original finding id;
@@ -176,6 +186,7 @@ Never leave the state in a shape where:
 - Confirm any narrowed finding now describes only the in-scope core issue.
 - Confirm that missing optional review evidence did not by itself cause any new finding rejection.
 - Confirm the step did not claim to newly verify any unchanged evidence-dependent finding when optional review artifacts were unavailable.
+- Confirm no `incomplete_review_blocker` or `operationally_blocked_minor_finding` remains solely because a rejected finding used to justify it.
 - Confirm the stop condition matched the actual path taken: full finding filtering on a normal pass, or no-edit exit on a clean-skip pass.
 - Confirm counts and derived booleans in `review-disposition-state.json` match the filtered arrays.
 - Confirm the filtered state would make the minor-fix path, task-up path, and outer review-loop exits route honestly if the loop-control scripts were run immediately after this step.

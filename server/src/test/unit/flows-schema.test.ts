@@ -399,6 +399,58 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('main implementation flows filter review findings immediately after classifier disposition', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
+
+      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+        if (step.type === 'llm') {
+          return step.markdownFile;
+        }
+        if (step.type === 'command') {
+          return step.commandName;
+        }
+        return undefined;
+      });
+
+      const classifyIndex = markers.indexOf('classify_review_disposition.md');
+      const filterIndex = markers.indexOf(
+        'filter_review_findings_to_story_scope.md',
+      );
+      const ensureIndex = markers.indexOf(
+        'ensure_review_findings_became_tasks.md',
+      );
+
+      assert.notEqual(
+        classifyIndex,
+        -1,
+        `${flowFile} should include classifier disposition`,
+      );
+      assert.notEqual(
+        filterIndex,
+        -1,
+        `${flowFile} should include findings scope filter`,
+      );
+      assert.notEqual(
+        ensureIndex,
+        -1,
+        `${flowFile} should include review findings repair`,
+      );
+      assert.ok(
+        classifyIndex < filterIndex && filterIndex < ensureIndex,
+        `${flowFile} should run classifier disposition, then scope-filter findings, then repair tasked findings`,
+      );
+    }
+  });
+
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {
     const flowFiles = [
       'flows/review_plan.json',

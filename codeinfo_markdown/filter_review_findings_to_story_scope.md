@@ -1,0 +1,168 @@
+# Goal
+
+Filter the classified review findings so only current-story in-scope findings remain actionable.
+
+This step is an explicit scope gate only. It must not fix findings, task up findings, mutate the canonical plan, or widen story scope.
+
+<critical_rules>
+
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
+- Re-open the exact canonical plan from disk before filtering any finding, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"` and follow it strictly.
+- Use the stored review handoff plus the artifacts it references only when needed to verify whether a finding is in scope. Do not rediscover review artifacts by timestamp.
+- Do not edit the canonical plan, code, tests, docs, or configuration in this step.
+- The only file this step may create or update is `codeInfoStatus/flow-state/review-disposition-state.json`.
+- Treat `codeInfoStatus/flow-state/review-disposition-state.json` as generated flow state. Do not commit it unless a later human explicitly asks to persist runtime state.
+- Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
+
+</critical_rules>
+
+<scope_rules>
+
+1. Read `codeInfoStatus/flow-state/current-plan.json` from disk and extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
+2. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
+3. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename.
+4. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and treat it as the only actionable-routing input for this step.
+5. Preserve all non-finding routing metadata in the state file unless this step must update it to reflect filtered findings honestly.
+6. Read the stored review handoff and findings artifact only when needed to determine whether a finding is story-introduced, story-regressive, explicitly required, or pre-existing.
+
+</scope_rules>
+
+<filter_purpose>
+
+- Start with every finding currently placed in actionable buckets.
+- Pass each actionable finding through every rejection gate below.
+- A finding must survive every rejection gate to remain actionable.
+- If a finding fails any rejection gate, remove it from actionable buckets and place it into `rejected_or_non_actionable_findings`.
+- If a finding mixes an in-scope issue with an out-of-scope proposed fix, keep only the in-scope core issue, rewrite it narrowly, and record that narrowing in the finding rationale.
+- Do not create new findings in this step.
+- Do not create new implementation tasks in this step.
+
+</filter_purpose>
+
+<rejection_gates>
+
+Reject a finding if any of the following are true.
+
+1. The finding is explicitly listed in the plan's `### Out Of Scope` section.
+2. The finding is clearly implied to be out of scope by the plan's `### Out Of Scope` section.
+3. The proposed work would conflict with the plan's `### Acceptance Criteria`.
+4. The proposed work would expand, redirect, or materially change the agreed scope of the story.
+5. The issue already existed before the story began and fixing it is not explicitly part of the story.
+6. The finding is not caused by:
+   - the story's new code;
+   - a regression the story caused in existing code;
+   - a missing feature, requirement, proof item, or testing item that the story explicitly needs.
+7. The finding would change user-facing behavior that was not explicitly requested by the story or later explicitly approved by the user.
+8. The finding is really asking for a cleaner design, broader compatibility, refactor, hardening, portability improvement, polish improvement, or general product improvement that the story did not request.
+9. The reviewer's suggested fix is out of scope, even if the underlying observation is generally reasonable, and there is no narrower in-scope version of the finding to preserve.
+10. There is not enough evidence to show that the finding is:
+    - story-introduced;
+    - story-regressive;
+    - explicitly required by the story;
+    - or a restoration of previously approved or preserved behavior.
+
+</rejection_gates>
+
+<required_non_rejection_rule>
+
+- Do not reject a finding merely because it changes current branch behavior if the finding restores previously approved or preserved behavior that the story accidentally drifted away from.
+- That restoration is current-story scope.
+
+</required_non_rejection_rule>
+
+<ambiguity_rules>
+
+- If scope is ambiguous, prefer rejection over scope expansion.
+- Do not keep a finding actionable by giving it the benefit of the doubt.
+- If evidence is incomplete, move the finding to `rejected_or_non_actionable_findings` and explain that in-scope status was not proven.
+
+</ambiguity_rules>
+
+<full_state_coherence_rules>
+
+- Treat this step as a full review-state rewrite for routing purposes, not as a partial bucket edit.
+- After filtering findings, recompute every derived field in `review-disposition-state.json` that depends on finding buckets or review-loop closure state.
+- Do not leave stale booleans, stale counts, or stale loop-routing flags behind after moving, rejecting, or narrowing findings.
+- Preserve same-cycle fields that this step does not own semantically, but verify that any preserved field still remains consistent with the filtered findings state.
+
+At minimum, after any filtering change, recompute or revalidate all of the following:
+
+- `counts`
+- `has_unresolved_task_required_findings`
+- `has_unresolved_minor_batchable_findings`
+- `only_minor_batchable_findings`
+- `needs_minor_fix_path`
+- `needs_task_up_path`
+- `needs_review_rerun_before_close`
+- `needs_final_minor_fix_revalidation_task`
+- `safe_to_exit_review_loop_without_tasking`
+
+Preserve unless inconsistency requires repair:
+
+- `review_cycle_id`
+- `minor_fixes_made_in_review_loop`
+- `minor_fix_commit_shas`
+- `resolved_minor_findings`
+- `operationally_blocked_minor_findings`
+- `incomplete_review_blockers`
+- `minor_fix_revalidation_cycle_closed`
+- `final_revalidation_owned_by_task_up_path`
+- `task_up_owned_final_revalidation_task_title`
+- `review_created_tasks_added_or_updated`
+
+When preserving an existing same-cycle field, do not preserve it blindly. Verify it still agrees with the filtered findings state. If it no longer agrees, repair it to the minimum extent needed to restore honest loop routing.
+
+Never leave the state in a shape where:
+
+- `needs_minor_fix_path` is false while unresolved minor findings still remain.
+- `needs_task_up_path` is false while unresolved task-required findings or incomplete-review blockers still remain.
+- `safe_to_exit_review_loop_without_tasking` is true while any unresolved findings, blocked minor findings, rerun requirement, or final revalidation requirement still remains.
+- downstream loop-control scripts would decide the review loop can finish cleanly only because stale state was preserved.
+
+</full_state_coherence_rules>
+
+<state_update_rules>
+
+- Rewrite `unresolved_task_required_findings` so it contains only findings that survived every rejection gate.
+- Rewrite `unresolved_minor_batchable_findings` so it contains only findings that survived every rejection gate.
+- Preserve `resolved_minor_findings`, `operationally_blocked_minor_findings`, and `incomplete_review_blockers` exactly as they already stand unless a state-consistency repair is required.
+- Preserve existing `rejected_or_non_actionable_findings` entries and append newly rejected findings there.
+- For every finding rejected by this step, record:
+  - the original finding id;
+  - a short summary;
+  - the rejection gate number;
+  - a concise explanation tied to the plan and story scope;
+  - whether the finding was rejected entirely or narrowed before reclassification.
+- If a finding is narrowed to keep only an in-scope core issue, update its actionable-bucket entry so the remaining work is explicitly within scope and explain the narrowing in its `reason`.
+- Recompute all counts and derived booleans so they match the filtered state exactly.
+- Do not clear or fabricate unrelated state fields.
+
+</state_update_rules>
+
+<output_contract>
+
+- Leave `codeInfoStatus/flow-state/review-disposition-state.json` in a state where downstream steps can trust that all remaining actionable findings are in scope for the current story.
+- Do not invent new findings, new tasks, new scope, or new product decisions.
+- Stop once every actionable finding has either:
+  - survived all rejection gates and remained actionable;
+  - been narrowed to an in-scope core issue;
+  - or been moved to `rejected_or_non_actionable_findings`.
+
+</output_contract>
+
+<verification_loop>
+
+- Confirm `current-plan.json` was read before `review-disposition-state.json`.
+- Confirm the exact canonical plan was re-opened from disk before filtering findings.
+- Confirm `story_behavior_lock.md` was read and applied.
+- Confirm every actionable finding was evaluated against all rejection gates.
+- Confirm no rejected finding remained in an actionable bucket.
+- Confirm every newly rejected finding records the gate number and explanation.
+- Confirm any narrowed finding now describes only the in-scope core issue.
+- Confirm counts and derived booleans in `review-disposition-state.json` match the filtered arrays.
+- Confirm the filtered state would make the minor-fix path, task-up path, and outer review-loop exits route honestly if the loop-control scripts were run immediately after this step.
+- Confirm the updated state file is valid JSON after writing.
+
+</verification_loop>

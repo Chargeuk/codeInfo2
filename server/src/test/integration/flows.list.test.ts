@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
-import { __setAgentAvailabilityDepsForTests } from '../../agents/availability.js';
+import {
+  __resetAgentAvailabilityDepsForTests,
+  __setAgentAvailabilityDepsForTests,
+} from '../../agents/availability.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
 import {
@@ -175,6 +178,7 @@ const buildApp = (params?: {
 describe('GET /flows', () => {
   afterEach(() => {
     resetDeterministicCodexAvailabilityBootstrap();
+    __resetAgentAvailabilityDepsForTests();
   });
 
   test('missing flows folder returns empty list', async () => {
@@ -1015,5 +1019,98 @@ describe('GET /flows', () => {
     );
 
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('ingested Story 60 GitHub review variant is disabled when review_agent is only missing inside a nested branch', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const flowsRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-'),
+    );
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-'),
+    );
+
+    await fs.mkdir(path.join(ingestedRoot, 'flows'), { recursive: true });
+    await fs.copyFile(
+      path.join(
+        process.cwd(),
+        'flows',
+        'implement_next_plan_github_review.json',
+      ),
+      path.join(
+        ingestedRoot,
+        'flows',
+        'implement_next_plan_github_review.json',
+      ),
+    );
+
+    for (const agentName of [
+      'planning_agent',
+      'coding_agent',
+      'coding_agent_lite',
+      'manual_testing_agent',
+      'loop_control_agent',
+      'automated_testing_agent',
+    ]) {
+      await writeAgentConfig({
+        repoRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName,
+      });
+    }
+
+    await withAgentHomes(
+      {
+        preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+        legacy: path.join(runtimeRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsRoot, async () => {
+          const app = buildApp({
+            listIngestedRepositories: async () => ({
+              repos: [
+                buildRepoEntry({
+                  id: '/data/codeInfo2',
+                  containerPath: ingestedRoot,
+                }),
+              ],
+              lockedModelId: null,
+            }),
+          });
+
+          const listResponse = await supertest(app).get('/flows');
+          assert.equal(listResponse.status, 200);
+          const listed = listResponse.body.flows.find(
+            (flow: { name: string; sourceId?: string }) =>
+              flow.name === 'implement_next_plan_github_review' &&
+              flow.sourceId === ingestedRoot,
+          );
+          assert.ok(listed);
+          assert.equal(listed.disabled, true);
+          assert.match(String(listed.error ?? ''), /review_agent/u);
+
+          const detailsResponse = await supertest(app)
+            .get('/flows/implement_next_plan_github_review')
+            .query({ sourceId: ingestedRoot });
+          assert.equal(detailsResponse.status, 200);
+          assert.equal(detailsResponse.body.flow.disabled, true);
+          assert.equal(
+            detailsResponse.body.flow.disabledReason?.code,
+            'agent_not_found',
+          );
+          assert.match(
+            String(detailsResponse.body.flow.disabledReason?.message ?? ''),
+            /review_agent/u,
+          );
+        });
+      },
+    );
+
+    await fs.rm(flowsRoot, { recursive: true, force: true });
+    await fs.rm(runtimeRoot, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
   });
 });

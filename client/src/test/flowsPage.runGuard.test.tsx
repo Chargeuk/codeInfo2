@@ -279,6 +279,108 @@ describe('Flows page run guards', () => {
     ).toBe(false);
   });
 
+  it('keeps the active runnable selection when an ingested GitHub review variant is disabled from list data', async () => {
+    const user = userEvent.setup();
+    let runRequests = 0;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/echo?') || target.endsWith('/flows/echo')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'echo',
+            description: 'Echo flow',
+            disabled: false,
+            warnings: [],
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'echo', description: 'Echo flow', disabled: false },
+            {
+              name: 'implement_next_plan_github_review',
+              description: 'GitHub review cycle',
+              disabled: true,
+              sourceId: '/data/codeInfo2',
+              sourceLabel: '/data/codeInfo2',
+              error:
+                'Flow agent "review_agent" is not available in the configured agent homes.',
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/flows/echo/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'echo',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      if (target.includes('/flows/implement_next_plan_github_review/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            error: 'AGENT_NOT_FOUND',
+          },
+          { status: 400 },
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+        'echo',
+      ),
+    );
+    await user.click(screen.getByTestId('flow-select-trigger'));
+    const disabledOption = await screen.findByTestId(
+      'flow-option-implement_next_plan_github_review::/data/codeInfo2',
+    );
+    expect(disabledOption).toHaveAttribute('aria-disabled', 'true');
+
+    await expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+      'echo',
+    );
+    await expect(screen.getByTestId('flow-run')).toBeEnabled();
+    expect(runRequests).toBe(0);
+  });
+
   it('revalidates selected flow details before starting a new run', async () => {
     const user = userEvent.setup();
     let runRequests = 0;

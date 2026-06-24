@@ -86,6 +86,15 @@ const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
       case 'command':
         names.add(step.agentType);
         break;
+      case 'if':
+        if (step.agentType?.trim()) {
+          names.add(step.agentType);
+        }
+        collectAgentTypes(step.then, names);
+        if (step.else) {
+          collectAgentTypes(step.else, names);
+        }
+        break;
       case 'startLoop':
         collectAgentTypes(step.steps, names);
         break;
@@ -341,6 +350,13 @@ const collectCommandSteps = (
   for (const step of steps) {
     if (step.type === 'command') {
       collected.push(step);
+      continue;
+    }
+    if (step.type === 'if') {
+      collectCommandSteps(step.then, collected);
+      if (step.else) {
+        collectCommandSteps(step.else, collected);
+      }
       continue;
     }
     if (step.type === 'startLoop') {

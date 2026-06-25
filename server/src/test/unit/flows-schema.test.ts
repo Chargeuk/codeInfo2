@@ -326,6 +326,131 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('main implementation flows scope-audit review-created tasks before simple-story refresh', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
+
+      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+        if (step.type === 'llm') {
+          return step.markdownFile;
+        }
+        if (step.type === 'break' && 'label' in step) {
+          return step.label;
+        }
+        return undefined;
+      });
+
+      const ensureTestingIndex = markers.indexOf(
+        'ensure_task_testing_matches_current_contract.md',
+      );
+      const preflightScopeIndex = markers.indexOf(
+        'Exit Review-Created Task Scope Loop If Context Is Not Safely Usable',
+      );
+      const repairScopeIndex = markers.indexOf(
+        'repair_review_created_task_scope.md',
+      );
+      const verifyScopeIndex = markers.indexOf(
+        'Exit Review-Created Task Scope Loop When Clean',
+      );
+      const simpleStoryIndex = markers.indexOf(
+        'task_up/15-create-or-update-simple-story.md',
+      );
+
+      assert.notEqual(
+        ensureTestingIndex,
+        -1,
+        `${flowFile} should normalize review-created testing before scope audit`,
+      );
+      assert.notEqual(
+        preflightScopeIndex,
+        -1,
+        `${flowFile} should preflight review-created task scope loop context`,
+      );
+      assert.notEqual(
+        repairScopeIndex,
+        -1,
+        `${flowFile} should repair review-created task scope`,
+      );
+      assert.notEqual(
+        verifyScopeIndex,
+        -1,
+        `${flowFile} should verify review-created task scope before leaving task-up`,
+      );
+      assert.notEqual(
+        simpleStoryIndex,
+        -1,
+        `${flowFile} should refresh the simple story after scope audit`,
+      );
+      assert.ok(
+        ensureTestingIndex < preflightScopeIndex &&
+          preflightScopeIndex < repairScopeIndex &&
+          repairScopeIndex < verifyScopeIndex &&
+          verifyScopeIndex < simpleStoryIndex,
+        `${flowFile} should preflight and scope-audit review-created tasks after testing normalization and before simple-story refresh`,
+      );
+    }
+  });
+
+  test('main implementation flows filter review findings immediately after classifier disposition', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
+
+      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+        if (step.type === 'llm') {
+          return step.markdownFile;
+        }
+        if (step.type === 'command') {
+          return step.commandName;
+        }
+        return undefined;
+      });
+
+      const classifyIndex = markers.indexOf('classify_review_disposition.md');
+      const filterIndex = markers.indexOf(
+        'filter_review_findings_to_story_scope.md',
+      );
+      const ensureIndex = markers.indexOf(
+        'ensure_review_findings_became_tasks.md',
+      );
+
+      assert.notEqual(
+        classifyIndex,
+        -1,
+        `${flowFile} should include classifier disposition`,
+      );
+      assert.notEqual(
+        filterIndex,
+        -1,
+        `${flowFile} should include findings scope filter`,
+      );
+      assert.notEqual(
+        ensureIndex,
+        -1,
+        `${flowFile} should include review findings repair`,
+      );
+      assert.ok(
+        classifyIndex < filterIndex && filterIndex < ensureIndex,
+        `${flowFile} should run classifier disposition, then scope-filter findings, then repair tasked findings`,
+      );
+    }
+  });
+
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {
     const flowFiles = [
       'flows/review_plan.json',

@@ -754,7 +754,7 @@ Use the supported main stack at `http://localhost:5001/flows`. With `review_agen
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -839,6 +839,6 @@ This task also owns the final operator-facing `/flows` proof seam: choosing a re
 - Testing 7: `npm run compose:down` then completed cleanly after the successful smoke start, leaving the checked-in main stack stopped again so the final Story 60 automated proof closes in the expected shared-baseline state.
 - Testing 8: `npm run lint` passed cleanly on the current Story 60 close-out surface, so the remaining task-owned docs, plan state, and shipped review-loop files are lint-clean at the final automated-proof stage.
 - Testing 9: `npm run format:check` passed cleanly, so the remaining Task 5 close-out surface stays formatter-clean at the final automated-proof stage without any repair edits.
-- Audit note: Task 5 remains `__in_progress__` for the later audit step, but all close-out subtasks and all Testing rows 1 through 9 are now evidenced on disk. The final wrapper pass, bounded compose-up retry, lint rerun, and formatter rerun all stayed inside approved Story 60 validation scope, and this proof pass found no story-caused preserved-behavior regression or other approved-scope gap that would justify reopening implementation subtasks.
+- Audit note: Task 5 is now `__done__`. All close-out subtasks and all Testing rows 1 through 9 are evidenced on disk, no parser-reported live blocker remains, and this audit found no story-caused preserved-behavior regression or other approved-scope gap that would justify reopening the task. Manual testing guidance remains optional follow-up for the later manual-testing pass and is not a blocking completion gate for this automated-proof audit.
 - Manual testing skipped for the final Story 60 live GitHub review-cycle surface. Tried: inspected the configured `CODEINFO_HOST_INGEST_DIR=/home/dan/code` namespace and its available git repositories for a dedicated sandbox worked repository on the Story 60 branch with an upstream remote and repo-local `.env.local`. Observed: the only git repository in that namespace is this working repository itself, and no separate sandbox worked repository was available to exercise the live PR-open, wait, review-fetch, and findings-close cycles honestly. Why fuller proof was not possible: Task 5 manual guidance requires a dedicated sandbox worked repository under the ingest root for final live GitHub proof, and that supporting repository is currently absent outside the active plan or task repair scope.
 - 2026-06-26: Preflight visual refinement ran against the supported main-stack `/flows` surface, clarified the final operator path through the fresh `echo` draft, the `Working path` dialog, the `implement_next_plan_github_review` flow selection seam, and the need to reject non-repository or unreadable folders that still appear in the picker. No code changed in this step.

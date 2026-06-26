@@ -32,6 +32,27 @@ export type VectorSummaryFile = {
   hostPathWarning?: string;
 };
 
+const GENERIC_CODEX_EXEC_STARTUP_BANNER =
+  'Codex Exec exited with code 1: Reading prompt from stdin...';
+
+const isGenericCodexExecStartupBanner = (value: string): boolean =>
+  value.trim() === GENERIC_CODEX_EXEC_STARTUP_BANNER;
+
+const choosePreferredErrorMessage = (
+  currentMessage: string | null,
+  nextMessage: string,
+): string => {
+  if (!currentMessage) return nextMessage;
+
+  const currentIsGeneric = isGenericCodexExecStartupBanner(currentMessage);
+  const nextIsGeneric = isGenericCodexExecStartupBanner(nextMessage);
+
+  if (currentIsGeneric && !nextIsGeneric) return nextMessage;
+  if (!currentIsGeneric && nextIsGeneric) return currentMessage;
+
+  return nextMessage.length > currentMessage.length ? nextMessage : currentMessage;
+};
+
 export class McpResponder {
   private segments: Segment[] = [];
   private vectorSummaries: Extract<Segment, { type: 'vector_summary' }>[] = [];
@@ -114,6 +135,10 @@ export class McpResponder {
     return this.providerThreadId;
   }
 
+  getErrorMessage() {
+    return this.errorMessage;
+  }
+
   private handleAnalysis(event: ChatAnalysisEvent) {
     const delta = event.content;
     if (!delta) return;
@@ -157,7 +182,7 @@ export class McpResponder {
       return;
     }
 
-    this.errorMessage = message;
+    this.errorMessage = choosePreferredErrorMessage(this.errorMessage, message);
   }
 }
 

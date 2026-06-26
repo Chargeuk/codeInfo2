@@ -13,17 +13,19 @@ export type FreshRunRetryOwnershipCompletion = {
   result: FlowRunStartResult;
 };
 
+export type FlowActiveSubflow = {
+  stepPath: number[];
+  flowName: string;
+  conversationId: string;
+  runToken: string;
+  title?: string;
+};
+
 export type FlowWaitState = {
   executionId: string;
   stepPath: number[];
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
-  activeSubflow?: {
-    stepPath: number[];
-    flowName: string;
-    conversationId: string;
-    runToken: string;
-    title?: string;
-  };
+  activeSubflows?: FlowActiveSubflow[];
   workingFolder?: string;
   resumeAt: number;
   githubReviewContext?: {
@@ -38,13 +40,7 @@ export type FlowResumeState = {
   stepPath: number[];
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
   pendingLoopControl?: FlowPendingLoopControl;
-  activeSubflow?: {
-    stepPath: number[];
-    flowName: string;
-    conversationId: string;
-    runToken: string;
-    title?: string;
-  };
+  activeSubflows?: FlowActiveSubflow[];
   workingFolder?: string;
   agentConversations: Record<string, string>;
   agentWorkingFolders?: Record<string, string>;

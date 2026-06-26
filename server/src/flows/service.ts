@@ -132,6 +132,7 @@ import {
   type FlowStep,
 } from './flowSchema.js';
 import type {
+  FlowActiveSubflow,
   FlowPendingLoopControl,
   FlowResumeState,
   FlowWaitState,
@@ -770,12 +771,17 @@ const buildSubflowConversationTitle = (params: {
   parentCustomTitle?: string;
   stepLabel?: string;
   childFlowName: string;
+  multipleChildren?: boolean;
 }) => {
   const parentTitle =
     params.parentPersistedTitle?.trim() ||
     params.parentCustomTitle?.trim() ||
     params.parentFlowName;
-  const stepTitle = params.stepLabel?.trim() || params.childFlowName;
+  const trimmedStepLabel = params.stepLabel?.trim();
+  const stepTitle =
+    params.multipleChildren && trimmedStepLabel
+      ? `${trimmedStepLabel}-${params.childFlowName}`
+      : trimmedStepLabel || params.childFlowName;
   return `${parentTitle}-${stepTitle}`;
 };
 
@@ -807,31 +813,46 @@ const normalizeStringMap = (value: unknown): Record<string, string> => {
   return Object.fromEntries(entries);
 };
 
+const normalizeActiveSubflow = (value: unknown): FlowActiveSubflow | null => {
+  if (!isRecord(value)) return null;
+  const flowName = normalizeOptionalString(value.flowName);
+  const conversationId = normalizeOptionalString(value.conversationId);
+  const runToken = normalizeOptionalString(value.runToken);
+  if (!flowName || !conversationId || !runToken) return null;
+  return {
+    stepPath: normalizeNumberArray(value.stepPath),
+    flowName,
+    conversationId,
+    runToken,
+    ...(normalizeOptionalString(value.title)
+      ? { title: normalizeOptionalString(value.title) }
+      : {}),
+  };
+};
+
+const normalizeActiveSubflows = (params: {
+  activeSubflows?: unknown;
+  legacyActiveSubflow?: unknown;
+}): FlowActiveSubflow[] => {
+  if (Array.isArray(params.activeSubflows)) {
+    return params.activeSubflows
+      .map((item) => normalizeActiveSubflow(item))
+      .filter((item): item is FlowActiveSubflow => Boolean(item));
+  }
+  const legacyActiveSubflow = normalizeActiveSubflow(params.legacyActiveSubflow);
+  return legacyActiveSubflow ? [legacyActiveSubflow] : [];
+};
+
 const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
   if (!isRecord(value)) return null;
   const executionId = normalizeOptionalString(value.executionId);
   const resumeAt = normalizeOptionalFiniteNumber(value.resumeAt);
   if (!executionId || resumeAt === undefined) return null;
 
-  const activeSubflow = isRecord(value.activeSubflow)
-    ? (() => {
-        const flowName = normalizeOptionalString(value.activeSubflow.flowName);
-        const conversationId = normalizeOptionalString(
-          value.activeSubflow.conversationId,
-        );
-        const runToken = normalizeOptionalString(value.activeSubflow.runToken);
-        if (!flowName || !conversationId || !runToken) return null;
-        return {
-          stepPath: normalizeNumberArray(value.activeSubflow.stepPath),
-          flowName,
-          conversationId,
-          runToken,
-          ...(normalizeOptionalString(value.activeSubflow.title)
-            ? { title: normalizeOptionalString(value.activeSubflow.title) }
-            : {}),
-        };
-      })()
-    : null;
+  const activeSubflows = normalizeActiveSubflows({
+    activeSubflows: value.activeSubflows,
+    legacyActiveSubflow: value.activeSubflow,
+  });
 
   const githubReviewContext = isRecord(value.githubReviewContext)
     ? {
@@ -877,7 +898,7 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
               Boolean(item),
           )
       : [],
-    ...(activeSubflow ? { activeSubflow } : {}),
+    ...(activeSubflows.length > 0 ? { activeSubflows } : {}),
     ...(normalizeOptionalString(value.workingFolder)
       ? { workingFolder: normalizeOptionalString(value.workingFolder) }
       : {}),
@@ -945,25 +966,10 @@ const parseFlowResumeState = (
     flow.retryOwnershipCompletion,
   );
   const wait = parseFlowWaitState(flow.wait);
-  const activeSubflow = isRecord(flow.activeSubflow)
-    ? (() => {
-        const flowName = normalizeOptionalString(flow.activeSubflow.flowName);
-        const conversationId = normalizeOptionalString(
-          flow.activeSubflow.conversationId,
-        );
-        const runToken = normalizeOptionalString(flow.activeSubflow.runToken);
-        if (!flowName || !conversationId || !runToken) return null;
-        return {
-          stepPath: normalizeNumberArray(flow.activeSubflow.stepPath),
-          flowName,
-          conversationId,
-          runToken,
-          ...(normalizeOptionalString(flow.activeSubflow.title)
-            ? { title: normalizeOptionalString(flow.activeSubflow.title) }
-            : {}),
-        };
-      })()
-    : null;
+  const activeSubflows = normalizeActiveSubflows({
+    activeSubflows: flow.activeSubflows,
+    legacyActiveSubflow: (flow as { activeSubflow?: unknown }).activeSubflow,
+  });
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {
@@ -984,7 +990,7 @@ const parseFlowResumeState = (
           pendingLoopControl,
         }
       : {}),
-    ...(activeSubflow ? { activeSubflow } : {}),
+    ...(activeSubflows.length > 0 ? { activeSubflows } : {}),
     ...(typeof flow.workingFolder === 'string' && flow.workingFolder.trim()
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
@@ -2854,14 +2860,29 @@ type LoopFrame = {
   iteration: number;
 };
 
+const cloneActiveSubflow = (
+  activeSubflow: FlowActiveSubflow,
+): FlowActiveSubflow => ({
+  stepPath: [...activeSubflow.stepPath],
+  flowName: activeSubflow.flowName,
+  conversationId: activeSubflow.conversationId,
+  runToken: activeSubflow.runToken,
+  ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
+});
+
+const cloneActiveSubflows = (
+  activeSubflows: FlowActiveSubflow[] | undefined,
+): FlowActiveSubflow[] | undefined =>
+  activeSubflows?.map((activeSubflow) => cloneActiveSubflow(activeSubflow));
+
 const buildFlowResumeState = (params: {
   executionId: string;
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
-  activeSubflow?: FlowResumeState['activeSubflow'];
   wait?: FlowWaitState;
+  activeSubflows?: FlowResumeState['activeSubflows'];
   workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
@@ -2908,17 +2929,9 @@ const buildFlowResumeState = (params: {
           },
         }
       : {}),
-    ...(params.activeSubflow
+    ...(params.activeSubflows && params.activeSubflows.length > 0
       ? {
-          activeSubflow: {
-            stepPath: [...params.activeSubflow.stepPath],
-            flowName: params.activeSubflow.flowName,
-            conversationId: params.activeSubflow.conversationId,
-            runToken: params.activeSubflow.runToken,
-            ...(params.activeSubflow.title
-              ? { title: params.activeSubflow.title }
-              : {}),
-          },
+          activeSubflows: cloneActiveSubflows(params.activeSubflows),
         }
       : {}),
     ...(params.wait
@@ -2930,17 +2943,12 @@ const buildFlowResumeState = (params: {
               loopStepPath: [...frame.loopStepPath],
               iteration: frame.iteration,
             })),
-            ...(params.wait.activeSubflow
+            ...(params.wait.activeSubflows &&
+            params.wait.activeSubflows.length > 0
               ? {
-                  activeSubflow: {
-                    stepPath: [...params.wait.activeSubflow.stepPath],
-                    flowName: params.wait.activeSubflow.flowName,
-                    conversationId: params.wait.activeSubflow.conversationId,
-                    runToken: params.wait.activeSubflow.runToken,
-                    ...(params.wait.activeSubflow.title
-                      ? { title: params.wait.activeSubflow.title }
-                      : {}),
-                  },
+                  activeSubflows: cloneActiveSubflows(
+                    params.wait.activeSubflows,
+                  ),
                 }
               : {}),
             ...(params.wait.workingFolder
@@ -2979,8 +2987,8 @@ const persistFlowResumeState = async (params: {
   stepPath: number[];
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
-  activeSubflow?: FlowResumeState['activeSubflow'];
   wait?: FlowWaitState;
+  activeSubflows?: FlowResumeState['activeSubflows'];
   workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
@@ -2989,8 +2997,8 @@ const persistFlowResumeState = async (params: {
     stepPath: params.stepPath,
     loopStack: params.loopStack,
     pendingLoopControl: params.pendingLoopControl,
-    activeSubflow: params.activeSubflow,
     wait: params.wait,
+    activeSubflows: params.activeSubflows,
     workingFolder: params.workingFolder,
   });
   const existingConversation = await getConversation(params.conversationId);
@@ -4146,17 +4154,7 @@ async function runFlowUnlocked(params: {
         loopStepPath: [...params.resumeState.pendingLoopControl.loopStepPath],
       }
     : null;
-  let activeSubflow = params.resumeState?.activeSubflow
-    ? {
-        stepPath: [...params.resumeState.activeSubflow.stepPath],
-        flowName: params.resumeState.activeSubflow.flowName,
-        conversationId: params.resumeState.activeSubflow.conversationId,
-        runToken: params.resumeState.activeSubflow.runToken,
-        ...(params.resumeState.activeSubflow.title
-          ? { title: params.resumeState.activeSubflow.title }
-          : {}),
-      }
-    : undefined;
+  let activeSubflows = cloneActiveSubflows(params.resumeState?.activeSubflows);
   let activeWait = params.resumeState?.wait
     ? {
         executionId: params.resumeState.wait.executionId,
@@ -4165,18 +4163,12 @@ async function runFlowUnlocked(params: {
           loopStepPath: [...frame.loopStepPath],
           iteration: frame.iteration,
         })),
-        ...(params.resumeState.wait.activeSubflow
+        ...(params.resumeState.wait.activeSubflows &&
+        params.resumeState.wait.activeSubflows.length > 0
           ? {
-              activeSubflow: {
-                stepPath: [...params.resumeState.wait.activeSubflow.stepPath],
-                flowName: params.resumeState.wait.activeSubflow.flowName,
-                conversationId:
-                  params.resumeState.wait.activeSubflow.conversationId,
-                runToken: params.resumeState.wait.activeSubflow.runToken,
-                ...(params.resumeState.wait.activeSubflow.title
-                  ? { title: params.resumeState.wait.activeSubflow.title }
-                  : {}),
-              },
+              activeSubflows: cloneActiveSubflows(
+                params.resumeState.wait.activeSubflows,
+              ),
             }
           : {}),
         ...(params.resumeState.wait.workingFolder
@@ -4216,8 +4208,8 @@ async function runFlowUnlocked(params: {
       stepPath,
       loopStack,
       pendingLoopControl,
-      activeSubflow,
       wait: activeWait,
+      activeSubflows,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
   const clearContinueBoundaryForActiveLoop = () => {
@@ -4269,6 +4261,24 @@ async function runFlowUnlocked(params: {
       throw toFlowRunError(
         'INVALID_REQUEST',
         'Persisted wait state loop context no longer matches the resumed flow execution.',
+      );
+    }
+    const savedActiveSubflowKeys = (activeWait.activeSubflows ?? [])
+      .map(
+        (activeSubflow) =>
+          `${getStepPathKey(activeSubflow.stepPath)}:${activeSubflow.flowName}:${activeSubflow.conversationId}:${activeSubflow.runToken}`,
+      )
+      .sort();
+    const currentActiveSubflowKeys = (activeSubflows ?? [])
+      .map(
+        (activeSubflow) =>
+          `${getStepPathKey(activeSubflow.stepPath)}:${activeSubflow.flowName}:${activeSubflow.conversationId}:${activeSubflow.runToken}`,
+      )
+      .sort();
+    if (savedActiveSubflowKeys.join('|') !== currentActiveSubflowKeys.join('|')) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state active subflows no longer match the resumed flow execution.',
       );
     }
     if (
@@ -5068,15 +5078,9 @@ async function runFlowUnlocked(params: {
         loopStepPath: [...frame.loopStepPath],
         iteration: frame.iteration,
       })),
-      ...(activeSubflow
+      ...(activeSubflows && activeSubflows.length > 0
         ? {
-            activeSubflow: {
-              stepPath: [...activeSubflow.stepPath],
-              flowName: activeSubflow.flowName,
-              conversationId: activeSubflow.conversationId,
-              runToken: activeSubflow.runToken,
-              ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
-            },
+            activeSubflows: cloneActiveSubflows(activeSubflows),
           }
         : {}),
       ...(params.repositoryContext.workingRepositoryPath
@@ -5590,6 +5594,27 @@ async function runFlowUnlocked(params: {
     return 'ok';
   };
 
+  const getActiveSubflowsForStep = (stepPath: number[]) => {
+    const stepPathKey = getStepPathKey(stepPath);
+    return (activeSubflows ?? []).filter(
+      (activeSubflow) =>
+        getStepPathKey(activeSubflow.stepPath) === stepPathKey,
+    );
+  };
+
+  const setActiveSubflowsForStep = (
+    stepPath: number[],
+    nextSubflows: FlowActiveSubflow[],
+  ) => {
+    const stepPathKey = getStepPathKey(stepPath);
+    const retainedSubflows = (activeSubflows ?? []).filter(
+      (activeSubflow) =>
+        getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
+    );
+    const mergedSubflows = [...retainedSubflows, ...nextSubflows];
+    activeSubflows = mergedSubflows.length > 0 ? mergedSubflows : undefined;
+  };
+
   const requestActiveSubflowStop = (params: {
     conversationId: string;
     runToken?: string;
@@ -5611,28 +5636,45 @@ async function runFlowUnlocked(params: {
     command: TurnCommandMetadata,
     nextPath: number[],
   ): Promise<TurnStatus> => {
-    const instruction = `Run subflow ${step.flowName}`;
+    const childFlowNames = [...step.flowNames];
+    const launchesMultipleChildren = childFlowNames.length > 1;
+    const instruction = launchesMultipleChildren
+      ? `Run subflows ${childFlowNames.join(', ')}`
+      : `Run subflow ${childFlowNames[0]}`;
     const parentTurnCreatedAtIso = new Date().toISOString();
     const parentTurnCreatedAt = new Date(parentTurnCreatedAtIso);
     const parentConversation = await getConversation(params.conversationId);
-    const subflowTitle = buildSubflowConversationTitle({
-      parentFlowName: params.flowName,
-      parentPersistedTitle: parentConversation?.title,
-      parentCustomTitle: params.customTitle,
-      stepLabel: step.label,
-      childFlowName: step.flowName,
-    });
-    const resumedActiveSubflow =
-      activeSubflow &&
-      getStepPathKey(activeSubflow.stepPath) === getStepPathKey(nextPath) &&
-      activeSubflow.flowName === step.flowName
-        ? activeSubflow
-        : undefined;
-    const resumedConversationId = resumedActiveSubflow?.conversationId;
-    const resumedRunToken = resumedActiveSubflow?.runToken;
-    const runningText = `Running subflow ${subflowTitle}`;
-    let childConversationId = resumedConversationId;
-    let childRunToken = resumedRunToken;
+    const rememberedSubflowsByName = new Map(
+      getActiveSubflowsForStep(nextPath)
+        .filter((activeSubflow) =>
+          childFlowNames.includes(activeSubflow.flowName),
+        )
+        .map((activeSubflow) => [activeSubflow.flowName, activeSubflow]),
+    );
+    const childRuns = childFlowNames
+      .map((flowName) => rememberedSubflowsByName.get(flowName))
+      .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
+        Boolean(activeSubflow),
+      );
+    const buildTrackedSubflowTitle = (flowName: string) =>
+      rememberedSubflowsByName.get(flowName)?.title ??
+      buildSubflowConversationTitle({
+        parentFlowName: params.flowName,
+        parentPersistedTitle: parentConversation?.title,
+        parentCustomTitle: params.customTitle,
+        stepLabel: step.label,
+        childFlowName: flowName,
+        multipleChildren: launchesMultipleChildren,
+      });
+    const buildSubflowSummaryText = (prefix: string) =>
+      launchesMultipleChildren
+        ? `${prefix} ${childFlowNames
+            .map((flowName) => buildTrackedSubflowTitle(flowName))
+            .join(', ')}`
+        : `${prefix} ${buildTrackedSubflowTitle(childFlowNames[0] ?? '')}`;
+    const runningText = buildSubflowSummaryText(
+      launchesMultipleChildren ? 'Running subflows' : 'Running subflow',
+    );
 
     const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
       const pendingCancel = getPendingConversationCancel(params.conversationId);
@@ -5640,10 +5682,10 @@ async function runFlowUnlocked(params: {
         return false;
       }
 
-      if (childConversationId && childRunToken) {
+      for (const childRun of childRuns) {
         const childStatus = await getFlowConversationTerminalStatus({
-          conversationId: childConversationId,
-          runToken: childRunToken,
+          conversationId: childRun.conversationId,
+          runToken: childRun.runToken,
         });
         if (!childStatus) return false;
       }
@@ -5654,6 +5696,7 @@ async function runFlowUnlocked(params: {
       });
       if (!consumedPendingCancel) return false;
 
+      setActiveSubflowsForStep(nextPath, []);
       await emitStoppedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5701,13 +5744,41 @@ async function runFlowUnlocked(params: {
     });
 
     try {
-      if (!childConversationId || !childRunToken) {
+      await Promise.all(
+        childRuns.map(async (childRun) => {
+          const status = await getFlowConversationTerminalStatus({
+            conversationId: childRun.conversationId,
+            runToken: childRun.runToken,
+          });
+          if (status || getActiveRunOwnership(childRun.conversationId)) {
+            return;
+          }
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+          );
+        }),
+      );
+
+      for (const flowName of childFlowNames) {
+        if (rememberedSubflowsByName.has(flowName)) {
+          continue;
+        }
+        if (
+          getPendingConversationCancel(params.conversationId)?.runToken ===
+          params.runToken
+        ) {
+          break;
+        }
+
+        let childConversationId: string | undefined;
+        let childRunToken: string | undefined;
         const started = await startFlowRun({
-          flowName: step.flowName,
+          flowName,
           sourceId: params.repositoryContext.flowSourceId,
           flowPath: params.flowPath,
           working_folder: params.repositoryContext.workingRepositoryPath,
-          customTitle: subflowTitle,
+          customTitle: buildTrackedSubflowTitle(flowName),
           source: params.source,
           chatFactory: params.chatFactory,
           listIngestedRepositories:
@@ -5718,27 +5789,30 @@ async function runFlowUnlocked(params: {
           },
         });
         childConversationId = started.conversationId;
-      }
 
-      if (!childConversationId || !childRunToken) {
-        throw toFlowRunError(
-          'INVALID_REQUEST',
-          `Subflow ${step.flowName} did not start correctly.`,
-        );
-      }
+        if (!childConversationId || !childRunToken) {
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            `Subflow ${flowName} did not start correctly.`,
+          );
+        }
 
-      activeSubflow = {
-        stepPath: [...nextPath],
-        flowName: step.flowName,
-        conversationId: childConversationId,
-        runToken: childRunToken,
-        title: subflowTitle,
-      };
-      await persistRuntimeResumeState(lastCompletedStepPath);
+        const trackedSubflow = {
+          stepPath: [...nextPath],
+          flowName,
+          conversationId: childConversationId,
+          runToken: childRunToken,
+          title: buildTrackedSubflowTitle(flowName),
+        };
+        rememberedSubflowsByName.set(flowName, trackedSubflow);
+        childRuns.push(trackedSubflow);
+        setActiveSubflowsForStep(nextPath, childRuns);
+        await persistRuntimeResumeState(lastCompletedStepPath);
+      }
 
       let terminalStatus: TurnStatus;
       let parentStopRequested = false;
-      let childOkObservedAt: number | null = null;
+      let allChildrenOkObservedAt: number | null = null;
       while (true) {
         const parentPendingCancel = consumePendingConversationCancel({
           conversationId: params.conversationId,
@@ -5746,17 +5820,28 @@ async function runFlowUnlocked(params: {
         });
         if (parentPendingCancel) {
           parentStopRequested = true;
-          requestActiveSubflowStop({
-            conversationId: childConversationId,
-            runToken: childRunToken,
+          childRuns.forEach((childRun) => {
+            void requestActiveSubflowStop({
+              conversationId: childRun.conversationId,
+              runToken: childRun.runToken,
+            });
           });
         }
 
-        const childStatus = await getFlowConversationTerminalStatus({
-          conversationId: childConversationId,
-          runToken: childRunToken,
-        });
-        if (childStatus) {
+        const childStatuses = await Promise.all(
+          childRuns.map(async (childRun) => {
+            const status = await getFlowConversationTerminalStatus({
+              conversationId: childRun.conversationId,
+              runToken: childRun.runToken,
+            });
+            return {
+              childRun,
+              status,
+            };
+          }),
+        );
+        const hasIncompleteChild = childStatuses.some(({ status }) => !status);
+        if (!hasIncompleteChild) {
           const lateParentPendingCancel = consumePendingConversationCancel({
             conversationId: params.conversationId,
             runToken: params.runToken,
@@ -5764,39 +5849,61 @@ async function runFlowUnlocked(params: {
           if (lateParentPendingCancel) {
             parentStopRequested = true;
           }
-          if (childStatus === 'ok' && !parentStopRequested) {
-            childOkObservedAt ??= Date.now();
-            if (Date.now() - childOkObservedAt < 50) {
+          const terminalStatuses = childStatuses.map(({ status }) => status);
+          const everyChildSucceeded = terminalStatuses.every(
+            (status): status is 'ok' => status === 'ok',
+          );
+          if (everyChildSucceeded && !parentStopRequested) {
+            allChildrenOkObservedAt ??= Date.now();
+            if (Date.now() - allChildrenOkObservedAt < 50) {
               await sleep(25);
               continue;
             }
           }
-          terminalStatus = parentStopRequested ? 'stopped' : childStatus;
+          if (terminalStatuses.includes('failed')) {
+            terminalStatus = 'failed';
+          } else if (
+            parentStopRequested ||
+            terminalStatuses.includes('stopped')
+          ) {
+            terminalStatus = 'stopped';
+          } else {
+            terminalStatus = 'ok';
+          }
           break;
         }
-        childOkObservedAt = null;
+        allChildrenOkObservedAt = null;
 
-        if (
-          resumedActiveSubflow &&
-          !getActiveRunOwnership(childConversationId)
-        ) {
+        const staleChild = childStatuses.find(
+          ({ childRun, status }) =>
+            !status && !getActiveRunOwnership(childRun.conversationId),
+        );
+        if (staleChild) {
           throw toFlowRunError(
             'INVALID_REQUEST',
-            `Subflow ${step.flowName} could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+            `Subflow ${staleChild.childRun.flowName} could not be resumed because child conversation ${staleChild.childRun.conversationId} has no active run and no terminal result.`,
           );
         }
 
         await sleep(25);
       }
 
-      activeSubflow = undefined;
+      setActiveSubflowsForStep(nextPath, []);
 
       const finalMessage =
         terminalStatus === 'ok'
-          ? `Completed subflow ${subflowTitle}`
+          ? buildSubflowSummaryText(
+              launchesMultipleChildren
+                ? 'Completed subflows'
+                : 'Completed subflow',
+            )
           : terminalStatus === 'stopped'
-            ? `Stopped subflow ${subflowTitle}`
-            : `Subflow ${subflowTitle} failed`;
+            ? buildSubflowSummaryText(
+                launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',
+              )
+            : buildSubflowSummaryText(
+                launchesMultipleChildren ? 'Subflows' : 'Subflow',
+              ) + ' failed';
       setAssistantText({
         conversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5858,12 +5965,20 @@ async function runFlowUnlocked(params: {
       });
       return terminalStatus;
     } catch (error) {
-      activeSubflow = undefined;
+      childRuns.forEach((childRun) => {
+        void requestActiveSubflowStop({
+          conversationId: childRun.conversationId,
+          runToken: childRun.runToken,
+        });
+      });
+      setActiveSubflowsForStep(nextPath, []);
       const message = isFlowRunError(error)
         ? (error.reason ?? error.code)
         : error instanceof Error
           ? error.message
-          : `Failed to run subflow ${step.flowName}`;
+          : launchesMultipleChildren
+            ? `Failed to run subflows ${childFlowNames.join(', ')}`
+            : `Failed to run subflow ${childFlowNames[0]}`;
       setAssistantText({
         conversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -6734,7 +6849,7 @@ async function runFlowUnlocked(params: {
           source: 'server',
           context: {
             stepIndex: command.stepIndex,
-            subflowName: step.flowName,
+            subflowNames: [...step.flowNames],
           },
         });
         const status = await runSubflowStep(step, command, nextPath);
@@ -7126,18 +7241,8 @@ export async function startFlowRun(
             loopStepPath: [...resumeState.pendingLoopControl.loopStepPath],
           }
         : null,
-      activeSubflow: resumeState?.activeSubflow
-        ? {
-            stepPath: [...resumeState.activeSubflow.stepPath],
-            flowName: resumeState.activeSubflow.flowName,
-            conversationId: resumeState.activeSubflow.conversationId,
-            runToken: resumeState.activeSubflow.runToken,
-            ...(resumeState.activeSubflow.title
-              ? { title: resumeState.activeSubflow.title }
-              : {}),
-          }
-        : undefined,
       wait: undefined,
+      activeSubflows: cloneActiveSubflows(resumeState?.activeSubflows),
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
     });
     if (retryOwnershipId && !resumeStepPath) {

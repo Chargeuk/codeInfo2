@@ -30,3 +30,21 @@ test('McpResponder ignores transient reconnect errors with upstream cause text',
 
   assert.doesNotThrow(() => responder.toResult('m1', 'c1'));
 });
+
+test('McpResponder preserves a concrete provider error over a later generic Codex startup banner', () => {
+  const responder = new McpResponder();
+  responder.handle({
+    type: 'error',
+    message:
+      'stream disconnected before completion: stream closed before response.completed',
+  } as never);
+  responder.handle({
+    type: 'error',
+    message: 'Codex Exec exited with code 1: Reading prompt from stdin...',
+  } as never);
+
+  assert.throws(
+    () => responder.toResult('m1', 'c1'),
+    /stream disconnected before completion: stream closed before response\.completed/,
+  );
+});

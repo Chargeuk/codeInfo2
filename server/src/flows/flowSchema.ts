@@ -62,7 +62,7 @@ export type FlowCommandStep = {
 export type FlowSubflowStep = {
   type: 'subflow';
   label?: string;
-  flowName: string;
+  flowNames: string[];
 };
 
 export type FlowReingestStep = {
@@ -189,9 +189,23 @@ const FlowSubflowStepSchema = z
   .object({
     type: z.literal('subflow'),
     label: trimmedNonEmptyString.optional(),
-    flowName: trimmedNonEmptyString,
+    flowNames: z.array(trimmedNonEmptyString).min(1),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.flowNames.forEach((flowName, index) => {
+      if (!seen.has(flowName)) {
+        seen.add(flowName);
+        return;
+      }
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['flowNames', index],
+        message: `Duplicate subflow name "${flowName}" is not allowed.`,
+      });
+    });
+  });
 
 const FlowReingestSourceIdStepSchema = z
   .object({

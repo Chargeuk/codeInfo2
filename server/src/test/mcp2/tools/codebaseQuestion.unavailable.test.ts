@@ -300,7 +300,7 @@ test('codebase_question allows same-provider native fallback for explicit Codex 
       segments: Array<{ type: string; text?: string }>;
     };
 
-    assert.equal(payload.conversationId, 'thread-fallback');
+    assert.ok(payload.conversationId.startsWith('codex-thread-'));
     assert.equal(payload.segments.at(-1)?.type, 'answer');
     assert.equal(payload.segments.at(-1)?.text, 'Fallback answer');
     assert.equal(payload.modelId, capabilities.models[0]?.model);
@@ -364,7 +364,7 @@ test('codebase_question still falls back when provider resolution is omitted and
       segments: Array<{ type: string; text?: string }>;
     };
 
-    assert.equal(payload.conversationId, 'thread-fallback');
+    assert.ok(payload.conversationId.startsWith('codex-thread-'));
     assert.equal(payload.modelId, capabilities.models[0]?.model);
     assert.equal(payload.segments.at(-1)?.type, 'answer');
     assert.equal(payload.segments.at(-1)?.text, 'Fallback answer');

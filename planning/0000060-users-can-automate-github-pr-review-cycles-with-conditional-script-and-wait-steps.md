@@ -1035,7 +1035,7 @@ This review-created task restores runtime branch-selection authority for the opt
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2, Task 4`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

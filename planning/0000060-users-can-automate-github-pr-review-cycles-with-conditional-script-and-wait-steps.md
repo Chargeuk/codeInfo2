@@ -1201,6 +1201,7 @@ This review-created task repairs the remaining GitHub runtime failure taxonomy s
 
 - `github_open_pr` keeps supported review-skip outcomes on the approved warning path while real `gh` create-side runtime failures such as missing-binary, spawn, or equivalent lower-layer faults surface as runtime failures instead of warning-only skips.
 - Worked-repository `.env.local` loading still treats truly missing opt-in state as the approved skip case, while unreadable or otherwise broken file-access faults stop being normalized into the same benign skip taxonomy.
+- The repaired warning-versus-failure contract propagates through the default Story 60 review launcher and note-writing path, so a create-side or token-loader runtime failure cannot be silently rewritten back into a supported skip result after the lower-layer producer classifies it correctly.
 - The repair preserves current approved user-facing Story 60 behavior for supported missing-token or no-open-PR cases and does not widen the story into a broader GitHub UX redesign.
 - Focused proof names the exact runtime and adapter seams that now distinguish supported skip cases from broken runtime state.
 
@@ -1216,10 +1217,10 @@ This review-created task repairs the remaining GitHub runtime failure taxonomy s
 
 #### Subtasks
 
-1. [ ] Re-inspect the exact warning-versus-failure seams in `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`, including the `gh pr create` replay classification path and the worked-repository `.env.local` token-loader branches, then map which lower-layer results are still being normalized into supported skip outcomes.
-2. [ ] Repair the create-side GitHub transport classification seam so supported no-open-PR or missing-opt-in cases still resolve through the approved warning path, while missing-binary, spawn, unreadable-runtime, or equivalent lower-layer faults remain runtime failures through the default Story 60 execution path instead of being rewritten into skip results.
-3. [ ] Repair the worked-repository `.env.local` token-loader seam so only approved missing opt-in state remains a skip, while unreadable, directory-shaped, permission-denied, or otherwise broken file-access faults no longer share that benign taxonomy.
-4. [ ] Update `server/src/test/unit/flows.github-adapter.test.ts` with focused coverage for create-side runtime-failure classification versus supported skip classification, and update `server/src/test/integration/flows.run.loop.test.ts` so the default review-cycle runtime proves the same distinction end to end without broadening current approved Story 60 behavior for supported skip cases.
+1. [ ] Re-inspect the exact warning-versus-failure producer and consumer seams in `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`, including the `gh pr create` replay classification path, the worked-repository `.env.local` token-loader branches, and the default note-writing path, then map which lower-layer results are still being normalized into supported skip outcomes.
+2. [ ] Repair the create-side GitHub transport classification seam so supported no-open-PR or missing-opt-in cases still resolve through the approved warning path, while missing-binary, spawn, unreadable-runtime, or equivalent lower-layer faults remain runtime failures through the default Story 60 review launcher instead of being rewritten into skip results by later consumers.
+3. [ ] Repair the worked-repository `.env.local` token-loader seam so only approved missing opt-in state remains a skip, while unreadable, directory-shaped, permission-denied, or otherwise broken file-access faults no longer share that benign taxonomy when they propagate through the default review-loop execution path.
+4. [ ] Update `server/src/test/unit/flows.github-adapter.test.ts` with focused coverage for create-side runtime-failure classification versus supported skip classification, and update `server/src/test/integration/flows.run.loop.test.ts` so the default review-cycle runtime proves the same distinction end to end across both the producer seam and the later note-writing consumer path without broadening current approved Story 60 behavior for supported skip cases.
 
 #### Testing
 
@@ -1250,6 +1251,7 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 - The repair preserves the approved dedicated namespaced GitHub handoff contract rather than reintroducing the generic `*-current-review.json` fallback or a broader user-facing workflow change.
 - Focused proof explicitly covers overlapping or contradictory scratch ownership instead of relying only on single-run happy-path fixtures.
 - Any retained selection or compatibility boundary is owned by one explicit repository-scoped contract rather than by accidental last-writer-wins behavior.
+- Exact overlapping-run interleavings are covered: an older or foreign run cannot reclaim authoritative current-review ownership after a newer run publishes or after the helper re-reads scratch state through the supported default path.
 
 #### Addresses Findings
 
@@ -1262,9 +1264,10 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 
 #### Subtasks
 
-1. [ ] Re-inspect the GitHub review scratch writer and reader seams in `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, and the named proof owners to map where story-global scratch ownership still leaks across overlapping runs or helper-side handoff selection.
-2. [ ] Repair the scratch ownership contract so the active GitHub review handoff is selected by explicit per-run ownership or equivalent authoritative identity instead of story-global overwrite behavior, while preserving the approved namespaced handoff shape and keeping the generic `*-current-review.json` artifact family out of the GitHub review ownership path.
-3. [ ] Update `server/src/test/unit/flows.github-scratch.test.ts`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, and `server/src/test/integration/flows.run.loop.test.ts` so they explicitly cover contradictory or overlapping scratch ownership and prove that stale or foreign run state no longer becomes the authoritative current review input.
+1. [ ] Re-inspect the GitHub review scratch producer and consumer seams in `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, and the named proof owners to map where story-global scratch ownership still leaks across overlapping runs, helper-side handoff selection, or restart-time rereads.
+2. [ ] Repair the scratch ownership contract so the active GitHub review handoff is selected by explicit per-run ownership or equivalent authoritative identity instead of story-global overwrite behavior, while preserving the approved namespaced handoff shape and keeping the generic `*-current-review.json` artifact family out of the GitHub review ownership path for every writer and reader in the default path.
+3. [ ] Add exact overlapping-run fixtures that prove the intended interleaving boundary: once a newer run publishes the authoritative namespaced handoff, an older or foreign run cannot reclaim ownership through later writes, helper-side rereads, or restart-time selection.
+4. [ ] Update `server/src/test/unit/flows.github-scratch.test.ts`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, and `server/src/test/integration/flows.run.loop.test.ts` so they explicitly cover contradictory or overlapping scratch ownership and the exact older-run-versus-newer-run interleaving described above, proving that stale or foreign run state no longer becomes the authoritative current review input.
 
 #### Testing
 
@@ -1296,6 +1299,7 @@ This fresh review-created final task owns the whole active review cycle's post-r
 - Inline-resolved minor findings `current-plan-path-undervalidated-before-note-write`, `script-decision-symlink-escape`, `malformed-persisted-wait-coerced-to-root-resume`, `duplicate-cancel-proof-fixed-delay`, and `github-review-helper-generic-handoff-fallback` are also revalidated as part of this same final task rather than being left to a second final-owner path.
 - The final regression summary, reviewer-facing artifacts, this plan, and `review-disposition-state.json` all reflect one clean post-repair Story 60 state for review cycle `0000060-rc-20260627T093723Z-91e32429`, and no second final revalidation owner remains for this cycle.
 - Client-only browser proof is not required for this cycle unless later implementation broadens beyond the current server and helper-script surfaces; if that happens, update this task honestly instead of silently assuming browser proof was covered.
+- Shared baseline failures are separated from product regressions before closeout: if the supported main stack, agent catalog, ports, readiness path, or other repository-owned runtime baseline is unavailable, the limitation is recorded against that baseline seam instead of being misclassified as a Story 60 product failure.
 
 #### Addresses Findings
 
@@ -1314,9 +1318,10 @@ This fresh review-created final task owns the whole active review cycle's post-r
 #### Subtasks
 
 1. [ ] Re-read this appended `Code Review Findings` follow-up block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, then build an explicit finding-to-proof checklist for Tasks 11 and 12 plus the five inline-resolved minor findings before the broad wrapper runs start.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000060-pr-summary.md` and the implementation notes for Tasks 11 through 13 so they record which focused proof owner closed each task-required finding, which broad wrapper surface revalidated the inline minor findings for review cycle `0000060-rc-20260627T093723Z-91e32429`, and why no separate client-only browser proof was required if that remains true at execution time.
+2. [ ] Verify the shared baseline this task depends on before broad wrapper runs begin: the supported main stack remains `docker-compose.yml` through the repository compose wrappers, the supported readiness surface remains `http://localhost:5010/health` plus the UI at `http://localhost:5001`, and the expected manual-test seed catalogs remain `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`; if any of those baseline facts fail, record the limitation as a baseline seam instead of treating it as a product regression from Tasks 11 or 12.
 3. [ ] Confirm that this appended follow-up block and `codeInfoStatus/flow-state/review-disposition-state.json` still agree on review pass `0000060-20260626T222120Z-3a823780`, review cycle `0000060-rc-20260627T093723Z-91e32429`, and this task as the one final revalidation owner before broad wrapper runs start.
-4. [ ] Before closing this task, explicitly cross-check the focused helper-script proof home `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` against the broad server wrapper results so the final cycle summary does not overclaim helper-script coverage from Node-only wrappers.
+4. [ ] Refresh `codeInfoStatus/pr-summaries/0000060-pr-summary.md` and the implementation notes for Tasks 11 through 13 so they record which focused proof owner closed each task-required finding, which broad wrapper surface revalidated the inline minor findings for review cycle `0000060-rc-20260627T093723Z-91e32429`, which shared-baseline limitations were or were not encountered, and why no separate client-only browser proof was required if that remains true at execution time.
+5. [ ] Before closing this task, explicitly cross-check the focused helper-script proof home `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` against the broad server wrapper results so the final cycle summary does not overclaim helper-script coverage from Node-only wrappers.
 
 #### Testing
 
@@ -1330,6 +1335,12 @@ This fresh review-created final task owns the whole active review cycle's post-r
 8. [ ] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final task must leave that baseline stopped again.
 9. [ ] Run `npm run lint` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 10. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Optional only if later closeout still needs a live `/flows` rerun after the automated proof above: use the supported main stack from `docker-compose.yml` through the repository compose wrappers rather than a `codeinfo:local` stack, verify readiness at `http://localhost:5010/health`, and use `http://localhost:5001` as the supported UI surface.
+- When that optional live rerun needs the repository-owned manual-test seed catalogs, use `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` as the mounted source of agent definitions; if `review_agent` or required provider auth is still unavailable there, record the runtime limitation honestly instead of reopening implementation scope.
+- If later manual proof needs screenshots, capture them first under `/tmp/playwright-output/0000060-review-cycle-final/...`, then retrieve them from `$CODEINFO_ROOT/playwright-output-local/0000060-review-cycle-final/...` on the host and transfer them into the closeout artifact destination documented by the runtime handoff for that proof run. If the runtime handoff does not expose a usable artifact destination, record that limitation honestly instead of inventing one in this task.
 
 #### Implementation notes
 

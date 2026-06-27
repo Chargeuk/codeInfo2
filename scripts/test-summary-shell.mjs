@@ -5,59 +5,60 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import {
-  createSummaryLogStream,
-  createSummaryWrapperProtocol,
-  runLoggedCommand,
-  writeLogLine,
-} from './summary-wrapper-protocol.mjs';
+import { runLoggedCommand, writeLogLine } from './summary-wrapper-protocol.mjs';
+import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
 
 const DEV_0000050_T08_SHELL_HARNESS_READY =
   'DEV-0000050:T08:shell_harness_ready';
 
-const rootDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-);
-const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
-const timestamp = new Date()
-  .toISOString()
-  .replaceAll(':', '-')
-  .replaceAll('.', '-');
-const logPath = path.join(resultsDir, `shell-tests-${timestamp}.log`);
-const batsDir = path.join(rootDir, 'scripts', 'test', 'bats');
+const wrapper = createSummaryWrapperRun({
+  wrapperName: 'shell',
+  logBaseName: 'shell-tests',
+  logDir: 'logs/test-summaries',
+  initialPhase: 'test',
+  description:
+    'Runs the vendored Bats shell harness with compact wrapper output and saved full logs.',
+  allowedFlags: [
+    {
+      name: 'help',
+      alias: 'h',
+      type: 'boolean',
+      description: 'Show wrapper help and exit without starting shell tests.',
+    },
+    {
+      name: 'file',
+      type: 'value',
+      multiple: true,
+      description: 'Run one or more selected Bats suite files.',
+    },
+  ],
+  examples: [
+    'node scripts/test-summary-shell.mjs --help',
+    'npm run test:summary:shell -- --file scripts/test/example.bats',
+  ],
+});
+const batsDir = path.join(wrapper.rootDir, 'scripts', 'test', 'bats');
 const vendorDir = path.join(batsDir, 'vendor');
 const batsExecutable = path.join(vendorDir, 'bats-core', 'bin', 'bats');
 const batsCoreDir = path.join(vendorDir, 'bats-core');
 
-const args = process.argv.slice(2);
-const options = {
-  files: [],
-};
+const parsedArgs = wrapper.parseArgs(process.argv.slice(2));
 
-for (let i = 0; i < args.length; i += 1) {
-  const arg = args[i];
-  if (arg === '--file') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --file');
-      process.exit(1);
-    }
-    options.files.push(value);
-    i += 1;
-    continue;
-  }
-  if (arg === '--help') {
-    console.log(
-      'Usage: npm run test:summary:shell -- [--file <path>] [--file <path>]',
-    );
-    process.exit(0);
-  }
-  console.error(`Unknown argument: ${arg}`);
-  process.exit(1);
+if (parsedArgs.helpRequested) {
+  process.stdout.write(wrapper.renderHelp());
+  await wrapper.closeLog();
+  process.exit(0);
 }
+
+if (parsedArgs.error) {
+  console.error(parsedArgs.error);
+  process.exit(await wrapper.failCli(parsedArgs.error));
+}
+
+const options = {
+  files: parsedArgs.values.file ?? [],
+};
 
 const normalizeShellPath = (value) => {
   if (path.isAbsolute(value)) return value;
@@ -137,22 +138,14 @@ const parseCounts = (output) => {
   return { total, passed, failed };
 };
 
-const logStream = createSummaryLogStream(logPath);
-const protocol = createSummaryWrapperProtocol({
-  wrapperName: 'shell',
-  logPath,
-  logDisplayPath: path.relative(rootDir, logPath),
-  initialPhase: 'test',
-});
-
-protocol.startHeartbeat();
+wrapper.startHeartbeat();
 
 const requestedFiles = options.files.map((file) =>
-  path.resolve(rootDir, normalizeShellPath(file)),
+  path.resolve(wrapper.rootDir, normalizeShellPath(file)),
 );
 
 if (!(await ensureFileExists(batsExecutable))) {
-  await new Promise((resolve) => logStream.end(resolve));
+  await wrapper.closeLog();
   console.error(`Missing vendored bats executable: ${batsExecutable}`);
   process.exit(1);
 }
@@ -161,9 +154,12 @@ let suiteFiles = [];
 if (requestedFiles.length > 0) {
   for (const filePath of requestedFiles) {
     if (!(await ensureFileExists(filePath))) {
-      writeLogLine(logStream, `Missing requested shell suite: ${filePath}`);
-      await new Promise((resolve) => logStream.end(resolve));
-      protocol.emitFinal({
+      writeLogLine(
+        wrapper.logStream,
+        `Missing requested shell suite: ${filePath}`,
+      );
+      await wrapper.closeLog();
+      wrapper.protocol.emitFinal({
         status: 'failed',
         reason: 'missing_requested_suite',
       });
@@ -177,7 +173,7 @@ if (requestedFiles.length > 0) {
 }
 
 writeLogLine(
-  logStream,
+  wrapper.logStream,
   `${DEV_0000050_T08_SHELL_HARNESS_READY} ${JSON.stringify({
     suiteCount: suiteFiles.length,
     vendorMode: 'vendored',
@@ -185,9 +181,9 @@ writeLogLine(
   })}`,
 );
 writeLogLine(
-  logStream,
+  wrapper.logStream,
   `[shell] suites: ${suiteFiles
-    .map((filePath) => path.relative(rootDir, filePath))
+    .map((filePath) => path.relative(wrapper.rootDir, filePath))
     .join(', ')}`,
 );
 
@@ -204,17 +200,17 @@ try {
   batsResult = await runLoggedCommand({
     cmd: 'bash',
     args: [runtime.batsExecutable, ...suiteFiles],
-    cwd: rootDir,
+    cwd: wrapper.rootDir,
     env: batsEnv,
-    logStream,
-    protocol,
+    logStream: wrapper.logStream,
+    protocol: wrapper.protocol,
     phase: 'test',
   });
 } finally {
   await fs.rm(runtime.runtimeRoot, { recursive: true, force: true });
 }
 
-await new Promise((resolve) => logStream.end(resolve));
+await wrapper.closeLog();
 
 const { total, passed, failed } = parseCounts(batsResult.output);
 const failingNames = parseFailureNames(batsResult.output);
@@ -231,7 +227,7 @@ if (failingNames.length > 0) {
   }
 }
 
-protocol.emitFinal({
+wrapper.protocol.emitFinal({
   status,
   ambiguousCounts,
   reason:

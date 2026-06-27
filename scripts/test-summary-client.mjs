@@ -11,74 +11,75 @@
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { runLoggedCommand } from './summary-wrapper-protocol.mjs';
 import {
-  createSummaryLogStream,
-  createSummaryWrapperProtocol,
-  runLoggedCommand,
-} from './summary-wrapper-protocol.mjs';
+  createSummaryWrapperRun,
+  resolveWritableYarnEnv,
+} from './summary-wrapper-runner.mjs';
 
-const rootDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
+const wrapper = createSummaryWrapperRun({
+  wrapperName: 'client',
+  logBaseName: 'client-tests',
+  logDir: 'test-results',
+  initialPhase: 'test',
+  description:
+    'Runs the client workspace test command with compact wrapper output and saved full logs.',
+  allowedFlags: [
+    {
+      name: 'help',
+      alias: 'h',
+      type: 'boolean',
+      description: 'Show wrapper help and exit without starting client tests.',
+    },
+    {
+      name: 'file',
+      type: 'value',
+      multiple: true,
+      description:
+        'Run one or more exact Jest test files with --runTestsByPath.',
+    },
+    {
+      name: 'subset',
+      type: 'value',
+      description: 'Filter test files with Jest --testPathPatterns.',
+    },
+    {
+      name: 'test-name',
+      type: 'value',
+      description: 'Filter assertions with Jest --testNamePattern.',
+    },
+  ],
+  examples: [
+    'node scripts/test-summary-client.mjs --help',
+    'npm run test:summary:client -- --subset smoke',
+    'npm run test:summary:client -- --file client/src/__tests__/example.test.tsx',
+  ],
+});
+const resultsDir = wrapper.logDirPath;
+const jsonPath = path.join(
+  resultsDir,
+  `client-tests-${wrapper.timestamp}.json`,
 );
-const resultsDir = path.join(rootDir, 'test-results');
-const timestamp = new Date()
-  .toISOString()
-  .replaceAll(':', '-')
-  .replaceAll('.', '-');
-const logPath = path.join(resultsDir, `client-tests-${timestamp}.log`);
-const jsonPath = path.join(resultsDir, `client-tests-${timestamp}.json`);
 
-const args = process.argv.slice(2);
-const options = {
-  files: [],
-  subset: undefined,
-  testName: undefined,
-};
+const parsedArgs = wrapper.parseArgs(process.argv.slice(2));
 
-for (let i = 0; i < args.length; i += 1) {
-  const arg = args[i];
-  if (arg === '--file') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --file');
-      process.exit(1);
-    }
-    options.files.push(value);
-    i += 1;
-    continue;
-  }
-  if (arg === '--subset') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --subset');
-      process.exit(1);
-    }
-    options.subset = value;
-    i += 1;
-    continue;
-  }
-  if (arg === '--test-name') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --test-name');
-      process.exit(1);
-    }
-    options.testName = value;
-    i += 1;
-    continue;
-  }
-  if (arg === '--help') {
-    console.log(
-      'Usage: npm run test:summary:client -- [--file <path>] [--subset <pattern>] [--test-name <pattern>]',
-    );
-    process.exit(0);
-  }
-  console.error(`Unknown argument: ${arg}`);
-  process.exit(1);
+if (parsedArgs.helpRequested) {
+  process.stdout.write(wrapper.renderHelp());
+  await wrapper.closeLog();
+  process.exit(0);
 }
+
+if (parsedArgs.error) {
+  console.error(parsedArgs.error);
+  process.exit(await wrapper.failCli(parsedArgs.error));
+}
+
+const options = {
+  files: parsedArgs.values.file ?? [],
+  subset: parsedArgs.values.subset ?? undefined,
+  testName: parsedArgs.values['test-name'] ?? undefined,
+};
 
 const normalizeClientPath = (value) => {
   if (path.isAbsolute(value)) return value;
@@ -106,20 +107,13 @@ if (options.testName) {
   jestArgs.push('--testNamePattern', options.testName);
 }
 
-const logStream = createSummaryLogStream(logPath);
-const protocol = createSummaryWrapperProtocol({
-  wrapperName: 'client',
-  logPath,
-  logDisplayPath: path.relative(rootDir, logPath),
-  initialPhase: 'test',
-});
-
-protocol.startHeartbeat();
+wrapper.startHeartbeat();
 
 // Ensure sufficient Node heap for large client test runs when the wrapper spawns npm/jest
 process.env.NODE_OPTIONS =
   process.env.NODE_OPTIONS || '--max-old-space-size=8192';
 
+const clientTestEnv = resolveWritableYarnEnv();
 const result = await runLoggedCommand({
   cmd: 'npm',
   args: [
@@ -135,16 +129,17 @@ const result = await runLoggedCommand({
     '--outputFile',
     jsonPath,
   ],
-  cwd: rootDir,
-  logStream,
-  protocol,
+  cwd: wrapper.rootDir,
+  env: clientTestEnv,
+  logStream: wrapper.logStream,
+  protocol: wrapper.protocol,
   phase: 'test',
   bannerPrefix: '',
   semanticProgressPatterns: [/^PASS /, /^FAIL /, /^Tests:/, /^Test Suites:/],
   terminalSummaryPatterns: [/^Tests:/, /^Test Suites:/, /^Ran all test suites/],
 });
 
-await new Promise((resolve) => logStream.end(resolve));
+await wrapper.closeLog();
 
 let total = 0;
 let passed = 0;
@@ -195,7 +190,7 @@ const finalReason =
           : 'clean_success'
         : 'test_failed';
 
-protocol.emitFinal({
+wrapper.protocol.emitFinal({
   status,
   ambiguousCounts,
   reason: finalReason,

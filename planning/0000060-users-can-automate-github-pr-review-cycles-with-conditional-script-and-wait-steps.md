@@ -1466,7 +1466,7 @@ This review-created task repairs the remaining execution-scoped GitHub review id
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1512,6 +1512,7 @@ This review-created task repairs the remaining GitHub stage note-writer race so 
 - Expanded `server/src/test/unit/flows.github-scratch.test.ts` with focused overlap, idempotent replay, and selected-task stability proofs; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` passed after the bounded merge fix.
 - Testing 2: `npm run lint` passed cleanly on the Task 15 concurrency-safe note-writer surface, so no follow-up lint cleanup was needed before the final formatting proof step.
 - Testing 3: `npm run format:check` passed cleanly across the Task 15 concurrency-safe note-writer surface, so the note-writer repair and closeout plan maintenance remain Prettier-clean without follow-up formatting fixes.
+- Audit closeout: repository evidence for Task 15 stayed inside the story-owned GitHub note-writer and proof surfaces, no out-of-scope user-facing behavior drift was introduced, and the task is now `__done__` because every subtask and automated proof item is complete with no live blocker remaining.
 
 ### Task 16. Keep Persisted Wait Recovery Authoritative Across Wake Preflight And Startup Backfill
 

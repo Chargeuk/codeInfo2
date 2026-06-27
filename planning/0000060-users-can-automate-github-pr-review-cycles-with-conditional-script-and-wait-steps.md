@@ -1404,7 +1404,7 @@ Client-specific `npm run build:summary:client` and `npm run test:summary:client`
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3, Task 12`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

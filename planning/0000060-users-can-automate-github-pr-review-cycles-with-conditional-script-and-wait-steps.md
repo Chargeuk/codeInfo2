@@ -1226,8 +1226,8 @@ This review-created task repairs the remaining GitHub runtime failure taxonomy s
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the repaired GitHub transport classification contract.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime still distinguishes supported skips from real runtime failures after the repair.
-3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+3. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1235,6 +1235,8 @@ This review-created task repairs the remaining GitHub runtime failure taxonomy s
 - Patched `server/src/flows/githubReview.ts` so only the approved missing-opt-in cases remain `skip`, while malformed `.env.local`, unreadable or directory-shaped `.env.local`, permission-denied token reads, missing `gh`, spawn failures, and unreconciled `gh pr create` failures now stay on the `error` path; the existing `server/src/flows/service.ts` consumer branch already preserves `error` results as open-PR failures, so no wider runtime redesign was needed.
 - Updated `server/src/test/unit/flows.github-adapter.test.ts` to prove the broader producer taxonomy directly: accepted missing-opt-in cases still skip, malformed `.env.local` now fails with `ENV_LOCAL_INVALID`, unreadable or permission-denied `.env.local` now fails with `ENV_LOCAL_READ_FAILED`, and lower-layer `gh` create faults now stay `GITHUB_CLI_*` errors unless replay reconciliation finds the already-created PR; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed cleanly with 7 of 7 tests.
 - Updated `server/src/test/integration/flows.run.loop.test.ts` with an end-to-end Story 60 runtime proof where a directory-shaped `.env.local` triggers `ENV_LOCAL_READ_FAILED`, the run ends `failed`, and no open-PR skip warning is emitted back into the conversation; the first wrapper run exposed an over-specific assertion that expected `.env.local` in the raw errno text, so broadening that one assertion to accept the real read-fault wording brought the rerun to a clean 34-of-34 pass via `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts`.
+- Testing 3: `npm run lint` passed cleanly on the Task 11 repair surface, so the GitHub runtime-classification code and focused proof updates needed no further lint cleanup before closeout.
+- Testing 4: `npm run format:check` passed cleanly across the Task 11 repair surface, so the GitHub runtime-classification code and proof-owner updates remain Prettier-clean without follow-up formatting repair.
 
 ### Task 12. Give GitHub Review Scratch State Per-Run Ownership Instead Of Story-Global Overwrite
 

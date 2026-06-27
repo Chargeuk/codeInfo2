@@ -1443,8 +1443,8 @@ This review-created task repairs the remaining execution-scoped GitHub review id
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the selector and handoff fixture changes now preserve execution-scoped review identity.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired execution-scoped GitHub review identity path across resume, fetch, close, and overlapping runs.
 3. [x] Run `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` from the repository root to prove the helper-side reviewer-feedback consumer follows the same execution-scoped ownership contract.
-4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+4. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1454,6 +1454,8 @@ This review-created task repairs the remaining execution-scoped GitHub review id
 - Updated `server/src/test/unit/flows.github-scratch.test.ts` with the preserved-newer-selector versus refreshed-older-handoff case; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` passed cleanly after a one-line type import repair in `server/src/flows/service.ts`.
 - Updated `server/src/test/integration/flows.run.loop.test.ts` so the focused overlap proof now covers the newer-run-then-older-resume interleaving where the resumed run refreshes only its own execution-scoped handoff and closes only its own PR while the newer selector owner remains authoritative; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed cleanly after refreshing the existing open-plus-fetch fixture for explicit PR-by-number lookup.
 - Updated `scripts/test/test_check_github_review_has_reviewer_feedback.py` so helper proof now covers the persisted execution-scoped handoff override path as well as foreign-selector rejection; `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` passed cleanly with 4 of 4 tests green.
+- Testing 4: `npm run lint` passed cleanly on the Task 14 repair surface, so the execution-scoped resume, fetch, close, and helper-ownership updates needed no further lint cleanup before closeout.
+- Testing 5: `npm run format:check` passed cleanly across the Task 14 repair surface, so the execution-scoped resume, fetch, close, and helper-ownership updates remain Prettier-clean without follow-up formatting repair.
 
 ### Task 15. Make GitHub Stage Plan Note Appends Concurrency-Safe
 

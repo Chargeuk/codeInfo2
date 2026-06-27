@@ -1243,7 +1243,7 @@ This review-created task repairs the remaining GitHub runtime failure taxonomy s
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 7`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1295,6 +1295,7 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 - Updated `server/src/test/integration/flows.run.loop.test.ts` so the runtime proof now asserts the exact Task 12 interleaving boundary: a clean newer execution claims the selector, publishes fresh review scratch, and keeps that selector authoritative after an older execution later attempts a direct reclaim write. `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` then passed cleanly with 34 of 34 tests.
 - Testing 4: `npm run lint` passed cleanly on the Task 12 repair surface, so the per-run selector, helper, runtime, and proof-owner updates needed no further lint cleanup before closeout.
 - Testing 5: `npm run format:check` passed cleanly across the Task 12 repair surface, so the per-run selector, helper, runtime, and proof-owner updates remain Prettier-clean without follow-up formatting repair.
+- Audit note: Task 12 is now `__done__` because all implementation subtasks and automated proof steps are complete, the parser reports no live `**BLOCKER**`, and the per-run selector ownership repair stays within the approved Story 60 GitHub review scratch contract rather than introducing a broader workflow change.
 
 ### Task 13. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-cycle `0000060-rc-20260627T093723Z-91e32429` task-up repairs
 

@@ -1090,7 +1090,7 @@ This final review-created task owns the whole active review cycle's post-repair 
 
 #### Testing
 
-1. [ ] Run `npm run compose:build` from the repository root because the repaired Story 60 review cycle still depends on the supported main-stack Docker build path.
+1. [ ] Run `npm run compose:build:summary` from the repository root because the repaired Story 60 review cycle still depends on the supported main-stack Docker build path, and this repository's automated build contract prefers the compose summary wrapper for container builds.
 2. [ ] Run `npm run build:summary:server` from the repository root because the review-created tasks change shared server flow schema, runtime orchestration, persisted wait handling, and GitHub review transport.
 3. [ ] Run `npm run build:summary:client` from the repository root to prove the repaired Story 60 branch still leaves the supported browser-visible `/flows` surface buildable after the runtime and proof-owner repairs.
 4. [ ] Run full `npm run test:summary:server:unit` from the repository root because the review-created tasks change shared flow runtime, GitHub review transport, persisted wait lifecycle, and subflow orchestration seams.

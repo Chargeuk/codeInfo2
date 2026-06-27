@@ -3005,7 +3005,7 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
           timeoutMs: 5000,
         });
 
-        await delay(200);
+        await waitForRuntimeCleanup(conversationId);
 
         const finals = events.filter(
           (event) =>

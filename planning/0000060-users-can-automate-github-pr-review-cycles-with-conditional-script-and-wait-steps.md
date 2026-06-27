@@ -1411,6 +1411,9 @@ Client-specific `npm run build:summary:client` and `npm run test:summary:client`
 
 This review-created task repairs the remaining execution-scoped GitHub review identity seam so a resumed Story 60 run keeps acting on its own PR number, scratch selector, and reviewer-feedback handoff instead of silently switching to a newer overlapping run on the same branch. The repair must keep the approved per-run scratch ownership from Task 12 while extending that same execution-scoped authority across resumed fetch, close, and helper-side reviewer-feedback decisions.
 
+- Highest-risk invariant: once one execution has persisted authoritative `wait.githubReviewContext`, a later overlapping execution must not be able to steal fetch, close, or reviewer-feedback authority for that paused run through branch-latest PR lookup or foreign selector rereads.
+- Likely blocker family: product or story seam. This task owns the implementation and proof for the execution-scoped GitHub review identity contract.
+
 #### Task Exit Criteria
 
 - When `wait.githubReviewContext` already carries authoritative execution-scoped GitHub review identity, resumed `github_fetch_reviews`, `github_close_pr`, and reviewer-feedback helper reads keep using that same PR or handoff owner instead of re-resolving the latest open PR or a foreign selector.
@@ -1433,7 +1436,7 @@ This review-created task repairs the remaining execution-scoped GitHub review id
 2. [ ] Patch the resumed `github_fetch_reviews` and `github_close_pr` path in `server/src/flows/service.ts` so requirement `resume keeps the same PR owner` is satisfied by preferring the persisted `wait.githubReviewContext` authority when it exists, and so mismatched or missing execution-scoped review identity fails closed instead of silently switching to branch-latest PR discovery.
 3. [ ] Patch the shared selector and handoff reread contract across `server/src/flows/service.ts`, `server/src/flows/githubReview.ts`, and `scripts/flow_control/check_github_review_has_reviewer_feedback.py` so requirement `later readers keep the same handoff owner` and requirement `foreign or generic review state is rejected once authoritative execution-scoped context exists` are both owned by those same producer and consumer seams instead of by fallback behavior.
 4. [ ] Update `server/src/test/unit/flows.github-scratch.test.ts` plus any reused selector fixture or helper fixture so the proof titles and assertions claim the exact execution-scoped identity invariant, including one foreign-selector or mismatched-handoff case, instead of only adjacent per-run scratch ownership or latest-open-PR happy-path behavior.
-5. [ ] Update the focused proof owners so `server/src/test/integration/flows.run.loop.test.ts` covers overlapping review executions that would otherwise switch PR authority after resume, and `scripts/test/test_check_github_review_has_reviewer_feedback.py` covers helper-side rejection of foreign or mismatched execution-scoped review state through the supported selector path.
+5. [ ] Update the focused proof owners so `server/src/test/integration/flows.run.loop.test.ts` covers the exact newer-run-then-older-resume interleaving where a newer execution publishes selector authority and an older resumed execution later attempts fetch, close, or feedback-gate work without reclaiming that authority, and `scripts/test/test_check_github_review_has_reviewer_feedback.py` covers helper-side rejection of foreign or mismatched execution-scoped review state through the supported selector path.
 
 #### Testing
 
@@ -1457,6 +1460,9 @@ This review-created task repairs the remaining execution-scoped GitHub review id
 #### Overview
 
 This review-created task repairs the remaining GitHub stage note-writer race so overlapping Story 60 retries or review cycles cannot silently drop one another's skip or failure notes by replacing the same task block from a stale pre-read. The repair must stay inside the approved Story 60 plan-note recording contract and add one explicit concurrency-safe write boundary instead of widening the story into broader plan-management redesign.
+
+- Highest-risk invariant: if retry A appends one note and retry B appends a different note against the same task block, both durable notes must survive and an idempotent replay of either retry must not duplicate or erase them.
+- Likely blocker family: product or story seam. This task owns the note-writer contract, its direct proof home, and the preserved task-block selection behavior.
 
 #### Task Exit Criteria
 
@@ -1501,6 +1507,9 @@ This review-created task repairs the remaining GitHub stage note-writer race so 
 
 This review-created task repairs the remaining persisted-wait recovery seam so a wake-time preflight failure cannot silently drop authoritative wait ownership and a startup backfill failure cannot crash the whole server before it starts listening. The repair must treat wake-time and startup-time recovery as one coherent lifecycle contract, because both findings live on the same persisted wait-registration and recovery boundary rather than on unrelated product surfaces.
 
+- Highest-risk invariant: a persisted wait that is still recoverable must not disappear between timer wake and durable resume or terminal failure, and a recoverable startup backfill fault must not prevent the server from reaching its normal listen contract.
+- Likely blocker family: product or story seam, with a shared wrapper or baseline seam only when compose, readiness, or host-level startup proof fails before the repository-owned recovery code runs.
+
 #### Task Exit Criteria
 
 - Wake-time preflight failures no longer unschedule a persisted wait without either preserving or rearming authoritative recovery ownership, or marking the flow terminal through one explicit durable path.
@@ -1520,10 +1529,10 @@ This review-created task repairs the remaining persisted-wait recovery seam so a
 
 #### Subtasks
 
-1. [ ] Re-inspect the exact persisted-wait recovery seams in `server/src/flows/service.ts` and `server/src/index.ts`, including `schedulePersistedWaitResume(...)`, `resumePendingFlowWaitsForStartup()`, `flows.wait.resume.failed`, the `RUN_IN_PROGRESS` special case, and the startup hook that currently awaits wait recovery before listen, and write down which branch currently drops authoritative recovery ownership versus which branch currently aborts startup.
+1. [ ] Re-inspect the exact persisted-wait recovery seams in `server/src/flows/service.ts` and `server/src/index.ts`, including `schedulePersistedWaitResume(...)`, `resumePendingFlowWaitsForStartup()`, `flows.wait.resume.failed`, the `RUN_IN_PROGRESS` special case, and the startup hook that currently awaits wait recovery before listen, and write down which branch currently drops authoritative recovery ownership, which branch currently aborts startup, and which preserved behavior must still survive the repair: a healthy wake resumes once and a recoverable startup fault still reaches listen.
 2. [ ] Patch the wake-time recovery seam so requirement `preflight failure does not drop authoritative wait recovery ownership` is owned by `server/src/flows/service.ts`, with one explicit durable outcome that either preserves or rearms recovery ownership or marks the flow terminal instead of only logging the failure.
 3. [ ] Patch the startup recovery seam across `server/src/flows/service.ts` and `server/src/index.ts` so requirement `recoverable wait scan or registration faults do not crash pre-listen startup` is owned by one explicit degraded-start contract that still surfaces clear diagnostics without silently hiding the failure or pretending the baseline is healthy.
-4. [ ] Update the focused proof owners so `server/src/test/integration/flows.run.resume.backfill.test.ts` covers the wake-time preflight-failure branch and whichever directly adjacent startup-facing proof file owns pre-listen wait recovery covers the degraded startup-recovery branch, with titles and assertions that claim those exact lifecycle guarantees rather than only successful resume or happy-path startup.
+4. [ ] Update `server/src/test/integration/flows.run.resume.backfill.test.ts` as the focused proof owner for both the wake-time preflight-failure branch and the degraded startup-recovery branch, with titles and assertions that claim those exact lifecycle guarantees rather than only successful resume or happy-path startup; if one additional directly adjacent startup-facing proof file is still required after inspection, name it explicitly in the task's implementation notes rather than leaving the proof home implicit.
 
 #### Testing
 
@@ -1546,6 +1555,9 @@ This review-created task repairs the remaining persisted-wait recovery seam so a
 #### Overview
 
 This fresh review-created final task owns the whole active review cycle's post-repair validation for review cycle `0000060-rc-20260627T174933Z-7e7ca864`. It revalidates the unresolved task-required findings routed into Tasks 14 through 16, also covers every inline-resolved minor finding already recorded for this same active cycle, and owns the full relevant repository-supported regression proof needed before Story 60 can close again.
+
+- Highest-risk invariant: the broad proof pass must distinguish repository-owned product regressions from shared baseline or runtime-handoff failures while still proving that every serious finding and every inline-resolved minor fix for this cycle remains reachable through the supported default paths.
+- Likely blocker family: shared wrapper or baseline seam for the broad wrapper, compose, readiness, and host-network proof surfaces, with task-owned product validation still required once that baseline is healthy.
 
 #### Task Exit Criteria
 
@@ -1595,8 +1607,9 @@ Client-specific `npm run build:summary:client` and `npm run test:summary:client`
 
 #### Manual Testing Guidance
 
-- Optional only if later closeout still needs a live `/flows` rerun after the automated proof above: use the supported main stack from `docker-compose.yml` through the repository compose wrappers rather than a `codeinfo:local` stack, verify readiness at `http://localhost:5010/health`, and use `http://localhost:5001` as the supported UI surface.
+- Optional only if later closeout still needs a live `/flows` rerun after the automated proof above: use the supported main stack from `docker-compose.yml` through the repository compose wrappers rather than a `codeinfo:local` stack, let those wrappers own env-file loading for the supported stack, verify readiness at `http://localhost:5010/health`, and use `http://localhost:5001` as the supported UI surface.
 - When that optional live rerun needs the repository-owned manual-test seed catalogs, use `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` as the mounted source of agent definitions; if `review_agent` or required provider auth is still unavailable there, record the runtime limitation honestly instead of reopening implementation scope.
+- If later manual proof needs screenshots for the final Story 60 `/flows` state, capture them first under a relative staging path such as `/tmp/playwright-output/0000060-review-cycle-final/...`, then retrieve them from `$CODEINFO_ROOT/playwright-output-local/0000060-review-cycle-final/...` on the host and transfer them into the closeout artifact destination described by the runtime handoff for that proof run. If the runtime handoff does not expose a usable destination, record that limitation honestly instead of blocking the proof loop.
 
 #### Implementation notes
 

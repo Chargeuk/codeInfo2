@@ -33,3 +33,23 @@ When this story is complete, CodeInfo2 flows will be able to run one bounded ext
 5. [codeInfo2] - Validate the full story and update closeout documentation
    - Reconcile the final implementation against the story acceptance criteria, proof files, and preserved scope boundaries.
    - Update the architecture docs and PR summary, then run the final wrapper-based validation and main-stack smoke path.
+
+6. [codeInfo2] - Restore truthful wait-resume status, startup recovery, and replay behavior
+   - Repair the persisted wait and replay seams so resumed runs keep the same execution identity and do not publish a clean completion after a warning skip.
+   - Add focused server proof for startup recovery, resumed identity, and the ordering between paused state, replay state, and final status publication.
+
+7. [codeInfo2] - Tighten GitHub review base selection, handoff state, and replay authority
+   - Repair the GitHub review adapter and scratch-state contract so the runtime keeps one authoritative review base, handoff shape, and replay source.
+   - Add focused proof for explicit base-branch authority, safe handoff parsing, fresh review scratch replacement, and resumed replay consistency.
+
+8. [codeInfo2] - Restore runtime branch authority and direct GitHub review proof
+   - Repair the flow runtime so untaken `if` branches cannot block the live branch selected at execution time.
+   - Update the runtime and authored proof surfaces so clean-cycle, findings-present, and resumed-review branches are proved directly instead of only by flow-shape inspection.
+
+9. [codeInfo2] - Preserve truthful subflow batch-stop outcomes
+   - Repair the shared batch-stop aggregation so parent status reflects mixed or ineffective child stop results honestly.
+   - Add focused proof for the parent result contract instead of relying on adjacent generic cancellation-success behavior.
+
+10. [codeInfo2] - Revalidate the review-task repairs and close the active review cycle cleanly
+    - Refresh the PR summary, proof checklist, and review-cycle closeout notes after Tasks 6 through 9 land.
+    - Run the broad wrapper-first validation, smoke the supported stack, and keep final manual-proof guidance aligned with the repaired review-cycle behavior.

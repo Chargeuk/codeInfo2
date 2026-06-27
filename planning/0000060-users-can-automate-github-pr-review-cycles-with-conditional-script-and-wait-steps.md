@@ -896,12 +896,11 @@ This review-created task repairs the shared paused and resumed execution lifecyc
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared server lifecycle, persistence, websocket, and startup wiring.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root to prove the completed-with-warning contract and supported GitHub-review skip surface after the repair.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root to prove the repository-backed wait-resume identity and paused-launch replay barrier after the repair.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root to prove persisted waits are re-registered through the startup-recovery path rather than only through test-only helper wiring.
-5. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root to prove the completed-with-warning contract and supported GitHub-review skip surface after the repair.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root to prove the repository-backed wait-resume identity and paused-launch replay barrier after the repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root to prove persisted waits are re-registered through the startup-recovery path rather than only through test-only helper wiring.
+4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -949,12 +948,11 @@ This review-created task repairs the GitHub review transport and scratch authori
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared GitHub review transport, scratch, and filesystem-authority seams.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the trustworthy-base and post-create replay semantics after the repair.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the non-colliding scratch contract and root-contained persisted selector authority after the repair.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired GitHub runtime chain still uses the authoritative scratch and replay contract end to end.
-5. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the trustworthy-base and post-create replay semantics after the repair.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the non-colliding scratch contract and root-contained persisted selector authority after the repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired GitHub runtime chain still uses the authoritative scratch and replay contract end to end.
+4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -998,11 +996,10 @@ This review-created task restores runtime branch-selection authority for the opt
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared runtime validation and proof-authoring seams in the server workspace.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired runtime branch-authority and GitHub review-loop behavior after the repair.
-3. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature` from the repository root to prove the authored feature surface now claims the same runtime branches honestly.
-4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired runtime branch-authority and GitHub review-loop behavior after the repair.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature` from the repository root to prove the authored feature surface now claims the same runtime branches honestly.
+3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1043,10 +1040,9 @@ This review-created task repairs the shared subflow batch stop aggregation seam 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared server-side batch orchestration logic.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired subflow batch stop aggregation after the change.
-3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired subflow batch stop aggregation after the change.
+2. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+3. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 

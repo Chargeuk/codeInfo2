@@ -1535,6 +1535,8 @@ This review-created task repairs the remaining persisted-wait recovery seam so a
 
 #### Testing
 
+This task keeps task-local proof on the focused persisted-wait backfill wrapper plus the server build wrapper because those are the narrowest repository-supported automated surfaces that directly exercise the repaired wake-time and degraded-start contract. The image-backed main-stack compose build and smoke-start proof for this same startup seam is intentionally owned once by Task 17 so Tasks 14 through 16 do not each duplicate the same broad runtime validation.
+
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root to prove the repaired persisted-wait wake and startup recovery contract.
 2. [ ] Run `npm run build:summary:server` from the repository root because this task changes the shared server startup path before listen.
 3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.

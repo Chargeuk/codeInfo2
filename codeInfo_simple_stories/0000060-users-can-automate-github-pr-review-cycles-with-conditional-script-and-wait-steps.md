@@ -66,3 +66,19 @@ When this story is complete, CodeInfo2 flows will be able to run one bounded ext
 13. [codeInfo2] - Revalidate the current review-cycle task-up repairs and final proof bundle
     - Refresh the PR summary and review-cycle checklist so the active findings, inline minor fixes, and final proof owners are all traced in one place.
     - Run the final broad wrapper-first validation, supported stack smoke path, and helper cross-check for the current review cycle.
+
+14. [codeInfo2] - Preserve execution-scoped GitHub review identity after resume
+    - Repair the resumed review runtime so fetch, close, and reviewer-feedback checks stay bound to the same execution-scoped PR and scratch handoff.
+    - Add focused proof for overlapping runs, stale-versus-live selector precedence, and helper-side rejection of foreign review state.
+
+15. [codeInfo2] - Make GitHub stage plan-note writes concurrency-safe
+    - Repair the shared note-writer seam so overlapping retries or review cycles do not erase one another's notes in the same task block.
+    - Add focused proof for contradictory overlapping appends and idempotent replay without duplicated notes.
+
+16. [codeInfo2] - Keep persisted wait recovery authoritative during wake and startup recovery
+    - Repair the wait lifecycle so wake-time preflight failures do not drop ownership and recoverable startup backfill faults do not crash the server before listen.
+    - Add focused proof for degraded startup recovery, wake-time ownership preservation, and malformed persisted-wait rejection.
+
+17. [codeInfo2] - Revalidate the latest review-created findings block before story closeout
+    - Refresh the review-cycle summary so the remaining serious findings and already-resolved minor fixes are all mapped to one final proof owner.
+    - Run the broad wrapper-first validation, supported stack smoke path, and final helper/runtime cross-check for the active review cycle.

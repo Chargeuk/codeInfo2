@@ -1305,7 +1305,7 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 11, Task 12`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

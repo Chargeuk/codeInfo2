@@ -1175,3 +1175,158 @@ This final review-created task owns the whole active review cycle's post-repair 
 - Review pass `0000060-20260626T222120Z-3a823780`; finding `malformed-persisted-wait-coerced-to-root-resume`; repository `current_repository`; summary: hardened persisted wait parsing so malformed wait state with an empty `stepPath` is rejected instead of being re-registered toward a root resume; changed files: `server/src/flows/service.ts`, `server/src/test/integration/flows.run.resume.backfill.test.ts`; fix commit `1f37dff973efacde801813b95f5543c3c886807c`; targeted proof: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "startup recovery does not re-register malformed persisted wait state with an empty wait stepPath"` passed, focused `npx eslint server/src/flows/service.ts server/src/test/integration/flows.run.resume.backfill.test.ts` passed, focused `npx prettier --check server/src/flows/service.ts server/src/test/integration/flows.run.resume.backfill.test.ts` passed. Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.
 - Review pass `0000060-20260626T222120Z-3a823780`; finding `duplicate-cancel-proof-fixed-delay`; repository `current_repository`; summary: replaced the duplicate-cancel proof's fixed quiet-window delay with an explicit wake-boundary flush so the cancellation assertion follows the harness cleanup seam instead of a timing guess; changed files: `server/src/test/integration/flows.run.resume.identity.test.ts`; fix commit `77d3784294d26914d7801e1633ffd9f6d848ad25`; targeted proof: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts --test-name "cancelled wait does not emit a later resume side effect when the persisted wait state is cleared before wake"` passed, focused `npx eslint server/src/test/integration/flows.run.resume.identity.test.ts` passed, focused `npx prettier --check server/src/test/integration/flows.run.resume.identity.test.ts` passed. Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.
 - Review pass `0000060-20260626T222120Z-3a823780`; finding `github-review-helper-generic-handoff-fallback`; repository `current_repository`; summary: removed the reviewer-feedback helper's fallback to the generic review handoff so GitHub review gating now requires the canonical namespaced handoff file; changed files: `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, `server/src/test/integration/flows.run.errors.test.ts`; fix commit `92cd4b803b5a776ceb27d4fd61feee127276f6a9`; targeted proof: `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` passed, `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "github review feedback helper rejects the generic current-review handoff fallback"` passed, focused `npx eslint server/src/test/integration/flows.run.errors.test.ts` passed, and focused `npx prettier --check server/src/test/integration/flows.run.errors.test.ts` passed after the repo's prettier setup reported no parser for the touched Python files. Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.
+
+## Code Review Findings
+
+### Review Pass `0000060-20260626T222120Z-3a823780` follow-up for review cycle `0000060-rc-20260627T093723Z-91e32429`
+
+- Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active task-up routing. `codeInfoTmp/reviews/0000060-current-review.json` and the referenced findings, challenge, and evidence artifacts remain the scratch review basis for this same review pass.
+- Review comparison context: the stored review handoff compared local `HEAD` `3a8237806531e55db127093abb2dd753fd918925` against resolved remote base `origin/main` at `9833bf9addc2515edb774f3a92307dd594b05062`, with `remote_fetch_status: success` and no local-fallback base inference required.
+- This appended follow-up block supersedes the earlier completed review-created block for the same review pass because the active review disposition state for cycle `0000060-rc-20260627T093723Z-91e32429` still contains unresolved task-required findings after the inline minor-fix path closed all routed minor work.
+- Inline-resolved minor findings already covered in this same active cycle and owned by the fresh final revalidation task below: `current-plan-path-undervalidated-before-note-write`, `script-decision-symlink-escape`, `malformed-persisted-wait-coerced-to-root-resume`, `duplicate-cancel-proof-fixed-delay`, and `github-review-helper-generic-handoff-fallback`.
+- Remaining unresolved task-required findings that must now be encoded into executable plan state: `gh-runtime-failures-downgraded-to-skip`, `unreadable-env-local-treated-as-skip`, and `github-review-scratch-story-global-overwrite`.
+
+### Task 11. Restore Truthful GitHub Runtime Failure Classification For Review Open-PR And Token Loading
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 7`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the remaining GitHub runtime failure taxonomy so Story 60 keeps the approved distinction between supported warning-only review skips and real server-side runtime failures. The repair must address the current `gh pr create` replay path and the worked-repository `.env.local` token loader together, because both findings still collapse broken runtime state into the same benign skip branch and therefore share one warning-versus-failure contract seam.
+
+#### Task Exit Criteria
+
+- `github_open_pr` keeps supported review-skip outcomes on the approved warning path while real `gh` create-side runtime failures such as missing-binary, spawn, or equivalent lower-layer faults surface as runtime failures instead of warning-only skips.
+- Worked-repository `.env.local` loading still treats truly missing opt-in state as the approved skip case, while unreadable or otherwise broken file-access faults stop being normalized into the same benign skip taxonomy.
+- The repair preserves current approved user-facing Story 60 behavior for supported missing-token or no-open-PR cases and does not widen the story into a broader GitHub UX redesign.
+- Focused proof names the exact runtime and adapter seams that now distinguish supported skip cases from broken runtime state.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Finding `gh-runtime-failures-downgraded-to-skip`: `github_open_pr` still downgrades some real `gh` runtime failures into the warning-only skip path.
+- Finding `unreadable-env-local-treated-as-skip`: unreadable worked-repository `.env.local` failures are still normalized into the benign GitHub-skip path.
+
+#### Documentation Locations
+
+- No additional external documentation is required for this review-created repair; use the repository-owned GitHub transport, runtime, and proof-owner files named below.
+
+#### Subtasks
+
+1. [ ] Re-inspect `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, and the existing GitHub runtime proof owners to map the exact create-side and token-loader branches that currently collapse broken runtime state into the supported skip taxonomy.
+2. [ ] Repair the `gh pr create` classification seam so the approved warning path remains reserved for supported review skips, while lower-layer create-side runtime faults stay visible as runtime failures through the default Story 60 execution path.
+3. [ ] Repair the worked-repository `.env.local` token-loader seam so only approved missing opt-in state remains a skip, while unreadable or otherwise broken file-access faults no longer share that benign taxonomy.
+4. [ ] Update the focused proof owners so they explicitly prove the repaired warning-versus-failure contract without broadening current approved Story 60 behavior for supported skip cases.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the repaired GitHub transport classification contract.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime still distinguishes supported skips from real runtime failures after the repair.
+3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 12. Give GitHub Review Scratch State Per-Run Ownership Instead Of Story-Global Overwrite
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 7`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the remaining GitHub review scratch ownership gap so overlapping Story 60 review runs cannot overwrite each other's active current-review state. The repair must keep the approved namespaced GitHub scratch contract and solve the remaining story-global ownership problem through one coherent per-run ownership or active-selection design instead of leaving later readers to guess which overlapping run owns the shared scratch file.
+
+#### Task Exit Criteria
+
+- The active GitHub review scratch state is no longer story-global: overlapping Story 60 review runs cannot silently overwrite each other's authoritative current-review state.
+- The repair preserves the approved dedicated namespaced GitHub handoff contract rather than reintroducing the generic `*-current-review.json` fallback or a broader user-facing workflow change.
+- Focused proof explicitly covers overlapping or contradictory scratch ownership instead of relying only on single-run happy-path fixtures.
+- Any retained selection or compatibility boundary is owned by one explicit repository-scoped contract rather than by accidental last-writer-wins behavior.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Finding `github-review-scratch-story-global-overwrite`: the GitHub review scratch handoff is still story-global, so overlapping runs can overwrite each other's current review state.
+
+#### Documentation Locations
+
+- No additional external documentation is required for this review-created repair; use the repository-owned GitHub review scratch, runtime, and helper-script proof files named below.
+
+#### Subtasks
+
+1. [ ] Re-inspect the GitHub review scratch writer and reader seams in `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, the helper scripts under `scripts/flow_control/`, and the named proof owners to map where story-global scratch ownership still leaks across overlapping runs.
+2. [ ] Repair the scratch ownership contract so the active GitHub review handoff is selected by explicit per-run ownership or equivalent authoritative identity instead of story-global overwrite behavior, while preserving the approved namespaced handoff shape.
+3. [ ] Update the focused scratch and runtime proof owners so they explicitly cover contradictory or overlapping scratch ownership and prove that stale or foreign run state no longer becomes the authoritative current review input.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the repaired GitHub scratch ownership and containment contract.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime now rejects or isolates overlapping scratch ownership correctly.
+3. [ ] Run `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` from the repository root to prove the helper-side handoff selection still follows the repaired namespaced ownership contract.
+4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 13. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-cycle `0000060-rc-20260627T093723Z-91e32429` task-up repairs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 11, Task 12`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This fresh review-created final task owns the whole active review cycle's post-repair validation for review cycle `0000060-rc-20260627T093723Z-91e32429`. It revalidates the unresolved task-required findings routed into Tasks 11 and 12, also covers every inline-resolved minor finding already recorded for this same active cycle, and owns the full relevant repository-supported regression proof needed before Story 60 can close again.
+
+#### Task Exit Criteria
+
+- Review-created findings `gh-runtime-failures-downgraded-to-skip`, `unreadable-env-local-treated-as-skip`, and `github-review-scratch-story-global-overwrite` are revalidated on their focused proof owners and on the relevant broad repository-supported regression surfaces after Tasks 11 and 12 complete.
+- Inline-resolved minor findings `current-plan-path-undervalidated-before-note-write`, `script-decision-symlink-escape`, `malformed-persisted-wait-coerced-to-root-resume`, `duplicate-cancel-proof-fixed-delay`, and `github-review-helper-generic-handoff-fallback` are also revalidated as part of this same final task rather than being left to a second final-owner path.
+- The final regression summary, reviewer-facing artifacts, this plan, and `review-disposition-state.json` all reflect one clean post-repair Story 60 state for review cycle `0000060-rc-20260627T093723Z-91e32429`, and no second final revalidation owner remains for this cycle.
+- Client-only browser proof is not required for this cycle unless later implementation broadens beyond the current server and helper-script surfaces; if that happens, update this task honestly instead of silently assuming browser proof was covered.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Final revalidation owner for unresolved task-required findings `gh-runtime-failures-downgraded-to-skip`, `unreadable-env-local-treated-as-skip`, and `github-review-scratch-story-global-overwrite`
+- Also revalidate inline-resolved minor findings `current-plan-path-undervalidated-before-note-write`, `script-decision-symlink-escape`, `malformed-persisted-wait-coerced-to-root-resume`, `duplicate-cancel-proof-fixed-delay`, and `github-review-helper-generic-handoff-fallback` for review cycle `0000060-rc-20260627T093723Z-91e32429`
+
+#### Affected Repositories
+
+- `Current Repository`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - refresh the reviewer-facing closeout summary after this fresh review-cycle revalidation task completes.
+
+#### Subtasks
+
+1. [ ] Re-read this appended `Code Review Findings` follow-up block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, then build an explicit finding-to-proof checklist for Tasks 11 and 12 plus the five inline-resolved minor findings before the broad wrapper runs start.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000060-pr-summary.md` and the implementation notes for Tasks 11 through 13 so they record which focused proof owner closed each task-required finding and which broad wrapper surface revalidated the inline minor findings for review cycle `0000060-rc-20260627T093723Z-91e32429`.
+3. [ ] Confirm that this appended follow-up block and `codeInfoStatus/flow-state/review-disposition-state.json` still agree on review pass `0000060-20260626T222120Z-3a823780`, review cycle `0000060-rc-20260627T093723Z-91e32429`, and this task as the one final revalidation owner before broad wrapper runs start.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root because the repaired Story 60 review-cycle runtime still depends on the supported main-stack Docker build path after Tasks 11 and 12 land.
+2. [ ] Run `npm run build:summary:server` from the repository root because the remaining serious review-created work changes shared server runtime, GitHub transport, scratch ownership, and helper-script execution surfaces.
+3. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the focused task-up repairs plus all inline-resolved minor fixes on the repository-supported unit and integration wrapper surface.
+4. [ ] Run full `npm run test:summary:server:cucumber` from the repository root because Story 60 still owns authored flow behavior and runtime proof on the repository-supported cucumber surface after the task-up repairs.
+5. [ ] Run full `npm run test:summary:e2e` from the repository root because Story 60 still owns the end-to-end flow execution surface after these review-created follow-up repairs.
+6. [ ] Run `npm run compose:up` from the repository root because this final review-cycle task must include a supported main-stack smoke start after the broad automated suites complete.
+7. [ ] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final task must leave that baseline stopped again.
+8. [ ] Run `npm run lint` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+9. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.

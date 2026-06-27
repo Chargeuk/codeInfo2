@@ -1500,8 +1500,8 @@ This review-created task repairs the remaining GitHub stage note-writer race so 
 #### Testing
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the repaired GitHub stage note-writer concurrency contract.
-2. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-3. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+2. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+3. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1510,6 +1510,8 @@ This review-created task repairs the remaining GitHub stage note-writer race so 
 - Added one repository-local exclusive lock seam around `appendImplementationNoteToPlan(...)` and `updateJsonAtomically(...)` so sibling note appends serialize before they read and rewrite the same durable file, instead of relying on blind last-writer-wins replacement.
 - Fixed an early regression in the new task-block note merge helper that briefly dropped existing bullets, then kept the repair bounded to preserving prior implementation-note lines plus one new unique bullet.
 - Expanded `server/src/test/unit/flows.github-scratch.test.ts` with focused overlap, idempotent replay, and selected-task stability proofs; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` passed after the bounded merge fix.
+- Testing 2: `npm run lint` passed cleanly on the Task 15 concurrency-safe note-writer surface, so no follow-up lint cleanup was needed before the final formatting proof step.
+- Testing 3: `npm run format:check` passed cleanly across the Task 15 concurrency-safe note-writer surface, so the note-writer repair and closeout plan maintenance remain Prettier-clean without follow-up formatting fixes.
 
 ### Task 16. Keep Persisted Wait Recovery Authoritative Across Wake Preflight And Startup Backfill
 

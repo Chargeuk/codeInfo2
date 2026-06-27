@@ -1281,8 +1281,8 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the repaired GitHub scratch ownership and containment contract.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime now rejects or isolates overlapping scratch ownership correctly.
 3. [x] Run `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` from the repository root to prove the helper-side handoff selection still follows the repaired namespaced ownership contract.
-4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+4. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1293,6 +1293,8 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 - Updated `server/src/test/unit/flows.github-scratch.test.ts` to prove the new selector-owned execution contract directly: failed replacement leaves the last valid selector-owned handoff authoritative, malformed selector-plus-handoff state is rejected, restart-time rereads now check expected execution ownership, and fresh publishes now advance the selector to the current execution-scoped handoff. `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` then passed cleanly with 7 of 7 tests.
 - Updated `scripts/test/test_check_github_review_has_reviewer_feedback.py` so the helper proof now follows the selector to an execution-scoped handoff, rejects the removed generic fallback by failing on the missing supported selector path, and rejects selector-to-handoff ownership mismatches instead of guessing across foreign state. `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` then passed cleanly with 3 of 3 tests.
 - Updated `server/src/test/integration/flows.run.loop.test.ts` so the runtime proof now asserts the exact Task 12 interleaving boundary: a clean newer execution claims the selector, publishes fresh review scratch, and keeps that selector authoritative after an older execution later attempts a direct reclaim write. `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` then passed cleanly with 34 of 34 tests.
+- Testing 4: `npm run lint` passed cleanly on the Task 12 repair surface, so the per-run selector, helper, runtime, and proof-owner updates needed no further lint cleanup before closeout.
+- Testing 5: `npm run format:check` passed cleanly across the Task 12 repair surface, so the per-run selector, helper, runtime, and proof-owner updates remain Prettier-clean without follow-up formatting repair.
 
 ### Task 13. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-cycle `0000060-rc-20260627T093723Z-91e32429` task-up repairs
 

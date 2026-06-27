@@ -1286,7 +1286,7 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 
 #### Implementation notes
 
-- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+- **BLOCKER** Audit found no repository evidence that Task 12 implementation work had started beyond the selector-driven status promotion, so unchecked Subtasks 1 through 5 remained open after normalization. Evidence checked: the re-read Task 12 plan section, `git log --oneline -6`, `git show --stat --oneline -4`, and a clean `git status --short` with no Task 12 code or proof-file edits present. Implementation cannot continue honestly without fresh Task 12 repository work, narrower ownership, or planner intervention to repair the task state.
 
 ### Task 13. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-cycle `0000060-rc-20260627T093723Z-91e32429` task-up repairs
 

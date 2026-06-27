@@ -104,6 +104,7 @@ export type GitHubReviewArtifact = {
 
 export type GitHubCurrentReviewHandoff = {
   handoff_kind: string;
+  execution_id: string;
   plan_path: string;
   story_number: string;
   repository_root: string;
@@ -117,6 +118,16 @@ export type GitHubCurrentReviewHandoff = {
   repository_alias?: string;
   skip_reason?: string;
   failure_reason?: string;
+};
+
+export type GitHubReviewScratchSelector = {
+  selector_kind: string;
+  execution_id: string;
+  plan_path: string;
+  story_number: string;
+  repository_root: string;
+  branch_name: string;
+  handoff_path: string;
 };
 
 export type GitHubReviewFeedbackEntry =
@@ -240,9 +251,13 @@ const normalizeTrimmedString = (value: unknown): string | undefined =>
     : undefined;
 
 export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
+export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
 
 const buildTempPath = (targetPath: string) =>
   `${targetPath}.${process.pid}.${Date.now().toString(36)}.tmp`;
+
+const toExecutionScopedFileToken = (executionId: string) =>
+  executionId.replace(/[^A-Za-z0-9._-]+/gu, '-');
 
 const isPathContainedWithinRoot = (rootPath: string, targetPath: string) => {
   const resolvedRoot = path.resolve(rootPath);
@@ -265,18 +280,28 @@ export const buildGitHubReviewScratchPaths = (
   const reviewsRoot = path.join(workingRepositoryRoot, 'codeInfoTmp/reviews');
   return {
     reviewsRoot,
+    selectorPath: path.join(
+      reviewsRoot,
+      `${storyNumber}-github-review-current.json`,
+    ),
     handoffPath: path.join(
       reviewsRoot,
       `${storyNumber}-github-review-current.json`,
     ),
-    externalReviewInputPath: path.join(
-      reviewsRoot,
-      `${storyNumber}-external-review-input.md`,
-    ),
-    buildRawArtifactPath: (pullRequestNumber: number) =>
+    buildExecutionScopedHandoffPath: (executionId: string) =>
       path.join(
         reviewsRoot,
-        `${storyNumber}-github-review-pr-${String(pullRequestNumber)}.json`,
+        `${storyNumber}-github-review-${toExecutionScopedFileToken(executionId)}-current.json`,
+      ),
+    buildExternalReviewInputPath: (executionId: string) =>
+      path.join(
+        reviewsRoot,
+        `${storyNumber}-github-review-${toExecutionScopedFileToken(executionId)}-external-review-input.md`,
+      ),
+    buildRawArtifactPath: (executionId: string, pullRequestNumber: number) =>
+      path.join(
+        reviewsRoot,
+        `${storyNumber}-github-review-${toExecutionScopedFileToken(executionId)}-pr-${String(pullRequestNumber)}.json`,
       ),
   };
 };
@@ -1046,6 +1071,7 @@ const validateGitHubReviewScratchRecord = (params: {
   record: Record<string, unknown>;
 }): GitHubStepOutcome<GitHubCurrentReviewHandoff> => {
   const handoffKind = normalizeTrimmedString(params.record.handoff_kind);
+  const executionId = normalizeTrimmedString(params.record.execution_id);
   const planPath = normalizeTrimmedString(params.record.plan_path);
   const storyNumber = normalizeTrimmedString(params.record.story_number);
   const repositoryRoot = normalizeTrimmedString(params.record.repository_root);
@@ -1060,6 +1086,7 @@ const validateGitHubReviewScratchRecord = (params: {
   const pullRequest = normalizePullRequestIdentity(params.record.pull_request);
   if (
     handoffKind !== GITHUB_REVIEW_HANDOFF_KIND ||
+    !executionId ||
     !planPath ||
     !storyNumber ||
     !repositoryRoot ||
@@ -1099,13 +1126,14 @@ const validateGitHubReviewScratchRecord = (params: {
     storyNumber,
   );
   if (
-    path.resolve(params.handoffPath) !== path.resolve(scratchPaths.handoffPath)
+    path.resolve(params.handoffPath) !==
+    path.resolve(scratchPaths.buildExecutionScopedHandoffPath(executionId))
   ) {
     return {
       kind: 'error',
       reason: 'SCRATCH_INVALID',
       message:
-        'GitHub review handoff was not loaded from the authoritative Story 60 GitHub-review scratch path.',
+        'GitHub review handoff was not loaded from the authoritative execution-scoped Story 60 GitHub-review scratch path.',
     };
   }
 
@@ -1114,7 +1142,7 @@ const validateGitHubReviewScratchRecord = (params: {
     path.dirname(path.resolve(rawReviewArtifactPath)) !==
       path.resolve(scratchPaths.reviewsRoot) ||
     !new RegExp(
-      `^${storyNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-github-review-pr-\\d+\\.json$`,
+      `^${storyNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-github-review-${toExecutionScopedFileToken(executionId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-pr-\\d+\\.json$`,
       'u',
     ).test(path.basename(rawReviewArtifactPath))
   ) {
@@ -1130,7 +1158,7 @@ const validateGitHubReviewScratchRecord = (params: {
     externalReviewInputFile &&
     (!isPathContainedWithinRoot(repositoryRoot, externalReviewInputFile) ||
       path.resolve(externalReviewInputFile) !==
-        path.resolve(scratchPaths.externalReviewInputPath))
+        path.resolve(scratchPaths.buildExternalReviewInputPath(executionId)))
   ) {
     return {
       kind: 'error',
@@ -1144,6 +1172,7 @@ const validateGitHubReviewScratchRecord = (params: {
     kind: 'ok',
     value: {
       handoff_kind: handoffKind,
+      execution_id: executionId,
       plan_path: planPath,
       story_number: storyNumber,
       repository_root: repositoryRoot,
@@ -1182,6 +1211,98 @@ const validateGitHubReviewScratchRecord = (params: {
             ),
           }
         : {}),
+    },
+  };
+};
+
+const validateGitHubReviewScratchSelectorRecord = (params: {
+  selectorPath: string;
+  record: Record<string, unknown>;
+  expectedExecutionId?: string;
+}): GitHubStepOutcome<GitHubReviewScratchSelector> => {
+  const selectorKind = normalizeTrimmedString(params.record.selector_kind);
+  const executionId = normalizeTrimmedString(params.record.execution_id);
+  const planPath = normalizeTrimmedString(params.record.plan_path);
+  const storyNumber = normalizeTrimmedString(params.record.story_number);
+  const repositoryRoot = normalizeTrimmedString(params.record.repository_root);
+  const branchName = normalizeTrimmedString(params.record.branch_name);
+  const handoffPath = normalizeTrimmedString(params.record.handoff_path);
+  if (
+    selectorKind !== GITHUB_REVIEW_SELECTOR_KIND ||
+    !executionId ||
+    !planPath ||
+    !storyNumber ||
+    !repositoryRoot ||
+    !branchName ||
+    !handoffPath
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review selector is missing the explicit Task 12 ownership marker or required plan, repository, branch, execution, or handoff fields.',
+    };
+  }
+  if (
+    params.expectedExecutionId &&
+    executionId.trim() !== params.expectedExecutionId.trim()
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review selector no longer belongs to the resumed flow execution.',
+    };
+  }
+  if (!path.isAbsolute(repositoryRoot)) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review selector repository_root must be an absolute path.',
+    };
+  }
+  if (!isContainedRelativePath(repositoryRoot, planPath)) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review selector plan_path must remain repository-root contained before filesystem access.',
+    };
+  }
+  const scratchPaths = buildGitHubReviewScratchPaths(repositoryRoot, storyNumber);
+  if (
+    path.resolve(params.selectorPath) !== path.resolve(scratchPaths.selectorPath)
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review selector was not loaded from the authoritative Story 60 default GitHub-review scratch path.',
+    };
+  }
+  if (
+    !isPathContainedWithinRoot(repositoryRoot, handoffPath) ||
+    path.resolve(handoffPath) !==
+      path.resolve(scratchPaths.buildExecutionScopedHandoffPath(executionId))
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review selector handoff_path must stay inside the authoritative execution-scoped Story 60 reviews scratch root.',
+    };
+  }
+  return {
+    kind: 'ok',
+    value: {
+      selector_kind: selectorKind,
+      execution_id: executionId,
+      plan_path: planPath,
+      story_number: storyNumber,
+      repository_root: repositoryRoot,
+      branch_name: branchName,
+      handoff_path: handoffPath,
     },
   };
 };
@@ -1439,7 +1560,9 @@ export const materializeGitHubExternalReviewInput = async (params: {
     params.handoff.repository_root,
     params.handoff.story_number,
   );
-  const externalReviewInputPath = scratchPaths.externalReviewInputPath;
+  const externalReviewInputPath = scratchPaths.buildExternalReviewInputPath(
+    params.handoff.execution_id,
+  );
   try {
     await writeTextAtomically({
       targetPath: externalReviewInputPath,
@@ -1461,7 +1584,9 @@ export const materializeGitHubExternalReviewInput = async (params: {
 
   const updatedHandoff = await updateJsonAtomically<GitHubCurrentReviewHandoff>(
     {
-      targetPath: scratchPaths.handoffPath,
+      targetPath: scratchPaths.buildExecutionScopedHandoffPath(
+        params.handoff.execution_id,
+      ),
       update: (current) => ({
         ...current,
         external_review_input_file: externalReviewInputPath,
@@ -1492,8 +1617,50 @@ export const appendGitHubReviewPlanNote = async (params: {
 }): Promise<GitHubStepOutcome<null>> =>
   await appendImplementationNoteToPlan(params);
 
+export const claimGitHubReviewScratchOwnership = async (params: {
+  repository: GitHubRepositoryState;
+  executionId: string;
+}): Promise<GitHubStepOutcome<GitHubReviewScratchSelector>> => {
+  const planContext = await readCurrentPlanContext(
+    params.repository.workingRepositoryRoot,
+  );
+  if (planContext.kind !== 'ok') return planContext;
+  const scratchPaths = buildGitHubReviewScratchPaths(
+    params.repository.workingRepositoryRoot,
+    planContext.value.storyNumber,
+  );
+  const selector: GitHubReviewScratchSelector = {
+    selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+    execution_id: params.executionId,
+    plan_path: planContext.value.planPath,
+    story_number: planContext.value.storyNumber,
+    repository_root: params.repository.workingRepositoryRoot,
+    branch_name: params.repository.currentBranch,
+    handoff_path: scratchPaths.buildExecutionScopedHandoffPath(
+      params.executionId,
+    ),
+  };
+  try {
+    await writeJsonAtomically({
+      targetPath: scratchPaths.selectorPath,
+      value: selector,
+    });
+    return { kind: 'ok', value: selector };
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'GitHub review selector write failed.',
+    };
+  }
+};
+
 export const writeGitHubReviewScratch = async (params: {
   repository: GitHubRepositoryState;
+  executionId: string;
   pullRequest: GitHubPullRequestIdentity;
   artifact: GitHubReviewArtifact;
 }): Promise<GitHubStepOutcome<GitHubCurrentReviewHandoff>> => {
@@ -1506,9 +1673,12 @@ export const writeGitHubReviewScratch = async (params: {
     planContext.value.storyNumber,
   );
   const rawArtifactPath = scratchPaths.buildRawArtifactPath(
+    params.executionId,
     params.pullRequest.number,
   );
-  const handoffPath = scratchPaths.handoffPath;
+  const handoffPath = scratchPaths.buildExecutionScopedHandoffPath(
+    params.executionId,
+  );
   try {
     await writeJsonAtomically({
       targetPath: rawArtifactPath,
@@ -1516,6 +1686,7 @@ export const writeGitHubReviewScratch = async (params: {
     });
     const handoff: GitHubCurrentReviewHandoff = {
       handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
+      execution_id: params.executionId,
       plan_path: planContext.value.planPath,
       story_number: planContext.value.storyNumber,
       repository_root: params.repository.workingRepositoryRoot,
@@ -1527,6 +1698,38 @@ export const writeGitHubReviewScratch = async (params: {
     await writeJsonAtomically({
       targetPath: handoffPath,
       value: handoff,
+    });
+    const selectorResult = await readJsonFile<Record<string, unknown>>(
+      scratchPaths.selectorPath,
+    );
+    if (selectorResult.kind === 'ok') {
+      const validatedSelector = validateGitHubReviewScratchSelectorRecord({
+        selectorPath: scratchPaths.selectorPath,
+        record: selectorResult.value,
+      });
+      if (
+        validatedSelector.kind === 'ok' &&
+        validatedSelector.value.execution_id !== params.executionId
+      ) {
+        return {
+          kind: 'error',
+          reason: 'SCRATCH_INVALID',
+          message:
+            'GitHub review selector already belongs to a newer or foreign flow execution and cannot be reclaimed by this run.',
+        };
+      }
+    }
+    await writeJsonAtomically({
+      targetPath: scratchPaths.selectorPath,
+      value: {
+        selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+        execution_id: params.executionId,
+        plan_path: planContext.value.planPath,
+        story_number: planContext.value.storyNumber,
+        repository_root: params.repository.workingRepositoryRoot,
+        branch_name: params.repository.currentBranch,
+        handoff_path: handoffPath,
+      } satisfies GitHubReviewScratchSelector,
     });
     return { kind: 'ok', value: handoff };
   } catch (error) {
@@ -1543,6 +1746,7 @@ export const writeGitHubReviewScratch = async (params: {
 
 export const readGitHubReviewScratch = async (params: {
   handoffPath: string;
+  expectedExecutionId?: string;
 }): Promise<GitHubStepOutcome<GitHubCurrentReviewHandoff>> => {
   let raw: string;
   try {
@@ -1577,8 +1781,39 @@ export const readGitHubReviewScratch = async (params: {
       message: 'GitHub review handoff must be a JSON object.',
     };
   }
+  const record = parsed as Record<string, unknown>;
+  const selectorKind = normalizeTrimmedString(record.selector_kind);
+  if (selectorKind) {
+    const selector = validateGitHubReviewScratchSelectorRecord({
+      selectorPath: params.handoffPath,
+      record,
+      expectedExecutionId: params.expectedExecutionId,
+    });
+    if (selector.kind !== 'ok') return selector;
+    const handoffResult = await readJsonFile<Record<string, unknown>>(
+      selector.value.handoff_path,
+    );
+    if (handoffResult.kind !== 'ok') return handoffResult;
+    const validatedHandoff = validateGitHubReviewScratchRecord({
+      handoffPath: selector.value.handoff_path,
+      record: handoffResult.value,
+    });
+    if (validatedHandoff.kind !== 'ok') return validatedHandoff;
+    if (
+      validatedHandoff.value.execution_id.trim() !==
+      selector.value.execution_id.trim()
+    ) {
+      return {
+        kind: 'error',
+        reason: 'SCRATCH_INVALID',
+        message:
+          'GitHub review selector execution_id does not match the referenced execution-scoped handoff.',
+      };
+    }
+    return validatedHandoff;
+  }
   return validateGitHubReviewScratchRecord({
     handoffPath: params.handoffPath,
-    record: parsed as Record<string, unknown>,
+    record,
   });
 };

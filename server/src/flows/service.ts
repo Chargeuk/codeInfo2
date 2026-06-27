@@ -142,6 +142,7 @@ import type {
 import {
   appendGitHubReviewPlanNote,
   buildGitHubReviewScratchPaths,
+  claimGitHubReviewScratchOwnership,
   materializeGitHubExternalReviewInput,
   closePullRequest,
   createPullRequest,
@@ -1050,6 +1051,13 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
 
   const githubReviewContext = isRecord(value.githubReviewContext)
     ? {
+        ...(normalizeOptionalString(value.githubReviewContext.executionId)
+          ? {
+              executionId: normalizeOptionalString(
+                value.githubReviewContext.executionId,
+              ),
+            }
+          : {}),
         ...(typeof value.githubReviewContext.prNumber === 'number' &&
         Number.isFinite(value.githubReviewContext.prNumber)
           ? { prNumber: value.githubReviewContext.prNumber }
@@ -1065,6 +1073,20 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
           ? {
               branchName: normalizeOptionalString(
                 value.githubReviewContext.branchName,
+              ),
+            }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.selectorPath)
+          ? {
+              selectorPath: normalizeOptionalString(
+                value.githubReviewContext.selectorPath,
+              ),
+            }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.handoffPath)
+          ? {
+              handoffPath: normalizeOptionalString(
+                value.githubReviewContext.handoffPath,
               ),
             }
           : {}),
@@ -4538,6 +4560,11 @@ async function runFlowUnlocked(params: {
           : {}),
       }
     : undefined;
+  let activeGitHubReviewContext = params.resumeState?.wait?.githubReviewContext
+    ? {
+        ...params.resumeState.wait.githubReviewContext,
+      }
+    : undefined;
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
@@ -5470,6 +5497,13 @@ async function runFlowUnlocked(params: {
         ? { sourceId: params.repositoryContext.flowSourceId }
         : {}),
       resumeAt,
+      ...(activeGitHubReviewContext
+        ? {
+            githubReviewContext: {
+              ...activeGitHubReviewContext,
+            },
+          }
+        : {}),
     };
     lastCompletedStepPath = nextPath;
     await persistRuntimeResumeState(nextPath);
@@ -5773,6 +5807,32 @@ async function runFlowUnlocked(params: {
         prUrl: createResult.value.url,
       },
     });
+    const scratchOwnershipClaim = await claimGitHubReviewScratchOwnership({
+      repository: context.value.repository,
+      executionId: params.executionId,
+    });
+    if (scratchOwnershipClaim.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during PR open: ${scratchOwnershipClaim.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: scratchOwnershipClaim.message,
+        errorCode: scratchOwnershipClaim.reason,
+      });
+      return 'failed';
+    }
+    activeGitHubReviewContext = {
+      executionId: params.executionId,
+      prNumber: createResult.value.number,
+      storyNumber: scratchOwnershipClaim.value.story_number,
+      branchName: scratchOwnershipClaim.value.branch_name,
+      selectorPath: buildGitHubReviewScratchPaths(
+        context.value.repository.workingRepositoryRoot,
+        scratchOwnershipClaim.value.story_number,
+      ).selectorPath,
+      handoffPath: scratchOwnershipClaim.value.handoff_path,
+    };
     return 'ok';
   };
 
@@ -5863,6 +5923,7 @@ async function runFlowUnlocked(params: {
     }
     const scratchWriteResult = await writeGitHubReviewScratch({
       repository: context.value.repository,
+      executionId: params.executionId,
       pullRequest: pullRequestResult.value,
       artifact: reviewArtifactResult.value,
     });
@@ -5880,8 +5941,12 @@ async function runFlowUnlocked(params: {
     const handoffPath = buildGitHubReviewScratchPaths(
       context.value.repository.workingRepositoryRoot,
       scratchWriteResult.value.story_number,
-    ).handoffPath;
-    const handoffReadResult = await readGitHubReviewScratch({ handoffPath });
+    ).selectorPath;
+    const handoffReadResult = await readGitHubReviewScratch({
+      handoffPath,
+      expectedExecutionId:
+        activeGitHubReviewContext?.executionId ?? params.executionId,
+    });
     if (handoffReadResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
         `GitHub review stage failed during review fetch: ${handoffReadResult.message}`,
@@ -5893,6 +5958,17 @@ async function runFlowUnlocked(params: {
       });
       return 'failed';
     }
+    activeGitHubReviewContext = {
+      executionId: handoffReadResult.value.execution_id,
+      prNumber: pullRequestResult.value.number,
+      storyNumber: handoffReadResult.value.story_number,
+      branchName: handoffReadResult.value.branch_name,
+      selectorPath: handoffPath,
+      handoffPath: buildGitHubReviewScratchPaths(
+        context.value.repository.workingRepositoryRoot,
+        handoffReadResult.value.story_number,
+      ).buildExecutionScopedHandoffPath(handoffReadResult.value.execution_id),
+    };
     const materializedReviewInput = await materializeGitHubExternalReviewInput({
       handoff: handoffReadResult.value,
     });

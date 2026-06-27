@@ -28,7 +28,9 @@ import {
 import {
   __resetGitHubReviewDepsForTests,
   __setGitHubReviewDepsForTests,
+  readGitHubReviewScratch,
   materializeGitHubExternalReviewInput,
+  writeGitHubReviewScratch,
 } from '../../flows/githubReview.js';
 import {
   __resetFlowWaitResumeDepsForTests,
@@ -281,6 +283,7 @@ const createGitHubReviewRepoFixture = async () => {
 
 const writeGitHubReviewHandoff = async (params: {
   repoRoot: string;
+  executionId?: string;
   reviewCount: number;
   commentCount?: number;
   legacyReviewCount?: number;
@@ -288,17 +291,40 @@ const writeGitHubReviewHandoff = async (params: {
 }) => {
   const reviewsDir = path.join(params.repoRoot, 'codeInfoTmp/reviews');
   await fs.mkdir(reviewsDir, { recursive: true });
+  const executionId = params.executionId ?? 'exec-1';
 
   const writeHandoff = async (
-    filename: string,
     reviewCount: number,
     commentCount: number,
   ) => {
+    const handoffPath = path.join(
+      reviewsDir,
+      `0000060-github-review-${executionId}-current.json`,
+    );
     await fs.writeFile(
-      path.join(reviewsDir, filename),
+      path.join(reviewsDir, '0000060-github-review-current.json'),
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: executionId,
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: params.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      handoffPath,
       JSON.stringify(
         {
           handoff_kind: 'github-review-handoff-v1',
+          execution_id: executionId,
           plan_path:
             'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
           story_number: '0000060',
@@ -313,19 +339,22 @@ const writeGitHubReviewHandoff = async (params: {
     );
   };
 
-  await writeHandoff(
-    '0000060-github-review-current.json',
-    params.reviewCount,
-    params.commentCount ?? 0,
-  );
+  await writeHandoff(params.reviewCount, params.commentCount ?? 0);
   if (
     params.legacyReviewCount !== undefined ||
     params.legacyCommentCount !== undefined
   ) {
-    await writeHandoff(
-      '0000060-current-review.json',
-      params.legacyReviewCount ?? 0,
-      params.legacyCommentCount ?? 0,
+    await fs.writeFile(
+      path.join(reviewsDir, '0000060-current-review.json'),
+      JSON.stringify(
+        {
+          filtered_review_count: params.legacyReviewCount ?? 0,
+          filtered_review_comment_count: params.legacyCommentCount ?? 0,
+        },
+        null,
+        2,
+      ),
+      'utf8',
     );
   }
 };
@@ -703,21 +732,43 @@ test('flow loops until break answer matches breakOn', async () => {
 test('github review materialization replaces stale scratch with fresh reviewer feedback before classification', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
-    const handoffPath = path.join(
+    const selectorPath = path.join(
       repoRoot,
       'codeInfoTmp/reviews/0000060-github-review-current.json',
     );
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-1-current.json',
+    );
     const rawArtifactPath = path.join(
       repoRoot,
-      'codeInfoTmp/reviews/0000060-github-review-pr-45.json',
+      'codeInfoTmp/reviews/0000060-github-review-exec-1-pr-45.json',
     );
     await fs.mkdir(path.dirname(handoffPath), { recursive: true });
     await fs.writeFile(
       path.join(
         repoRoot,
-        'codeInfoTmp/reviews/0000060-external-review-input.md',
+        'codeInfoTmp/reviews/0000060-github-review-exec-1-external-review-input.md',
       ),
       'stale input\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-1',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
       'utf8',
     );
     await fs.writeFile(
@@ -725,6 +776,7 @@ test('github review materialization replaces stale scratch with fresh reviewer f
       JSON.stringify(
         {
           handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-1',
           plan_path:
             'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
           story_number: '0000060',
@@ -778,7 +830,11 @@ test('github review materialization replaces stale scratch with fresh reviewer f
     );
 
     const result = await materializeGitHubExternalReviewInput({
-      handoff: JSON.parse(await fs.readFile(handoffPath, 'utf8')),
+      handoff: await (async () => {
+        const parsed = await readGitHubReviewScratch({ handoffPath: selectorPath });
+        assert.equal(parsed.kind, 'ok');
+        return parsed.value;
+      })(),
     });
     assert.equal(result.kind, 'ok');
 
@@ -792,7 +848,7 @@ test('github review materialization replaces stale scratch with fresh reviewer f
     const externalInput = await fs.readFile(
       path.join(
         repoRoot,
-        'codeInfoTmp/reviews/0000060-external-review-input.md',
+        'codeInfoTmp/reviews/0000060-github-review-exec-1-external-review-input.md',
       ),
       'utf8',
     );
@@ -800,7 +856,7 @@ test('github review materialization replaces stale scratch with fresh reviewer f
     assert.equal(updatedHandoff.filtered_review_comment_count, 2);
     assert.match(
       updatedHandoff.external_review_input_file ?? '',
-      /0000060-external-review-input\.md$/,
+      /0000060-github-review-exec-1-external-review-input\.md$/,
     );
     assert.match(externalInput, /Please revisit the retry wording\./);
     assert.match(externalInput, /Second page inline note\./);
@@ -1189,7 +1245,7 @@ test('github review runtime resumes through repaired wait and review handoff sta
   }
 });
 
-test('github review runtime uses the dedicated handoff path and reconciles ambiguous PR creation before fetching fresh feedback', async () => {
+test('github review runtime keeps the newer execution selector authoritative after an older run later attempts to reclaim scratch ownership', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     await fs.mkdir(path.join(repoRoot, 'codeInfoTmp/reviews'), {
@@ -1315,17 +1371,14 @@ test('github review runtime uses the dedicated handoff path and reconciles ambig
           .send({ conversationId, working_folder: repoRoot })
           .expect(202);
 
-        const handoffPath = path.join(
+        const selectorPath = path.join(
           repoRoot,
           'codeInfoTmp/reviews/0000060-github-review-current.json',
-        );
-        const externalInputPath = path.join(
-          repoRoot,
-          'codeInfoTmp/reviews/0000060-external-review-input.md',
         );
         let handoff:
           | {
               handoff_kind?: string;
+              execution_id?: string;
               pull_request: { number: number };
               external_review_input_file?: string;
             }
@@ -1334,12 +1387,20 @@ test('github review runtime uses the dedicated handoff path and reconciles ambig
         const started = Date.now();
         while (Date.now() - started < 4000) {
           try {
-            handoff = JSON.parse(
-              await fs.readFile(handoffPath, 'utf8'),
-            ) as typeof handoff;
-            externalInput = await fs.readFile(externalInputPath, 'utf8');
+            const parsed = await readGitHubReviewScratch({
+              handoffPath: selectorPath,
+            });
+            if (parsed.kind !== 'ok') {
+              throw new Error(parsed.message);
+            }
+            const currentHandoff = parsed.value;
+            handoff = currentHandoff as typeof handoff;
+            externalInput = await fs.readFile(
+              currentHandoff.external_review_input_file ?? '',
+              'utf8',
+            );
             if (
-              handoff?.pull_request.number === 45 &&
+              currentHandoff.pull_request.number === 45 &&
               /Please revisit the retry wording\./u.test(externalInput)
             ) {
               break;
@@ -1352,13 +1413,64 @@ test('github review runtime uses the dedicated handoff path and reconciles ambig
 
         assert.ok(handoff);
         assert.equal(handoff.handoff_kind, 'github-review-handoff-v1');
+        assert.ok(handoff.execution_id);
         assert.equal(handoff.pull_request.number, 45);
         assert.match(
           handoff.external_review_input_file ?? '',
-          /0000060-external-review-input\.md$/,
+          /0000060-github-review-.*-external-review-input\.md$/,
         );
         assert.match(externalInput, /Please revisit the retry wording\./);
         assert.doesNotMatch(externalInput, /stale input/);
+
+        const reclaimAttempt = await writeGitHubReviewScratch({
+          repository: {
+            workingRepositoryRoot: repoRoot,
+            repositoryOwner: 'example',
+            repositoryName: 'repo',
+            repositoryFullName: 'example/repo',
+            currentBranch:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            headSha: 'cafebabe',
+            upstreamRemote: 'origin',
+            upstreamBranch:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseBranch: 'main',
+            remoteUrl: 'https://github.com/example/repo.git',
+          },
+          executionId: 'older-execution',
+          pullRequest: {
+            number: 12,
+            url: 'https://github.com/example/repo/pull/12',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+          artifact: {
+            repository: { owner: 'example', name: 'repo' },
+            pullRequest: {
+              number: 12,
+              url: 'https://github.com/example/repo/pull/12',
+              headRefName:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              baseRefName: 'main',
+            },
+            fetchedAt: '2026-06-27T11:00:00Z',
+            reviews: [],
+            reviewComments: [],
+          },
+        });
+        assert.equal(reclaimAttempt.kind, 'error');
+        assert.match(reclaimAttempt.message, /newer or foreign flow execution/i);
+
+        const stillAuthoritative = await readGitHubReviewScratch({
+          handoffPath: selectorPath,
+        });
+        assert.equal(stillAuthoritative.kind, 'ok');
+        assert.equal(
+          stillAuthoritative.value.execution_id,
+          handoff.execution_id,
+        );
+        assert.equal(stillAuthoritative.value.pull_request.number, 45);
 
         await cleanupConversationRuntime(conversationId);
       },

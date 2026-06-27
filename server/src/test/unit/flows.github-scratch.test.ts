@@ -9,11 +9,14 @@ import {
   __resetGitHubReviewDepsForTests,
   __setGitHubReviewDepsForTests,
   appendGitHubReviewPlanNote,
+  claimGitHubReviewScratchOwnership,
   GITHUB_REVIEW_HANDOFF_KIND,
+  GITHUB_REVIEW_SELECTOR_KIND,
   readGitHubReviewScratch,
   writeGitHubReviewScratch,
   type GitHubCurrentReviewHandoff,
   type GitHubRepositoryState,
+  type GitHubReviewScratchSelector,
 } from '../../flows/githubReview.js';
 
 const fixturesDir = path.resolve(
@@ -92,16 +95,27 @@ const buildRepositoryState = (repoRoot: string): GitHubRepositoryState => ({
   remoteUrl: 'https://github.com/example/repo.git',
 });
 
-const buildHandoffPath = (repoRoot: string) =>
+const buildSelectorPath = (repoRoot: string) =>
   path.join(repoRoot, 'codeInfoTmp/reviews/0000060-github-review-current.json');
 
-test('safe replacement keeps the previous Task 7 GitHub-review handoff visible when publish fails', async () => {
+const buildExecutionScopedHandoffPath = (
+  repoRoot: string,
+  executionId: string,
+) =>
+  path.join(
+    repoRoot,
+    `codeInfoTmp/reviews/0000060-github-review-${executionId}-current.json`,
+  );
+
+test('failed execution-scoped scratch publish leaves the last valid selector-owned handoff authoritative', async () => {
   const tempRepo = await createTempRepo();
   try {
-    const handoffPath = buildHandoffPath(tempRepo.repoRoot);
-    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    const selectorPath = buildSelectorPath(tempRepo.repoRoot);
+    const handoffPath = buildExecutionScopedHandoffPath(tempRepo.repoRoot, 'old');
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
     const existing: GitHubCurrentReviewHandoff = {
       handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
+      execution_id: 'old',
       plan_path:
         'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
       story_number: '0000060',
@@ -120,6 +134,21 @@ test('safe replacement keeps the previous Task 7 GitHub-review handoff visible w
       },
     };
     await fs.writeFile(handoffPath, JSON.stringify(existing, null, 2), 'utf8');
+    const existingSelector: GitHubReviewScratchSelector = {
+      selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+      execution_id: 'old',
+      plan_path:
+        'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+      story_number: '0000060',
+      repository_root: tempRepo.repoRoot,
+      branch_name: 'feature/0000060-demo',
+      handoff_path: handoffPath,
+    };
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(existingSelector, null, 2),
+      'utf8',
+    );
     let renameCount = 0;
     __setGitHubReviewDepsForTests({
       rename: async (fromPath, toPath) => {
@@ -134,6 +163,7 @@ test('safe replacement keeps the previous Task 7 GitHub-review handoff visible w
 
     const result = await writeGitHubReviewScratch({
       repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'new',
       pullRequest: {
         number: 45,
         url: 'https://github.com/example/repo/pull/45',
@@ -154,6 +184,10 @@ test('safe replacement keeps the previous Task 7 GitHub-review handoff visible w
       },
     });
     assert.equal(result.kind, 'error');
+    const selector = JSON.parse(
+      await fs.readFile(selectorPath, 'utf8'),
+    ) as GitHubReviewScratchSelector;
+    assert.equal(selector.execution_id, 'old');
     const stillVisible = JSON.parse(await fs.readFile(handoffPath, 'utf8')) as {
       pull_request: { number: number };
     };
@@ -163,18 +197,37 @@ test('safe replacement keeps the previous Task 7 GitHub-review handoff visible w
   }
 });
 
-test('malformed or partial scratch state is rejected instead of being read as a clean review', async () => {
+test('malformed selector or partial handoff state is rejected instead of being read as a clean review', async () => {
   const tempRepo = await createTempRepo();
   try {
     const malformedFixture = await fs.readFile(
       path.join(fixturesDir, 'current-review-malformed.json'),
       'utf8',
     );
-    const handoffPath = buildHandoffPath(tempRepo.repoRoot);
-    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    const selectorPath = buildSelectorPath(tempRepo.repoRoot);
+    const handoffPath = buildExecutionScopedHandoffPath(tempRepo.repoRoot, 'bad');
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+          execution_id: 'bad',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
     await fs.writeFile(handoffPath, malformedFixture, 'utf8');
 
-    const parsed = await readGitHubReviewScratch({ handoffPath });
+    const parsed = await readGitHubReviewScratch({ handoffPath: selectorPath });
     assert.equal(parsed.kind, 'error');
     assert.equal(parsed.reason, 'SCRATCH_INVALID');
   } finally {
@@ -185,13 +238,38 @@ test('malformed or partial scratch state is rejected instead of being read as a 
 test('scratch readers reject path-bearing state that escapes the worked repository root', async () => {
   const tempRepo = await createTempRepo();
   try {
-    const handoffPath = buildHandoffPath(tempRepo.repoRoot);
-    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    const selectorPath = buildSelectorPath(tempRepo.repoRoot);
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
     await fs.writeFile(
-      handoffPath,
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+          execution_id: 'escape',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: path.join(
+            tempRepo.repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-escape-current.json',
+          ),
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(
+        tempRepo.repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-escape-current.json',
+      ),
       JSON.stringify(
         {
           handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
+          execution_id: 'escape',
           plan_path: '../planning/outside.md',
           story_number: '0000060',
           repository_root: tempRepo.repoRoot,
@@ -214,7 +292,7 @@ test('scratch readers reject path-bearing state that escapes the worked reposito
       'utf8',
     );
 
-    const parsed = await readGitHubReviewScratch({ handoffPath });
+    const parsed = await readGitHubReviewScratch({ handoffPath: selectorPath });
     assert.equal(parsed.kind, 'error');
     assert.equal(parsed.reason, 'SCRATCH_INVALID');
   } finally {
@@ -288,6 +366,7 @@ test('GitHub review scratch publish rejects current-plan handoffs that escape th
 
     const result = await writeGitHubReviewScratch({
       repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'escape',
       pullRequest: {
         number: 45,
         url: 'https://github.com/example/repo/pull/45',
@@ -319,16 +398,21 @@ test('GitHub review scratch publish rejects current-plan handoffs that escape th
   }
 });
 
-test('fresh successful GitHub-review scratch publish replaces stale scratch as the active classification input', async () => {
+test('fresh successful GitHub-review scratch publish updates the selector to the current execution-scoped handoff', async () => {
   const tempRepo = await createTempRepo();
   try {
-    const handoffPath = buildHandoffPath(tempRepo.repoRoot);
-    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    const selectorPath = buildSelectorPath(tempRepo.repoRoot);
+    const staleHandoffPath = buildExecutionScopedHandoffPath(
+      tempRepo.repoRoot,
+      'old',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
     await fs.writeFile(
-      handoffPath,
+      staleHandoffPath,
       JSON.stringify(
         {
           handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
+          execution_id: 'old',
           plan_path:
             'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
           story_number: '0000060',
@@ -351,9 +435,33 @@ test('fresh successful GitHub-review scratch publish replaces stale scratch as t
       ),
       'utf8',
     );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+          execution_id: 'old',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: staleHandoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    await claimGitHubReviewScratchOwnership({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'new',
+    });
 
     const written = await writeGitHubReviewScratch({
       repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'new',
       pullRequest: {
         number: 45,
         url: 'https://github.com/example/repo/pull/45',
@@ -375,14 +483,59 @@ test('fresh successful GitHub-review scratch publish replaces stale scratch as t
     });
     assert.equal(written.kind, 'ok');
 
-    const parsed = await readGitHubReviewScratch({ handoffPath });
+    const parsed = await readGitHubReviewScratch({ handoffPath: selectorPath });
     assert.equal(parsed.kind, 'ok');
     assert.equal(parsed.value.handoff_kind, GITHUB_REVIEW_HANDOFF_KIND);
+    assert.equal(parsed.value.execution_id, 'new');
     assert.equal(parsed.value.pull_request.number, 45);
     assert.match(
       parsed.value.raw_review_artifact_path,
-      /0000060-github-review-pr-45\.json$/,
+      /0000060-github-review-new-pr-45\.json$/,
     );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('restart-time rereads reject selector ownership that no longer matches the resumed execution', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    await claimGitHubReviewScratchOwnership({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'new',
+    });
+    const written = await writeGitHubReviewScratch({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'new',
+      pullRequest: {
+        number: 45,
+        url: 'https://github.com/example/repo/pull/45',
+        headRefName: 'feature/0000060-demo',
+        baseRefName: 'main',
+      },
+      artifact: {
+        repository: { owner: 'example', name: 'repo' },
+        pullRequest: {
+          number: 45,
+          url: 'https://github.com/example/repo/pull/45',
+          headRefName: 'feature/0000060-demo',
+          baseRefName: 'main',
+        },
+        fetchedAt: '2026-06-24T10:00:00Z',
+        reviews: [],
+        reviewComments: [],
+      },
+    });
+    assert.equal(written.kind, 'ok');
+
+    const selectorPath = buildSelectorPath(tempRepo.repoRoot);
+    const parsed = await readGitHubReviewScratch({
+      handoffPath: selectorPath,
+      expectedExecutionId: 'old',
+    });
+    assert.equal(parsed.kind, 'error');
+    assert.equal(parsed.reason, 'SCRATCH_INVALID');
+    assert.match(parsed.message, /resumed flow execution/i);
   } finally {
     await tempRepo.cleanup();
   }

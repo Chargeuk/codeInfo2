@@ -1,20 +1,63 @@
 #!/usr/bin/env python3
 import json
+import re
 from pathlib import Path
+
+
+def _read_json(path: Path) -> dict:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"{path.name} must be a JSON object")
+    return raw
+
+
+def _execution_file_token(execution_id: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", execution_id)
 
 
 def main() -> int:
     repo_root = Path.cwd()
     current_plan_path = repo_root / "codeInfoStatus/flow-state/current-plan.json"
-    current_plan = json.loads(current_plan_path.read_text(encoding="utf-8"))
+    current_plan = _read_json(current_plan_path)
     plan_path = str(current_plan.get("plan_path", "")).strip()
     story_number = Path(plan_path).name.split("-", 1)[0]
     if not story_number:
         raise RuntimeError("current-plan handoff does not expose a story number")
 
     reviews_dir = repo_root / "codeInfoTmp/reviews"
-    handoff_path = reviews_dir / f"{story_number}-github-review-current.json"
-    handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+    selector_path = reviews_dir / f"{story_number}-github-review-current.json"
+    selector = _read_json(selector_path)
+    if selector.get("selector_kind") != "github-review-selector-v1":
+        raise RuntimeError(
+            "GitHub review selector is missing the supported Task 12 ownership marker"
+        )
+
+    execution_id = str(selector.get("execution_id", "")).strip()
+    handoff_path_raw = str(selector.get("handoff_path", "")).strip()
+    if not execution_id or not handoff_path_raw:
+        raise RuntimeError(
+            "GitHub review selector is missing the supported execution_id or handoff_path"
+        )
+
+    handoff_path = Path(handoff_path_raw)
+    expected_handoff_path = (
+        reviews_dir
+        / f"{story_number}-github-review-{_execution_file_token(execution_id)}-current.json"
+    )
+    if handoff_path.resolve() != expected_handoff_path.resolve():
+        raise RuntimeError(
+            "GitHub review selector handoff_path does not match the supported execution-scoped ownership contract"
+        )
+
+    handoff = _read_json(handoff_path)
+    if str(handoff.get("handoff_kind", "")).strip() != "github-review-handoff-v1":
+        raise RuntimeError(
+            "GitHub review handoff is missing the supported Task 12 handoff marker"
+        )
+    if str(handoff.get("execution_id", "")).strip() != execution_id:
+        raise RuntimeError(
+            "GitHub review handoff execution_id does not match the selector ownership contract"
+        )
     review_count = int(handoff.get("filtered_review_count", 0) or 0)
     comment_count = int(handoff.get("filtered_review_comment_count", 0) or 0)
 

@@ -37,9 +37,12 @@ export type FlowWaitState = {
   sourceId?: string;
   resumeAt: number;
   githubReviewContext?: {
+    executionId?: string;
     prNumber?: number;
     storyNumber?: string;
     branchName?: string;
+    selectorPath?: string;
+    handoffPath?: string;
   };
 };
 

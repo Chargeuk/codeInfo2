@@ -43,19 +43,71 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
             check=False,
         )
 
-    def test_uses_namespaced_handoff_when_feedback_exists(self) -> None:
-        repo = self.make_repo()
+    def write_selector_and_handoff(
+        self,
+        repo: Path,
+        *,
+        execution_id: str = "exec-1",
+        review_count: int = 0,
+        comment_count: int = 0,
+    ) -> None:
+        handoff_path = (
+            repo
+            / "codeInfoTmp/reviews"
+            / f"0000060-github-review-{execution_id}-current.json"
+        )
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "handoff_kind": "github-review-handoff-v1",
+                    "execution_id": execution_id,
+                    "plan_path": PLAN_PATH,
+                    "story_number": "0000060",
+                    "repository_root": str(repo),
+                    "branch_name": "feature/0000060-demo",
+                    "head_sha": "deadbeef",
+                    "raw_review_artifact_path": str(
+                        repo
+                        / "codeInfoTmp/reviews"
+                        / f"0000060-github-review-{execution_id}-pr-45.json"
+                    ),
+                    "filtered_review_count": review_count,
+                    "filtered_review_comment_count": comment_count,
+                    "pull_request": {
+                        "number": 45,
+                        "url": "https://github.com/example/repo/pull/45",
+                        "headRefName": "feature/0000060-demo",
+                        "baseRefName": "main",
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         (
             repo / "codeInfoTmp/reviews/0000060-github-review-current.json"
         ).write_text(
             json.dumps(
                 {
-                    "filtered_review_count": 1,
-                    "filtered_review_comment_count": 1,
+                    "selector_kind": "github-review-selector-v1",
+                    "execution_id": execution_id,
+                    "plan_path": PLAN_PATH,
+                    "story_number": "0000060",
+                    "repository_root": str(repo),
+                    "branch_name": "feature/0000060-demo",
+                    "handoff_path": str(handoff_path),
                 },
                 indent=2,
             ),
             encoding="utf-8",
+        )
+
+    def test_uses_selector_owned_execution_scoped_handoff_when_feedback_exists(
+        self,
+    ) -> None:
+        repo = self.make_repo()
+        self.write_selector_and_handoff(
+            repo, execution_id="exec-1", review_count=1, comment_count=1
         )
 
         result = self.run_helper(repo)
@@ -83,6 +135,39 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
             "0000060-github-review-current.json",
             result.stderr,
         )
+
+    def test_rejects_selector_that_points_at_a_foreign_execution_scoped_handoff(
+        self,
+    ) -> None:
+        repo = self.make_repo()
+        self.write_selector_and_handoff(
+            repo, execution_id="exec-2", review_count=0, comment_count=1
+        )
+        (
+            repo / "codeInfoTmp/reviews/0000060-github-review-current.json"
+        ).write_text(
+            json.dumps(
+                {
+                    "selector_kind": "github-review-selector-v1",
+                    "execution_id": "exec-1",
+                    "plan_path": PLAN_PATH,
+                    "story_number": "0000060",
+                    "repository_root": str(repo),
+                    "branch_name": "feature/0000060-demo",
+                    "handoff_path": str(
+                        repo
+                        / "codeInfoTmp/reviews/0000060-github-review-exec-2-current.json"
+                    ),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_helper(repo)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ownership contract", result.stderr)
 
 
 if __name__ == "__main__":

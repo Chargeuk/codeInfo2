@@ -84,6 +84,9 @@ const waitFor = async (
   throw new Error('Timed out waiting for predicate');
 };
 
+const flushWakeBoundary = async () =>
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
 const getAssistantTurnCount = (conversationId: string) =>
   (memoryTurns.get(conversationId) ?? []).filter(
     (turn) => turn?.role === 'assistant',
@@ -2054,7 +2057,7 @@ test('cancelled wait does not emit a later resume side effect when the persisted
 
   const conversationId = 'flow-wait-resume-cancel';
   const captured: string[] = [];
-  let wake: (() => void) | null = null;
+  let wake: (() => Promise<void>) | null = null;
 
   class TrackingChat extends ChatInterface {
     async execute(
@@ -2077,7 +2080,10 @@ test('cancelled wait does not emit a later resume side effect when the persisted
 
   __setFlowWaitResumeDepsForTests({
     scheduleWake: ({ onWake }) => {
-      wake = onWake;
+      wake = async () => {
+        onWake();
+        await flushWakeBoundary();
+      };
       return { cancel: () => {} };
     },
   });
@@ -2106,9 +2112,11 @@ test('cancelled wait does not emit a later resume side effect when the persisted
       updatedAt: new Date(),
     });
 
-    assert.ok(wake, 'expected wait wake callback to be captured');
-    (wake as () => void)();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const wakeCallback = wake;
+    if (!wakeCallback) {
+      throw new Error('expected wait wake callback to be captured');
+    }
+    await (wakeCallback as () => Promise<void>)();
     assert.equal(captured.length, 1);
   } finally {
     memoryConversations.delete(conversationId);

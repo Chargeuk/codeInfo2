@@ -980,7 +980,7 @@ This review-created task repairs the GitHub review transport and scratch authori
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4, Task 6, Task 7`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1028,6 +1028,7 @@ This review-created task restores runtime branch-selection authority for the opt
 - Replaced the cucumber flow-shape-only GitHub review scenarios with runtime-owned clean-cycle, findings-present, and resumed-review-context scenarios, added working-folder-aware runtime fixture setup plus remembered-conversation resume support in the steps file, and repaired the cucumber harness to expose the active fixture repo as an ingested repository so `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature` passes on the same runtime contract.
 - Testing 3: `npm run lint` passed cleanly on the current Task 8 surface, so the runtime branch-authority repair and direct GitHub review proof files satisfy the repo-wide lint contract without further edits.
 - Testing 4: `npm run format:check` passed cleanly on the current Task 8 surface, so the repaired runtime-branch proof files and flow gate updates are formatter-clean without follow-on changes after lint.
+- Audit confirmed all Task 8 subtasks and automated proof rows are complete and that no live `**BLOCKER**` remained in the parser output; the prior “keep in progress for the later audit step” note was bookkeeping only, so the task now closes as `__done__`.
 
 ### Task 9. Preserve Truthful Subflow Batch Stop Outcomes
 

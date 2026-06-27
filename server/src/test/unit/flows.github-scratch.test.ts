@@ -540,3 +540,103 @@ test('restart-time rereads reject selector ownership that no longer matches the 
     await tempRepo.cleanup();
   }
 });
+
+test('execution-scoped handoff refresh can preserve a newer selector owner while keeping the resumed execution authoritative for its own handoff', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const selectorPath = buildSelectorPath(tempRepo.repoRoot);
+    const oldHandoffPath = buildExecutionScopedHandoffPath(
+      tempRepo.repoRoot,
+      'old',
+    );
+    const newHandoffPath = buildExecutionScopedHandoffPath(
+      tempRepo.repoRoot,
+      'new',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      newHandoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
+          execution_id: 'new',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          head_sha: 'newsha',
+          raw_review_artifact_path: path.join(
+            tempRepo.repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-new-pr-88.json',
+          ),
+          pull_request: {
+            number: 88,
+            url: 'https://github.com/example/repo/pull/88',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+          execution_id: 'new',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: newHandoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const written = await writeGitHubReviewScratch({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'old',
+      pullRequest: {
+        number: 77,
+        url: 'https://github.com/example/repo/pull/77',
+        headRefName: 'feature/0000060-demo',
+        baseRefName: 'main',
+      },
+      artifact: {
+        repository: { owner: 'example', name: 'repo' },
+        pullRequest: {
+          number: 77,
+          url: 'https://github.com/example/repo/pull/77',
+          headRefName: 'feature/0000060-demo',
+          baseRefName: 'main',
+        },
+        fetchedAt: '2026-06-27T18:00:00Z',
+        reviews: [],
+        reviewComments: [],
+      },
+      preserveForeignSelectorOwnership: true,
+    });
+    assert.equal(written.kind, 'ok');
+
+    const selector = JSON.parse(
+      await fs.readFile(selectorPath, 'utf8'),
+    ) as GitHubReviewScratchSelector;
+    assert.equal(selector.execution_id, 'new');
+    const resumedHandoff = await readGitHubReviewScratch({
+      handoffPath: oldHandoffPath,
+      expectedExecutionId: 'old',
+    });
+    assert.equal(resumedHandoff.kind, 'ok');
+    assert.equal(resumedHandoff.value.pull_request.number, 77);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});

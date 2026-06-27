@@ -147,7 +147,9 @@ import {
   closePullRequest,
   createPullRequest,
   fetchPullRequestReviews,
+  type GitHubRepositoryState,
   lookupLatestOpenPullRequest,
+  lookupPullRequestByNumber,
   pushBranchToExistingUpstream,
   readGitHubReviewScratch,
   readWorkedRepositoryGitHubToken,
@@ -3702,6 +3704,7 @@ const _evaluateScriptDecision = async (params: {
   scriptPath: string;
   workingRepositoryRoot: string;
   timeoutMs: number;
+  env?: NodeJS.ProcessEnv;
 }): Promise<SharedDecisionResult> => {
   const normalizedScriptPath = path.normalize(params.scriptPath.trim());
   if (
@@ -3761,6 +3764,7 @@ const _evaluateScriptDecision = async (params: {
     }>((resolve, reject) => {
       const child = spawn('python3', [realScriptPath], {
         cwd: params.workingRepositoryRoot,
+        env: params.env,
       });
       let stdout = '';
       let stderr = '';
@@ -5262,6 +5266,34 @@ async function runFlowUnlocked(params: {
         scriptPath: paramsForDecision.decisionInput,
         workingRepositoryRoot,
         timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
+        env: {
+          ...process.env,
+          ...(activeGitHubReviewContext?.executionId
+            ? {
+                CODEINFO_GITHUB_REVIEW_EXECUTION_ID:
+                  activeGitHubReviewContext.executionId,
+              }
+            : {}),
+          ...(typeof activeGitHubReviewContext?.prNumber === 'number'
+            ? {
+                CODEINFO_GITHUB_REVIEW_PR_NUMBER: String(
+                  activeGitHubReviewContext.prNumber,
+                ),
+              }
+            : {}),
+          ...(activeGitHubReviewContext?.selectorPath
+            ? {
+                CODEINFO_GITHUB_REVIEW_SELECTOR_PATH:
+                  activeGitHubReviewContext.selectorPath,
+              }
+            : {}),
+          ...(activeGitHubReviewContext?.handoffPath
+            ? {
+                CODEINFO_GITHUB_REVIEW_HANDOFF_PATH:
+                  activeGitHubReviewContext.handoffPath,
+              }
+            : {}),
+        },
       });
       if (!evaluated.ok) {
         await emitFailedFlowStep({
@@ -5844,6 +5876,61 @@ async function runFlowUnlocked(params: {
     return 'ok';
   };
 
+  const resolveExecutionScopedGitHubReviewPullRequest = async (params: {
+    repository: GitHubRepositoryState;
+    token: string;
+  }) => {
+    if (!activeGitHubReviewContext?.executionId) {
+      return await lookupLatestOpenPullRequest({
+        repository: params.repository,
+        token: params.token,
+      });
+    }
+    if (
+      !activeGitHubReviewContext.handoffPath ||
+      typeof activeGitHubReviewContext.prNumber !== 'number'
+    ) {
+      return {
+        kind: 'error',
+        reason: 'SCRATCH_INVALID',
+        message:
+          'Resumed GitHub review execution is missing its authoritative handoff_path or pull request number.',
+      } as const;
+    }
+
+    const persistedHandoff = await readGitHubReviewScratch({
+      handoffPath: activeGitHubReviewContext.handoffPath,
+      expectedExecutionId: activeGitHubReviewContext.executionId,
+    });
+    if (persistedHandoff.kind === 'ok') {
+      if (
+        persistedHandoff.value.pull_request.number !==
+        activeGitHubReviewContext.prNumber
+      ) {
+        return {
+          kind: 'error',
+          reason: 'SCRATCH_INVALID',
+          message:
+            'Resumed GitHub review execution pull request number no longer matches its execution-scoped handoff.',
+        } as const;
+      }
+      return {
+        kind: 'ok',
+        value: persistedHandoff.value.pull_request,
+      } as const;
+    }
+
+    const lookedUp = await lookupPullRequestByNumber({
+      repository: params.repository,
+      token: params.token,
+      pullRequestNumber: activeGitHubReviewContext.prNumber,
+    });
+    if (lookedUp.kind !== 'ok') {
+      return lookedUp;
+    }
+    return lookedUp;
+  };
+
   const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> => {
     const context = await resolveGitHubStepContext();
     if (context.kind === 'skip') {
@@ -5877,10 +5964,12 @@ async function runFlowUnlocked(params: {
       });
       return 'failed';
     }
-    const pullRequestResult = await lookupLatestOpenPullRequest({
-      repository: context.value.repository,
-      token: context.value.token,
-    });
+    const pullRequestResult = await resolveExecutionScopedGitHubReviewPullRequest(
+      {
+        repository: context.value.repository,
+        token: context.value.token,
+      },
+    );
     if (pullRequestResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
         `GitHub review stage failed during review fetch: ${pullRequestResult.message}`,
@@ -5934,6 +6023,9 @@ async function runFlowUnlocked(params: {
       executionId: params.executionId,
       pullRequest: pullRequestResult.value,
       artifact: reviewArtifactResult.value,
+      preserveForeignSelectorOwnership: Boolean(
+        activeGitHubReviewContext?.executionId,
+      ),
     });
     if (scratchWriteResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -5946,10 +6038,16 @@ async function runFlowUnlocked(params: {
       });
       return 'failed';
     }
-    const handoffPath = buildGitHubReviewScratchPaths(
+    const selectorPath = buildGitHubReviewScratchPaths(
       context.value.repository.workingRepositoryRoot,
       scratchWriteResult.value.story_number,
     ).selectorPath;
+    const handoffPath =
+      activeGitHubReviewContext?.handoffPath ??
+      buildGitHubReviewScratchPaths(
+        context.value.repository.workingRepositoryRoot,
+        scratchWriteResult.value.story_number,
+      ).buildExecutionScopedHandoffPath(scratchWriteResult.value.execution_id);
     const handoffReadResult = await readGitHubReviewScratch({
       handoffPath,
       expectedExecutionId:
@@ -5971,11 +6069,8 @@ async function runFlowUnlocked(params: {
       prNumber: pullRequestResult.value.number,
       storyNumber: handoffReadResult.value.story_number,
       branchName: handoffReadResult.value.branch_name,
-      selectorPath: handoffPath,
-      handoffPath: buildGitHubReviewScratchPaths(
-        context.value.repository.workingRepositoryRoot,
-        handoffReadResult.value.story_number,
-      ).buildExecutionScopedHandoffPath(handoffReadResult.value.execution_id),
+      selectorPath: activeGitHubReviewContext?.selectorPath ?? selectorPath,
+      handoffPath,
     };
     const materializedReviewInput = await materializeGitHubExternalReviewInput({
       handoff: handoffReadResult.value,
@@ -6003,7 +6098,7 @@ async function runFlowUnlocked(params: {
         prNumber: pullRequestResult.value.number,
         reviewCount: reviewArtifactResult.value.reviews.length,
         reviewCommentCount: reviewArtifactResult.value.reviewComments.length,
-        handoffPath,
+        handoffPath: activeGitHubReviewContext?.handoffPath ?? handoffPath,
         rawReviewArtifactPath:
           scratchWriteResult.value.raw_review_artifact_path,
         externalReviewInputPath:
@@ -6047,10 +6142,12 @@ async function runFlowUnlocked(params: {
       });
       return 'failed';
     }
-    const pullRequestResult = await lookupLatestOpenPullRequest({
-      repository: context.value.repository,
-      token: context.value.token,
-    });
+    const pullRequestResult = await resolveExecutionScopedGitHubReviewPullRequest(
+      {
+        repository: context.value.repository,
+        token: context.value.token,
+      },
+    );
     if (pullRequestResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
         `GitHub review stage failed during PR close: ${pullRequestResult.message}`,

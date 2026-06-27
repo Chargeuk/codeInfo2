@@ -1663,6 +1663,7 @@ export const writeGitHubReviewScratch = async (params: {
   executionId: string;
   pullRequest: GitHubPullRequestIdentity;
   artifact: GitHubReviewArtifact;
+  preserveForeignSelectorOwnership?: boolean;
 }): Promise<GitHubStepOutcome<GitHubCurrentReviewHandoff>> => {
   const planContext = await readCurrentPlanContext(
     params.repository.workingRepositoryRoot,
@@ -1711,6 +1712,9 @@ export const writeGitHubReviewScratch = async (params: {
         validatedSelector.kind === 'ok' &&
         validatedSelector.value.execution_id !== params.executionId
       ) {
+        if (params.preserveForeignSelectorOwnership) {
+          return { kind: 'ok', value: handoff };
+        }
         return {
           kind: 'error',
           reason: 'SCRATCH_INVALID',
@@ -1742,6 +1746,39 @@ export const writeGitHubReviewScratch = async (params: {
           : 'GitHub review scratch write failed.',
     };
   }
+};
+
+export const lookupPullRequestByNumber = async (params: {
+  repository: GitHubRepositoryState;
+  token: string;
+  pullRequestNumber: number;
+}): Promise<GitHubStepOutcome<GitHubPullRequestIdentity>> => {
+  const endpoint = `repos/${params.repository.repositoryFullName}/pulls/${String(params.pullRequestNumber)}`;
+  const result = await runGitHubCli({
+    workingRepositoryRoot: params.repository.workingRepositoryRoot,
+    token: params.token,
+    args: ['api', endpoint],
+  });
+  if (result.kind !== 'ok') {
+    return result as GitHubStepOutcome<GitHubPullRequestIdentity>;
+  }
+  const parsed = parseJson<unknown>(
+    result.value.stdout,
+    'GitHub API returned invalid JSON for the pull request lookup.',
+  );
+  if (parsed.kind !== 'ok') {
+    return parsed as GitHubStepOutcome<GitHubPullRequestIdentity>;
+  }
+  const pullRequest = normalizePullRequestIdentity(parsed.value);
+  if (!pullRequest) {
+    return {
+      kind: 'error',
+      reason: 'INVALID_GITHUB_RESPONSE',
+      message:
+        'GitHub pull request lookup did not return a usable pull request identity.',
+    };
+  }
+  return { kind: 'ok', value: pullRequest };
 };
 
 export const readGitHubReviewScratch = async (params: {

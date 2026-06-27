@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -34,13 +35,19 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
         )
         return repo
 
-    def run_helper(self, repo: Path) -> subprocess.CompletedProcess[str]:
+    def run_helper(
+        self, repo: Path, *, env_overrides: dict[str, str] | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        if env_overrides:
+            env.update(env_overrides)
         return subprocess.run(
             [sys.executable, str(SCRIPT_PATH)],
             cwd=repo,
             capture_output=True,
             text=True,
             check=False,
+            env=env,
         )
 
     def write_selector_and_handoff(
@@ -168,6 +175,59 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("ownership contract", result.stderr)
+
+    def test_persisted_execution_scoped_handoff_env_overrides_foreign_selector_state(
+        self,
+    ) -> None:
+        repo = self.make_repo()
+        self.write_selector_and_handoff(
+            repo, execution_id="exec-new", review_count=0, comment_count=0
+        )
+        (
+            repo / "codeInfoTmp/reviews/0000060-github-review-exec-old-current.json"
+        ).write_text(
+            json.dumps(
+                {
+                    "handoff_kind": "github-review-handoff-v1",
+                    "execution_id": "exec-old",
+                    "plan_path": PLAN_PATH,
+                    "story_number": "0000060",
+                    "repository_root": str(repo),
+                    "branch_name": "feature/0000060-demo",
+                    "head_sha": "deadbeef",
+                    "raw_review_artifact_path": str(
+                        repo
+                        / "codeInfoTmp/reviews"
+                        / "0000060-github-review-exec-old-pr-45.json"
+                    ),
+                    "filtered_review_count": 1,
+                    "filtered_review_comment_count": 0,
+                    "pull_request": {
+                        "number": 45,
+                        "url": "https://github.com/example/repo/pull/45",
+                        "headRefName": "feature/0000060-demo",
+                        "baseRefName": "main",
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_helper(
+            repo,
+            env_overrides={
+                "CODEINFO_GITHUB_REVIEW_EXECUTION_ID": "exec-old",
+                "CODEINFO_GITHUB_REVIEW_PR_NUMBER": "45",
+                "CODEINFO_GITHUB_REVIEW_HANDOFF_PATH": str(
+                    repo
+                    / "codeInfoTmp/reviews/0000060-github-review-exec-old-current.json"
+                ),
+            },
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"answer": "yes"})
 
 
 if __name__ == "__main__":

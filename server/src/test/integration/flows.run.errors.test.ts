@@ -2751,6 +2751,82 @@ test('shared decision seam fails hard for missing script file', async () => {
   );
 });
 
+test('shared decision seam rejects script symlinks that escape the worked repository root', async (t) => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const outsideRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'flow-control-outside-'),
+      );
+      try {
+        const outsideScript = path.join(outsideRoot, 'decision-outside.py');
+        await fs.writeFile(
+          outsideScript,
+          ['#!/usr/bin/env python3', 'print(\'{"answer":"yes"}\')', ''].join(
+            '\n',
+          ),
+          'utf8',
+        );
+        try {
+          await fs.symlink(
+            outsideScript,
+            path.join(tmpDir, 'flow-control', 'decision-outside-link.py'),
+          );
+        } catch (error) {
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+              String((error as NodeJS.ErrnoException).code),
+            )
+          ) {
+            t.skip('symlink creation is not permitted in this environment');
+          }
+          throw error;
+        }
+
+        await writeFlowFile({
+          tmpDir,
+          flowName: 'symlink-escape-flow',
+          steps: [
+            {
+              type: 'break',
+              agentType: 'coding_agent',
+              identifier: 'main',
+              question: 'flow-control/decision-outside-link.py',
+              breakOn: 'yes',
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/symlink-escape-flow/run')
+          .send({
+            source: 'REST',
+            working_folder: tmpDir,
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        subscribeConversation(ws, conversationId);
+        const final = await waitForFlowFinal({
+          ws,
+          conversationId,
+          status: 'failed',
+        });
+        assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+        assert.match(
+          final.error?.message ?? '',
+          /must resolve inside the worked repository root/,
+        );
+      } finally {
+        await fs.rm(outsideRoot, { recursive: true, force: true });
+      }
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
 test('shared decision seam fails hard for malformed JSON output', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {

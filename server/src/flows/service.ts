@@ -542,7 +542,9 @@ const getFreshRunRetryOwnershipPendingFromConversation = (
   if (!conversation || conversation.flowName !== params.flowName) return null;
   const flow = conversation.flags?.flow;
   if (!isRecord(flow)) return null;
-  const pending = parseFreshRunRetryOwnershipPending(flow.retryOwnershipPending);
+  const pending = parseFreshRunRetryOwnershipPending(
+    flow.retryOwnershipPending,
+  );
   if (!pending) return null;
   if (pending.retryOwnershipId !== params.retryOwnershipId) return null;
   if (params.launch.sourceId) {
@@ -1026,7 +1028,9 @@ const normalizeActiveSubflows = (params: {
       .map((item) => normalizeActiveSubflow(item))
       .filter((item): item is FlowActiveSubflow => Boolean(item));
   }
-  const legacyActiveSubflow = normalizeActiveSubflow(params.legacyActiveSubflow);
+  const legacyActiveSubflow = normalizeActiveSubflow(
+    params.legacyActiveSubflow,
+  );
   return legacyActiveSubflow ? [legacyActiveSubflow] : [];
 };
 
@@ -3270,7 +3274,9 @@ const buildFlowResumeState = (params: {
       ? {
           retryOwnershipPending: {
             ...params.retryOwnershipPending,
-            result: cloneFlowRunStartResult(params.retryOwnershipPending.result),
+            result: cloneFlowRunStartResult(
+              params.retryOwnershipPending.result,
+            ),
           },
         }
       : {}),
@@ -3613,6 +3619,16 @@ type SharedDecisionResult =
   | { ok: true; answer: 'yes' | 'no'; reason: 'ai' | 'script' }
   | { ok: false; reason: string };
 
+const isPathContainedWithinRoot = (rootPath: string, targetPath: string) => {
+  const resolvedRoot = path.resolve(rootPath);
+  const resolvedTarget = path.resolve(targetPath);
+  const relative = path.relative(resolvedRoot, resolvedTarget);
+  return (
+    relative.length === 0 ||
+    (!relative.startsWith('..') && !path.isAbsolute(relative))
+  );
+};
+
 const _evaluateScriptDecision = async (params: {
   kind: FlowDecisionKind;
   scriptPath: string;
@@ -3635,9 +3651,30 @@ const _evaluateScriptDecision = async (params: {
     params.workingRepositoryRoot,
     normalizedScriptPath,
   );
+  let realWorkingRepositoryRoot: string;
+  try {
+    realWorkingRepositoryRoot = await fs.realpath(params.workingRepositoryRoot);
+  } catch {
+    return {
+      ok: false,
+      reason: `Worked repository root could not be resolved: ${params.workingRepositoryRoot}`,
+    };
+  }
+  let realScriptPath: string;
+  try {
+    realScriptPath = await fs.realpath(fullPath);
+  } catch {
+    return { ok: false, reason: `Script file not found: ${fullPath}` };
+  }
+  if (!isPathContainedWithinRoot(realWorkingRepositoryRoot, realScriptPath)) {
+    return {
+      ok: false,
+      reason: `Script path must resolve inside the worked repository root: ${params.scriptPath}`,
+    };
+  }
   let fileContent: string;
   try {
-    fileContent = await fs.readFile(fullPath, 'utf8');
+    fileContent = await fs.readFile(realScriptPath, 'utf8');
   } catch {
     return { ok: false, reason: `Script file not found: ${fullPath}` };
   }
@@ -3654,7 +3691,7 @@ const _evaluateScriptDecision = async (params: {
       signal: NodeJS.Signals | null;
       timedOut: boolean;
     }>((resolve, reject) => {
-      const child = spawn('python3', [fullPath], {
+      const child = spawn('python3', [realScriptPath], {
         cwd: params.workingRepositoryRoot,
       });
       let stdout = '';
@@ -4599,7 +4636,9 @@ async function runFlowUnlocked(params: {
           `${getStepPathKey(activeSubflow.stepPath)}:${activeSubflow.flowName}:${activeSubflow.conversationId}:${activeSubflow.runToken}`,
       )
       .sort();
-    if (savedActiveSubflowKeys.join('|') !== currentActiveSubflowKeys.join('|')) {
+    if (
+      savedActiveSubflowKeys.join('|') !== currentActiveSubflowKeys.join('|')
+    ) {
       throw toFlowRunError(
         'INVALID_REQUEST',
         'Persisted wait state active subflows no longer match the resumed flow execution.',
@@ -5878,7 +5917,8 @@ async function runFlowUnlocked(params: {
         reviewCount: reviewArtifactResult.value.reviews.length,
         reviewCommentCount: reviewArtifactResult.value.reviewComments.length,
         handoffPath,
-        rawReviewArtifactPath: scratchWriteResult.value.raw_review_artifact_path,
+        rawReviewArtifactPath:
+          scratchWriteResult.value.raw_review_artifact_path,
         externalReviewInputPath:
           materializedReviewInput.value.externalReviewInputPath,
         filteredFeedbackCount: materializedReviewInput.value.feedback.length,
@@ -5979,8 +6019,7 @@ async function runFlowUnlocked(params: {
   const getActiveSubflowsForStep = (stepPath: number[]) => {
     const stepPathKey = getStepPathKey(stepPath);
     return (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) === stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) === stepPathKey,
     );
   };
 
@@ -5990,8 +6029,7 @@ async function runFlowUnlocked(params: {
   ) => {
     const stepPathKey = getStepPathKey(stepPath);
     const retainedSubflows = (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
     );
     const mergedSubflows = [...retainedSubflows, ...nextSubflows];
     activeSubflows = mergedSubflows.length > 0 ? mergedSubflows : undefined;
@@ -6250,7 +6288,10 @@ async function runFlowUnlocked(params: {
           }
           if (terminalStatuses.includes('failed')) {
             terminalStatus = 'failed';
-          } else if (parentStopRequested || terminalStatuses.includes('stopped')) {
+          } else if (
+            parentStopRequested ||
+            terminalStatuses.includes('stopped')
+          ) {
             const completedChildTitles = childStatuses
               .filter(({ status }) => status === 'ok')
               .map(({ childRun }) => childRun.title ?? childRun.flowName);
@@ -6317,13 +6358,15 @@ async function runFlowUnlocked(params: {
                     : 'Subflow stop completed with warnings for',
                 );
               })()
-          : terminalStatus === 'stopped'
-            ? buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',
-              )
-            : buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Subflows' : 'Subflow',
-              ) + ' failed';
+            : terminalStatus === 'stopped'
+              ? buildSubflowSummaryText(
+                  launchesMultipleChildren
+                    ? 'Stopped subflows'
+                    : 'Stopped subflow',
+                )
+              : buildSubflowSummaryText(
+                  launchesMultipleChildren ? 'Subflows' : 'Subflow',
+                ) + ' failed';
       setAssistantText({
         conversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -7690,9 +7733,8 @@ export async function startFlowRun(
           ? {
               retryOwnershipId,
               sourceId,
-              launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
-                retryOwnershipLaunch,
-              ),
+              launchSignature:
+                makeFreshRunRetryOwnershipLaunchSignature(retryOwnershipLaunch),
               result: acceptedStartResult,
             }
           : null,

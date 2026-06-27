@@ -1016,8 +1016,8 @@ This review-created task restores runtime branch-selection authority for the opt
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired runtime branch-authority and GitHub review-loop behavior after the repair.
 2. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature` from the repository root to prove the authored feature surface now claims the same runtime branches honestly.
-3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+3. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1026,6 +1026,8 @@ This review-created task restores runtime branch-selection authority for the opt
 - Stopped startup-time recursion from `findFirstAgentStep()`, `findRuntimeIdentityStep()`, and `validateCommandSteps()` across untaken `if` branches, then moved branch validation into `runIfStep()` so only the selected path can fail closed; also updated the checked-in `check_github_review_has_reviewer_feedback.py` gate to prefer the Task 7 `*-github-review-current.json` handoff while falling back to the legacy filename when needed.
 - Added direct loop-proof runtime fixtures for clean-cycle, findings-present, and resumed-review-context execution, including hidden-branch invalid-agent and invalid-command cases plus a resumed review-handoff case that resumes from the persisted wait boundary and follows the Task 7 handoff instead of the stale legacy scratch; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` now passes on the repaired branch-authority surface.
 - Replaced the cucumber flow-shape-only GitHub review scenarios with runtime-owned clean-cycle, findings-present, and resumed-review-context scenarios, added working-folder-aware runtime fixture setup plus remembered-conversation resume support in the steps file, and repaired the cucumber harness to expose the active fixture repo as an ingested repository so `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature` passes on the same runtime contract.
+- Testing 3: `npm run lint` passed cleanly on the current Task 8 surface, so the runtime branch-authority repair and direct GitHub review proof files satisfy the repo-wide lint contract without further edits.
+- Testing 4: `npm run format:check` passed cleanly on the current Task 8 surface, so the repaired runtime-branch proof files and flow gate updates are formatter-clean without follow-on changes after lint.
 
 ### Task 9. Preserve Truthful Subflow Batch Stop Outcomes
 

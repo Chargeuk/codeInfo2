@@ -1067,8 +1067,8 @@ This review-created task repairs the shared subflow batch stop aggregation seam 
 #### Testing
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired subflow batch stop aggregation after the change.
-2. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-3. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+2. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+3. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1076,6 +1076,8 @@ This review-created task repairs the shared subflow batch stop aggregation seam 
 - Traced Task 9 to `runSubflowStep()` in `server/src/flows/service.ts`: the parent currently collapses parallel child terminal states to `stopped` whenever any child stops or the parent requested stop, so mixed `ok` plus `stopped` child batches still surface as a clean parent stop; the downstream contract seam to keep truthful is the parent assistant turn plus `turn_final` status emitted for the subflow step, and the existing loop proof owner does not yet cover this mixed-outcome case.
 - Repaired `runSubflowStep()` so fully stopped child batches remain `stopped`, but mixed or ineffective stop attempts now surface as `warning` with an explicit completed-versus-stopped child summary in the parent assistant message instead of collapsing those outcomes to a clean stop.
 - Added a loop-proof regression named for the mixed-outcome batch-stop contract, covering one fast child that completes and one slow child that is stopped after a parent cancel request; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` now passes with 33 of 33 tests.
+- Testing 2: `npm run lint` passed cleanly on the current Task 9 surface, so the repaired subflow batch-stop aggregation and its proof owner satisfy the repo-wide lint contract without further edits.
+- Testing 3: `npm run format:check` passed cleanly on the current Task 9 surface, so the repaired subflow batch-stop contract and its proof notes are formatter-clean without follow-on changes after lint.
 
 ### Task 10. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-task repairs
 

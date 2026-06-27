@@ -6,11 +6,12 @@
 2. Flow authors can use a dedicated `if` step and a persisted wait step without adding matching support to agent command JSON.
 3. Flow authors can drive `if`, `break`, and `continue` decisions with either the existing AI yes-or-no path or a checked-in Python decision script.
 4. The automated review loop can skip GitHub review safely when repository-local GitHub credentials are missing, and it reports that outcome as completed with warning instead of pretending a clean review happened.
-5. Existing default flow entrypoints keep their current behavior unless an operator intentionally selects one of the new copied GitHub-review flow variants.
+5. Paused or resumed review runs keep their own truthful state, so restart recovery or overlapping review runs do not silently reuse stale review data.
+6. Existing default flow entrypoints keep their current behavior unless an operator intentionally selects one of the new copied GitHub-review flow variants.
 
 # Description
 
-When this story is complete, CodeInfo2 flows will be able to run one bounded external GitHub review cycle without manual stitching. A flow will be able to open a PR, wait for feedback, fetch review comments from other reviewers, decide which comments are valid for the current story, and either stop cleanly or route valid findings back into the existing repair path. This keeps the new automation focused on the flow runtime while preserving the current default workflows unless someone explicitly opts into the new variant.
+When this story is complete, CodeInfo2 flows will be able to run one bounded external GitHub review cycle without manual stitching. A flow will be able to open a PR, wait for feedback, fetch review comments from other reviewers, decide which comments are valid for the current story, and either stop cleanly or route valid findings back into the existing repair path. The implementation also keeps the review-cycle state truthful across restart, replay, and overlapping runs so the new automation stays safe to use in real repository workflows without changing the existing default flow entrypoints unless someone explicitly opts into the new variant.
 
 # Tasks
 
@@ -53,3 +54,15 @@ When this story is complete, CodeInfo2 flows will be able to run one bounded ext
 10. [codeInfo2] - Revalidate the review-task repairs and close the active review cycle cleanly
     - Refresh the PR summary, proof checklist, and review-cycle closeout notes after Tasks 6 through 9 land.
     - Run the broad wrapper-first validation, smoke the supported stack, and keep final manual-proof guidance aligned with the repaired review-cycle behavior.
+
+11. [codeInfo2] - Restore truthful GitHub runtime failure classification for PR creation and token loading
+    - Repair the GitHub runtime contract so real `gh` or `.env.local` faults stay hard failures while approved skip cases remain warnings.
+    - Add focused proof for the producer and default review-loop consumer paths that carry those results.
+
+12. [codeInfo2] - Give GitHub review scratch state per-run ownership
+    - Replace story-global review scratch ownership with a per-run contract that keeps overlapping runs from reclaiming each other's active review state.
+    - Add focused proof for writer and reader ownership, malformed or partial scratch rejection, and older-run versus newer-run interleaving.
+
+13. [codeInfo2] - Revalidate the current review-cycle task-up repairs and final proof bundle
+    - Refresh the PR summary and review-cycle checklist so the active findings, inline minor fixes, and final proof owners are all traced in one place.
+    - Run the final broad wrapper-first validation, supported stack smoke path, and helper cross-check for the current review cycle.

@@ -960,8 +960,8 @@ This review-created task repairs the GitHub review transport and scratch authori
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the trustworthy-base and post-create replay semantics after the repair.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the non-colliding scratch contract and root-contained persisted selector authority after the repair.
 3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired GitHub runtime chain still uses the authoritative scratch and replay contract end to end.
-4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+4. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -971,6 +971,8 @@ This review-created task repairs the GitHub review transport and scratch authori
 - Updated `server/src/test/unit/flows.github-scratch.test.ts` to prove the dedicated GitHub-review scratch shape, fail-closed path containment, and fresh scratch replacement semantics; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` passed cleanly.
 - Updated `server/src/test/unit/flows.github-adapter.test.ts` so repository-state resolution uses the story-owned `branched_from` base from `current-plan.json` and ambiguous `gh pr create` failures reconcile through the existing branch PR lookup; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed cleanly.
 - Updated `server/src/test/integration/flows.run.loop.test.ts` with a focused open-plus-fetch runtime proof that uses the dedicated GitHub-review handoff path, excludes stale `0000060-current-review.json` state once fresh scratch succeeds, and exercises the post-create replay reconciliation through the normal flow runtime; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed cleanly after wiring the test harness to expose the worked repository as an ingested repo candidate.
+- Testing 4: `npm run lint` passed cleanly on the current Task 7 surface, so the GitHub review transport, scratch, and review-loop runtime changes now satisfy the repo-wide lint contract without further repair.
+- Testing 5: `npm run format:check` passed cleanly on the current Task 7 surface, so the repaired GitHub review transport and scratch files are formatter-clean without any follow-on edits after the lint proof.
 
 ### Task 8. Restore Runtime Branch Authority And Direct GitHub Review Proof
 

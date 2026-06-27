@@ -446,7 +446,25 @@ const start = async () => {
   });
   if (isMongoConnected()) {
     await recoverIngestQueueForStartup();
-    await resumePendingFlowWaitsForStartup();
+    const flowWaitRecovery = await resumePendingFlowWaitsForStartup();
+    if (flowWaitRecovery.degraded) {
+      baseLogger.warn(
+        {
+          event: flowWaitRecovery.diagnosticEvent,
+          causeMessage: flowWaitRecovery.causeMessage,
+        },
+        flowWaitRecovery.diagnosticEvent,
+      );
+      append({
+        level: 'warn',
+        message: flowWaitRecovery.diagnosticEvent,
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          causeMessage: flowWaitRecovery.causeMessage,
+        },
+      });
+    }
   }
 
   const httpServer = http.createServer(app);

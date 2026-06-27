@@ -280,11 +280,39 @@ type ScheduledWaitHandle = {
 
 type FlowWaitResumeDeps = {
   now: () => number;
+  nowIso: () => string;
   scheduleWake: (params: {
     resumeAt: number;
     onWake: () => void;
   }) => ScheduledWaitHandle;
+  resumeFlowRun: (params: {
+    flowName: string;
+    conversationId: string;
+    resumeStepPath: number[];
+    sourceId?: string;
+    source: 'REST' | 'MCP';
+  }) => Promise<unknown>;
 };
+
+export const FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT =
+  'FLOW_WAIT_STARTUP_RECOVERY_DEGRADED';
+export const FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_MESSAGE =
+  'Persisted flow wait recovery degraded during startup';
+
+export type FlowWaitStartupRecoveryResult =
+  | {
+      reachable: true;
+      degraded: false;
+      resumedCandidateCount: number;
+      diagnosticEvent: null;
+    }
+  | {
+      reachable: true;
+      degraded: true;
+      resumedCandidateCount: number;
+      diagnosticEvent: typeof FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT;
+      causeMessage: string;
+    };
 
 const freshRunRetryOwnershipByKey = new Map<
   string,
@@ -1277,6 +1305,87 @@ const clearScheduledFlowWait = (conversationId: string) => {
   scheduledFlowWaits.delete(conversationId);
 };
 
+const rearmPersistedWaitRecoveryOwnership = async (params: {
+  conversation: Conversation;
+  persistedState: FlowResumeState;
+  persistedWait: FlowWaitState;
+  flowName: string;
+  source: 'REST' | 'MCP';
+  recoveryReason: string;
+}) => {
+  const nextResumeAt = Math.max(
+    flowWaitResumeDeps.now() + 1_000,
+    params.persistedWait.resumeAt + 1_000,
+  );
+  const rearmedWait: FlowWaitState = {
+    ...cloneFlowWaitState(params.persistedWait),
+    resumeAt: nextResumeAt,
+  };
+  const nextFlowState: FlowResumeState = {
+    ...params.persistedState,
+    stepPath: [...params.persistedState.stepPath],
+    loopStack: params.persistedState.loopStack.map((frame) => ({
+      loopStepPath: [...frame.loopStepPath],
+      iteration: frame.iteration,
+    })),
+    ...(params.persistedState.pendingLoopControl
+      ? {
+          pendingLoopControl: {
+            kind: params.persistedState.pendingLoopControl.kind,
+            loopStepPath: [
+              ...params.persistedState.pendingLoopControl.loopStepPath,
+            ],
+          },
+        }
+      : {}),
+    ...(params.persistedState.activeSubflows &&
+    params.persistedState.activeSubflows.length > 0
+      ? {
+          activeSubflows: cloneActiveSubflows(
+            params.persistedState.activeSubflows,
+          ),
+        }
+      : {}),
+    wait: rearmedWait,
+  };
+
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(params.conversation._id, {
+      flags: {
+        ...(params.conversation.flags ?? {}),
+        flow: nextFlowState,
+      },
+    });
+  } else {
+    await updateConversationFlowState({
+      conversationId: params.conversation._id,
+      flow: nextFlowState,
+    });
+  }
+
+  schedulePersistedWaitResume({
+    conversationId: params.conversation._id,
+    flowName: params.flowName,
+    source: params.source,
+    wait: rearmedWait,
+  });
+
+  append({
+    level: 'warn',
+    message: 'flows.wait.resume.rearmed_after_preflight_failure',
+    timestamp: flowWaitResumeDeps.nowIso(),
+    source: 'server',
+    context: {
+      conversationId: params.conversation._id,
+      flowName: params.flowName,
+      stepPath: rearmedWait.stepPath,
+      previousResumeAt: params.persistedWait.resumeAt,
+      nextResumeAt,
+      recoveryReason: params.recoveryReason,
+    },
+  });
+};
+
 const clearPersistedWaitStateIfPresent = async (conversationId: string) => {
   clearScheduledFlowWait(conversationId);
   const conversation = await getConversation(conversationId);
@@ -1401,6 +1510,7 @@ const flowResumeTestDeps: FlowResumeTestDeps = {
 
 const defaultFlowWaitResumeDeps: FlowWaitResumeDeps = {
   now: () => Date.now(),
+  nowIso: () => new Date().toISOString(),
   scheduleWake: ({ resumeAt, onWake }) => {
     const delayMs = Math.max(resumeAt - Date.now(), 0);
     const timeout = scheduleTimeout(() => {
@@ -1411,6 +1521,14 @@ const defaultFlowWaitResumeDeps: FlowWaitResumeDeps = {
       cancel: () => clearTimeout(timeout),
     };
   },
+  resumeFlowRun: async (params) =>
+    await startFlowRun({
+      flowName: params.flowName,
+      conversationId: params.conversationId,
+      resumeStepPath: params.resumeStepPath,
+      sourceId: params.sourceId,
+      source: params.source,
+    }),
 };
 
 const flowWaitResumeDeps: FlowWaitResumeDeps = {
@@ -1426,6 +1544,30 @@ const scheduledFlowWaits = new Map<
     handle: ScheduledWaitHandle;
   }
 >();
+
+const cloneFlowWaitState = (wait: FlowWaitState): FlowWaitState => ({
+  executionId: wait.executionId,
+  stepPath: [...wait.stepPath],
+  loopStack: wait.loopStack.map((frame) => ({
+    loopStepPath: [...frame.loopStepPath],
+    iteration: frame.iteration,
+  })),
+  ...(wait.activeSubflows && wait.activeSubflows.length > 0
+    ? {
+        activeSubflows: cloneActiveSubflows(wait.activeSubflows),
+      }
+    : {}),
+  ...(wait.workingFolder ? { workingFolder: wait.workingFolder } : {}),
+  ...(wait.sourceId ? { sourceId: wait.sourceId } : {}),
+  resumeAt: wait.resumeAt,
+  ...(wait.githubReviewContext
+    ? {
+        githubReviewContext: {
+          ...wait.githubReviewContext,
+        },
+      }
+    : {}),
+});
 
 export function __setFlowResumeTestDepsForTests(
   overrides: Partial<FlowResumeTestDeps>,
@@ -3839,21 +3981,30 @@ const schedulePersistedWaitResume = (params: {
     resumeAt: params.wait.resumeAt,
     onWake: () => {
       void (async () => {
-        scheduledFlowWaits.delete(params.conversationId);
         const conversation = await getConversation(params.conversationId);
-        if (!conversation || conversation.flowName !== params.flowName) return;
+        if (!conversation || conversation.flowName !== params.flowName) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
         const persistedState = parseFlowResumeState(
           (conversation.flags ?? undefined) as
             | Record<string, unknown>
             | undefined,
         );
         const persistedWait = persistedState?.wait;
-        if (!persistedWait) return;
-        if (persistedWait.executionId !== params.wait.executionId) return;
+        if (!persistedState || !persistedWait) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
+        if (persistedWait.executionId !== params.wait.executionId) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
         if (
           getStepPathKey(persistedWait.stepPath) !==
           getStepPathKey(params.wait.stepPath)
         ) {
+          clearScheduledFlowWait(params.conversationId);
           return;
         }
         const latestAssistantStatus =
@@ -3862,10 +4013,11 @@ const schedulePersistedWaitResume = (params: {
           latestAssistantStatus &&
           isTerminalFlowStatus(latestAssistantStatus)
         ) {
+          clearScheduledFlowWait(params.conversationId);
           return;
         }
         try {
-          await startFlowRun({
+          await flowWaitResumeDeps.resumeFlowRun({
             flowName: params.flowName,
             conversationId: params.conversationId,
             resumeStepPath: persistedWait.stepPath,
@@ -3882,7 +4034,33 @@ const schedulePersistedWaitResume = (params: {
               },
               'flows.wait.resume.skipped_run_in_progress',
             );
+            clearScheduledFlowWait(params.conversationId);
             return;
+          }
+          const recoveryReason =
+            error instanceof Error ? error.message : String(error);
+          try {
+            await rearmPersistedWaitRecoveryOwnership({
+              conversation,
+              persistedState,
+              persistedWait,
+              flowName: params.flowName,
+              source: params.source,
+              recoveryReason,
+            });
+            return;
+          } catch (rearmError) {
+            const rearmReason =
+              rearmError instanceof Error
+                ? rearmError.message
+                : String(rearmError);
+            await persistUnexpectedFlowFailureIfNeeded({
+              conversationId: params.conversationId,
+              modelId: conversation.model,
+              providerId: conversation.provider,
+              source: params.source,
+              message: `Persisted wait recovery could not resume or rearm ownership: ${recoveryReason}; rearm failed: ${rearmReason}`,
+            });
           }
           baseLogger.error(
             {
@@ -3916,6 +4094,7 @@ export async function __resumePendingFlowWaitsForTests(
         .lean()
         .exec()) as Conversation[]);
   const candidateIds = conversationIds ? new Set(conversationIds) : null;
+  let resumedCandidateCount = 0;
   for (const conversation of candidates) {
     if (candidateIds && !candidateIds.has(conversation._id)) continue;
     if (!conversation.flowName) continue;
@@ -3929,11 +4108,52 @@ export async function __resumePendingFlowWaitsForTests(
       source: conversation.source,
       wait: state.wait,
     });
+    resumedCandidateCount += 1;
   }
+  return resumedCandidateCount;
 }
 
-export async function resumePendingFlowWaitsForStartup() {
-  await __resumePendingFlowWaitsForTests();
+export async function resumePendingFlowWaitsForStartup(): Promise<FlowWaitStartupRecoveryResult> {
+  try {
+    const resumedCandidateCount = await __resumePendingFlowWaitsForTests();
+    return {
+      reachable: true,
+      degraded: false,
+      resumedCandidateCount,
+      diagnosticEvent: null,
+    };
+  } catch (error) {
+    const causeMessage =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : String(error);
+    baseLogger.error(
+      {
+        event: FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+        err: error,
+        causeMessage,
+      },
+      FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+    );
+    append({
+      level: 'error',
+      message: FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+      timestamp: flowWaitResumeDeps.nowIso(),
+      source: 'server',
+      context: {
+        causeMessage,
+        recoveryUnavailableMessage:
+          FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+      },
+    });
+    return {
+      reachable: true,
+      degraded: true,
+      resumedCandidateCount: 0,
+      diagnosticEvent: FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+      causeMessage,
+    };
+  }
 }
 
 const isFlowDecisionScriptPath = (value: string): boolean => {

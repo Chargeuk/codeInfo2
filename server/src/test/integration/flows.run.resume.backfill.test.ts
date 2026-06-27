@@ -16,6 +16,7 @@ import {
   __resetFlowWaitResumeDepsForTests,
   __setFlowResumeTestDepsForTests,
   __setFlowWaitResumeDepsForTests,
+  FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
   resumePendingFlowWaitsForStartup,
   startFlowRun,
 } from '../../flows/service.js';
@@ -41,6 +42,19 @@ const getAssistantTurnCount = (conversationId: string) =>
   (memoryTurns.get(conversationId) ?? []).filter(
     (turn) => turn?.role === 'assistant',
   ).length;
+
+const getPersistedWaitState = (conversationId: string) => {
+  const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
+    flow?: {
+      wait?: {
+        executionId?: string;
+        stepPath?: number[];
+        resumeAt?: number;
+      };
+    };
+  };
+  return flags.flow?.wait;
+};
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -851,6 +865,104 @@ test('startup recovery re-registers persisted waits through the normal startup p
   }
 });
 
+test('wake-time preflight failure rearms persisted wait ownership instead of dropping the durable wait state', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-rearm-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-wait-resume-rearm';
+  const captured: string[] = [];
+  const wakes: Array<() => void> = [];
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    nowIso: () => '2026-06-27T20:00:00.000Z',
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => {} };
+    },
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'wait-resume',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+    });
+
+    await waitFor(() => captured.length === 1);
+    const initialWait = getPersistedWaitState(conversationId);
+    assert.ok(initialWait);
+    assert.equal(typeof initialWait.resumeAt, 'number');
+    const initialResumeAt = initialWait.resumeAt as number;
+
+    __setFlowWaitResumeDepsForTests({
+      now: () => 1_700_000_001_000,
+      nowIso: () => '2026-06-27T20:00:01.000Z',
+      scheduleWake: ({ onWake }) => {
+        wakes.push(onWake);
+        return { cancel: () => {} };
+      },
+      resumeFlowRun: async () => {
+        throw new Error('simulated preflight failure');
+      },
+    });
+
+    assert.ok(wakes.length > 0, 'expected initial wake to be scheduled');
+    const initialWake = wakes.shift();
+    assert.ok(initialWake, 'expected captured wake callback');
+    initialWake();
+
+    await waitFor(() => (getPersistedWaitState(conversationId)?.resumeAt ?? 0) > initialResumeAt);
+    await waitFor(() => wakes.length > 0);
+    const rearmedWait = getPersistedWaitState(conversationId);
+    assert.ok(rearmedWait);
+    assert.equal(rearmedWait.executionId, initialWait.executionId);
+    assert.deepEqual(rearmedWait.stepPath, initialWait.stepPath);
+    assert.ok((rearmedWait.resumeAt ?? 0) > initialResumeAt);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('startup recovery does not re-register malformed persisted wait state with an empty wait stepPath', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -912,6 +1024,81 @@ test('startup recovery does not re-register malformed persisted wait state with 
       'malformed wait state should not be re-registered for wake',
     );
     assert.equal(getAssistantTurnCount(conversationId), 0);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startup recovery returns a degraded result instead of throwing when wait registration fails before listen', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-startup-degraded-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-wait-resume-startup-degraded';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: wait-resume',
+    flowName: 'wait-resume',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'wait-execution-startup-degraded',
+        stepPath: [1],
+        loopStack: [],
+        wait: {
+          executionId: 'wait-execution-startup-degraded',
+          stepPath: [2],
+          loopStack: [],
+          resumeAt: 1_700_000_060_000,
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  __setFlowWaitResumeDepsForTests({
+    nowIso: () => '2026-06-27T20:10:00.000Z',
+    scheduleWake: () => {
+      throw new Error('simulated startup registration failure');
+    },
+  });
+
+  try {
+    const result = await resumePendingFlowWaitsForStartup();
+    assert.equal(result.reachable, true);
+    assert.equal(result.degraded, true);
+    assert.equal(
+      result.diagnosticEvent,
+      FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+    );
+    assert.match(result.causeMessage, /startup registration failure/i);
+    assert.equal(getAssistantTurnCount(conversationId), 0);
+    assert.ok(getPersistedWaitState(conversationId));
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

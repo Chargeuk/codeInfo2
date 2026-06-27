@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   __resetGitHubReviewDepsForTests,
   __setGitHubReviewDepsForTests,
+  appendGitHubReviewPlanNote,
   GITHUB_REVIEW_HANDOFF_KIND,
   readGitHubReviewScratch,
   writeGitHubReviewScratch,
@@ -29,6 +30,9 @@ const createTempRepo = async () => {
   await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
     recursive: true,
   });
+  await fs.mkdir(path.join(repoRoot, 'planning'), {
+    recursive: true,
+  });
   await fs.writeFile(
     path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
     JSON.stringify(
@@ -39,6 +43,32 @@ const createTempRepo = async () => {
       null,
       2,
     ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        task_number: 5,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '### Task 5. Final Story Validation And Close-Out',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Existing note.',
+      '',
+    ].join('\n'),
     'utf8',
   );
   return {
@@ -63,10 +93,7 @@ const buildRepositoryState = (repoRoot: string): GitHubRepositoryState => ({
 });
 
 const buildHandoffPath = (repoRoot: string) =>
-  path.join(
-    repoRoot,
-    'codeInfoTmp/reviews/0000060-github-review-current.json',
-  );
+  path.join(repoRoot, 'codeInfoTmp/reviews/0000060-github-review-current.json');
 
 test('safe replacement keeps the previous Task 7 GitHub-review handoff visible when publish fails', async () => {
   const tempRepo = await createTempRepo();
@@ -165,8 +192,7 @@ test('scratch readers reject path-bearing state that escapes the worked reposito
       JSON.stringify(
         {
           handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
-          plan_path:
-            '../planning/outside.md',
+          plan_path: '../planning/outside.md',
           story_number: '0000060',
           repository_root: tempRepo.repoRoot,
           branch_name: 'feature/0000060-demo',
@@ -191,6 +217,103 @@ test('scratch readers reject path-bearing state that escapes the worked reposito
     const parsed = await readGitHubReviewScratch({ handoffPath });
     assert.equal(parsed.kind, 'error');
     assert.equal(parsed.reason, 'SCRATCH_INVALID');
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('GitHub review plan-note append rejects current-plan handoffs that escape the worked repository root', async () => {
+  const tempRepo = await createTempRepo();
+  const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'github-plan-'));
+  try {
+    const outsidePlanPath = path.join(outsideRoot, '0000060-outside-plan.md');
+    const outsideOriginal = [
+      '### Task 5. Final Story Validation And Close-Out',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Outside note.',
+      '',
+    ].join('\n');
+    await fs.writeFile(outsidePlanPath, outsideOriginal, 'utf8');
+    await fs.writeFile(
+      path.join(
+        tempRepo.repoRoot,
+        'codeInfoStatus/flow-state/current-plan.json',
+      ),
+      JSON.stringify(
+        {
+          plan_path: path.relative(tempRepo.repoRoot, outsidePlanPath),
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const result = await appendGitHubReviewPlanNote({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      note: 'Should not be appended.',
+    });
+    assert.equal(result.kind, 'error');
+    assert.equal(result.reason, 'SCRATCH_INVALID');
+    assert.match(
+      result.message,
+      /plan_path must remain repository-root contained/i,
+    );
+    assert.equal(await fs.readFile(outsidePlanPath, 'utf8'), outsideOriginal);
+  } finally {
+    await fs.rm(outsideRoot, { recursive: true, force: true });
+    await tempRepo.cleanup();
+  }
+});
+
+test('GitHub review scratch publish rejects current-plan handoffs that escape the worked repository root', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    await fs.writeFile(
+      path.join(
+        tempRepo.repoRoot,
+        'codeInfoStatus/flow-state/current-plan.json',
+      ),
+      JSON.stringify(
+        {
+          plan_path: '../planning/0000060-outside-plan.md',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const result = await writeGitHubReviewScratch({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      pullRequest: {
+        number: 45,
+        url: 'https://github.com/example/repo/pull/45',
+        headRefName: 'feature/0000060-demo',
+        baseRefName: 'main',
+      },
+      artifact: {
+        repository: { owner: 'example', name: 'repo' },
+        pullRequest: {
+          number: 45,
+          url: 'https://github.com/example/repo/pull/45',
+          headRefName: 'feature/0000060-demo',
+          baseRefName: 'main',
+        },
+        fetchedAt: '2026-06-27T10:00:00Z',
+        reviews: [],
+        reviewComments: [],
+      },
+    });
+
+    assert.equal(result.kind, 'error');
+    assert.equal(result.reason, 'SCRATCH_INVALID');
+    assert.match(
+      result.message,
+      /plan_path must remain repository-root contained/i,
+    );
   } finally {
     await tempRepo.cleanup();
   }

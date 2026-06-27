@@ -351,6 +351,14 @@ const readCurrentPlanContext = async (
       message: 'current-plan handoff does not include a usable plan_path.',
     };
   }
+  if (!isContainedRelativePath(workingRepositoryRoot, planPath)) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'current-plan handoff plan_path must remain repository-root contained before filesystem access.',
+    };
+  }
   const match = path.basename(planPath).match(/^(\d+)/u);
   if (!match) {
     return {
@@ -361,7 +369,9 @@ const readCurrentPlanContext = async (
   }
   const branchedFrom =
     parsed && typeof parsed === 'object'
-      ? normalizeTrimmedString((parsed as { branched_from?: unknown }).branched_from)
+      ? normalizeTrimmedString(
+          (parsed as { branched_from?: unknown }).branched_from,
+        )
       : undefined;
   return {
     kind: 'ok',
@@ -1074,7 +1084,8 @@ const validateGitHubReviewScratchRecord = (params: {
     return {
       kind: 'error',
       reason: 'SCRATCH_INVALID',
-      message: 'GitHub review handoff repository_root must be an absolute path.',
+      message:
+        'GitHub review handoff repository_root must be an absolute path.',
     };
   }
 
@@ -1087,7 +1098,10 @@ const validateGitHubReviewScratchRecord = (params: {
     };
   }
 
-  const scratchPaths = buildGitHubReviewScratchPaths(repositoryRoot, storyNumber);
+  const scratchPaths = buildGitHubReviewScratchPaths(
+    repositoryRoot,
+    storyNumber,
+  );
   if (
     path.resolve(params.handoffPath) !== path.resolve(scratchPaths.handoffPath)
   ) {

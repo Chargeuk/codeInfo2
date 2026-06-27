@@ -28,7 +28,10 @@ afterEach(() => {
   __resetGitHubReviewDepsForTests();
 });
 
-const createTempRepo = async () => {
+const createTempRepo = async (params?: {
+  currentTaskJson?: Record<string, unknown>;
+  planLines?: string[];
+}) => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'github-scratch-'));
   await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
     recursive: true,
@@ -51,7 +54,7 @@ const createTempRepo = async () => {
   await fs.writeFile(
     path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
     JSON.stringify(
-      {
+      params?.currentTaskJson ?? {
         task_number: 5,
       },
       null,
@@ -64,14 +67,16 @@ const createTempRepo = async () => {
       repoRoot,
       'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
     ),
-    [
-      '### Task 5. Final Story Validation And Close-Out',
-      '',
-      '#### Implementation notes',
-      '',
-      '- Existing note.',
-      '',
-    ].join('\n'),
+    (
+      params?.planLines ?? [
+        '### Task 5. Final Story Validation And Close-Out',
+        '',
+        '#### Implementation notes',
+        '',
+        '- Existing note.',
+        '',
+      ]
+    ).join('\n'),
     'utf8',
   );
   return {
@@ -81,6 +86,15 @@ const createTempRepo = async () => {
     },
   };
 };
+
+const readTempPlan = async (repoRoot: string) =>
+  await fs.readFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    'utf8',
+  );
 
 const buildRepositoryState = (repoRoot: string): GitHubRepositoryState => ({
   workingRepositoryRoot: repoRoot,
@@ -342,6 +356,107 @@ test('GitHub review plan-note append rejects current-plan handoffs that escape t
     assert.equal(await fs.readFile(outsidePlanPath, 'utf8'), outsideOriginal);
   } finally {
     await fs.rm(outsideRoot, { recursive: true, force: true });
+    await tempRepo.cleanup();
+  }
+});
+
+test('contradictory overlapping GitHub review plan-note appends preserve sibling notes under the selected task block', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const first = appendGitHubReviewPlanNote({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      note: 'Retry A recorded a skip note.',
+    });
+    const second = appendGitHubReviewPlanNote({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      note: 'Retry B recorded a failure note.',
+    });
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    assert.equal(firstResult.kind, 'ok');
+    assert.equal(secondResult.kind, 'ok');
+
+    const plan = await readTempPlan(tempRepo.repoRoot);
+    assert.match(plan, /- Existing note\./);
+    assert.match(plan, /- Retry A recorded a skip note\./);
+    assert.match(plan, /- Retry B recorded a failure note\./);
+    assert.equal(
+      plan.match(/- Retry A recorded a skip note\./g)?.length ?? 0,
+      1,
+    );
+    assert.equal(
+      plan.match(/- Retry B recorded a failure note\./g)?.length ?? 0,
+      1,
+    );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('idempotent replay of the same GitHub review plan note does not duplicate the durable bullet', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const note = 'Retry replay kept the same note authoritative.';
+    const [firstResult, secondResult] = await Promise.all([
+      appendGitHubReviewPlanNote({
+        workingRepositoryRoot: tempRepo.repoRoot,
+        note,
+      }),
+      appendGitHubReviewPlanNote({
+        workingRepositoryRoot: tempRepo.repoRoot,
+        note,
+      }),
+    ]);
+    assert.equal(firstResult.kind, 'ok');
+    assert.equal(secondResult.kind, 'ok');
+
+    const plan = await readTempPlan(tempRepo.repoRoot);
+    assert.equal(
+      plan.match(/- Retry replay kept the same note authoritative\./g)?.length ??
+        0,
+      1,
+    );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('GitHub review plan-note append keeps task selection and duplicate-note guards stable under the concurrent writer seam', async () => {
+  const tempRepo = await createTempRepo({
+    currentTaskJson: {
+      selected_task: {
+        number: 5,
+      },
+    },
+    planLines: [
+      '### Task 4. Different Task',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Other task note.',
+      '',
+      '### Task 5. Final Story Validation And Close-Out',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Existing note.',
+      '',
+    ],
+  });
+  try {
+    const result = await appendGitHubReviewPlanNote({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      note: 'Existing note.',
+    });
+    assert.equal(result.kind, 'ok');
+
+    const plan = await readTempPlan(tempRepo.repoRoot);
+    assert.equal(plan.match(/- Existing note\./g)?.length ?? 0, 1);
+    assert.equal(plan.match(/- Other task note\./g)?.length ?? 0, 1);
+    assert.match(
+      plan,
+      /### Task 4\. Different Task[\s\S]*- Other task note\.[\s\S]*### Task 5\. Final Story Validation And Close-Out[\s\S]*- Existing note\./,
+    );
+  } finally {
     await tempRepo.cleanup();
   }
 });

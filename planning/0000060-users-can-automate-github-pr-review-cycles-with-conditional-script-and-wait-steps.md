@@ -1493,19 +1493,23 @@ This review-created task repairs the remaining GitHub stage note-writer race so 
 
 #### Subtasks
 
-1. [ ] Re-inspect `appendImplementationNoteToPlan(...)`, `updateJsonAtomically(...)`, and the surrounding GitHub review writer seam in `server/src/flows/githubReview.ts`, then record in this task's `Implementation notes` which task-block selection rules and duplicate-note checks must remain stable while the write path stops letting a stale pre-read erase a sibling append from another retry or review cycle.
-2. [ ] Patch the durable note-writer seam in `server/src/flows/githubReview.ts`, including `appendImplementationNoteToPlan(...)` and `updateJsonAtomically(...)`, so requirement `concurrent note appends preserve sibling notes` and requirement `idempotent replays do not duplicate the same note` are both enforced by one explicit compare-and-swap, retry, or equivalent concurrency-safe contract instead of by blind last-writer-wins replacement.
-3. [ ] Update `server/src/test/unit/flows.github-scratch.test.ts` and any reused plan-note fixture or helper assertion that it already owns so one focused proof surface separately proves requirement `contradictory overlapping appends preserve sibling notes`, requirement `idempotent replay does not duplicate the same note`, and requirement `task-block selection plus duplicate-note guards stay compatible with the new concurrent append contract`.
+1. [x] Re-inspect `appendImplementationNoteToPlan(...)`, `updateJsonAtomically(...)`, and the surrounding GitHub review writer seam in `server/src/flows/githubReview.ts`, then record in this task's `Implementation notes` which task-block selection rules and duplicate-note checks must remain stable while the write path stops letting a stale pre-read erase a sibling append from another retry or review cycle.
+2. [x] Patch the durable note-writer seam in `server/src/flows/githubReview.ts`, including `appendImplementationNoteToPlan(...)` and `updateJsonAtomically(...)`, so requirement `concurrent note appends preserve sibling notes` and requirement `idempotent replays do not duplicate the same note` are both enforced by one explicit compare-and-swap, retry, or equivalent concurrency-safe contract instead of by blind last-writer-wins replacement.
+3. [x] Update `server/src/test/unit/flows.github-scratch.test.ts` and any reused plan-note fixture or helper assertion that it already owns so one focused proof surface separately proves requirement `contradictory overlapping appends preserve sibling notes`, requirement `idempotent replay does not duplicate the same note`, and requirement `task-block selection plus duplicate-note guards stay compatible with the new concurrent append contract`.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the repaired GitHub stage note-writer concurrency contract.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the repaired GitHub stage note-writer concurrency contract.
 2. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 3. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
 - Planner repair appended this review-created task from review pass `0000060-20260627T163109Z-40f1c89b` because the active disposition state still routes `plan_contract_issue-3` as unresolved task-required work after the inline minor path closed.
+- Re-inspected `appendImplementationNoteToPlan(...)` and the nearby JSON writer seam; preserved the current-task block selection contract and the exact duplicate-bullet guard while narrowing the repair to the stale pre-read plus full-file replacement boundary.
+- Added one repository-local exclusive lock seam around `appendImplementationNoteToPlan(...)` and `updateJsonAtomically(...)` so sibling note appends serialize before they read and rewrite the same durable file, instead of relying on blind last-writer-wins replacement.
+- Fixed an early regression in the new task-block note merge helper that briefly dropped existing bullets, then kept the repair bounded to preserving prior implementation-note lines plus one new unique bullet.
+- Expanded `server/src/test/unit/flows.github-scratch.test.ts` with focused overlap, idempotent replay, and selected-task stability proofs; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` passed after the bounded merge fix.
 
 ### Task 16. Keep Persisted Wait Recovery Authoritative Across Wake Preflight And Startup Backfill
 

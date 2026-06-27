@@ -256,6 +256,13 @@ export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
 const buildTempPath = (targetPath: string) =>
   `${targetPath}.${process.pid}.${Date.now().toString(36)}.tmp`;
 
+const buildLockPath = (targetPath: string) => `${targetPath}.lock`;
+
+const sleep = async (delayMs: number) =>
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+
 const toExecutionScopedFileToken = (executionId: string) =>
   executionId.replace(/[^A-Za-z0-9._-]+/gu, '-');
 
@@ -1047,6 +1054,40 @@ const writeTextAtomically = async (params: {
   }
 };
 
+const withExclusiveFileLock = async <T>(params: {
+  targetPath: string;
+  action: () => Promise<T>;
+}): Promise<T> => {
+  const lockPath = buildLockPath(params.targetPath);
+  const lockContents = JSON.stringify(
+    {
+      pid: process.pid,
+      acquired_at: githubReviewDeps.nowIso(),
+    },
+    null,
+    2,
+  );
+  for (;;) {
+    try {
+      await githubReviewDeps.writeFile(lockPath, `${lockContents}\n`, {
+        encoding: 'utf8',
+        flag: 'wx',
+      });
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | undefined)?.code !== 'EEXIST') {
+        throw error;
+      }
+      await sleep(10);
+    }
+  }
+  try {
+    return await params.action();
+  } finally {
+    await githubReviewDeps.rm(lockPath, { force: true, recursive: true });
+  }
+};
+
 const readJsonFile = async <T>(
   targetPath: string,
 ): Promise<GitHubStepOutcome<T>> => {
@@ -1311,12 +1352,17 @@ const updateJsonAtomically = async <T extends Record<string, unknown>>(params: {
   targetPath: string;
   update: (current: T) => T;
 }): Promise<GitHubStepOutcome<T>> => {
-  const current = await readJsonFile<T>(params.targetPath);
-  if (current.kind !== 'ok') return current;
   try {
-    const next = params.update(current.value);
-    await writeJsonAtomically({ targetPath: params.targetPath, value: next });
-    return { kind: 'ok', value: next };
+    return await withExclusiveFileLock({
+      targetPath: params.targetPath,
+      action: async () => {
+        const current = await readJsonFile<T>(params.targetPath);
+        if (current.kind !== 'ok') return current;
+        const next = params.update(current.value);
+        await writeJsonAtomically({ targetPath: params.targetPath, value: next });
+        return { kind: 'ok', value: next };
+      },
+    });
   } catch (error) {
     return {
       kind: 'error',
@@ -1327,6 +1373,36 @@ const updateJsonAtomically = async <T extends Record<string, unknown>>(params: {
           : `Unable to update JSON file: ${params.targetPath}`,
     };
   }
+};
+
+const appendUniqueImplementationNoteToTaskBlock = (params: {
+  targetBlock: string;
+  note: string;
+}): string => {
+  const implHeading = '#### Implementation notes';
+  const implIndex = params.targetBlock.indexOf(implHeading);
+  if (implIndex === -1) {
+    throw new Error(
+      'The active task does not expose an Implementation notes section for GitHub review note append.',
+    );
+  }
+  const blockPrefix = params.targetBlock.slice(
+    0,
+    implIndex + implHeading.length,
+  );
+  const blockSuffix = params.targetBlock.slice(implIndex + implHeading.length);
+  const bullet = `- ${params.note}`;
+  const existingBullets = blockSuffix
+    .split('\n')
+    .map((line) => line.trimEnd());
+  if (existingBullets.includes(bullet)) {
+    return params.targetBlock;
+  }
+  const normalizedSuffix =
+    blockSuffix.length === 0
+      ? '\n'
+      : `${blockSuffix}${blockSuffix.endsWith('\n') ? '' : '\n'}`;
+  return `${blockPrefix}${normalizedSuffix}${bullet}\n`;
 };
 
 const readCurrentTaskNumber = async (
@@ -1384,56 +1460,33 @@ const appendImplementationNoteToPlan = async (params: {
     params.workingRepositoryRoot,
     planContext.value.planPath,
   );
-  let planRaw: string;
-  try {
-    planRaw = await githubReviewDeps.readFile(planFullPath, 'utf8');
-  } catch (error) {
-    return {
-      kind: 'error',
-      reason: 'SCRATCH_INVALID',
-      message:
-        error instanceof Error
-          ? error.message
-          : 'Unable to read active plan for GitHub review note append.',
-    };
-  }
-
   const taskNumber = await readCurrentTaskNumber(params.workingRepositoryRoot);
-  const taskHeading = taskNumber
-    ? new RegExp(
-        String.raw`((?:^|\n)### Task ${taskNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\.[\s\S]*?)(?=\n### Task \d+\.|$)`,
-      )
-    : null;
-  const taskMatch = taskHeading ? planRaw.match(taskHeading) : null;
-  const targetBlock = taskMatch?.[1]?.replace(/^\n/, '');
-  if (!targetBlock) {
-    return {
-      kind: 'error',
-      reason: 'SCRATCH_INVALID',
-      message:
-        'The active plan task could not be resolved for GitHub review note append.',
-    };
-  }
-  const implHeading = '#### Implementation notes';
-  const implIndex = targetBlock.indexOf(implHeading);
-  if (implIndex === -1) {
-    return {
-      kind: 'error',
-      reason: 'SCRATCH_INVALID',
-      message:
-        'The active task does not expose an Implementation notes section for GitHub review note append.',
-    };
-  }
-  const blockPrefix = targetBlock.slice(0, implIndex + implHeading.length);
-  const blockSuffix = targetBlock.slice(implIndex + implHeading.length);
-  const bullet = `- ${params.note}`;
-  const nextBlock = blockSuffix.includes(bullet)
-    ? targetBlock
-    : `${blockPrefix}${blockSuffix.endsWith('\n') ? '' : '\n'}\n${bullet}\n`;
-  const taskMatchIndex = taskMatch?.index ?? 0;
-  const nextPlan = `${planRaw.slice(0, taskMatchIndex)}${nextBlock}${planRaw.slice(taskMatchIndex + targetBlock.length)}`;
   try {
-    await writeTextAtomically({ targetPath: planFullPath, value: nextPlan });
+    await withExclusiveFileLock({
+      targetPath: planFullPath,
+      action: async () => {
+        const planRaw = await githubReviewDeps.readFile(planFullPath, 'utf8');
+        const taskHeading = taskNumber
+          ? new RegExp(
+              String.raw`((?:^|\n)### Task ${taskNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\.[\s\S]*?)(?=\n### Task \d+\.|$)`,
+            )
+          : null;
+        const taskMatch = taskHeading ? planRaw.match(taskHeading) : null;
+        const targetBlock = taskMatch?.[1]?.replace(/^\n/, '');
+        if (!targetBlock) {
+          throw new Error(
+            'The active plan task could not be resolved for GitHub review note append.',
+          );
+        }
+        const nextBlock = appendUniqueImplementationNoteToTaskBlock({
+          targetBlock,
+          note: params.note,
+        });
+        const taskMatchIndex = taskMatch?.index ?? 0;
+        const nextPlan = `${planRaw.slice(0, taskMatchIndex)}${nextBlock}${planRaw.slice(taskMatchIndex + targetBlock.length)}`;
+        await writeTextAtomically({ targetPath: planFullPath, value: nextPlan });
+      },
+    });
     return { kind: 'ok', value: null };
   } catch (error) {
     return {

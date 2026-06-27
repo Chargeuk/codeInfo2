@@ -22,7 +22,6 @@ import {
   __resetProviderBootstrapStatusForTests,
   __setProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
-import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { startFlowRun } from '../../flows/service.js';
 import {
   __resetFlowResumeTestDepsForTests,
@@ -30,6 +29,7 @@ import {
   __setFlowResumeTestDepsForTests,
   __setFlowWaitResumeDepsForTests,
 } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {

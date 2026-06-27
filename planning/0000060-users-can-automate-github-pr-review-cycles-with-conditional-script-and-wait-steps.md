@@ -899,8 +899,8 @@ This review-created task repairs the shared paused and resumed execution lifecyc
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root to prove the completed-with-warning contract and supported GitHub-review skip surface after the repair.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root to prove the repository-backed wait-resume identity and paused-launch replay barrier after the repair.
 3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root to prove persisted waits are re-registered through the startup-recovery path rather than only through test-only helper wiring.
-4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+4. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -910,6 +910,8 @@ This review-created task repairs the shared paused and resumed execution lifecyc
 - Updated `server/src/test/integration/flows.run.basic.test.ts` so the default-path proof now asserts both GitHub warning surfaces and an adjacent non-GitHub `ok` flow; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` passed cleanly.
 - Updated `server/src/test/integration/flows.run.resume.identity.test.ts` with a repository-backed paused-wait proof that asserts persisted `sourceId`, preserved paused retry replay authority, and exclusion of a conflicting fresh `sourceId`; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` passed after fixing the saved-flow-state preserve path to parse the full conversation flags object instead of the nested `flow` payload.
 - Updated `server/src/test/integration/flows.run.resume.backfill.test.ts` to call the real startup wait re-registration entrypoint, prove the startup wake publishes a second assistant terminal turn after re-registration, and keep the pause-cleared plus execution-stable ordering assertions focused on the startup-owned seam; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` passed cleanly.
+- Testing 4: `npm run lint` first failed on one import-order warning in `server/src/test/integration/flows.run.resume.identity.test.ts`; moving the `RepoEntry` type import below the `../../flows/service.js` imports brought the file back into the repo's lint order contract, and the rerun then passed cleanly.
+- Testing 5: `npm run format:check` passed cleanly after the lint repair, so the Task 6 changed surface is formatter-clean without any additional edits beyond the import-order fix.
 
 ### Task 7. Harden GitHub Review Base, Handoff, And Replay Authority
 

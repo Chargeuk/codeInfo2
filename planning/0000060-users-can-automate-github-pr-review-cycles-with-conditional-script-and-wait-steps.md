@@ -1224,11 +1224,10 @@ This review-created task repairs the remaining GitHub runtime failure taxonomy s
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared server GitHub runtime classification and repository-local token-loading behavior.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the repaired GitHub transport classification contract.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime still distinguishes supported skips from real runtime failures after the repair.
-4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the repaired GitHub transport classification contract.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime still distinguishes supported skips from real runtime failures after the repair.
+3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1272,12 +1271,11 @@ This review-created task repairs the remaining GitHub review scratch ownership g
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared server GitHub scratch ownership and runtime handoff-selection behavior.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the repaired GitHub scratch ownership and containment contract.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime now rejects or isolates overlapping scratch ownership correctly.
-4. [ ] Run `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` from the repository root to prove the helper-side handoff selection still follows the repaired namespaced ownership contract.
-5. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the repaired GitHub scratch ownership and containment contract.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the default review-cycle runtime now rejects or isolates overlapping scratch ownership correctly.
+3. [ ] Run `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` from the repository root to prove the helper-side handoff selection still follows the repaired namespaced ownership contract.
+4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 

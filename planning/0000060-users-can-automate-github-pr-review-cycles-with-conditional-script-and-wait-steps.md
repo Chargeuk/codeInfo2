@@ -919,7 +919,7 @@ This review-created task repairs the shared paused and resumed execution lifecyc
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3, Task 4`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

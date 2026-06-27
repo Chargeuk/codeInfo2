@@ -1562,8 +1562,8 @@ This task keeps task-local proof on the focused persisted-wait backfill wrapper 
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root to prove the repaired persisted-wait wake and startup recovery contract.
 2. [x] Run `npm run build:summary:server` from the repository root because this task changes the shared server startup path before listen.
-3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+3. [x] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [x] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1572,6 +1572,8 @@ This task keeps task-local proof on the focused persisted-wait backfill wrapper 
 - Patched the wake callback so non-terminal preflight failures now rearm the persisted wait through one durable path with an updated `resumeAt`, while rearm failure falls back to an explicit terminal persisted failure instead of only logging and dropping ownership.
 - Patched startup recovery into an explicit degraded-start contract that returns a non-throwing result object from `resumePendingFlowWaitsForStartup()` and lets `server/src/index.ts` warn and continue to `listen()` when registration fails before startup completes.
 - Expanded `server/src/test/integration/flows.run.resume.backfill.test.ts` with focused wake-time rearm and degraded startup-registration proofs while keeping malformed persisted wait state rejected; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` and `npm run build:summary:server` both passed.
+- Testing 3: `npm run lint` passed cleanly on the Task 16 persisted-wait recovery repair surface, so no follow-up lint cleanup was needed before the final formatting proof step.
+- Testing 4: `npm run format:check` passed cleanly across the Task 16 persisted-wait recovery repair surface, so the degraded-start and wake-rearm repair stays Prettier-clean without follow-up formatting fixes.
 
 ### Task 17. Revalidate review pass `0000060-20260627T163109Z-40f1c89b` after review-cycle `0000060-rc-20260627T174933Z-7e7ca864` task-up repairs
 

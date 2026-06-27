@@ -1404,7 +1404,7 @@ Client-specific `npm run build:summary:client` and `npm run test:summary:client`
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3, Task 12`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1456,6 +1456,7 @@ This review-created task repairs the remaining execution-scoped GitHub review id
 - Updated `scripts/test/test_check_github_review_has_reviewer_feedback.py` so helper proof now covers the persisted execution-scoped handoff override path as well as foreign-selector rejection; `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` passed cleanly with 4 of 4 tests green.
 - Testing 4: `npm run lint` passed cleanly on the Task 14 repair surface, so the execution-scoped resume, fetch, close, and helper-ownership updates needed no further lint cleanup before closeout.
 - Testing 5: `npm run format:check` passed cleanly across the Task 14 repair surface, so the execution-scoped resume, fetch, close, and helper-ownership updates remain Prettier-clean without follow-up formatting repair.
+- Audit closeout: repository evidence for Task 14 stayed limited to the story-owned server, helper, and proof surfaces, no new out-of-scope user-facing behavior drift was identified, and the task is now `__done__` because all subtasks and all automated proof items are complete with no live blocker remaining.
 
 ### Task 15. Make GitHub Stage Plan Note Appends Concurrency-Safe
 

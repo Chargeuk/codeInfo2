@@ -919,7 +919,7 @@ This review-created task repairs the shared paused and resumed execution lifecyc
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3, Task 4`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -973,6 +973,7 @@ This review-created task repairs the GitHub review transport and scratch authori
 - Updated `server/src/test/integration/flows.run.loop.test.ts` with a focused open-plus-fetch runtime proof that uses the dedicated GitHub-review handoff path, excludes stale `0000060-current-review.json` state once fresh scratch succeeds, and exercises the post-create replay reconciliation through the normal flow runtime; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed cleanly after wiring the test harness to expose the worked repository as an ingested repo candidate.
 - Testing 4: `npm run lint` passed cleanly on the current Task 7 surface, so the GitHub review transport, scratch, and review-loop runtime changes now satisfy the repo-wide lint contract without further repair.
 - Testing 5: `npm run format:check` passed cleanly on the current Task 7 surface, so the repaired GitHub review transport and scratch files are formatter-clean without any follow-on edits after the lint proof.
+- Audit confirmed all Task 7 subtasks and automated proof rows are complete and that no live `**BLOCKER**` remained in the parser output; the prior “keep in progress for the later audit step” note was bookkeeping only, so the task now closes as `__done__`.
 
 ### Task 8. Restore Runtime Branch Authority And Direct GitHub Review Proof
 

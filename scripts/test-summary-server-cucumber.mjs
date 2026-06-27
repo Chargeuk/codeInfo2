@@ -4,7 +4,7 @@
 // Behavior: builds the server workspace, runs cucumber features, streams full output to test-results/,
 // and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing scenario names when present.
 // Optional targeting:
-//   --tags <expr>      cucumber tag expression.
+//   --tags <expr>      repeatable; cucumber tag expressions combined with AND.
 //   --feature <path>   repeatable; run only selected feature files.
 //   --scenario <expr>  forwarded to cucumber --name.
 
@@ -35,7 +35,9 @@ const wrapper = createSummaryWrapperRun({
     {
       name: 'tags',
       type: 'value',
-      description: 'Filter scenarios with a cucumber tag expression.',
+      multiple: true,
+      description:
+        'Filter scenarios with one or more cucumber tag expressions.',
     },
     {
       name: 'feature',
@@ -52,6 +54,7 @@ const wrapper = createSummaryWrapperRun({
   examples: [
     'node scripts/test-summary-server-cucumber.mjs --help',
     'npm run test:summary:server:cucumber -- --tags "@smoke"',
+    'npm run test:summary:server:cucumber -- --tags "@logs" --tags "@smoke"',
   ],
 });
 const serverDir = path.join(wrapper.rootDir, 'server');
@@ -70,7 +73,7 @@ if (parsedArgs.error) {
 }
 
 const options = {
-  tags: parsedArgs.values.tags ?? undefined,
+  tags: parsedArgs.values.tags ?? [],
   features: parsedArgs.values.feature ?? [],
   scenario: parsedArgs.values.scenario ?? undefined,
 };
@@ -121,9 +124,10 @@ const featureArgs =
   options.features.length > 0
     ? options.features.map((file) => normalizeServerPath(file))
     : ['src/test/features/**/*.feature'];
-const tagsExpression = options.tags
-  ? `(${options.tags}) and (not @skip)`
-  : 'not @skip';
+const tagsExpression =
+  options.tags.length > 0
+    ? `${options.tags.map((tag) => `(${tag})`).join(' and ')} and (not @skip)`
+    : 'not @skip';
 
 const cucumberImportArgs = buildCucumberImportArgs(serverDir, featureArgs);
 

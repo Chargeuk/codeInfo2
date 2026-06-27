@@ -54,6 +54,7 @@ const wrapper = createSummaryWrapperRun({
     'node scripts/test-summary-client.mjs --help',
     'npm run test:summary:client -- --subset smoke',
     'npm run test:summary:client -- --file client/src/__tests__/example.test.tsx',
+    'npm run test:summary:client -- --file /abs/path/to/codeInfo2/client/src/test/router.test.tsx',
   ],
 });
 const resultsDir = wrapper.logDirPath;
@@ -82,7 +83,22 @@ const options = {
 };
 
 const normalizeClientPath = (value) => {
-  if (path.isAbsolute(value)) return value;
+  const clientDir = path.join(wrapper.rootDir, 'client');
+  if (path.isAbsolute(value)) {
+    const relativeToClientDir = path.relative(clientDir, value);
+    const normalizedRelative = relativeToClientDir.replace(/\\/g, '/');
+
+    if (
+      normalizedRelative &&
+      !normalizedRelative.startsWith('../') &&
+      normalizedRelative !== '..'
+    ) {
+      return normalizedRelative;
+    }
+
+    return value;
+  }
+
   const normalized = value.replace(/\\/g, '/');
   const withoutDotPrefix = normalized.startsWith('./')
     ? normalized.slice(2)

@@ -3654,6 +3654,49 @@ const isPathContainedWithinRoot = (rootPath: string, targetPath: string) => {
   );
 };
 
+export const __readCurrentPlanStoryContextForTests = async (params: {
+  workingRepositoryRoot?: string;
+  defaultRepositoryRoot?: string;
+}) => {
+  const workingRepositoryRoot =
+    params.workingRepositoryRoot ?? params.defaultRepositoryRoot;
+  if (!workingRepositoryRoot) {
+    return null;
+  }
+  const currentPlanPath = path.join(
+    workingRepositoryRoot,
+    'codeInfoStatus/flow-state/current-plan.json',
+  );
+  try {
+    const raw = await fs.readFile(currentPlanPath, 'utf8');
+    const parsed = JSON.parse(raw) as { plan_path?: unknown };
+    const planPath =
+      typeof parsed.plan_path === 'string' && parsed.plan_path.trim().length > 0
+        ? parsed.plan_path.trim()
+        : undefined;
+    if (!planPath) return null;
+    const planFullPath = path.resolve(workingRepositoryRoot, planPath);
+    if (!isPathContainedWithinRoot(workingRepositoryRoot, planFullPath)) {
+      return null;
+    }
+    const storyNumberMatch = path.basename(planPath).match(/^(\d+)/u);
+    const storyNumber = storyNumberMatch?.[1];
+    const planRaw = await fs.readFile(planFullPath, 'utf8');
+    const headingMatch = planRaw.match(/^#\s+Story\s+\d+\s+-\s+(.+)$/mu);
+    const title =
+      headingMatch?.[1]?.trim() ||
+      path.basename(planPath, '.md').replace(/^\d+-/u, '').replace(/-/gu, ' ');
+    return {
+      workingRepositoryRoot,
+      planPath,
+      storyNumber,
+      title,
+    };
+  } catch {
+    return null;
+  }
+};
+
 const _evaluateScriptDecision = async (params: {
   kind: FlowDecisionKind;
   scriptPath: string;
@@ -5530,45 +5573,10 @@ async function runFlowUnlocked(params: {
   };
 
   const readCurrentPlanStoryContext = async () => {
-    const workingRepositoryRoot =
-      params.repositoryContext.workingRepositoryPath ??
-      params.repositoryContext.defaultRepositoryRoot;
-    if (!workingRepositoryRoot) {
-      return null;
-    }
-    const currentPlanPath = path.join(
-      workingRepositoryRoot,
-      'codeInfoStatus/flow-state/current-plan.json',
-    );
-    try {
-      const raw = await fs.readFile(currentPlanPath, 'utf8');
-      const parsed = JSON.parse(raw) as { plan_path?: unknown };
-      const planPath =
-        typeof parsed.plan_path === 'string' &&
-        parsed.plan_path.trim().length > 0
-          ? parsed.plan_path.trim()
-          : undefined;
-      if (!planPath) return null;
-      const storyNumberMatch = path.basename(planPath).match(/^(\d+)/u);
-      const storyNumber = storyNumberMatch?.[1];
-      const planFullPath = path.join(workingRepositoryRoot, planPath);
-      const planRaw = await fs.readFile(planFullPath, 'utf8');
-      const headingMatch = planRaw.match(/^#\s+Story\s+\d+\s+-\s+(.+)$/mu);
-      const title =
-        headingMatch?.[1]?.trim() ||
-        path
-          .basename(planPath, '.md')
-          .replace(/^\d+-/u, '')
-          .replace(/-/gu, ' ');
-      return {
-        workingRepositoryRoot,
-        planPath,
-        storyNumber,
-        title,
-      };
-    } catch {
-      return null;
-    }
+    return await __readCurrentPlanStoryContextForTests({
+      workingRepositoryRoot: params.repositoryContext.workingRepositoryPath,
+      defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
+    });
   };
 
   const buildGitHubReviewPullRequestContent = async (paramsForPr: {

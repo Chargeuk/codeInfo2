@@ -1575,6 +1575,10 @@ This task keeps task-local proof on the focused persisted-wait backfill wrapper 
 - Testing 3: `npm run lint` passed cleanly on the Task 16 persisted-wait recovery repair surface, so no follow-up lint cleanup was needed before the final formatting proof step.
 - Testing 4: `npm run format:check` passed cleanly across the Task 16 persisted-wait recovery repair surface, so the degraded-start and wake-rearm repair stays Prettier-clean without follow-up formatting fixes.
 - Audit closeout: repository evidence for Task 16 stayed within the story-owned persisted-wait and startup-recovery seam, no out-of-scope user-facing behavior drift was introduced, and the task is now `__done__` because every subtask and automated proof item is complete with no live blocker remaining.
+- Manual testing skipped for the live Story 60 wait-step confidence surface after restarting the stale main stack from the documented `npm run compose:build` and `npm run compose:up` path.
+- Tried: `GET /flows` on the fresh main stack after `http://localhost:5010/health` and `http://localhost:5001` both came up, with scratch proof saved under `codeInfoTmp/manual-testing/0000060/16/`.
+- Observed: the supported stack started and shut down cleanly, but `implement_next_plan_github_review` stayed disabled with `Flow agent "review_agent" is not available in the configured agent homes.`
+- Why fuller proof was not possible: the mounted `manual_testing` agent catalogs still do not provide `review_agent`, so the task-scoped live wait-step route remained structurally unavailable in the supported runtime after the single bounded recovery pass.
 
 ### Task 17. Revalidate review pass `0000060-20260627T163109Z-40f1c89b` after review-cycle `0000060-rc-20260627T174933Z-7e7ca864` task-up repairs
 

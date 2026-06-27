@@ -286,21 +286,61 @@ const createGitHubReviewRuntimeRepoFixture = async (params: {
     ),
   );
 
-  const writeHandoff = async (
-    filename: string,
+  const writeExecutionScopedHandoff = async (
+    executionId: string,
     reviewCount: number,
     commentCount: number,
   ) => {
+    const handoffPath = path.join(
+      params.root,
+      'codeInfoTmp/reviews',
+      `0000060-github-review-${executionId}-current.json`,
+    );
     await fs.writeFile(
-      path.join(params.root, 'codeInfoTmp/reviews', filename),
+      handoffPath,
       JSON.stringify(
         {
           handoff_kind: 'github-review-handoff-v1',
+          execution_id: executionId,
           plan_path: planPath,
           story_number: '0000060',
           repository_root: params.root,
+          branch_name: 'feature/0000060-demo',
+          head_sha: 'deadbeef',
+          raw_review_artifact_path: path.join(
+            params.root,
+            'codeInfoTmp/reviews',
+            `0000060-github-review-${executionId}-pr-45.json`,
+          ),
           filtered_review_count: reviewCount,
           filtered_review_comment_count: commentCount,
+          pull_request: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    await fs.writeFile(
+      path.join(
+        params.root,
+        'codeInfoTmp/reviews/0000060-github-review-current.json',
+      ),
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: executionId,
+          plan_path: planPath,
+          story_number: '0000060',
+          repository_root: params.root,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
         },
         null,
         2,
@@ -309,8 +349,8 @@ const createGitHubReviewRuntimeRepoFixture = async (params: {
     );
   };
 
-  await writeHandoff(
-    '0000060-github-review-current.json',
+  await writeExecutionScopedHandoff(
+    'exec-1',
     params.reviewCount,
     params.commentCount ?? 0,
   );
@@ -318,10 +358,22 @@ const createGitHubReviewRuntimeRepoFixture = async (params: {
     params.legacyReviewCount !== undefined ||
     params.legacyCommentCount !== undefined
   ) {
-    await writeHandoff(
-      '0000060-current-review.json',
-      params.legacyReviewCount ?? 0,
-      params.legacyCommentCount ?? 0,
+    await fs.writeFile(
+      path.join(params.root, 'codeInfoTmp/reviews/0000060-current-review.json'),
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'legacy',
+          plan_path: planPath,
+          story_number: '0000060',
+          repository_root: params.root,
+          filtered_review_count: params.legacyReviewCount ?? 0,
+          filtered_review_comment_count: params.legacyCommentCount ?? 0,
+        },
+        null,
+        2,
+      ),
+      'utf8',
     );
   }
 };
@@ -869,6 +921,7 @@ When(
       body: JSON.stringify({
         conversationId,
         working_folder: activeFlowWorkingFolder,
+        retryOwnershipId: `${flowName}:${conversationId}`,
       }),
     });
     lastResponse = {

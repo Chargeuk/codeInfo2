@@ -1512,6 +1512,10 @@ This review-created task repairs the remaining GitHub stage note-writer race so 
 - Expanded `server/src/test/unit/flows.github-scratch.test.ts` with focused overlap, idempotent replay, and selected-task stability proofs; `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` passed after the bounded merge fix.
 - Testing 2: `npm run lint` passed cleanly on the Task 15 concurrency-safe note-writer surface, so no follow-up lint cleanup was needed before the final formatting proof step.
 - Testing 3: `npm run format:check` passed cleanly across the Task 15 concurrency-safe note-writer surface, so the note-writer repair and closeout plan maintenance remain Prettier-clean without follow-up formatting fixes.
+- Manual testing skipped for the Task 15 live plan-note overlap runtime surface.
+- Tried: restarted the supported main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, verified `http://localhost:5010/health` and `http://localhost:5001`, saved `support-health.json`, `support-app-head.txt`, and `support-flows.json` under `codeInfoTmp/manual-testing/0000060/15/`, then requested `GET /flows`.
+- Observed: the supported stack started and shut down cleanly, but `implement_next_plan_github_review` remained disabled with `Flow agent "review_agent" is not available in the configured agent homes.`
+- Why fuller proof was not possible: the mounted manual-testing seed catalogs still do not provide `review_agent`, so the task-owned live plan-note overlap proof surface cannot be exercised on the supported main stack in this step.
 - Audit closeout: repository evidence for Task 15 stayed inside the story-owned GitHub note-writer and proof surfaces, no out-of-scope user-facing behavior drift was introduced, and the task is now `__done__` because every subtask and automated proof item is complete with no live blocker remaining.
 
 ### Task 16. Keep Persisted Wait Recovery Authoritative Across Wake Preflight And Startup Backfill

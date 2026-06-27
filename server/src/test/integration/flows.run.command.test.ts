@@ -276,7 +276,11 @@ const createGitHubReviewRepoFixture = async (taskNumber = 4) => {
   await fs.writeFile(
     path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
     JSON.stringify(
-      { plan_path: planPath, additional_repositories: [] },
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
       null,
       2,
     ),

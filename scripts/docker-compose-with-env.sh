@@ -741,6 +741,7 @@ SOCKET_GID="$(stat -c %g "${SOCKET_PATH}" 2>/dev/null || stat -f %g "${SOCKET_PA
 CONTAINER_SOCKET_GID="${SOCKET_GID}"
 RUNTIME_SUPPLEMENTARY_GIDS="${SOCKET_GID}"
 HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
+DOCKER_OPERATING_SYSTEM_LC="$(docker_server_operating_system | tr '[:upper:]' '[:lower:]')"
 
 DOCKER_UID="$(id -u)"
 DOCKER_GID="$(id -g)"

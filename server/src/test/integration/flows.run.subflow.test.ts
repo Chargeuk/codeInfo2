@@ -105,7 +105,7 @@ const waitFor = async (
 
 const waitForAssistantStatus = async (
   conversationId: string,
-  status: 'ok' | 'failed' | 'stopped',
+  status: 'ok' | 'warning' | 'failed' | 'stopped',
   timeoutMs = 5000,
 ) => {
   await waitFor(() => {
@@ -167,7 +167,7 @@ const waitForActiveSubflowCount = async (
 
 const waitForConversationAssistantStatus = async (
   conversationId: string,
-  status: 'ok' | 'failed' | 'stopped',
+  status: 'ok' | 'warning' | 'failed' | 'stopped',
   timeoutMs = 5000,
 ) => {
   await waitFor(() => {
@@ -965,7 +965,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
   }
 });
 
-test('parent stop stays stopped even if the child reports ok after cancel', async () => {
+test('parent stop becomes warning when cancel arrives after child completion', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-sticky-parent-stop-'),
   );
@@ -1019,11 +1019,11 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
 
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
-      'stopped',
+      'warning',
     );
     assert.equal(
       finalAssistant?.content,
-      'Stopped subflow Parent Review-Run Fast Child',
+      'Subflow stop request arrived after child completion (completed: Parent Review-Run Fast Child)',
     );
     assert.equal(
       executions.some((message) => message.includes('should not run')),

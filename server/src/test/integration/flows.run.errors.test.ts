@@ -2947,6 +2947,92 @@ test('shared decision seam fails hard for invalid answer values', async () => {
   );
 });
 
+test('github review feedback helper rejects the generic current-review handoff fallback', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await fs.mkdir(path.join(tmpDir, 'scripts/flow_control'), {
+        recursive: true,
+      });
+      await fs.mkdir(path.join(tmpDir, 'codeInfoStatus/flow-state'), {
+        recursive: true,
+      });
+      await fs.mkdir(path.join(tmpDir, 'codeInfoTmp/reviews'), {
+        recursive: true,
+      });
+      await fs.copyFile(
+        path.join(
+          repoRoot,
+          'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+        ),
+        path.join(
+          tmpDir,
+          'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+        ),
+      );
+      await fs.writeFile(
+        path.join(tmpDir, 'codeInfoStatus/flow-state/current-plan.json'),
+        JSON.stringify(
+          {
+            plan_path:
+              'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+      await fs.writeFile(
+        path.join(tmpDir, 'codeInfoTmp/reviews/0000060-current-review.json'),
+        JSON.stringify(
+          {
+            handoff_kind: 'review-handoff-v1',
+            filtered_review_count: 2,
+            filtered_review_comment_count: 1,
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'github-review-generic-fallback-flow',
+        steps: [
+          {
+            type: 'if',
+            condition:
+              'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+            then: [makeLlmStep()],
+            else: [makeLlmStep()],
+          },
+        ],
+      });
+
+      const result = await supertest(baseUrl)
+        .post('/flows/github-review-generic-fallback-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'IF_DECISION_SCRIPT_FAILED');
+      assert.match(
+        final.error?.message ?? '',
+        /0000060-github-review-current\.json/,
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
 test('shared decision seam fails hard for extra-key script output', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {

@@ -3904,12 +3904,7 @@ const findFirstAgentStep = (
       ) {
         return step;
       }
-      const nestedThen = findFirstAgentStep(step.then);
-      if (nestedThen) return nestedThen;
-      if (step.else) {
-        const nestedElse = findFirstAgentStep(step.else);
-        if (nestedElse) return nestedElse;
-      }
+      continue;
     }
     if (step.type === 'startLoop') {
       const nested = findFirstAgentStep(step.steps);
@@ -3980,12 +3975,7 @@ const findRuntimeIdentityStep = (
       ) {
         return step;
       }
-      const nestedThen = findRuntimeIdentityStep(step.then, null);
-      if (nestedThen) return nestedThen;
-      if (step.else) {
-        const nestedElse = findRuntimeIdentityStep(step.else, null);
-        if (nestedElse) return nestedElse;
-      }
+      continue;
     }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);
@@ -4033,10 +4023,6 @@ const validateCommandSteps = async (
             `Agent ${step.agentType} not found`,
           );
         }
-      }
-      await validateCommandSteps(step.then, agentByName, repositoryContext);
-      if (step.else) {
-        await validateCommandSteps(step.else, agentByName, repositoryContext);
       }
       continue;
     }
@@ -5390,6 +5376,29 @@ async function runFlowUnlocked(params: {
 
     if (branch.length === 0) {
       return 'ok';
+    }
+
+    try {
+      await validateCommandSteps(branch, agentByName, params.repositoryContext);
+    } catch (error) {
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
+          ? error.message
+          : 'Selected if branch failed validation.';
+      const errorCode = isFlowRunError(error) ? error.code : 'INVALID_REQUEST';
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `If branch: ${step.label ?? 'conditional flow branch'}`,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message,
+        errorCode,
+        command,
+      });
+      return 'failed';
     }
 
     return runSteps(branch, nextPath, null);

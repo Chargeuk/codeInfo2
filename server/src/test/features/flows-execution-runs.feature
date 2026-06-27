@@ -23,11 +23,32 @@ Feature: Flow execution lifecycle and GitHub review-cycle composition
     When I trigger the captured wait wake
     Then the active flow conversation clears its persisted wait
 
-  Scenario: Checked-in GitHub review flow variant keeps clean cycles out of the findings loopback branch
-    Given the checked-in GitHub review flow variant exists
-    Then the GitHub review flow variant waits before fetching reviews
-    And the GitHub review flow variant checks for reviewer feedback before the external review loop
+  Scenario: GitHub review runtime keeps the clean cycle reachable before untaken findings state leaks in
+    Given a flow execution test server
+    And the GitHub review clean-cycle runtime fixture is available
+    When I start flow "github-review-runtime-clean" using the active flow working folder with conversation id "github-review-clean-1"
+    Then the flow execution response status code is 202
+    And the active flow conversation eventually contains user text "Clean-cycle branch stayed reachable."
+    And the active flow conversation never contains user text "Untaken findings branch should stay excluded."
 
-  Scenario: Checked-in GitHub review flow variant closes findings-present PRs only inside repair paths
-    Given the checked-in GitHub review flow variant exists
-    Then the GitHub review flow variant closes PRs only inside the findings repair paths
+  Scenario: GitHub review runtime keeps findings-present reachable before untaken clean-branch validation
+    Given a flow execution test server
+    And the GitHub review findings-present runtime fixture is available
+    When I start flow "github-review-runtime-findings" using the active flow working folder with conversation id "github-review-findings-1"
+    Then the flow execution response status code is 202
+    And the active flow conversation eventually contains user text "Findings branch stayed reachable."
+    And the active flow conversation never contains user text "Untaken clean branch should stay excluded."
+
+  Scenario: GitHub review runtime resumes with the repaired review handoff before untaken clean-cycle state leaks in
+    Given a flow execution test server
+    And the GitHub review resumed runtime fixture is available
+    When I start flow "github-review-runtime-resume" using the active flow working folder with conversation id "github-review-resume-1"
+    Then the flow execution response status code is 202
+    When I remember the started conversation as "resumedReview"
+    And the active flow conversation stores a persisted wait at step path "0"
+    And I resume flow "github-review-runtime-resume" using the active flow working folder for remembered conversation "resumedReview" from step path:
+      | 0 |
+    Then the flow execution response status code is 202
+    Then the active flow conversation clears its persisted wait
+    And the active flow conversation eventually contains user text "Resumed review context stayed on findings branch."
+    And the active flow conversation never contains user text "Stale clean-cycle scratch should stay excluded."

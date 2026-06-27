@@ -12,7 +12,10 @@ def main() -> int:
     if not story_number:
         raise RuntimeError("current-plan handoff does not expose a story number")
 
-    handoff_path = repo_root / "codeInfoTmp/reviews" / f"{story_number}-current-review.json"
+    reviews_dir = repo_root / "codeInfoTmp/reviews"
+    handoff_path = reviews_dir / f"{story_number}-github-review-current.json"
+    if not handoff_path.exists():
+        handoff_path = reviews_dir / f"{story_number}-current-review.json"
     handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
     review_count = int(handoff.get("filtered_review_count", 0) or 0)
     comment_count = int(handoff.get("filtered_review_comment_count", 0) or 0)

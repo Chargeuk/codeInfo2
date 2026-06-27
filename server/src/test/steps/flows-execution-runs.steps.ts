@@ -14,6 +14,7 @@ import mongoose from 'mongoose';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
+  memoryTurns,
   shouldUseMemoryPersistence,
 } from '../../chat/memoryPersistence.js';
 import {
@@ -21,6 +22,7 @@ import {
   __setFlowWaitResumeDepsForTests,
   startFlowRun,
 } from '../../flows/service.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import { TurnModel } from '../../mongo/turn.js';
@@ -71,6 +73,10 @@ let capturedWaitWake: (() => void) | null = null;
 let checkedInGitHubReviewFlow: {
   steps?: Array<Record<string, unknown>>;
 } | null = null;
+let activeFlowWorkingFolder: string | null = null;
+let activeListIngestedRepositories:
+  | (() => Promise<ListReposResult>)
+  | undefined;
 
 const flattenFlowSteps = (
   steps: Array<Record<string, unknown>>,
@@ -171,11 +177,226 @@ const getStoredChildExecutionId = async (conversationId: string) => {
   return flags.flowChild?.executionId as string;
 };
 
+const waitForTurns = async (
+  conversationId: string,
+  predicate: (
+    turns: Array<{
+      role?: string;
+      content?: string;
+    }>,
+  ) => boolean,
+  timeoutMs = 4000,
+) => {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const turns = shouldUseMemoryPersistence()
+      ? (memoryTurns.get(conversationId) ?? [])
+      : (
+          await TurnModel.find({ conversationId })
+            .sort({ createdAt: 1 })
+            .lean()
+            .exec()
+        ).map((turn) => ({
+          role: turn.role,
+          content: turn.content,
+        }));
+    if (predicate(turns)) {
+      return turns;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail(`Timed out waiting for turns on conversation ${conversationId}`);
+};
+
+const createGitHubReviewRuntimeRepoFixture = async (params: {
+  root: string;
+  reviewCount: number;
+  commentCount?: number;
+  legacyReviewCount?: number;
+  legacyCommentCount?: number;
+}) => {
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.mkdir(path.join(params.root, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(params.root, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(params.root, 'scripts/flow_control'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(params.root, 'codeInfoTmp/reviews'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(params.root, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(params.root, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: 8,
+          title: 'Task 8',
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      params.root,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      '### Task 8. Restore Runtime Branch Authority And Direct GitHub Review Proof',
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.copyFile(
+    path.join(
+      repoRoot,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+    path.join(
+      params.root,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+  );
+
+  const writeHandoff = async (
+    filename: string,
+    reviewCount: number,
+    commentCount: number,
+  ) => {
+    await fs.writeFile(
+      path.join(params.root, 'codeInfoTmp/reviews', filename),
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          plan_path: planPath,
+          story_number: '0000060',
+          repository_root: params.root,
+          filtered_review_count: reviewCount,
+          filtered_review_comment_count: commentCount,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  };
+
+  await writeHandoff(
+    '0000060-github-review-current.json',
+    params.reviewCount,
+    params.commentCount ?? 0,
+  );
+  if (
+    params.legacyReviewCount !== undefined ||
+    params.legacyCommentCount !== undefined
+  ) {
+    await writeHandoff(
+      '0000060-current-review.json',
+      params.legacyReviewCount ?? 0,
+      params.legacyCommentCount ?? 0,
+    );
+  }
+};
+
+const writeGitHubReviewRuntimeFlow = async (params: {
+  flowName: string;
+  includeWait?: boolean;
+  thenSteps: Array<Record<string, unknown>>;
+  elseSteps: Array<Record<string, unknown>>;
+}) => {
+  assert(tempDir, 'expected temporary flows directory');
+  const steps: Array<Record<string, unknown>> = [];
+  if (params.includeWait) {
+    steps.push({
+      type: 'wait',
+      label: 'Wait for review feedback',
+      seconds: 60,
+    });
+  }
+  steps.push({
+    type: 'if',
+    condition: 'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    then: params.thenSteps,
+    else: params.elseSteps,
+  });
+  await fs.writeFile(
+    path.join(tempDir, `${params.flowName}.json`),
+    JSON.stringify(
+      {
+        description: 'GitHub review runtime branch-authority fixture',
+        steps,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+};
+
+const buildHarnessRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'flow-test-repo',
+  description: null,
+  containerPath,
+  hostPath: `/host${containerPath}`,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+});
+
+const listHarnessRepo = async (
+  containerPath: string,
+): Promise<ListReposResult> => ({
+  repos: [buildHarnessRepoEntry(containerPath)],
+  lockedModelId: null,
+});
+
 Before({ tags: '@mongo' }, async () => {
   rememberedConversationIds.clear();
   rememberedExecutionIds.clear();
   lastResponse = null;
   memoryConversations.clear();
+  activeFlowWorkingFolder = null;
+  activeListIngestedRepositories = undefined;
   previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   previousFlowsDir = process.env.FLOWS_DIR;
   previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -197,6 +418,7 @@ Before({ tags: '@mongo' }, async () => {
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
+          listIngestedRepositories: activeListIngestedRepositories,
         }),
     }),
   );
@@ -259,6 +481,8 @@ After({ tags: '@mongo' }, async () => {
   }
   capturedWaitWake = null;
   checkedInGitHubReviewFlow = null;
+  activeFlowWorkingFolder = null;
+  activeListIngestedRepositories = undefined;
   __resetFlowWaitResumeDepsForTests();
 });
 
@@ -330,6 +554,152 @@ Then(
     );
   },
 );
+
+Given('the GitHub review clean-cycle runtime fixture is available', async () => {
+  assert(tempDir, 'expected temporary flows directory');
+  const workingRoot = path.join(tempDir, 'github-review-clean-repo');
+  await createGitHubReviewRuntimeRepoFixture({
+    root: workingRoot,
+    reviewCount: 0,
+  });
+  await writeGitHubReviewRuntimeFlow({
+    flowName: 'github-review-runtime-clean',
+    thenSteps: [
+      {
+        type: 'llm',
+        agentType: 'missing_agent',
+        identifier: 'untaken-findings',
+        messages: [
+          {
+            role: 'user',
+            content: ['Untaken findings branch should stay excluded.'],
+          },
+        ],
+      },
+    ],
+    elseSteps: [
+      {
+        type: 'llm',
+        agentType: 'planning_agent',
+        identifier: 'main',
+        messages: [
+          {
+            role: 'user',
+            content: ['Clean-cycle branch stayed reachable.'],
+          },
+        ],
+      },
+    ],
+  });
+  activeFlowWorkingFolder = workingRoot;
+  activeListIngestedRepositories = () => listHarnessRepo(workingRoot);
+});
+
+Given(
+  'the GitHub review findings-present runtime fixture is available',
+  async () => {
+    assert(tempDir, 'expected temporary flows directory');
+    const workingRoot = path.join(tempDir, 'github-review-findings-repo');
+    await createGitHubReviewRuntimeRepoFixture({
+      root: workingRoot,
+      reviewCount: 2,
+      commentCount: 1,
+    });
+    await writeGitHubReviewRuntimeFlow({
+      flowName: 'github-review-runtime-findings',
+      thenSteps: [
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          messages: [
+            {
+              role: 'user',
+              content: ['Findings branch stayed reachable.'],
+            },
+          ],
+        },
+      ],
+      elseSteps: [
+        {
+          type: 'command',
+          agentType: 'planning_agent',
+          identifier: 'untaken-clean',
+          commandName: 'missing_command',
+        },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          messages: [
+            {
+              role: 'user',
+              content: ['Untaken clean branch should stay excluded.'],
+            },
+          ],
+        },
+      ],
+    });
+    activeFlowWorkingFolder = workingRoot;
+    activeListIngestedRepositories = () => listHarnessRepo(workingRoot);
+  },
+);
+
+Given('the GitHub review resumed runtime fixture is available', async () => {
+  assert(tempDir, 'expected temporary flows directory');
+  const workingRoot = path.join(tempDir, 'github-review-resume-repo');
+  await createGitHubReviewRuntimeRepoFixture({
+    root: workingRoot,
+    reviewCount: 1,
+    commentCount: 1,
+    legacyReviewCount: 0,
+    legacyCommentCount: 0,
+  });
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      capturedWaitWake = onWake;
+      return { cancel: () => {} };
+    },
+  });
+  await writeGitHubReviewRuntimeFlow({
+    flowName: 'github-review-runtime-resume',
+    includeWait: true,
+    thenSteps: [
+      {
+        type: 'llm',
+        agentType: 'planning_agent',
+        identifier: 'main',
+        messages: [
+          {
+            role: 'user',
+            content: ['Resumed review context stayed on findings branch.'],
+          },
+        ],
+      },
+    ],
+    elseSteps: [
+      {
+        type: 'command',
+        agentType: 'planning_agent',
+        identifier: 'untaken-clean',
+        commandName: 'missing_command',
+      },
+      {
+        type: 'llm',
+        agentType: 'planning_agent',
+        identifier: 'main',
+        messages: [
+          {
+            role: 'user',
+            content: ['Stale clean-cycle scratch should stay excluded.'],
+          },
+        ],
+      },
+    ],
+  });
+  activeFlowWorkingFolder = workingRoot;
+  activeListIngestedRepositories = () => listHarnessRepo(workingRoot);
+});
 
 Given('a flow execution test server', () => {
   assert.ok(server, 'expected test server to be running');
@@ -490,6 +860,25 @@ When(
 );
 
 When(
+  'I start flow {string} using the active flow working folder with conversation id {string}',
+  async (flowName: string, conversationId: string) => {
+    assert(activeFlowWorkingFolder, 'expected active flow working folder');
+    const res = await fetch(`${baseUrl}/flows/${flowName}/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        conversationId,
+        working_folder: activeFlowWorkingFolder,
+      }),
+    });
+    lastResponse = {
+      status: res.status,
+      body: (await res.json()) as Record<string, unknown>,
+    };
+  },
+);
+
+When(
   'I start flow {string} with remembered conversation {string}',
   async (flowName: string, key: string) => {
     const conversationId = rememberedConversationIds.get(key);
@@ -538,6 +927,32 @@ When(
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ conversationId, resumeStepPath }),
+    });
+    lastResponse = {
+      status: res.status,
+      body: (await res.json()) as Record<string, unknown>,
+    };
+  },
+);
+
+When(
+  'I resume flow {string} using the active flow working folder for remembered conversation {string} from step path:',
+  async (flowName: string, key: string, table: DataTable) => {
+    const conversationId = rememberedConversationIds.get(key);
+    assert(conversationId, `Missing remembered conversation ${key}`);
+    assert(activeFlowWorkingFolder, 'expected active flow working folder');
+    const resumeStepPath = table
+      .raw()
+      .flat()
+      .map((value) => Number(value));
+    const res = await fetch(`${baseUrl}/flows/${flowName}/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        conversationId,
+        working_folder: activeFlowWorkingFolder,
+        resumeStepPath,
+      }),
     });
     lastResponse = {
       status: res.status,
@@ -714,3 +1129,44 @@ Then('the active flow conversation clears its persisted wait', async () => {
 
   assert.fail('Timed out waiting for persisted wait state to clear');
 });
+
+Then(
+  'the active flow conversation eventually contains user text {string}',
+  async (text: string) => {
+    assert(lastResponse, 'expected flow execution response');
+    const conversationId = String(lastResponse.body.conversationId ?? '');
+    assert(conversationId, 'expected started conversation id');
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.some(
+          (turn) => turn.role === 'user' && turn.content?.includes(text),
+        ),
+      4000,
+    );
+    assert.ok(
+      turns.some((turn) => turn.role === 'user' && turn.content?.includes(text)),
+    );
+  },
+);
+
+Then(
+  'the active flow conversation never contains user text {string}',
+  async (text: string) => {
+    assert(lastResponse, 'expected flow execution response');
+    const conversationId = String(lastResponse.body.conversationId ?? '');
+    assert(conversationId, 'expected started conversation id');
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.some((turn) => turn.role === 'user' && Boolean(turn.content)),
+      4000,
+    );
+    assert.equal(
+      turns.filter(
+        (turn) => turn.role === 'user' && turn.content?.includes(text),
+      ).length,
+      0,
+    );
+  },
+);

@@ -279,6 +279,93 @@ const createGitHubReviewRepoFixture = async () => {
   return repoRoot;
 };
 
+const writeGitHubReviewHandoff = async (params: {
+  repoRoot: string;
+  reviewCount: number;
+  commentCount?: number;
+  legacyReviewCount?: number;
+  legacyCommentCount?: number;
+}) => {
+  const reviewsDir = path.join(params.repoRoot, 'codeInfoTmp/reviews');
+  await fs.mkdir(reviewsDir, { recursive: true });
+
+  const writeHandoff = async (
+    filename: string,
+    reviewCount: number,
+    commentCount: number,
+  ) => {
+    await fs.writeFile(
+      path.join(reviewsDir, filename),
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: params.repoRoot,
+          filtered_review_count: reviewCount,
+          filtered_review_comment_count: commentCount,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  };
+
+  await writeHandoff(
+    '0000060-github-review-current.json',
+    params.reviewCount,
+    params.commentCount ?? 0,
+  );
+  if (
+    params.legacyReviewCount !== undefined ||
+    params.legacyCommentCount !== undefined
+  ) {
+    await writeHandoff(
+      '0000060-current-review.json',
+      params.legacyReviewCount ?? 0,
+      params.legacyCommentCount ?? 0,
+    );
+  }
+};
+
+const writeGitHubReviewRuntimeFlow = async (params: {
+  dir: string;
+  flowName: string;
+  includeWait?: boolean;
+  thenSteps: Array<Record<string, unknown>>;
+  elseSteps: Array<Record<string, unknown>>;
+}) => {
+  const steps: Array<Record<string, unknown>> = [];
+  if (params.includeWait) {
+    steps.push({
+      type: 'wait',
+      label: 'Wait for review feedback',
+      seconds: 60,
+    });
+  }
+  steps.push({
+    type: 'if',
+    condition: 'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    then: params.thenSteps,
+    else: params.elseSteps,
+  });
+
+  await fs.writeFile(
+    path.join(params.dir, `${params.flowName}.json`),
+    JSON.stringify(
+      {
+        description: 'GitHub review runtime branch-authority fixture',
+        steps,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+};
+
 const buildHarnessRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'flow-test-repo',
   description: null,
@@ -773,6 +860,333 @@ test('checked-in GitHub review flow variant keeps clean ordering and closes PRs 
   assert.ok(
     flattened.some((step) => step.commandName === 'external_review_findings'),
   );
+});
+
+test('github review runtime keeps clean-cycle reachable before untaken findings agent validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 0,
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-clean',
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'missing_agent',
+              identifier: 'untaken-findings',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Untaken findings branch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Clean-cycle branch stayed reachable.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-clean/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Clean-cycle branch stayed reachable.'),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Clean-cycle branch stayed reachable.'),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Untaken findings branch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime keeps findings-present reachable before untaken clean-branch command validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 2,
+      commentCount: 1,
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-findings',
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Findings branch stayed reachable.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              commandName: 'missing_command',
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Untaken clean branch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-findings/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Findings branch stayed reachable.'),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Findings branch stayed reachable.'),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Untaken clean branch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime resumes through repaired wait and review handoff state before untaken branch validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 1,
+      commentCount: 1,
+      legacyReviewCount: 0,
+      legacyCommentCount: 0,
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-resume',
+          includeWait: true,
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Resumed review context stayed on findings branch.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              commandName: 'missing_command',
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Stale clean-cycle scratch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-resume/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+            retryOwnershipId: 'review-resume-retry',
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: {
+              wait?: { stepPath?: number[] };
+            };
+          };
+          return (
+            Array.isArray(flowState.flow?.wait?.stepPath) &&
+            flowState.flow?.wait?.stepPath?.[0] === 0
+          );
+        }, 4000, 'Timed out waiting for persisted review wait state');
+        const resumed = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-resume/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: workingRepo,
+            resumeStepPath: [0],
+          });
+        assert.equal(resumed.status, 202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes(
+                  'Resumed review context stayed on findings branch.',
+                ),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Resumed review context stayed on findings branch.',
+              ),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Stale clean-cycle scratch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: unknown };
+          };
+          return flowState.flow?.wait === undefined;
+        }, 4000, 'Timed out waiting for resumed review wait state to clear');
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
 });
 
 test('github review runtime uses the dedicated handoff path and reconciles ambiguous PR creation before fetching fresh feedback', async () => {

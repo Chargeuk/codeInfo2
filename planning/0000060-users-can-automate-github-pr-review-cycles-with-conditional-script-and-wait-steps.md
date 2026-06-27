@@ -842,3 +842,251 @@ This task also owns the final operator-facing `/flows` proof seam: choosing a re
 - Audit note: Task 5 is now `__done__`. All close-out subtasks and all Testing rows 1 through 9 are evidenced on disk, no parser-reported live blocker remains, and this audit found no story-caused preserved-behavior regression or other approved-scope gap that would justify reopening the task. Manual testing guidance remains optional follow-up for the later manual-testing pass and is not a blocking completion gate for this automated-proof audit.
 - Manual testing skipped for the final Story 60 live GitHub review-cycle surface. Tried: inspected the configured `CODEINFO_HOST_INGEST_DIR=/home/dan/code` namespace and its available git repositories for a dedicated sandbox worked repository on the Story 60 branch with an upstream remote and repo-local `.env.local`. Observed: the only git repository in that namespace is this working repository itself, and no separate sandbox worked repository was available to exercise the live PR-open, wait, review-fetch, and findings-close cycles honestly. Why fuller proof was not possible: Task 5 manual guidance requires a dedicated sandbox worked repository under the ingest root for final live GitHub proof, and that supporting repository is currently absent outside the active plan or task repair scope.
 - 2026-06-26: Preflight visual refinement ran against the supported main-stack `/flows` surface, clarified the final operator path through the fresh `echo` draft, the `Working path` dialog, the `implement_next_plan_github_review` flow selection seam, and the need to reject non-repository or unreadable folders that still appear in the picker. No code changed in this step.
+
+## Code Review Findings
+
+### Review Pass `0000060-20260626T222120Z-3a823780`
+
+- Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active routing. `codeInfoTmp/reviews/0000060-current-review.json` and the referenced evidence artifacts remain scratch review-loop evidence for this pass rather than durable plan state.
+- Review comparison context: local `HEAD` `3a8237806531e55db127093abb2dd753fd918925` vs resolved remote base `origin/main` at commit `9833bf9addc2515edb774f3a92307dd594b05062`, with `remote_fetch_status: success` and no local-fallback base inference needed for this pass.
+- Active review cycle: `0000060-rc-20260627T002941Z-3f3b9d27`.
+- No inline-resolved minor findings were recorded in this active review cycle before serious task-up routing began.
+- No unresolved minor-batchable findings remain in active routing for this pass.
+- Remaining unresolved task-required findings that must be encoded into executable plan state before Story `0000060` can close: `completed-with-warning-terminal-state`, `startup-wait-recovery-missing`, `trustworthy-review-base-branch`, `wait-resume-sourceid-loss`, `current-review-handoff-schema-collision`, `unvalidated-persisted-path-authority`, `paused-launch-retry-barrier-loss`, `github-open-pr-post-create-replay-ambiguity`, `premature-if-branch-validation`, `runtime-proof-owners-overclaim-behavior`, and `subflow-batch-stop-status-swallow`.
+
+### Task 6. Restore Wait-Resume Truthfulness Across Status, Startup, And Replay
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2, Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the shared paused and resumed execution lifecycle so Story 60 keeps one truthful terminal-status contract, one restart-safe persisted wait contract, and one replay-safe accepted-launch contract. The repair must make supported GitHub-review skips surface as completed-with-warning, re-register persisted waits on normal startup, preserve repository-backed flow identity such as `sourceId`, and keep paused accepted launches from duplicating work when the original acceptance response is lost.
+
+#### Task Exit Criteria
+
+- Supported GitHub-review skips and no-open-PR early exits resolve through one end-to-end completed-with-warning terminal-status contract instead of collapsing to plain `ok`.
+- Persisted waits resume automatically on normal startup, preserve the original repository-backed flow identity and GitHub-review context, and paused accepted launches remain replay-safe across retry and restart boundaries.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Finding `completed-with-warning-terminal-state`: GitHub skip paths still collapse into plain `ok` instead of a truthful completed-with-warning terminal state.
+- Finding `startup-wait-recovery-missing`: Persisted waits are not re-registered during normal server startup.
+- Finding `wait-resume-sourceid-loss`: Persisted wait resume drops the original `sourceId`, so deferred execution can restart from the wrong flow root.
+- Finding `paused-launch-retry-barrier-loss`: Paused wait runs drop their fresh-run retry barrier, so an ambiguous retry can start the same logical launch again.
+
+#### Documentation Locations
+
+- No additional external documentation is required for this review-created repair; use the repository-owned lifecycle, persistence, websocket, and proof-owner files named below.
+
+#### Subtasks
+
+1. [ ] Re-read the review evidence for the four findings above, then inspect `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/mongo/turn.ts`, `server/src/ws/types.ts`, `server/src/chat/chatStreamBridge.ts`, `server/src/routes/chat.ts`, `server/src/index.ts`, and the existing wait/resume proof owners so the repair stays inside the shared lifecycle and replay seam instead of widening Story 60 behavior.
+2. [ ] Repair the shared terminal-status contract across `server/src/flows/service.ts`, `server/src/mongo/turn.ts`, `server/src/ws/types.ts`, `server/src/chat/chatStreamBridge.ts`, and any required consumer seam so supported GitHub-review skips and no-open-PR early exits surface as completed-with-warning end to end, while non-GitHub flows preserve their current approved status behavior.
+3. [ ] Repair persisted wait state and startup recovery in `server/src/flows/flowState.ts`, `server/src/flows/service.ts`, and `server/src/index.ts` so the runtime re-registers pending waits on normal startup, preserves the original `sourceId` and other repository-backed resume identity, and resumes against the same flow root and GitHub-review context instead of falling back to weaker defaults.
+4. [ ] Repair the accepted-launch replay barrier in `server/src/flows/service.ts` so a fresh run that has already paused at a wait boundary still replays safely for the same `retryOwnershipId` instead of creating a duplicate logical launch when the original acceptance response is lost.
+5. [ ] Add or update direct proof in the existing wait, resume, retry, and terminal-status proof owners so the completed-with-warning contract, startup recovery path, repository-backed resume identity, and paused-launch replay barrier are each claimed explicitly rather than only through adjacent success behavior.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared server lifecycle, persistence, websocket, and startup wiring.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root to prove the completed-with-warning contract and supported GitHub-review skip surface after the repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root to prove the repository-backed wait-resume identity and paused-launch replay barrier after the repair.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root to prove persisted waits are re-registered through the startup-recovery path rather than only through test-only helper wiring.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 7. Harden GitHub Review Base, Handoff, And Replay Authority
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 3, Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the GitHub review transport and scratch authority seams so PR creation uses a trustworthy story base, persisted path-bearing handoffs stay inside the worked repository, the GitHub review scratch contract no longer collides with the existing review-loop handoff, and post-create replay can distinguish a lost response from an actually missing PR side effect. The repair must address the underlying defects without silently broadening Story 60 into a different external review workflow contract.
+
+#### Task Exit Criteria
+
+- GitHub PR open and fetch steps use a trustworthy review base and a non-colliding scratch or handoff contract, and persisted path-bearing selectors are root-contained before later filesystem reads or writes occur.
+- `github_open_pr` remains replay-safe after ambiguous post-create interruptions, so the runtime does not blindly recreate or misclassify an already-created side effect.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Finding `trustworthy-review-base-branch`: PR creation still trusts the remote default branch as the review base instead of proving a trustworthy story base.
+- Finding `current-review-handoff-schema-collision`: The new GitHub scratch handoff reuses `codeInfoTmp/reviews/<story>-current-review.json` and collides with the existing review-handoff contract.
+- Finding `unvalidated-persisted-path-authority`: Persisted GitHub-review handoff fields cross directly into filesystem reads and writes without repository-root containment checks.
+- Finding `github-open-pr-post-create-replay-ambiguity`: `github_open_pr` cannot distinguish “PR created, response lost” from “PR never created,” so replay can misclassify or reissue the side effect.
+
+#### Documentation Locations
+
+- No additional external documentation is required for this review-created repair; use the repository-owned GitHub transport, scratch, and proof-owner files named below.
+
+#### Subtasks
+
+1. [ ] Re-read the review evidence for the four findings above, then inspect `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, the current review-loop handoff readers, and the named GitHub proof owners so the repair stays inside the GitHub transport, scratch, and replay seam rather than widening Story 60 into a broader redesign.
+2. [ ] Repair the GitHub review scratch and handoff contract in `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, and any required downstream reader seam so Story 60 no longer reuses `codeInfoTmp/reviews/<story>-current-review.json` for incompatible payload shapes and later readers consume one deliberate authoritative contract for this GitHub-review path.
+3. [ ] Repair base-branch trust in `server/src/flows/githubReview.ts` and any required caller seam so PR open uses a trustworthy story base from repository state plus the supported lookup path, and supported ambiguity still resolves to the existing completed-with-warning skip behavior instead of creating a PR against an accidental base.
+4. [ ] Repair persisted path authority in `server/src/flows/githubReview.ts` and any required caller seam so `plan_path`, `repository_root`, `raw_review_artifact_path`, and later scratch-derived paths are normalized and proven to stay within the intended worked-repository roots before any filesystem read or write occurs.
+5. [ ] Repair post-create replay semantics in `server/src/flows/githubReview.ts` and any required caller seam so an ambiguous interruption after `gh pr create` can reconcile the already-created PR side effect safely instead of blindly recreating or misclassifying it, while preserving the approved Story 60 review workflow behavior rather than adopting an out-of-scope reviewer remedy.
+6. [ ] Add or update direct proof in the existing GitHub adapter, scratch, and runtime proof owners so trustworthy base selection, non-colliding scratch ownership, root-contained persisted selectors, and post-create replay semantics are each claimed explicitly.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared GitHub review transport, scratch, and filesystem-authority seams.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root to prove the trustworthy-base and post-create replay semantics after the repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root to prove the non-colliding scratch contract and root-contained persisted selector authority after the repair.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired GitHub runtime chain still uses the authoritative scratch and replay contract end to end.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 8. Restore Runtime Branch Authority And Direct GitHub Review Proof
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task restores runtime branch-selection authority for the opt-in GitHub review flow and replaces the current structural-only proof overclaim with direct runtime coverage for the branches Story 60 says it supports. The repair must ensure untaken `if` branches do not preempt the authoritative branch chosen at runtime, and it must prove the clean-cycle, findings-present, and resumed-review-context behavior with runtime-owned assertions instead of only flow-shape inspection.
+
+#### Task Exit Criteria
+
+- Startup or preflight validation no longer resolves untaken `if` branches ahead of `runIfStep`, so the live runtime branch remains the authoritative execution path.
+- The named proof owners directly exercise the runtime GitHub review branches they claim to cover, including clean-cycle, findings-present, and resumed-review-context behavior.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Finding `premature-if-branch-validation`: Startup validation resolves untaken `if` branches before `runIfStep` can choose the authoritative branch.
+- Finding `runtime-proof-owners-overclaim-behavior`: The GitHub review-loop proof owners validate flow shape but not the runtime branches they claim to prove.
+
+#### Documentation Locations
+
+- No additional external documentation is required for this review-created repair; use the repository-owned conditional-runtime, flow-composition, and proof-owner files named below.
+
+#### Subtasks
+
+1. [ ] Re-read the review evidence for both findings above, then inspect `server/src/flows/service.ts`, `flows/implement_next_plan_github_review.json`, `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/features/flows-execution-runs.feature`, and `server/src/test/steps/flows-execution-runs.steps.ts` so the repair stays focused on runtime branch authority and honest proof ownership.
+2. [ ] Repair the startup and preflight validation seam in `server/src/flows/service.ts` so untaken `if` branches do not block the authoritative branch selected by `runIfStep`, while the live branch still fails closed when its own command, agent, or runtime contract is invalid.
+3. [ ] Repair or add direct runtime integration proof in `server/src/test/integration/flows.run.loop.test.ts` so the Story 60 GitHub review chain explicitly proves the runtime clean-cycle, findings-present, and resumed-review-context branches rather than only stale-scratch replacement or static flow composition.
+4. [ ] Repair or split the authored feature proof in `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts` so the kept scenarios claim the runtime invariants they actually prove, instead of overclaiming those branches through structure-only assertions.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared runtime validation and proof-authoring seams in the server workspace.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired runtime branch-authority and GitHub review-loop behavior after the repair.
+3. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature` from the repository root to prove the authored feature surface now claims the same runtime branches honestly.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 9. Preserve Truthful Subflow Batch Stop Outcomes
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 2, Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the shared subflow batch stop aggregation seam so the parent status only reports a clean stop when the child stop outcomes actually support that conclusion. The repair must preserve the existing Story 60 stop workflow while making mixed or ineffective per-child stop results visible instead of swallowing them behind one parent `stopped` result.
+
+#### Task Exit Criteria
+
+- The parent subflow batch stop contract distinguishes fully stopped child batches from mixed or ineffective child stop outcomes instead of always collapsing them to a clean stop.
+- Direct proof covers the mixed-outcome batch stop seam so later regressions cannot hide behind adjacent cancellation success behavior.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Finding `subflow-batch-stop-status-swallow`: The subflow batch stop loop ignores per-child stop outcomes, so batch status can misreport mixed success as a clean stop.
+
+#### Documentation Locations
+
+- No additional external documentation is required for this review-created repair; use the repository-owned subflow orchestration and proof-owner files named below.
+
+#### Subtasks
+
+1. [ ] Re-read the review evidence for Finding `subflow-batch-stop-status-swallow`, then inspect `server/src/flows/service.ts` and the current subflow stop proof owners so the repair stays local to the shared batch stop aggregation seam.
+2. [ ] Repair the shared subflow batch stop aggregation in `server/src/flows/service.ts` so per-child stop outcomes remain visible to the parent result contract and mixed or ineffective stop attempts are not reported as a clean stop.
+3. [ ] Add or update direct proof in the existing subflow runtime proof owners so a mixed child stop outcome is asserted explicitly instead of being inferred from adjacent cancellation behavior.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root because this task changes shared server-side batch orchestration logic.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired subflow batch stop aggregation after the change.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+
+### Task 10. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-task repairs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 6, Task 7, Task 8, Task 9`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This final review-created task owns the whole active review cycle's post-repair validation for review pass `0000060-20260626T222120Z-3a823780`. It revalidates the Story 60 review-created findings block after Tasks 6 through 9 land, also covers any inline-resolved minor findings recorded in review cycle `0000060-rc-20260627T002941Z-3f3b9d27` before closeout, and proves the repaired story still holds on the repository-supported broad regression surfaces after the review-task repairs complete.
+
+#### Task Exit Criteria
+
+- Review-created findings from review pass `0000060-20260626T222120Z-3a823780` are revalidated on their focused proof owners and on the repository-supported broad regression surfaces after Tasks 6 through 9 complete.
+- The final regression summary, reviewer-facing artifacts, and this plan all reflect one clean post-repair Story 60 state for review cycle `0000060-rc-20260627T002941Z-3f3b9d27`, and no second final revalidation owner is needed for this same active cycle.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260626T222120Z-3a823780`
+- Final revalidation owner for review-created findings `completed-with-warning-terminal-state`, `startup-wait-recovery-missing`, `trustworthy-review-base-branch`, `wait-resume-sourceid-loss`, `current-review-handoff-schema-collision`, `unvalidated-persisted-path-authority`, `paused-launch-retry-barrier-loss`, `github-open-pr-post-create-replay-ambiguity`, `premature-if-branch-validation`, `runtime-proof-owners-overclaim-behavior`, and `subflow-batch-stop-status-swallow`
+- Also revalidate any inline-resolved minor findings recorded in review cycle `0000060-rc-20260627T002941Z-3f3b9d27` before this story closes. No such inline-resolved minor findings are currently recorded for this active cycle, so the task must keep that statement accurate at execution time.
+
+#### Affected Repositories
+
+- `Current Repository`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - refresh the reviewer-facing closeout summary after the final review-created validation pass completes.
+
+#### Subtasks
+
+1. [ ] Re-read this `Code Review Findings` block, the active review disposition state, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, then prepare the focused proof checklist for Tasks 6 through 9 so each routed finding has one direct proof home and one broad regression owner before the final wrapper runs start.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000060-pr-summary.md` and the `Implementation notes` sections for Tasks 6 through 10 so they record which focused proof owner and which broad wrapper surface closed each routed finding for review pass `0000060-20260626T222120Z-3a823780` and review cycle `0000060-rc-20260627T002941Z-3f3b9d27`.
+3. [ ] Prepare the final manual-proof guidance and any closeout notes needed for the later manual-testing pass so they stay aligned with the repaired runtime, scratch, and proof-owner contracts without introducing a second review-cycle closeout path.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build` from the repository root because the repaired Story 60 review cycle still depends on the supported main-stack Docker build path.
+2. [ ] Run `npm run build:summary:server` from the repository root because the review-created tasks change shared server flow schema, runtime orchestration, persisted wait handling, and GitHub review transport.
+3. [ ] Run `npm run build:summary:client` from the repository root to prove the repaired Story 60 branch still leaves the supported browser-visible `/flows` surface buildable after the runtime and proof-owner repairs.
+4. [ ] Run full `npm run test:summary:server:unit` from the repository root because the review-created tasks change shared flow runtime, GitHub review transport, persisted wait lifecycle, and subflow orchestration seams.
+5. [ ] Run full `npm run test:summary:server:cucumber` from the repository root because the review-created tasks change authored flow behavior and the Story 60 runtime proof contract.
+6. [ ] Run full `npm run test:summary:client` from the repository root because the repaired Story 60 proof surface still includes the supported operator-visible `/flows` selection path.
+7. [ ] Run full `npm run test:summary:e2e` from the repository root because Story 60 still owns the end-to-end flow execution surface after the review-task repairs.
+8. [ ] Run `npm run compose:up` from the repository root because the final review-created validation must include a smoke start of the supported main stack after the broad automated suites complete.
+9. [ ] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final review-created task must leave that baseline stopped again.
+10. [ ] Run `npm run lint` from the repository root for the final Story 60 review-task repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+11. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-task repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Reuse the Story 60 main-stack manual proof path from Task 5 after Tasks 6 through 9 land, but keep the retained artifacts scoped to this review cycle's repaired seams: completed-with-warning skip truthfulness, restarted wait recovery, repository-backed resumed flow identity, trustworthy GitHub review-base selection, fresh authoritative review scratch ownership, and the repaired findings-present versus clean-cycle runtime branches.
+- Save any retained screenshots, logs, exported JSON, or other closeout proof for this review-created validation under `codeInfoTmp/manual-testing/0000060/10/` and do not commit them. If a later durable bundle is promoted, it should still land under `codeInfoStatus/manual-proof/0000060/`.
+
+#### Implementation notes
+
+- Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.

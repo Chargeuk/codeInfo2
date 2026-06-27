@@ -1190,7 +1190,7 @@ This final review-created task owns the whole active review cycle's post-repair 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 7`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

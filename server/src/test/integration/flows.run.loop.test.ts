@@ -3228,6 +3228,155 @@ test('flow stop during a looped flow prevents later iterations from continuing',
   );
 });
 
+test('parallel subflow batch stop reports mixed child outcomes instead of a clean stopped parent status', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('slow child')) {
+        return '__delay:1000::ok';
+      }
+      return 'ok';
+    },
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      const writeFlow = async (flowName: string, steps: unknown[]) => {
+        await fs.writeFile(
+          path.join(tmpDir, `${flowName}.json`),
+          JSON.stringify(
+            {
+              description: flowName,
+              steps,
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+      };
+      const childStep = (content: string) => ({
+        type: 'llm' as const,
+        label: 'Child Step',
+        agentType: 'planning_agent',
+        identifier: 'main',
+        messages: [{ role: 'user' as const, content: [content] }],
+      });
+
+      await writeFlow('child-fast-ok', [childStep('child ok')]);
+      await writeFlow('child-slow-ok', [childStep('slow child')]);
+      await writeFlow('parent-mixed-subflow-stop', [
+        {
+          type: 'subflow',
+          label: 'Run Slow Batch',
+          flowNames: ['child-fast-ok', 'child-slow-ok'],
+        },
+      ]);
+
+      const conversationId = 'flow-subflow-mixed-stop-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/parent-mixed-subflow-stop/run')
+        .send({ conversationId, customTitle: 'Parent Review' })
+        .expect(202);
+
+      await waitForPredicate(() => {
+        const activeSubflows = (
+          (memoryConversations.get(conversationId)?.flags ?? {}) as {
+            flow?: {
+              activeSubflows?: Array<{
+                flowName?: string;
+                conversationId?: string;
+              }>;
+            };
+          }
+        ).flow?.activeSubflows;
+        return Array.isArray(activeSubflows) && activeSubflows.length === 2;
+      }, 4000, 'Timed out waiting for active parallel subflows');
+
+      const activeSubflows = (
+        (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: {
+            activeSubflows?: Array<{
+              flowName?: string;
+              conversationId?: string;
+            }>;
+          };
+        }
+      ).flow?.activeSubflows;
+      assert.ok(Array.isArray(activeSubflows));
+      const fastChildConversationId = String(
+        activeSubflows.find((child) => child.flowName === 'child-fast-ok')
+          ?.conversationId ?? '',
+      );
+      const slowChildConversationId = String(
+        activeSubflows.find((child) => child.flowName === 'child-slow-ok')
+          ?.conversationId ?? '',
+      );
+      assert.ok(fastChildConversationId);
+      assert.ok(slowChildConversationId);
+
+      await waitForTurns(
+        fastChildConversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'ok',
+          ),
+        4000,
+      );
+
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            (candidate.status === 'warning' || candidate.status === 'failed')
+          );
+        },
+        timeoutMs: 4000,
+      });
+      assert.equal(final.status, 'warning');
+
+      await waitForTurns(
+        slowChildConversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'stopped',
+          ),
+        4000,
+      );
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'warning',
+          ),
+        4000,
+      );
+      const finalAssistant = [...turns]
+        .reverse()
+        .find((turn) => turn.role === 'assistant');
+      assert.equal(finalAssistant?.status, 'warning');
+      assert.equal(
+        finalAssistant?.content,
+        'Subflow batch stop had mixed child outcomes (stopped: Parent Review-Run Slow Batch-child-slow-ok; completed: Parent Review-Run Slow Batch-child-fast-ok)',
+      );
+
+      await cleanupConversationRuntime(
+        conversationId,
+        fastChildConversationId,
+        slowChildConversationId,
+      );
+    },
+  );
+});
+
 test('shared decision seam follows valid script-driven if branch through happy path', async () => {
   await withFlowServer(
     () => 'ok',

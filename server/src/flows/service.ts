@@ -6193,6 +6193,12 @@ async function runFlowUnlocked(params: {
       }
 
       let terminalStatus: TurnStatus;
+      let terminalSummary:
+        | {
+            completedChildTitles: string[];
+            stoppedChildTitles: string[];
+          }
+        | undefined;
       let parentStopRequested = false;
       let allChildrenOkObservedAt: number | null = null;
       while (true) {
@@ -6244,11 +6250,25 @@ async function runFlowUnlocked(params: {
           }
           if (terminalStatuses.includes('failed')) {
             terminalStatus = 'failed';
-          } else if (
-            parentStopRequested ||
-            terminalStatuses.includes('stopped')
-          ) {
-            terminalStatus = 'stopped';
+          } else if (parentStopRequested || terminalStatuses.includes('stopped')) {
+            const completedChildTitles = childStatuses
+              .filter(({ status }) => status === 'ok')
+              .map(({ childRun }) => childRun.title ?? childRun.flowName);
+            const stoppedChildTitles = childStatuses
+              .filter(({ status }) => status === 'stopped')
+              .map(({ childRun }) => childRun.title ?? childRun.flowName);
+            if (
+              stoppedChildTitles.length === childStatuses.length &&
+              childStatuses.length > 0
+            ) {
+              terminalStatus = 'stopped';
+            } else {
+              terminalStatus = 'warning';
+              terminalSummary = {
+                completedChildTitles,
+                stoppedChildTitles,
+              };
+            }
           } else {
             terminalStatus = 'ok';
           }
@@ -6279,6 +6299,24 @@ async function runFlowUnlocked(params: {
                 ? 'Completed subflows'
                 : 'Completed subflow',
             )
+          : terminalStatus === 'warning'
+            ? (() => {
+                const completed =
+                  terminalSummary?.completedChildTitles.join(', ') ?? '';
+                const stopped =
+                  terminalSummary?.stoppedChildTitles.join(', ') ?? '';
+                if (stopped && completed) {
+                  return `Subflow batch stop had mixed child outcomes (stopped: ${stopped}; completed: ${completed})`;
+                }
+                if (completed) {
+                  return `Subflow stop request arrived after child completion (completed: ${completed})`;
+                }
+                return buildSubflowSummaryText(
+                  launchesMultipleChildren
+                    ? 'Subflow batch stop completed with warnings for'
+                    : 'Subflow stop completed with warnings for',
+                );
+              })()
           : terminalStatus === 'stopped'
             ? buildSubflowSummaryText(
                 launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',

@@ -1060,19 +1060,22 @@ This review-created task repairs the shared subflow batch stop aggregation seam 
 
 #### Subtasks
 
-1. [ ] Inspect `server/src/flows/service.ts` and the current subflow stop proof owners, then identify the exact parent batch-stop result seam, the child stop outcomes it currently collapses together, and the downstream parent result contract that must stay truthful after the repair. Keep the fix local to Finding `subflow-batch-stop-status-swallow` instead of widening the broader stop workflow.
-2. [ ] Repair the shared subflow batch stop aggregation in `server/src/flows/service.ts` and any meaningful default-path consumer seam so per-child stop outcomes remain visible to the parent result contract and mixed or ineffective stop attempts are not reported as a clean stop.
-3. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so this proof owner covers the parent result contract with one explicit mixed-outcome batch-stop case, including which child stop outcomes count as authoritative for the parent result instead of inferring that contract from adjacent cancellation success behavior. Rename or split any reused loop-stop case whose current title only claims generic stop or cancellation success if it now proves mixed-outcome batch-stop semantics.
+1. [x] Inspect `server/src/flows/service.ts` and the current subflow stop proof owners, then identify the exact parent batch-stop result seam, the child stop outcomes it currently collapses together, and the downstream parent result contract that must stay truthful after the repair. Keep the fix local to Finding `subflow-batch-stop-status-swallow` instead of widening the broader stop workflow.
+2. [x] Repair the shared subflow batch stop aggregation in `server/src/flows/service.ts` and any meaningful default-path consumer seam so per-child stop outcomes remain visible to the parent result contract and mixed or ineffective stop attempts are not reported as a clean stop.
+3. [x] Update `server/src/test/integration/flows.run.loop.test.ts` so this proof owner covers the parent result contract with one explicit mixed-outcome batch-stop case, including which child stop outcomes count as authoritative for the parent result instead of inferring that contract from adjacent cancellation success behavior. Rename or split any reused loop-stop case whose current title only claims generic stop or cancellation success if it now proves mixed-outcome batch-stop semantics.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired subflow batch stop aggregation after the change.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root to prove the repaired subflow batch stop aggregation after the change.
 2. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 3. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
 - Starts empty. Update during implementation with concise notes about what changed, what issues appeared, and what decisions were made.
+- Traced Task 9 to `runSubflowStep()` in `server/src/flows/service.ts`: the parent currently collapses parallel child terminal states to `stopped` whenever any child stops or the parent requested stop, so mixed `ok` plus `stopped` child batches still surface as a clean parent stop; the downstream contract seam to keep truthful is the parent assistant turn plus `turn_final` status emitted for the subflow step, and the existing loop proof owner does not yet cover this mixed-outcome case.
+- Repaired `runSubflowStep()` so fully stopped child batches remain `stopped`, but mixed or ineffective stop attempts now surface as `warning` with an explicit completed-versus-stopped child summary in the parent assistant message instead of collapsing those outcomes to a clean stop.
+- Added a loop-proof regression named for the mixed-outcome batch-stop contract, covering one fast child that completes and one slow child that is stopped after a parent cancel request; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` now passes with 33 of 33 tests.
 
 ### Task 10. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-task repairs
 

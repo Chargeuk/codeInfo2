@@ -2279,6 +2279,66 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
   });
 });
 
+test('terminal fresh-run failure clears durable retry ownership before a later retry with the same id', async () => {
+  await withFlowHarness(async ({ tmpDir }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-ownership-terminal-failure',
+      steps: [
+        {
+          type: 'break',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          question: 'flow-control/decision-malformed-json.py',
+          breakOn: 'yes',
+        },
+      ],
+    });
+
+    const firstResult = await startFlowRun({
+      flowName: 'retry-ownership-terminal-failure',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
+    });
+    const firstTurns = await waitForTurns(firstResult.conversationId, (items) =>
+      items.some(
+        (turn) => turn.role === 'assistant' && turn.status === 'failed',
+      ),
+    );
+    const firstAssistantTurn = [...firstTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant');
+    assert.equal(firstAssistantTurn?.status, 'failed');
+    await waitForConversationUnlocked(firstResult.conversationId);
+
+    const failedFlowFlags = (memoryConversations.get(firstResult.conversationId)
+      ?.flags ?? {}) as {
+      flow?: { retryOwnershipPending?: unknown };
+    };
+    assert.equal(failedFlowFlags.flow?.retryOwnershipPending, undefined);
+
+    const secondResult = await startFlowRun({
+      flowName: 'retry-ownership-terminal-failure',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
+    });
+    assert.notEqual(secondResult.conversationId, firstResult.conversationId);
+    const secondTurns = await waitForTurns(
+      secondResult.conversationId,
+      (items) =>
+        items.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'failed',
+        ),
+    );
+    const secondAssistantTurn = [...secondTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant');
+    assert.equal(secondAssistantTurn?.status, 'failed');
+  });
+});
+
 test('completed retryOwnershipId replay rejects a contradictory fresh-run launch after the earlier result has been accepted', async () => {
   await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
     await writeFlowFile({

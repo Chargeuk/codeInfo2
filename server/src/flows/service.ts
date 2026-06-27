@@ -4509,7 +4509,7 @@ async function runFlowUnlocked(params: {
   }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
-}) {
+}): Promise<'ok' | 'paused' | 'failed'> {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
   const runtimeState = hydrateFlowAgentState(params.resumeState ?? null);
@@ -7468,12 +7468,13 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         detail: `outcome=${outcome}`,
       });
-      return;
+      return 'failed';
     }
     params.onStopUnwindCheckpoint?.({
       checkpoint: 'runFlowUnlocked.return.ok',
       conversationId: params.conversationId,
     });
+    return 'ok';
   } finally {
     finalizeFlowRuntime();
   }
@@ -7846,6 +7847,7 @@ export async function startFlowRun(
   }
 
   void (async () => {
+    let failedTerminally = false;
     try {
       if (!repositoryContext) {
         throw toFlowRunError(
@@ -7880,13 +7882,15 @@ export async function startFlowRun(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      completedSuccessfully = runOutcome !== 'paused';
+      completedSuccessfully = runOutcome === 'ok';
+      failedTerminally = runOutcome !== 'ok' && runOutcome !== 'paused';
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
         conversationId,
         detail: `outcome=${runOutcome}`,
       });
     } catch (err) {
+      failedTerminally = true;
       const failureMessage = isFlowRunError(err)
         ? (err.reason ?? err.code)
         : err instanceof Error
@@ -7929,9 +7933,6 @@ export async function startFlowRun(
         conversationId,
       });
       cleanupPendingConversationCancel({ conversationId, runToken });
-      const releaseConversationLockFn =
-        params.releaseConversationLockFn ?? releaseConversationLock;
-      const released = releaseConversationLockFn(conversationId, runToken);
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -7962,6 +7963,19 @@ export async function startFlowRun(
           result: completedResult,
         });
       }
+      if (retryOwnershipId && !resumeStepPath && failedTerminally) {
+        try {
+          await clearFreshRunRetryOwnershipPending({
+            conversationId,
+            conversation: await getConversation(conversationId),
+          });
+        } catch (error) {
+          baseLogger.error(
+            { flowName, conversationId, inflightId, error },
+            'fresh run retry pending cleanup failed after terminal error',
+          );
+        }
+      }
       if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
@@ -7970,6 +7984,9 @@ export async function startFlowRun(
           expectedRunToken: runToken,
         });
       }
+      const releaseConversationLockFn =
+        params.releaseConversationLockFn ?? releaseConversationLock;
+      const released = releaseConversationLockFn(conversationId, runToken);
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.finally.exit',
         conversationId,

@@ -24,7 +24,10 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
-import { __resetGitHubReviewDepsForTests } from '../../flows/githubReview.js';
+import {
+  __resetGitHubReviewDepsForTests,
+  __setGitHubReviewDepsForTests,
+} from '../../flows/githubReview.js';
 import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
@@ -441,6 +444,11 @@ const collectAgentConversationIds = (conversationId: string) => {
   };
   return Object.values(flags.flow?.agentConversations ?? {});
 };
+
+const getLatestAssistantTurn = (conversationId: string) =>
+  [...(memoryTurns.get(conversationId) ?? [])]
+    .reverse()
+    .find((turn) => turn?.role === 'assistant');
 
 const getFlowExecutionId = (conversationId: string) => {
   const conversation = memoryConversations.get(conversationId);
@@ -2120,11 +2128,12 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
   );
 });
 
-test('github review skip leaves the default entrypoint untouched and records a durable plan note', async () => {
+test('github review skip publishes completed-with-warning, records a durable plan note, and leaves the default entrypoint untouched', async () => {
   const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
   const repoRoot = await createGitHubReviewRepoFixture();
   process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-skip-conversation';
 
   try {
     await writeFlowFile({
@@ -2135,7 +2144,7 @@ test('github review skip leaves the default entrypoint untouched and records a d
 
     await startFlowRun({
       flowName: 'github-skip',
-      conversationId: 'github-skip-conversation',
+      conversationId,
       source: 'REST',
       working_folder: repoRoot,
       chatFactory: () => new InstantChat(),
@@ -2157,6 +2166,23 @@ test('github review skip leaves the default entrypoint untouched and records a d
         'GitHub review stage skipped during PR open: The repository-local GitHub token file `.env.local` is missing.',
       );
     }, 4000);
+
+    const warningTurns = await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    const warningTurn = [...warningTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant' && turn.status === 'warning');
+    assert.ok(warningTurn);
+    assert.match(
+      warningTurn.content,
+      /GitHub review stage skipped during PR open:/,
+    );
 
     const defaultFlow = JSON.parse(
       await fs.readFile(
@@ -2183,6 +2209,141 @@ test('github review skip leaves the default entrypoint untouched and records a d
       true,
     );
   } finally {
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review fetch without an open pull request publishes completed-with-warning while adjacent non-GitHub flows still complete with ok status', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-fetch-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture();
+  process.env.FLOWS_DIR = tempFlowsDir;
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) => await fs.readFile(filePath, encoding),
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return { exitCode: 0, stdout: 'feature/0000060-test\n', stderr: '' };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return { exitCode: 0, stdout: 'origin/feature/0000060-test\n', stderr: '' };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
+            return {
+              exitCode: 0,
+              stdout: 'refs/remotes/origin/main\n',
+              stderr: '',
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-no-open-pr',
+      steps: [{ type: 'github_fetch_reviews', label: 'Fetch reviews' }],
+    });
+
+    const warningConversationId = 'github-no-open-pr-conversation';
+    await startFlowRun({
+      flowName: 'github-no-open-pr',
+      conversationId: warningConversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      warningConversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    const warningTurn = getLatestAssistantTurn(warningConversationId);
+    assert.ok(warningTurn);
+    assert.equal(warningTurn.status, 'warning');
+    assert.match(warningTurn.content, /no latest open pull request/i);
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-adjacent-ok',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Still OK'] }],
+        },
+      ],
+    });
+
+    const okConversationId = 'github-adjacent-ok-conversation';
+    await startFlowRun({
+      flowName: 'github-adjacent-ok',
+      conversationId: okConversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+
+    await waitForTurns(
+      okConversationId,
+      (turns) =>
+        turns.some((turn) => turn.role === 'assistant' && turn.status === 'ok'),
+      4000,
+    );
+    const okTurn = getLatestAssistantTurn(okConversationId);
+    assert.ok(okTurn);
+    assert.equal(okTurn.status, 'ok');
+  } finally {
+    __resetGitHubReviewDepsForTests();
     if (previousFlowsDir === undefined) {
       delete process.env.FLOWS_DIR;
     } else {

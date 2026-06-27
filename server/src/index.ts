@@ -27,6 +27,7 @@ import {
 } from './config/startupEnv.js';
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
 import './flows/flowSchema.js';
+import { resumePendingFlowWaitsForStartup } from './flows/service.js';
 import './ingest/index.js';
 import { setIngestDeps } from './ingest/ingestJob.js';
 import './mongo/astCoverage.js';
@@ -445,6 +446,7 @@ const start = async () => {
   });
   if (isMongoConnected()) {
     await recoverIngestQueueForStartup();
+    await resumePendingFlowWaitsForStartup();
   }
 
   const httpServer = http.createServer(app);

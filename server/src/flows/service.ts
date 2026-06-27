@@ -137,6 +137,7 @@ import type {
   FlowResumeState,
   FlowWaitState,
   FreshRunRetryOwnershipCompletion,
+  FreshRunRetryOwnershipPending,
 } from './flowState.js';
 import {
   appendGitHubReviewPlanNote,
@@ -252,6 +253,13 @@ type FreshRunRetryOwnershipCompletionRecord = {
   completedAt: number;
 };
 
+type FreshRunRetryOwnershipPendingRecord = {
+  retryOwnershipId: string;
+  sourceId?: string;
+  result: FlowRunStartResult;
+  launchSignature: string;
+};
+
 const FRESH_RUN_RETRY_OWNERSHIP_COMPLETION_WINDOW_MS = 10 * 60 * 1000;
 
 type FreshRunRetryOwnershipLaunch = {
@@ -348,6 +356,74 @@ const rememberFreshRunRetryOwnershipCompletion = (params: {
       completedAt: Date.now(),
     },
   );
+};
+
+const parseFreshRunRetryOwnershipPending = (
+  pending: unknown,
+): FreshRunRetryOwnershipPendingRecord | null => {
+  if (!isRecord(pending)) return null;
+  const retryOwnershipId =
+    typeof pending.retryOwnershipId === 'string' &&
+    pending.retryOwnershipId.trim().length > 0
+      ? pending.retryOwnershipId.trim()
+      : undefined;
+  const sourceId =
+    typeof pending.sourceId === 'string' && pending.sourceId.trim().length > 0
+      ? pending.sourceId.trim()
+      : undefined;
+  const launchSignature =
+    typeof pending.launchSignature === 'string' &&
+    pending.launchSignature.trim().length > 0
+      ? pending.launchSignature.trim()
+      : undefined;
+  const result = pending.result;
+  if (!retryOwnershipId || !launchSignature || !isRecord(result)) {
+    return null;
+  }
+  const flowName =
+    typeof result.flowName === 'string' && result.flowName.trim().length > 0
+      ? result.flowName.trim()
+      : undefined;
+  const conversationId =
+    typeof result.conversationId === 'string' &&
+    result.conversationId.trim().length > 0
+      ? result.conversationId.trim()
+      : undefined;
+  const inflightId =
+    typeof result.inflightId === 'string' && result.inflightId.trim().length > 0
+      ? result.inflightId.trim()
+      : undefined;
+  const providerId =
+    typeof result.providerId === 'string' && result.providerId.trim().length > 0
+      ? result.providerId.trim()
+      : undefined;
+  const modelId =
+    typeof result.modelId === 'string' && result.modelId.trim().length > 0
+      ? result.modelId.trim()
+      : undefined;
+  const warnings =
+    Array.isArray(result.warnings) &&
+    result.warnings.every((item) => typeof item === 'string')
+      ? result.warnings.filter(
+          (item): item is string => typeof item === 'string',
+        )
+      : undefined;
+  if (!flowName || !conversationId || !inflightId || !providerId || !modelId) {
+    return null;
+  }
+  return {
+    retryOwnershipId,
+    sourceId,
+    launchSignature,
+    result: {
+      flowName,
+      conversationId,
+      inflightId,
+      providerId,
+      modelId,
+      ...(warnings ? { warnings: [...warnings] } : {}),
+    },
+  };
 };
 
 const parseFreshRunRetryOwnershipCompletion = (
@@ -454,6 +530,53 @@ const getFreshRunRetryOwnershipCompletionFromConversation = (
   return completion;
 };
 
+const getFreshRunRetryOwnershipPendingFromConversation = (
+  conversation: Conversation | null | undefined,
+  params: {
+    flowName: string;
+    retryOwnershipId: string;
+    launch: FreshRunRetryOwnershipLaunch;
+  },
+): FreshRunRetryOwnershipPendingRecord | null => {
+  if (!conversation || conversation.flowName !== params.flowName) return null;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow)) return null;
+  const pending = parseFreshRunRetryOwnershipPending(flow.retryOwnershipPending);
+  if (!pending) return null;
+  if (pending.retryOwnershipId !== params.retryOwnershipId) return null;
+  if (params.launch.sourceId) {
+    if (pending.sourceId !== params.launch.sourceId) return null;
+  } else if (pending.sourceId) {
+    return null;
+  }
+  return pending;
+};
+
+const clearFreshRunRetryOwnershipPending = async (params: {
+  conversationId: string;
+  conversation: Conversation | null | undefined;
+}) => {
+  const conversation = params.conversation;
+  if (!conversation) return;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow) || !flow.retryOwnershipPending) return;
+  const nextFlow = { ...flow } as Record<string, unknown>;
+  delete nextFlow.retryOwnershipPending;
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(params.conversationId, {
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: nextFlow,
+      },
+    });
+    return;
+  }
+  await updateConversationFlowState({
+    conversationId: params.conversationId,
+    flow: nextFlow as FlowResumeState,
+  });
+};
+
 const clearFreshRunRetryOwnershipCompletion = async (params: {
   conversationId: string;
   conversation: Conversation | null | undefined;
@@ -500,6 +623,7 @@ const persistFreshRunRetryOwnershipCompletion = async (params: {
       : {}),
     retryOwnershipCompletion: completion,
   } as FlowResumeState;
+  delete (nextFlow as Record<string, unknown>).retryOwnershipPending;
   if (shouldUseMemoryPersistence()) {
     updateMemoryConversationMeta(params.conversationId, {
       flags: {
@@ -601,6 +725,67 @@ const getPersistedFreshRunRetryOwnershipCompletion = async (params: {
   };
 };
 
+const getPersistedFreshRunRetryOwnershipPending = async (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}): Promise<FreshRunRetryOwnershipPendingRecord | null> => {
+  const loadPendingConversation = async (): Promise<Conversation | null> => {
+    if (shouldUseMemoryPersistence()) {
+      const conversation = [...memoryConversations.values()].find((item) =>
+        Boolean(getFreshRunRetryOwnershipPendingFromConversation(item, params)),
+      );
+      return conversation ?? null;
+    }
+
+    return (await ConversationModel.findOne({
+      flowName: params.flowName,
+      'flags.flow.retryOwnershipPending.retryOwnershipId':
+        params.retryOwnershipId,
+      ...(params.sourceId
+        ? {
+            'flags.flow.retryOwnershipPending.sourceId': params.sourceId,
+          }
+        : {
+            'flags.flow.retryOwnershipPending.sourceId': { $exists: false },
+          }),
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .lean()
+      .exec()) as Conversation | null;
+  };
+
+  const conversation = await loadPendingConversation();
+  if (!conversation) return null;
+  const pending = getFreshRunRetryOwnershipPendingFromConversation(
+    conversation,
+    params,
+  );
+  if (!pending) {
+    await clearFreshRunRetryOwnershipPending({
+      conversationId: conversation._id,
+      conversation,
+    });
+    return null;
+  }
+  if (
+    pending.launchSignature !==
+    makeFreshRunRetryOwnershipLaunchSignature(params.launch)
+  ) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      'retryOwnershipId already belongs to a different fresh-run launch',
+    );
+  }
+  return {
+    retryOwnershipId: pending.retryOwnershipId,
+    sourceId: pending.sourceId,
+    result: cloneFlowRunStartResult(pending.result),
+    launchSignature: pending.launchSignature,
+  };
+};
+
 const getFreshRunRetryOwnershipCompletion = async (params: {
   flowName: string;
   sourceId?: string;
@@ -660,6 +845,7 @@ const getFreshRunRetryOwnership = async (params: {
     };
   }
   const completedRecord =
+    (await getPersistedFreshRunRetryOwnershipPending(params)) ??
     (await getFreshRunRetryOwnershipCompletion(params)) ??
     (await getPersistedFreshRunRetryOwnershipCompletion(params));
   if (!completedRecord) return null;
@@ -902,6 +1088,9 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
     ...(normalizeOptionalString(value.workingFolder)
       ? { workingFolder: normalizeOptionalString(value.workingFolder) }
       : {}),
+    ...(normalizeOptionalString(value.sourceId)
+      ? { sourceId: normalizeOptionalString(value.sourceId) }
+      : {}),
     resumeAt,
     ...(githubReviewContext && Object.keys(githubReviewContext).length > 0
       ? { githubReviewContext }
@@ -962,6 +1151,9 @@ const parseFlowResumeState = (
     flow.agentRequestedProviders,
   );
   const agentEndpointIds = normalizeStringMap(flow.agentEndpointIds);
+  const retryOwnershipPending = parseFreshRunRetryOwnershipPending(
+    flow.retryOwnershipPending,
+  );
   const retryOwnershipCompletion = parseFreshRunRetryOwnershipCompletion(
     flow.retryOwnershipCompletion,
   );
@@ -1006,6 +1198,7 @@ const parseFlowResumeState = (
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
     ...(wait ? { wait } : {}),
+    ...(retryOwnershipPending ? { retryOwnershipPending } : {}),
     ...(retryOwnershipCompletion ? { retryOwnershipCompletion } : {}),
   };
 };
@@ -1868,6 +2061,9 @@ const persistAgentThreadId = async (params: {
 
 const shouldStopAfter = (status: TurnStatus): boolean => status !== 'ok';
 
+const isTerminalFlowStatus = (status: TurnStatus): boolean =>
+  status === 'warning' || status === 'stopped' || status === 'failed';
+
 const deriveStatusFromError = (message: string | undefined): TurnStatus => {
   const text = (message ?? '').toLowerCase();
   if (text.includes('abort') || text.includes('stop')) return 'stopped';
@@ -2630,11 +2826,7 @@ const persistUnexpectedFlowFailureIfNeeded = async (params: {
         })
       ).items.find((turn) => turn.role === 'assistant');
 
-  if (
-    latestAssistantTurn &&
-    (latestAssistantTurn.status === 'failed' ||
-      latestAssistantTurn.status === 'stopped')
-  ) {
+  if (latestAssistantTurn && isTerminalFlowStatus(latestAssistantTurn.status)) {
     await clearPersistedWaitStateIfPresent(params.conversationId);
     return;
   }
@@ -2853,6 +3045,99 @@ const emitStoppedFlowStep = async (params: {
   });
 };
 
+const emitWarningFlowStep = async (params: {
+  flowConversationId: string;
+  inflightId: string;
+  instruction: string;
+  modelId: string;
+  providerId?: ConversationProvider;
+  source: 'REST' | 'MCP';
+  message: string;
+  command?: TurnCommandMetadata;
+}) => {
+  await clearPersistedWaitStateIfPresent(params.flowConversationId);
+  const createdAtIso = new Date().toISOString();
+  const providerId = params.providerId ?? 'codex';
+  createInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: providerId,
+    model: params.modelId,
+    source: params.source,
+    command: params.command,
+    userTurn: { content: params.instruction, createdAt: createdAtIso },
+  });
+
+  publishUserTurn({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    content: params.instruction,
+    createdAt: createdAtIso,
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: providerId,
+    model: params.modelId,
+    chat: createNoopChat(),
+    deferFinal: true,
+  });
+
+  const userCreatedAt = new Date(createdAtIso);
+  const userPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'user',
+    content: params.instruction,
+    model: params.modelId,
+    provider: providerId,
+    source: params.source,
+    status: 'ok',
+    toolCalls: null,
+    command: params.command,
+    createdAt: userCreatedAt,
+  });
+
+  const assistantCreatedAt = new Date();
+  const assistantPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'assistant',
+    content: params.message,
+    model: params.modelId,
+    provider: providerId,
+    source: params.source,
+    status: 'warning',
+    toolCalls: null,
+    command: params.command,
+    createdAt: assistantCreatedAt,
+  });
+
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'user',
+    turnId: userPersisted.turnId,
+  });
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'assistant',
+    turnId: assistantPersisted.turnId,
+  });
+
+  bridge.finalize({
+    fallback: {
+      status: 'warning',
+    },
+  });
+  bridge.cleanup();
+
+  cleanupInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+  });
+};
+
 type FlowStepOutcome = TurnStatus | 'break' | 'continue' | 'paused';
 
 type LoopFrame = {
@@ -2884,6 +3169,8 @@ const buildFlowResumeState = (params: {
   wait?: FlowWaitState;
   activeSubflows?: FlowResumeState['activeSubflows'];
   workingFolder?: string;
+  retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
+  retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
   const agentWorkingFolders: Record<string, string> = {};
@@ -2954,6 +3241,7 @@ const buildFlowResumeState = (params: {
             ...(params.wait.workingFolder
               ? { workingFolder: params.wait.workingFolder }
               : {}),
+            ...(params.wait.sourceId ? { sourceId: params.wait.sourceId } : {}),
             resumeAt: params.wait.resumeAt,
             ...(params.wait.githubReviewContext
               ? {
@@ -2977,6 +3265,24 @@ const buildFlowResumeState = (params: {
       ? { agentRequestedProviders }
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
+    ...(params.retryOwnershipPending
+      ? {
+          retryOwnershipPending: {
+            ...params.retryOwnershipPending,
+            result: cloneFlowRunStartResult(params.retryOwnershipPending.result),
+          },
+        }
+      : {}),
+    ...(params.retryOwnershipCompletion
+      ? {
+          retryOwnershipCompletion: {
+            ...params.retryOwnershipCompletion,
+            result: cloneFlowRunStartResult(
+              params.retryOwnershipCompletion.result,
+            ),
+          },
+        }
+      : {}),
   };
 };
 
@@ -2990,6 +3296,8 @@ const persistFlowResumeState = async (params: {
   wait?: FlowWaitState;
   activeSubflows?: FlowResumeState['activeSubflows'];
   workingFolder?: string;
+  retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
+  retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
 }) => {
   const flowState = buildFlowResumeState({
     executionId: params.executionId,
@@ -3000,14 +3308,25 @@ const persistFlowResumeState = async (params: {
     wait: params.wait,
     activeSubflows: params.activeSubflows,
     workingFolder: params.workingFolder,
+    retryOwnershipPending: params.retryOwnershipPending,
+    retryOwnershipCompletion: params.retryOwnershipCompletion,
   });
   const existingConversation = await getConversation(params.conversationId);
   const existingFlowState = parseFlowResumeState(
-    isRecord(existingConversation?.flags?.flow)
-      ? (existingConversation.flags.flow as Record<string, unknown>)
+    isRecord(existingConversation?.flags)
+      ? (existingConversation.flags as Record<string, unknown>)
       : undefined,
   );
-  if (existingFlowState?.retryOwnershipCompletion) {
+  if (
+    params.retryOwnershipPending === undefined &&
+    existingFlowState?.retryOwnershipPending
+  ) {
+    flowState.retryOwnershipPending = existingFlowState.retryOwnershipPending;
+  }
+  if (
+    params.retryOwnershipCompletion === undefined &&
+    existingFlowState?.retryOwnershipCompletion
+  ) {
     flowState.retryOwnershipCompletion =
       existingFlowState.retryOwnershipCompletion;
   }
@@ -3430,8 +3749,8 @@ const schedulePersistedWaitResume = (params: {
         const latestAssistantStatus =
           await latestAssistantStatusForConversation(params.conversationId);
         if (
-          latestAssistantStatus === 'failed' ||
-          latestAssistantStatus === 'stopped'
+          latestAssistantStatus &&
+          isTerminalFlowStatus(latestAssistantStatus)
         ) {
           return;
         }
@@ -3440,6 +3759,7 @@ const schedulePersistedWaitResume = (params: {
             flowName: params.flowName,
             conversationId: params.conversationId,
             resumeStepPath: persistedWait.stepPath,
+            sourceId: persistedWait.sourceId,
             source: params.source,
           });
         } catch (error) {
@@ -3500,6 +3820,10 @@ export async function __resumePendingFlowWaitsForTests(
       wait: state.wait,
     });
   }
+}
+
+export async function resumePendingFlowWaitsForStartup() {
+  await __resumePendingFlowWaitsForTests();
 }
 
 const isFlowDecisionScriptPath = (value: string): boolean => {
@@ -4174,6 +4498,9 @@ async function runFlowUnlocked(params: {
         ...(params.resumeState.wait.workingFolder
           ? { workingFolder: params.resumeState.wait.workingFolder }
           : {}),
+        ...(params.resumeState.wait.sourceId
+          ? { sourceId: params.resumeState.wait.sourceId }
+          : {}),
         resumeAt: params.resumeState.wait.resumeAt,
         ...(params.resumeState.wait.githubReviewContext
           ? {
@@ -4251,6 +4578,16 @@ async function runFlowUnlocked(params: {
         'Persisted wait state workingFolder no longer matches the resumed flow execution.',
       );
     }
+    if (
+      activeWait.sourceId &&
+      params.repositoryContext.flowSourceId &&
+      activeWait.sourceId !== params.repositoryContext.flowSourceId
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state sourceId no longer matches the resumed flow execution.',
+      );
+    }
     const savedLoopKey = activeWait.loopStack.map(
       (frame) => `${getStepPathKey(frame.loopStepPath)}:${frame.iteration}`,
     );
@@ -4279,15 +4616,6 @@ async function runFlowUnlocked(params: {
       throw toFlowRunError(
         'INVALID_REQUEST',
         'Persisted wait state active subflows no longer match the resumed flow execution.',
-      );
-    }
-    if (
-      activeWait.githubReviewContext &&
-      Object.keys(activeWait.githubReviewContext).length > 0
-    ) {
-      throw toFlowRunError(
-        'INVALID_REQUEST',
-        'Persisted wait state GitHub review context could not be reconciled during resume.',
       );
     }
     activeWait = undefined;
@@ -5086,6 +5414,9 @@ async function runFlowUnlocked(params: {
       ...(params.repositoryContext.workingRepositoryPath
         ? { workingFolder: params.repositoryContext.workingRepositoryPath }
         : {}),
+      ...(params.repositoryContext.flowSourceId
+        ? { sourceId: params.repositoryContext.flowSourceId }
+        : {}),
       resumeAt,
     };
     lastCompletedStepPath = nextPath;
@@ -5222,6 +5553,21 @@ async function runFlowUnlocked(params: {
     });
   };
 
+  const emitGitHubStepWarning = async (paramsForWarning: {
+    instruction: string;
+    message: string;
+  }) => {
+    await emitWarningFlowStep({
+      flowConversationId: params.conversationId,
+      inflightId: stepInflightId,
+      instruction: paramsForWarning.instruction,
+      modelId: params.modelId,
+      providerId: params.providerId,
+      source: params.source,
+      message: paramsForWarning.message,
+    });
+  };
+
   const resolveGitHubStepContext = async () => {
     const workingRepositoryRoot =
       params.repositoryContext.workingRepositoryPath;
@@ -5257,9 +5603,8 @@ async function runFlowUnlocked(params: {
   const runGitHubOpenPrStep = async (): Promise<TurnStatus> => {
     const context = await resolveGitHubStepContext();
     if (context.kind === 'skip') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage skipped during PR open: ${context.message}`,
-      );
+      const warningMessage = `GitHub review stage skipped during PR open: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
       append({
         level: 'warn',
         message: 'flows.github.open_pr.skipped',
@@ -5271,7 +5616,11 @@ async function runFlowUnlocked(params: {
           detail: context.message,
         },
       });
-      return 'ok';
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: warningMessage,
+      });
+      return 'warning';
     }
     if (context.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -5288,9 +5637,8 @@ async function runFlowUnlocked(params: {
       repository: context.value.repository,
     });
     if (pushResult.kind === 'skip') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage skipped during PR open: ${pushResult.message}`,
-      );
+      const warningMessage = `GitHub review stage skipped during PR open: ${pushResult.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
       append({
         level: 'warn',
         message: 'flows.github.open_pr.skipped',
@@ -5302,7 +5650,11 @@ async function runFlowUnlocked(params: {
           detail: pushResult.message,
         },
       });
-      return 'ok';
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: warningMessage,
+      });
+      return 'warning';
     }
     if (pushResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -5326,9 +5678,8 @@ async function runFlowUnlocked(params: {
       body,
     });
     if (createResult.kind === 'skip') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage skipped during PR open: ${createResult.message}`,
-      );
+      const warningMessage = `GitHub review stage skipped during PR open: ${createResult.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
       append({
         level: 'warn',
         message: 'flows.github.open_pr.skipped',
@@ -5340,7 +5691,11 @@ async function runFlowUnlocked(params: {
           detail: createResult.message,
         },
       });
-      return 'ok';
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: warningMessage,
+      });
+      return 'warning';
     }
     if (createResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -5372,9 +5727,8 @@ async function runFlowUnlocked(params: {
   const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> => {
     const context = await resolveGitHubStepContext();
     if (context.kind === 'skip') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage skipped during review fetch: ${context.message}`,
-      );
+      const warningMessage = `GitHub review stage skipped during review fetch: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
       append({
         level: 'warn',
         message: 'flows.github.fetch_reviews.skipped',
@@ -5386,7 +5740,11 @@ async function runFlowUnlocked(params: {
           detail: context.message,
         },
       });
-      return 'ok';
+      await emitGitHubStepWarning({
+        instruction: 'GitHub fetch reviews step',
+        message: warningMessage,
+      });
+      return 'warning';
     }
     if (context.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -5415,9 +5773,9 @@ async function runFlowUnlocked(params: {
       return 'failed';
     }
     if (!pullRequestResult.value) {
-      await appendGitHubStagePlanNote(
-        'GitHub review stage stopped before review fetch because no latest open pull request was available for the current branch.',
-      );
+      const warningMessage =
+        'GitHub review stage stopped before review fetch because no latest open pull request was available for the current branch.';
+      await appendGitHubStagePlanNote(warningMessage);
       append({
         level: 'info',
         message: 'flows.github.fetch_reviews.no_open_pr',
@@ -5429,7 +5787,11 @@ async function runFlowUnlocked(params: {
           branch: context.value.repository.currentBranch,
         },
       });
-      return 'ok';
+      await emitGitHubStepWarning({
+        instruction: 'GitHub fetch reviews step',
+        message: warningMessage,
+      });
+      return 'warning';
     }
     const reviewArtifactResult = await fetchPullRequestReviews({
       repository: context.value.repository,
@@ -5518,9 +5880,8 @@ async function runFlowUnlocked(params: {
   const runGitHubClosePrStep = async (): Promise<TurnStatus> => {
     const context = await resolveGitHubStepContext();
     if (context.kind === 'skip') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage skipped during PR close: ${context.message}`,
-      );
+      const warningMessage = `GitHub review stage skipped during PR close: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
       append({
         level: 'warn',
         message: 'flows.github.close_pr.skipped',
@@ -5532,7 +5893,11 @@ async function runFlowUnlocked(params: {
           detail: context.message,
         },
       });
-      return 'ok';
+      await emitGitHubStepWarning({
+        instruction: 'GitHub close PR step',
+        message: warningMessage,
+      });
+      return 'warning';
     }
     if (context.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -5561,7 +5926,14 @@ async function runFlowUnlocked(params: {
       return 'failed';
     }
     if (!pullRequestResult.value) {
-      return 'ok';
+      const warningMessage =
+        'GitHub review stage stopped before PR close because no latest open pull request was available for the current branch.';
+      await appendGitHubStagePlanNote(warningMessage);
+      await emitGitHubStepWarning({
+        instruction: 'GitHub close PR step',
+        message: warningMessage,
+      });
+      return 'warning';
     }
     const closeResult = await closePullRequest({
       repository: context.value.repository,
@@ -6941,7 +7313,23 @@ export async function startFlowRun(
   params: FlowRunStartParams,
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
-  const sourceId = params.sourceId?.trim() || undefined;
+  const requestedSourceId = params.sourceId?.trim() || undefined;
+  const requestedConversationId = params.conversationId?.trim() || undefined;
+  let existingConversation = requestedConversationId
+    ? await getConversation(requestedConversationId)
+    : null;
+  const trustedRequestedFlowState =
+    existingConversation?.flowName === flowName
+      ? parseFlowResumeState(
+          (existingConversation.flags ?? undefined) as
+            | Record<string, unknown>
+            | undefined,
+        )
+      : null;
+  const sourceId =
+    params.resumeStepPath && trustedRequestedFlowState?.wait?.sourceId
+      ? trustedRequestedFlowState.wait.sourceId
+      : requestedSourceId;
   const flowPathEntry = buildFlowPathEntry({ flowName, sourceId });
   if (params.flowPath?.includes(flowPathEntry)) {
     const cyclePath = [...params.flowPath, flowPathEntry].join(' -> ');
@@ -6952,7 +7340,6 @@ export async function startFlowRun(
   }
   const flowPath = [...(params.flowPath ?? []), flowPathEntry];
   const retryOwnershipId = params.retryOwnershipId?.trim() || undefined;
-  const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
   const retryOwnershipLaunch = normalizeFreshRunRetryOwnershipLaunch({
@@ -6980,9 +7367,6 @@ export async function startFlowRun(
     }
   }
   const listRepos = params.listIngestedRepositories ?? listIngestedRepositories;
-  let existingConversation = requestedConversationId
-    ? await getConversation(requestedConversationId)
-    : null;
   const conversationId =
     resumeStepPath || !existingConversation
       ? (requestedConversationId ?? crypto.randomUUID())
@@ -7010,6 +7394,7 @@ export async function startFlowRun(
   let startupWarnings: string[] = [];
   let childExecutionBackfills: string[] = [];
   let completedSuccessfully = false;
+  let acceptedStartResult: FlowRunStartResult | null = null;
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -7226,6 +7611,14 @@ export async function startFlowRun(
       }
     }
 
+    acceptedStartResult = {
+      flowName,
+      conversationId,
+      inflightId,
+      providerId,
+      modelId,
+      ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
+    };
     await persistFlowResumeState({
       conversationId,
       executionId,
@@ -7244,6 +7637,17 @@ export async function startFlowRun(
       wait: undefined,
       activeSubflows: cloneActiveSubflows(resumeState?.activeSubflows),
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
+      retryOwnershipPending:
+        retryOwnershipId && !resumeStepPath
+          ? {
+              retryOwnershipId,
+              sourceId,
+              launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
+                retryOwnershipLaunch,
+              ),
+              result: acceptedStartResult,
+            }
+          : null,
     });
     if (retryOwnershipId && !resumeStepPath) {
       rememberFreshRunRetryOwnership({
@@ -7252,14 +7656,7 @@ export async function startFlowRun(
         retryOwnershipId,
         runToken,
         launch: retryOwnershipLaunch,
-        result: {
-          flowName,
-          conversationId,
-          inflightId,
-          providerId,
-          modelId,
-          ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
-        },
+        result: acceptedStartResult,
       });
     }
     params.working_folder = effectiveWorkingFolder;

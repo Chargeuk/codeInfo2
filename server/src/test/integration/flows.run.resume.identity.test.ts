@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
@@ -21,6 +22,7 @@ import {
   __resetProviderBootstrapStatusForTests,
   __setProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { startFlowRun } from '../../flows/service.js';
 import {
   __resetFlowResumeTestDepsForTests,
@@ -36,6 +38,28 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -2086,6 +2110,133 @@ test('cancelled wait does not emit a later resume side effect when the persisted
     (wake as () => void)();
     await new Promise((resolve) => setTimeout(resolve, 50));
     assert.equal(captured.length, 1);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('paused repository-backed waits keep the original sourceId and retryOwnershipId barrier while excluding a conflicting fresh sourceId on resume', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-sourceid-'),
+  );
+  const sourceRepo = path.join(tmpDir, 'repo-source');
+  await fs.mkdir(path.join(sourceRepo, 'flows'), { recursive: true });
+  await writeWaitResumeFlow(path.join(sourceRepo, 'flows'));
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  delete process.env.FLOWS_DIR;
+
+  const conversationId = 'flow-wait-resume-sourceid';
+  const captured: string[] = [];
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    scheduleWake: () => ({ cancel: () => {} }),
+  });
+
+  try {
+    const firstStart = await startFlowRun({
+      flowName: 'wait-resume',
+      conversationId,
+      sourceId: sourceRepo,
+      working_folder: sourceRepo,
+      retryOwnershipId: 'paused-retry-1',
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(sourceRepo)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() => captured.length === 1);
+    const executionId = getFlowExecutionId(conversationId);
+    await waitFor(() => {
+      const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
+        flow?: { wait?: { sourceId?: string; stepPath?: number[] } };
+      };
+      return (
+        flags.flow?.wait?.sourceId === sourceRepo &&
+        Array.isArray(flags.flow?.wait?.stepPath) &&
+        flags.flow?.wait?.stepPath?.[0] === 1
+      );
+    });
+    await waitFor(() => getActiveRunOwnership(conversationId) === null);
+
+    const replayedStart = await startFlowRun({
+      flowName: 'wait-resume',
+      sourceId: sourceRepo,
+      working_folder: sourceRepo,
+      retryOwnershipId: 'paused-retry-1',
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(sourceRepo)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(replayedStart.conversationId, firstStart.conversationId);
+    assert.equal(replayedStart.inflightId, firstStart.inflightId);
+    assert.equal(captured.length, 1);
+
+    await startFlowRun({
+      flowName: 'wait-resume',
+      conversationId,
+      resumeStepPath: [1],
+      sourceId: '/data/conflicting-source',
+      working_folder: sourceRepo,
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(sourceRepo)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    assert.equal(getFlowExecutionId(conversationId), executionId);
+    assert.equal(
+      (
+        (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: { wait?: unknown };
+        }
+      ).flow?.wait,
+      undefined,
+    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

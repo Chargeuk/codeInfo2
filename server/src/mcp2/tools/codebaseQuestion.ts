@@ -267,7 +267,7 @@ async function getPersistedCompletedReplayResult(params: {
     | {
         content: string;
         model: string;
-        status: 'ok' | 'stopped' | 'failed';
+        status: 'ok' | 'warning' | 'stopped' | 'failed';
         createdAt: Date;
       }
     | undefined;

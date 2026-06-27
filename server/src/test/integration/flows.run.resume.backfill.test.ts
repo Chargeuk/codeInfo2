@@ -14,9 +14,9 @@ import {
   __getFlowResumeTestDepsForTests,
   __resetFlowResumeTestDepsForTests,
   __resetFlowWaitResumeDepsForTests,
-  __resumePendingFlowWaitsForTests,
   __setFlowResumeTestDepsForTests,
   __setFlowWaitResumeDepsForTests,
+  resumePendingFlowWaitsForStartup,
   startFlowRun,
 } from '../../flows/service.js';
 import {
@@ -739,7 +739,7 @@ test('startFlowRun leaves a fresher child execution id intact when it appears af
   }
 });
 
-test('startup recovery reloads persisted wait state and resumes the same execution after an explicit backfill wake', async () => {
+test('startup recovery re-registers persisted waits through the normal startup path and resumes the same execution after an explicit wake', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -756,7 +756,7 @@ test('startup recovery reloads persisted wait state and resumes the same executi
 
   const conversationId = 'flow-wait-resume-backfill';
   const captured: string[] = [];
-  let wake: (() => void) | null = null;
+  const wakes: Array<() => void> = [];
 
   class TrackingChat extends ChatInterface {
     async execute(
@@ -780,7 +780,7 @@ test('startup recovery reloads persisted wait state and resumes the same executi
   __setFlowWaitResumeDepsForTests({
     now: () => 1_700_000_000_000,
     scheduleWake: ({ onWake }) => {
-      wake = onWake;
+      wakes.push(onWake);
       return { cancel: () => {} };
     },
   });
@@ -808,19 +808,27 @@ test('startup recovery reloads persisted wait state and resumes the same executi
     await waitFor(() => getActiveRunOwnership(conversationId) === null);
     const executionId = getFlowExecutionId(conversationId);
     __resetFlowWaitResumeDepsForTests();
+    wakes.length = 0;
 
     __setFlowWaitResumeDepsForTests({
       scheduleWake: ({ onWake }) => {
-        wake = onWake;
+        wakes.push(onWake);
         return { cancel: () => {} };
       },
     });
 
-    await __resumePendingFlowWaitsForTests([conversationId]);
-    assert.ok(wake, 'expected startup backfill to register a wake callback');
+    await resumePendingFlowWaitsForStartup();
+    assert.ok(
+      wakes.length > 0,
+      'expected startup backfill to register a wake callback',
+    );
 
-    (wake as () => void)();
+    wakes.forEach((registeredWake) => registeredWake());
     await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    const assistantTurns = (memoryTurns.get(conversationId) ?? []).filter(
+      (turn) => turn?.role === 'assistant',
+    );
+    assert.equal(typeof assistantTurns.at(-1)?.status, 'string');
     assert.equal(
       (
         (memoryConversations.get(conversationId)?.flags ?? {}) as {

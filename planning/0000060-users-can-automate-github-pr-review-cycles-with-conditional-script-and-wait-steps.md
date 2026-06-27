@@ -1522,7 +1522,7 @@ This review-created task repairs the remaining GitHub stage note-writer race so 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1574,6 +1574,7 @@ This task keeps task-local proof on the focused persisted-wait backfill wrapper 
 - Expanded `server/src/test/integration/flows.run.resume.backfill.test.ts` with focused wake-time rearm and degraded startup-registration proofs while keeping malformed persisted wait state rejected; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` and `npm run build:summary:server` both passed.
 - Testing 3: `npm run lint` passed cleanly on the Task 16 persisted-wait recovery repair surface, so no follow-up lint cleanup was needed before the final formatting proof step.
 - Testing 4: `npm run format:check` passed cleanly across the Task 16 persisted-wait recovery repair surface, so the degraded-start and wake-rearm repair stays Prettier-clean without follow-up formatting fixes.
+- Audit closeout: repository evidence for Task 16 stayed within the story-owned persisted-wait and startup-recovery seam, no out-of-scope user-facing behavior drift was introduced, and the task is now `__done__` because every subtask and automated proof item is complete with no live blocker remaining.
 
 ### Task 17. Revalidate review pass `0000060-20260627T163109Z-40f1c89b` after review-cycle `0000060-rc-20260627T174933Z-7e7ca864` task-up repairs
 

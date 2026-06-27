@@ -858,7 +858,7 @@ This task also owns the final operator-facing `/flows` proof seam: choosing a re
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 4`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -912,6 +912,7 @@ This review-created task repairs the shared paused and resumed execution lifecyc
 - Updated `server/src/test/integration/flows.run.resume.backfill.test.ts` to call the real startup wait re-registration entrypoint, prove the startup wake publishes a second assistant terminal turn after re-registration, and keep the pause-cleared plus execution-stable ordering assertions focused on the startup-owned seam; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` passed cleanly.
 - Testing 4: `npm run lint` first failed on one import-order warning in `server/src/test/integration/flows.run.resume.identity.test.ts`; moving the `RepoEntry` type import below the `../../flows/service.js` imports brought the file back into the repo's lint order contract, and the rerun then passed cleanly.
 - Testing 5: `npm run format:check` passed cleanly after the lint repair, so the Task 6 changed surface is formatter-clean without any additional edits beyond the import-order fix.
+- Audit confirmed all Task 6 subtasks and automated proof rows are complete and that no live `**BLOCKER**` remained in the parser output; the prior “keep in progress for the later audit step” note was bookkeeping only, so the task now closes as `__done__`.
 
 ### Task 7. Harden GitHub Review Base, Handoff, And Replay Authority
 

@@ -1324,16 +1324,19 @@ This fresh review-created final task owns the whole active review cycle's post-r
 
 #### Testing
 
+Client-specific `npm run build:summary:client` and `npm run test:summary:client` wrappers are not applicable for this review-created findings block because Tasks 11 and 12 change no client-owned files or browser-only contracts; the shared browser-visible regression coverage for this block is owned instead by `npm run test:summary:e2e` plus the supported main-stack host-network probe after `npm run compose:up`.
+
 1. [ ] Run `npm run compose:build:summary` from the repository root because the repaired Story 60 review-cycle runtime still depends on the supported main-stack Docker build path after Tasks 11 and 12 land.
 2. [ ] Run `npm run build:summary:server` from the repository root because the remaining serious review-created work changes shared server runtime, GitHub transport, scratch ownership, and helper-script execution surfaces.
 3. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the focused task-up repairs plus all inline-resolved minor fixes on the repository-supported unit and integration wrapper surface.
 4. [ ] Run `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback` from the repository root because the active cycle's final validation still needs one direct helper-script proof surface that the Node-based wrappers do not cover by themselves.
 5. [ ] Run full `npm run test:summary:server:cucumber` from the repository root because Story 60 still owns authored flow behavior and runtime proof on the repository-supported cucumber surface after the task-up repairs.
-6. [ ] Run full `npm run test:summary:e2e` from the repository root because Story 60 still owns the end-to-end flow execution surface after these review-created follow-up repairs.
+6. [ ] Run full `npm run test:summary:e2e` from the repository root because this repository's automated browser wrapper is still the broadest supported proof that the repaired `/flows` execution surface and review-loop path did not regress, even though Tasks 11 and 12 changed only server and helper-script seams.
 7. [ ] Run `npm run compose:up` from the repository root because this final review-cycle task must include a supported main-stack smoke start after the broad automated suites complete.
-8. [ ] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final task must leave that baseline stopped again.
-9. [ ] Run `npm run lint` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-10. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+8. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because this repository's supported automated main-stack smoke proof is the host-network probe wrapper, not a healthcheck curl alone, and this review cycle still needs that normal runtime path proved after the task-up repairs.
+9. [ ] Run `npm run compose:down` from the repository root because the previous steps started and probed the supported main stack and this final task must leave that baseline stopped again.
+10. [ ] Run `npm run lint` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+11. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 

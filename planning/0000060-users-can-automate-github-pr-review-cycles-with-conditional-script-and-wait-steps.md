@@ -1078,6 +1078,10 @@ This review-created task repairs the shared subflow batch stop aggregation seam 
 - Added a loop-proof regression named for the mixed-outcome batch-stop contract, covering one fast child that completes and one slow child that is stopped after a parent cancel request; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` now passes with 33 of 33 tests.
 - Testing 2: `npm run lint` passed cleanly on the current Task 9 surface, so the repaired subflow batch-stop aggregation and its proof owner satisfy the repo-wide lint contract without further edits.
 - Testing 3: `npm run format:check` passed cleanly on the current Task 9 surface, so the repaired subflow batch-stop contract and its proof notes are formatter-clean without follow-on changes after lint.
+- Manual testing skipped for the Task 9 mixed-outcome subflow batch-stop runtime surface.
+- Tried: restarted the supported main stack, verified `http://localhost:5010/health` and `http://localhost:5001`, and requested `GET /flows` looking for a checked-in manual seam that could author the mixed child-stop case.
+- Observed: the main stack started and stopped cleanly, but the flow catalog only exposed the generic checked-in flows and no documented Task 9-specific manual subflow-stop entrypoint.
+- Why fuller proof was not possible: current repository evidence still assigns direct proof for this contract to `server/src/test/integration/flows.run.loop.test.ts`, so the supported runtime has no documented manual path to create the required mixed child-stop outcome in this step.
 
 ### Task 10. Revalidate review pass `0000060-20260626T222120Z-3a823780` after review-task repairs
 

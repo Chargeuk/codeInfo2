@@ -1038,7 +1038,10 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
   if (!isRecord(value)) return null;
   const executionId = normalizeOptionalString(value.executionId);
   const resumeAt = normalizeOptionalFiniteNumber(value.resumeAt);
-  if (!executionId || resumeAt === undefined) return null;
+  const stepPath = normalizeNumberArray(value.stepPath);
+  if (!executionId || resumeAt === undefined || stepPath.length === 0) {
+    return null;
+  }
 
   const activeSubflows = normalizeActiveSubflows({
     activeSubflows: value.activeSubflows,
@@ -1070,7 +1073,7 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
 
   return {
     executionId,
-    stepPath: normalizeNumberArray(value.stepPath),
+    stepPath,
     loopStack: Array.isArray(value.loopStack)
       ? value.loopStack
           .map((item) => {

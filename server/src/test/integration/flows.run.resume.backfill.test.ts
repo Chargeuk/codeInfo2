@@ -850,3 +850,77 @@ test('startup recovery re-registers persisted waits through the normal startup p
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('startup recovery does not re-register malformed persisted wait state with an empty wait stepPath', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-malformed-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-wait-resume-malformed';
+  const wakes: Array<() => void> = [];
+
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => {} };
+    },
+  });
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: wait-resume',
+    flowName: 'wait-resume',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'wait-execution-malformed',
+        stepPath: [1],
+        loopStack: [],
+        wait: {
+          executionId: 'wait-execution-malformed',
+          stepPath: [],
+          loopStack: [],
+          resumeAt: 1_700_000_060_000,
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    await resumePendingFlowWaitsForStartup();
+    assert.equal(
+      wakes.length,
+      0,
+      'malformed wait state should not be re-registered for wake',
+    );
+    assert.equal(getAssistantTurnCount(conversationId), 0);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});

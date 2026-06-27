@@ -70,7 +70,7 @@ const baseRepositoryState = (
   remoteUrl: 'https://github.com/example/repo.git',
 });
 
-test('repo-local token reader distinguishes missing file, missing key, blank token, and malformed .env.local', async () => {
+test('repo-local token reader keeps missing opt-in cases on skip and surfaces malformed or unreadable .env.local faults as errors', async () => {
   const tempRepo = await createTempRepo();
   try {
     const missingFile = await readWorkedRepositoryGitHubToken({
@@ -100,8 +100,29 @@ test('repo-local token reader distinguishes missing file, missing key, blank tok
     const malformed = await readWorkedRepositoryGitHubToken({
       workingRepositoryRoot: tempRepo.repoRoot,
     });
-    assert.equal(malformed.kind, 'skip');
-    assert.equal(malformed.reason, 'MALFORMED_ENV_LOCAL');
+    assert.equal(malformed.kind, 'error');
+    assert.equal(malformed.reason, 'ENV_LOCAL_INVALID');
+
+    await fs.rm(path.join(tempRepo.repoRoot, '.env.local'), { force: true });
+    await fs.mkdir(path.join(tempRepo.repoRoot, '.env.local'));
+    const directoryShaped = await readWorkedRepositoryGitHubToken({
+      workingRepositoryRoot: tempRepo.repoRoot,
+    });
+    assert.equal(directoryShaped.kind, 'error');
+    assert.equal(directoryShaped.reason, 'ENV_LOCAL_READ_FAILED');
+
+    __setGitHubReviewDepsForTests({
+      readFile: async () => {
+        const error = new Error('permission denied') as NodeJS.ErrnoException;
+        error.code = 'EACCES';
+        throw error;
+      },
+    });
+    const permissionDenied = await readWorkedRepositoryGitHubToken({
+      workingRepositoryRoot: tempRepo.repoRoot,
+    });
+    assert.equal(permissionDenied.kind, 'error');
+    assert.equal(permissionDenied.reason, 'ENV_LOCAL_READ_FAILED');
   } finally {
     await tempRepo.cleanup();
   }
@@ -233,7 +254,7 @@ test('repository-state resolution reports missing story-owned base branch and up
   }
 });
 
-test('raw gh transport failures are normalized before later consumers rely on them', async () => {
+test('GitHub PR creation keeps lower-layer runtime failures as errors unless replay reconciliation proves the PR already exists', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
@@ -243,12 +264,28 @@ test('raw gh transport failures are normalized before later consumers rely on th
         throw error;
       },
     });
-    const missingBinary = await lookupLatestOpenPullRequest({
+    const missingBinary = await createPullRequest({
       repository: baseRepositoryState(tempRepo.repoRoot),
       token: 'secret',
+      title: 'title',
+      body: 'body',
     });
     assert.equal(missingBinary.kind, 'error');
     assert.equal(missingBinary.reason, 'GITHUB_CLI_MISSING');
+
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => {
+        throw new Error('spawn EPERM');
+      },
+    });
+    const spawnFailure = await createPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      title: 'title',
+      body: 'body',
+    });
+    assert.equal(spawnFailure.kind, 'error');
+    assert.equal(spawnFailure.reason, 'GITHUB_CLI_SPAWN_FAILED');
 
     __setGitHubReviewDepsForTests({
       runCommand: async (params) => {
@@ -272,8 +309,8 @@ test('raw gh transport failures are normalized before later consumers rely on th
       title: 'title',
       body: 'body',
     });
-    assert.equal(nonZeroExit.kind, 'skip');
-    assert.equal(nonZeroExit.reason, 'PR_CREATE_FAILED');
+    assert.equal(nonZeroExit.kind, 'error');
+    assert.equal(nonZeroExit.reason, 'GITHUB_CLI_FAILED');
   } finally {
     await tempRepo.cleanup();
   }

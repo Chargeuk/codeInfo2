@@ -10,13 +10,11 @@ export type GitHubStepOutcome<T> =
       kind: 'skip';
       reason:
         | 'MISSING_ENV_LOCAL'
-        | 'MALFORMED_ENV_LOCAL'
         | 'MISSING_TOKEN'
         | 'BLANK_TOKEN'
         | 'UPSTREAM_MISSING'
         | 'BASE_BRANCH_MISSING'
-        | 'PUSH_FAILED'
-        | 'PR_CREATE_FAILED';
+        | 'PUSH_FAILED';
       message: string;
       stderr?: string;
       exitCode?: number | null;
@@ -24,6 +22,8 @@ export type GitHubStepOutcome<T> =
   | {
       kind: 'error';
       reason:
+        | 'ENV_LOCAL_INVALID'
+        | 'ENV_LOCAL_READ_FAILED'
         | 'GIT_COMMAND_FAILED'
         | 'GIT_REMOTE_INVALID'
         | 'GITHUB_CLI_MISSING'
@@ -393,8 +393,8 @@ const parseEnvLocalForGitHubToken = (
     );
   if (malformedLine) {
     return {
-      kind: 'skip',
-      reason: 'MALFORMED_ENV_LOCAL',
+      kind: 'error',
+      reason: 'ENV_LOCAL_INVALID',
       message: `.env.local contains an invalid line: ${malformedLine}`,
     };
   }
@@ -449,8 +449,8 @@ export const readWorkedRepositoryGitHubToken = async (params: {
       };
     }
     return {
-      kind: 'skip',
-      reason: 'MALFORMED_ENV_LOCAL',
+      kind: 'error',
+      reason: 'ENV_LOCAL_READ_FAILED',
       message:
         error instanceof Error
           ? error.message
@@ -793,20 +793,16 @@ export const createPullRequest = async (params: {
     ],
   });
   if (createResult.kind !== 'ok') {
-    const reconciled = await lookupLatestOpenPullRequest({
-      repository: params.repository,
-      token: params.token,
-    });
-    if (reconciled.kind === 'ok' && reconciled.value) {
-      return { kind: 'ok', value: reconciled.value };
+    if (createResult.reason === 'GITHUB_CLI_FAILED') {
+      const reconciled = await lookupLatestOpenPullRequest({
+        repository: params.repository,
+        token: params.token,
+      });
+      if (reconciled.kind === 'ok' && reconciled.value) {
+        return { kind: 'ok', value: reconciled.value };
+      }
     }
-    return {
-      kind: 'skip',
-      reason: 'PR_CREATE_FAILED',
-      message: 'GitHub pull request creation failed for the current branch.',
-      stderr: createResult.stderr,
-      exitCode: createResult.exitCode,
-    };
+    return createResult;
   }
   const lookedUp = await lookupLatestOpenPullRequest({
     repository: params.repository,

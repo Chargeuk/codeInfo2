@@ -1371,6 +1371,101 @@ test('github review runtime uses the dedicated handoff path and reconciles ambig
   }
 });
 
+test('github review runtime preserves producer-side token loader failures instead of rewriting them into skip warnings', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    await fs.rm(path.join(repoRoot, '.env.local'), { force: true });
+    await fs.mkdir(path.join(repoRoot, '.env.local'));
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-runtime-token-loader-failure';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-runtime-token-loader-failure.json'),
+          JSON.stringify(
+            {
+              description: 'Minimal GitHub review runtime failure proof',
+              steps: [
+                {
+                  type: 'github_open_pr',
+                  label: 'Open GitHub Review Pull Request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime-token-loader-failure/run')
+          .send({ conversationId, working_folder: repoRoot })
+          .expect(202);
+
+        const final = await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'turn_final';
+            status: string;
+            error?: { code?: string; message?: string };
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+              error?: { code?: string; message?: string };
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.status === 'failed'
+            );
+          },
+          timeoutMs: 4000,
+        });
+
+        assert.equal(final.status, 'failed');
+        assert.equal(final.error?.code, 'ENV_LOCAL_READ_FAILED');
+        assert.match(
+          final.error?.message ?? '',
+          /(?:\.env\.local|EISDIR|permission denied)/u,
+        );
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) => turn.role === 'assistant' && turn.status === 'failed',
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'warning' &&
+              turn.content.includes('GitHub review stage skipped during PR open'),
+          ),
+          false,
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('continue step skips remaining iteration steps and starts the next iteration', async () => {
   let continueCount = 0;
   await withFlowServer(

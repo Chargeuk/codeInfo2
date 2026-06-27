@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   __resetGitHubReviewDepsForTests,
   __setGitHubReviewDepsForTests,
+  GITHUB_REVIEW_HANDOFF_KIND,
   readGitHubReviewScratch,
   writeGitHubReviewScratch,
   type GitHubCurrentReviewHandoff,
@@ -62,14 +63,18 @@ const buildRepositoryState = (repoRoot: string): GitHubRepositoryState => ({
 });
 
 const buildHandoffPath = (repoRoot: string) =>
-  path.join(repoRoot, 'codeInfoTmp/reviews/0000060-current-review.json');
+  path.join(
+    repoRoot,
+    'codeInfoTmp/reviews/0000060-github-review-current.json',
+  );
 
-test('safe replacement keeps the previous valid handoff visible when publish fails', async () => {
+test('safe replacement keeps the previous Task 7 GitHub-review handoff visible when publish fails', async () => {
   const tempRepo = await createTempRepo();
   try {
     const handoffPath = buildHandoffPath(tempRepo.repoRoot);
     await fs.mkdir(path.dirname(handoffPath), { recursive: true });
     const existing: GitHubCurrentReviewHandoff = {
+      handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
       plan_path:
         'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
       story_number: '0000060',
@@ -150,26 +155,26 @@ test('malformed or partial scratch state is rejected instead of being read as a 
   }
 });
 
-test('scratch readers validate freshness without deleting or resetting story-local review files', async () => {
+test('scratch readers reject path-bearing state that escapes the worked repository root', async () => {
   const tempRepo = await createTempRepo();
   try {
     const handoffPath = buildHandoffPath(tempRepo.repoRoot);
-    const rawArtifactPath = path.join(
-      tempRepo.repoRoot,
-      'codeInfoTmp/reviews/0000060-github-review-pr-45.json',
-    );
     await fs.mkdir(path.dirname(handoffPath), { recursive: true });
     await fs.writeFile(
       handoffPath,
       JSON.stringify(
         {
+          handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
           plan_path:
-            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+            '../planning/outside.md',
           story_number: '0000060',
           repository_root: tempRepo.repoRoot,
           branch_name: 'feature/0000060-demo',
           head_sha: 'deadbeef',
-          raw_review_artifact_path: rawArtifactPath,
+          raw_review_artifact_path: path.join(
+            tempRepo.repoRoot,
+            '../outside.json',
+          ),
           pull_request: {
             number: 45,
             url: 'https://github.com/example/repo/pull/45',
@@ -182,17 +187,79 @@ test('scratch readers validate freshness without deleting or resetting story-loc
       ),
       'utf8',
     );
-    await fs.writeFile(rawArtifactPath, '{"old":"artifact"}\n', 'utf8');
+
+    const parsed = await readGitHubReviewScratch({ handoffPath });
+    assert.equal(parsed.kind, 'error');
+    assert.equal(parsed.reason, 'SCRATCH_INVALID');
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('fresh successful GitHub-review scratch publish replaces stale scratch as the active classification input', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const handoffPath = buildHandoffPath(tempRepo.repoRoot);
+    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          head_sha: 'oldsha',
+          raw_review_artifact_path: path.join(
+            tempRepo.repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-pr-44.json',
+          ),
+          pull_request: {
+            number: 44,
+            url: 'https://github.com/example/repo/pull/44',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const written = await writeGitHubReviewScratch({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      pullRequest: {
+        number: 45,
+        url: 'https://github.com/example/repo/pull/45',
+        headRefName: 'feature/0000060-demo',
+        baseRefName: 'main',
+      },
+      artifact: {
+        repository: { owner: 'example', name: 'repo' },
+        pullRequest: {
+          number: 45,
+          url: 'https://github.com/example/repo/pull/45',
+          headRefName: 'feature/0000060-demo',
+          baseRefName: 'main',
+        },
+        fetchedAt: '2026-06-24T10:00:00Z',
+        reviews: [],
+        reviewComments: [],
+      },
+    });
+    assert.equal(written.kind, 'ok');
 
     const parsed = await readGitHubReviewScratch({ handoffPath });
     assert.equal(parsed.kind, 'ok');
-
-    const [handoffStillExists, artifactStillExists] = await Promise.all([
-      fs.stat(handoffPath).then(() => true),
-      fs.stat(rawArtifactPath).then(() => true),
-    ]);
-    assert.equal(handoffStillExists, true);
-    assert.equal(artifactStillExists, true);
+    assert.equal(parsed.value.handoff_kind, GITHUB_REVIEW_HANDOFF_KIND);
+    assert.equal(parsed.value.pull_request.number, 45);
+    assert.match(
+      parsed.value.raw_review_artifact_path,
+      /0000060-github-review-pr-45\.json$/,
+    );
   } finally {
     await tempRepo.cleanup();
   }

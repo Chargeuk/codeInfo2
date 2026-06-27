@@ -103,6 +103,7 @@ export type GitHubReviewArtifact = {
 };
 
 export type GitHubCurrentReviewHandoff = {
+  handoff_kind: string;
   plan_path: string;
   story_number: string;
   repository_root: string;
@@ -141,6 +142,12 @@ type CommandResult = {
   exitCode: number | null;
   stdout: string;
   stderr: string;
+};
+
+type CurrentPlanContext = {
+  planPath: string;
+  storyNumber: string;
+  branchedFrom?: string;
 };
 
 type GitHubReviewDeps = {
@@ -232,8 +239,47 @@ const normalizeTrimmedString = (value: unknown): string | undefined =>
     ? value.trim()
     : undefined;
 
+export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
+
 const buildTempPath = (targetPath: string) =>
   `${targetPath}.${process.pid}.${Date.now().toString(36)}.tmp`;
+
+const isPathContainedWithinRoot = (rootPath: string, targetPath: string) => {
+  const resolvedRoot = path.resolve(rootPath);
+  const resolvedTarget = path.resolve(targetPath);
+  const relative = path.relative(resolvedRoot, resolvedTarget);
+  return (
+    relative.length === 0 ||
+    (!relative.startsWith('..') && !path.isAbsolute(relative))
+  );
+};
+
+const isContainedRelativePath = (rootPath: string, relativePath: string) =>
+  !path.isAbsolute(relativePath) &&
+  isPathContainedWithinRoot(rootPath, path.resolve(rootPath, relativePath));
+
+export const buildGitHubReviewScratchPaths = (
+  workingRepositoryRoot: string,
+  storyNumber: string,
+) => {
+  const reviewsRoot = path.join(workingRepositoryRoot, 'codeInfoTmp/reviews');
+  return {
+    reviewsRoot,
+    handoffPath: path.join(
+      reviewsRoot,
+      `${storyNumber}-github-review-current.json`,
+    ),
+    externalReviewInputPath: path.join(
+      reviewsRoot,
+      `${storyNumber}-external-review-input.md`,
+    ),
+    buildRawArtifactPath: (pullRequestNumber: number) =>
+      path.join(
+        reviewsRoot,
+        `${storyNumber}-github-review-pr-${String(pullRequestNumber)}.json`,
+      ),
+  };
+};
 
 const flattenPaginatedSlurpPayload = (parsed: unknown): unknown[] => {
   if (!Array.isArray(parsed)) {
@@ -263,12 +309,7 @@ const parseRepoFromRemoteUrl = (
 
 const readCurrentPlanContext = async (
   workingRepositoryRoot: string,
-): Promise<
-  GitHubStepOutcome<{
-    planPath: string;
-    storyNumber: string;
-  }>
-> => {
+): Promise<GitHubStepOutcome<CurrentPlanContext>> => {
   const currentPlanPath = path.join(
     workingRepositoryRoot,
     'codeInfoStatus/flow-state/current-plan.json',
@@ -318,9 +359,13 @@ const readCurrentPlanContext = async (
       message: 'current-plan handoff plan_path does not expose a story number.',
     };
   }
+  const branchedFrom =
+    parsed && typeof parsed === 'object'
+      ? normalizeTrimmedString((parsed as { branched_from?: unknown }).branched_from)
+      : undefined;
   return {
     kind: 'ok',
-    value: { planPath, storyNumber: match[1] },
+    value: { planPath, storyNumber: match[1], branchedFrom },
   };
 };
 
@@ -488,6 +533,18 @@ const runGitHubCli = async (params: {
 export const resolveGitHubRepositoryState = async (params: {
   workingRepositoryRoot: string;
 }): Promise<GitHubStepOutcome<GitHubRepositoryState>> => {
+  const planContextResult = await readCurrentPlanContext(
+    params.workingRepositoryRoot,
+  );
+  if (planContextResult.kind !== 'ok') {
+    return {
+      kind: 'skip',
+      reason: 'BASE_BRANCH_MISSING',
+      message:
+        'A trustworthy story-owned base branch could not be resolved from the current-plan handoff.',
+    };
+  }
+
   const branchResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
     args: ['branch', '--show-current'],
@@ -551,38 +608,13 @@ export const resolveGitHubRepositoryState = async (params: {
     };
   }
 
-  let baseBranch: string | undefined;
-  const symbolicHeadResult = await runGitCommand({
-    workingRepositoryRoot: params.workingRepositoryRoot,
-    args: ['symbolic-ref', `refs/remotes/${upstreamRemote}/HEAD`],
-  });
-  if (symbolicHeadResult.kind === 'ok') {
-    const remoteHead = symbolicHeadResult.value.stdout.trim();
-    const baseCandidate = remoteHead.split('/').pop()?.trim();
-    if (baseCandidate) {
-      baseBranch = baseCandidate;
-    }
-  }
-  if (!baseBranch) {
-    const remoteShowResult = await runGitCommand({
-      workingRepositoryRoot: params.workingRepositoryRoot,
-      args: ['remote', 'show', upstreamRemote],
-    });
-    if (remoteShowResult.kind === 'ok') {
-      const match = remoteShowResult.value.stdout.match(
-        /HEAD branch:\s+([^\s]+)/u,
-      );
-      if (match?.[1]) {
-        baseBranch = match[1].trim();
-      }
-    }
-  }
+  const baseBranch = planContextResult.value.branchedFrom;
   if (!baseBranch) {
     return {
       kind: 'skip',
       reason: 'BASE_BRANCH_MISSING',
       message:
-        'A trustworthy base branch could not be determined from the current upstream remote.',
+        'A trustworthy story-owned base branch could not be determined from the current-plan handoff.',
     };
   }
 
@@ -751,6 +783,13 @@ export const createPullRequest = async (params: {
     ],
   });
   if (createResult.kind !== 'ok') {
+    const reconciled = await lookupLatestOpenPullRequest({
+      repository: params.repository,
+      token: params.token,
+    });
+    if (reconciled.kind === 'ok' && reconciled.value) {
+      return { kind: 'ok', value: reconciled.value };
+    }
     return {
       kind: 'skip',
       reason: 'PR_CREATE_FAILED',
@@ -994,6 +1033,147 @@ const readJsonFile = async <T>(
     };
   }
   return parseJson<T>(raw, `JSON file is invalid: ${targetPath}`);
+};
+
+const validateGitHubReviewScratchRecord = (params: {
+  handoffPath: string;
+  record: Record<string, unknown>;
+}): GitHubStepOutcome<GitHubCurrentReviewHandoff> => {
+  const handoffKind = normalizeTrimmedString(params.record.handoff_kind);
+  const planPath = normalizeTrimmedString(params.record.plan_path);
+  const storyNumber = normalizeTrimmedString(params.record.story_number);
+  const repositoryRoot = normalizeTrimmedString(params.record.repository_root);
+  const branchName = normalizeTrimmedString(params.record.branch_name);
+  const headSha = normalizeTrimmedString(params.record.head_sha);
+  const rawReviewArtifactPath = normalizeTrimmedString(
+    params.record.raw_review_artifact_path,
+  );
+  const externalReviewInputFile = normalizeTrimmedString(
+    params.record.external_review_input_file,
+  );
+  const pullRequest = normalizePullRequestIdentity(params.record.pull_request);
+  if (
+    handoffKind !== GITHUB_REVIEW_HANDOFF_KIND ||
+    !planPath ||
+    !storyNumber ||
+    !repositoryRoot ||
+    !branchName ||
+    !headSha ||
+    !rawReviewArtifactPath ||
+    !pullRequest
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review handoff is missing the explicit Task 7 contract marker or required plan, repository, branch, pull request, or artifact fields.',
+    };
+  }
+
+  if (!path.isAbsolute(repositoryRoot)) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message: 'GitHub review handoff repository_root must be an absolute path.',
+    };
+  }
+
+  if (!isContainedRelativePath(repositoryRoot, planPath)) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review handoff plan_path must remain repository-root contained before filesystem access.',
+    };
+  }
+
+  const scratchPaths = buildGitHubReviewScratchPaths(repositoryRoot, storyNumber);
+  if (
+    path.resolve(params.handoffPath) !== path.resolve(scratchPaths.handoffPath)
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review handoff was not loaded from the authoritative Story 60 GitHub-review scratch path.',
+    };
+  }
+
+  if (
+    !isPathContainedWithinRoot(repositoryRoot, rawReviewArtifactPath) ||
+    path.dirname(path.resolve(rawReviewArtifactPath)) !==
+      path.resolve(scratchPaths.reviewsRoot) ||
+    !new RegExp(
+      `^${storyNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-github-review-pr-\\d+\\.json$`,
+      'u',
+    ).test(path.basename(rawReviewArtifactPath))
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review handoff raw_review_artifact_path must stay inside the authoritative Story 60 reviews scratch root.',
+    };
+  }
+
+  if (
+    externalReviewInputFile &&
+    (!isPathContainedWithinRoot(repositoryRoot, externalReviewInputFile) ||
+      path.resolve(externalReviewInputFile) !==
+        path.resolve(scratchPaths.externalReviewInputPath))
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review handoff external_review_input_file must stay inside the authoritative Story 60 reviews scratch root.',
+    };
+  }
+
+  return {
+    kind: 'ok',
+    value: {
+      handoff_kind: handoffKind,
+      plan_path: planPath,
+      story_number: storyNumber,
+      repository_root: repositoryRoot,
+      branch_name: branchName,
+      head_sha: headSha,
+      pull_request: pullRequest,
+      raw_review_artifact_path: rawReviewArtifactPath,
+      ...(externalReviewInputFile
+        ? { external_review_input_file: externalReviewInputFile }
+        : {}),
+      ...(typeof params.record.filtered_review_count === 'number' &&
+      Number.isFinite(params.record.filtered_review_count)
+        ? { filtered_review_count: params.record.filtered_review_count }
+        : {}),
+      ...(typeof params.record.filtered_review_comment_count === 'number' &&
+      Number.isFinite(params.record.filtered_review_comment_count)
+        ? {
+            filtered_review_comment_count:
+              params.record.filtered_review_comment_count,
+          }
+        : {}),
+      ...(normalizeTrimmedString(params.record.repository_alias)
+        ? {
+            repository_alias: normalizeTrimmedString(
+              params.record.repository_alias,
+            ),
+          }
+        : {}),
+      ...(normalizeTrimmedString(params.record.skip_reason)
+        ? { skip_reason: normalizeTrimmedString(params.record.skip_reason) }
+        : {}),
+      ...(normalizeTrimmedString(params.record.failure_reason)
+        ? {
+            failure_reason: normalizeTrimmedString(
+              params.record.failure_reason,
+            ),
+          }
+        : {}),
+    },
+  };
 };
 
 const updateJsonAtomically = async <T extends Record<string, unknown>>(params: {
@@ -1245,14 +1425,11 @@ export const materializeGitHubExternalReviewInput = async (params: {
   const feedback = filterGitHubReviewFeedback({
     artifact: artifactResult.value,
   });
-  const reviewsRoot = path.join(
+  const scratchPaths = buildGitHubReviewScratchPaths(
     params.handoff.repository_root,
-    'codeInfoTmp/reviews',
+    params.handoff.story_number,
   );
-  const externalReviewInputPath = path.join(
-    reviewsRoot,
-    `${params.handoff.story_number}-external-review-input.md`,
-  );
+  const externalReviewInputPath = scratchPaths.externalReviewInputPath;
   try {
     await writeTextAtomically({
       targetPath: externalReviewInputPath,
@@ -1272,14 +1449,9 @@ export const materializeGitHubExternalReviewInput = async (params: {
     };
   }
 
-  const handoffPath = path.join(
-    params.handoff.repository_root,
-    'codeInfoTmp/reviews',
-    `${params.handoff.story_number}-current-review.json`,
-  );
   const updatedHandoff = await updateJsonAtomically<GitHubCurrentReviewHandoff>(
     {
-      targetPath: handoffPath,
+      targetPath: scratchPaths.handoffPath,
       update: (current) => ({
         ...current,
         external_review_input_file: externalReviewInputPath,
@@ -1319,24 +1491,21 @@ export const writeGitHubReviewScratch = async (params: {
     params.repository.workingRepositoryRoot,
   );
   if (planContext.kind !== 'ok') return planContext;
-  const reviewsRoot = path.join(
+  const scratchPaths = buildGitHubReviewScratchPaths(
     params.repository.workingRepositoryRoot,
-    'codeInfoTmp/reviews',
+    planContext.value.storyNumber,
   );
-  const rawArtifactPath = path.join(
-    reviewsRoot,
-    `${planContext.value.storyNumber}-github-review-pr-${params.pullRequest.number}.json`,
+  const rawArtifactPath = scratchPaths.buildRawArtifactPath(
+    params.pullRequest.number,
   );
-  const handoffPath = path.join(
-    reviewsRoot,
-    `${planContext.value.storyNumber}-current-review.json`,
-  );
+  const handoffPath = scratchPaths.handoffPath;
   try {
     await writeJsonAtomically({
       targetPath: rawArtifactPath,
       value: params.artifact,
     });
     const handoff: GitHubCurrentReviewHandoff = {
+      handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
       plan_path: planContext.value.planPath,
       story_number: planContext.value.storyNumber,
       repository_root: params.repository.workingRepositoryRoot,
@@ -1398,67 +1567,8 @@ export const readGitHubReviewScratch = async (params: {
       message: 'GitHub review handoff must be a JSON object.',
     };
   }
-  const record = parsed as Record<string, unknown>;
-  const planPath = normalizeTrimmedString(record.plan_path);
-  const storyNumber = normalizeTrimmedString(record.story_number);
-  const repositoryRoot = normalizeTrimmedString(record.repository_root);
-  const branchName = normalizeTrimmedString(record.branch_name);
-  const headSha = normalizeTrimmedString(record.head_sha);
-  const rawReviewArtifactPath = normalizeTrimmedString(
-    record.raw_review_artifact_path,
-  );
-  const externalReviewInputFile = normalizeTrimmedString(
-    record.external_review_input_file,
-  );
-  const pullRequest = normalizePullRequestIdentity(record.pull_request);
-  if (
-    !planPath ||
-    !storyNumber ||
-    !repositoryRoot ||
-    !branchName ||
-    !headSha ||
-    !rawReviewArtifactPath ||
-    !pullRequest
-  ) {
-    return {
-      kind: 'error',
-      reason: 'SCRATCH_INVALID',
-      message:
-        'GitHub review handoff is missing required plan, repository, branch, pull request, or artifact fields.',
-    };
-  }
-  return {
-    kind: 'ok',
-    value: {
-      plan_path: planPath,
-      story_number: storyNumber,
-      repository_root: repositoryRoot,
-      branch_name: branchName,
-      head_sha: headSha,
-      pull_request: pullRequest,
-      raw_review_artifact_path: rawReviewArtifactPath,
-      ...(externalReviewInputFile
-        ? { external_review_input_file: externalReviewInputFile }
-        : {}),
-      ...(typeof record.filtered_review_count === 'number' &&
-      Number.isFinite(record.filtered_review_count)
-        ? { filtered_review_count: record.filtered_review_count }
-        : {}),
-      ...(typeof record.filtered_review_comment_count === 'number' &&
-      Number.isFinite(record.filtered_review_comment_count)
-        ? {
-            filtered_review_comment_count: record.filtered_review_comment_count,
-          }
-        : {}),
-      ...(normalizeTrimmedString(record.repository_alias)
-        ? { repository_alias: normalizeTrimmedString(record.repository_alias) }
-        : {}),
-      ...(normalizeTrimmedString(record.skip_reason)
-        ? { skip_reason: normalizeTrimmedString(record.skip_reason) }
-        : {}),
-      ...(normalizeTrimmedString(record.failure_reason)
-        ? { failure_reason: normalizeTrimmedString(record.failure_reason) }
-        : {}),
-    },
-  };
+  return validateGitHubReviewScratchRecord({
+    handoffPath: params.handoffPath,
+    record: parsed as Record<string, unknown>,
+  });
 };

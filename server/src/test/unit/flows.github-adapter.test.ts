@@ -38,6 +38,7 @@ const createTempRepo = async () => {
       {
         plan_path:
           'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        branched_from: 'main',
       },
       null,
       2,
@@ -119,7 +120,7 @@ test('GitHub child-process env is scoped and does not mutate the base environmen
   assert.notEqual(childEnv, baseEnv);
 });
 
-test('repository-state resolution reads current branch, upstream remote, and trustworthy base branch without checkout inference', async () => {
+test('repository-state resolution reads current branch, upstream remote, and story-owned base branch from the plan handoff', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
@@ -145,13 +146,6 @@ test('repository-state resolution reads current branch, upstream remote, and tru
             stderr: '',
           };
         }
-        if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
-          return {
-            exitCode: 0,
-            stdout: 'refs/remotes/origin/main\n',
-            stderr: '',
-          };
-        }
         throw new Error(`Unexpected command: ${joined}`);
       },
     });
@@ -169,9 +163,21 @@ test('repository-state resolution reads current branch, upstream remote, and tru
   }
 });
 
-test('repository-state resolution reports missing trustworthy base branch and upstream push failures explicitly', async () => {
+test('repository-state resolution reports missing story-owned base branch and upstream push failures explicitly', async () => {
   const tempRepo = await createTempRepo();
   try {
+    await fs.writeFile(
+      path.join(tempRepo.repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+      JSON.stringify(
+        {
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
     __setGitHubReviewDepsForTests({
       runCommand: async (params) => {
         const joined = params.args.join(' ');
@@ -194,12 +200,6 @@ test('repository-state resolution reports missing trustworthy base branch and up
             stdout: 'https://github.com/example/repo.git\n',
             stderr: '',
           };
-        }
-        if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
-          return { exitCode: 1, stdout: '', stderr: 'no remote head\n' };
-        }
-        if (joined === 'remote show origin') {
-          return { exitCode: 0, stdout: 'Fetch URL: ...\n', stderr: '' };
         }
         throw new Error(`Unexpected command: ${joined}`);
       },
@@ -251,11 +251,20 @@ test('raw gh transport failures are normalized before later consumers rely on th
     assert.equal(missingBinary.reason, 'GITHUB_CLI_MISSING');
 
     __setGitHubReviewDepsForTests({
-      runCommand: async () => ({
-        exitCode: 1,
-        stdout: '',
-        stderr: 'gh api failed',
-      }),
+      runCommand: async (params) => {
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: 'gh api failed',
+          };
+        }
+        return {
+          exitCode: 0,
+          stdout: '[]',
+          stderr: '',
+        };
+      },
     });
     const nonZeroExit = await createPullRequest({
       repository: baseRepositoryState(tempRepo.repoRoot),
@@ -270,7 +279,7 @@ test('raw gh transport failures are normalized before later consumers rely on th
   }
 });
 
-test('latest-open PR lookup and post-create metadata resolution use explicit repository-plus-branch filtering', async () => {
+test('latest-open PR lookup uses explicit repository-plus-branch filtering and ambiguous post-create replay reconciles to the existing PR', async () => {
   const tempRepo = await createTempRepo();
   try {
     const pullsSlurp = await fs.readFile(
@@ -317,9 +326,35 @@ test('latest-open PR lookup and post-create metadata resolution use explicit rep
           .join(' ')
           .includes(
             'repos/example/repo/pulls?state=open&head=example:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
-          ),
+        ),
       ),
     );
+
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: 'connection dropped after create',
+          };
+        }
+        return {
+          exitCode: 0,
+          stdout: pullsSlurp,
+          stderr: '',
+        };
+      },
+    });
+
+    const replayResolved = await createPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      title: 'Story review',
+      body: 'body',
+    });
+    assert.equal(replayResolved.kind, 'ok');
+    assert.equal(replayResolved.value.number, 45);
   } finally {
     await tempRepo.cleanup();
   }

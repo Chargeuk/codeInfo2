@@ -27,6 +27,7 @@ import {
 } from '../../chat/memoryPersistence.js';
 import {
   __resetGitHubReviewDepsForTests,
+  __setGitHubReviewDepsForTests,
   materializeGitHubExternalReviewInput,
 } from '../../flows/githubReview.js';
 import {
@@ -215,7 +216,11 @@ const createGitHubReviewRepoFixture = async () => {
   await fs.writeFile(
     path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
     JSON.stringify(
-      { plan_path: planPath, additional_repositories: [] },
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
       null,
       2,
     ),
@@ -315,6 +320,7 @@ const withFlowServer = async (
       conversationId: string;
       inflightId?: string;
     }) => void;
+    listIngestedRepositoriesFn?: () => Promise<ListReposResult>;
     releaseConversationLockFn?: (
       conversationId: string,
       expectedRunToken?: string,
@@ -342,9 +348,11 @@ const withFlowServer = async (
         startFlowRun({
           ...params,
           chatFactory: () => new ScriptedChat(responder),
-          listIngestedRepositories: options?.registerTmpDirAsRepo
-            ? () => listHarnessRepo(tmpDir)
-            : undefined,
+          listIngestedRepositories:
+            options?.listIngestedRepositoriesFn ??
+            (options?.registerTmpDirAsRepo
+              ? () => listHarnessRepo(tmpDir)
+              : undefined),
           onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
           cleanupInflightFn: options?.cleanupInflightFn,
           releaseConversationLockFn: options?.releaseConversationLockFn,
@@ -610,7 +618,7 @@ test('github review materialization replaces stale scratch with fresh reviewer f
   try {
     const handoffPath = path.join(
       repoRoot,
-      'codeInfoTmp/reviews/0000060-current-review.json',
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
     );
     const rawArtifactPath = path.join(
       repoRoot,
@@ -629,6 +637,7 @@ test('github review materialization replaces stale scratch with fresh reviewer f
       handoffPath,
       JSON.stringify(
         {
+          handoff_kind: 'github-review-handoff-v1',
           plan_path:
             'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
           story_number: '0000060',
@@ -764,6 +773,188 @@ test('checked-in GitHub review flow variant keeps clean ordering and closes PRs 
   assert.ok(
     flattened.some((step) => step.commandName === 'external_review_findings'),
   );
+});
+
+test('github review runtime uses the dedicated handoff path and reconciles ambiguous PR creation before fetching fresh feedback', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp/reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp/reviews/0000060-current-review.json'),
+      JSON.stringify(
+        {
+          pull_request: { number: 12 },
+          stale: true,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp/reviews/0000060-external-review-input.md'),
+      'stale input\n',
+      'utf8',
+    );
+
+    const pullsSlurp = await fs.readFile(
+      path.join(githubReviewFixturesDir, 'pulls-slurp.json'),
+      'utf8',
+    );
+    const reviewsSlurp = await fs.readFile(
+      path.join(githubReviewFixturesDir, 'reviews-slurp.json'),
+      'utf8',
+    );
+    const commentsSlurp = await fs.readFile(
+      path.join(githubReviewFixturesDir, 'comments-slurp.json'),
+      'utf8',
+    );
+
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        if (joined === 'branch --show-current') {
+          return {
+            exitCode: 0,
+            stdout:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'deadbeef\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return {
+            exitCode: 0,
+            stdout:
+              'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo.git\n',
+            stderr: '',
+          };
+        }
+        if (
+          joined ===
+          'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+        ) {
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: 'connection dropped after create',
+          };
+        }
+        const endpoint = params.args.at(-1) ?? '';
+        if (endpoint.includes('/pulls?state=open&head=')) {
+          return { exitCode: 0, stdout: pullsSlurp, stderr: '' };
+        }
+        if (endpoint.includes('/reviews?')) {
+          return { exitCode: 0, stdout: reviewsSlurp, stderr: '' };
+        }
+        if (endpoint.includes('/comments?')) {
+          return { exitCode: 0, stdout: commentsSlurp, stderr: '' };
+        }
+        throw new Error(`Unexpected command: ${joined}`);
+      },
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-runtime-conv';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-runtime.json'),
+          JSON.stringify(
+            {
+              description: 'Minimal GitHub review runtime proof',
+              steps: [
+                {
+                  type: 'github_open_pr',
+                  label: 'Open GitHub Review Pull Request',
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch GitHub Review Feedback',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime/run')
+          .send({ conversationId, working_folder: repoRoot })
+          .expect(202);
+
+        const handoffPath = path.join(
+          repoRoot,
+          'codeInfoTmp/reviews/0000060-github-review-current.json',
+        );
+        const externalInputPath = path.join(
+          repoRoot,
+          'codeInfoTmp/reviews/0000060-external-review-input.md',
+        );
+        let handoff:
+          | {
+              handoff_kind?: string;
+              pull_request: { number: number };
+              external_review_input_file?: string;
+            }
+          | undefined;
+        let externalInput = '';
+        const started = Date.now();
+        while (Date.now() - started < 4000) {
+          try {
+            handoff = JSON.parse(
+              await fs.readFile(handoffPath, 'utf8'),
+            ) as typeof handoff;
+            externalInput = await fs.readFile(externalInputPath, 'utf8');
+            if (
+              handoff?.pull_request.number === 45 &&
+              /Please revisit the retry wording\./u.test(externalInput)
+            ) {
+              break;
+            }
+          } catch {
+            // Keep polling until the runtime publishes the fresh Task 7 scratch.
+          }
+          await delay(25);
+        }
+
+        assert.ok(handoff);
+        assert.equal(handoff.handoff_kind, 'github-review-handoff-v1');
+        assert.equal(handoff.pull_request.number, 45);
+        assert.match(
+          handoff.external_review_input_file ?? '',
+          /0000060-external-review-input\.md$/,
+        );
+        assert.match(externalInput, /Please revisit the retry wording\./);
+        assert.doesNotMatch(externalInput, /stale input/);
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
 });
 
 test('continue step skips remaining iteration steps and starts the next iteration', async () => {

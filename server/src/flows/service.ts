@@ -141,6 +141,7 @@ import type {
 } from './flowState.js';
 import {
   appendGitHubReviewPlanNote,
+  buildGitHubReviewScratchPaths,
   materializeGitHubExternalReviewInput,
   closePullRequest,
   createPullRequest,
@@ -5825,11 +5826,10 @@ async function runFlowUnlocked(params: {
       });
       return 'failed';
     }
-    const handoffPath = path.join(
+    const handoffPath = buildGitHubReviewScratchPaths(
       context.value.repository.workingRepositoryRoot,
-      'codeInfoTmp/reviews',
-      `${scratchWriteResult.value.story_number}-current-review.json`,
-    );
+      scratchWriteResult.value.story_number,
+    ).handoffPath;
     const handoffReadResult = await readGitHubReviewScratch({ handoffPath });
     if (handoffReadResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -5868,7 +5868,8 @@ async function runFlowUnlocked(params: {
         prNumber: pullRequestResult.value.number,
         reviewCount: reviewArtifactResult.value.reviews.length,
         reviewCommentCount: reviewArtifactResult.value.reviewComments.length,
-        handoffPath: scratchWriteResult.value.raw_review_artifact_path,
+        handoffPath,
+        rawReviewArtifactPath: scratchWriteResult.value.raw_review_artifact_path,
         externalReviewInputPath:
           materializedReviewInput.value.externalReviewInputPath,
         filteredFeedbackCount: materializedReviewInput.value.feedback.length,

@@ -11,6 +11,11 @@ import cors from 'cors';
 import express from 'express';
 import type WebSocket from 'ws';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
+import {
+  getPendingConversationCancel,
+  snapshotInflight,
+} from '../../chat/inflightRegistry.js';
 import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
@@ -105,6 +110,38 @@ async function startChatRunAndSubscribe() {
   });
 }
 
+async function waitForServerRunToSettle(conversationId: string) {
+  const deadline = Date.now() + 4_000;
+  while (Date.now() < deadline) {
+    const inflight = snapshotInflight(conversationId);
+    const ownership = getActiveRunOwnership(conversationId);
+    const pendingCancel = getPendingConversationCancel(conversationId);
+    if (!inflight && !ownership && !pendingCancel) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('Timed out waiting for chat run cleanup to settle');
+}
+
+async function waitForActiveChatRunToStartStreaming() {
+  assert.ok(startResponse);
+  const socket = await ensureWs();
+
+  await waitForEvent({
+    ws: socket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'assistant_delta' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflightId === startResponse?.inflightId
+      );
+    },
+    timeoutMs: 4_000,
+  });
+}
+
 Before(async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   tempCodexHomeForScenario = await fs.mkdtemp(
@@ -188,6 +225,7 @@ When(
   async () => {
     await startChatRunAndSubscribe();
     assert.ok(startResponse);
+    await waitForActiveChatRunToStartStreaming();
     const socket = await ensureWs();
     sendJson(socket, {
       type: 'unsubscribe_conversation',
@@ -202,6 +240,10 @@ When(
     await startChatRunAndSubscribe();
   },
 );
+
+When('the active chat run starts streaming', async () => {
+  await waitForActiveChatRunToStartStreaming();
+});
 
 Then('the chat prediction is not cancelled server side', async () => {
   const state = getLastPredictionState();
@@ -253,6 +295,7 @@ When('I wait for the active run to complete normally', async () => {
 
 When('I send late cancel_inflight for the completed run', async () => {
   assert.ok(startResponse);
+  await waitForServerRunToSettle(startResponse.conversationId);
   const socket = await ensureWs();
   sendJson(socket, {
     type: 'cancel_inflight',

@@ -11,6 +11,7 @@ Feature: Chat cancellation
   Scenario: cancel_inflight with inflightId stops an active run
     Given chat cancellation scenario "chat-stream"
     When I start a chat run and stay subscribed to the conversation stream
+    And the active chat run starts streaming
     When I send cancel_inflight for the active run
     Then the WebSocket stream final status is "stopped"
 
@@ -25,5 +26,6 @@ Feature: Chat cancellation
   Scenario: conversation-only cancel_inflight stops an active run
     Given chat cancellation scenario "chat-stream"
     When I start a chat run and stay subscribed to the conversation stream
+    And the active chat run starts streaming
     And I send conversation-only cancel_inflight for the active run
     Then the WebSocket stream final status is "stopped"

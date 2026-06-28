@@ -191,15 +191,19 @@ Shortcut:
 - `npm run test:summary:server:unit` runs the server `node:test` unit and integration suites with compact summary output. Full log: `test-results/server-unit-tests-<timestamp>.log`.
 - `npm run test:summary:server:cucumber` runs the server cucumber feature suites with compact summary output. Full log: `test-results/server-cucumber-tests-<timestamp>.log`.
 - `npm run test:summary:e2e` runs the e2e flow with setup, build, tests, and teardown. Full log: `logs/test-summaries/e2e-tests-latest.log`.
+- `npm run test:summary:server:parallel` builds the server workspace once, then runs the server unit and cucumber wrappers in parallel with `--skip-build`.
+- `npm run test:summary:all:parallel` builds reusable client, server, and e2e compose artifacts first, then runs the client, server unit, server cucumber, and e2e wrappers in parallel with shared-build skip flags.
+- `npm run test:summary:client:parallel` is a convenience validation path that runs `build:summary:client` and then `test:summary:client`; it belongs to the parallel workflow family even though it is not a multi-harness fan-out by itself.
 - These wrappers do not have a fixed failure time budget.
 - As long as a wrapper continues to emit healthy `agent_action: wait` heartbeats at least about every 2 minutes and shows ongoing progress such as growing `log_size_bytes`, you must keep waiting no matter how long the run takes.
+- Standalone wrappers remain the self-contained default for diagnosis. Use the new `*:parallel` commands for batch validation when you want shared prebuilds and cross-harness parallelism.
 
 ### Targeted Test Runs
 
 - Client Jest supports `--file`, `--subset`, and `--test-name`.
-- Server `node:test` wrapper supports `--file` and `--test-name`.
-- Server cucumber wrapper supports `--tags`, `--feature`, and `--scenario`.
-- E2E Playwright wrapper supports `--file` and `--grep`.
+- Server `node:test` wrapper supports `--file`, `--test-name`, and `--skip-build`.
+- Server cucumber wrapper supports `--tags`, `--feature`, `--scenario`, and `--skip-build`.
+- E2E Playwright wrapper supports `--file`, `--grep`, and `--skip-compose-build`.
 - For final validation, run the full relevant summary wrapper without targeted args.
 
 ### Test Failure Diagnosis

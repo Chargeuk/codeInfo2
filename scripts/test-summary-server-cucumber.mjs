@@ -7,6 +7,7 @@
 //   --tags <expr>      repeatable; cucumber tag expressions combined with AND.
 //   --feature <path>   repeatable; run only selected feature files.
 //   --scenario <expr>  forwarded to cucumber --name.
+//   --skip-build       reuse an existing server build instead of rebuilding first.
 
 import path from 'node:path';
 
@@ -50,11 +51,18 @@ const wrapper = createSummaryWrapperRun({
       type: 'value',
       description: 'Filter scenarios with cucumber --name.',
     },
+    {
+      name: 'skip-build',
+      type: 'boolean',
+      description:
+        'Reuse an existing server build instead of running npm run build --workspace server first.',
+    },
   ],
   examples: [
     'node scripts/test-summary-server-cucumber.mjs --help',
     'npm run test:summary:server:cucumber -- --tags "@smoke"',
     'npm run test:summary:server:cucumber -- --tags "@logs" --tags "@smoke"',
+    'npm run test:summary:server:cucumber -- --skip-build --feature server/src/test/features/chat_models.feature',
   ],
 });
 const serverDir = path.join(wrapper.rootDir, 'server');
@@ -76,6 +84,7 @@ const options = {
   tags: parsedArgs.values.tags ?? [],
   features: parsedArgs.values.feature ?? [],
   scenario: parsedArgs.values.scenario ?? undefined,
+  skipBuild: parsedArgs.values['skip-build'] ?? false,
 };
 
 const parseCucumberScenarioCounts = (output) => {
@@ -110,15 +119,27 @@ const parseFailureNames = (output) => {
 
 wrapper.startHeartbeat();
 
-const buildResult = await runLoggedCommand({
-  cmd: 'npm',
-  args: ['run', 'build', '--workspace', 'server'],
-  cwd: wrapper.rootDir,
-  logStream: wrapper.logStream,
-  protocol: wrapper.protocol,
-  phase: 'build',
-  bannerPrefix: '',
-});
+let buildResult = {
+  code: 0,
+  output: '',
+};
+if (options.skipBuild) {
+  wrapper.protocol.setPhase('test');
+  wrapper.appendLogSection('Build', [
+    'build_step=skipped',
+    'reason=wrapper_flag_skip_build',
+  ]);
+} else {
+  buildResult = await runLoggedCommand({
+    cmd: 'npm',
+    args: ['run', 'build', '--workspace', 'server'],
+    cwd: wrapper.rootDir,
+    logStream: wrapper.logStream,
+    protocol: wrapper.protocol,
+    phase: 'build',
+    bannerPrefix: '',
+  });
+}
 
 const featureArgs =
   options.features.length > 0

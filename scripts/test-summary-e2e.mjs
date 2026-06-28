@@ -7,6 +7,7 @@
 // Optional targeting:
 //   --file <path>  repeatable; forwarded as Playwright test file selectors.
 //   --grep <expr>  forwarded to Playwright --grep.
+//   --skip-compose-build  reuse existing e2e images instead of rebuilding before compose up.
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
 import path from 'node:path';
@@ -14,8 +15,8 @@ import path from 'node:path';
 import { runLoggedCommand, writeLogLine } from './summary-wrapper-protocol.mjs';
 import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
 import {
-  computeHalfAvailableCoresMinTwo,
   formatWorkerSummaryLine,
+  resolveWorkerSetting,
 } from './test-parallelism.mjs';
 
 const wrapper = createSummaryWrapperRun({
@@ -43,10 +44,17 @@ const wrapper = createSummaryWrapperRun({
       type: 'value',
       description: 'Filter Playwright specs with --grep.',
     },
+    {
+      name: 'skip-compose-build',
+      type: 'boolean',
+      description:
+        'Reuse existing compose-backed e2e images instead of running npm run compose:e2e:build first.',
+    },
   ],
   examples: [
     'node scripts/test-summary-e2e.mjs --help',
     'npm run test:summary:e2e -- --grep "env runtime config"',
+    'npm run test:summary:e2e -- --skip-compose-build --file e2e/env-runtime-config.spec.ts',
   ],
 });
 const composeLauncher = path.join(
@@ -76,8 +84,11 @@ wrapper.startHeartbeat();
 const options = {
   files: parsedArgs.values.file ?? [],
   grep: parsedArgs.values.grep ?? undefined,
+  skipComposeBuild: parsedArgs.values['skip-compose-build'] ?? false,
 };
-const playwrightParallelism = computeHalfAvailableCoresMinTwo();
+const playwrightParallelism = resolveWorkerSetting(
+  process.env.PLAYWRIGHT_WORKERS,
+);
 
 const defaultBrowserBaseUrl = 'http://host.docker.internal:6001';
 const defaultApiBaseUrl = 'http://host.docker.internal:6010';
@@ -226,7 +237,7 @@ console.log(
     label: 'playwright_workers',
     availableCores: playwrightParallelism.availableCores,
     workerCount: playwrightParallelism.workerCount,
-    source: 'auto-half-cores-min-two',
+    source: playwrightParallelism.source,
   })}`,
 );
 wrapper.appendLogSection('Parallelism', [
@@ -234,7 +245,7 @@ wrapper.appendLogSection('Parallelism', [
     label: 'playwright_workers',
     availableCores: playwrightParallelism.availableCores,
     workerCount: playwrightParallelism.workerCount,
-    source: 'auto-half-cores-min-two',
+    source: playwrightParallelism.source,
   }),
 ]);
 
@@ -275,15 +286,26 @@ try {
   }
 
   if (!setupFailed) {
-    const buildResult = await runLoggedCommand({
-      cmd: 'npm',
-      args: ['run', 'compose:e2e:build'],
-      cwd: wrapper.rootDir,
-      logStream: wrapper.logStream,
-      protocol: wrapper.protocol,
-      phase: 'compose_build',
-      bannerPrefix: '',
-    });
+    let buildResult = {
+      code: 0,
+    };
+    if (options.skipComposeBuild) {
+      wrapper.protocol.setPhase('compose_up');
+      wrapper.appendLogSection('Compose build', [
+        'compose_build_step=skipped',
+        'reason=wrapper_flag_skip_compose_build',
+      ]);
+    } else {
+      buildResult = await runLoggedCommand({
+        cmd: 'npm',
+        args: ['run', 'compose:e2e:build'],
+        cwd: wrapper.rootDir,
+        logStream: wrapper.logStream,
+        protocol: wrapper.protocol,
+        phase: 'compose_build',
+        bannerPrefix: '',
+      });
+    }
     if (buildResult.code !== 0) {
       setupFailed = true;
       setupFailureLabel = 'compose_build_failed';

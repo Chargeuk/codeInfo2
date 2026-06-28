@@ -6,14 +6,15 @@
 // Optional targeting:
 //   --file <path>       repeatable; run only selected test files.
 //   --test-name <expr>  forwarded to node --test-name-pattern.
+//   --skip-build        reuse an existing server build instead of rebuilding first.
 
 import path from 'node:path';
 
 import { runLoggedCommand } from './summary-wrapper-protocol.mjs';
 import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
 import {
-  computeHalfAvailableCoresMinTwo,
   formatWorkerSummaryLine,
+  resolveWorkerSetting,
 } from './test-parallelism.mjs';
 import { DEFAULT_SERVER_UNIT_TEST_FILES } from './test-summary-server-unit-files.mjs';
 import { buildServerUnitWrapperEnv } from './test-summary-server-unit-env.mjs';
@@ -44,10 +45,17 @@ const wrapper = createSummaryWrapperRun({
       type: 'value',
       description: 'Filter tests with node --test-name-pattern.',
     },
+    {
+      name: 'skip-build',
+      type: 'boolean',
+      description:
+        'Reuse an existing server build instead of running npm run build --workspace server first.',
+    },
   ],
   examples: [
     'node scripts/test-summary-server-unit.mjs --help',
     'npm run test:summary:server:unit -- --file server/src/test/unit/ingest-models.test.ts',
+    'npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/ingest-models.test.ts',
   ],
 });
 const serverDir = path.join(wrapper.rootDir, 'server');
@@ -68,8 +76,11 @@ if (parsedArgs.error) {
 const options = {
   files: parsedArgs.values.file ?? [],
   testName: parsedArgs.values['test-name'] ?? undefined,
+  skipBuild: parsedArgs.values['skip-build'] ?? false,
 };
-const serverUnitParallelism = computeHalfAvailableCoresMinTwo();
+const serverUnitParallelism = resolveWorkerSetting(
+  process.env.CODEINFO_SERVER_UNIT_CONCURRENCY,
+);
 
 const normalizeServerPath = (value) => {
   if (path.isAbsolute(value)) return value;
@@ -107,7 +118,7 @@ console.log(
     label: 'test_concurrency',
     availableCores: serverUnitParallelism.availableCores,
     workerCount: serverUnitParallelism.workerCount,
-    source: 'auto-half-cores-min-two',
+    source: serverUnitParallelism.source,
   })}`,
 );
 wrapper.appendLogSection('Parallelism', [
@@ -115,20 +126,32 @@ wrapper.appendLogSection('Parallelism', [
     label: 'test_concurrency',
     availableCores: serverUnitParallelism.availableCores,
     workerCount: serverUnitParallelism.workerCount,
-    source: 'auto-half-cores-min-two',
+    source: serverUnitParallelism.source,
   }),
 ]);
 wrapper.startHeartbeat();
 
-const buildResult = await runLoggedCommand({
-  cmd: 'npm',
-  args: ['run', 'build', '--workspace', 'server'],
-  cwd: wrapper.rootDir,
-  logStream: wrapper.logStream,
-  protocol: wrapper.protocol,
-  phase: 'build',
-  bannerPrefix: '',
-});
+let buildResult = {
+  code: 0,
+  output: '',
+};
+if (options.skipBuild) {
+  wrapper.protocol.setPhase('test');
+  wrapper.appendLogSection('Build', [
+    'build_step=skipped',
+    'reason=wrapper_flag_skip_build',
+  ]);
+} else {
+  buildResult = await runLoggedCommand({
+    cmd: 'npm',
+    args: ['run', 'build', '--workspace', 'server'],
+    cwd: wrapper.rootDir,
+    logStream: wrapper.logStream,
+    protocol: wrapper.protocol,
+    phase: 'build',
+    bannerPrefix: '',
+  });
+}
 
 const unitFiles =
   options.files.length > 0

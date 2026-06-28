@@ -1856,7 +1856,7 @@ This final revalidation task owns the full broad regression proof for the whole 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 19`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

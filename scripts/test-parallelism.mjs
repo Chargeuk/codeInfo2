@@ -104,15 +104,20 @@ export const allocateWeightedParallelBudget = ({
 
   const workerCounts = Object.fromEntries(
     [
-      ...provisional.map((item) => [item.label, item.base]),
+      ...provisional.map((item) => [item.label, Math.max(1, item.base)]),
       ...reservedEntries,
     ].sort(([leftLabel], [rightLabel]) => leftLabel.localeCompare(rightLabel)),
+  );
+  const effectiveBudget = Object.values(workerCounts).reduce(
+    (sum, count) => sum + count,
+    0,
   );
 
   return {
     availableCores,
     budget,
     budgetFraction,
+    effectiveBudget,
     reservedBudget,
     weightedBudget,
     workerCounts,

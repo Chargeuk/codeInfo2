@@ -53,7 +53,7 @@ Shared worker budget:
 }
 
 console.log(
-  `[all:parallel] shared_budget=${sharedParallelBudget.budget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,
+  `[all:parallel] shared_budget=${sharedParallelBudget.budget} effective_budget=${sharedParallelBudget.effectiveBudget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,
 );
 console.log(
   `[all:parallel] reserved_budget=${sharedParallelBudget.reservedBudget} remaining_budget=${sharedParallelBudget.weightedBudget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,

@@ -18,6 +18,10 @@ import {
   createSummaryWrapperRun,
   resolveWritableYarnEnv,
 } from './summary-wrapper-runner.mjs';
+import {
+  formatWorkerSummaryLine,
+  resolveWorkerSetting,
+} from './test-parallelism.mjs';
 
 const wrapper = createSummaryWrapperRun({
   wrapperName: 'client',
@@ -90,6 +94,13 @@ const options = {
   subset: parsedArgs.values.subset ?? undefined,
   testName: parsedArgs.values['test-name'] ?? undefined,
 };
+const jestWorkerSetting = resolveWorkerSetting(options.maxWorkers);
+const jestWorkerSummaryLine = formatWorkerSummaryLine({
+  label: 'jest_workers',
+  availableCores: jestWorkerSetting.availableCores,
+  workerCount: jestWorkerSetting.workerCount,
+  source: jestWorkerSetting.source,
+});
 
 const normalizeClientPath = (value) => {
   const clientDir = path.join(wrapper.rootDir, 'client');
@@ -131,9 +142,10 @@ if (options.subset) {
 if (options.testName) {
   jestArgs.push('--testNamePattern', options.testName);
 }
-if (options.maxWorkers) {
-  jestArgs.push('--maxWorkers', options.maxWorkers);
-}
+jestArgs.push('--maxWorkers', jestWorkerSetting.workerArgValue);
+
+console.log(`[client] ${jestWorkerSummaryLine}`);
+wrapper.appendLogSection('Parallelism', [jestWorkerSummaryLine]);
 
 wrapper.startHeartbeat();
 

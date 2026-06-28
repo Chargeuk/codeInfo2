@@ -13,6 +13,10 @@ import path from 'node:path';
 
 import { runLoggedCommand, writeLogLine } from './summary-wrapper-protocol.mjs';
 import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
+import {
+  computeHalfAvailableCoresMinTwo,
+  formatWorkerSummaryLine,
+} from './test-parallelism.mjs';
 
 const wrapper = createSummaryWrapperRun({
   wrapperName: 'e2e',
@@ -73,6 +77,7 @@ const options = {
   files: parsedArgs.values.file ?? [],
   grep: parsedArgs.values.grep ?? undefined,
 };
+const playwrightParallelism = computeHalfAvailableCoresMinTwo();
 
 const defaultBrowserBaseUrl = 'http://host.docker.internal:6001';
 const defaultApiBaseUrl = 'http://host.docker.internal:6010';
@@ -216,6 +221,23 @@ const e2eRuntimeConfig = {
   copilotScenario: process.env.E2E_COPILOT_SCENARIO ?? 'copilot-happy-path',
 };
 
+console.log(
+  `[e2e] ${formatWorkerSummaryLine({
+    label: 'playwright_workers',
+    availableCores: playwrightParallelism.availableCores,
+    workerCount: playwrightParallelism.workerCount,
+    source: 'auto-half-cores-min-two',
+  })}`,
+);
+wrapper.appendLogSection('Parallelism', [
+  formatWorkerSummaryLine({
+    label: 'playwright_workers',
+    availableCores: playwrightParallelism.availableCores,
+    workerCount: playwrightParallelism.workerCount,
+    source: 'auto-half-cores-min-two',
+  }),
+]);
+
 let testExitCode = 1;
 let summary = { total: 0, passed: 0, failed: 0, failingNames: [] };
 let setupFailed = false;
@@ -289,6 +311,7 @@ try {
             E2E_MCP_CONTROL_URL: e2eRuntimeConfig.mcpControlUrl,
             E2E_USE_MOCK_CHAT: e2eRuntimeConfig.useMockChat,
             E2E_COPILOT_SCENARIO: e2eRuntimeConfig.copilotScenario,
+            PLAYWRIGHT_WORKERS: String(playwrightParallelism.workerCount),
           },
           logStream: wrapper.logStream,
           protocol: wrapper.protocol,

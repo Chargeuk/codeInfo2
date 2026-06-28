@@ -11,6 +11,10 @@ import path from 'node:path';
 
 import { runLoggedCommand } from './summary-wrapper-protocol.mjs';
 import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
+import {
+  computeHalfAvailableCoresMinTwo,
+  formatWorkerSummaryLine,
+} from './test-parallelism.mjs';
 import { DEFAULT_SERVER_UNIT_TEST_FILES } from './test-summary-server-unit-files.mjs';
 import { buildServerUnitWrapperEnv } from './test-summary-server-unit-env.mjs';
 
@@ -65,6 +69,7 @@ const options = {
   files: parsedArgs.values.file ?? [],
   testName: parsedArgs.values['test-name'] ?? undefined,
 };
+const serverUnitParallelism = computeHalfAvailableCoresMinTwo();
 
 const normalizeServerPath = (value) => {
   if (path.isAbsolute(value)) return value;
@@ -97,6 +102,22 @@ const parseFailureNames = (output) => {
   return [...names];
 };
 
+console.log(
+  `[server:unit] ${formatWorkerSummaryLine({
+    label: 'test_concurrency',
+    availableCores: serverUnitParallelism.availableCores,
+    workerCount: serverUnitParallelism.workerCount,
+    source: 'auto-half-cores-min-two',
+  })}`,
+);
+wrapper.appendLogSection('Parallelism', [
+  formatWorkerSummaryLine({
+    label: 'test_concurrency',
+    availableCores: serverUnitParallelism.availableCores,
+    workerCount: serverUnitParallelism.workerCount,
+    source: 'auto-half-cores-min-two',
+  }),
+]);
 wrapper.startHeartbeat();
 
 const buildResult = await runLoggedCommand({
@@ -114,7 +135,10 @@ const unitFiles =
     ? options.files.map((file) => normalizeServerPath(file))
     : DEFAULT_SERVER_UNIT_TEST_FILES;
 
-const testArgs = ['--test', '--test-concurrency=1'];
+const testArgs = [
+  '--test',
+  `--test-concurrency=${serverUnitParallelism.workerCount}`,
+];
 if (options.testName) {
   testArgs.push('--test-name-pattern', options.testName);
 }

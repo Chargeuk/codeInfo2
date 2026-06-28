@@ -147,6 +147,8 @@ import {
   closePullRequest,
   createPullRequest,
   fetchPullRequestReviews,
+  type GitHubCommandFailureDetail,
+  type GitHubLookupRetryDiagnostic,
   type GitHubRepositoryState,
   lookupLatestOpenPullRequest,
   lookupPullRequestByNumber,
@@ -5914,6 +5916,78 @@ async function runFlowUnlocked(params: {
     });
   };
 
+  const formatGitHubFailureDetail = (paramsForDetail: {
+    message: string;
+    stderr?: string;
+    exitCode?: number | null;
+  }) => {
+    const lines = [paramsForDetail.message];
+    if (paramsForDetail.exitCode !== undefined) {
+      lines.push(`exitCode: ${String(paramsForDetail.exitCode)}`);
+    }
+    if (paramsForDetail.stderr) {
+      lines.push(`stderr: ${paramsForDetail.stderr}`);
+    }
+    return lines.join('\n');
+  };
+
+  const buildGitHubLookupRetryWarningMessage = (
+    diagnostic: GitHubLookupRetryDiagnostic,
+  ) =>
+    `GitHub review stage warning during PR open lookup retry ${diagnostic.attemptNumber} after waiting ${Math.round(diagnostic.waitMs / 1000)}s:\n${formatGitHubFailureDetail({
+      message: diagnostic.message,
+      stderr: diagnostic.stderr,
+      exitCode: diagnostic.exitCode,
+    })}`;
+
+  const buildGitHubOpenPrFailureMessage = (paramsForMessage: {
+    failure: GitHubCommandFailureDetail;
+    lookupDiagnostics: GitHubLookupRetryDiagnostic[];
+    createFailure?: GitHubCommandFailureDetail;
+  }) => {
+    const lines = ['GitHub review stage failed during PR open.'];
+    if (paramsForMessage.createFailure) {
+      lines.push(
+        `Initial gh pr create failure before reconciliation:\n${formatGitHubFailureDetail({
+          message: paramsForMessage.createFailure.message,
+          stderr: paramsForMessage.createFailure.stderr,
+          exitCode: paramsForMessage.createFailure.exitCode,
+        })}`,
+      );
+    }
+    for (const diagnostic of paramsForMessage.lookupDiagnostics.slice(0, -1)) {
+      lines.push(
+        `Lookup retry warning ${diagnostic.attemptNumber} after ${Math.round(diagnostic.waitMs / 1000)}s:\n${formatGitHubFailureDetail({
+          message: diagnostic.message,
+          stderr: diagnostic.stderr,
+          exitCode: diagnostic.exitCode,
+        })}`,
+      );
+    }
+    if (paramsForMessage.lookupDiagnostics.length > 0) {
+      const finalDiagnostic =
+        paramsForMessage.lookupDiagnostics[
+          paramsForMessage.lookupDiagnostics.length - 1
+        ];
+      lines.push(
+        `Final lookup failure ${finalDiagnostic.attemptNumber} after ${Math.round(finalDiagnostic.waitMs / 1000)}s:\n${formatGitHubFailureDetail({
+          message: finalDiagnostic.message,
+          stderr: finalDiagnostic.stderr,
+          exitCode: finalDiagnostic.exitCode,
+        })}`,
+      );
+      return lines.join('\n\n');
+    }
+    lines.push(
+      formatGitHubFailureDetail({
+        message: paramsForMessage.failure.message,
+        stderr: paramsForMessage.failure.stderr,
+        exitCode: paramsForMessage.failure.exitCode,
+      }),
+    );
+    return lines.join('\n\n');
+  };
+
   const resolveGitHubStepContext = async () => {
     const workingRepositoryRoot =
       params.repositoryContext.workingRepositoryPath;
@@ -6023,33 +6097,47 @@ async function runFlowUnlocked(params: {
       title,
       body,
     });
-    if (createResult.kind === 'skip') {
-      const warningMessage = `GitHub review stage skipped during PR open: ${createResult.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
+    const warningDiagnostics =
+      createResult.kind === 'ok'
+        ? createResult.lookupDiagnostics
+        : createResult.lookupDiagnostics.slice(0, -1);
+    for (const diagnostic of warningDiagnostics) {
+      const warningMessage = buildGitHubLookupRetryWarningMessage(diagnostic);
       append({
         level: 'warn',
-        message: 'flows.github.open_pr.skipped',
+        message: 'flows.github.open_pr.lookup_retry_failed',
         timestamp: new Date().toISOString(),
         source: 'server',
         context: {
           flowName: params.flowName,
-          reason: createResult.reason,
-          detail: createResult.message,
+          attemptNumber: diagnostic.attemptNumber,
+          waitMs: diagnostic.waitMs,
+          reason: diagnostic.reason,
+          detail: diagnostic.message,
+          stderr: diagnostic.stderr,
+          exitCode: diagnostic.exitCode,
         },
       });
       await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      return 'warning';
     }
     if (createResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during PR open: ${createResult.message}`,
-      );
+      const failureMessage = buildGitHubOpenPrFailureMessage({
+        failure: {
+          reason: createResult.reason,
+          message: createResult.message,
+          stderr: createResult.stderr,
+          exitCode: createResult.exitCode,
+        },
+        lookupDiagnostics: createResult.lookupDiagnostics,
+        createFailure: createResult.createFailure,
+      });
+      await appendGitHubStagePlanNote(failureMessage);
       await emitGitHubStepFailure({
         instruction: 'GitHub open PR step',
-        message: createResult.message,
+        message: failureMessage,
         errorCode: createResult.reason,
       });
       return 'failed';

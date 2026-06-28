@@ -256,7 +256,7 @@ test('repository-state resolution reports missing story-owned base branch and up
   }
 });
 
-test('GitHub PR creation keeps lower-layer runtime failures as errors unless replay reconciliation proves the PR already exists', async () => {
+test('GitHub PR creation keeps lower-layer runtime failures as errors and preserves lookup retry diagnostics when reconciliation cannot prove a PR exists', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
@@ -274,6 +274,7 @@ test('GitHub PR creation keeps lower-layer runtime failures as errors unless rep
     });
     assert.equal(missingBinary.kind, 'error');
     assert.equal(missingBinary.reason, 'GITHUB_CLI_MISSING');
+    assert.deepEqual(missingBinary.lookupDiagnostics, []);
 
     __setGitHubReviewDepsForTests({
       runCommand: async () => {
@@ -288,8 +289,13 @@ test('GitHub PR creation keeps lower-layer runtime failures as errors unless rep
     });
     assert.equal(spawnFailure.kind, 'error');
     assert.equal(spawnFailure.reason, 'GITHUB_CLI_SPAWN_FAILED');
+    assert.deepEqual(spawnFailure.lookupDiagnostics, []);
 
+    const sleepCalls: number[] = [];
     __setGitHubReviewDepsForTests({
+      sleep: async (ms) => {
+        sleepCalls.push(ms);
+      },
       runCommand: async (params) => {
         if (params.args[0] === 'pr' && params.args[1] === 'create') {
           return {
@@ -312,13 +318,17 @@ test('GitHub PR creation keeps lower-layer runtime failures as errors unless rep
       body: 'body',
     });
     assert.equal(nonZeroExit.kind, 'error');
-    assert.equal(nonZeroExit.reason, 'GITHUB_CLI_FAILED');
+    assert.equal(nonZeroExit.reason, 'INVALID_GITHUB_RESPONSE');
+    assert.equal(nonZeroExit.createFailure?.reason, 'GITHUB_CLI_FAILED');
+    assert.equal(nonZeroExit.createFailure?.stderr, 'gh api failed');
+    assert.equal(nonZeroExit.lookupDiagnostics.length, 5);
+    assert.deepEqual(sleepCalls, [30000, 60000, 90000, 120000, 150000]);
   } finally {
     await tempRepo.cleanup();
   }
 });
 
-test('latest-open PR lookup uses explicit repository-plus-branch filtering and ambiguous post-create replay reconciles to the existing PR', async () => {
+test('latest-open PR lookup uses explicit repository-plus-branch filtering, retries post-create reconciliation, and preserves ambiguous create failures when a PR is eventually resolved', async () => {
   const tempRepo = await createTempRepo();
   try {
     const pullsSlurp = await fs.readFile(
@@ -359,6 +369,7 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering and a
     });
     assert.equal(created.kind, 'ok');
     assert.equal(created.value.number, 45);
+    assert.deepEqual(created.lookupDiagnostics, []);
     assert.ok(
       seenArgs.some((args) =>
         args
@@ -369,13 +380,26 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering and a
       ),
     );
 
+    const retrySleepCalls: number[] = [];
+    let lookupAttempts = 0;
     __setGitHubReviewDepsForTests({
+      sleep: async (ms) => {
+        retrySleepCalls.push(ms);
+      },
       runCommand: async (params) => {
         if (params.args[0] === 'pr' && params.args[1] === 'create') {
           return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo/pull/45\n',
+            stderr: '',
+          };
+        }
+        lookupAttempts += 1;
+        if (lookupAttempts < 3) {
+          return {
             exitCode: 1,
             stdout: '',
-            stderr: 'connection dropped after create',
+            stderr: `lookup attempt ${lookupAttempts} failed`,
           };
         }
         return {
@@ -394,6 +418,49 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering and a
     });
     assert.equal(replayResolved.kind, 'ok');
     assert.equal(replayResolved.value.number, 45);
+    assert.equal(replayResolved.lookupDiagnostics.length, 2);
+    assert.deepEqual(
+      replayResolved.lookupDiagnostics.map((diagnostic) => diagnostic.stderr),
+      ['lookup attempt 1 failed', 'lookup attempt 2 failed'],
+    );
+    assert.deepEqual(retrySleepCalls, [30000, 60000, 90000]);
+
+    const ambiguousSleepCalls: number[] = [];
+    __setGitHubReviewDepsForTests({
+      sleep: async (ms) => {
+        ambiguousSleepCalls.push(ms);
+      },
+      runCommand: async (params) => {
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: 'connection dropped after create',
+          };
+        }
+        return {
+          exitCode: 0,
+          stdout: pullsSlurp,
+          stderr: '',
+        };
+      },
+    });
+
+    const createFailureRecovered = await createPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      title: 'Story review',
+      body: 'body',
+    });
+    assert.equal(createFailureRecovered.kind, 'ok');
+    assert.equal(createFailureRecovered.value.number, 45);
+    assert.equal(createFailureRecovered.createFailure?.reason, 'GITHUB_CLI_FAILED');
+    assert.equal(
+      createFailureRecovered.createFailure?.stderr,
+      'connection dropped after create',
+    );
+    assert.deepEqual(createFailureRecovered.lookupDiagnostics, []);
+    assert.deepEqual(ambiguousSleepCalls, [30000]);
   } finally {
     await tempRepo.cleanup();
   }

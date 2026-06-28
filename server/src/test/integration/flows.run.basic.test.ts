@@ -387,7 +387,7 @@ const createGitHubReviewRepoFixture = async (params?: {
         plan_path: planPath,
         selected_task: {
           number: taskNumber,
-          title: 'Task 4',
+          title: `Task ${taskNumber}`,
           status: '__in_progress__',
         },
       },
@@ -404,7 +404,7 @@ const createGitHubReviewRepoFixture = async (params?: {
     [
       '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
       '',
-      '### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints',
+      `### Task ${taskNumber}. Fixture task`,
       '',
       '- Task Status: `__in_progress__`',
       '',
@@ -2212,6 +2212,161 @@ test('github review skip publishes completed-with-warning, records a durable pla
       flowContainsStepType(variantFlow.steps, 'github_open_pr'),
       true,
     );
+  } finally {
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review open PR emits retry warnings and a final aggregated failure when post-create reconciliation exhausts all lookup attempts', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-open-pr-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
+  process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-open-pr-retry-failure';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    let lookupAttempts = 0;
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      sleep: async () => {},
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (
+            joined ===
+            'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+          ) {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          if (args[0] === 'pr' && args[1] === 'create') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo/pull/206\n',
+              stderr: '',
+            };
+          }
+          lookupAttempts += 1;
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `lookup attempt ${lookupAttempts} failed`,
+          };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-open-pr-retry-failure',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+
+    await startFlowRun({
+      flowName: 'github-open-pr-retry-failure',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'failed',
+        ),
+      4000,
+    );
+
+    const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
+      (turn) => turn.role === 'assistant',
+    );
+    const warningTurns = assistantTurns.filter(
+      (turn) => turn.status === 'warning',
+    );
+    assert.equal(warningTurns.length, 4);
+    assert.match(
+      warningTurns[0]?.content ?? '',
+      /lookup retry 1 after waiting 30s/i,
+    );
+    assert.match(
+      warningTurns[3]?.content ?? '',
+      /lookup retry 4 after waiting 120s/i,
+    );
+
+    const failedTurn = assistantTurns.find((turn) => turn.status === 'failed');
+    assert.ok(failedTurn);
+    assert.match(failedTurn.content, /Final lookup failure 5 after 150s/i);
+    assert.match(failedTurn.content, /stderr: lookup attempt 5 failed/i);
+
+    const planRaw = await fs.readFile(
+      path.join(
+        repoRoot,
+        'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+      ),
+      'utf8',
+    );
+    assert.match(planRaw, /GitHub review stage failed during PR open\./);
+    assert.match(planRaw, /Lookup retry warning 4 after 120s:/);
+    assert.match(planRaw, /Final lookup failure 5 after 150s:/);
   } finally {
     if (previousFlowsDir === undefined) {
       delete process.env.FLOWS_DIR;

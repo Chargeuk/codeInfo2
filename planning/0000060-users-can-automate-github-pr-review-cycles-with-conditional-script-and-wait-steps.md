@@ -1972,7 +1972,6 @@ Task-local proof here stays intentionally narrow because the changed behavior is
 - Expanded the focused adapter and runtime-loop proofs, renamed the stale-scratch runtime case to claim bounded fresh feedback explicitly, and reran both Task 21 server-unit wrappers cleanly after the bound landed.
 - Audit: implementation and focused automated proof are both complete for Task 21. Repository evidence shows the change stayed on the approved producer-side bounded-ingest seam, preserved the existing review-fetch, scratch-ownership, and downstream classification contracts, and left no unchecked subtasks, unchecked testing, or live blocker lines for this task.
 - Manual testing skipped for the live GitHub review-ingest runtime surface. Tried: restarted the checked-in main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, then POSTed `/flows/implement_next_plan_github_review/run` with `sourceId` and `working_folder` set to `/data/codeInfo2`. Observed: the flow started but failed before any review fetch or scratch materialization when the first Codex-backed step reported `refresh_token_reused` and `token_expired` provider-auth errors in conversation `task21-manual-20260628`. Why fuller proof was not possible: repository-owned skip policy applies because restoring that provider auth would require human-controlled reauthentication, which this manual-testing step must not attempt.
-
 ### Task 22. Revalidate review pass `0000060-20260628T052129Z-3b5caa68` after review-cycle `0000060-rc-20260628T060453Z-138f52f8` task-up repairs
 
 - Repository Name: `Current Repository`
@@ -2072,3 +2071,58 @@ The only task-owned browser-visible seam in this closeout pass is the supported 
 - Preflight visual refinement ran against the supported main-stack `/flows` surface before implementation continued and clarified the task-owned visible seams: the fresh `echo` default draft, the enabled `implement_next_plan_github_review /data/codeInfo2` selector row, and the narrow mobile composer row that must keep `Working path`, `Flow`, and `Edit flow title` visible without clipping. No code changed in this step.
 - Implementation-only audit normalized Testing item 17 to done from the already-recorded `npm run format:check` pass, confirmed via `plan_status.py` that Task 22 still has no live `- **BLOCKER**` entries, and left the task `__in_progress__` for this loop because this audit step did not perform new automated-proof work.
 - Implementation-plus-automated-proof audit confirmed the on-disk closeout state now matches the checklist and proof evidence: all subtasks and automated Testing items are complete, `plan_status.py` reports no live `- **BLOCKER**` entries for Task 22, and the approved Story 60 `/flows` behavior remains preserved on the supported stack, so the task closes as `__done__` while the existing Manual Testing Guidance remains optional and non-blocking.
+
+### Task 23. Preserve GitHub open-PR diagnostics and retry latest-open-PR reconciliation after create
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `Current Repository`
+- Task Dependencies: `Task 22`
+- Task Status: `__in_progress__`
+- Git Commits:
+
+#### Overview
+
+The opt-in Story 60 GitHub review flow can create a real pull request successfully and still fail the `GitHub open PR step` immediately afterward because the follow-up `lookupLatestOpenPullRequest()` reconciliation call exits non-zero. Recent manual proof created a real PR on GitHub, but the flow only surfaced `gh api --paginate --slurp ... failed` and dropped the useful `stderr` and `exitCode` detail that would explain why the lookup failed.
+
+This task keeps Story 60 scoped to the existing post-create reconciliation seam. It does not redesign review routing, token sourcing, or base-branch selection. Instead, it makes the failure path diagnosable and more robust: preserve the CLI diagnostics end to end, retry only the latest-open-PR lookup with bounded backoff after PR creation, record intermediate failures as warnings, and emit the full warning/error chain to the user if reconciliation still fails on the final attempt.
+
+- Highest-risk invariant: a successfully created PR must not be reported as an opaque open-step failure just because the immediate lookup is flaky, and any final failure must preserve the underlying `gh` diagnostics instead of collapsing them to a summary string.
+- Likely blocker family: server runtime seam, because the task changes the GitHub adapter plus the open-PR flow step failure/warning reporting path.
+
+#### Task Exit Criteria
+
+- The GitHub adapter preserves `stderr` and `exitCode` from `gh` failures through the open-PR step's plan-note and user-visible failure path.
+- The post-create latest-open-PR lookup retries in a bounded way after PR creation instead of failing immediately on the first lookup error.
+- Intermediate lookup failures before the final attempt are surfaced as warnings rather than as immediate terminal errors.
+- A final post-create lookup failure still fails the step, but the user-visible message and plan note preserve the full warning/error chain so no diagnostic detail is lost.
+- The retry logic stays scoped to post-create latest-open-PR reconciliation and does not retry `gh pr create` itself.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - capture the new diagnostics-preservation and bounded post-create lookup-retry behavior for Story 60.
+
+#### Subtasks
+
+1. [x] Re-open `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, and the current Story 60 plan note about the failed open-PR lookup, then map the exact seam where `stderr`/`exitCode` are preserved today versus where they are dropped before the plan-note and user-visible failure path.
+2. [x] Implement a bounded retry helper for post-create `lookupLatestOpenPullRequest()` in `server/src/flows/githubReview.ts` that performs 5 attempts total with increasing waits starting at 30 seconds, preserves each failed attempt's diagnostics, and does not retry `gh pr create` itself.
+3. [x] Update the open-PR step failure/warning reporting in `server/src/flows/service.ts` so intermediate lookup failures are emitted as warnings, the final failure is emitted as an error, and the full warning/error chain plus preserved `stderr`/`exitCode` reach the plan note and user-visible step response without being collapsed to a single summary string.
+4. [x] Update the focused proof homes so unit coverage owns the retry/diagnostic behavior and the flow-run integration coverage owns the end-to-end open-PR warning/error reporting path for the repaired seam.
+5. [x] Refresh `codeInfoStatus/pr-summaries/0000060-pr-summary.md` so Story 60 closeout notes the new diagnostics-preservation and bounded reconciliation-retry contract for the GitHub open-PR step.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the adapter proof re-covers preserved `stderr`/`exitCode`, bounded post-create lookup retries, and final aggregated failure behavior.
+2. [x] Run the focused server integration proof home that owns GitHub open-PR flow-step reporting after the change so warning/error propagation is re-proved end to end on a real flow-run seam.
+3. [ ] Run `npm run test:summary:server:unit` from the repository root because this task changes shared server-owned flow runtime behavior.
+4. [x] Run `npm run test:summary:server:cucumber` from the repository root because the Story 60 flow-runtime path should stay green on the repository's broader back-end integration surface after the repair.
+5. [x] Run `npm run lint` from the repository root for the repaired Story 60 server/runtime surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+6. [x] Run `npm run format:check` from the repository root for the repaired Story 60 surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Audit repaired task truth before implementation: the prior `gh api --paginate --slurp ... failed` line was dangling after closed Task 22, so Task 23 now owns the new Story 60 work for preserving GitHub open-PR diagnostics and retrying only the post-create latest-open-PR reconciliation seam.
+- Re-opened the Story 60 failure seam across `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, and the carried-forward GitHub open-PR failure note, then confirmed the adapter already preserved `stderr`/`exitCode` while the open-PR step reporting path collapsed that detail before the plan note and user-visible failure turn.
+- Added a bounded post-create latest-open-PR reconciliation helper in `server/src/flows/githubReview.ts` with five delayed lookup attempts at 30s, 60s, 90s, 120s, and 150s, plus structured per-attempt diagnostics that stay scoped to reconciliation instead of retrying `gh pr create` itself.
+- Updated `server/src/flows/service.ts` to emit retry-attempt warning turns for non-terminal lookup failures, aggregate the final warning/error chain into the terminal open-PR failure message and plan note, and keep successful reconciliations moving even when earlier lookup attempts were flaky.
+- Focused proof now owns the repaired seam on both sides: `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed with the adapter retry/diagnostic cases green, and the focused `flows.run.basic` open-PR reporting proof passed with four warning turns plus the final aggregated failure turn and durable plan note.
+- Broader validation is mixed but honest: `npm run test:summary:server:cucumber`, `npm run lint`, and `npm run format:check` all passed cleanly on the Task 23 surface, while the full `npm run test:summary:server:unit` wrapper twice reached the late-suite `ok 360 - stop-near-complete flow aligns final status with persisted turns and emits Task 3 diagnostics` milestone and then stalled without a clean process exit even though the targeted `server/src/test/integration/flows.run.basic.test.ts` wrapper passed in isolation.

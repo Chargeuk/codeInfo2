@@ -149,6 +149,44 @@ export type GitHubReviewFeedbackEntry =
       createdAt?: string;
     };
 
+export type GitHubCommandFailureDetail = {
+  reason: string;
+  message: string;
+  stderr?: string;
+  exitCode?: number | null;
+};
+
+export type GitHubLookupRetryDiagnostic = GitHubCommandFailureDetail & {
+  attemptNumber: number;
+  waitMs: number;
+};
+
+export type GitHubCreatePullRequestResult =
+  | {
+      kind: 'ok';
+      value: GitHubPullRequestIdentity;
+      lookupDiagnostics: GitHubLookupRetryDiagnostic[];
+      createFailure?: GitHubCommandFailureDetail;
+    }
+  | {
+      kind: 'skip';
+      reason: string;
+      message: string;
+      stderr?: string;
+      exitCode?: number | null;
+      lookupDiagnostics: GitHubLookupRetryDiagnostic[];
+      createFailure?: GitHubCommandFailureDetail;
+    }
+  | {
+      kind: 'error';
+      reason: string;
+      message: string;
+      stderr?: string;
+      exitCode?: number | null;
+      lookupDiagnostics: GitHubLookupRetryDiagnostic[];
+      createFailure?: GitHubCommandFailureDetail;
+    };
+
 type CommandResult = {
   exitCode: number | null;
   stdout: string;
@@ -180,6 +218,7 @@ type GitHubReviewDeps = {
   }) => Promise<CommandResult>;
   stat: (targetPath: string) => Promise<{ isDirectory: () => boolean }>;
   nowIso: () => string;
+  sleep: (ms: number) => Promise<void>;
   writeFile: (
     filePath: string,
     contents: string,
@@ -226,6 +265,7 @@ const defaultGitHubReviewDeps: GitHubReviewDeps = {
     }),
   stat: async (targetPath) => await fs.stat(targetPath),
   nowIso: () => new Date().toISOString(),
+  sleep: async (ms) => await sleep(ms),
   writeFile: async (filePath, contents, options) => {
     await fs.writeFile(filePath, contents, options);
   },
@@ -254,6 +294,9 @@ export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
 export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
 export const MAX_GITHUB_REVIEW_SUBMISSIONS = 200;
 export const MAX_GITHUB_INLINE_REVIEW_COMMENTS = 200;
+const GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS = [
+  30_000, 60_000, 90_000, 120_000, 150_000,
+] as const;
 
 const buildTempPath = (targetPath: string) =>
   `${targetPath}.${process.pid}.${Date.now().toString(36)}.tmp`;
@@ -846,12 +889,84 @@ export const lookupLatestOpenPullRequest = async (params: {
   return { kind: 'ok', value: pulls[0] ?? null };
 };
 
+const buildMissingPullRequestLookupFailure = (): GitHubCommandFailureDetail => ({
+  reason: 'INVALID_GITHUB_RESPONSE',
+  message:
+    'GitHub pull request creation completed but no latest open pull request could be resolved for the current branch.',
+});
+
+const buildGitHubFailureDetail = (params: {
+  result: GitHubStepOutcome<GitHubPullRequestIdentity | null>;
+}): GitHubCommandFailureDetail => {
+  if (params.result.kind === 'error' || params.result.kind === 'skip') {
+    return {
+      reason: params.result.reason,
+      message: params.result.message,
+      stderr: params.result.stderr,
+      exitCode: params.result.exitCode,
+    };
+  }
+  return buildMissingPullRequestLookupFailure();
+};
+
+const lookupLatestOpenPullRequestWithRetry = async (params: {
+  repository: GitHubRepositoryState;
+  token: string;
+}): Promise<
+  | {
+      kind: 'ok';
+      value: GitHubPullRequestIdentity;
+      diagnostics: GitHubLookupRetryDiagnostic[];
+    }
+  | {
+      kind: 'error';
+      failure: GitHubCommandFailureDetail;
+      diagnostics: GitHubLookupRetryDiagnostic[];
+    }
+> => {
+  const diagnostics: GitHubLookupRetryDiagnostic[] = [];
+  for (const [index, waitMs] of GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS.entries()) {
+    await githubReviewDeps.sleep(waitMs);
+    const lookedUp = await lookupLatestOpenPullRequest({
+      repository: params.repository,
+      token: params.token,
+    });
+    if (lookedUp.kind === 'ok' && lookedUp.value) {
+      return {
+        kind: 'ok',
+        value: lookedUp.value,
+        diagnostics,
+      };
+    }
+    const failure = buildGitHubFailureDetail({
+      result: lookedUp,
+    });
+    diagnostics.push({
+      attemptNumber: index + 1,
+      waitMs,
+      ...failure,
+    });
+  }
+  const failure =
+    diagnostics.at(-1) ?? buildMissingPullRequestLookupFailure();
+  return {
+    kind: 'error',
+    failure: {
+      reason: failure.reason,
+      message: failure.message,
+      stderr: failure.stderr,
+      exitCode: failure.exitCode,
+    },
+    diagnostics,
+  };
+};
+
 export const createPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
   title: string;
   body: string;
-}): Promise<GitHubStepOutcome<GitHubPullRequestIdentity>> => {
+}): Promise<GitHubCreatePullRequestResult> => {
   const createResult = await runGitHubCli({
     workingRepositoryRoot: params.repository.workingRepositoryRoot,
     token: params.token,
@@ -872,31 +987,62 @@ export const createPullRequest = async (params: {
   });
   if (createResult.kind !== 'ok') {
     if (createResult.reason === 'GITHUB_CLI_FAILED') {
-      const reconciled = await lookupLatestOpenPullRequest({
+      const reconciled = await lookupLatestOpenPullRequestWithRetry({
         repository: params.repository,
         token: params.token,
       });
-      if (reconciled.kind === 'ok' && reconciled.value) {
-        return { kind: 'ok', value: reconciled.value };
+      if (reconciled.kind === 'ok') {
+        return {
+          kind: 'ok',
+          value: reconciled.value,
+          lookupDiagnostics: reconciled.diagnostics,
+          createFailure: {
+            reason: createResult.reason,
+            message: createResult.message,
+            stderr: createResult.stderr,
+            exitCode: createResult.exitCode,
+          },
+        };
       }
+      return {
+        kind: 'error',
+        reason: reconciled.failure.reason,
+        message: reconciled.failure.message,
+        stderr: reconciled.failure.stderr,
+        exitCode: reconciled.failure.exitCode,
+        lookupDiagnostics: reconciled.diagnostics,
+        createFailure: {
+          reason: createResult.reason,
+          message: createResult.message,
+          stderr: createResult.stderr,
+          exitCode: createResult.exitCode,
+        },
+      };
     }
-    return createResult;
+    return {
+      ...createResult,
+      lookupDiagnostics: [],
+    };
   }
-  const lookedUp = await lookupLatestOpenPullRequest({
+  const lookedUp = await lookupLatestOpenPullRequestWithRetry({
     repository: params.repository,
     token: params.token,
   });
-  if (lookedUp.kind !== 'ok')
-    return lookedUp as GitHubStepOutcome<GitHubPullRequestIdentity>;
-  if (!lookedUp.value) {
+  if (lookedUp.kind !== 'ok') {
     return {
       kind: 'error',
-      reason: 'INVALID_GITHUB_RESPONSE',
-      message:
-        'GitHub pull request creation completed but no latest open pull request could be resolved for the current branch.',
+      reason: lookedUp.failure.reason,
+      message: lookedUp.failure.message,
+      stderr: lookedUp.failure.stderr,
+      exitCode: lookedUp.failure.exitCode,
+      lookupDiagnostics: lookedUp.diagnostics,
     };
   }
-  return { kind: 'ok', value: lookedUp.value };
+  return {
+    kind: 'ok',
+    value: lookedUp.value,
+    lookupDiagnostics: lookedUp.diagnostics,
+  };
 };
 
 const normalizeReviewSubmission = (

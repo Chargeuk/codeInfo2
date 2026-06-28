@@ -1890,6 +1890,8 @@ This review-created task repairs the supported main-stack runtime contract for t
 
 #### Testing
 
+Task-local proof here stays focused on the direct supported-stack reachability seam plus the main-stack build contract that this repair itself changes. The broad server, client, end-to-end, compose smoke, lint, and format reruns for the full review-created findings block remain owned by Task 22.
+
 1. [ ] Run `npm run build:summary:server` from the repository root because this repair can touch server-owned discovery or disablement seams as well as the supported runtime contract.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` from the repository root so the repaired positive runnable invariant and the preserved missing-agent negative boundary both pass on their shared focused proof home after the repair lands.
 3. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.runGuard.test.tsx --test-name "keeps the active runnable selection when an ingested GitHub review variant is disabled from list data"` from the repository root so the preserved mixed-state UI contract is re-proved: disabled list data may remain as hidden local state, but the visible selection stays on a runnable flow and the stale disabled option is excluded from launch submissions.
@@ -1936,9 +1938,10 @@ This review-created task repairs the unbounded GitHub review-ingest path that cu
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this task changes the server-owned GitHub review fetch and materialization seam, and the focused implementation pass should still build cleanly before the shared final revalidation task reruns the broader wrappers.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the preserved pagination contract and the new bounded-ingest rule both pass on the focused adapter proof home.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the execution-scoped scratch handoff and downstream materialization path are re-proved after the ingest bound is added.
+Task-local proof here stays intentionally narrow because the changed behavior is reached directly through the focused GitHub review adapter and runtime-loop proof homes. Task 22 owns the broad server, client, end-to-end, compose smoke, lint, and format reruns for the whole review-created findings block.
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the preserved pagination contract and the new bounded-ingest rule both pass on the focused adapter proof home.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the execution-scoped scratch handoff and downstream materialization path are re-proved after the ingest bound is added.
 
 #### Implementation notes
 
@@ -1955,6 +1958,8 @@ This review-created task repairs the unbounded GitHub review-ingest path that cu
 #### Overview
 
 This fresh final revalidation task owns the full regression proof for the current review-created findings block after the serious task-up repairs land. Inline minor fixes are not part of this review cycle, so this task only needs to revalidate the new Task 20 and Task 21 repairs while rerunning the repository-supported build, test, compose, and smoke surfaces that must stay healthy before Story 60 can close again.
+
+This is the one task in the current review-created block that owns the full broad regression rerun for the repaired findings surface. Earlier review-created tasks keep only the narrow targeted proof needed to validate their own seam directly.
 
 #### Task Exit Criteria
 

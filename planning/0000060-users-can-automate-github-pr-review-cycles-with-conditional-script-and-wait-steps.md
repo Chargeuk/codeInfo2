@@ -1971,8 +1971,7 @@ Task-local proof here stays intentionally narrow because the changed behavior is
 - Re-read `runGitHubFetchReviewsStep(...)` after the producer cap landed and kept `server/src/flows/service.ts` unchanged because its existing execution-scoped write -> reread -> materialize ordering already preserves the bounded corpus without introducing a second cleanup seam.
 - Expanded the focused adapter and runtime-loop proofs, renamed the stale-scratch runtime case to claim bounded fresh feedback explicitly, and reran both Task 21 server-unit wrappers cleanly after the bound landed.
 - Audit: implementation and focused automated proof are both complete for Task 21. Repository evidence shows the change stayed on the approved producer-side bounded-ingest seam, preserved the existing review-fetch, scratch-ownership, and downstream classification contracts, and left no unchecked subtasks, unchecked testing, or live blocker lines for this task.
-- Manual testing skipped for the live GitHub review-ingest runtime surface. Tried: restarted the checked-in main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, then POSTed `/flows/implement_next_plan_github_review/run` with `sourceId` and `working_folder` set to `/data/codeInfo2`. Observed: the flow started but failed before any review fetch or scratch materialization when the first Codex-backed step reported `refresh_token_reused` and `token_expired` provider-auth errors in conversation `task21-manual-20260628`. Why fuller proof was not possible: repository-owned skip policy applies because restoring that provider auth would require human-controlled reauthentication, which this manual-testing step must not attempt.
-### Task 22. Revalidate review pass `0000060-20260628T052129Z-3b5caa68` after review-cycle `0000060-rc-20260628T060453Z-138f52f8` task-up repairs
+- Manual testing skipped for the live GitHub review-ingest runtime surface. Tried: restarted the checked-in main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, then POSTed `/flows/implement_next_plan_github_review/run` with `sourceId` and `working_folder` set to `/data/codeInfo2`. Observed: the flow started but failed before any review fetch or scratch materialization when the first Codex-backed step reported `refresh_token_reused` and `token_expired` provider-auth errors in conversation `task21-manual-20260628`. Why fuller proof was not possible: repository-owned skip policy applies because restoring that provider auth would require human-controlled reauthentication, which this manual-testing step must not attempt.### Task 22. Revalidate review pass `0000060-20260628T052129Z-3b5caa68` after review-cycle `0000060-rc-20260628T060453Z-138f52f8` task-up repairs
 
 - Repository Name: `Current Repository`
 - Affected Repositories: `Current Repository`
@@ -2071,6 +2070,118 @@ The only task-owned browser-visible seam in this closeout pass is the supported 
 - Preflight visual refinement ran against the supported main-stack `/flows` surface before implementation continued and clarified the task-owned visible seams: the fresh `echo` default draft, the enabled `implement_next_plan_github_review /data/codeInfo2` selector row, and the narrow mobile composer row that must keep `Working path`, `Flow`, and `Edit flow title` visible without clipping. No code changed in this step.
 - Implementation-only audit normalized Testing item 17 to done from the already-recorded `npm run format:check` pass, confirmed via `plan_status.py` that Task 22 still has no live `- **BLOCKER**` entries, and left the task `__in_progress__` for this loop because this audit step did not perform new automated-proof work.
 - Implementation-plus-automated-proof audit confirmed the on-disk closeout state now matches the checklist and proof evidence: all subtasks and automated Testing items are complete, `plan_status.py` reports no live `- **BLOCKER**` entries for Task 22, and the approved Story 60 `/flows` behavior remains preserved on the supported stack, so the task closes as `__done__` while the existing Manual Testing Guidance remains optional and non-blocking.
+- GitHub review stage failed during PR open.
+
+Lookup retry warning 1 after 30s:
+gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
+exitCode: 1
+stderr: unknown flag: --slurp
+
+Usage:  gh api <endpoint> [flags]
+
+Flags:
+      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
+  -F, --field key=value       Add a typed parameter in key=value format
+  -H, --header key:value      Add a HTTP request header in key:value format
+      --hostname string       The GitHub hostname for the request (default "github.com")
+  -i, --include               Include HTTP response status line and headers in the output
+      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
+  -q, --jq string             Query to select values from the response using jq syntax
+  -X, --method string         The HTTP method for the request (default "GET")
+      --paginate              Make additional HTTP requests to fetch all pages of results
+  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
+  -f, --raw-field key=value   Add a string parameter in key=value format
+      --silent                Do not print the response body
+  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+
+Lookup retry warning 2 after 60s:
+gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
+exitCode: 1
+stderr: unknown flag: --slurp
+
+Usage:  gh api <endpoint> [flags]
+
+Flags:
+      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
+  -F, --field key=value       Add a typed parameter in key=value format
+  -H, --header key:value      Add a HTTP request header in key:value format
+      --hostname string       The GitHub hostname for the request (default "github.com")
+  -i, --include               Include HTTP response status line and headers in the output
+      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
+  -q, --jq string             Query to select values from the response using jq syntax
+  -X, --method string         The HTTP method for the request (default "GET")
+      --paginate              Make additional HTTP requests to fetch all pages of results
+  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
+  -f, --raw-field key=value   Add a string parameter in key=value format
+      --silent                Do not print the response body
+  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+
+Lookup retry warning 3 after 90s:
+gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
+exitCode: 1
+stderr: unknown flag: --slurp
+
+Usage:  gh api <endpoint> [flags]
+
+Flags:
+      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
+  -F, --field key=value       Add a typed parameter in key=value format
+  -H, --header key:value      Add a HTTP request header in key:value format
+      --hostname string       The GitHub hostname for the request (default "github.com")
+  -i, --include               Include HTTP response status line and headers in the output
+      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
+  -q, --jq string             Query to select values from the response using jq syntax
+  -X, --method string         The HTTP method for the request (default "GET")
+      --paginate              Make additional HTTP requests to fetch all pages of results
+  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
+  -f, --raw-field key=value   Add a string parameter in key=value format
+      --silent                Do not print the response body
+  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+
+Lookup retry warning 4 after 120s:
+gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
+exitCode: 1
+stderr: unknown flag: --slurp
+
+Usage:  gh api <endpoint> [flags]
+
+Flags:
+      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
+  -F, --field key=value       Add a typed parameter in key=value format
+  -H, --header key:value      Add a HTTP request header in key:value format
+      --hostname string       The GitHub hostname for the request (default "github.com")
+  -i, --include               Include HTTP response status line and headers in the output
+      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
+  -q, --jq string             Query to select values from the response using jq syntax
+  -X, --method string         The HTTP method for the request (default "GET")
+      --paginate              Make additional HTTP requests to fetch all pages of results
+  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
+  -f, --raw-field key=value   Add a string parameter in key=value format
+      --silent                Do not print the response body
+  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+
+Final lookup failure 5 after 150s:
+gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
+exitCode: 1
+stderr: unknown flag: --slurp
+
+Usage:  gh api <endpoint> [flags]
+
+Flags:
+      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
+  -F, --field key=value       Add a typed parameter in key=value format
+  -H, --header key:value      Add a HTTP request header in key:value format
+      --hostname string       The GitHub hostname for the request (default "github.com")
+  -i, --include               Include HTTP response status line and headers in the output
+      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
+  -q, --jq string             Query to select values from the response using jq syntax
+  -X, --method string         The HTTP method for the request (default "GET")
+      --paginate              Make additional HTTP requests to fetch all pages of results
+  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
+  -f, --raw-field key=value   Add a string parameter in key=value format
+      --silent                Do not print the response body
+  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+
 
 ### Task 23. Preserve GitHub open-PR diagnostics and retry latest-open-PR reconciliation after create
 

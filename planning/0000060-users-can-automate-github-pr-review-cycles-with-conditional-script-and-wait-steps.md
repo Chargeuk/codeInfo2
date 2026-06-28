@@ -1978,7 +1978,7 @@ Task-local proof here stays intentionally narrow because the changed behavior is
 - Repository Name: `Current Repository`
 - Affected Repositories: `Current Repository`
 - Task Dependencies: `Task 20`, `Task 21`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { acquireE2eResourceLock } from './support/e2eResourceLock';
 import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
@@ -86,6 +87,17 @@ async function vectorSearch(
 }
 
 test.describe.serial('Chat tools citations', () => {
+  let releaseIngestLock: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async () => {
+    releaseIngestLock = await acquireE2eResourceLock('ingest-root-fixtures-repo');
+  });
+
+  test.afterEach(async () => {
+    await releaseIngestLock?.();
+    releaseIngestLock = undefined;
+  });
+
   test('shows vector search citation with host path', async ({ page }) => {
     test.setTimeout(240_000);
     const mockWs = await installMockChatWs(page);

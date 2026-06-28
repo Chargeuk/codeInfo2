@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
+const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 
 test('Logs page shows a streamed sample log through the utility shell', async ({
   page,
@@ -16,12 +17,41 @@ test('Logs page shows a streamed sample log through the utility shell', async ({
 
   await page.goto(`${baseUrl}/logs`);
   await expect(page.getByTestId('utility-page-shell')).toBeVisible();
+  await page.getByRole('textbox', { name: 'Search text' }).fill('sample log');
+  const postResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/logs') &&
+      response.status() === 202,
+  );
   await page.getByRole('button', { name: 'Send sample log' }).click();
-  await page.getByRole('button', { name: 'Refresh now' }).click();
+  await postResponsePromise;
+
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          `${apiBase}/logs?text=${encodeURIComponent('sample log')}&source=client`,
+        );
+        if (!response.ok()) {
+          return false;
+        }
+        const body = (await response.json()) as { items?: Array<{ message?: string }> };
+        return (
+          body.items?.some((entry) => entry.message === 'sample log') ?? false
+        );
+      },
+      {
+        timeout: 20_000,
+        message: 'waiting for sample log to reach the logs API',
+      },
+    )
+    .toBe(true);
 
   const table = page.getByRole('table', { name: 'Logs table' });
+  await page.getByRole('button', { name: 'Refresh now' }).click();
   await expect(table.getByText('sample log').first()).toBeVisible({
-    timeout: 15000,
+    timeout: 20_000,
   });
   await expect(table.getByText(/info/i).first()).toBeVisible();
 });

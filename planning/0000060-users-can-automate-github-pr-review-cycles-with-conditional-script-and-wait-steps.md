@@ -1842,3 +1842,156 @@ This final revalidation task owns the full broad regression proof for the whole 
 - Testing 15: `npm run format:check` passed cleanly across the final Story 60 review-cycle revalidation surface, so the refreshed PR summary, Task 18 through Task 19 traceability notes, and broad proof bookkeeping remain Prettier-clean without follow-up formatting fixes.
 - Audit closeout: re-read the live Task 19 block, the refreshed PR summary, the latest automated-proof commit, and `plan_status.py --task-number 19`, then confirmed every Task 19 subtask and automated testing item was honestly complete with no live blocker and no unapproved story-scope behavior drift. Closed this final revalidation task as `__done__`.
 - Manual testing ran as full-story proof on a fresh supported main stack after stopping the stale unknown-provenance runtime with `npm run compose:down`, then restarting through `npm run compose:build` plus `npm run compose:up` and returning the baseline to stopped with `npm run compose:down`. The final `/flows` rerun proved the Story 60 opt-in GitHub review variant is now exposed as runnable on the supported stack while the default visible selection still starts on `echo`; after intentional operator selection, `implement_next_plan_github_review` became the active flow with Send still enabled, and the live `GET /flows` data also reported that variant as `"disabled": false`. No disabled GitHub-review row surfaced in this rerun, so the hidden stale-selection rejection path was not re-required manually because Task 19 only requires that branch when it appears live and the focused automated proofs already cover it. Scratch proof artifacts were saved under `codeInfoTmp/manual-testing/0000060/19/` as `support-health.json`, `support-app-head.txt`, `support-flows-ui-head.txt`, `support-flows.json`, `support-implement-next-plan-github-review.json`, `support-browser-state.json`, `support-network.txt`, and `support-console.txt`; screenshots were honestly attempted with Playwright using the intended staging paths `0000060-review-cycle-final/proof-01-flows-desktop.png` and `0000060-review-cycle-final/proof-02-flows-mobile.png`, but this session's Playwright sandbox only exposed in-memory `.playwright-mcp` files and did not allow transfer into `codeInfoTmp/manual-testing/0000060/19/`, so no final-task screenshot superseded any earlier retained screenshot.
+
+## Code Review Findings
+
+### Review Pass `0000060-20260628T052129Z-3b5caa68` follow-up for review cycle `0000060-rc-20260628T060453Z-138f52f8`
+
+- Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active task-up routing. `codeInfoTmp/reviews/0000060-current-review.json` and the referenced findings, saturation, challenge, and evidence artifacts remain the scratch review basis for this same review pass.
+- Review comparison context: the stored review handoff compared local `HEAD` `3b5caa68c0d076c59f3c4e64f5fcfb54f524deca` against resolved remote base `origin/main` at `33609a1f77499983b6cb10273fe6137ae05aa24f`, with `remote_fetch_status: success` and no local-fallback base inference required.
+- This appended follow-up block encodes the active unresolved task-required findings directly into executable plan state. No inline-resolved minor findings are currently recorded for review cycle `0000060-rc-20260628T060453Z-138f52f8`, so the fresh final revalidation task below only needs to cover the serious review-created findings block added here.
+- Remaining unresolved task-required findings that must now be completed before story closeout: `plan_contract_issue` and `generic_engineering_issue`.
+
+### Task 20. Restore Supported Main-Stack Review-Agent Availability For The Opt-In Review Flow
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 19`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the supported main-stack runtime contract for the new opt-in GitHub review flow. The current Story 60 branch still leaves `implement_next_plan_github_review` unreachable on the checked-in main stack because that flow depends on `review_agent` while the supported stack mounts only the repository-owned `manual_testing` agent catalogs. The repair must restore supported-stack reachability for that opt-in variant without mutating the default `implement_next_plan` entrypoint, broadening browser-visible behavior, or silently turning this story into a general agent-catalog redesign.
+
+#### Task Exit Criteria
+
+- The supported main stack no longer advertises `implement_next_plan_github_review` as unusable solely because the mounted repository-owned agent catalogs omit the agent contract that the flow now expects.
+- The repair stays inside Story 60's approved scope by restoring the shipped opt-in review-cycle path rather than redesigning default flow selection, browser-visible behavior, or general agent-home compatibility.
+- The final chosen repair path is explicit and bounded: either the supported main-stack catalog exposes the required review-capable agent contract, or the copied opt-in flow variant is rerouted only to an already-mounted repository-owned review-capable contract, with the default `implement_next_plan` flow left unchanged.
+- The positive supported-stack runnable invariant and the preserved negative missing-agent boundary are both re-proved on their existing proof homes before the broad final revalidation task reruns the full stack.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260628T052129Z-3b5caa68`
+- Finding `plan_contract_issue`: the supported main-stack review flow remains unreachable because the mounted main-stack agent catalogs still do not provide `review_agent`.
+- Routed constraint from review disposition state: fix the underlying supported-stack defect, but do not silently convert it into a broader agent-home compatibility redesign or a default-flow behavior change outside approved story scope.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - refresh the reviewer-facing summary so the supported-stack repair seam, preserved default-path behavior, and focused proof owners remain explicit for this review cycle.
+
+#### Subtasks
+
+1. [ ] Trace the exact supported-stack ownership seam across `docker-compose.yml`, `manual_testing/codeinfo_agents`, `manual_testing/codex_agents`, `flows/implement_next_plan_github_review.json`, `flows/review_plan.json`, `server/src/flows/discovery.ts`, and `server/src/routes/flows.ts` so the final repair stays bounded to the repository-owned main-stack contract instead of drifting into a broader catalog redesign.
+2. [ ] Implement one bounded supported-stack repair in the owning runtime and flow-definition seam so `implement_next_plan_github_review` becomes reachable on the supported main stack again while the default `implement_next_plan` entrypoint and unrelated flow-selection behavior stay unchanged.
+3. [ ] Update the focused proof homes and traceability notes for this seam in `server/src/test/integration/flows.list.test.ts`, `e2e/flows-execution-runs.spec.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` so the positive runnable invariant and the preserved missing-agent negative boundary remain explicit and separately named.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts --test-name "supported main-stack catalog exposes the Story 60 GitHub review variant as runnable when review_agent is available"` from the repository root after the repair lands so the positive supported-stack catalog invariant is re-proved on its focused proof home.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts --test-name "ingested Story 60 GitHub review variant is disabled when review_agent is only missing inside a nested branch"` from the repository root so the preserved negative missing-agent boundary is still proved with a distinct focused test after the repair.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows let operators select the GitHub review variant without mutating the default entrypoint"` from the repository root so the repaired `/flows` launcher path is re-proved through the normal UI execution seam before the broad final revalidation task takes over.
+4. [ ] Run `npm run compose:build:summary` from the repository root because this task touches the shipped supported-stack runtime contract, and the focused repair should still survive the repository-owned main-stack build path before the shared final revalidation task reruns the full compose smoke sequence.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 21. Bound GitHub Review Ingest Materialization Without Changing Review Semantics
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 19`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the unbounded GitHub review-ingest path that currently slurps a full review corpus into scratch JSON and one downstream markdown derivative. The implementation must bound the fetch or materialization seam while preserving Story 60's approved review-cycle semantics: pagination support still exists, execution-scoped scratch ownership still fails closed, and the existing reviewer-feedback filtering contract stays authoritative instead of being silently redefined for convenience.
+
+#### Task Exit Criteria
+
+- The GitHub review fetch or materialization path has an explicit bound, batching rule, chunking rule, or other concrete limit that prevents a large review thread from expanding into one unbounded scratch-write plus one unbounded markdown prompt input.
+- The repair preserves Story 60's approved semantics: review submissions and inline comments are still fetched through the supported GitHub review path, execution-scoped scratch ownership still stays authoritative, and the downstream classification contract is not silently reinterpreted to make the proof easier.
+- The chosen bound is documented in the task-owned proof notes so later revalidation can tell whether the remaining behavior is intended bounded ingestion rather than an accidental truncation regression.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260628T052129Z-3b5caa68`
+- Finding `generic_engineering_issue`: GitHub review fetch still materializes an unbounded review corpus into scratch JSON and one downstream markdown input.
+- Routed constraint from review disposition state: fix the underlying boundedness defect in the fetch, filter, scratch-persistence, or markdown-materialization seam without silently broadening the story into a new review-policy redesign.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - capture the chosen bounding rule, the preserved review semantics, and the focused proof files for the repaired ingest path.
+
+#### Subtasks
+
+1. [ ] Trace the current review-ingest seam across `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, and the execution-scoped scratch readers so the repair is bounded to the concrete fetch, filter, persistence, and markdown-materialization surfaces that currently expand without limit.
+2. [ ] Implement one bounded repair for the GitHub review-ingest seam that preserves pagination support and current feedback-filtering semantics while preventing one oversized review cycle from materializing an unbounded downstream artifact.
+3. [ ] Update the focused proof homes and traceability notes for this seam in `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` so the bounded-ingest contract is explicit before the broad final revalidation task reruns the full server and end-to-end wrappers.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts --test-name "review fetch preserves paginated review submissions and inline review comments"` from the repository root so the approved pagination and dual-surface review-fetch contract is still proved after the bounded-ingest repair.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review materialization replaces stale scratch with fresh reviewer feedback before classification"` from the repository root so the execution-scoped scratch handoff and downstream materialization path are re-proved after the ingest bound is added.
+3. [ ] Run `npm run build:summary:server` from the repository root because this task changes the server-owned GitHub review fetch and materialization seam, and the focused implementation pass should still build cleanly before the shared final revalidation task reruns the broader wrappers.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 22. Revalidate review pass `0000060-20260628T052129Z-3b5caa68` after review-cycle `0000060-rc-20260628T060453Z-138f52f8` task-up repairs
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `Current Repository`
+- Task Dependencies: `Task 20`, `Task 21`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This fresh final revalidation task owns the full regression proof for the current review-created findings block after the serious task-up repairs land. Inline minor fixes are not part of this review cycle, so this task only needs to revalidate the new Task 20 and Task 21 repairs while rerunning the repository-supported build, test, compose, and smoke surfaces that must stay healthy before Story 60 can close again.
+
+#### Task Exit Criteria
+
+- Review pass `0000060-20260628T052129Z-3b5caa68` is revalidated on current `HEAD` after the Task 20 and Task 21 repairs with no remaining findings from this review-created block.
+- The repaired supported-stack review-flow reachability and the repaired bounded-ingest contract are both covered by focused proof plus the repository-supported broad regression wrappers for the current repository.
+- The review-created findings block for cycle `0000060-rc-20260628T060453Z-138f52f8` is the only remaining review-owned proof surface for this pass; no second final minor-fix revalidation task is needed later for this same cycle.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260628T052129Z-3b5caa68`
+- Finding `plan_contract_issue`: supported main-stack review flow reachability still needed serious task-up repair.
+- Finding `generic_engineering_issue`: bounded GitHub review-ingest materialization still needed serious task-up repair.
+- Inline-resolved minor findings already recorded for this same review cycle: none.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - final proof map and closeout traceability for the current review-created findings block.
+
+#### Subtasks
+
+1. [ ] Re-read the current review-created findings block, `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` before broad proof starts so the final proof map still names the focused proof homes and the exact repaired seams for `plan_contract_issue` and `generic_engineering_issue`.
+2. [ ] Refresh the PR summary and task implementation notes with the final proof owners for the supported-stack reachability seam and the bounded-ingest seam before broad wrapper execution, keeping the broad regression narrative tied to this review pass and review cycle rather than the older completed block above.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root because both serious review-created repairs change server-owned runtime or materialization seams.
+2. [ ] Run `npm run build:summary:client` from the repository root because Task 20 still revalidates the `/flows` consumer path that surfaces supported-stack reachability to operators.
+3. [ ] Run full `npm run test:summary:server:unit` from the repository root because both serious repairs must survive the repository-supported broad server wrapper surface after their focused proof homes pass.
+4. [ ] Run full `npm run test:summary:client` from the repository root because the repaired `/flows` selection and discovery surface should still hold on the repository-supported broad client wrapper surface after Task 20 lands.
+5. [ ] Run full `npm run test:summary:e2e` from the repository root because the repaired supported-stack flow reachability still needs broad `/flows` execution coverage after both serious repairs land.
+6. [ ] Run `npm run compose:build:summary` from the repository root because the current review-created findings block still touches the shipped main-stack runtime contract.
+7. [ ] Run `npm run compose:up` from the repository root because the supported main-stack smoke rerun must happen on the same broad review-created block before story closeout.
+8. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because this repository's supported automated main-stack smoke wrapper is the honest proof owner for the repaired runtime contract, not a healthcheck or env-dump shortcut alone.
+9. [ ] Run `npm run compose:down` from the repository root because the previous step brings the supported main stack up and the final revalidation task must leave that baseline stopped again.
+10. [ ] Run `npm run lint` from the repository root for the final Story 60 repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+11. [ ] Run `npm run format:check` from the repository root for the final Story 60 repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Optional only if later closeout still needs a live `/flows` rerun after the automated proof above: use the supported main stack from `docker-compose.yml` through the repository compose wrappers rather than a `codeinfo:local` stack, verify readiness at `http://localhost:5010/health`, confirm the opt-in GitHub review variant is runnable on `http://localhost:5001/flows` without mutating the default visible flow selection, and if the bounded-ingest repair now exposes a user-visible warning or summary for oversized review corpora, record that exact operator-facing behavior without widening the story beyond the approved repair.
+
+#### Implementation notes
+
+- Pending.

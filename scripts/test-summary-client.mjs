@@ -5,6 +5,7 @@
 // and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing test names when present.
 // Optional targeting:
 //   --file <path>       repeatable; mapped to Jest --runTestsByPath
+//   --max-workers <n>   forwarded to Jest --maxWorkers
 //   --subset <pattern>  mapped to Jest --testPathPatterns
 //   --test-name <expr>  mapped to Jest --testNamePattern
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
@@ -40,6 +41,12 @@ const wrapper = createSummaryWrapperRun({
         'Run one or more exact Jest test files with --runTestsByPath.',
     },
     {
+      name: 'max-workers',
+      type: 'value',
+      description:
+        'Set Jest worker parallelism with --maxWorkers for tuning client test throughput.',
+    },
+    {
       name: 'subset',
       type: 'value',
       description: 'Filter test files with Jest --testPathPatterns.',
@@ -53,6 +60,7 @@ const wrapper = createSummaryWrapperRun({
   examples: [
     'node scripts/test-summary-client.mjs --help',
     'npm run test:summary:client -- --subset smoke',
+    'npm run test:summary:client -- --max-workers 2 --file client/src/test/router.test.tsx --file client/src/test/version.test.tsx',
     'npm run test:summary:client -- --file client/src/__tests__/example.test.tsx',
     'npm run test:summary:client -- --file /abs/path/to/codeInfo2/client/src/test/router.test.tsx',
   ],
@@ -78,6 +86,7 @@ if (parsedArgs.error) {
 
 const options = {
   files: parsedArgs.values.file ?? [],
+  maxWorkers: parsedArgs.values['max-workers'] ?? undefined,
   subset: parsedArgs.values.subset ?? undefined,
   testName: parsedArgs.values['test-name'] ?? undefined,
 };
@@ -122,6 +131,9 @@ if (options.subset) {
 if (options.testName) {
   jestArgs.push('--testNamePattern', options.testName);
 }
+if (options.maxWorkers) {
+  jestArgs.push('--maxWorkers', options.maxWorkers);
+}
 
 wrapper.startHeartbeat();
 
@@ -138,7 +150,6 @@ const result = await runLoggedCommand({
     '--workspace',
     'client',
     '--',
-    '--runInBand',
     '--silent',
     ...jestArgs,
     '--json',

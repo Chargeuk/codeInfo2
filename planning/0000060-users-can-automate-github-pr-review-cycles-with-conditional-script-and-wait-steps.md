@@ -1856,7 +1856,7 @@ This final revalidation task owns the full broad regression proof for the whole 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 19`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1913,6 +1913,7 @@ Task-local proof here stays focused on the direct supported-stack reachability s
 - Testing 3: `npm run test:summary:client -- --file client/src/test/flowsPage.runGuard.test.tsx --test-name "keeps the active runnable selection when an ingested GitHub review variant is disabled from list data"` passed cleanly with the focused stale-selection guard still holding on its exact proof home after the mounted catalog repair.
 - Testing 4: `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows let operators select the GitHub review variant without mutating the default entrypoint"` passed cleanly, so the normal `/flows` launcher path still selects the opt-in review variant without mutating the default entrypoint.
 - Testing 5: `npm run compose:build:summary` passed cleanly, so the supported main-stack Docker build path still bakes the repaired mounted catalog contract before the broader final revalidation task takes over.
+- Audit: implementation and focused automated proof are both complete for Task 20. Repository evidence shows the repair stayed on the bounded mounted-catalog seam, preserved the default `implement_next_plan` entrypoint and existing `/flows` interaction contract, and left no unchecked subtasks, unchecked testing, or live blocker lines for this task.
 
 ### Task 21. Bound GitHub Review Ingest Materialization Without Changing Review Semantics
 

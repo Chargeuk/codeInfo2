@@ -47,6 +47,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
+import { closeAll as closeLmStudioClients } from '../../lmstudio/clientPool.js';
 import {
   closeWs,
   connectWs,
@@ -60,9 +61,10 @@ beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetGitHubReviewDepsForTests();
+  await closeLmStudioClients();
 });
 
 const withTimeout = async <T>(

@@ -295,8 +295,13 @@ async function fetchWithRetry(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), headerTimeoutMs);
     try {
+      const headers = new Headers(params.init.headers);
+      if (!headers.has('connection')) {
+        headers.set('connection', 'close');
+      }
       const response = await fetchImpl(params.url, {
         ...params.init,
+        headers,
         signal: controller.signal,
       });
       clearTimeout(timeout);

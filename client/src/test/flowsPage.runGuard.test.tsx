@@ -373,10 +373,23 @@ describe('Flows page run guards', () => {
       'flow-option-implement_next_plan_github_review::/data/codeInfo2',
     );
     expect(disabledOption).toHaveAttribute('aria-disabled', 'true');
+    const hiddenSelect = screen.getByTestId('flow-select') as HTMLSelectElement;
+    const hiddenDisabledOption = hiddenSelect.querySelector(
+      'option[value="implement_next_plan_github_review::/data/codeInfo2"]',
+    );
+    expect(hiddenDisabledOption).not.toBeNull();
+    expect(hiddenDisabledOption).toBeDisabled();
+
+    fireEvent.change(hiddenSelect, {
+      target: {
+        value: 'implement_next_plan_github_review::/data/codeInfo2',
+      },
+    });
 
     await expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
       'echo',
     );
+    await expect(hiddenSelect).toHaveValue('echo::local');
     await expect(screen.getByTestId('flow-run')).toBeEnabled();
     expect(runRequests).toBe(0);
   });

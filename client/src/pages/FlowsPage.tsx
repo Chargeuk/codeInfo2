@@ -1131,6 +1131,8 @@ export default function FlowsPage() {
   const handleFlowSelect = useCallback(
     (next: string) => {
       if (next === selectedFlowKey) return;
+      const nextFlow = flowOptions.find((flow) => flow.key === next);
+      if (nextFlow?.disabled) return;
       setSelectedFlowKey(next);
       setSuppressAutoSelect(false);
       resetConversation();
@@ -1139,6 +1141,7 @@ export default function FlowsPage() {
       setTitleAnchorEl(null);
     },
     [
+      flowOptions,
       resetConversation,
       selectedFlowKey,
       setSuppressAutoSelect,
@@ -2093,12 +2096,18 @@ export default function FlowsPage() {
             opacity: 0,
           }}
         >
-          <input
+          <select
             data-testid="flow-select"
             value={selectedFlowKey}
             onChange={handleFlowChange}
             disabled={selectedFlowTriggerDisabled}
-          />
+          >
+            {flowOptions.map((flow) => (
+              <option key={flow.key} value={flow.key} disabled={flow.disabled}>
+                {flow.label}
+              </option>
+            ))}
+          </select>
           <input
             data-testid="flow-working-folder"
             value={workingFolder}

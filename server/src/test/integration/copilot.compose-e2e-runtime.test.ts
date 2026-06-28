@@ -59,6 +59,12 @@ const createDummyClientFactory = () => () =>
 
 async function startServerForScenario(scenarioName: string) {
   env.set('CODEINFO_FAKE_COPILOT_SCENARIO', scenarioName);
+  env.set('CODEX_HOME', undefined);
+  env.set('CODEINFO_CODEX_HOME', undefined);
+  env.set('CODEINFO_COPILOT_HOME', undefined);
+  env.set('CODEINFO_LMSTUDIO_HOME', undefined);
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://127.0.0.1:9');
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);

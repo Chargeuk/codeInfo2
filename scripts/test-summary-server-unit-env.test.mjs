@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { buildServerUnitWrapperEnv } from './test-summary-server-unit-env.mjs';
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 
 test('server unit summary wrapper uses repo-local agent roots while preserving the other inherited CODEINFO and CODEX env', () => {
   const wrapped = buildServerUnitWrapperEnv({
@@ -20,11 +26,11 @@ test('server unit summary wrapper uses repo-local agent roots while preserving t
   assert.equal(wrapped.CODEX_HOME, '/tmp/codex-home');
   assert.equal(
     wrapped.CODEINFO_AGENT_HOME,
-    path.resolve(process.cwd(), 'codeinfo_agents'),
+    path.join(repoRoot, 'codeinfo_agents'),
   );
   assert.equal(
     wrapped.CODEINFO_CODEX_AGENT_HOME,
-    path.resolve(process.cwd(), 'codex_agents'),
+    path.join(repoRoot, 'codex_agents'),
   );
   assert.equal(wrapped.CODEINFO_LOG_FILE_PATH, '../logs/server-test.log');
   assert.equal(wrapped.CODEINFO_CHROMA_URL, '');
@@ -56,10 +62,10 @@ test('server unit summary wrapper preserves optional inherited CODEINFO and CODE
   assert.equal(wrapped.CODEX_WORKDIR, '/tmp/codex-workdir');
   assert.equal(
     wrapped.CODEINFO_AGENT_HOME,
-    path.resolve(process.cwd(), 'codeinfo_agents'),
+    path.join(repoRoot, 'codeinfo_agents'),
   );
   assert.equal(
     wrapped.CODEINFO_CODEX_AGENT_HOME,
-    path.resolve(process.cwd(), 'codex_agents'),
+    path.join(repoRoot, 'codex_agents'),
   );
 });

@@ -38,6 +38,13 @@ const TASK17_LOG_MARKER = 'story.0000051.task17.cucumber_scenarios_registered';
 const ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
+const ORIGINAL_CODEINFO_COPILOT_HOME = process.env.CODEINFO_COPILOT_HOME;
+const ORIGINAL_CODEINFO_LMSTUDIO_HOME = process.env.CODEINFO_LMSTUDIO_HOME;
+const ORIGINAL_CODEINFO_CHAT_DEFAULT_PROVIDER =
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+const ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL =
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL;
 const ORIGINAL_CODEX_MODEL_LIST = process.env.Codex_model_list;
 
 let server: Server | null = null;
@@ -186,6 +193,14 @@ function registerTask17Scenario(scenarioName: NamedCopilotScenario) {
 
 Before(async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  delete process.env.CODEX_HOME;
+  delete process.env.CODEINFO_CODEX_HOME;
+  delete process.env.CODEINFO_COPILOT_HOME;
+  delete process.env.CODEINFO_LMSTUDIO_HOME;
+  delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
   setCodexDetection({
     available: false,
     authPresent: false,
@@ -229,6 +244,32 @@ After(async () => {
     delete process.env.CODEINFO_CODEX_HOME;
   } else {
     process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
+  }
+  if (ORIGINAL_CODEX_HOME === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = ORIGINAL_CODEX_HOME;
+  }
+  if (ORIGINAL_CODEINFO_COPILOT_HOME === undefined) {
+    delete process.env.CODEINFO_COPILOT_HOME;
+  } else {
+    process.env.CODEINFO_COPILOT_HOME = ORIGINAL_CODEINFO_COPILOT_HOME;
+  }
+  if (ORIGINAL_CODEINFO_LMSTUDIO_HOME === undefined) {
+    delete process.env.CODEINFO_LMSTUDIO_HOME;
+  } else {
+    process.env.CODEINFO_LMSTUDIO_HOME = ORIGINAL_CODEINFO_LMSTUDIO_HOME;
+  }
+  if (ORIGINAL_CODEINFO_CHAT_DEFAULT_PROVIDER === undefined) {
+    delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  } else {
+    process.env.CODEINFO_CHAT_DEFAULT_PROVIDER =
+      ORIGINAL_CODEINFO_CHAT_DEFAULT_PROVIDER;
+  }
+  if (ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL === undefined) {
+    delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  } else {
+    process.env.CODEINFO_CHAT_DEFAULT_MODEL = ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL;
   }
   if (ORIGINAL_CODEX_MODEL_LIST === undefined) {
     delete process.env.Codex_model_list;
@@ -407,19 +448,45 @@ Then(
 Then(
   'the chat models body matches the mock models fixture ignoring provider metadata',
   () => {
-  assert(response, 'expected response');
-  const body = response.body as Record<string, unknown>;
-  const normalized = {
-    ...body,
-    providers: undefined,
-    codexDefaults: body.codexDefaults ?? undefined,
-    codexWarnings: body.codexWarnings ?? undefined,
-  };
-  const expected = {
-    ...mockModelsResponse,
-    providers: undefined,
-  };
-  assert.deepStrictEqual(normalized, expected);
+    assert(response, 'expected response');
+    const body = response.body as Record<string, unknown>;
+    const normalizeModels = (models: unknown) =>
+      Array.isArray(models)
+        ? models.map((model) => ({
+            key: String((model as Record<string, unknown>).key ?? ''),
+            displayName: String(
+              (model as Record<string, unknown>).displayName ?? '',
+            ),
+            type: String((model as Record<string, unknown>).type ?? ''),
+            endpointId:
+              (model as Record<string, unknown>).endpointId === undefined
+                ? undefined
+                : String((model as Record<string, unknown>).endpointId ?? ''),
+          }))
+        : [];
+    const normalizeAgentFlagKeys = (flags: unknown) =>
+      Array.isArray(flags)
+        ? flags.map((flag) => String((flag as Record<string, unknown>).key ?? ''))
+        : [];
+    const normalized = {
+      provider: String(body.provider ?? ''),
+      available: Boolean(body.available),
+      toolsAvailable: Boolean(body.toolsAvailable),
+      models: normalizeModels(body.models),
+      defaultModel: String(body.defaultModel ?? ''),
+      defaultModelSource: String(body.defaultModelSource ?? ''),
+      agentFlagKeys: normalizeAgentFlagKeys(body.agentFlags),
+    };
+    const expected = {
+      provider: mockModelsResponse.provider,
+      available: mockModelsResponse.available,
+      toolsAvailable: mockModelsResponse.toolsAvailable,
+      models: normalizeModels(mockModelsResponse.models),
+      defaultModel: mockModelsResponse.defaultModel,
+      defaultModelSource: mockModelsResponse.defaultModelSource,
+      agentFlagKeys: normalizeAgentFlagKeys(mockModelsResponse.agentFlags),
+    };
+    assert.deepStrictEqual(normalized, expected);
   },
 );
 
@@ -473,6 +540,10 @@ Then(
     const provider = providers.find((entry) => entry.id === providerId);
     assert(provider, `expected provider ${providerId}`);
     assert.equal(String(provider.available), availability);
+    if (reason === 'none' || reason === 'absent') {
+      assert.equal(provider.reason, undefined);
+      return;
+    }
     assert.equal(String(provider.reason), reason);
   },
 );

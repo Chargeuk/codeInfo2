@@ -1882,14 +1882,15 @@ This review-created task repairs the supported main-stack runtime contract for t
 
 #### Subtasks
 
-1. [ ] Trace the exact supported-stack ownership seam across `docker-compose.yml`, `manual_testing/codeinfo_agents`, `manual_testing/codex_agents`, `flows/implement_next_plan_github_review.json`, `flows/review_plan.json`, `server/src/flows/discovery.ts`, and `server/src/routes/flows.ts` so the final repair stays bounded to the repository-owned main-stack contract instead of drifting into a broader catalog redesign.
-2. [ ] Implement one bounded supported-stack repair in the owning runtime and flow-definition seam so `implement_next_plan_github_review` becomes reachable on the supported main stack again while the default `implement_next_plan` entrypoint and unrelated flow-selection behavior stay unchanged.
-3. [ ] Update the focused proof homes and traceability notes for this seam in `server/src/test/integration/flows.list.test.ts`, `e2e/flows-execution-runs.spec.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` so the positive runnable invariant and the preserved missing-agent negative boundary remain explicit and separately named.
+1. [ ] Compare the active main-stack mount contract in `docker-compose.yml` against the opt-in review-flow requirements in `flows/implement_next_plan_github_review.json` and `flows/review_plan.json`, then verify the currently mounted repository-owned catalogs under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` so the repair is pinned to one bounded ownership seam before any code changes begin.
+2. [ ] Record one short decision note in `codeInfoStatus/pr-summaries/0000060-pr-summary.md` naming the exact supported-stack seam being repaired, the preserved behavior that must stay unchanged, and the out-of-scope remedies that must not be adopted here: no default-flow mutation, no broader agent-home redesign, and no new browser-visible selection behavior beyond restoring the shipped opt-in variant.
+3. [ ] Implement one bounded supported-stack repair in the owning seam across the mounted catalog content, the copied opt-in flow definition, or the discovery or disablement path in `server/src/flows/discovery.ts` and `server/src/routes/flows.ts` so `implement_next_plan_github_review` becomes reachable on the supported main stack again while the default `implement_next_plan` entrypoint and unrelated flow-selection behavior stay unchanged.
+4. [ ] Update the focused proof homes in `server/src/test/integration/flows.list.test.ts` and `e2e/flows-execution-runs.spec.ts` so the repaired positive runnable invariant and the preserved missing-agent negative boundary stay explicit, separately named, and traceable from `codeInfoStatus/pr-summaries/0000060-pr-summary.md`.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts --test-name "supported main-stack catalog exposes the Story 60 GitHub review variant as runnable when review_agent is available"` from the repository root after the repair lands so the positive supported-stack catalog invariant is re-proved on its focused proof home.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts --test-name "ingested Story 60 GitHub review variant is disabled when review_agent is only missing inside a nested branch"` from the repository root so the preserved negative missing-agent boundary is still proved with a distinct focused test after the repair.
+1. [ ] Run `npm run build:summary:server` from the repository root because this repair can touch server-owned discovery or disablement seams as well as the supported runtime contract.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` from the repository root so the repaired positive runnable invariant and the preserved missing-agent negative boundary both pass on their shared focused proof home after the repair lands.
 3. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows let operators select the GitHub review variant without mutating the default entrypoint"` from the repository root so the repaired `/flows` launcher path is re-proved through the normal UI execution seam before the broad final revalidation task takes over.
 4. [ ] Run `npm run compose:build:summary` from the repository root because this task touches the shipped supported-stack runtime contract, and the focused repair should still survive the repository-owned main-stack build path before the shared final revalidation task reruns the full compose smoke sequence.
 
@@ -1926,15 +1927,16 @@ This review-created task repairs the unbounded GitHub review-ingest path that cu
 
 #### Subtasks
 
-1. [ ] Trace the current review-ingest seam across `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, and the execution-scoped scratch readers so the repair is bounded to the concrete fetch, filter, persistence, and markdown-materialization surfaces that currently expand without limit.
-2. [ ] Implement one bounded repair for the GitHub review-ingest seam that preserves pagination support and current feedback-filtering semantics while preventing one oversized review cycle from materializing an unbounded downstream artifact.
-3. [ ] Update the focused proof homes and traceability notes for this seam in `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` so the bounded-ingest contract is explicit before the broad final revalidation task reruns the full server and end-to-end wrappers.
+1. [ ] Trace the exact unbounded expansion chain across `fetchPullRequestReviews(...)`, `filterGitHubReviewFeedback(...)`, `buildGitHubExternalReviewInputMarkdown(...)`, and `runGitHubFetchReviewsStep(...)` so the repair is pinned to one bounded fetch, filter, persistence, or markdown-materialization seam instead of drifting into a broader review-policy redesign.
+2. [ ] Record the preserved semantics for this seam in `codeInfoStatus/pr-summaries/0000060-pr-summary.md` before changing code: pagination support stays intact, both review submissions and inline comments remain in scope, execution-scoped scratch ownership still fails closed, and the downstream classifier does not silently get a new policy contract here.
+3. [ ] Implement one bounded ingest repair in `server/src/flows/githubReview.ts` and `server/src/flows/service.ts` that introduces an explicit limit, batching rule, chunking rule, or other concrete bound while preserving the current selector-ownership and feedback-filtering contracts.
+4. [ ] Update the focused proof homes in `server/src/test/unit/flows.github-adapter.test.ts` and `server/src/test/integration/flows.run.loop.test.ts`, including any fixture or assertion adjustments needed to prove both the preserved review-fetch semantics and the new bounded-ingest rule, then reflect those proof owners in `codeInfoStatus/pr-summaries/0000060-pr-summary.md`.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts --test-name "review fetch preserves paginated review submissions and inline review comments"` from the repository root so the approved pagination and dual-surface review-fetch contract is still proved after the bounded-ingest repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review materialization replaces stale scratch with fresh reviewer feedback before classification"` from the repository root so the execution-scoped scratch handoff and downstream materialization path are re-proved after the ingest bound is added.
-3. [ ] Run `npm run build:summary:server` from the repository root because this task changes the server-owned GitHub review fetch and materialization seam, and the focused implementation pass should still build cleanly before the shared final revalidation task reruns the broader wrappers.
+1. [ ] Run `npm run build:summary:server` from the repository root because this task changes the server-owned GitHub review fetch and materialization seam, and the focused implementation pass should still build cleanly before the shared final revalidation task reruns the broader wrappers.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the preserved pagination contract and the new bounded-ingest rule both pass on the focused adapter proof home.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the execution-scoped scratch handoff and downstream materialization path are re-proved after the ingest bound is added.
 
 #### Implementation notes
 
@@ -1971,26 +1973,32 @@ This fresh final revalidation task owns the full regression proof for the curren
 
 #### Subtasks
 
-1. [ ] Re-read the current review-created findings block, `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` before broad proof starts so the final proof map still names the focused proof homes and the exact repaired seams for `plan_contract_issue` and `generic_engineering_issue`.
-2. [ ] Refresh the PR summary and task implementation notes with the final proof owners for the supported-stack reachability seam and the bounded-ingest seam before broad wrapper execution, keeping the broad regression narrative tied to this review pass and review cycle rather than the older completed block above.
+1. [ ] Re-read the current review-created findings block, `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md` before broad proof starts, then confirm the final proof map still names the exact focused proof homes for the supported-stack reachability seam and the bounded-ingest seam.
+2. [ ] Refresh the PR summary sections for comparison context, repaired seams, focused proof owners, and broad rerun ownership before wrapper execution so the final closeout can distinguish baseline-stack issues from story-owned regressions without reinterpreting the review pass later.
+3. [ ] Prepare the closeout traceability slots for the exact proof surfaces this task owns: `server/src/test/integration/flows.list.test.ts`, `e2e/flows-execution-runs.spec.ts`, `server/src/test/unit/flows.github-adapter.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`, the broad server and client wrappers, and the supported main-stack compose plus host-network smoke sequence.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because both serious review-created repairs change server-owned runtime or materialization seams.
-2. [ ] Run `npm run build:summary:client` from the repository root because Task 20 still revalidates the `/flows` consumer path that surfaces supported-stack reachability to operators.
-3. [ ] Run full `npm run test:summary:server:unit` from the repository root because both serious repairs must survive the repository-supported broad server wrapper surface after their focused proof homes pass.
-4. [ ] Run full `npm run test:summary:client` from the repository root because the repaired `/flows` selection and discovery surface should still hold on the repository-supported broad client wrapper surface after Task 20 lands.
-5. [ ] Run full `npm run test:summary:e2e` from the repository root because the repaired supported-stack flow reachability still needs broad `/flows` execution coverage after both serious repairs land.
-6. [ ] Run `npm run compose:build:summary` from the repository root because the current review-created findings block still touches the shipped main-stack runtime contract.
-7. [ ] Run `npm run compose:up` from the repository root because the supported main-stack smoke rerun must happen on the same broad review-created block before story closeout.
-8. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because this repository's supported automated main-stack smoke wrapper is the honest proof owner for the repaired runtime contract, not a healthcheck or env-dump shortcut alone.
-9. [ ] Run `npm run compose:down` from the repository root because the previous step brings the supported main stack up and the final revalidation task must leave that baseline stopped again.
-10. [ ] Run `npm run lint` from the repository root for the final Story 60 repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-11. [ ] Run `npm run format:check` from the repository root for the final Story 60 repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` from the repository root so the supported-stack reachability repair is re-proved again on its focused catalog proof home during final revalidation.
+2. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows let operators select the GitHub review variant without mutating the default entrypoint"` from the repository root so the repaired `/flows` launcher path is re-proved again on its focused UI execution seam during final revalidation.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the preserved review-fetch semantics and bounded-ingest rule are re-proved again on their focused adapter proof home during final revalidation.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the repaired scratch handoff plus bounded materialization path are re-proved again on their focused runtime proof home during final revalidation.
+5. [ ] Run `npm run build:summary:server` from the repository root because both serious review-created repairs change server-owned runtime or materialization seams.
+6. [ ] Run `npm run build:summary:client` from the repository root because Task 20 still revalidates the `/flows` consumer path that surfaces supported-stack reachability to operators.
+7. [ ] Run full `npm run test:summary:server:unit` from the repository root because both serious repairs must survive the repository-supported broad server wrapper surface after their focused proof homes pass.
+8. [ ] Run full `npm run test:summary:client` from the repository root because the repaired `/flows` selection and discovery surface should still hold on the repository-supported broad client wrapper surface after Task 20 lands.
+9. [ ] Run full `npm run test:summary:e2e` from the repository root because the repaired supported-stack flow reachability still needs broad `/flows` execution coverage after both serious repairs land.
+10. [ ] Run `npm run compose:build:summary` from the repository root because the current review-created findings block still touches the shipped main-stack runtime contract.
+11. [ ] Run `npm run compose:up` from the repository root because the supported main-stack smoke rerun must happen on the same broad review-created block before story closeout.
+12. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because this repository's supported automated main-stack smoke wrapper is the honest proof owner for the repaired runtime contract, not a healthcheck or env-dump shortcut alone.
+13. [ ] Run `npm run compose:down` from the repository root because the previous step brings the supported main stack up and the final revalidation task must leave that baseline stopped again.
+14. [ ] Run `npm run lint` from the repository root for the final Story 60 repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+15. [ ] Run `npm run format:check` from the repository root for the final Story 60 repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
 - Optional only if later closeout still needs a live `/flows` rerun after the automated proof above: use the supported main stack from `docker-compose.yml` through the repository compose wrappers rather than a `codeinfo:local` stack, verify readiness at `http://localhost:5010/health`, confirm the opt-in GitHub review variant is runnable on `http://localhost:5001/flows` without mutating the default visible flow selection, and if the bounded-ingest repair now exposes a user-visible warning or summary for oversized review corpora, record that exact operator-facing behavior without widening the story beyond the approved repair.
+- If later closeout still needs final-state screenshots for the repaired `/flows` surface, capture them first with a relative staging path such as `0000060-review-cycle-final/proof-01-flows-desktop.png` inside the Playwright output directory, then pull the staged files from `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host before transferring only the selected final artifacts into `codeInfoTmp/manual-testing/0000060/22/`. If runtime handoff JSON is needed to confirm staging or destination details, inspect that JSON for the needed meaning rather than relying on exact property names; if transfer remains blocked, record the limitation honestly instead of treating it as a reason to halt the proof loop.
 
 #### Implementation notes
 

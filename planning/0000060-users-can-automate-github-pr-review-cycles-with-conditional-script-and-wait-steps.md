@@ -1686,7 +1686,7 @@ Client-specific `npm run build:summary:client` and `npm run test:summary:client`
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 17`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1745,6 +1745,7 @@ Task 18 owns only the narrow proof needed to validate the supported-stack reacha
 - Testing 1 through 5: the focused server-unit proofs all passed on the repaired Task 18 seam, including `flows-schema`, `host-network-compose-contract`, `agents-discovery`, the new positive `flows.list` case, and the preserved negative `flows.list` case.
 - Testing 6: the targeted `/flows` launcher proof in `e2e/flows-execution-runs.spec.ts` already matched the exact Task 18 runnable-selection invariant and passed cleanly without additional authoring changes after the discovery repair, so the opt-in GitHub review variant still selects and starts without mutating the default `implement_next_plan` entrypoint.
 - Testing 7 and 8: `npm run lint` and `npm run format:check` both passed cleanly on the final Task 18 repair surface, so the discovery patch, focused catalog proofs, and plan maintenance stayed lint-clean and formatter-clean before closeout.
+- Audit closeout: re-read the live plan and repository evidence after the implementation-plus-proof pass, confirmed all Task 18 subtasks and automated testing items were already honestly complete with no live blocker, and closed this task as `__done__` while leaving the broader review-cycle revalidation on Task 19.
 
 ### Task 19. Revalidate review pass `0000060-20260627T235900Z-d645782a` after review-cycle `0000060-rc-20260628T005107Z-4b35316f` task-up repairs
 

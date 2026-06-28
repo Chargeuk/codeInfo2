@@ -120,6 +120,23 @@ const writeAgentConfig = async (params: {
   await fs.writeFile(path.join(agentHome, 'config.toml'), '# config', 'utf8');
 };
 
+const copyCheckedInAgentHome = async (params: {
+  destinationRoot: string;
+  rootDirName: 'codeinfo_agents' | 'codex_agents';
+  agentName: string;
+}) => {
+  await fs.cp(
+    path.join(
+      checkedInRepoRoot,
+      'manual_testing',
+      params.rootDirName,
+      params.agentName,
+    ),
+    path.join(params.destinationRoot, params.rootDirName, params.agentName),
+    { recursive: true },
+  );
+};
+
 const withFlowsDir = async (dir: string, run: () => Promise<void>) => {
   const prevFlowsDir = process.env.FLOWS_DIR;
   process.env.FLOWS_DIR = dir;
@@ -1059,8 +1076,8 @@ describe('GET /flows', () => {
       'loop_control_agent',
       'automated_testing_agent',
     ]) {
-      await writeAgentConfig({
-        repoRoot: runtimeRoot,
+      await copyCheckedInAgentHome({
+        destinationRoot: runtimeRoot,
         rootDirName: 'codeinfo_agents',
         agentName,
       });
@@ -1109,6 +1126,99 @@ describe('GET /flows', () => {
             String(detailsResponse.body.flow.disabledReason?.message ?? ''),
             /review_agent/u,
           );
+        });
+      },
+    );
+
+    await fs.rm(flowsRoot, { recursive: true, force: true });
+    await fs.rm(runtimeRoot, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
+  test('supported main-stack catalog exposes the Story 60 GitHub review variant as runnable when review_agent is available', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const flowsRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-'),
+    );
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-'),
+    );
+
+    await fs.mkdir(path.join(ingestedRoot, 'flows'), { recursive: true });
+    await fs.copyFile(
+      path.join(
+        checkedInRepoRoot,
+        'flows',
+        'implement_next_plan_github_review.json',
+      ),
+      path.join(
+        ingestedRoot,
+        'flows',
+        'implement_next_plan_github_review.json',
+      ),
+    );
+
+    for (const agentName of [
+      'planning_agent',
+      'coding_agent',
+      'coding_agent_lite',
+      'manual_testing_agent',
+      'loop_control_agent',
+      'automated_testing_agent',
+    ]) {
+      await copyCheckedInAgentHome({
+        destinationRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName,
+      });
+    }
+
+    await fs.cp(
+      path.join(checkedInRepoRoot, 'codeinfo_agents', 'review_agent'),
+      path.join(ingestedRoot, 'codeinfo_agents', 'review_agent'),
+      { recursive: true },
+    );
+
+    await withAgentHomes(
+      {
+        preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+        legacy: path.join(runtimeRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsRoot, async () => {
+          const app = buildApp({
+            listIngestedRepositories: async () => ({
+              repos: [
+                buildRepoEntry({
+                  id: '/data/codeInfo2',
+                  containerPath: ingestedRoot,
+                }),
+              ],
+              lockedModelId: null,
+            }),
+          });
+
+          const listResponse = await supertest(app).get('/flows');
+          assert.equal(listResponse.status, 200);
+          const listed = listResponse.body.flows.find(
+            (flow: { name: string; sourceId?: string }) =>
+              flow.name === 'implement_next_plan_github_review' &&
+              flow.sourceId === ingestedRoot,
+          );
+          assert.ok(listed);
+          assert.equal(listed.disabled, false);
+          assert.equal(listed.error, undefined);
+
+          const detailsResponse = await supertest(app)
+            .get('/flows/implement_next_plan_github_review')
+            .query({ sourceId: ingestedRoot });
+          assert.equal(detailsResponse.status, 200);
+          assert.equal(detailsResponse.body.flow.disabled, false);
+          assert.deepEqual(detailsResponse.body.flow.warnings, []);
+          assert.equal(detailsResponse.body.flow.disabledReason, undefined);
         });
       },
     );

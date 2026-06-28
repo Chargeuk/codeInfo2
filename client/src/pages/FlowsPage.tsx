@@ -1152,7 +1152,7 @@ export default function FlowsPage() {
   );
 
   const handleFlowChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
+    (event: ChangeEvent<HTMLSelectElement>) => {
       handleFlowSelect(event.target.value);
     },
     [handleFlowSelect],

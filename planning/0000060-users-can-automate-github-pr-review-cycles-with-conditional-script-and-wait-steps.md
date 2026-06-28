@@ -1752,7 +1752,7 @@ Task 18 owns only the narrow proof needed to validate the supported-stack reacha
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

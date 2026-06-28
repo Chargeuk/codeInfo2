@@ -1176,11 +1176,11 @@ describe('GET /flows', () => {
       });
     }
 
-    await fs.cp(
-      path.join(checkedInRepoRoot, 'codeinfo_agents', 'review_agent'),
-      path.join(ingestedRoot, 'codeinfo_agents', 'review_agent'),
-      { recursive: true },
-    );
+    await copyCheckedInAgentHome({
+      destinationRoot: runtimeRoot,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'review_agent',
+    });
 
     await withAgentHomes(
       {

@@ -1978,7 +1978,7 @@ Task-local proof here stays intentionally narrow because the changed behavior is
 - Repository Name: `Current Repository`
 - Affected Repositories: `Current Repository`
 - Task Dependencies: `Task 20`, `Task 21`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2065,3 +2065,4 @@ This is the one task in the current review-created block that owns the full broa
 - The required final `npm run compose:down` completed cleanly after the host-network smoke pass, leaving the supported non-local main stack stopped again before the last lint and format gates.
 - `npm run lint` passed cleanly on the final Story 60 repair surface, so no lint-fix pass or manual cleanup was needed before the last formatting gate.
 - `npm run format:check` passed cleanly on the final Story 60 repair surface, so the revalidation block finished with no remaining formatting drift to fix.
+- Audit: Task 22 is complete after the implementation prep and full automated revalidation both landed on disk. Repository evidence shows every Task 22 subtask and testing step is checked honestly, the broad proof stayed on the approved Story 60 reachability and bounded-ingest surfaces, and no live blocker or out-of-scope user-facing behavior drift remains in this review-created block.

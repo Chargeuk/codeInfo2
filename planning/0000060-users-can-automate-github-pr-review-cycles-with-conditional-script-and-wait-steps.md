@@ -1722,7 +1722,7 @@ This review-created task restores the supported main-stack runtime contract for 
 
 #### Testing
 
-Task 18 owns only the narrow proof needed to validate the supported-stack reachability repair itself. The fresh broad regression wrappers for this review-created findings block stay on Task 19 so this task does not repeat the same repository-wide suites early.
+Task 18 owns only the narrow proof needed to validate the supported-stack reachability repair itself. Because this repair can touch `docker-compose.yml`, mounted catalog routing, and `/flows` discovery without yet completing the full supported-stack runtime rerun, this task stops at focused preserved-behavior proof on the owning unit, integration, and `/flows` launcher surfaces. The fresh compose build, supported-stack startup, host-network smoke, and other broad regression wrappers for this review-created findings block stay on Task 19 so this task does not repeat the same repository-wide suites early.
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts --test-name "production review and implementation flow entrypoints remain valid JSON and schema"` from the repository root so any repaired flow-definition or catalog contract still keeps the shipped review entrypoints structurally valid.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts --test-name "main stays image-baked while local host-network compose exposes the live dev overlay mounts"` from the repository root so the repaired main-stack mount contract still points the supported server at the repository-owned `manual_testing` agent catalogs rather than silently drifting to a different runtime tree.
@@ -1783,7 +1783,7 @@ This fresh review-created final task owns the whole active review cycle's post-r
 
 #### Testing
 
-Cucumber and helper-script unittest surfaces are not applicable for this review-created findings block because the routed serious finding changes supported-stack reachability and the inline-resolved minor fix changes the `/flows` disabled-selection proof seam rather than authored step semantics or helper-side review-count gating; if later implementation broadens beyond those seams, update this task honestly instead of implying those proof surfaces already ran.
+Cucumber and helper-script unittest surfaces are not part of the current relevant proof set for this review-created findings block because the routed serious finding changes supported-stack catalog discovery and `/flows` reachability, while the inline-resolved minor fix changes the client-side disabled-selection guard. The existing backend Cucumber feature at `server/src/test/features/flows-execution-runs.feature` proves flow execution lifecycle and GitHub review-cycle branch composition, not the main-stack catalog mount, `GET /flows` discovery, or `/flows` disabled-selection seams being revalidated here; if later implementation broadens back into flow-execution semantics or helper-side review-count gating, update this task honestly instead of implying those proof surfaces already ran.
 
 This final revalidation task owns the full broad regression proof for the whole current review-created findings block after Task 18 lands, including the shared build, broad wrapper, compose, and host-network reruns that are intentionally not duplicated in Task 18.
 

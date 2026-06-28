@@ -82,3 +82,11 @@ When this story is complete, CodeInfo2 flows will be able to run one bounded ext
 17. [codeInfo2] - Revalidate the latest review-created findings block before story closeout
     - Refresh the review-cycle summary so the remaining serious findings and already-resolved minor fixes are all mapped to one final proof owner.
     - Run the broad wrapper-first validation, supported stack smoke path, and final helper/runtime cross-check for the active review cycle.
+
+18. [codeInfo2] - Restore supported main-stack reachability for the opt-in GitHub review flow
+    - Repair the supported-stack discovery and flow-definition seam so the copied GitHub review variant is runnable when the repository-owned review-agent catalog is present.
+    - Add focused proof for catalog mounts, agent-home discovery, `/flows` listing, and the default `/flows` launcher path without changing existing default entrypoints.
+
+19. [codeInfo2] - Revalidate the current review-cycle repairs after the supported-stack fix
+    - Refresh the closeout summary so the remaining serious finding and the already-resolved minor `/flows` guard stay traced to one final review-cycle owner.
+    - Run the focused proof, broad wrapper-first regression pass, supported stack smoke path, and final closeout checks for the active review cycle.

@@ -1671,3 +1671,123 @@ Client-specific `npm run build:summary:client` and `npm run test:summary:client`
 - Testing 11: `npm run format:check` passed cleanly across the final Story 60 review-cycle revalidation surface, so the refreshed PR summary, Task 14 through Task 17 traceability notes, and broad proof bookkeeping remain Prettier-clean without follow-up formatting fixes.
 - Manual testing ran as a full-story proof pass after a restart-by-default freshness reset on the supported main stack: `npm run compose:build`, `npm run compose:up`, `http://localhost:5010/health`, `http://localhost:5001`, `http://localhost:5001/flows`, `GET /flows`, and the final `npm run compose:down` path all succeeded, with scratch proof refreshed under `codeInfoTmp/manual-testing/0000060/17/` as `support-health.json`, `support-app-head.txt`, `support-flows-ui-head.txt`, `support-flows.json`, and `support-implement-next-plan-github-review.json`.
 - That same final-task pass re-confirmed the shared baseline limitation this task is supposed to separate from product regressions: `implement_next_plan_github_review` is still disabled with `Flow agent "review_agent" is not available in the configured agent homes.`, so no live review-cycle launch or new final-task screenshot superseded the earlier task-scoped UI captures because Task 17 keeps client-only browser proof optional and requires this missing agent-catalog seam to be recorded honestly rather than treated as a repaired Story 60 product failure.
+
+## Code Review Findings
+
+### Review Pass `0000060-20260627T235900Z-d645782a` follow-up for review cycle `0000060-rc-20260628T005107Z-4b35316f`
+
+- Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active task-up routing. `codeInfoTmp/reviews/0000060-current-review.json` and the referenced findings, saturation, challenge, and evidence artifacts remain the scratch review basis for this same review pass.
+- Review comparison context: the stored review handoff compared local `HEAD` `d645782a47ac508aeef1b3450b6fdbfd80ffd242` against resolved remote base `origin/main` at `33609a1f77499983b6cb10273fe6137ae05aa24f`, with `remote_fetch_status: success` and no local-fallback base inference required.
+- This appended follow-up block supersedes the earlier clean-closeout posture because the active disposition state for cycle `0000060-rc-20260628T005107Z-4b35316f` still contains one unresolved task-required finding after the inline minor path resolved `generic_engineering_issue-3` and filtered `generic_engineering_issue-2` out of current-story scope.
+- Inline-resolved minor findings already covered in this same active cycle and owned by the fresh final revalidation task below: `generic_engineering_issue-3`.
+- Remaining unresolved task-required finding that must now be encoded into executable plan state: `plan_contract_issue-1`.
+
+### Task 18. Restore Supported Main-Stack Reachability For The Opt-In GitHub Review Flow
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 17`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task restores the supported main-stack runtime contract for the new opt-in GitHub review flow. The current Story 60 branch still leaves `implement_next_plan_github_review` disabled on the checked-in main stack because that flow depends on `review_agent` while the supported stack mounts only the repository-owned `manual_testing` agent catalogs. The repair must make that opt-in flow variant reachable again on the supported stack without changing the default execution path, broadening browser-visible behavior, or turning this story into a wider agent-catalog redesign.
+
+- Highest-risk invariant: the supported main stack must expose the Story 60 opt-in GitHub review flow as runnable through the same repository-owned catalog and discovery path that the story says operators can use, while the default checked-in flow entrypoints remain unchanged unless an operator intentionally selects the new variant.
+- Likely blocker family: product or story seam, with a shared baseline seam only if the repository-owned main-stack mounts, discovery metadata, or supported catalog contract no longer match what the repaired variant expects.
+
+#### Task Exit Criteria
+
+- The opt-in GitHub review flow variant is no longer disabled on the supported main stack solely because `review_agent` is missing from the mounted repository-owned agent homes.
+- The repair keeps Story 60's approved scope: copied opt-in flow variants gain supported-stack reachability, while existing default entrypoints and unrelated browser-visible behavior remain unchanged.
+- The repaired seam has one honest supported-stack proof owner that shows the flow is now exposed as runnable under the repository-owned main-stack catalog contract instead of only through a structural flow-definition check.
+- Any catalog, flow-definition, or discovery update made here remains narrowly scoped to restoring the Story 60 opt-in review-cycle contract rather than widening the repository into a broader agent-home compatibility redesign.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260627T235900Z-d645782a`
+- Finding `plan_contract_issue-1`: the shipped opt-in GitHub review flow is still unreachable on the supported main stack because the mounted `manual_testing` catalogs do not provide `review_agent`.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - refresh the reviewer-facing summary so the repaired supported-stack reachability story and proof owner remain explicit for this review cycle.
+
+#### Subtasks
+
+1. [ ] Re-inspect the exact supported-stack reachability seam across `flows/implement_next_plan_github_review.json`, `docker-compose.yml`, the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs, and the discovery or disabled-flow proof owners that currently expose the disabled state, then record in `Implementation notes` which repository-owned contract is supposed to make the opt-in flow reachable on the supported main stack and which seam currently breaks that contract.
+2. [ ] Apply one bounded repair that restores supported-stack reachability for the opt-in GitHub review flow without changing default flow entrypoints or broadening the review-agent contract beyond what Story 60 already approved. If the external reviewer's broader remedy would widen scope, preserve the approved Story 60 behavior and fix only the underlying reachability defect.
+3. [ ] Update the focused proof owners for this seam, including the runtime or discovery-visible proof that currently marks the flow disabled, so the repository proves the opt-in GitHub review variant is exposed as runnable on the supported main stack after the repair while still keeping default entrypoints unchanged.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` from the repository root to prove the repaired supported-stack availability and disabled-state contract for the opt-in GitHub review flow.
+2. [ ] Run `npm run build:summary:server` from the repository root because this repair still changes the supported runtime or discovery-visible contract for Story 60's opt-in review flow.
+3. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Optional only if later closeout still needs a live supported-stack sanity pass after the automated proof above: use `npm run compose:build` then `npm run compose:up`, confirm `http://localhost:5010/health` and `http://localhost:5001/flows`, and verify the opt-in GitHub review flow is exposed as runnable on that supported main stack without altering the default selected flow. If provider auth or a still-missing catalog entry prevents a deeper live cycle, record that runtime limitation honestly instead of widening implementation scope.
+
+### Task 19. Revalidate review pass `0000060-20260627T235900Z-d645782a` after review-cycle `0000060-rc-20260628T005107Z-4b35316f` task-up repairs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 18`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This fresh review-created final task owns the whole active review cycle's post-repair validation for review cycle `0000060-rc-20260628T005107Z-4b35316f`. It revalidates the unresolved task-required supported-stack reachability finding routed into Task 18, also covers the inline-resolved minor finding already recorded for this same active cycle, and owns the full relevant repository-supported regression proof needed before Story 60 can close again.
+
+- Highest-risk invariant: the broad proof pass must distinguish repository-owned product regressions from shared baseline or runtime-handoff limitations while still proving that the repaired supported-stack review path and the inline-resolved `/flows` disabled-selection fix remain reachable through the supported default surfaces.
+- Likely blocker family: shared wrapper or baseline seam for the broad wrapper, compose, readiness, and host-network proof surfaces, with task-owned product validation still required once that baseline is healthy.
+
+#### Task Exit Criteria
+
+- Review-created finding `plan_contract_issue-1` is revalidated on its focused proof owner and on the relevant broad repository-supported regression surfaces after Task 18 completes.
+- Inline-resolved minor finding `generic_engineering_issue-3` is also revalidated as part of this same final task rather than being left to a second final-owner path.
+- The final regression summary, reviewer-facing artifacts, this plan, and `review-disposition-state.json` all reflect one clean post-repair Story 60 state for review cycle `0000060-rc-20260628T005107Z-4b35316f`, and no second final revalidation owner remains for this cycle.
+- Cucumber and helper-script unittest proof are not required for this findings block unless later implementation broadens beyond the current supported-stack reachability seam and the already-resolved client disabled-flow parity seam; if that happens, update this task honestly instead of silently assuming those proof surfaces were already covered.
+- Shared baseline failures are separated from product regressions before closeout: if the supported main stack, startup readiness path, host-network probe, or repository-owned agent catalog remains unavailable, the limitation is recorded against that baseline seam instead of being misclassified as a Story 60 product failure.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260627T235900Z-d645782a`
+- Final revalidation owner for unresolved task-required finding `plan_contract_issue-1`
+- Also revalidate inline-resolved minor finding `generic_engineering_issue-3` for review cycle `0000060-rc-20260628T005107Z-4b35316f`
+
+#### Affected Repositories
+
+- `Current Repository`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - refresh the reviewer-facing closeout summary after this fresh review-cycle revalidation task completes.
+
+#### Subtasks
+
+1. [ ] Re-read this appended `Code Review Findings` follow-up block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, and the `## Minor Review Fixes` entry for `generic_engineering_issue-3`, then update the PR summary draft with a task-required findings proof checklist that maps `plan_contract_issue-1` to the focused supported-stack proof owner repaired in Task 18 and maps `generic_engineering_issue-3` to its focused client guard proof plus the broader `/flows` surfaces below.
+2. [ ] Verify the shared baseline this task depends on before broad wrapper runs begin by checking that `docker-compose.yml`, the repository compose wrappers, the readiness path `http://localhost:5010/health`, the UI path `http://localhost:5001`, and the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs still match the supported runtime contract for this story; if any one of those baseline facts is missing, renamed, or unavailable, record that limitation in the PR summary draft as a baseline seam instead of treating it as a product regression from Task 18.
+3. [ ] Compare this appended block against `codeInfoStatus/flow-state/review-disposition-state.json` and confirm that both still name review cycle `0000060-rc-20260628T005107Z-4b35316f`, that this task title still matches `task_up_owned_final_revalidation_task_title`, and that no second final-owner wording was added elsewhere before broad wrapper runs start; if the wording drifted, repair only this task-owned wording and the matching PR summary draft text without changing Task 18 scope.
+4. [ ] Refresh `codeInfoStatus/pr-summaries/0000060-pr-summary.md` and the implementation notes for Tasks 18 through 19 so requirement `closeout remains traceable and honest` is satisfied with concrete entries for which focused proof owner closed `plan_contract_issue-1`, which exact broad wrapper or smoke surface revalidated `generic_engineering_issue-3`, whether any shared-baseline limitation was encountered, why cucumber and helper-script proof were not required if that remains true, and how the client `/flows` proof home was cross-checked against the broad runtime wrappers before closeout.
+
+#### Testing
+
+Cucumber and helper-script unittest surfaces are not applicable for this review-created findings block because the routed serious finding changes supported-stack reachability and the inline-resolved minor fix changes the `/flows` disabled-selection proof seam rather than authored step semantics or helper-side review-count gating; if later implementation broadens beyond those seams, update this task honestly instead of implying those proof surfaces already ran.
+
+1. [ ] Run `npm run compose:build:summary` from the repository root because the repaired Story 60 review-cycle runtime still depends on the supported main-stack Docker build path after Task 18 lands.
+2. [ ] Run `npm run build:summary:server` from the repository root because the remaining serious review-created work changes supported runtime or discovery-visible server surfaces.
+3. [ ] Run `npm run build:summary:client` from the repository root because this final task also revalidates the inline-resolved `/flows` disabled-selection fix from the same review cycle.
+4. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the supported-stack reachability repair on the repository-supported broad server wrapper surface.
+5. [ ] Run full `npm run test:summary:client` from the repository root because this final task must also revalidate `generic_engineering_issue-3` on the repository-supported broad client wrapper surface.
+6. [ ] Run full `npm run test:summary:e2e` from the repository root because this repository's broadest supported automated `/flows` proof still helps confirm that the repaired main-stack review path and disabled-flow gating did not regress the end-to-end execution surface.
+7. [ ] Run `npm run compose:up` from the repository root because this final review-cycle task must include a supported main-stack smoke start after the broad automated suites complete.
+8. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because this repository's supported automated main-stack smoke proof is the host-network probe wrapper, not a healthcheck curl alone, and this review cycle still needs that normal runtime path proved after the task-up repair.
+9. [ ] Run `npm run compose:down` from the repository root because the previous steps started and probed the supported main stack and this final task must leave that baseline stopped again.
+10. [ ] Run `npm run lint` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+11. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-cycle repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Optional only if later closeout still needs a live `/flows` rerun after the automated proof above: use the supported main stack from `docker-compose.yml` through the repository compose wrappers rather than a `codeinfo:local` stack, let those wrappers own env-file loading for the supported stack, verify readiness at `http://localhost:5010/health`, and use `http://localhost:5001/flows` as the supported UI surface for this final review-cycle rerun. If the repaired Task 18 seam still depends on catalog contents, confirm the opt-in GitHub review flow is exposed as runnable there while the default selected flow remains unchanged.

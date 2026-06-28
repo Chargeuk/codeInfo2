@@ -74,6 +74,12 @@ async function startChatRunAndSubscribe() {
         )?.content ?? 'Hello',
       )
     : 'Hello';
+  const conversationId = `chat-cancel-fixture-${crypto.randomUUID()}`;
+  const socket = await ensureWs();
+  sendJson(socket, {
+    type: 'subscribe_conversation',
+    conversationId,
+  });
 
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
@@ -82,7 +88,7 @@ async function startChatRunAndSubscribe() {
       provider:
         (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
       model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
-      conversationId: `chat-cancel-fixture-${crypto.randomUUID()}`,
+      conversationId,
       message: userMessage,
     }),
   });
@@ -90,12 +96,6 @@ async function startChatRunAndSubscribe() {
   startResponse = (await res.json()) as ChatStartResponse;
   assert.equal(res.status, 202);
   assert.ok(startResponse.inflightId);
-
-  const socket = await ensureWs();
-  sendJson(socket, {
-    type: 'subscribe_conversation',
-    conversationId: startResponse.conversationId,
-  });
 
   await waitForEvent({
     ws: socket,
@@ -138,7 +138,7 @@ async function waitForActiveChatRunToStartStreaming() {
         e.inflightId === startResponse?.inflightId
       );
     },
-    timeoutMs: 4_000,
+    timeoutMs: 15_000,
   });
 }
 

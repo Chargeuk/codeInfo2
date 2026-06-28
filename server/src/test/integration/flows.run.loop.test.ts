@@ -28,6 +28,8 @@ import {
 import {
   __resetGitHubReviewDepsForTests,
   __setGitHubReviewDepsForTests,
+  MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+  MAX_GITHUB_REVIEW_SUBMISSIONS,
   readGitHubReviewScratch,
   materializeGitHubExternalReviewInput,
   writeGitHubReviewScratch,
@@ -729,7 +731,7 @@ test('flow loops until break answer matches breakOn', async () => {
   );
 });
 
-test('github review materialization replaces stale scratch with fresh reviewer feedback before classification', async () => {
+test('github review materialization replaces stale scratch with fresh bounded reviewer feedback before classification', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     const selectorPath = path.join(
@@ -797,6 +799,42 @@ test('github review materialization replaces stale scratch with fresh reviewer f
       ),
       'utf8',
     );
+    const reviews = Array.from(
+      { length: MAX_GITHUB_REVIEW_SUBMISSIONS },
+      (_, index) => ({
+        id: 3000 + index + 1,
+        user: { login: `reviewer-${String(index + 1)}` },
+        body:
+          index === 0
+            ? 'Fresh bounded review entry one.'
+            : index === MAX_GITHUB_REVIEW_SUBMISSIONS - 1
+              ? 'Fresh bounded review entry final.'
+              : `Fresh bounded review entry ${String(index + 1)}.`,
+        state: 'COMMENTED',
+        submitted_at: new Date(
+          Date.UTC(2026, 5, 24, 10, 0, index + 1),
+        ).toISOString(),
+      }),
+    );
+    const reviewComments = Array.from(
+      { length: MAX_GITHUB_INLINE_REVIEW_COMMENTS },
+      (_, index) => ({
+        id: 4000 + index + 1,
+        pull_request_review_id: 3000 + index + 1,
+        user: { login: `inline-reviewer-${String(index + 1)}` },
+        body:
+          index === 0
+            ? 'Fresh bounded inline entry one.'
+            : index === MAX_GITHUB_INLINE_REVIEW_COMMENTS - 1
+              ? 'Fresh bounded inline entry final.'
+              : `Fresh bounded inline entry ${String(index + 1)}.`,
+        path: 'server/src/flows/githubReview.ts',
+        line: index + 1,
+        created_at: new Date(
+          Date.UTC(2026, 5, 24, 11, 0, index + 1),
+        ).toISOString(),
+      }),
+    );
     await fs.writeFile(
       rawArtifactPath,
       JSON.stringify(
@@ -810,18 +848,8 @@ test('github review materialization replaces stale scratch with fresh reviewer f
             authorLogin: 'review-author',
           },
           fetchedAt: '2026-06-24T12:00:00.000Z',
-          reviews: JSON.parse(
-            await fs.readFile(
-              path.join(githubReviewFixturesDir, 'reviews-slurp.json'),
-              'utf8',
-            ),
-          ).flat(),
-          reviewComments: JSON.parse(
-            await fs.readFile(
-              path.join(githubReviewFixturesDir, 'comments-slurp.json'),
-              'utf8',
-            ),
-          ).flat(),
+          reviews,
+          reviewComments,
         },
         null,
         2,
@@ -852,14 +880,22 @@ test('github review materialization replaces stale scratch with fresh reviewer f
       ),
       'utf8',
     );
-    assert.equal(updatedHandoff.filtered_review_count, 2);
-    assert.equal(updatedHandoff.filtered_review_comment_count, 2);
+    assert.equal(
+      updatedHandoff.filtered_review_count,
+      MAX_GITHUB_REVIEW_SUBMISSIONS,
+    );
+    assert.equal(
+      updatedHandoff.filtered_review_comment_count,
+      MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+    );
     assert.match(
       updatedHandoff.external_review_input_file ?? '',
       /0000060-github-review-exec-1-external-review-input\.md$/,
     );
-    assert.match(externalInput, /Please revisit the retry wording\./);
-    assert.match(externalInput, /Second page inline note\./);
+    assert.match(externalInput, /Fresh bounded review entry one\./);
+    assert.match(externalInput, /Fresh bounded review entry final\./);
+    assert.match(externalInput, /Fresh bounded inline entry one\./);
+    assert.match(externalInput, /Fresh bounded inline entry final\./);
     assert.doesNotMatch(externalInput, /stale input/);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });

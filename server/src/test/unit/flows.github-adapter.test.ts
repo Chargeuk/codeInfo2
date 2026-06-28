@@ -12,6 +12,8 @@ import {
   createPullRequest,
   fetchPullRequestReviews,
   lookupLatestOpenPullRequest,
+  MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+  MAX_GITHUB_REVIEW_SUBMISSIONS,
   pushBranchToExistingUpstream,
   readWorkedRepositoryGitHubToken,
   resolveGitHubRepositoryState,
@@ -435,6 +437,107 @@ test('review fetch preserves paginated review submissions and inline review comm
     assert.equal(fetched.value.reviews.length, 2);
     assert.equal(fetched.value.reviewComments.length, 2);
     assert.equal(fetched.value.reviewComments[1].in_reply_to_id, 2001);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('review fetch publishes one bounded producer corpus after paginated normalization', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const reviewCount = MAX_GITHUB_REVIEW_SUBMISSIONS + 5;
+    const commentCount = MAX_GITHUB_INLINE_REVIEW_COMMENTS + 5;
+    const reviewPages = [
+      Array.from({ length: Math.ceil(reviewCount / 2) }, (_, index) => ({
+        id: 1000 + index + 1,
+        user: { login: `reviewer-${String(index + 1)}` },
+        body: `Review body ${String(index + 1)}`,
+        state: 'COMMENTED',
+        submitted_at: new Date(
+          Date.UTC(2026, 5, 24, 10, 0, index + 1),
+        ).toISOString(),
+      })),
+      Array.from({ length: Math.floor(reviewCount / 2) }, (_, index) => ({
+        id: 1000 + Math.ceil(reviewCount / 2) + index + 1,
+        user: {
+          login: `reviewer-${String(Math.ceil(reviewCount / 2) + index + 1)}`,
+        },
+        body: `Review body ${String(Math.ceil(reviewCount / 2) + index + 1)}`,
+        state: 'COMMENTED',
+        submitted_at: new Date(
+          Date.UTC(2026, 5, 24, 11, 0, index + 1),
+        ).toISOString(),
+      })),
+    ];
+    const commentPages = [
+      Array.from({ length: Math.ceil(commentCount / 2) }, (_, index) => ({
+        id: 2000 + index + 1,
+        pull_request_review_id: 1000 + index + 1,
+        user: { login: `commenter-${String(index + 1)}` },
+        body: `Inline body ${String(index + 1)}`,
+        path: 'server/src/flows/service.ts',
+        line: index + 1,
+        created_at: new Date(
+          Date.UTC(2026, 5, 24, 12, 0, index + 1),
+        ).toISOString(),
+      })),
+      Array.from({ length: Math.floor(commentCount / 2) }, (_, index) => ({
+        id: 2000 + Math.ceil(commentCount / 2) + index + 1,
+        pull_request_review_id: 1000 + Math.ceil(commentCount / 2) + index + 1,
+        user: {
+          login: `commenter-${String(
+            Math.ceil(commentCount / 2) + index + 1,
+          )}`,
+        },
+        body: `Inline body ${String(Math.ceil(commentCount / 2) + index + 1)}`,
+        path: 'server/src/flows/githubReview.ts',
+        line: index + 1,
+        created_at: new Date(
+          Date.UTC(2026, 5, 24, 13, 0, index + 1),
+        ).toISOString(),
+      })),
+    ];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const endpoint = params.args.at(-1) ?? '';
+        if (endpoint.includes('/reviews?')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify(reviewPages),
+            stderr: '',
+          };
+        }
+        if (endpoint.includes('/comments?')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify(commentPages),
+            stderr: '',
+          };
+        }
+        throw new Error(`Unexpected endpoint: ${endpoint}`);
+      },
+    });
+
+    const fetched = await fetchPullRequestReviews({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      pullRequest: {
+        number: 45,
+        url: 'https://github.com/example/repo/pull/45',
+        headRefName: baseRepositoryState(tempRepo.repoRoot).currentBranch,
+        baseRefName: 'main',
+      },
+    });
+    assert.equal(fetched.kind, 'ok');
+    assert.equal(fetched.value.reviews.length, MAX_GITHUB_REVIEW_SUBMISSIONS);
+    assert.equal(
+      fetched.value.reviewComments.length,
+      MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+    );
+    assert.equal(fetched.value.reviews[0].id, 1006);
+    assert.equal(fetched.value.reviews.at(-1)?.id, 1205);
+    assert.equal(fetched.value.reviewComments[0].id, 2006);
+    assert.equal(fetched.value.reviewComments.at(-1)?.id, 2205);
   } finally {
     await tempRepo.cleanup();
   }

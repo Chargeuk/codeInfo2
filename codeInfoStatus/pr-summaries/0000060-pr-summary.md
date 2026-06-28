@@ -4,7 +4,7 @@
 - Repository scope: current repository only
 - Active review pass: `0000060-20260628T052129Z-3b5caa68`
 - Active review cycle: `0000060-rc-20260628T060453Z-138f52f8`
-- Active repair owner: `Task 20. Restore Supported Main-Stack Review-Agent Availability For The Opt-In Review Flow`
+- Active repair owner: `Task 21. Bound GitHub Review Ingest Materialization Without Changing Review Semantics`
 - Final revalidation owner: `Task 22. Revalidate review pass 0000060-20260628T052129Z-3b5caa68 after review-cycle 0000060-rc-20260628T060453Z-138f52f8 task-up repairs`
 - Planned durable manual proof bundle: `codeInfoStatus/manual-proof/0000060/`
 
@@ -12,8 +12,8 @@
 
 1. Story 60 adds a flow-only GitHub PR review-cycle surface instead of a second agent-command contract. The runtime supports authored `if` branching, shared AI-or-script decisions for `if` and loop-control steps, persisted `wait` in whole seconds, and thin `github_open_pr`, `github_fetch_reviews`, and `github_close_pr` flow steps.
 2. The shipped workflow wiring remains opt-in. `flows/implement_next_plan.json` stays the preserved default implementation path, while `flows/implement_next_plan_github_review.json` is the copied variant that opens a PR, waits, fetches outside review feedback, filters reviewer-only comments, classifies valid findings, leaves clean-cycle PRs open, and closes findings-present PRs only before the existing repair loopback paths.
-3. Review-created Task 18 repaired discovery ownership so `/flows` can correctly classify the Story 60 GitHub review variant against repository-owned agent homes, but the checked-in supported main stack still does not mount a runnable `review_agent` home for that variant.
-4. The active repair task is Task 20 for review cycle `0000060-rc-20260628T060453Z-138f52f8`. This cycle now has two serious findings only: restore supported main-stack review-agent reachability for the opt-in flow, then bound GitHub review ingest materialization before Task 22 runs the broad final revalidation.
+3. Review-created Task 20 repaired the supported main-stack catalog seam so the checked-in opt-in GitHub review flow can now resolve a runnable `review_agent` home from the repository-owned mounted catalog without mutating the default `implement_next_plan` entrypoint.
+4. The active repair task is now Task 21 for review cycle `0000060-rc-20260628T060453Z-138f52f8`. The remaining serious finding is the unbounded GitHub review-ingest seam: one execution currently fetches a full paginated review corpus, writes that full normalized corpus into execution-scoped scratch JSON, and then materializes one downstream markdown derivative from the same unbounded scratch before Task 22 runs the broad final revalidation.
 
 ## Task 20 Decision Note
 
@@ -34,6 +34,21 @@
   - no broader agent-home compatibility redesign
   - no new browser-visible selection behavior beyond restoring the shipped opt-in variant as runnable when the mounted review-capable catalog is present
 
+## Task 21 Decision Note
+
+- Reproduced boundedness defect: `fetchPullRequestReviews(...)` currently keeps GitHub CLI pagination intact but returns every normalized review submission and inline review comment, `writeGitHubReviewScratch(...)` persists that full normalized corpus under `codeInfoTmp/reviews`, `readGitHubReviewScratch(...)` rereads the same execution-scoped handoff, and `buildGitHubExternalReviewInputMarkdown(...)` expands the reread artifact into one downstream markdown prompt input without any explicit corpus cap.
+- Chosen owning repair seam: producer-side bounding inside `fetchPullRequestReviews(...)`, so one bounded normalized corpus becomes authoritative before `writeGitHubReviewScratch(...)` writes the execution-scoped artifact, `readGitHubReviewScratch(...)` rereads it, and `materializeGitHubExternalReviewInput(...)` plus `buildGitHubExternalReviewInputMarkdown(...)` consume it.
+- Preserved semantics that must stay unchanged:
+  - GitHub CLI pagination still runs through `gh api --paginate --slurp`
+  - both review submissions and inline review comments remain in scope
+  - execution-scoped scratch ownership and foreign-selector rejection still fail closed
+  - `runGitHubFetchReviewsStep(...)` keeps the same write -> reread -> materialize ordering and does not invent a second cleanup contract
+  - Story 60 cleanup ownership stays rooted at `buildGitHubReviewScratchPaths(...).reviewsRoot` under `codeInfoTmp/reviews`
+- Chosen corpus rule for Task 21:
+  - keep the newest `200` normalized review submissions per execution
+  - keep the newest `200` normalized inline review comments per execution
+  - preserve original survivor ordering after truncation so downstream filtering and markdown materialization continue to read one deterministic bounded corpus rather than a second reordered policy view
+
 ## Task-Required Findings Checklist
 
 - Finding `plan_contract_issue`
@@ -51,6 +66,13 @@
   Pending focused result slot: `PASSED IN TASK 20 FOCUSED PROOF`
   Requirement `the hidden disabled GitHub-review option remains only as disabled local state and launch submissions exclude the stale value`
   Broad revalidation surfaces: focused `client/src/test/flowsPage.runGuard.test.tsx`, full `npm run test:summary:client`, full `npm run test:summary:e2e`
+- Finding `generic_engineering_issue`
+  Requirement `the GitHub review adapter keeps paginated review submissions and inline comments in scope while publishing one bounded producer corpus before execution-scoped scratch write`
+  Focused proof owners: `server/src/test/unit/flows.github-adapter.test.ts`
+  Pending focused result slot: `PASSED IN TASK 21 FOCUSED PROOF`
+  Requirement `fresh bounded execution-scoped scratch replaces stale review content before markdown materialization and downstream classification reads that execution's review corpus`
+  Focused proof owner: `server/src/test/integration/flows.run.loop.test.ts`
+  Pending focused result slot: `PASSED IN TASK 21 FOCUSED PROOF`
 
 ## Baseline Adjudication
 
@@ -91,7 +113,7 @@
 
 ## State Alignment
 
-- The plan and `codeInfoStatus/flow-state/review-disposition-state.json` agree on review pass `0000060-20260628T052129Z-3b5caa68`, review cycle `0000060-rc-20260628T060453Z-138f52f8`, unresolved findings `plan_contract_issue` and `generic_engineering_issue`, Task 20 as the active supported-stack repair owner, and Task 22 as the single final revalidation owner for this active cycle.
+- The plan and `codeInfoStatus/flow-state/review-disposition-state.json` agree on review pass `0000060-20260628T052129Z-3b5caa68`, review cycle `0000060-rc-20260628T060453Z-138f52f8`, unresolved findings `plan_contract_issue` and `generic_engineering_issue`, Task 21 as the active bounded-ingest repair owner, and Task 22 as the single final revalidation owner for this active cycle.
 - No second final-owner wording should remain after Task 22 closeout work completes.
 
 ## Manual Proof Notes

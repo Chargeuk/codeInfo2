@@ -252,6 +252,8 @@ const normalizeTrimmedString = (value: unknown): string | undefined =>
 
 export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
 export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
+export const MAX_GITHUB_REVIEW_SUBMISSIONS = 200;
+export const MAX_GITHUB_INLINE_REVIEW_COMMENTS = 200;
 
 const buildTempPath = (targetPath: string) =>
   `${targetPath}.${process.pid}.${Date.now().toString(36)}.tmp`;
@@ -318,6 +320,50 @@ const flattenPaginatedSlurpPayload = (parsed: unknown): unknown[] => {
     return [parsed];
   }
   return parsed.flatMap((entry) => (Array.isArray(entry) ? entry : [entry]));
+};
+
+const parseIsoTimestamp = (value: string | undefined): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const takeMostRecentEntries = <T>(params: {
+  entries: readonly T[];
+  limit: number;
+  getTimestamp: (entry: T) => string | undefined;
+  getStableNumericId: (entry: T) => number;
+}): T[] => {
+  if (params.entries.length <= params.limit) {
+    return [...params.entries];
+  }
+  const rankedEntries = params.entries.map((entry, index) => ({
+    entry,
+    index,
+    timestamp: parseIsoTimestamp(params.getTimestamp(entry)),
+    stableNumericId: params.getStableNumericId(entry),
+  }));
+  rankedEntries.sort((left, right) => {
+    const leftTimestamp = left.timestamp;
+    const rightTimestamp = right.timestamp;
+    if (leftTimestamp !== undefined && rightTimestamp !== undefined) {
+      if (leftTimestamp !== rightTimestamp) {
+        return leftTimestamp - rightTimestamp;
+      }
+    } else if (leftTimestamp !== undefined) {
+      return 1;
+    } else if (rightTimestamp !== undefined) {
+      return -1;
+    }
+    if (left.stableNumericId !== right.stableNumericId) {
+      return left.stableNumericId - right.stableNumericId;
+    }
+    return left.index - right.index;
+  });
+  const selectedIndexes = new Set(
+    rankedEntries.slice(-params.limit).map((entry) => entry.index),
+  );
+  return params.entries.filter((_, index) => selectedIndexes.has(index));
 };
 
 const parseRepoFromRemoteUrl = (
@@ -975,6 +1021,12 @@ export const fetchPullRequestReviews = async (params: {
   if (parsedReviews.kind !== 'ok') return parsedReviews;
   const parsedComments = parsePaginatedArray(commentsResult.value.stdout);
   if (parsedComments.kind !== 'ok') return parsedComments;
+  const normalizedReviews = parsedReviews.value
+    .map((item) => normalizeReviewSubmission(item))
+    .filter((item): item is GitHubReviewSubmission => Boolean(item));
+  const normalizedReviewComments = parsedComments.value
+    .map((item) => normalizeInlineReviewComment(item))
+    .filter((item): item is GitHubInlineReviewComment => Boolean(item));
   return {
     kind: 'ok',
     value: {
@@ -984,12 +1036,18 @@ export const fetchPullRequestReviews = async (params: {
       },
       pullRequest: params.pullRequest,
       fetchedAt: githubReviewDeps.nowIso(),
-      reviews: parsedReviews.value
-        .map((item) => normalizeReviewSubmission(item))
-        .filter((item): item is GitHubReviewSubmission => Boolean(item)),
-      reviewComments: parsedComments.value
-        .map((item) => normalizeInlineReviewComment(item))
-        .filter((item): item is GitHubInlineReviewComment => Boolean(item)),
+      reviews: takeMostRecentEntries({
+        entries: normalizedReviews,
+        limit: MAX_GITHUB_REVIEW_SUBMISSIONS,
+        getTimestamp: (review) => review.submitted_at,
+        getStableNumericId: (review) => review.id,
+      }),
+      reviewComments: takeMostRecentEntries({
+        entries: normalizedReviewComments,
+        limit: MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+        getTimestamp: (comment) => comment.created_at,
+        getStableNumericId: (comment) => comment.id,
+      }),
     },
   };
 };

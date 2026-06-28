@@ -1721,12 +1721,13 @@ This review-created task restores the supported main-stack runtime contract for 
 
 #### Testing
 
+Task 18 owns only the narrow proof needed to validate the supported-stack reachability repair itself. The fresh broad regression wrappers for this review-created findings block stay on Task 19 so this task does not repeat the same repository-wide suites early.
+
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts --test-name "production review and implementation flow entrypoints remain valid JSON and schema"` from the repository root so any repaired flow-definition or catalog contract still keeps the shipped review entrypoints structurally valid.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts --test-name "ingested Story 60 GitHub review variant is disabled when review_agent is only missing inside a nested branch"` from the repository root after updating that proof so the supported-stack availability contract is re-proved on the exact disabled-state seam named by the finding.
-3. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows let operators select the GitHub review variant without mutating the default entrypoint"` from the repository root if the repair touches the `/flows` launcher, discovery-visible details, or selection path, so the changed behavior is re-proved on the normal default-path UI surface before the broader final-cycle rerun.
-4. [ ] Run `npm run build:summary:server` from the repository root because this repair still changes the supported runtime, catalog, or discovery-visible contract for Story 60's opt-in review flow.
-5. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows let operators select the GitHub review variant without mutating the default entrypoint"` from the repository root so the repaired Story 60 variant is re-proved on the normal `/flows` launcher path while the default `implement_next_plan` entrypoint stays unchanged before the broader final-cycle rerun.
+4. [ ] Run `npm run lint` from the repository root for this task's changed surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` from the repository root for this task's changed surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -1779,6 +1780,8 @@ This fresh review-created final task owns the whole active review cycle's post-r
 #### Testing
 
 Cucumber and helper-script unittest surfaces are not applicable for this review-created findings block because the routed serious finding changes supported-stack reachability and the inline-resolved minor fix changes the `/flows` disabled-selection proof seam rather than authored step semantics or helper-side review-count gating; if later implementation broadens beyond those seams, update this task honestly instead of implying those proof surfaces already ran.
+
+This final revalidation task owns the full broad regression proof for the whole current review-created findings block after Task 18 lands, including the shared build, broad wrapper, compose, and host-network reruns that are intentionally not duplicated in Task 18.
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts --test-name "ingested Story 60 GitHub review variant is disabled when review_agent is only missing inside a nested branch"` from the repository root on the repaired Task 18 seam so the exact supported-stack reachability proof owner goes green before the broader wrappers.
 2. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows let operators select the GitHub review variant without mutating the default entrypoint"` from the repository root so the repaired `/flows` launcher path is re-proved on the normal default-path UI surface before the broad rerun.

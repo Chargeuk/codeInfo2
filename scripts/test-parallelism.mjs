@@ -51,3 +51,71 @@ export const formatWorkerSummaryLine = ({
   source,
 }) =>
   `${label}=${workerCount} available_cores=${availableCores} source=${source}`;
+
+export const allocateWeightedParallelBudget = ({
+  budgetFraction = 0.75,
+  weights,
+  reservedWorkers = {},
+}) => {
+  const availableCores = Math.max(1, availableParallelism());
+  const entries = Object.entries(weights);
+  const reservedEntries = Object.entries(reservedWorkers).map(
+    ([label, count]) => [
+      label,
+      Math.max(1, Number.parseInt(String(count), 10) || 1),
+    ],
+  );
+  const reservedBudget = reservedEntries.reduce(
+    (sum, [, count]) => sum + count,
+    0,
+  );
+  const minimumBudget = Math.max(1, entries.length + reservedBudget);
+  const scaledBudget = Math.floor(availableCores * budgetFraction);
+  const budget = Math.max(minimumBudget, scaledBudget);
+  const weightedBudget = budget - reservedBudget;
+  const totalWeight = entries.reduce((sum, [, weight]) => sum + weight, 0);
+
+  const provisional = entries.map(([label, weight]) => {
+    const exact = (weightedBudget * weight) / totalWeight;
+    const base = Math.floor(exact);
+    return {
+      label,
+      exact,
+      base,
+      remainder: exact - base,
+    };
+  });
+
+  let assigned = provisional.reduce((sum, item) => sum + item.base, 0);
+  let remaining = weightedBudget - assigned;
+
+  provisional.sort((left, right) => {
+    if (right.remainder !== left.remainder) {
+      return right.remainder - left.remainder;
+    }
+    return right.exact - left.exact;
+  });
+
+  for (const item of provisional) {
+    if (remaining <= 0) break;
+    item.base += 1;
+    remaining -= 1;
+  }
+
+  const workerCounts = Object.fromEntries(
+    [
+      ...provisional.map((item) => [item.label, item.base]),
+      ...reservedEntries,
+    ].sort(([leftLabel], [rightLabel]) => leftLabel.localeCompare(rightLabel)),
+  );
+
+  return {
+    availableCores,
+    budget,
+    budgetFraction,
+    reservedBudget,
+    weightedBudget,
+    workerCounts,
+    source: `weighted-${Math.round(budgetFraction * 100)}pct-budget`,
+  };
+};

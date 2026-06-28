@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 
-const formatDurationSeconds = (durationMs) => `${(durationMs / 1000).toFixed(3)}s`;
+const formatDurationSeconds = (durationMs) =>
+  `${(durationMs / 1000).toFixed(3)}s`;
 
 const pipeWithPrefix = (stream, target, prefix) => {
   let buffer = '';
@@ -64,7 +65,9 @@ export const runCommand = (command) =>
   });
 
 export const runCommandsInParallel = async (commands) => {
-  const results = await Promise.all(commands.map((command) => runCommand(command)));
+  const results = await Promise.all(
+    commands.map((command) => runCommand(command)),
+  );
   const hasFailure = results.some((result) => result.code !== 0);
 
   console.log('===== Parallel summary =====');

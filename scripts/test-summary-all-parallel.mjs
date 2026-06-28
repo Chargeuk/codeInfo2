@@ -4,8 +4,26 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runCommandsInParallel } from './test-summary-parallel-runner.mjs';
+import {
+  allocateWeightedParallelBudget,
+  formatWorkerSummaryLine,
+} from './test-parallelism.mjs';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
+const sharedParallelBudget = allocateWeightedParallelBudget({
+  budgetFraction: 0.6,
+  weights: {
+    client: 3,
+    e2e: 3,
+    'server:unit': 12,
+  },
+  reservedWorkers: {
+    'server:cucumber': 1,
+  },
+});
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -22,9 +40,56 @@ Flow:
   5. npm run test:summary:server:unit -- --skip-build
   6. npm run test:summary:server:cucumber -- --skip-build
   7. npm run test:summary:e2e -- --skip-compose-build
+
+Shared worker budget:
+  Uses 60% of available cores as a shared worker budget.
+  - server:cucumber always reserves 1 worker from that budget
+  - the remaining worker budget is allocated with a server-heavy split:
+  - server:unit weight 12
+  - client weight 3
+  - e2e weight 3
 `);
   process.exit(0);
 }
+
+console.log(
+  `[all:parallel] shared_budget=${sharedParallelBudget.budget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,
+);
+console.log(
+  `[all:parallel] reserved_budget=${sharedParallelBudget.reservedBudget} remaining_budget=${sharedParallelBudget.weightedBudget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,
+);
+console.log(
+  `[all:parallel] ${formatWorkerSummaryLine({
+    label: 'client_workers',
+    availableCores: sharedParallelBudget.availableCores,
+    workerCount: sharedParallelBudget.workerCounts.client,
+    source: sharedParallelBudget.source,
+  })}`,
+);
+console.log(
+  `[all:parallel] ${formatWorkerSummaryLine({
+    label: 'server_unit_concurrency',
+    availableCores: sharedParallelBudget.availableCores,
+    workerCount: sharedParallelBudget.workerCounts['server:unit'],
+    source: sharedParallelBudget.source,
+  })}`,
+);
+console.log(
+  `[all:parallel] ${formatWorkerSummaryLine({
+    label: 'server_cucumber_workers',
+    availableCores: sharedParallelBudget.availableCores,
+    workerCount: sharedParallelBudget.workerCounts['server:cucumber'],
+    source: sharedParallelBudget.source,
+  })}`,
+);
+console.log(
+  `[all:parallel] ${formatWorkerSummaryLine({
+    label: 'playwright_workers',
+    availableCores: sharedParallelBudget.availableCores,
+    workerCount: sharedParallelBudget.workerCounts.e2e,
+    source: sharedParallelBudget.source,
+  })}`,
+);
 
 const prebuild = await runCommandsInParallel([
   {
@@ -58,7 +123,13 @@ const results = await runCommandsInParallel([
   {
     label: 'client',
     cmd: 'npm',
-    args: ['run', 'test:summary:client', '--', '--max-workers', '4'],
+    args: [
+      'run',
+      'test:summary:client',
+      '--',
+      '--max-workers',
+      String(sharedParallelBudget.workerCounts.client),
+    ],
     cwd: rootDir,
     env: process.env,
   },
@@ -69,7 +140,9 @@ const results = await runCommandsInParallel([
     cwd: rootDir,
     env: {
       ...process.env,
-      CODEINFO_SERVER_UNIT_CONCURRENCY: '8',
+      CODEINFO_SERVER_UNIT_CONCURRENCY: String(
+        sharedParallelBudget.workerCounts['server:unit'],
+      ),
     },
   },
   {
@@ -86,7 +159,7 @@ const results = await runCommandsInParallel([
     cwd: rootDir,
     env: {
       ...process.env,
-      PLAYWRIGHT_WORKERS: '4',
+      PLAYWRIGHT_WORKERS: String(sharedParallelBudget.workerCounts.e2e),
     },
   },
 ]);

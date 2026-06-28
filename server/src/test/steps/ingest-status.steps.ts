@@ -27,7 +27,7 @@ import {
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
-setDefaultTimeout(10000);
+setDefaultTimeout(30_000);
 
 let server: Server | null = null;
 let baseUrl = '';

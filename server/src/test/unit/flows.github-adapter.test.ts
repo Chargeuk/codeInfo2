@@ -535,6 +535,52 @@ test('resumed GitHub review reconciliation warns and keeps the persisted handoff
   }
 });
 
+test('resumed GitHub review reconciliation re-enters latest-open authority when the execution-scoped handoff is missing', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify([
+          [
+            {
+              number: 46,
+              html_url: 'https://github.com/example/repo/pull/46',
+              head: {
+                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              },
+              base: { ref: 'main' },
+              created_at: '2026-06-28T10:00:00Z',
+            },
+          ],
+        ]),
+        stderr: '',
+      }),
+    });
+
+    const reconciled = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'missing',
+      handoffPath: path.join(
+        tempRepo.repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-missing-current.json',
+      ),
+      resumedPullRequestNumber: 44,
+    });
+    assert.equal(reconciled.kind, 'ok');
+    assert.equal(reconciled.value.number, 46);
+    assert.equal(reconciled.source, 'latest_open_pull_request');
+    assert.equal(reconciled.warnings.length, 1);
+    assert.match(
+      reconciled.warnings[0] ?? '',
+      /lost its execution-scoped handoff/i,
+    );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('resumed GitHub review reconciliation adopts a newer branch PR and rejects older branch PRs', async () => {
   const tempRepo = await createTempRepo();
   try {

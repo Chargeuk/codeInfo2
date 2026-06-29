@@ -374,6 +374,66 @@ export const buildGitHubReviewScratchPaths = (
   };
 };
 
+export const resolveCanonicalGitHubReviewScratchPaths = (params: {
+  workingRepositoryRoot: string;
+  storyNumber: string;
+  executionId: string;
+  selectorPath?: string;
+  handoffPath?: string;
+}): GitHubStepOutcome<{
+  selectorPath: string;
+  handoffPath: string;
+}> => {
+  const scratchPaths = buildGitHubReviewScratchPaths(
+    params.workingRepositoryRoot,
+    params.storyNumber,
+  );
+  const canonicalSelectorPath = scratchPaths.selectorPath;
+  const canonicalHandoffPath = scratchPaths.buildExecutionScopedHandoffPath(
+    params.executionId,
+  );
+
+  if (
+    params.selectorPath &&
+    (!isPathContainedWithinRoot(
+      params.workingRepositoryRoot,
+      params.selectorPath,
+    ) ||
+      path.resolve(params.selectorPath) !== path.resolve(canonicalSelectorPath))
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review selectorPath must stay inside the authoritative execution-scoped scratch root before any resumed filesystem read.',
+    };
+  }
+
+  if (
+    params.handoffPath &&
+    (!isPathContainedWithinRoot(
+      params.workingRepositoryRoot,
+      params.handoffPath,
+    ) ||
+      path.resolve(params.handoffPath) !== path.resolve(canonicalHandoffPath))
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'GitHub review handoffPath must stay inside the authoritative execution-scoped scratch root before any resumed filesystem read.',
+    };
+  }
+
+  return {
+    kind: 'ok',
+    value: {
+      selectorPath: canonicalSelectorPath,
+      handoffPath: canonicalHandoffPath,
+    },
+  };
+};
+
 const flattenPaginatedSlurpPayload = (parsed: unknown): unknown[] => {
   if (!Array.isArray(parsed)) {
     return [parsed];
@@ -2065,6 +2125,42 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
     handoffPath: params.handoffPath,
     expectedExecutionId: params.executionId,
   });
+  const missingHandoffWarning =
+    'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.';
+  if (
+    persistedHandoff.kind !== 'ok' &&
+    /ENOENT|no such file or directory/i.test(persistedHandoff.message)
+  ) {
+    const latestOpenPullRequest = await lookupLatestOpenPullRequest({
+      repository: params.repository,
+      token: params.token,
+    });
+    if (latestOpenPullRequest.kind !== 'ok') {
+      return {
+        kind: 'error',
+        reason: latestOpenPullRequest.reason,
+        message: latestOpenPullRequest.message,
+        stderr: latestOpenPullRequest.stderr,
+        exitCode: latestOpenPullRequest.exitCode,
+        warnings: [missingHandoffWarning],
+      };
+    }
+    if (!latestOpenPullRequest.value) {
+      return {
+        kind: 'error',
+        reason: 'SCRATCH_INVALID',
+        message:
+          'Resumed GitHub review execution lost its execution-scoped handoff and no latest open pull request was available for the current branch.',
+        warnings: [missingHandoffWarning],
+      };
+    }
+    return {
+      kind: 'ok',
+      value: latestOpenPullRequest.value,
+      warnings: [missingHandoffWarning],
+      source: 'latest_open_pull_request',
+    };
+  }
   if (persistedHandoff.kind !== 'ok') {
     return {
       kind: 'error',

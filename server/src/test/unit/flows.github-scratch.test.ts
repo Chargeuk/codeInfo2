@@ -13,6 +13,7 @@ import {
   GITHUB_REVIEW_HANDOFF_KIND,
   GITHUB_REVIEW_SELECTOR_KIND,
   readGitHubReviewScratch,
+  resolveCanonicalGitHubReviewScratchPaths,
   writeGitHubReviewScratch,
   type GitHubCurrentReviewHandoff,
   type GitHubRepositoryState,
@@ -751,6 +752,24 @@ test('execution-scoped handoff refresh can preserve a newer selector owner while
     });
     assert.equal(resumedHandoff.kind, 'ok');
     assert.equal(resumedHandoff.value.pull_request.number, 77);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('resumed scratch path reconstruction rejects drifted persisted selector and handoff hints before any reread', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const resolved = resolveCanonicalGitHubReviewScratchPaths({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      storyNumber: '0000060',
+      executionId: 'exec-old',
+      selectorPath: path.join(tempRepo.repoRoot, 'outside', 'selector.json'),
+      handoffPath: path.join(tempRepo.repoRoot, 'outside', 'handoff.json'),
+    });
+    assert.equal(resolved.kind, 'error');
+    assert.equal(resolved.reason, 'SCRATCH_INVALID');
+    assert.match(resolved.message, /selectorPath|handoffPath/i);
   } finally {
     await tempRepo.cleanup();
   }

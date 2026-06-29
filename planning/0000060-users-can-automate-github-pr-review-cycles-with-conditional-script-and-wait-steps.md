@@ -2501,7 +2501,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2566,6 +2566,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 - Renamed and tightened the focused adapter proof so it now claims page-local bounded materialization directly, verifies that the fetch path no longer uses `--paginate` or `--slurp`, and still proves the accepted review/comment ids match the same bounded corpus as before.
 - Renamed the runtime proof so it now claims the bounded-corpus propagation invariant directly while still proving that stale scratch is replaced by the same fresh bounded reviewer feedback consumed by downstream classification.
 - `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed with `11/11`, and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed with `37/37`.
+- Proof audit re-read the bound Task 27 plan section, confirmed the selector-bound task still matched the page-local accumulation repair in `server/src/flows/githubReview.ts` and the focused wrapper results, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 27`, and closed the task because both checklist sections were already honestly complete on disk.
 
 ### Task 28. Revalidate review pass `0000060-20260629T141234Z-d9a9011b` after review-cycle `0000060-rc-20260629T162154Z-89df94b1` task-up repairs
 

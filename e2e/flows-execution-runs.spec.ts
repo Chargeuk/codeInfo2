@@ -419,6 +419,7 @@ test('flows let operators select the GitHub review variant without mutating the 
   await installMockChatWs(page);
 
   const runBodies: Array<Record<string, unknown>> = [];
+  const runPaths: string[] = [];
 
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
@@ -518,6 +519,7 @@ test('flows let operators select the GitHub review variant without mutating the 
       pathname === '/flows/implement_next_plan_github_review/run' &&
       method === 'POST'
     ) {
+      runPaths.push(pathname);
       runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
@@ -535,6 +537,7 @@ test('flows let operators select the GitHub review variant without mutating the 
     }
 
     if (pathname === '/flows/implement_next_plan/run' && method === 'POST') {
+      runPaths.push(pathname);
       runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
@@ -574,6 +577,7 @@ test('flows let operators select the GitHub review variant without mutating the 
       message: 'Expected the selected GitHub review variant flow to start',
     })
     .toBe(1);
+  expect(runPaths).toEqual(['/flows/implement_next_plan_github_review/run']);
 });
 
 test('flows composer footer controls use upward desktop popovers and centered mobile dialogs', async ({

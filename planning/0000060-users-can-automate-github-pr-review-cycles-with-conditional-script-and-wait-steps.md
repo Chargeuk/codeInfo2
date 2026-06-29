@@ -2432,13 +2432,15 @@ This review-created task repairs the end-to-end warning-path seam for resumed Gi
 
 This task stays inside the approved Story 60 behavior lock. It must preserve current provider-free warning-stop behavior and make that existing warning outcome visible end to end, rather than widening scope into a broader UX redesign or a new public status taxonomy beyond what Story 60 already introduced.
 
+The user-visible seam for this task is the existing shared assistant transcript status treatment on `/flows`, `/agents`, and `/chat`: the current assistant bubble status chip plus the companion status/info rows must show a distinct warning outcome once stored-turn hydration or websocket finals deliver it, with `/flows` remaining the focused proof home because it already owns the run-state proof seam for this story.
+
 - Highest-risk invariant: a resumed provider-free GitHub review path must be allowed to warning-stop on its own authoritative seam, and that warning outcome must remain distinct through stored turns, websocket finals, and the current transcript surfaces instead of being preempted or flattened into a clean success.
 - Likely blocker family: `product or story seam`, because this task changes both the resumed admission ordering and the client transcript contract that renders Story 60 warning outcomes.
 
 #### Task Exit Criteria
 
 - Resumed GitHub-review flows whose next authoritative work is provider-free GitHub fetch or script-owned branching can reach that owner seam before unrelated planner or reviewer runtime bootstrap fails the run.
-- The client transcript contract preserves Story 60 `warning` terminal outcomes distinctly across stored-turn hydration, websocket final events, and the current transcript surfaces instead of collapsing them to generic success.
+- The client transcript contract preserves Story 60 `warning` terminal outcomes distinctly across stored-turn hydration, websocket final events, and the current `/flows`, `/agents`, and `/chat` assistant transcript status chip plus status/info rows instead of collapsing them to generic success.
 - The repair preserves approved Story 60 warning-path behavior and does not silently change current user-facing behavior beyond making the already-approved warning outcome truthful and visible.
 - Focused proof explicitly covers the provider-free resumed warning-stop path and the warning terminal-status consumer contract with titles that claim those exact invariants.
 
@@ -2454,11 +2456,15 @@ This task stays inside the approved Story 60 behavior lock. It must preserve cur
 
 #### Subtasks
 
-1. [ ] In `server/src/flows/service.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/ChatPage.tsx`, identify the exact server preemption branch and the exact client narrowing branches that currently flatten a resumed provider-free warning path before the owning GitHub or script seam finishes.
-2. [ ] In `server/src/flows/service.ts`, change the resumed-run ordering so a provider-free GitHub fetch or script-owned warning-stop branch stays in control until it proves that provider-backed work actually remains, and do not widen that change into a new status taxonomy or a broader review-loop redesign.
-3. [ ] In the shared client warning-status consumers and active transcript surfaces, carry `warning` through stored-turn hydration, websocket final-event mapping, and current rendering without falling back to generic success on any of the `/flows`, `/agents`, or `/chat` surfaces that already consume that contract.
-4. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` so one focused server proof explicitly names and proves the provider-free resumed warning-stop ordering boundary on the resumed GitHub review path; if an existing completed-with-warning or adjacent GitHub review proof is reused, rename or split it so the title claims the resumed ordering invariant rather than a generic warning outcome.
-5. [ ] Update `client/src/test/flowsPage.run.test.tsx` so one focused client proof explicitly covers both warning-status hydration and live-final rendering on the current `/flows` transcript surface; if an existing run-state proof is reused, rename or split it so the same titled proof claims hydrated warning plus live-final warning for one conversation and proves that neither path is flattened back to success.
+1. [x] In `server/src/flows/service.ts`, `client/src/hooks/useChatStream.ts`, the page-local `mapTurnsToMessages(...)` adapters in `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/ChatPage.tsx`, plus the shared status renderers in `client/src/components/chat/transcriptSurfaceFormatting.ts` and `client/src/components/chat/AssistantTranscriptSlice.tsx`, identify the exact server preemption branch and the exact client narrowing branches that currently flatten a resumed provider-free warning path before the owning GitHub or script seam finishes; keep `client/src/hooks/useConversationTurns.ts` and `client/src/hooks/useChatWs.ts` in scope as the stored-turn and websocket transport checkpoints that must preserve the same status vocabulary.
+2. [x] In `server/src/flows/service.ts`, change the resumed-run ordering so a provider-free GitHub fetch or script-owned warning-stop branch stays in control until it proves that provider-backed work actually remains, and do not widen that change into a new status taxonomy or a broader review-loop redesign.
+3. [x] In `client/src/hooks/useChatStream.ts`, the page-local stored-turn adapters in `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/ChatPage.tsx`, and the shared status presentation helpers `client/src/components/chat/transcriptSurfaceFormatting.ts` plus `client/src/components/chat/AssistantTranscriptSlice.tsx`, carry `warning` through stored-turn hydration, websocket final-event mapping, and the current assistant transcript status chip/info rendering without falling back to generic success on any of the `/flows`, `/agents`, or `/chat` surfaces that already consume that contract.
+4. [x] Update `server/src/test/integration/flows.run.basic.test.ts` so one focused server proof explicitly names and proves the provider-free resumed warning-stop ordering boundary on the resumed GitHub review path; if an existing completed-with-warning or adjacent GitHub review proof is reused, rename or split it so the title claims the resumed ordering invariant rather than a generic warning outcome.
+5. [x] Update `client/src/test/flowsPage.run.test.tsx` so one focused client proof explicitly covers both warning-status hydration and live-final rendering on the current `/flows` transcript surface; if an existing run-state proof is reused, rename or split it so the same titled proof claims hydrated warning plus live-final warning for one conversation and proves that neither path is flattened back to success.
+
+#### Manual Testing Guidance
+
+Use the supported main stack on `/flows`, `/agents`, and `/chat`, but treat `/flows` as the primary visual proof surface for this task because its current transcript already owns the run-state contract named in the focused client proof. When a truthful warning-state fixture or resumed warning-stop conversation is available, verify the shared assistant transcript status chip and status/info metadata after both stored-turn hydration and live-final websocket delivery; `/agents` and `/chat` only need parity spot checks on the same shared transcript status treatment rather than separate redesign review.
 
 #### Proof Matrix
 
@@ -2476,8 +2482,18 @@ This task stays inside the approved Story 60 behavior lock. It must preserve cur
 
 Keep this task's automated proof compact and seam-local. The broader server build, client build, broad server and client wrappers, end-to-end reruns, lint, and format checks for this review-created findings block are owned by Task 28.
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired provider-free resumed warning-stop path passes on its focused server proof home.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` from the repository root so the repaired warning terminal-status transcript contract passes on its focused client proof home.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired provider-free resumed warning-stop path passes on its focused server proof home.
+2. [x] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` from the repository root so the repaired warning terminal-status transcript contract passes on its focused client proof home.
+
+#### Implementation notes
+
+- Preflight visual refinement pass rechecked the supported `/flows`, `/agents`, and `/chat` transcript shells, clarified that this task owns the shared assistant status chip plus status/info rendering seam rather than a broader layout redesign, and named the exact shared client helpers where warning can still collapse back to success; no code changed in this step.
+- Re-read the Task 26 seam across `startFlowRun(...)`, `client/src/hooks/useChatStream.ts`, the page-local `mapTurnsToMessages(...)` adapters, and the shared transcript formatters, then pinned the two dishonest branches to one boundary pair: resumed runs were pre-bootstrapping a later provider-backed step before a provider-free GitHub warning-stop could finish, and stored-turn/live-final status mapping was flattening `warning` back to the same `complete` presentation used for clean success.
+- Updated `server/src/flows/service.ts` so resumed runs only pre-bootstrap provider execution when the immediate resumed boundary step itself requires it; provider-free GitHub fetch and script-owned warning-stop branches now stay in control until they either stop with warning or actually reach a later provider-backed step, while resumed conversations preserve their existing provider/model metadata instead of being rewritten to fallback placeholders during that delay.
+- Carried Story 60 `warning` status through the shared client transcript contract by extending `useConversationTurns`, `useChatWs`, and `useChatStream`, updating the stored-turn adapters in `/flows`, `/agents`, and `/chat`, and teaching the shared transcript status label, key, chip palette, and info-row icon helpers to render `warning` distinctly instead of falling back to `Complete`.
+- Focused proof now names both repaired invariants directly: `server/src/test/integration/flows.run.basic.test.ts` owns a resumed GitHub review case where provider bootstrap is unavailable but a provider-free fetch warning-stop still completes truthfully before the later LLM step would be needed, and `client/src/test/flowsPage.run.test.tsx` owns one `/flows` proof that covers both hydrated warning turns and live websocket final-warning rendering for the same conversation without any success fallback.
+- `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` initially failed at build because a cleanup line landed in the wrong test scope; moved that cleanup into the new resumed-warning proof and reran the same wrapper successfully.
+- `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` passed with `33/33`, and `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `36/36`.
 
 ### Task 27. Bound GitHub Review Fetch Materialization To The Capped Corpus Contract
 

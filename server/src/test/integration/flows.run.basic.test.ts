@@ -2695,6 +2695,168 @@ test('github review fetch without an open pull request publishes completed-with-
   }
 });
 
+test('resumed github review warning-stop stays provider-free until a later provider-backed step is actually needed', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-resume-warning-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 26 });
+  process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-resume-warning-conversation';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return { exitCode: 0, stdout: 'feature/0000060-test\n', stderr: '' };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return {
+              exitCode: 0,
+              stdout: 'origin/feature/0000060-test\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
+            return {
+              exitCode: 0,
+              stdout: 'refs/remotes/origin/main\n',
+              stderr: '',
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-resume-warning-stop',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Prime run state'] }],
+        },
+        { type: 'wait', label: 'Wait for review', seconds: 60 },
+        { type: 'github_fetch_reviews', label: 'Fetch reviews' },
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Should never run after warning'] }],
+        },
+      ],
+    });
+
+    await startFlowRun({
+      flowName: 'github-resume-warning-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForConversationUnlocked(conversationId);
+    const persistedWait = (
+      (memoryConversations.get(conversationId)?.flags ?? {}) as {
+        flow?: { wait?: { stepPath?: number[] } };
+      }
+    ).flow?.wait;
+    assert.ok(Array.isArray(persistedWait?.stepPath));
+
+    setCodexDetection({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      reason: 'Missing auth.json',
+    });
+
+    await startFlowRun({
+      flowName: 'github-resume-warning-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      resumeStepPath: [...(persistedWait?.stepPath ?? [])],
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'warning' &&
+            /no latest open pull request/i.test(turn.content),
+        ),
+      4000,
+    );
+
+    const latestAssistantTurn = getLatestAssistantTurn(conversationId);
+    assert.ok(latestAssistantTurn);
+    assert.equal(latestAssistantTurn.status, 'warning');
+    assert.match(latestAssistantTurn.content, /no latest open pull request/i);
+    assert.equal(
+      collectAgentConversationIds(conversationId).length,
+      1,
+      'resume should not bootstrap a second provider-backed step before the warning-stop seam finishes',
+    );
+  } finally {
+    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    __resetGitHubReviewDepsForTests();
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('flow llm.markdownFile passes loaded markdown through verbatim as one instruction', async () => {
   await withMarkdownFlowHarness(
     async ({

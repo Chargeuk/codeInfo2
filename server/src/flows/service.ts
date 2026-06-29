@@ -4307,6 +4307,49 @@ const findFirstAgentStep = (
   return undefined;
 };
 
+const findImmediateResumeBoundaryStep = (
+  steps: FlowStep[],
+  resumeStepPath?: number[] | null,
+): FlowStep | undefined => {
+  if (!resumeStepPath || resumeStepPath.length === 0) {
+    return steps[0];
+  }
+
+  const [stepIndex, ...rest] = resumeStepPath;
+  const resumedStep = steps[stepIndex];
+  if (!resumedStep) {
+    return undefined;
+  }
+  if (rest.length > 0) {
+    if (resumedStep.type !== 'startLoop') {
+      return undefined;
+    }
+    return findImmediateResumeBoundaryStep(resumedStep.steps, rest);
+  }
+  if (resumedStep.type === 'startLoop') {
+    return findImmediateResumeBoundaryStep(resumedStep.steps, null);
+  }
+  return steps[stepIndex + 1];
+};
+
+const stepRequiresProviderBootstrap = (step: FlowStep | undefined): boolean => {
+  if (!step) return false;
+  if (step.type === 'llm' || step.type === 'command') {
+    return true;
+  }
+  if (step.type === 'break' || step.type === 'continue') {
+    return !isFlowDecisionScriptPath(step.question);
+  }
+  if (step.type === 'if') {
+    return Boolean(
+      step.agentType &&
+        step.identifier &&
+        !isFlowDecisionScriptPath(step.condition),
+    );
+  }
+  return false;
+};
+
 const findRuntimeIdentityStep = (
   steps: FlowStep[],
   resumeStepPath?: number[] | null,
@@ -8292,8 +8335,15 @@ export async function startFlowRun(
       flow.steps,
       resumeStepPath,
     );
-    const firstAgentStep =
-      runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
+    const immediateResumeBoundaryStep = findImmediateResumeBoundaryStep(
+      flow.steps,
+      resumeStepPath,
+    );
+    const shouldBootstrapRuntimeIdentity =
+      !resumeStepPath || stepRequiresProviderBootstrap(immediateResumeBoundaryStep);
+    const firstAgentStep = shouldBootstrapRuntimeIdentity
+      ? (runtimeIdentityStep ?? findFirstAgentStep(flow.steps))
+      : undefined;
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -8337,6 +8387,9 @@ export async function startFlowRun(
       modelId = prepared.modelId;
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
+    } else if (resumeStepPath && existingConversation) {
+      providerId = existingConversation.provider;
+      modelId = existingConversation.model;
     }
 
     const codeInfo2Root = codeInfo2RootForRun();

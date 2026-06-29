@@ -187,7 +187,7 @@ type WsTurnFinalEvent = WsServerEventBase & {
   conversationId: string;
   seq: number;
   inflightId: string;
-  status: 'ok' | 'stopped' | 'failed';
+  status: 'ok' | 'warning' | 'stopped' | 'failed';
   threadId?: string | null;
   error?: { code?: string; message?: string } | null;
   usage?: TurnUsageMetadata;

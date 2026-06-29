@@ -3062,4 +3062,81 @@ describe('Flows page run/resume controls', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  it('preserves warning status through hydrated turns and live final rendering on the flows transcript surface', async () => {
+    setupFlowsRunHarness({
+      turns: {
+        items: [
+          {
+            turnId: 'turn-warning-hydrated',
+            conversationId: 'flow-1',
+            role: 'assistant',
+            content: 'Persisted warning output',
+            model: 'gpt-5',
+            provider: 'codex',
+            status: 'warning',
+            createdAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForFlowTitle('Flow: daily');
+    await selectFirstConversation();
+
+    expect(
+      await screen.findByText('Persisted warning output'),
+    ).toBeInTheDocument();
+    let statusChips = await screen.findAllByTestId('status-chip');
+    expect(statusChips[0]).toHaveTextContent('Warning');
+
+    const infoButtons = await screen.findAllByTestId('bubble-info');
+    await userEvent.click(infoButtons[0]);
+    await waitFor(() =>
+      expect(screen.getByTestId('bubble-info-status')).toHaveTextContent(
+        'Status: Warning',
+      ),
+    );
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'user_turn',
+      seq: 1,
+      conversationId: 'flow-1',
+      inflightId: 'warning-live-1',
+      content: 'Resume flow',
+      createdAt: '2025-01-01T00:01:00.000Z',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      seq: 2,
+      conversationId: 'flow-1',
+      inflightId: 'warning-live-1',
+      delta: 'Live warning output',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      seq: 3,
+      conversationId: 'flow-1',
+      inflightId: 'warning-live-1',
+      status: 'warning',
+      threadId: 'warning-live-1',
+    });
+
+    expect(await screen.findByText('Live warning output')).toBeInTheDocument();
+    await waitFor(() => {
+      statusChips = screen.getAllByTestId('status-chip');
+      expect(statusChips).toHaveLength(2);
+      statusChips.forEach((chip) => {
+        expect(chip).toHaveTextContent('Warning');
+        expect(chip).not.toHaveTextContent('Complete');
+      });
+    });
+  });
 });

@@ -76,7 +76,7 @@ export type ChatMessage = {
   citations?: ToolCitation[];
   tools?: ToolCall[];
   segments?: ChatSegment[];
-  streamStatus?: 'processing' | 'complete' | 'failed' | 'stopped';
+  streamStatus?: 'processing' | 'complete' | 'warning' | 'failed' | 'stopped';
   thinking?: boolean;
   createdAt?: string;
 };
@@ -2083,6 +2083,8 @@ export function useChatStream(
         const streamStatus: ChatMessage['streamStatus'] =
           event.status === 'failed'
             ? 'failed'
+            : event.status === 'warning'
+              ? 'warning'
             : event.status === 'stopped'
               ? 'stopped'
               : 'complete';

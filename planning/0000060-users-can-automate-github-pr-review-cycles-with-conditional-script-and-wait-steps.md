@@ -2226,7 +2226,7 @@ This task keeps Story 60 scoped to the existing post-create reconciliation seam.
 3. [x] Run `npm run test:summary:server:unit` from the repository root because this task changes shared server-owned flow runtime behavior.
 4. [x] Run `npm run test:summary:server:cucumber` from the repository root because the Story 60 flow-runtime path should stay green on the repository's broader back-end integration surface after the repair.
 5. [x] Run `npm run lint` from the repository root for the repaired Story 60 server/runtime surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-6. [x] Run `npm run format:check` from the repository root for the repaired Story 60 surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+6. [ ] Run `npm run format:check` from the repository root for the repaired Story 60 surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 

@@ -2423,7 +2423,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2494,6 +2494,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 - Focused proof now names both repaired invariants directly: `server/src/test/integration/flows.run.basic.test.ts` owns a resumed GitHub review case where provider bootstrap is unavailable but a provider-free fetch warning-stop still completes truthfully before the later LLM step would be needed, and `client/src/test/flowsPage.run.test.tsx` owns one `/flows` proof that covers both hydrated warning turns and live websocket final-warning rendering for the same conversation without any success fallback.
 - `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` initially failed at build because a cleanup line landed in the wrong test scope; moved that cleanup into the new resumed-warning proof and reran the same wrapper successfully.
 - `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` passed with `33/33`, and `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `36/36`.
+- Proof audit re-read the bound Task 26 plan section, confirmed the selector-bound task still matched the latest implementation commit and focused wrapper results, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 26`, and closed the task because both checklist sections were already honestly complete on disk.
 
 ### Task 27. Bound GitHub Review Fetch Materialization To The Capped Corpus Contract
 

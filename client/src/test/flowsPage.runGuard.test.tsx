@@ -606,7 +606,9 @@ describe('Flows page run guards', () => {
 
       if (target.includes('/flows') && !target.includes('/run')) {
         return mockJsonResponse({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
         });
       }
 

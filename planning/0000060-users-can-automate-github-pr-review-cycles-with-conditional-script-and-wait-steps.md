@@ -2349,7 +2349,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

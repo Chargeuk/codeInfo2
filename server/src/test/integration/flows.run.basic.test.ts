@@ -2378,6 +2378,167 @@ test('github review open PR emits retry warnings and a final aggregated failure 
   }
 });
 
+test('github review open PR surfaces recovered gh pr create ambiguity as a warning while the run still continues', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-open-pr-ambiguous-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
+  process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-open-pr-ambiguous-success';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    const pullsSlurp = await fs.readFile(
+      path.join(fixturesDir, 'github-review', 'pulls-slurp.json'),
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      sleep: async () => {},
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (
+            joined ===
+            'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+          ) {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          if (args[0] === 'pr' && args[1] === 'create') {
+            return {
+              exitCode: 1,
+              stdout: '',
+              stderr: 'connection dropped after create',
+            };
+          }
+          return {
+            exitCode: 0,
+            stdout: pullsSlurp,
+            stderr: '',
+          };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-open-pr-ambiguous-success',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+
+    await startFlowRun({
+      flowName: 'github-open-pr-ambiguous-success',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'warning' &&
+            /connection dropped after create/i.test(turn.content),
+        ),
+      4000,
+    );
+    const warningTurn = getLatestAssistantTurn(conversationId);
+    assert.ok(warningTurn);
+    assert.equal(warningTurn.status, 'warning');
+    assert.match(
+      warningTurn.content,
+      /gh pr create reported a failure before reconciliation/i,
+    );
+    assert.match(warningTurn.content, /pull request #45/i);
+
+    await waitForConversationUnlocked(conversationId);
+    const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
+      (turn) => turn.role === 'assistant',
+    );
+    assert.ok(
+      assistantTurns.some((turn) => turn.status === 'warning'),
+    );
+    assert.equal(
+      assistantTurns.some((turn) => turn.status === 'failed'),
+      false,
+    );
+
+    const planRaw = await fs.readFile(
+      path.join(
+        repoRoot,
+        'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+      ),
+      'utf8',
+    );
+    assert.match(
+      planRaw,
+      /GitHub review stage warning during PR open: gh pr create reported a failure before reconciliation, but latest-open PR lookup resolved pull request #45\./,
+    );
+    assert.match(planRaw, /stderr: connection dropped after create/i);
+  } finally {
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('github review fetch without an open pull request publishes completed-with-warning while adjacent non-GitHub flows still complete with ok status', async () => {
   const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(

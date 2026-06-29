@@ -5965,6 +5965,16 @@ async function runFlowUnlocked(params: {
       exitCode: diagnostic.exitCode,
     })}`;
 
+  const buildGitHubRecoveredCreateWarningMessage = (paramsForMessage: {
+    pullRequestNumber: number;
+    createFailure: GitHubCommandFailureDetail;
+  }) =>
+    `GitHub review stage warning during PR open: gh pr create reported a failure before reconciliation, but latest-open PR lookup resolved pull request #${String(paramsForMessage.pullRequestNumber)}.\n${formatGitHubFailureDetail({
+      message: paramsForMessage.createFailure.message,
+      stderr: paramsForMessage.createFailure.stderr,
+      exitCode: paramsForMessage.createFailure.exitCode,
+    })}`;
+
   const buildGitHubOpenPrFailureMessage = (paramsForMessage: {
     failure: GitHubCommandFailureDetail;
     lookupDiagnostics: GitHubLookupRetryDiagnostic[];
@@ -6166,6 +6176,31 @@ async function runFlowUnlocked(params: {
         errorCode: createResult.reason,
       });
       return 'failed';
+    }
+    if (createResult.createFailure) {
+      const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage({
+        pullRequestNumber: createResult.value.number,
+        createFailure: createResult.createFailure,
+      });
+      await appendGitHubStagePlanNote(recoveredCreateWarning);
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.create_recovered',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          prNumber: createResult.value.number,
+          detail: recoveredCreateWarning,
+          reason: createResult.createFailure.reason,
+          stderr: createResult.createFailure.stderr,
+          exitCode: createResult.createFailure.exitCode,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: recoveredCreateWarning,
+      });
     }
     append({
       level: 'info',

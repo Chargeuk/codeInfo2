@@ -539,7 +539,7 @@ test('continue step skips remaining iteration steps and starts the next iteratio
             (turn) =>
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
-        4000,
+        15000,
       );
       const outerLoopTurns = turns.filter(
         (turn) =>

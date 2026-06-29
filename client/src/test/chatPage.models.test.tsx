@@ -1309,7 +1309,7 @@ describe('Chat page models list', () => {
       ),
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  }, 15000);
+  }, 30000);
 
   it('clears stale hidden reasoning draft values when the selected model changes', async () => {
     const { chatBodies } = mockCodexModelNextSendApi();

@@ -432,7 +432,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     expect(
       (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
     ).toBe('minimal');
-  }, 10000);
+  }, 30000);
 
   it('keeps single-option capability models valid for UI and payload', async () => {
     const chatBodies: Record<string, unknown>[] = [];

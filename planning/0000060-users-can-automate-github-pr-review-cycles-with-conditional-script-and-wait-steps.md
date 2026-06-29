@@ -2574,7 +2574,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 - Repository Name: `Current Repository`
 - Affected Repositories: `Current Repository`
 - Task Dependencies: `Task 24, Task 25, Task 26, Task 27`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

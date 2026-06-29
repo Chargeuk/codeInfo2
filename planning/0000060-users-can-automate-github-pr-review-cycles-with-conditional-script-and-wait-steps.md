@@ -2276,7 +2276,7 @@ This task keeps Story 60 scoped to the existing post-create reconciliation seam.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2342,6 +2342,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 - Added `resolveCanonicalGitHubReviewScratchPaths(...)` in `server/src/flows/githubReview.ts` and routed resumed service-side scratch rereads through it so selector and handoff hints are rebuilt from trusted repository root, story number, and execution id first; drifted or escaping persisted paths now fail closed before any filesystem read crosses the canonical execution-scoped scratch root.
 - Repaired resumed PR authority in `server/src/flows/service.ts` so missing execution-scoped handoffs now re-enter same-branch latest-open reconciliation before any persisted PR hint can be reused, and both resumed fetch and resumed close now keep their active GitHub review context aligned to the canonical selector and execution-scoped handoff paths instead of preserving stale shortcut state.
 - Focused proof now names the repaired seam directly: `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed with the missing-handoff latest-open authority case, `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` passed with the pre-read scratch containment case, and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed with the combined resumed fetch and close ordering case after handoff loss.
+- Automated-proof audit confirmed the current disk state matches the completed checklist exactly: all Task 24 subtasks and focused wrapper runs were already checked from repository evidence, no live `- **BLOCKER**` line remained under this task, and no additional story-scoped behavior restoration work was needed before closing the task as `__done__`.
 
 ### Task 25. Keep Persisted Wait Recovery And Fresh-Run Replay Honest Across Permanent Failure Paths
 

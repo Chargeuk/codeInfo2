@@ -2276,7 +2276,7 @@ This task keeps Story 60 scoped to the existing post-create reconciliation seam.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

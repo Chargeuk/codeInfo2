@@ -16,6 +16,7 @@ import {
   MAX_GITHUB_REVIEW_SUBMISSIONS,
   pushBranchToExistingUpstream,
   readWorkedRepositoryGitHubToken,
+  reconcileResumedGitHubReviewPullRequest,
   resolveGitHubRepositoryState,
   type GitHubRepositoryState,
 } from '../../flows/githubReview.js';
@@ -461,6 +462,189 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
     );
     assert.deepEqual(createFailureRecovered.lookupDiagnostics, []);
     assert.deepEqual(ambiguousSleepCalls, [30000]);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('resumed GitHub review reconciliation warns and keeps the persisted handoff PR when the latest open branch PR still matches it', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const reviewsDir = path.join(tempRepo.repoRoot, 'codeInfoTmp/reviews');
+    await fs.mkdir(reviewsDir, { recursive: true });
+    const handoffPath = path.join(
+      reviewsDir,
+      '0000060-github-review-exec-1-current.json',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-1',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'abc123',
+          raw_review_artifact_path: path.join(
+            reviewsDir,
+            '0000060-github-review-exec-1-pr-45.json',
+          ),
+          pull_request: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const pullsSlurp = await fs.readFile(
+      path.join(fixturesDir, 'pulls-slurp.json'),
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => ({
+        exitCode: 0,
+        stdout: pullsSlurp,
+        stderr: '',
+      }),
+    });
+
+    const reconciled = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'exec-1',
+      handoffPath,
+      resumedPullRequestNumber: 44,
+    });
+    assert.equal(reconciled.kind, 'ok');
+    assert.equal(reconciled.value.number, 45);
+    assert.equal(reconciled.source, 'persisted_handoff');
+    assert.equal(reconciled.warnings.length, 1);
+    assert.match(reconciled.warnings[0] ?? '', /keeping pull request #45/i);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('resumed GitHub review reconciliation adopts a newer branch PR and rejects older branch PRs', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const reviewsDir = path.join(tempRepo.repoRoot, 'codeInfoTmp/reviews');
+    await fs.mkdir(reviewsDir, { recursive: true });
+    const handoffPath = path.join(
+      reviewsDir,
+      '0000060-github-review-exec-2-current.json',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-2',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: tempRepo.repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'abc123',
+          raw_review_artifact_path: path.join(
+            reviewsDir,
+            '0000060-github-review-exec-2-pr-45.json',
+          ),
+          pull_request: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify([
+          [
+            {
+              number: 46,
+              html_url: 'https://github.com/example/repo/pull/46',
+              head: {
+                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              },
+              base: { ref: 'main' },
+              created_at: '2026-06-28T10:00:00Z',
+            },
+          ],
+        ]),
+        stderr: '',
+      }),
+    });
+
+    const adopted = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'exec-2',
+      handoffPath,
+      resumedPullRequestNumber: 44,
+    });
+    assert.equal(adopted.kind, 'ok');
+    assert.equal(adopted.value.number, 46);
+    assert.equal(adopted.source, 'latest_open_pull_request');
+    assert.equal(adopted.warnings.length, 1);
+    assert.match(
+      adopted.warnings[0] ?? '',
+      /adopting newer pull request #46/i,
+    );
+
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify([
+          [
+            {
+              number: 44,
+              html_url: 'https://github.com/example/repo/pull/44',
+              head: {
+                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              },
+              base: { ref: 'main' },
+              created_at: '2026-06-28T10:00:00Z',
+            },
+          ],
+        ]),
+        stderr: '',
+      }),
+    });
+
+    const rejected = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'exec-2',
+      handoffPath,
+      resumedPullRequestNumber: 46,
+    });
+    assert.equal(rejected.kind, 'error');
+    assert.equal(rejected.reason, 'SCRATCH_INVALID');
+    assert.equal(rejected.warnings.length, 1);
+    assert.match(
+      rejected.message,
+      /older than the persisted expected pull request #45/i,
+    );
   } finally {
     await tempRepo.cleanup();
   }

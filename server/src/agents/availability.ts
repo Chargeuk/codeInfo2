@@ -5,6 +5,7 @@ import {
 } from '@lmstudio/sdk';
 
 import { resolveAgentProviderFallbackOrder } from '../config/startupEnv.js';
+import { disposeClient } from '../lmstudio/clientPool.js';
 import {
   getCodexDetection,
   type CodexDetection,
@@ -16,7 +17,6 @@ import {
   type CopilotReadinessRuntime,
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
-import { disposeClient } from '../lmstudio/clientPool.js';
 
 import { readAgentRequestedProviderMetadata } from './config.js';
 

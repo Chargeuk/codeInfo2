@@ -151,7 +151,7 @@ import {
   type GitHubLookupRetryDiagnostic,
   type GitHubRepositoryState,
   lookupLatestOpenPullRequest,
-  lookupPullRequestByNumber,
+  reconcileResumedGitHubReviewPullRequest,
   pushBranchToExistingUpstream,
   readGitHubReviewScratch,
   readWorkedRepositoryGitHubToken,
@@ -5916,6 +5916,30 @@ async function runFlowUnlocked(params: {
     });
   };
 
+  const emitGitHubStepWarnings = async (paramsForWarning: {
+    instruction: string;
+    warnings: string[];
+    logMessage: string;
+  }) => {
+    for (const warningMessage of paramsForWarning.warnings) {
+      await appendGitHubStagePlanNote(warningMessage);
+      append({
+        level: 'warn',
+        message: paramsForWarning.logMessage,
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          detail: warningMessage,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: paramsForWarning.instruction,
+        message: warningMessage,
+      });
+    }
+  };
+
   const formatGitHubFailureDetail = (paramsForDetail: {
     message: string;
     stderr?: string;
@@ -6189,10 +6213,25 @@ async function runFlowUnlocked(params: {
     token: string;
   }) => {
     if (!activeGitHubReviewContext?.executionId) {
-      return await lookupLatestOpenPullRequest({
+      const latestOpenPullRequest = await lookupLatestOpenPullRequest({
         repository: params.repository,
         token: params.token,
       });
+      if (latestOpenPullRequest.kind !== 'ok') {
+        return {
+          kind: latestOpenPullRequest.kind,
+          reason: latestOpenPullRequest.reason,
+          message: latestOpenPullRequest.message,
+          stderr: latestOpenPullRequest.stderr,
+          exitCode: latestOpenPullRequest.exitCode,
+          warnings: [],
+        } as const;
+      }
+      return {
+        kind: 'ok',
+        value: latestOpenPullRequest.value,
+        warnings: [],
+      } as const;
     }
     if (
       !activeGitHubReviewContext.handoffPath ||
@@ -6203,40 +6242,22 @@ async function runFlowUnlocked(params: {
         reason: 'SCRATCH_INVALID',
         message:
           'Resumed GitHub review execution is missing its authoritative handoff_path or pull request number.',
+        warnings: [],
       } as const;
     }
 
-    const persistedHandoff = await readGitHubReviewScratch({
-      handoffPath: activeGitHubReviewContext.handoffPath,
-      expectedExecutionId: activeGitHubReviewContext.executionId,
-    });
-    if (persistedHandoff.kind === 'ok') {
-      if (
-        persistedHandoff.value.pull_request.number !==
-        activeGitHubReviewContext.prNumber
-      ) {
-        return {
-          kind: 'error',
-          reason: 'SCRATCH_INVALID',
-          message:
-            'Resumed GitHub review execution pull request number no longer matches its execution-scoped handoff.',
-        } as const;
-      }
-      return {
-        kind: 'ok',
-        value: persistedHandoff.value.pull_request,
-      } as const;
-    }
-
-    const lookedUp = await lookupPullRequestByNumber({
+    const reconciled = await reconcileResumedGitHubReviewPullRequest({
       repository: params.repository,
       token: params.token,
-      pullRequestNumber: activeGitHubReviewContext.prNumber,
+      executionId: activeGitHubReviewContext.executionId,
+      handoffPath: activeGitHubReviewContext.handoffPath,
+      resumedPullRequestNumber: activeGitHubReviewContext.prNumber,
     });
-    if (lookedUp.kind !== 'ok') {
-      return lookedUp;
+    if (reconciled.kind !== 'ok') {
+      return reconciled;
     }
-    return lookedUp;
+    activeGitHubReviewContext.prNumber = reconciled.value.number;
+    return reconciled;
   };
 
   const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> => {
@@ -6278,6 +6299,11 @@ async function runFlowUnlocked(params: {
         token: context.value.token,
       },
     );
+    await emitGitHubStepWarnings({
+      instruction: 'GitHub fetch reviews step',
+      warnings: [...pullRequestResult.warnings],
+      logMessage: 'flows.github.fetch_reviews.execution_pr_reconciled',
+    });
     if (pullRequestResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
         `GitHub review stage failed during review fetch: ${pullRequestResult.message}`,
@@ -6456,6 +6482,11 @@ async function runFlowUnlocked(params: {
         token: context.value.token,
       },
     );
+    await emitGitHubStepWarnings({
+      instruction: 'GitHub close PR step',
+      warnings: [...pullRequestResult.warnings],
+      logMessage: 'flows.github.close_pr.execution_pr_reconciled',
+    });
     if (pullRequestResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
         `GitHub review stage failed during PR close: ${pullRequestResult.message}`,

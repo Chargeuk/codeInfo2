@@ -75,12 +75,12 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from '../flows/repositoryCandidateOrder.js';
+import { disposeClient } from '../lmstudio/clientPool.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
   type RepoEntry,
 } from '../lmstudio/toolService.js';
-import { disposeClient } from '../lmstudio/clientPool.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';

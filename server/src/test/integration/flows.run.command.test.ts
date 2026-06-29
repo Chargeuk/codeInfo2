@@ -37,6 +37,7 @@ import {
   __setFlowServiceDepsForTests,
 } from '../../flows/service.js';
 import { startFlowRun } from '../../flows/service.js';
+import { closeAll as closeLmStudioClients } from '../../lmstudio/clientPool.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
@@ -47,7 +48,6 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
-import { closeAll as closeLmStudioClients } from '../../lmstudio/clientPool.js';
 import {
   closeWs,
   connectWs,

@@ -187,6 +187,22 @@ export type GitHubCreatePullRequestResult =
       createFailure?: GitHubCommandFailureDetail;
     };
 
+export type GitHubResumedPullRequestResolution =
+  | {
+      kind: 'ok';
+      value: GitHubPullRequestIdentity;
+      warnings: string[];
+      source: 'persisted_handoff' | 'latest_open_pull_request';
+    }
+  | {
+      kind: 'error';
+      reason: string;
+      message: string;
+      stderr?: string;
+      exitCode?: number | null;
+      warnings: string[];
+    };
+
 type CommandResult = {
   exitCode: number | null;
   stdout: string;
@@ -2036,6 +2052,106 @@ export const lookupPullRequestByNumber = async (params: {
     };
   }
   return { kind: 'ok', value: pullRequest };
+};
+
+export const reconcileResumedGitHubReviewPullRequest = async (params: {
+  repository: GitHubRepositoryState;
+  token: string;
+  executionId: string;
+  handoffPath: string;
+  resumedPullRequestNumber: number;
+}): Promise<GitHubResumedPullRequestResolution> => {
+  const persistedHandoff = await readGitHubReviewScratch({
+    handoffPath: params.handoffPath,
+    expectedExecutionId: params.executionId,
+  });
+  if (persistedHandoff.kind !== 'ok') {
+    return {
+      kind: 'error',
+      reason: persistedHandoff.reason,
+      message: persistedHandoff.message,
+      stderr: persistedHandoff.stderr,
+      exitCode: persistedHandoff.exitCode,
+      warnings: [],
+    };
+  }
+
+  const expectedPullRequest = persistedHandoff.value.pull_request;
+  if (expectedPullRequest.number === params.resumedPullRequestNumber) {
+    return {
+      kind: 'ok',
+      value: expectedPullRequest,
+      warnings: [],
+      source: 'persisted_handoff',
+    };
+  }
+
+  const mismatchPrefix = `Resumed GitHub review execution expected persisted pull request #${String(expectedPullRequest.number)}, but the resumed execution context carried #${String(params.resumedPullRequestNumber)}. Checking the latest open pull request for ${params.repository.repositoryFullName} on branch ${params.repository.currentBranch}.`;
+  const latestOpenPullRequest = await lookupLatestOpenPullRequest({
+    repository: params.repository,
+    token: params.token,
+  });
+  if (latestOpenPullRequest.kind !== 'ok') {
+    return {
+      kind: 'error',
+      reason: latestOpenPullRequest.reason,
+      message: `${mismatchPrefix}\nLatest-open pull request lookup failed: ${latestOpenPullRequest.message}`,
+      stderr: latestOpenPullRequest.stderr,
+      exitCode: latestOpenPullRequest.exitCode,
+      warnings: [mismatchPrefix],
+    };
+  }
+
+  if (!latestOpenPullRequest.value) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message: `${mismatchPrefix}\nNo latest open pull request was available for the branch, so the resumed execution could not be reconciled safely.`,
+      warnings: [mismatchPrefix],
+    };
+  }
+
+  const latestPullRequest = latestOpenPullRequest.value;
+  if (
+    latestPullRequest.headRefName.trim() !==
+    params.repository.currentBranch.trim()
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message: `${mismatchPrefix}\nLatest open pull request #${String(latestPullRequest.number)} targets head branch ${latestPullRequest.headRefName}, which does not match the resumed branch ${params.repository.currentBranch}.`,
+      warnings: [mismatchPrefix],
+    };
+  }
+
+  if (latestPullRequest.number < expectedPullRequest.number) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message: `${mismatchPrefix}\nLatest open pull request #${String(latestPullRequest.number)} is older than the persisted expected pull request #${String(expectedPullRequest.number)}, so the resumed execution cannot switch safely.`,
+      warnings: [mismatchPrefix],
+    };
+  }
+
+  if (latestPullRequest.number === expectedPullRequest.number) {
+    return {
+      kind: 'ok',
+      value: expectedPullRequest,
+      warnings: [
+        `${mismatchPrefix}\nRecovered by keeping pull request #${String(expectedPullRequest.number)} because the latest open pull request on the branch still matches the persisted handoff.`,
+      ],
+      source: 'persisted_handoff',
+    };
+  }
+
+  return {
+    kind: 'ok',
+    value: latestPullRequest,
+    warnings: [
+      `${mismatchPrefix}\nAdopting newer pull request #${String(latestPullRequest.number)} because it is later than the persisted expected pull request #${String(expectedPullRequest.number)} on the same branch.`,
+    ],
+    source: 'latest_open_pull_request',
+  };
 };
 
 export const readGitHubReviewScratch = async (params: {

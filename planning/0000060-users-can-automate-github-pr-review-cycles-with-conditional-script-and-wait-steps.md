@@ -2186,7 +2186,6 @@ Flags:
   -f, --raw-field key=value   Add a string parameter in key=value format
       --silent                Do not print the response body
   -t, --template string       Format JSON output using a Go template; see "gh help formatting"
-
 ### Task 23. Preserve GitHub open-PR diagnostics and retry latest-open-PR reconciliation after create
 
 - Repository Name: `Current Repository`
@@ -2261,3 +2260,248 @@ This task keeps Story 60 scoped to the existing post-create reconciliation seam.
 - Implementation-only audit normalized Testing step 6 to complete from existing task evidence: the latest Task 23 note already documented a successful `npm run format:check` on the repaired surface, so the unchecked box was a bookkeeping miss rather than remaining implementation work. No unchecked subtasks remain, no live `- **BLOCKER**` lines were present in the canonical parser output, and the task stays `__in_progress__` in this audit pass because this step does not re-close the task or re-run proof.
 - **RESOLVED ISSUE** The reopened broad-proof blocker came from a fresh-runtime regression, not a lingering wrapper hang: after `github_open_pr`, `resolveExecutionScopedGitHubReviewPullRequest(...)` treated the same execution like a resumed run and tried to reconcile against an execution-scoped handoff file before `github_fetch_reviews` had written it, which kept the selector handoff unreadable in the late-suite ownership test. The repair keeps true resumed executions on persisted-handoff reconciliation, but when that handoff path is still absent it now resolves the already-open PR directly by number for the same execution instead of failing the fetch path early.
 - Focused and broad proof both re-closed the blocker on current disk: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review runtime keeps the newer execution selector authoritative after an older run later attempts to reclaim scratch ownership"` passed, the full `npm run test:summary:server:unit` wrapper passed with 2527/2527 tests green, `npm run test:summary:server:cucumber` passed with 133/133 tests green, and final `npm run lint` plus `npm run format:check` both passed on the repaired `service.ts` surface. Testing steps 3 and 4 are therefore complete again and the generic automated-proof blocker is retired.
+- GitHub review stage failed during review fetch: ENOENT: no such file or directory, open '/home/dan/code/codeInfo2/codeInfoTmp/reviews/0000060-github-review-27d67166-090d-476b-af3f-f0435fa7a2ad-current.json'
+
+## Code Review Findings
+
+### Review Pass `0000060-20260629T141234Z-d9a9011b` follow-up for review cycle `0000060-rc-20260629T162154Z-89df94b1`
+
+- Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active task-up routing. `codeInfoTmp/reviews/0000060-current-review.json` and the referenced findings, saturation, challenge, and evidence artifacts remain the scratch review basis for this same review pass.
+- Review comparison context: the stored review handoff compared local `HEAD` `d9a9011b44747e9e71f169712c1c5a9262020af8` against resolved remote base `origin/main` at `33609a1f77499983b6cb10273fe6137ae05aa24f`, with `remote_fetch_status: success` and no local-fallback base inference required.
+- This appended follow-up block repairs the active plan so the unresolved task-required review outcome is encoded directly into executable plan state before any later review-task enhancement continues. The stored disposition state still routes seven unresolved task-required findings for this active cycle, and no unresolved minor-batchable findings remain.
+- Inline-resolved minor findings already recorded for this same active cycle and now owned by the fresh final revalidation task below: `6`, `7`, and `10`.
+- Remaining unresolved task-required findings that must now be completed before Story 60 can close: `1`, `2`, `3`, `4`, `5`, `8`, and `9`.
+
+### Task 24. Restore Resumed GitHub Review Authority When Scratch Handoffs Go Missing Or Drift
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 23`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the resumed GitHub review authority seam when persisted execution hints drift away from the approved execution-scoped scratch contract. The active review found two linked defects on the same resumed fetch or close path: when the execution-scoped handoff disappears, the runtime can trust a stale persisted PR number before it re-runs the same-branch latest-open reconciliation rule, and when persisted selector or handoff paths drift, the resumed path can cross the filesystem boundary before it proves those paths still belong to the canonical execution-scoped scratch root.
+
+This task stays inside the approved Story 60 review-cycle contract. It must preserve the same-branch latest-open rule, the dedicated namespaced GitHub scratch contract, and the existing execution-scoped ownership model instead of widening scope into a broader GitHub workflow redesign or a new user-visible behavior surface.
+
+- Highest-risk invariant: a resumed execution must not fetch reviews from, close, or read scratch for a stale or foreign PR or handoff merely because older persisted hints still exist when the execution-scoped handoff has gone missing or drifted.
+- Likely blocker family: server runtime seam, because this task changes the resumed PR-authority path, scratch reread path, and the focused proof owners that guard them.
+
+#### Task Exit Criteria
+
+- A missing execution-scoped GitHub review handoff no longer makes the resumed fetch or close path trust the persisted PR number before it re-runs the same-branch latest-open reconciliation rule that Story 60 already established for mismatch recovery.
+- Resumed GitHub review rereads validate or reconstruct persisted selector and handoff paths before any filesystem read crosses the canonical repository-scoped execution-scratch boundary.
+- The repair preserves the approved same-branch latest-open rule, execution-scoped scratch ownership contract, and failure-closed path containment behavior instead of inventing a new generic fallback or changing current user-visible review-loop behavior.
+- Focused proof explicitly covers the missing-handoff authority branch, the pre-read path-validation boundary, and the resumed runtime interleaving where stale persisted hints would otherwise outrank fresh same-branch review state.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260629T141234Z-d9a9011b`
+- Finding `1`: resumed GitHub-review fallback bypasses the newer-PR reconciliation rule when the execution-scoped handoff disappears.
+- Finding `4`: resumed GitHub review trusts persisted scratch paths early enough to dereference arbitrary server-side files before canonical path validation runs.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - capture the repaired missing-handoff authority rule, the restored pre-read containment boundary, and the focused proof owners for this seam.
+
+#### Subtasks
+
+1. [ ] Re-inspect `server/src/flows/service.ts`, `server/src/flows/githubReview.ts`, and the current focused proof homes to map the exact resumed fetch or close branches where a missing execution-scoped handoff still trusts persisted `prNumber` too early and where persisted selector or handoff paths still cross the filesystem boundary before canonical validation runs.
+2. [ ] Patch `server/src/flows/service.ts` and `server/src/flows/githubReview.ts` so requirement `missing execution-scoped handoff re-enters same-branch latest-open reconciliation before any by-number fallback can become authoritative` and requirement `persisted selector or handoff paths are validated or reconstructed before disk read` are both owned by the same resumed-authority seam, while preserving the existing execution-scoped scratch contract and same-branch latest-open behavior.
+3. [ ] Update `server/src/test/unit/flows.github-adapter.test.ts` and `server/src/test/unit/flows.github-scratch.test.ts` so the adapter proof owns the missing-handoff authority rule and the scratch proof owns the pre-read containment boundary. Rename, split, or add focused cases when an older test title would otherwise claim only mismatch recovery or stale-scratch rejection after it starts proving this broader resumed-authority contract.
+4. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so the default review runtime proves that resumed fetch and close behavior still obey the repaired same-branch authority boundary after handoff loss or stale persisted selector or PR hints.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the repaired missing-handoff PR-authority rule passes on its focused adapter proof home.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root so the repaired pre-read scratch containment boundary passes on its focused scratch proof home.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the resumed runtime still obeys the repaired same-branch authority boundary end to end after the seam is changed.
+
+### Task 25. Keep Persisted Wait Recovery And Fresh-Run Replay Honest Across Permanent Failure Paths
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 23`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the lifecycle and replay seam that still treats permanent invalid state like transient progress. The active review found two linked defects on the same durability boundary: startup-recovered waits can keep rearming permanently invalid resume mismatches instead of surfacing or terminating them once, and persisted `retryOwnershipPending` state can suppress the only retry that would honestly restart work because it does not prove whether the earlier accepted run is still active or already died before a terminal outcome.
+
+This task stays inside the approved Story 60 lifecycle contract. It must keep the existing persisted wait and retry-ownership model honest rather than widening into a new workflow-state platform or a broader redesign of how runs are launched and resumed.
+
+- Highest-risk invariant: persisted wait and fresh-run replay state must fail closed when permanent invalid state or crash-before-completion ambiguity appears, instead of looping forever or suppressing the only retry that could recover truthful execution.
+- Likely blocker family: server runtime seam, because this task changes startup-recovery classification, persisted retry-ownership semantics, and the focused proof owners that guard both seams.
+
+#### Task Exit Criteria
+
+- Startup-recovered waits distinguish permanent `INVALID_REQUEST` or equivalent resume mismatches from transient preflight failures and do not keep rearming the same permanently invalid wait forever.
+- Persisted `retryOwnershipPending` state no longer suppresses a retry unless active ownership or terminal completion is actually proven for the earlier accepted launch.
+- The repair preserves current approved Story 60 launch and resume behavior for healthy persisted waits and honest in-progress replay, and does not widen scope into a new workflow-state product surface.
+- Focused proof explicitly covers permanent wait mismatch classification and crash-before-terminal replay ambiguity rather than relying only on generic throw-path fixtures.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260629T141234Z-d9a9011b`
+- Finding `2`: startup-recovered waits retry permanent invalid-state resume failures instead of terminating or surfacing the stale state once.
+- Finding `5`: durable `retryOwnershipPending` replay cannot distinguish accepted-still-running from accepted-then-crashed-before-commit.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - record the repaired permanent-failure classification boundary, the replay-ownership guard, and the focused proof owners for this seam.
+
+#### Subtasks
+
+1. [ ] Re-inspect `schedulePersistedWaitResume(...)`, `resumePendingFlowWaitsForStartup()`, `parseFlowResumeState(...)`, the persisted retry-ownership helpers, and the current focused proof homes so the exact permanent-mismatch and crash-before-terminal branches are mapped before code changes begin.
+2. [ ] Patch `server/src/flows/service.ts` so startup recovery retires or surfaces permanent resume mismatches instead of rearming them as transient failures, and so persisted `retryOwnershipPending` state only suppresses a retry when active ownership or terminal completion is proven rather than merely remembered as “accepted once”.
+3. [ ] Update `server/src/test/integration/flows.run.resume.backfill.test.ts` so it explicitly owns the permanent wait-mismatch classification branch rather than only a generic thrown-preflight rearm branch.
+4. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` and any adjacent focused proof home needed so replay ownership now proves the crash-before-terminal ambiguity is handled honestly instead of being hidden behind a stale accepted-launch answer.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root so the repaired startup wait recovery classification passes on its focused proof home.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired fresh-run replay ownership boundary passes on its focused proof home.
+
+### Task 26. Preserve Provider-Free Resumed Review Warning Paths End To End
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 23`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the end-to-end warning-path seam for resumed GitHub review runs. The active review found one server-side ordering defect and one consumer-side contract drift on the same warning story: `startFlowRun(...)` can fail a resumed provider-free GitHub or script-owned branch before the later resumed owner decides whether any real work remains, and when a warning-class outcome does survive to completion, the current client transcript surfaces can still collapse `warning` into generic success instead of preserving the distinct terminal state.
+
+This task stays inside the approved Story 60 behavior lock. It must preserve current provider-free warning-stop behavior and make that existing warning outcome visible end to end, rather than widening scope into a broader UX redesign or a new public status taxonomy beyond what Story 60 already introduced.
+
+- Highest-risk invariant: a resumed provider-free GitHub review path must be allowed to warning-stop on its own authoritative seam, and that warning outcome must remain distinct through stored turns, websocket finals, and the current transcript surfaces instead of being preempted or flattened into a clean success.
+- Likely blocker family: cross-surface runtime contract seam, because this task changes both the resumed admission ordering and the client transcript contract that renders Story 60 warning outcomes.
+
+#### Task Exit Criteria
+
+- Resumed GitHub-review flows whose next authoritative work is provider-free GitHub fetch or script-owned branching can reach that owner seam before unrelated planner or reviewer runtime bootstrap fails the run.
+- The client transcript contract preserves Story 60 `warning` terminal outcomes distinctly across stored-turn hydration, websocket final events, and the current transcript surfaces instead of collapsing them to generic success.
+- The repair preserves approved Story 60 warning-path behavior and does not silently change current user-facing behavior beyond making the already-approved warning outcome truthful and visible.
+- Focused proof explicitly covers the provider-free resumed warning-stop path and the warning terminal-status consumer contract with titles that claim those exact invariants.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260629T141234Z-d9a9011b`
+- Finding `3`: `startFlowRun(...)` can fail the resumed GitHub review path before the later GitHub or script owner decides whether any provider-backed work still remains.
+- Finding `8`: the new `warning` terminal-status vocabulary is only partially carried through the client transcript contract.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - record the preserved provider-free warning-path contract, the warning transcript consumer contract, and the focused proof owners for this seam.
+
+#### Subtasks
+
+1. [ ] Re-inspect `startFlowRun(...)`, the resumed GitHub fetch and script-owned branch seams, and the client transcript consumers in `client/src/hooks/useConversationTurns.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/ChatPage.tsx` so the exact warning-path preemption and warning-flattening branches are mapped before code changes begin.
+2. [ ] Patch `server/src/flows/service.ts` so resumed provider-free GitHub and script-owned warning-stop paths remain authoritative before unrelated planner or reviewer runtime bootstrap can preempt them, and patch the client transcript consumers so `warning` remains distinct across stored turns, websocket finals, and current transcript rendering.
+3. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` and any adjacent focused server proof home needed so the provider-free resumed warning-stop path is explicitly owned by a test whose title and assertions claim that exact ordering boundary.
+4. [ ] Update `client/src/test/flowsPage.run.test.tsx` and any adjacent focused client proof home needed so the Story 60 warning terminal-status contract is explicitly re-proved on the current transcript surface instead of being inferred from hidden or unrelated status mappings.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired provider-free resumed warning-stop path passes on its focused server proof home.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` from the repository root so the repaired warning terminal-status transcript contract passes on its focused client proof home.
+
+### Task 27. Bound GitHub Review Fetch Materialization To The Capped Corpus Contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 23`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the remaining large-shape GitHub review ingest seam. The active review found that Story 60 still materializes every paginated review and inline-comment page before it applies the newer capped-result contract, so memory use, JSON parse cost, and child-process stdout can still scale with total review volume rather than with the intended bounded corpus.
+
+This task stays inside the approved Story 60 review semantics. It must preserve the current review-submission and inline-comment contract, pagination support, execution-scoped scratch ownership, and downstream classification behavior while moving the actual fetch or materialization cost onto a truly bounded corpus contract instead of a post-fetch truncation-only rule.
+
+- Highest-risk invariant: the authoritative review corpus for one execution must stay bounded before full transport or materialization cost explodes, while preserved pagination semantics, scratch authority, and downstream classification still agree on the same bounded corpus.
+- Likely blocker family: GitHub transport seam, because this task changes the fetch or materialization boundary and the focused proof owners that guard it.
+
+#### Task Exit Criteria
+
+- The GitHub review fetch or materialization path now has a concrete bound that limits transport or full in-memory expansion itself, not only the final persisted artifact shape.
+- The repair preserves current Story 60 semantics for review submissions, inline comments, execution-scoped scratch ownership, and downstream classification instead of silently narrowing or redesigning the review-policy contract.
+- Focused proof explicitly covers the bounded fetch or materialization rule and the preserved scratch replacement ordering boundary after the bound moves earlier in the seam.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260629T141234Z-d9a9011b`
+- Finding `9`: GitHub review fetch still materializes every paginated review or comment page before applying the new result caps.
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - record the chosen bounded transport or materialization rule, the preserved review semantics, and the focused proof owners for this seam.
+
+#### Subtasks
+
+1. [ ] Re-trace the exact large-shape expansion chain across `fetchPullRequestReviews(...)`, `takeMostRecentEntries(...)`, `writeGitHubReviewScratch(...)`, `buildGitHubExternalReviewInputMarkdown(...)`, and `runGitHubFetchReviewsStep(...)`, then record which layer will own the true transport or materialization bound after this repair.
+2. [ ] Patch `server/src/flows/githubReview.ts` and `server/src/flows/service.ts` only as needed so the bounded corpus becomes explicit before full transport or materialization cost expands, while preserving review submissions, inline comments, pagination semantics, execution-scoped scratch authority, and downstream classification behavior.
+3. [ ] Update `server/src/test/unit/flows.github-adapter.test.ts` and `server/src/test/integration/flows.run.loop.test.ts` so the focused proof names the bounded corpus rule directly and still proves that fresh execution-scoped scratch replacement stays authoritative before downstream markdown or classification reads it.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the repaired bounded corpus rule passes on its focused adapter proof home.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the repaired bounded scratch-replacement ordering still passes on its focused runtime proof home.
+
+### Task 28. Revalidate review pass `0000060-20260629T141234Z-d9a9011b` after review-cycle `0000060-rc-20260629T162154Z-89df94b1` task-up repairs
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `Current Repository`
+- Task Dependencies: `Task 24, Task 25, Task 26, Task 27`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This fresh final revalidation task owns the full regression proof for the current review-created findings block after the serious task-up repairs land. It revalidates the unresolved task-required findings routed into Tasks 24 through 27, also covers the inline-resolved minor findings `6`, `7`, and `10` that are already recorded for this same active review cycle, and owns the repository-supported broad proof that must stay green before Story 60 can close honestly.
+
+This is the one final revalidation owner for review cycle `0000060-rc-20260629T162154Z-89df94b1`. No second final minor-fix revalidation task should be created later for this same cycle.
+
+- Highest-risk invariant: final proof must re-prove the repaired resumed-authority, wait-recovery, replay, warning-path, transcript, and bounded-ingest seams while still separating baseline compose or host-network failures from story-owned regressions inside those repaired seams.
+- Likely blocker family: shared wrapper or baseline seam, because this task owns the broad build, test, compose, and smoke surfaces after the focused repairs already proved each seam in isolation.
+
+#### Task Exit Criteria
+
+- Review pass `0000060-20260629T141234Z-d9a9011b` is revalidated on current `HEAD` after Tasks 24 through 27 complete with no unresolved findings remaining from this review-created block.
+- The repaired seams from Tasks 24 through 27 are all covered by both their focused proof owners and the repository-supported broad regression wrappers for the current repository.
+- Inline-resolved minor findings `6`, `7`, and `10` are also revalidated as part of this same final task rather than being left to a second final-owner path.
+- This task title and `codeInfoStatus/flow-state/review-disposition-state.json` continue to name the same review cycle `0000060-rc-20260629T162154Z-89df94b1` and the same one final revalidation owner for the whole active cycle.
+- Shared baseline failures are separated from story-owned regressions before closeout: if the supported main stack, compose wrappers, ports, readiness path, or mounted manual-testing catalogs are unavailable, the limitation is recorded against that baseline seam instead of being misclassified as a Story 60 product regression.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260629T141234Z-d9a9011b`
+- Final revalidation owner for unresolved task-required findings `1`, `2`, `3`, `4`, `5`, `8`, and `9`
+- Also revalidate inline-resolved minor findings `6`, `7`, and `10` for review cycle `0000060-rc-20260629T162154Z-89df94b1`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - final proof map and closeout traceability for the current review-created findings block.
+
+#### Subtasks
+
+1. [ ] Re-read this appended review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, then update the PR summary traceability so each unresolved task-required finding maps to the focused proof owner from Tasks 24 through 27 and each inline-resolved minor finding `6`, `7`, and `10` maps to the broad revalidation surface this task owns.
+2. [ ] Confirm before broad wrapper runs begin that this task title still matches `task_up_owned_final_revalidation_task_title`, that both this block and the active review disposition state still name review cycle `0000060-rc-20260629T162154Z-89df94b1`, and that no second final-owner wording was added elsewhere for this same cycle; if wording drifted, repair only this task-owned wording and the matching PR summary text.
+3. [ ] Refresh the PR summary sections for comparison context, repaired seams, focused proof owners, supported-runtime handoff details, broad rerun ownership, and baseline-versus-story failure classification before wrapper execution starts.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root because this final task must revalidate the supported main-stack Docker build path after the current review-created repair block lands.
+2. [ ] Run `npm run build:summary:server` from the repository root because the current review-created block changes shared server runtime, GitHub transport, scratch authority, replay, and resume-ordering surfaces.
+3. [ ] Run `npm run build:summary:client` from the repository root because the current review-created block includes warning-status transcript contract work and must keep the repository-supported client build surface healthy.
+4. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the focused task-up repairs plus inline-resolved minor findings `7` and the shared runtime seams on the repository-supported broad server wrapper.
+5. [ ] Run full `npm run test:summary:client` from the repository root because this final task must revalidate the warning transcript consumer repair plus inline-resolved minor finding `6` on the repository-supported broad client wrapper.
+6. [ ] Run full `npm run test:summary:server:cucumber` from the repository root because this final task must revalidate the flow-runtime branch behavior plus inline-resolved minor finding `10` on the repository-supported cucumber surface.
+7. [ ] Run full `npm run test:summary:e2e` from the repository root because this final task must revalidate the repaired `/flows` execution surface end to end after the current review-created block completes.
+8. [ ] Run `npm run compose:up` from the repository root because this final task must include a supported main-stack smoke start after the broad automated wrappers complete.
+9. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because the repository-supported automated proof owner for the default main-stack path is the host-network probe wrapper rather than a raw healthcheck curl.
+10. [ ] Run `npm run compose:down` from the repository root because the previous steps started and probed the supported main stack and this final task must leave that baseline stopped again.
+11. [ ] Run `npm run lint` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+12. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.

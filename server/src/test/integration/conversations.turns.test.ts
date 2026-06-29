@@ -1196,6 +1196,34 @@ test('appends turn when conversation active', async () => {
   assert.equal((payload as { source?: string }).source, 'REST');
 });
 
+test('appends warning-status turn when conversation active', async () => {
+  const calls: unknown[] = [];
+  await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+      appendTurn: async (payload) => {
+        calls.push(payload);
+        return payload as never;
+      },
+    }),
+  )
+    .post('/conversations/c1/turns')
+    .send({
+      role: 'assistant',
+      content: 'warning reply',
+      model: 'llama',
+      provider: 'lmstudio',
+      status: 'warning',
+    })
+    .expect(201);
+
+  const payload = calls[0] as Record<string, unknown>;
+  assert.equal(payload.conversationId, 'c1');
+  assert.equal(payload.role, 'assistant');
+  assert.equal(payload.status, 'warning');
+  assert.equal((payload as { source?: string }).source, 'REST');
+});
+
 test('accepts assistant usage/timing metadata on append', async () => {
   const calls: unknown[] = [];
   await request(

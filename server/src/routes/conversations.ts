@@ -263,7 +263,7 @@ const appendTurnSchema = z
       .optional(),
     usage: usageSchema.optional(),
     timing: timingSchema.optional(),
-    status: z.enum(['ok', 'stopped', 'failed']),
+    status: z.enum(['ok', 'warning', 'stopped', 'failed']),
   })
   .strict()
   .superRefine((data, ctx) => {

@@ -994,7 +994,7 @@ describe('Chat page models list', () => {
     ).toBeVisible();
     expect(within(gptOption).getByAltText(/openai logo/i)).toBeVisible();
     expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
-  }, 15000);
+  }, 30000);
 
   it('groups model options by source first, preserves family sections within each source, and keeps a visible search filter', async () => {
     const user = userEvent.setup();

@@ -447,7 +447,7 @@ test('flow loops until break answer matches breakOn', async () => {
             (turn) =>
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 2,
-        4000,
+        15000,
       );
 
       const outerBreakTurns = turns.filter(

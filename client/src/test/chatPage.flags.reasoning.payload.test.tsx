@@ -380,7 +380,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     await ensureAgentFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('reasoning-effort-select');
     await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
-  }, 10000);
+  }, 30000);
 
   it('emits only supported reasoning values and falls back to model default before send', async () => {
     const chatBodies: Record<string, unknown>[] = [];

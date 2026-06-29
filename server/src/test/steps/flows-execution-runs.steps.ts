@@ -177,6 +177,22 @@ const getStoredChildExecutionId = async (conversationId: string) => {
   return flags.flowChild?.executionId as string;
 };
 
+const getStoredTurns = async (conversationId: string) =>
+  shouldUseMemoryPersistence()
+    ? (memoryTurns.get(conversationId) ?? []).map((turn) => ({
+        role: turn.role,
+        content: turn.content,
+      }))
+    : (
+        await TurnModel.find({ conversationId })
+          .sort({ createdAt: 1 })
+          .lean()
+          .exec()
+      ).map((turn) => ({
+        role: turn.role,
+        content: turn.content,
+      }));
+
 const waitForTurns = async (
   conversationId: string,
   predicate: (
@@ -189,17 +205,7 @@ const waitForTurns = async (
 ) => {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const turns = shouldUseMemoryPersistence()
-      ? (memoryTurns.get(conversationId) ?? [])
-      : (
-          await TurnModel.find({ conversationId })
-            .sort({ createdAt: 1 })
-            .lean()
-            .exec()
-        ).map((turn) => ({
-          role: turn.role,
-          content: turn.content,
-        }));
+    const turns = await getStoredTurns(conversationId);
     if (predicate(turns)) {
       return turns;
     }
@@ -1204,17 +1210,12 @@ Then(
 );
 
 Then(
-  'the active flow conversation never contains user text {string}',
+  'the active flow conversation user texts exclude {string}',
   async (text: string) => {
     assert(lastResponse, 'expected flow execution response');
     const conversationId = String(lastResponse.body.conversationId ?? '');
     assert(conversationId, 'expected started conversation id');
-    const turns = await waitForTurns(
-      conversationId,
-      (items) =>
-        items.some((turn) => turn.role === 'user' && Boolean(turn.content)),
-      4000,
-    );
+    const turns = await getStoredTurns(conversationId);
     assert.equal(
       turns.filter(
         (turn) => turn.role === 'user' && turn.content?.includes(text),

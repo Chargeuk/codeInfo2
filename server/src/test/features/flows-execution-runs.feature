@@ -29,7 +29,7 @@ Feature: Flow execution lifecycle and GitHub review-cycle composition
     When I start flow "github-review-runtime-clean" using the active flow working folder with conversation id "github-review-clean-1"
     Then the flow execution response status code is 202
     And the active flow conversation eventually contains user text "Clean-cycle branch stayed reachable."
-    And the active flow conversation never contains user text "Untaken findings branch should stay excluded."
+    And the active flow conversation user texts exclude "Untaken findings branch should stay excluded."
 
   Scenario: GitHub review runtime keeps findings-present reachable before untaken clean-branch validation
     Given a flow execution test server
@@ -37,7 +37,7 @@ Feature: Flow execution lifecycle and GitHub review-cycle composition
     When I start flow "github-review-runtime-findings" using the active flow working folder with conversation id "github-review-findings-1"
     Then the flow execution response status code is 202
     And the active flow conversation eventually contains user text "Findings branch stayed reachable."
-    And the active flow conversation never contains user text "Untaken clean branch should stay excluded."
+    And the active flow conversation user texts exclude "Untaken clean branch should stay excluded."
 
   Scenario: GitHub review runtime resumes with the repaired review handoff before untaken clean-cycle state leaks in
     Given a flow execution test server
@@ -51,4 +51,4 @@ Feature: Flow execution lifecycle and GitHub review-cycle composition
     Then the flow execution response status code is 202
     Then the active flow conversation clears its persisted wait
     And the active flow conversation eventually contains user text "Resumed review context stayed on findings branch."
-    And the active flow conversation never contains user text "Stale clean-cycle scratch should stay excluded."
+    And the active flow conversation user texts exclude "Stale clean-cycle scratch should stay excluded."

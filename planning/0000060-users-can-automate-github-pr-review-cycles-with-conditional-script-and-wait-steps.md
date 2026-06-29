@@ -2286,7 +2286,7 @@ This review-created task repairs the resumed GitHub review authority seam when p
 This task stays inside the approved Story 60 review-cycle contract. It must preserve the same-branch latest-open rule, the dedicated namespaced GitHub scratch contract, and the existing execution-scoped ownership model instead of widening scope into a broader GitHub workflow redesign or a new user-visible behavior surface.
 
 - Highest-risk invariant: a resumed execution must not fetch reviews from, close, or read scratch for a stale or foreign PR or handoff merely because older persisted hints still exist when the execution-scoped handoff has gone missing or drifted.
-- Likely blocker family: server runtime seam, because this task changes the resumed PR-authority path, scratch reread path, and the focused proof owners that guard them.
+- Likely blocker family: `product or story seam`, because this task changes the resumed PR-authority path, scratch reread path, and the focused proof owners that guard them.
 
 #### Task Exit Criteria
 
@@ -2333,7 +2333,7 @@ This review-created task repairs the lifecycle and replay seam that still treats
 This task stays inside the approved Story 60 lifecycle contract. It must keep the existing persisted wait and retry-ownership model honest rather than widening into a new workflow-state platform or a broader redesign of how runs are launched and resumed.
 
 - Highest-risk invariant: persisted wait and fresh-run replay state must fail closed when permanent invalid state or crash-before-completion ambiguity appears, instead of looping forever or suppressing the only retry that could recover truthful execution.
-- Likely blocker family: server runtime seam, because this task changes startup-recovery classification, persisted retry-ownership semantics, and the focused proof owners that guard both seams.
+- Likely blocker family: `product or story seam`, because this task changes startup-recovery classification, persisted retry-ownership semantics, and the focused proof owners that guard both seams.
 
 #### Task Exit Criteria
 
@@ -2379,7 +2379,7 @@ This review-created task repairs the end-to-end warning-path seam for resumed Gi
 This task stays inside the approved Story 60 behavior lock. It must preserve current provider-free warning-stop behavior and make that existing warning outcome visible end to end, rather than widening scope into a broader UX redesign or a new public status taxonomy beyond what Story 60 already introduced.
 
 - Highest-risk invariant: a resumed provider-free GitHub review path must be allowed to warning-stop on its own authoritative seam, and that warning outcome must remain distinct through stored turns, websocket finals, and the current transcript surfaces instead of being preempted or flattened into a clean success.
-- Likely blocker family: cross-surface runtime contract seam, because this task changes both the resumed admission ordering and the client transcript contract that renders Story 60 warning outcomes.
+- Likely blocker family: `product or story seam`, because this task changes both the resumed admission ordering and the client transcript contract that renders Story 60 warning outcomes.
 
 #### Task Exit Criteria
 
@@ -2425,7 +2425,7 @@ This review-created task repairs the remaining large-shape GitHub review ingest 
 This task stays inside the approved Story 60 review semantics. It must preserve the current review-submission and inline-comment contract, pagination support, execution-scoped scratch ownership, and downstream classification behavior while moving the actual fetch or materialization cost onto a truly bounded corpus contract instead of a post-fetch truncation-only rule.
 
 - Highest-risk invariant: the authoritative review corpus for one execution must stay bounded before full transport or materialization cost explodes, while preserved pagination semantics, scratch authority, and downstream classification still agree on the same bounded corpus.
-- Likely blocker family: GitHub transport seam, because this task changes the fetch or materialization boundary and the focused proof owners that guard it.
+- Likely blocker family: `product or story seam`, because this task changes the fetch or materialization boundary and the focused proof owners that guard it.
 
 #### Task Exit Criteria
 
@@ -2470,7 +2470,7 @@ This fresh final revalidation task owns the full regression proof for the curren
 This is the one final revalidation owner for review cycle `0000060-rc-20260629T162154Z-89df94b1`. No second final minor-fix revalidation task should be created later for this same cycle.
 
 - Highest-risk invariant: final proof must re-prove the repaired resumed-authority, wait-recovery, replay, warning-path, transcript, and bounded-ingest seams while still separating baseline compose or host-network failures from story-owned regressions inside those repaired seams.
-- Likely blocker family: shared wrapper or baseline seam, because this task owns the broad build, test, compose, and smoke surfaces after the focused repairs already proved each seam in isolation.
+- Likely blocker family: `shared wrapper or baseline seam`, because this task owns the broad build, test, compose, and smoke surfaces after the focused repairs already proved each seam in isolation.
 
 #### Task Exit Criteria
 
@@ -2494,8 +2494,9 @@ This is the one final revalidation owner for review cycle `0000060-rc-20260629T1
 
 1. [ ] Re-read this appended review-created findings block, the active `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, then update the PR summary traceability so each unresolved task-required finding maps to the focused proof owner from Tasks 24 through 27 and each inline-resolved minor finding `6`, `7`, and `10` maps to the broad revalidation surface this task owns.
 2. [ ] Confirm before broad wrapper runs begin that this task title still matches `task_up_owned_final_revalidation_task_title`, that both this block and the active review disposition state still name review cycle `0000060-rc-20260629T162154Z-89df94b1`, and that no second final-owner wording was added elsewhere for this same cycle; if wording drifted, repair only this task-owned wording and the matching PR summary text before any proof starts.
-3. [ ] Refresh the PR summary sections for comparison context, repaired seams, focused proof owners, supported-runtime handoff details, broad rerun ownership, and baseline-versus-story failure classification before wrapper execution starts so the later proof pass can record results without reopening task shape.
-4. [ ] Prepare the later broad-proof pass to classify failures honestly by listing which wrapper outputs belong to baseline support seams versus story-owned repaired seams, so a future rerun can stop on the first real regression without losing the closeout trail for the rest of the required wrapper set.
+3. [ ] Re-check the supported main-stack ownership facts before broad proof begins and record them in the PR summary sections that this task owns: wrapper entrypoints, env-file owner, mounted manual-testing catalogs, supported ports, readiness probe owner, seed/setup source, and the ignored artifact destination that later closeout will use for runtime or visual proof.
+4. [ ] Refresh the PR summary sections for comparison context, repaired seams, focused proof owners, supported-runtime handoff details, broad rerun ownership, and baseline-versus-story failure classification before wrapper execution starts so the later proof pass can record results without reopening task shape.
+5. [ ] Prepare the later broad-proof pass to classify failures honestly by listing which wrapper outputs belong to baseline support seams versus story-owned repaired seams, so a future rerun can stop on the first real regression without losing the closeout trail for the rest of the required wrapper set.
 
 #### Testing
 
@@ -2514,6 +2515,7 @@ This is the one final revalidation owner for review cycle `0000060-rc-20260629T1
 
 #### Manual Testing Guidance
 
-- If later closeout still needs fresh visual proof on the supported `/flows` surface after these review-created repairs land, use the supported main stack rather than `codeinfo:local`, re-cover the current final desktop and mobile states of the Story 60-owned warning and review-loop surfaces, and save screenshots with a relative staging path under the Playwright MCP output directory first.
-- For the local harness workflow, first look for the staged screenshots under `$CODEINFO_ROOT/playwright-output-local/<relative-path>`, then transfer the needed images into this repository's ignored manual-testing artifact destination for Task 28 closeout. If the runtime handoff JSON is needed to understand the staging source, fallback runtime, or target destination, inspect that JSON by meaning rather than depending on one exact property name.
+- If later closeout still needs fresh visual proof on the supported `/flows` surface after these review-created repairs land, use the supported main stack rather than `codeinfo:local`: build and start it through the main compose wrappers, use the standard stack ports `5001` and `5010`, treat the host-network probe wrapper as the default readiness owner, and keep the mounted manual-testing catalogs under `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` aligned with the same stack that broad proof already exercised.
+- When later manual proof needs runtime setup or seed details, use the same stack and handoff facts already recorded by this task's PR summary refresh instead of rediscovering them by failure. If additional runtime-handoff JSON is needed to understand the active artifact source, fallback runtime, or destination, inspect that JSON by meaning rather than depending on one exact property name.
+- For the local harness workflow, first look for the staged screenshots under `$CODEINFO_ROOT/playwright-output-local/<relative-path>`, then transfer the needed images into the ignored Story 60 manual-testing artifact destination for this final task, normally under `codeInfoTmp/manual-testing/0000060/28/`, so the durable closeout proof stays inside repository-owned ignored artifacts rather than the Playwright staging area.
 - If screenshot transfer or the supported main-stack visual proof is blocked by runtime limits, record the limitation honestly in the closeout notes instead of turning the screenshot gap into a new implementation task.

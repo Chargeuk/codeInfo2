@@ -151,6 +151,7 @@ import {
   type GitHubLookupRetryDiagnostic,
   type GitHubRepositoryState,
   lookupLatestOpenPullRequest,
+  lookupPullRequestByNumber,
   reconcileResumedGitHubReviewPullRequest,
   pushBranchToExistingUpstream,
   readGitHubReviewScratch,
@@ -6242,6 +6243,46 @@ async function runFlowUnlocked(params: {
         reason: 'SCRATCH_INVALID',
         message:
           'Resumed GitHub review execution is missing its authoritative handoff_path or pull request number.',
+        warnings: [],
+      } as const;
+    }
+
+    const persistedHandoff = await readGitHubReviewScratch({
+      handoffPath: activeGitHubReviewContext.handoffPath,
+      expectedExecutionId: activeGitHubReviewContext.executionId,
+    });
+    if (
+      persistedHandoff.kind !== 'ok' &&
+      /ENOENT|no such file or directory/i.test(persistedHandoff.message)
+    ) {
+      const lookedUp = await lookupPullRequestByNumber({
+        repository: params.repository,
+        token: params.token,
+        pullRequestNumber: activeGitHubReviewContext.prNumber,
+      });
+      if (lookedUp.kind !== 'ok') {
+        return {
+          kind: lookedUp.kind,
+          reason: lookedUp.reason,
+          message: lookedUp.message,
+          stderr: lookedUp.stderr,
+          exitCode: lookedUp.exitCode,
+          warnings: [],
+        } as const;
+      }
+      return {
+        kind: 'ok',
+        value: lookedUp.value,
+        warnings: [],
+      } as const;
+    }
+    if (persistedHandoff.kind !== 'ok') {
+      return {
+        kind: 'error',
+        reason: persistedHandoff.reason,
+        message: persistedHandoff.message,
+        stderr: persistedHandoff.stderr,
+        exitCode: persistedHandoff.exitCode,
         warnings: [],
       } as const;
     }

@@ -2308,7 +2308,7 @@ This task stays inside the approved Story 60 review-cycle contract. It must pres
 #### Subtasks
 
 1. [ ] Re-trace `resolveExecutionScopedGitHubReviewPullRequest(...)`, the resumed fetch or close callers, and the execution-scoped scratch readers so the exact fallback order is mapped before edits begin: which branch currently trusts persisted `prNumber`, which branch currently dereferences persisted `selectorPath` or `handoffPath`, and which canonical execution-scoped scratch inputs are available to rebuild or validate those paths first.
-2. [ ] Repair the resumed scratch-path authority seam across `server/src/flows/githubReview.ts` and the resumed GitHub review context handling in `server/src/flows/service.ts` so rereads either reconstruct the canonical execution-scoped selector or handoff path from trusted execution inputs or reject the persisted path before any disk read crosses the repository-scoped scratch boundary.
+2. [ ] Repair the resumed scratch-path authority seam across `server/src/flows/githubReview.ts` and the resumed GitHub review context handling in `server/src/flows/service.ts` so rereads either reconstruct the canonical execution-scoped selector or handoff path from trusted execution inputs or reject the persisted path before any disk read crosses the repository-scoped scratch boundary, and so a missing or partially refreshed execution-scoped handoff leaves the last valid selector-owned state authoritative instead of exposing half-written or foreign-path scratch.
 3. [ ] Repair the resumed PR-authority seam in `server/src/flows/service.ts` so both `runGitHubFetchReviewsStep(...)` and `runGitHubClosePrStep(...)` re-enter the same-branch latest-open reconciliation rule before any by-number fallback can become authoritative, and so they share one repaired authority helper instead of carrying parallel stale-PR branches.
 4. [ ] Update `server/src/test/unit/flows.github-adapter.test.ts` and `server/src/test/unit/flows.github-scratch.test.ts` so one focused proof home explicitly owns the missing-handoff PR-authority rule and the other explicitly owns the pre-read scratch containment rule; if either proof reuses an existing test that currently claims only persisted-handoff mismatch or generic stale-scratch behavior, rename, split, or re-fixture it so the title and assertions name the exact missing-handoff or containment invariant instead of adjacent behavior.
 5. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so the runtime proof covers both resumed fetch and resumed close behavior after handoff loss or stale persisted selector or PR hints, and so the assertions prove the combined ordering boundary rather than only an earlier or later symptom: the resumed path must re-enter same-branch authority before any stale PR fallback or foreign-path read can become observable.
@@ -2324,6 +2324,9 @@ This task stays inside the approved Story 60 review-cycle contract. It must pres
 3. Failure mode: fresh same-branch PR authority must outrank stale persisted hints without breaking the approved close-path reuse of the same authority helper.
    Implementation owners: `server/src/flows/service.ts`.
    Proof owners: `server/src/test/integration/flows.run.loop.test.ts` plus any renamed focused assertions in `server/src/test/unit/flows.github-adapter.test.ts`.
+4. Edge case: selector or handoff refresh must stay atomic enough that resumed readers observe either the last valid selector-owned scratch or the fully rebuilt execution-scoped scratch, never a partial or foreign-path intermediate.
+   Implementation owners: `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`.
+   Proof owners: `server/src/test/unit/flows.github-scratch.test.ts` plus the resumed runtime assertions in `server/src/test/integration/flows.run.loop.test.ts`.
 
 #### Testing
 
@@ -2368,7 +2371,7 @@ This task stays inside the approved Story 60 lifecycle contract. It must keep th
 
 1. [ ] Re-trace `schedulePersistedWaitResume(...)`, `resumePendingFlowWaitsForStartup()`, `parseFlowResumeState(...)`, `startFlowRun(...)`, and the persisted retry-ownership helpers so the permanent-resume-mismatch branch and the accepted-then-crashed replay branch are each mapped to one concrete decision point before edits begin.
 2. [ ] Repair the startup wait-recovery classification seam in `server/src/flows/service.ts` so permanent resume mismatches are surfaced or retired exactly once instead of being rearmed as transient failures, while preserving the current rearm behavior for genuinely transient startup failures on the same wait infrastructure.
-3. [ ] Repair the persisted `retryOwnershipPending` replay seam so a retry is suppressed only when active ownership or terminal completion is still provable for the earlier accepted launch, and so stale accepted-launch metadata can no longer hide the crash-before-terminal case behind a durable `already running` answer.
+3. [ ] Repair the persisted `retryOwnershipPending` replay seam so a retry is suppressed only when active ownership or terminal completion is still provable for the earlier accepted launch, so stale accepted-launch metadata can no longer hide the crash-before-terminal case behind a durable `already running` answer, and so the suppression decision waits on the same deterministic ownership or terminal markers that later cleanup updates instead of an elapsed-time assumption.
 4. [ ] Update `server/src/test/integration/flows.run.resume.backfill.test.ts` so it explicitly owns the permanent wait-mismatch classification rule with one focused case that proves the wait is surfaced or retired instead of rearmed after a durable invalid-state contradiction, and do not blur that invariant into the existing transient rearm proof.
 5. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` so replay ownership explicitly distinguishes `still running`, `finished`, and `accepted then died before terminal cleanup`; if the proof reuses an adjacent replay test, rename, split, or rewrite it so one title and assertion set claims that exact three-way `retryOwnershipPending` contract instead of a generic already-running or replay-success story.
 
@@ -2383,6 +2386,9 @@ This task stays inside the approved Story 60 lifecycle contract. It must keep th
 3. Requirement: persisted `retryOwnershipPending` must distinguish active ownership, terminal completion, and accepted-then-crashed-before-cleanup so retries are only suppressed when suppression is still truthful.
    Implementation owners: `server/src/flows/service.ts`.
    Proof owners: `server/src/test/integration/flows.run.basic.test.ts` with a replay proof whose title and assertions explicitly distinguish `still running`, `finished`, and crash-before-terminal replay.
+4. Ordering boundary: replay suppression must observe the exact ownership-versus-terminal-marker boundary so the proof cannot pass by only seeing an earlier accepted state or only a later cleaned-up state.
+   Implementation owners: `server/src/flows/service.ts`.
+   Proof owners: `server/src/test/integration/flows.run.basic.test.ts` with one combined replay scenario that waits on deterministic state transitions instead of arbitrary elapsed time.
 
 #### Testing
 
@@ -2482,7 +2488,7 @@ This task stays inside the approved Story 60 review semantics. It must preserve 
 
 1. [ ] Re-trace the exact large-shape expansion chain across `fetchPullRequestReviews(...)`, `takeMostRecentEntries(...)`, `writeGitHubReviewScratch(...)`, `buildGitHubExternalReviewInputMarkdown(...)`, and `runGitHubFetchReviewsStep(...)`, then record which single fetch or accumulation seam will own the real materialization bound and what concrete stop condition proves the bound has been reached.
 2. [ ] Repair the GitHub review fetch seam so the capped corpus is enforced before full transport or in-memory expansion has already happened, while preserving the current review-submission ordering, inline-comment ordering, pagination semantics, execution-scoped scratch ownership, and downstream markdown or classification expectations.
-3. [ ] Update the scratch-writing and downstream caller seams in `server/src/flows/githubReview.ts` and `server/src/flows/service.ts` only as needed so the earlier bound does not reintroduce stale scratch, partial-corpus, or reordered-corpus behavior after the fetch seam changes.
+3. [ ] Update the scratch-writing and downstream caller seams in `server/src/flows/githubReview.ts` and `server/src/flows/service.ts` only as needed so the earlier bound does not reintroduce stale scratch, partial-corpus, or reordered-corpus behavior after the fetch seam changes, and so selector readers still observe either the previous authoritative scratch or one fully bounded replacement rather than a partially materialized bounded corpus.
 4. [ ] Update `server/src/test/unit/flows.github-adapter.test.ts` so the focused adapter proof names the bounded corpus rule directly and proves that large synthetic review or comment inputs stop expanding once the bounded fetch condition is satisfied; if the proof reuses the current paginated-normalization test, rename or split it so the title and assertions claim the earlier stop condition rather than only a bounded final artifact.
 5. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so the runtime proof still shows that fresh execution-scoped scratch replacement stays authoritative and that downstream markdown or classification reads the same bounded corpus that the adapter now enforces earlier; if the existing stale-scratch runtime proof is reused, rename or rewrite it so the title and assertions claim the combined bounded-corpus propagation invariant instead of mere scratch freshness.
 
@@ -2497,6 +2503,9 @@ This task stays inside the approved Story 60 review semantics. It must preserve 
 3. Edge case: fresh execution-scoped scratch replacement and downstream markdown/classification reads must stay compatible with the earlier bound and must not observe stale or partial corpus state.
    Implementation owners: `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`.
    Proof owners: `server/src/test/integration/flows.run.loop.test.ts`, with a title and combined assertions that prove the same bounded corpus reaches scratch replacement and downstream readers.
+4. Persistence hotspot: the bounded writer and downstream readers must still agree on one authoritative corpus after retries or replacement, and failed or partial bounded writes must not leak a smaller intermediate corpus into classification.
+   Implementation owners: `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`.
+   Proof owners: `server/src/test/unit/flows.github-adapter.test.ts` for bounded writer stop conditions and `server/src/test/integration/flows.run.loop.test.ts` for scratch-reader compatibility after replacement.
 
 #### Testing
 

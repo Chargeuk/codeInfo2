@@ -739,13 +739,13 @@ test('review fetch preserves paginated review submissions and inline review comm
   }
 });
 
-test('review fetch publishes one bounded producer corpus after paginated normalization', async () => {
+test('review fetch keeps one bounded producer corpus while paginated materialization stays page-local', async () => {
   const tempRepo = await createTempRepo();
   try {
     const reviewCount = MAX_GITHUB_REVIEW_SUBMISSIONS + 5;
     const commentCount = MAX_GITHUB_INLINE_REVIEW_COMMENTS + 5;
     const reviewPages = [
-      Array.from({ length: Math.ceil(reviewCount / 2) }, (_, index) => ({
+      Array.from({ length: 100 }, (_, index) => ({
         id: 1000 + index + 1,
         user: { login: `reviewer-${String(index + 1)}` },
         body: `Review body ${String(index + 1)}`,
@@ -754,20 +754,31 @@ test('review fetch publishes one bounded producer corpus after paginated normali
           Date.UTC(2026, 5, 24, 10, 0, index + 1),
         ).toISOString(),
       })),
-      Array.from({ length: Math.floor(reviewCount / 2) }, (_, index) => ({
-        id: 1000 + Math.ceil(reviewCount / 2) + index + 1,
+      Array.from({ length: 100 }, (_, index) => ({
+        id: 1100 + index + 1,
         user: {
-          login: `reviewer-${String(Math.ceil(reviewCount / 2) + index + 1)}`,
+          login: `reviewer-${String(100 + index + 1)}`,
         },
-        body: `Review body ${String(Math.ceil(reviewCount / 2) + index + 1)}`,
+        body: `Review body ${String(100 + index + 1)}`,
         state: 'COMMENTED',
         submitted_at: new Date(
           Date.UTC(2026, 5, 24, 11, 0, index + 1),
         ).toISOString(),
       })),
+      Array.from({ length: reviewCount - 200 }, (_, index) => ({
+        id: 1200 + index + 1,
+        user: {
+          login: `reviewer-${String(200 + index + 1)}`,
+        },
+        body: `Review body ${String(200 + index + 1)}`,
+        state: 'COMMENTED',
+        submitted_at: new Date(
+          Date.UTC(2026, 5, 24, 12, 0, index + 1),
+        ).toISOString(),
+      })),
     ];
     const commentPages = [
-      Array.from({ length: Math.ceil(commentCount / 2) }, (_, index) => ({
+      Array.from({ length: 100 }, (_, index) => ({
         id: 2000 + index + 1,
         pull_request_review_id: 1000 + index + 1,
         user: { login: `commenter-${String(index + 1)}` },
@@ -778,36 +789,55 @@ test('review fetch publishes one bounded producer corpus after paginated normali
           Date.UTC(2026, 5, 24, 12, 0, index + 1),
         ).toISOString(),
       })),
-      Array.from({ length: Math.floor(commentCount / 2) }, (_, index) => ({
-        id: 2000 + Math.ceil(commentCount / 2) + index + 1,
-        pull_request_review_id: 1000 + Math.ceil(commentCount / 2) + index + 1,
+      Array.from({ length: 100 }, (_, index) => ({
+        id: 2100 + index + 1,
+        pull_request_review_id: 1100 + index + 1,
         user: {
-          login: `commenter-${String(
-            Math.ceil(commentCount / 2) + index + 1,
-          )}`,
+          login: `commenter-${String(100 + index + 1)}`,
         },
-        body: `Inline body ${String(Math.ceil(commentCount / 2) + index + 1)}`,
+        body: `Inline body ${String(100 + index + 1)}`,
         path: 'server/src/flows/githubReview.ts',
         line: index + 1,
         created_at: new Date(
           Date.UTC(2026, 5, 24, 13, 0, index + 1),
         ).toISOString(),
       })),
+      Array.from({ length: commentCount - 200 }, (_, index) => ({
+        id: 2200 + index + 1,
+        pull_request_review_id: 1200 + index + 1,
+        user: {
+          login: `commenter-${String(200 + index + 1)}`,
+        },
+        body: `Inline body ${String(200 + index + 1)}`,
+        path: 'server/src/flows/githubReview.ts',
+        line: index + 1,
+        created_at: new Date(
+          Date.UTC(2026, 5, 24, 14, 0, index + 1),
+        ).toISOString(),
+      })),
     ];
+    const seenArgs: string[][] = [];
     __setGitHubReviewDepsForTests({
       runCommand: async (params) => {
+        seenArgs.push(params.args);
         const endpoint = params.args.at(-1) ?? '';
         if (endpoint.includes('/reviews?')) {
+          const page = Number(
+            new URL(`https://example.test/${endpoint}`).searchParams.get('page'),
+          );
           return {
             exitCode: 0,
-            stdout: JSON.stringify(reviewPages),
+            stdout: JSON.stringify(reviewPages[page - 1] ?? []),
             stderr: '',
           };
         }
         if (endpoint.includes('/comments?')) {
+          const page = Number(
+            new URL(`https://example.test/${endpoint}`).searchParams.get('page'),
+          );
           return {
             exitCode: 0,
-            stdout: JSON.stringify(commentPages),
+            stdout: JSON.stringify(commentPages[page - 1] ?? []),
             stderr: '',
           };
         }
@@ -835,6 +865,30 @@ test('review fetch publishes one bounded producer corpus after paginated normali
     assert.equal(fetched.value.reviews.at(-1)?.id, 1205);
     assert.equal(fetched.value.reviewComments[0].id, 2006);
     assert.equal(fetched.value.reviewComments.at(-1)?.id, 2205);
+    assert.ok(seenArgs.every((args) => !args.includes('--paginate')));
+    assert.ok(seenArgs.every((args) => !args.includes('--slurp')));
+    assert.deepEqual(
+      seenArgs
+        .filter((args) => (args.at(-1) ?? '').includes('/reviews?'))
+        .map(
+          (args) =>
+            new URL(`https://example.test/${args.at(-1) ?? ''}`).searchParams.get(
+              'page',
+            ),
+        ),
+      ['1', '2', '3'],
+    );
+    assert.deepEqual(
+      seenArgs
+        .filter((args) => (args.at(-1) ?? '').includes('/comments?'))
+        .map(
+          (args) =>
+            new URL(`https://example.test/${args.at(-1) ?? ''}`).searchParams.get(
+              'page',
+            ),
+        ),
+      ['1', '2', '3'],
+    );
   } finally {
     await tempRepo.cleanup();
   }

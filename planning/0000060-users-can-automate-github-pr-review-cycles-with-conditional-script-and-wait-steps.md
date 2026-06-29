@@ -2530,11 +2530,11 @@ This task stays inside the approved Story 60 review semantics. It must preserve 
 
 #### Subtasks
 
-1. [ ] In `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`, trace the large-shape expansion chain across `fetchPullRequestReviews(...)`, `takeMostRecentEntries(...)`, `writeGitHubReviewScratch(...)`, `buildGitHubExternalReviewInputMarkdown(...)`, and `runGitHubFetchReviewsStep(...)`, then choose the one fetch or accumulation seam that will stop accepting more review or inline-comment pages once the bounded corpus rule is satisfied.
-2. [ ] In `server/src/flows/githubReview.ts`, move the capped-corpus stop condition to that chosen fetch or accumulation seam so full transport or in-memory expansion stops early, while the accepted entries still preserve current review-submission ordering, inline-comment ordering, and pagination semantics.
-3. [ ] In `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`, update scratch writing and downstream readers only as far as needed so they keep one authoritative bounded corpus, never publish a partial bounded replacement, and keep downstream markdown or classification aligned with the same accepted entries that the fetch seam kept.
-4. [ ] Update `server/src/test/unit/flows.github-adapter.test.ts` so the focused adapter proof names the bounded corpus rule directly and proves that large synthetic review or comment inputs stop expanding once the bounded fetch condition is satisfied; if the proof reuses the current paginated-normalization test, rename or split it so the title and assertions claim the earlier stop condition rather than only a bounded final artifact.
-5. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so the runtime proof still shows that fresh execution-scoped scratch replacement stays authoritative and that downstream markdown or classification reads the same bounded corpus that the adapter now enforces earlier; if the existing stale-scratch runtime proof is reused, rename or rewrite it so the title and assertions claim the combined bounded-corpus propagation invariant instead of mere scratch freshness.
+1. [x] In `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`, trace the large-shape expansion chain across `fetchPullRequestReviews(...)`, `takeMostRecentEntries(...)`, `writeGitHubReviewScratch(...)`, `buildGitHubExternalReviewInputMarkdown(...)`, and `runGitHubFetchReviewsStep(...)`, then choose the one fetch or accumulation seam that will stop accepting more review or inline-comment pages once the bounded corpus rule is satisfied.
+2. [x] In `server/src/flows/githubReview.ts`, move the capped-corpus stop condition to that chosen fetch or accumulation seam so full transport or in-memory expansion stops early, while the accepted entries still preserve current review-submission ordering, inline-comment ordering, and pagination semantics.
+3. [x] In `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`, update scratch writing and downstream readers only as far as needed so they keep one authoritative bounded corpus, never publish a partial bounded replacement, and keep downstream markdown or classification aligned with the same accepted entries that the fetch seam kept.
+4. [x] Update `server/src/test/unit/flows.github-adapter.test.ts` so the focused adapter proof names the bounded corpus rule directly and proves that large synthetic review or comment inputs stop expanding once the bounded fetch condition is satisfied; if the proof reuses the current paginated-normalization test, rename or split it so the title and assertions claim the earlier stop condition rather than only a bounded final artifact.
+5. [x] Update `server/src/test/integration/flows.run.loop.test.ts` so the runtime proof still shows that fresh execution-scoped scratch replacement stays authoritative and that downstream markdown or classification reads the same bounded corpus that the adapter now enforces earlier; if the existing stale-scratch runtime proof is reused, rename or rewrite it so the title and assertions claim the combined bounded-corpus propagation invariant instead of mere scratch freshness.
 
 #### Proof Matrix
 
@@ -2555,8 +2555,17 @@ This task stays inside the approved Story 60 review semantics. It must preserve 
 
 Keep this task's automated proof compact and seam-local. The broader server build, cucumber, lint, and format reruns for this review-created findings block are owned by Task 28.
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the repaired bounded corpus rule passes on its focused adapter proof home.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the repaired bounded scratch-replacement ordering still passes on its focused runtime proof home.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the repaired bounded corpus rule passes on its focused adapter proof home.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the repaired bounded scratch-replacement ordering still passes on its focused runtime proof home.
+
+#### Implementation notes
+
+- Re-traced the Task 27 seam from `runGitHubFetchReviewsStep(...)` through scratch writing and markdown materialization, and chose page-local accumulation inside `fetchPullRequestReviews(...)` as the bounded-corpus boundary so the authoritative artifact stays unchanged while full slurp stdout and unbounded in-memory growth are removed.
+- Replaced the `gh api --paginate --slurp` review and inline-comment fetch path with page-by-page `gh api` requests that keep only the rolling `takeMostRecentEntries(...)` corpus; accepted entries still preserve the existing review submission ordering, inline-comment ordering, and downstream scratch payload shape.
+- Kept scratch writing and downstream readers on the same authoritative bounded artifact without widening the runtime seam; no service-side scratch replacement redesign was needed because `runGitHubFetchReviewsStep(...)`, `writeGitHubReviewScratch(...)`, and `materializeGitHubExternalReviewInput(...)` already consume one execution-scoped artifact path once the adapter stops over-materializing.
+- Renamed and tightened the focused adapter proof so it now claims page-local bounded materialization directly, verifies that the fetch path no longer uses `--paginate` or `--slurp`, and still proves the accepted review/comment ids match the same bounded corpus as before.
+- Renamed the runtime proof so it now claims the bounded-corpus propagation invariant directly while still proving that stale scratch is replaced by the same fresh bounded reviewer feedback consumed by downstream classification.
+- `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed with `11/11`, and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed with `37/37`.
 
 ### Task 28. Revalidate review pass `0000060-20260629T141234Z-d9a9011b` after review-cycle `0000060-rc-20260629T162154Z-89df94b1` task-up repairs
 

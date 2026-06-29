@@ -731,7 +731,7 @@ test('flow loops until break answer matches breakOn', async () => {
   );
 });
 
-test('github review materialization replaces stale scratch with fresh bounded reviewer feedback before classification', async () => {
+test('github review bounded corpus scratch replacement stays authoritative before classification', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     const selectorPath = path.join(

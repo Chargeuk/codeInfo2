@@ -441,6 +441,18 @@ const flattenPaginatedSlurpPayload = (parsed: unknown): unknown[] => {
   return parsed.flatMap((entry) => (Array.isArray(entry) ? entry : [entry]));
 };
 
+const buildPagedGitHubApiEndpoint = (params: {
+  endpoint: string;
+  page: number;
+  perPage: number;
+}) => {
+  const [basePath, rawQuery = ''] = params.endpoint.split('?', 2);
+  const searchParams = new URLSearchParams(rawQuery);
+  searchParams.set('page', String(params.page));
+  searchParams.set('per_page', String(params.perPage));
+  return `${basePath}?${searchParams.toString()}`;
+};
+
 const parseIsoTimestamp = (value: string | undefined): number | undefined => {
   if (!value) return undefined;
   const parsed = Date.parse(value);
@@ -483,6 +495,55 @@ const takeMostRecentEntries = <T>(params: {
     rankedEntries.slice(-params.limit).map((entry) => entry.index),
   );
   return params.entries.filter((_, index) => selectedIndexes.has(index));
+};
+
+const fetchBoundedPaginatedEntries = async <T>(params: {
+  workingRepositoryRoot: string;
+  token: string;
+  endpoint: string;
+  limit: number;
+  normalize: (entry: unknown) => T | null;
+  getTimestamp: (entry: T) => string | undefined;
+  getStableNumericId: (entry: T) => number;
+}): Promise<GitHubStepOutcome<T[]>> => {
+  const perPage = 100;
+  let page = 1;
+  let acceptedEntries: T[] = [];
+
+  while (true) {
+    const endpoint = buildPagedGitHubApiEndpoint({
+      endpoint: params.endpoint,
+      page,
+      perPage,
+    });
+    const result = await runGitHubCli({
+      workingRepositoryRoot: params.workingRepositoryRoot,
+      token: params.token,
+      args: ['api', endpoint],
+    });
+    if (result.kind !== 'ok') return result as GitHubStepOutcome<T[]>;
+    const parsedPage = parseJson<unknown>(
+      result.value.stdout,
+      'GitHub API returned invalid JSON',
+    );
+    if (parsedPage.kind !== 'ok') {
+      return parsedPage as GitHubStepOutcome<T[]>;
+    }
+    const pageEntries = flattenPaginatedSlurpPayload(parsedPage.value);
+    const normalizedEntries = pageEntries
+      .map((entry) => params.normalize(entry))
+      .filter((entry): entry is T => Boolean(entry));
+    acceptedEntries = takeMostRecentEntries({
+      entries: [...acceptedEntries, ...normalizedEntries],
+      limit: params.limit,
+      getTimestamp: params.getTimestamp,
+      getStableNumericId: params.getStableNumericId,
+    });
+    if (pageEntries.length < perPage) {
+      return { kind: 'ok', value: acceptedEntries };
+    }
+    page += 1;
+  }
 };
 
 const parseRepoFromRemoteUrl = (
@@ -1223,32 +1284,30 @@ export const fetchPullRequestReviews = async (params: {
   token: string;
   pullRequest: GitHubPullRequestIdentity;
 }): Promise<GitHubStepOutcome<GitHubReviewArtifact>> => {
-  const reviewsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/reviews?per_page=100`;
-  const reviewCommentsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/comments?per_page=100`;
+  const reviewsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/reviews`;
+  const reviewCommentsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/comments`;
   const [reviewsResult, commentsResult] = await Promise.all([
-    runGitHubCli({
+    fetchBoundedPaginatedEntries({
       workingRepositoryRoot: params.repository.workingRepositoryRoot,
       token: params.token,
-      args: ['api', '--paginate', '--slurp', reviewsEndpoint],
+      endpoint: reviewsEndpoint,
+      limit: MAX_GITHUB_REVIEW_SUBMISSIONS,
+      normalize: normalizeReviewSubmission,
+      getTimestamp: (review) => review.submitted_at,
+      getStableNumericId: (review) => review.id,
     }),
-    runGitHubCli({
+    fetchBoundedPaginatedEntries({
       workingRepositoryRoot: params.repository.workingRepositoryRoot,
       token: params.token,
-      args: ['api', '--paginate', '--slurp', reviewCommentsEndpoint],
+      endpoint: reviewCommentsEndpoint,
+      limit: MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+      normalize: normalizeInlineReviewComment,
+      getTimestamp: (comment) => comment.created_at,
+      getStableNumericId: (comment) => comment.id,
     }),
   ]);
   if (reviewsResult.kind !== 'ok') return reviewsResult;
   if (commentsResult.kind !== 'ok') return commentsResult;
-  const parsedReviews = parsePaginatedArray(reviewsResult.value.stdout);
-  if (parsedReviews.kind !== 'ok') return parsedReviews;
-  const parsedComments = parsePaginatedArray(commentsResult.value.stdout);
-  if (parsedComments.kind !== 'ok') return parsedComments;
-  const normalizedReviews = parsedReviews.value
-    .map((item) => normalizeReviewSubmission(item))
-    .filter((item): item is GitHubReviewSubmission => Boolean(item));
-  const normalizedReviewComments = parsedComments.value
-    .map((item) => normalizeInlineReviewComment(item))
-    .filter((item): item is GitHubInlineReviewComment => Boolean(item));
   return {
     kind: 'ok',
     value: {
@@ -1258,18 +1317,8 @@ export const fetchPullRequestReviews = async (params: {
       },
       pullRequest: params.pullRequest,
       fetchedAt: githubReviewDeps.nowIso(),
-      reviews: takeMostRecentEntries({
-        entries: normalizedReviews,
-        limit: MAX_GITHUB_REVIEW_SUBMISSIONS,
-        getTimestamp: (review) => review.submitted_at,
-        getStableNumericId: (review) => review.id,
-      }),
-      reviewComments: takeMostRecentEntries({
-        entries: normalizedReviewComments,
-        limit: MAX_GITHUB_INLINE_REVIEW_COMMENTS,
-        getTimestamp: (comment) => comment.created_at,
-        getStableNumericId: (comment) => comment.id,
-      }),
+      reviews: reviewsResult.value,
+      reviewComments: commentsResult.value,
     },
   };
 };

@@ -672,6 +672,7 @@ test('github PR open generates reviewer-facing title and body from active story 
     path.join(os.tmpdir(), 'github-pr-flow-'),
   );
   const repoRoot = await createGitHubReviewRepoFixture();
+  const conversationId = 'github-open-conversation';
   const seenCommands: string[][] = [];
 
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -749,12 +750,13 @@ test('github PR open generates reviewer-facing title and body from active story 
       }
       throw new Error(`Unexpected command: ${joined}`);
     },
+    sleep: async () => {},
   });
 
   try {
     await startFlowRun({
       flowName: 'github-open',
-      conversationId: 'github-open-conversation',
+      conversationId,
       source: 'REST',
       working_folder: repoRoot,
       chatFactory: () => new ScriptedChat(),
@@ -794,6 +796,7 @@ test('github PR open generates reviewer-facing title and body from active story 
     );
     assert.match(body, /Flow: github-open/);
   } finally {
+    await cleanupConversationRuntime(conversationId);
     if (previousFlowsDir === undefined) {
       delete process.env.FLOWS_DIR;
     } else {

@@ -783,6 +783,100 @@ describe('Agent config defaults', () => {
     }
   });
 
+  it('closes temporary LM Studio discovery clients after collecting direct-agent provider states', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const agentsHome = path.join(tempRoot, 'agents');
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const codexHome = path.join(tempRoot, 'codex-home');
+    await fs.mkdir(path.join(agentHome), { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      'codeinfo_provider = "codex"\nmodel = "codex-model"\napproval_policy = "never"\n',
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "codex-model"\n',
+      'utf8',
+    );
+
+    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+
+    let closeCalls = 0;
+    __setAgentServiceDepsForTests({
+      getCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+      }),
+      resolveCodexCapabilities: async () => ({
+        defaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: false,
+          webSearchMode: 'disabled',
+        },
+        models: [
+          {
+            model: 'codex-model',
+            supportedReasoningEfforts: ['high'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+        byModel: new Map(),
+        warnings: [],
+        fallbackUsed: false,
+      }),
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness: async () => ({
+        available: true,
+        toolsAvailable: true,
+        blockingStage: 'ready',
+        models: ['copilot-model'],
+        modelsRaw: [],
+        authSource: 'env-token',
+      }),
+      getLmStudioBaseUrl: () => 'http://127.0.0.1:1234',
+      lmstudioClientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+          },
+          close: async () => {
+            closeCalls += 1;
+          },
+        }) as never,
+    });
+
+    try {
+      const started = await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        source: 'REST',
+        chatFactory: () => new ImmediateChat(),
+      });
+
+      assert.equal(started.providerId, 'codex');
+      assert.equal(closeCalls, 1);
+    } finally {
+      __resetAgentServiceDepsForTests();
+      memoryConversations.clear();
+      memoryTurns.clear();
+      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
+      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('honors CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER when invalid-provider fallback chooses an execution provider', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const agentsHome = path.join(tempRoot, 'agents');

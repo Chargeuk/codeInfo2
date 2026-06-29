@@ -1386,6 +1386,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
         }
         throw new Error(`Unexpected command: ${joined}`);
       },
+      sleep: async () => {},
     });
 
     await withFlowServer(

@@ -80,6 +80,7 @@ import {
   resolveRepoEmbeddingIdentity,
   type RepoEntry,
 } from '../lmstudio/toolService.js';
+import { disposeClient } from '../lmstudio/clientPool.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
@@ -558,17 +559,21 @@ async function collectDirectAgentProviderStates(): Promise<
         const client = agentServiceDeps.lmstudioClientFactory(
           toWsBaseUrl(baseUrl),
         );
-        const models = await client.system.listDownloadedModels();
-        const availableModels = models
-          .filter(isChatModel)
-          .map((entry) => normalizeModel(entry.modelKey))
-          .filter((entry): entry is string => entry !== undefined);
-        return {
-          available: availableModels.length > 0,
-          models: availableModels,
-          reason:
-            availableModels.length > 0 ? undefined : 'lmstudio unavailable',
-        };
+        try {
+          const models = await client.system.listDownloadedModels();
+          const availableModels = models
+            .filter(isChatModel)
+            .map((entry) => normalizeModel(entry.modelKey))
+            .filter((entry): entry is string => entry !== undefined);
+          return {
+            available: availableModels.length > 0,
+            models: availableModels,
+            reason:
+              availableModels.length > 0 ? undefined : 'lmstudio unavailable',
+          };
+        } finally {
+          await disposeClient(client);
+        }
       } catch (error) {
         return {
           available: false,

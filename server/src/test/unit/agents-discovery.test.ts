@@ -324,3 +324,43 @@ test('selected-agent details preserve duplicate-root warnings and disabled reaso
   );
   assert.equal(details.disabledReason?.code, 'provider_unavailable');
 });
+
+test('agent availability list closes temporary LM Studio discovery clients after probing models', async () => {
+  await writeAgent({
+    rootDirName: 'codeinfo_agents',
+    agentName: 'planning_agent',
+  });
+
+  let closeCalls = 0;
+  __setAgentAvailabilityDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token',
+    }),
+    getLmStudioBaseUrl: () => 'http://127.0.0.1:1234',
+    lmstudioClientFactory: () =>
+      ({
+        system: {
+          listDownloadedModels: async () => [{ type: 'llm' }],
+        },
+        close: async () => {
+          closeCalls += 1;
+        },
+      }) as never,
+  });
+
+  const list = await listAgents();
+
+  assert.equal(list.agents.length, 1);
+  assert.equal(closeCalls, 1);
+});

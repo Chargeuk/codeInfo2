@@ -16,6 +16,7 @@ import {
   type CopilotReadinessRuntime,
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import { disposeClient } from '../lmstudio/clientPool.js';
 
 import { readAgentRequestedProviderMetadata } from './config.js';
 
@@ -164,13 +165,17 @@ async function resolveLmStudioAvailability(
 
   try {
     const client = deps.lmstudioClientFactory(toWebSocketUrl(baseUrl));
-    const models = await client.system.listDownloadedModels();
-    const available = models.some(isChatModel);
-    return {
-      providerId: 'lmstudio',
-      available,
-      reason: available ? undefined : 'lmstudio unavailable',
-    };
+    try {
+      const models = await client.system.listDownloadedModels();
+      const available = models.some(isChatModel);
+      return {
+        providerId: 'lmstudio',
+        available,
+        reason: available ? undefined : 'lmstudio unavailable',
+      };
+    } finally {
+      await disposeClient(client);
+    }
   } catch (error) {
     return {
       providerId: 'lmstudio',

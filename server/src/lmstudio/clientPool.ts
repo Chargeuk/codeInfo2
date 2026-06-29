@@ -5,7 +5,7 @@ const clients = new Map<string, LMStudioClient>();
 const defaultFactory = (baseUrl: string) => new LMStudioClient({ baseUrl });
 let createClient: (baseUrl: string) => LMStudioClient = defaultFactory;
 
-function disposeClient(client: LMStudioClient) {
+export function disposeClient(client: LMStudioClient) {
   const asyncDispose = (
     client as { [Symbol.asyncDispose]?: () => Promise<void> }
   )[Symbol.asyncDispose];

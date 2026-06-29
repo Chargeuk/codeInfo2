@@ -2380,11 +2380,11 @@ This task stays inside the approved Story 60 lifecycle contract. It must keep th
 
 #### Subtasks
 
-1. [ ] In `server/src/flows/service.ts`, locate the exact decision points inside `schedulePersistedWaitResume(...)`, `resumePendingFlowWaitsForStartup()`, `parseFlowResumeState(...)`, `startFlowRun(...)`, and the persisted retry-ownership helpers where permanent resume mismatches are currently treated like transient failures and where accepted-then-crashed replay is currently flattened into `already running`.
-2. [ ] In `server/src/flows/service.ts`, change startup wait recovery so permanent resume mismatches are surfaced or retired one time at the wait-registration seam, while the existing transient startup-failure path still rearms the same wait infrastructure.
-3. [ ] In `server/src/flows/service.ts`, change the `retryOwnershipPending` decision so it suppresses retries only when the earlier accepted launch is still backed by a live ownership marker or a terminal-completion marker, and so stale accepted metadata by itself can no longer hide the crash-before-terminal branch.
-4. [ ] Update `server/src/test/integration/flows.run.resume.backfill.test.ts` so it explicitly owns the permanent wait-mismatch classification rule with one focused case that proves the wait is surfaced or retired instead of rearmed after a durable invalid-state contradiction, and do not blur that invariant into the existing transient rearm proof.
-5. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` so replay ownership explicitly distinguishes `still running`, `finished`, and `accepted then died before terminal cleanup`; if the proof reuses an adjacent replay test, rename, split, or rewrite it so one title and assertion set claims that exact three-way `retryOwnershipPending` contract instead of a generic already-running or replay-success story.
+1. [x] In `server/src/flows/service.ts`, locate the exact decision points inside `schedulePersistedWaitResume(...)`, `resumePendingFlowWaitsForStartup()`, `parseFlowResumeState(...)`, `startFlowRun(...)`, and the persisted retry-ownership helpers where permanent resume mismatches are currently treated like transient failures and where accepted-then-crashed replay is currently flattened into `already running`.
+2. [x] In `server/src/flows/service.ts`, change startup wait recovery so permanent resume mismatches are surfaced or retired one time at the wait-registration seam, while the existing transient startup-failure path still rearms the same wait infrastructure.
+3. [x] In `server/src/flows/service.ts`, change the `retryOwnershipPending` decision so it suppresses retries only when the earlier accepted launch is still backed by a live ownership marker or a terminal-completion marker, and so stale accepted metadata by itself can no longer hide the crash-before-terminal branch.
+4. [x] Update `server/src/test/integration/flows.run.resume.backfill.test.ts` so it explicitly owns the permanent wait-mismatch classification rule with one focused case that proves the wait is surfaced or retired instead of rearmed after a durable invalid-state contradiction, and do not blur that invariant into the existing transient rearm proof.
+5. [x] Update `server/src/test/integration/flows.run.basic.test.ts` so replay ownership explicitly distinguishes `still running`, `finished`, and `accepted then died before terminal cleanup`; if the proof reuses an adjacent replay test, rename, split, or rewrite it so one title and assertion set claims that exact three-way `retryOwnershipPending` contract instead of a generic already-running or replay-success story.
 
 #### Proof Matrix
 
@@ -2405,8 +2405,17 @@ This task stays inside the approved Story 60 lifecycle contract. It must keep th
 
 Keep this task's automated proof compact and seam-local. The broader server build, cucumber, lint, and format reruns for this review-created findings block are owned by Task 28.
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root so the repaired startup wait recovery classification passes on its focused proof home.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired fresh-run replay ownership boundary passes on its focused proof home.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root so the repaired startup wait recovery classification passes on its focused proof home.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired fresh-run replay ownership boundary passes on its focused proof home.
+
+#### Implementation notes
+
+- Re-read the Task 25 seam across `schedulePersistedWaitResume(...)`, `resumePendingFlowWaitsForStartup()`, `parseFlowResumeState(...)`, `startFlowRun(...)`, and the persisted retry-ownership loaders, then pinned the two dishonest branches to one service boundary: wake-time resume failures were rearming every exception the same way, and persisted `retryOwnershipPending` was replaying accepted metadata even after the active run had already disappeared.
+- Added permanent resume-failure classification in `server/src/flows/service.ts` so startup-recovered waits now retire `INVALID_REQUEST` or equivalent durable contradictions once, clear the persisted wait state through the existing failure path, and preserve the prior rearm behavior only for transient preflight failures.
+- Tightened persisted replay ownership in `server/src/flows/service.ts` so `getPersistedFreshRunRetryOwnershipPending(...)` now suppresses a retry only while the earlier accepted launch still has a live conversation ownership marker; stale pending metadata with no live owner is cleared so the crash-before-terminal branch can relaunch honestly, while terminal completion still falls through to the existing completion markers.
+- Focused proof now names both repaired invariants directly: `server/src/test/integration/flows.run.resume.backfill.test.ts` now owns the no-rearm permanent invalid-state contradiction case, and `server/src/test/integration/flows.run.basic.test.ts` now owns one three-way replay test for `still running`, `finished`, and `accepted then died before terminal cleanup`.
+- `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` initially failed because the retired-wait diagnostic surfaced the raw flow-error object as `[object Object]`; added `describeFlowRunFailure(...)` so the durable mismatch now records the real `INVALID_REQUEST` reason, then reran that wrapper successfully.
+- `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` passed with `10/10`, and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` passed with `32/32`.
 
 ### Task 26. Preserve Provider-Free Resumed Review Warning Paths End To End
 

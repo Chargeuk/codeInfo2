@@ -11,6 +11,7 @@ import supertest from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 
 import {
+  getActiveRunOwnership,
   tryAcquireConversationLock,
   releaseConversationLock,
 } from '../../agents/runLock.js';
@@ -1257,7 +1258,7 @@ test('fresh executions of the same flow can run concurrently in different parent
   }
 });
 
-test('durable retryOwnershipId replay reuses the accepted launch after completed-cache loss', async () => {
+test('retryOwnershipPending replay distinguishes still running, finished, and accepted-then-died-before-terminal cleanup', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const prevNodeEnv = process.env.NODE_ENV;
@@ -1279,72 +1280,50 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
   process.env.FLOWS_DIR = tmpDir;
   const customTitle = 'Accepted Retry Launch';
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new InstantChat(),
-        }),
-    }),
-  );
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const ws = await connectWs({ baseUrl });
-
   try {
     const firstConversationId = 'flow-retry-ownership-a';
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    const retryOwnershipId = 'fresh-run-retry-1';
+    const launchSignature = JSON.stringify({
+      flowName: 'llm-basic',
+      source: 'REST',
+      customTitle,
+    });
+    const firstResult = await startFlowRun({
+      flowName: 'llm-basic',
       conversationId: firstConversationId,
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new DelayedInstantChat(250),
     });
-    const firstResultPromise = supertest(baseUrl)
-      .post('/flows/llm-basic/run')
-      .send({
-        conversationId: firstConversationId,
-        retryOwnershipId: 'fresh-run-retry-1',
-        customTitle,
-      })
-      .expect(202);
-    const firstFinalPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; status: string } => {
-        const candidate = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return (
-          candidate.type === 'turn_final' &&
-          candidate.conversationId === firstConversationId &&
-          candidate.status === 'ok'
-        );
-      },
-      timeoutMs: 8000,
+    await waitFor(() => Boolean(getActiveRunOwnership(firstConversationId)));
+    await waitFor(() =>
+      Boolean(
+        (
+          (memoryConversations.get(firstConversationId)?.flags ?? {}) as {
+            flow?: { retryOwnershipPending?: unknown };
+          }
+        ).flow?.retryOwnershipPending,
+      ),
+    );
+
+    const replayWhileRunning = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-running',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
     });
-    const firstResult = (await firstResultPromise).body as {
-      flowName: string;
-      conversationId: string;
-      inflightId: string;
-      providerId: string;
-      modelId: string;
-      warnings?: string[];
-    };
-    await firstFinalPromise;
+    assert.deepEqual(replayWhileRunning, firstResult);
+
     await waitForConversationUnlocked(firstResult.conversationId);
     await waitFor(
       async () =>
         Boolean(
           await __getPersistedFreshRunRetryOwnershipCompletionForTests({
             flowName: 'llm-basic',
-            retryOwnershipId: 'fresh-run-retry-1',
+            retryOwnershipId,
             launch: {
               flowName: 'llm-basic',
               source: 'REST',
@@ -1360,29 +1339,71 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
     );
     __resetFreshRunRetryOwnershipCompletionForTests();
 
-    const replayConversationId = 'flow-retry-ownership-b';
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId: replayConversationId,
+    const replayAfterCompletion = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-finished',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
     });
-    const replayResult = (
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({
-          conversationId: replayConversationId,
-          retryOwnershipId: 'fresh-run-retry-1',
-          customTitle,
-        })
-        .expect(202)
-    ).body as typeof firstResult;
-    assert.deepEqual(replayResult, firstResult);
+    assert.deepEqual(replayAfterCompletion, firstResult);
     await waitForTurnCountToStay(firstResult.conversationId, 2);
-  } finally {
-    cleanupMemory('flow-retry-ownership-a', 'flow-retry-ownership-b');
+
+    const firstConversation = memoryConversations.get(firstResult.conversationId);
+    assert.ok(firstConversation, 'expected original retry conversation');
+    const originalFlow = ((firstConversation.flags ?? {}) as {
+      flow?: Record<string, unknown>;
+    }).flow;
+    assert.ok(originalFlow, 'expected persisted flow state');
+
+    memoryConversations.set(firstResult.conversationId, {
+      ...firstConversation,
+      flags: {
+        ...(firstConversation.flags ?? {}),
+        flow: {
+          ...originalFlow,
+          retryOwnershipPending: {
+            retryOwnershipId,
+            launchSignature,
+            result: firstResult,
+          },
+        },
+      },
+    });
+    const stalePendingFlow = (
+      (memoryConversations.get(firstResult.conversationId)?.flags ?? {}) as {
+        flow?: Record<string, unknown>;
+      }
+    ).flow;
+    if (stalePendingFlow) {
+      delete stalePendingFlow.retryOwnershipCompletion;
+    }
+
     __resetFreshRunRetryOwnershipCompletionForTests();
-    await closeWs(ws);
-    await wsHandle.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+
+    const replayAfterCrash = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-crash-retry',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+    assert.equal(
+      replayAfterCrash.conversationId,
+      'flow-retry-ownership-crash-retry',
+    );
+    assert.notEqual(replayAfterCrash.inflightId, firstResult.inflightId);
+    await waitForConversationUnlocked(replayAfterCrash.conversationId);
+  } finally {
+    cleanupMemory(
+      'flow-retry-ownership-a',
+      'flow-retry-ownership-running',
+      'flow-retry-ownership-finished',
+      'flow-retry-ownership-crash-retry',
+    );
+    __resetFreshRunRetryOwnershipCompletionForTests();
     if (prevNodeEnv === undefined) {
       delete process.env.NODE_ENV;
     } else {

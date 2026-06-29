@@ -815,12 +815,62 @@ const getPersistedFreshRunRetryOwnershipPending = async (params: {
       'retryOwnershipId already belongs to a different fresh-run launch',
     );
   }
-  return {
-    retryOwnershipId: pending.retryOwnershipId,
-    sourceId: pending.sourceId,
-    result: cloneFlowRunStartResult(pending.result),
-    launchSignature: pending.launchSignature,
-  };
+  if (getActiveRunOwnership(conversation._id)) {
+    return {
+      retryOwnershipId: pending.retryOwnershipId,
+      sourceId: pending.sourceId,
+      result: cloneFlowRunStartResult(pending.result),
+      launchSignature: pending.launchSignature,
+    };
+  }
+  await clearFreshRunRetryOwnershipPending({
+    conversationId: conversation._id,
+    conversation,
+  });
+  return null;
+};
+
+const isPermanentPersistedWaitResumeFailure = (error: unknown): boolean => {
+  if (!isFlowRunError(error)) return false;
+  return (
+    error.code === 'INVALID_REQUEST' ||
+    error.code === 'FLOW_NOT_FOUND' ||
+    error.code === 'CONVERSATION_ARCHIVED'
+  );
+};
+
+const describeFlowRunFailure = (error: unknown): string => {
+  if (isFlowRunError(error)) {
+    return error.reason ?? error.code;
+  }
+  return error instanceof Error ? error.message : String(error);
+};
+
+const retirePersistedWaitRecoveryFailure = async (params: {
+  conversationId: string;
+  modelId: string;
+  providerId?: ConversationProvider;
+  source: 'REST' | 'MCP';
+  flowName: string;
+  waitStepPath: number[];
+  recoveryReason: string;
+}) => {
+  await persistUnexpectedFlowFailureIfNeeded({
+    conversationId: params.conversationId,
+    modelId: params.modelId,
+    providerId: params.providerId,
+    source: params.source,
+    message: `Persisted wait recovery retired a permanently invalid resume mismatch at step ${getStepPathKey(params.waitStepPath)}: ${params.recoveryReason}`,
+  });
+  baseLogger.warn(
+    {
+      conversationId: params.conversationId,
+      flowName: params.flowName,
+      waitStepPath: params.waitStepPath,
+      recoveryReason: params.recoveryReason,
+    },
+    'flows.wait.resume.retired_permanent_invalid_state',
+  );
 };
 
 const getFreshRunRetryOwnershipCompletion = async (params: {
@@ -4040,8 +4090,19 @@ const schedulePersistedWaitResume = (params: {
             clearScheduledFlowWait(params.conversationId);
             return;
           }
-          const recoveryReason =
-            error instanceof Error ? error.message : String(error);
+          const recoveryReason = describeFlowRunFailure(error);
+          if (isPermanentPersistedWaitResumeFailure(error)) {
+            await retirePersistedWaitRecoveryFailure({
+              conversationId: params.conversationId,
+              modelId: conversation.model,
+              providerId: conversation.provider,
+              source: params.source,
+              flowName: params.flowName,
+              waitStepPath: persistedWait.stepPath,
+              recoveryReason,
+            });
+            return;
+          }
           try {
             await rearmPersistedWaitRecoveryOwnership({
               conversation,

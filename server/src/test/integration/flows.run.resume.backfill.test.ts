@@ -43,6 +43,11 @@ const getAssistantTurnCount = (conversationId: string) =>
     (turn) => turn?.role === 'assistant',
   ).length;
 
+const getLatestAssistantTurn = (conversationId: string) =>
+  [...(memoryTurns.get(conversationId) ?? [])]
+    .reverse()
+    .find((turn) => turn?.role === 'assistant');
+
 const getPersistedWaitState = (conversationId: string) => {
   const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
     flow?: {
@@ -950,6 +955,120 @@ test('wake-time preflight failure rearms persisted wait ownership instead of dro
     assert.equal(rearmedWait.executionId, initialWait.executionId);
     assert.deepEqual(rearmedWait.stepPath, initialWait.stepPath);
     assert.ok((rearmedWait.resumeAt ?? 0) > initialResumeAt);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startup recovery retires a persisted wait after a durable invalid-state contradiction instead of rearming it', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-invalid-state-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-wait-resume-invalid-state';
+  const captured: string[] = [];
+  const wakes: Array<() => void> = [];
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    nowIso: () => '2026-06-29T18:00:00.000Z',
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => {} };
+    },
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'wait-resume',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+    });
+
+    await waitFor(() => captured.length === 1);
+    await waitFor(() => Boolean(getPersistedWaitState(conversationId)));
+    await waitFor(() => getActiveRunOwnership(conversationId) === null);
+
+    await fs.writeFile(
+      path.join(tmpDir, 'wait-resume.json'),
+      JSON.stringify(
+        {
+          description: 'Wait resume backfill flow with removed wait step',
+          steps: [
+            {
+              type: 'llm',
+              label: 'Step 1',
+              agentType: 'coding_agent',
+              identifier: 'resume-test',
+              messages: [{ role: 'user', content: ['Step 1'] }],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    wakes.length = 0;
+    await resumePendingFlowWaitsForStartup();
+    assert.equal(wakes.length, 1, 'expected startup backfill wake to register');
+
+    const wake = wakes.shift();
+    assert.ok(wake, 'expected captured wake callback');
+    wake();
+
+    await waitFor(() => getPersistedWaitState(conversationId) === undefined);
+    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    assert.equal(
+      wakes.length,
+      0,
+      'permanent invalid state should retire the wait instead of rearming it',
+    );
+
+    const latestAssistantTurn = getLatestAssistantTurn(conversationId);
+    assert.equal(latestAssistantTurn?.status, 'failed');
+    assert.match(
+      latestAssistantTurn?.content ?? '',
+      /resumeStepPath out of range/i,
+    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

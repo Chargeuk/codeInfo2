@@ -2229,7 +2229,7 @@ This task keeps Story 60 scoped to the existing post-create reconciliation seam.
 #### Testing
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the adapter proof re-covers preserved `stderr`/`exitCode`, bounded post-create lookup retries, and final aggregated failure behavior.
-2. [x] Run the focused server integration proof home that owns GitHub open-PR flow-step reporting after the change so warning/error propagation is re-proved end to end on a real flow-run seam.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the focused flow-run proof home re-covers GitHub open-PR warning and error propagation end to end on the repaired seam.
 3. [x] Run `npm run test:summary:server:unit` from the repository root because this task changes shared server-owned flow runtime behavior.
 4. [x] Run `npm run test:summary:server:cucumber` from the repository root because the Story 60 flow-runtime path should stay green on the repository's broader back-end integration surface after the repair.
 5. [x] Run `npm run lint` from the repository root for the repaired Story 60 server/runtime surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
@@ -2330,6 +2330,8 @@ This task stays inside the approved Story 60 review-cycle contract. It must pres
 
 #### Testing
 
+Keep this task's automated proof compact and seam-local. The broader server build, cucumber, lint, and format reruns for this review-created findings block are owned by Task 28.
+
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the repaired missing-handoff PR-authority rule passes on its focused adapter proof home.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-scratch.test.ts` from the repository root so the repaired pre-read scratch containment boundary passes on its focused scratch proof home.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the resumed runtime still obeys the repaired same-branch authority boundary end to end after the seam is changed.
@@ -2392,6 +2394,8 @@ This task stays inside the approved Story 60 lifecycle contract. It must keep th
 
 #### Testing
 
+Keep this task's automated proof compact and seam-local. The broader server build, cucumber, lint, and format reruns for this review-created findings block are owned by Task 28.
+
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root so the repaired startup wait recovery classification passes on its focused proof home.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired fresh-run replay ownership boundary passes on its focused proof home.
 
@@ -2449,6 +2453,8 @@ This task stays inside the approved Story 60 behavior lock. It must preserve cur
    Proof owners: the same focused client proof in `client/src/test/flowsPage.run.test.tsx`, extended to name the shared consumer contract it is exercising.
 
 #### Testing
+
+Keep this task's automated proof compact and seam-local. The broader server build, client build, broad server and client wrappers, end-to-end reruns, lint, and format checks for this review-created findings block are owned by Task 28.
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root so the repaired provider-free resumed warning-stop path passes on its focused server proof home.
 2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` from the repository root so the repaired warning terminal-status transcript contract passes on its focused client proof home.
@@ -2508,6 +2514,8 @@ This task stays inside the approved Story 60 review semantics. It must preserve 
    Proof owners: `server/src/test/unit/flows.github-adapter.test.ts` for bounded writer stop conditions and `server/src/test/integration/flows.run.loop.test.ts` for scratch-reader compatibility after replacement.
 
 #### Testing
+
+Keep this task's automated proof compact and seam-local. The broader server build, cucumber, lint, and format reruns for this review-created findings block are owned by Task 28.
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` from the repository root so the repaired bounded corpus rule passes on its focused adapter proof home.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the repaired bounded scratch-replacement ordering still passes on its focused runtime proof home.

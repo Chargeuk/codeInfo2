@@ -2349,7 +2349,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 23`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2416,6 +2416,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 - Focused proof now names both repaired invariants directly: `server/src/test/integration/flows.run.resume.backfill.test.ts` now owns the no-rearm permanent invalid-state contradiction case, and `server/src/test/integration/flows.run.basic.test.ts` now owns one three-way replay test for `still running`, `finished`, and `accepted then died before terminal cleanup`.
 - `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` initially failed because the retired-wait diagnostic surfaced the raw flow-error object as `[object Object]`; added `describeFlowRunFailure(...)` so the durable mismatch now records the real `INVALID_REQUEST` reason, then reran that wrapper successfully.
 - `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` passed with `10/10`, and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` passed with `32/32`.
+- Automated-proof audit confirmed the current disk state matches the completed checklist exactly: all Task 25 subtasks and focused wrapper runs were already checked from repository evidence, no live `- **BLOCKER**` line remained under this task, and no additional story-scoped behavior restoration work was needed before closing the task as `__done__`.
 
 ### Task 26. Preserve Provider-Free Resumed Review Warning Paths End To End
 

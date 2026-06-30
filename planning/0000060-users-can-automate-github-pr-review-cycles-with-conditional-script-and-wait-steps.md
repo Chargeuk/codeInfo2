@@ -2708,11 +2708,13 @@ This task must preserve Story 60's approved resumed GitHub review behavior while
 
 #### Subtasks
 
-1. [ ] In `server/src/flows/service.ts`, trace the resumed `githubReviewContext.handoffPath` flow from persisted wait-state hydration through the script-owned review-feedback decision seam and identify the last boundary where the runtime can still replace persisted handoff-path input with the canonical execution-scoped path before any later reader sees it.
-2. [ ] In `server/src/flows/service.ts`, restore canonical execution-scoped handoff authority for resumed GitHub review runs so the exported `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` and any sibling resumed reader inputs always come from re-derived execution-scoped ownership rather than from an untrusted persisted path value.
-3. [ ] In `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, reject env-provided handoff paths that do not match the canonical execution-scoped scratch contract before reading JSON from disk, while preserving the approved selector fallback behavior for canonical execution-scoped review handoffs.
-4. [ ] Update `scripts/test/test_check_github_review_has_reviewer_feedback.py` so one focused helper proof explicitly covers rejecting a foreign or stale env-provided handoff path before file contents are read, and rename or split any reused proof so the title claims that exact authority invariant.
-5. [ ] Update `server/src/test/integration/flows.run.errors.test.ts` and/or `server/src/test/integration/flows.run.loop.test.ts` so one focused runtime proof explicitly covers resumed GitHub review runs re-deriving canonical execution-scoped handoff ownership before the script-backed decision seam executes.
+1. [ ] In `server/src/flows/service.ts`, trace the resumed `githubReviewContext.handoffPath` flow from persisted wait-state hydration through `startFlowRun(...)`, canonical scratch-path derivation, and the `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` export seam; leave one short code path where the runtime can still replace persisted handoff-path input with the canonical execution-scoped path before any later reader sees it.
+2. [ ] In `server/src/flows/service.ts`, restore canonical execution-scoped handoff authority for resumed GitHub review runs so the exported `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` and any sibling resumed reader inputs always come from re-derived execution-scoped ownership rather than from an untrusted persisted path value, while preserving the current resumed PR-selection and warning-path behavior already approved by Story 60.
+3. [ ] In `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, reject env-provided handoff paths that do not match the canonical execution-scoped scratch contract before reading JSON from disk, while preserving the approved selector fallback behavior for canonical execution-scoped review handoffs and the existing rejection of the generic story-global `0000060-current-review.json` fallback for this helper seam.
+4. [ ] Update `scripts/test/test_check_github_review_has_reviewer_feedback.py` so one focused helper proof explicitly covers rejecting a foreign or stale env-provided handoff path before file contents are read, and a sibling focused proof keeps the generic current-review fallback rejection explicit instead of relying on one broad helper test with mixed authority claims.
+5. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so one focused runtime proof explicitly covers resumed GitHub review runs re-deriving canonical execution-scoped handoff ownership before the script-backed decision seam executes; if an existing resumed authority test is reused, rename or split it so the title claims pre-read canonical handoff enforcement rather than only later PR reconciliation.
+6. [ ] After the server runtime and helper-proof edits settle, reconcile any repository lint drift introduced by the Task 29 repair surface before focused proof reruns begin.
+7. [ ] After the same Task 29 repair surface settles, reconcile any repository format drift introduced by those changes before focused proof reruns begin.
 
 #### Proof Matrix
 
@@ -2725,8 +2727,10 @@ This task must preserve Story 60's approved resumed GitHub review behavior while
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root so the repaired resumed handoff-authority runtime seam passes on its focused server proof home.
-2. [ ] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root so the repaired script helper seam proves it rejects foreign env-provided handoff paths before reading disk.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` from the repository root so the repaired resumed handoff-authority runtime seam passes on its focused server proof home.
+2. [ ] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root so the repaired script helper seam proves it rejects foreign env-provided handoff paths before reading disk and still rejects the generic current-review fallback for this helper path.
+3. [ ] Run `npm run lint` from the repository root for the Task 29 repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [ ] Run `npm run format:check` from the repository root for the Task 29 repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -2771,6 +2775,8 @@ There are no inline-resolved minor findings recorded for this review cycle today
 1. [ ] Update `codeInfoStatus/pr-summaries/0000060-pr-summary.md` so review pass `0000060-20260630T011157Z-0ca69c71` maps finding `1` to the focused proof owners from Task 29 and records that this task is the one final revalidation owner for review cycle `0000060-rc-20260630T021700Z-fd13875d`.
 2. [ ] Before broad reruns, compare this task title with `task_up_owned_final_revalidation_task_title` in `codeInfoStatus/flow-state/review-disposition-state.json`; if the title, review pass id, or review cycle id drifted, repair only this task-owned wording and the matching PR summary wording so there is still one final-owner record for the active cycle.
 3. [ ] Refresh the PR summary sections for comparison context, repaired seam ownership, focused proof owners, broad rerun ownership, and non-applicable proof categories so the later proof pass can record wrapper results without re-deciding task shape.
+4. [ ] After Task 29 lands, reconcile any repository lint drift introduced by the repaired handoff-authority seam or its proof-home updates before the broad reruns in this task begin.
+5. [ ] After Task 29 lands, reconcile any repository format drift introduced by the repaired handoff-authority seam or its proof-home updates before the broad reruns in this task begin.
 
 #### Proof Matrix
 

@@ -26,6 +26,9 @@ export const runCommand = (command) =>
   new Promise((resolve) => {
     const startedAt = Date.now();
     let settled = false;
+    let timedOut = false;
+    let timeoutHandle;
+    let forceKillHandle;
     const child = spawn(command.cmd, command.args, {
       cwd: command.cwd,
       env: command.env,
@@ -36,11 +39,43 @@ export const runCommand = (command) =>
     pipeWithPrefix(child.stdout, process.stdout, prefix);
     pipeWithPrefix(child.stderr, process.stderr, prefix);
 
+    const clearTimers = () => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = undefined;
+      }
+      if (forceKillHandle) {
+        clearTimeout(forceKillHandle);
+        forceKillHandle = undefined;
+      }
+    };
+
+    if (command.timeoutMs && command.timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        timedOut = true;
+        process.stderr.write(
+          `${prefix}timed out after ${command.timeoutMs}ms; terminating child process\n`,
+        );
+        child.kill('SIGTERM');
+        forceKillHandle = setTimeout(() => {
+          if (!settled) {
+            child.kill('SIGKILL');
+          }
+        }, 5_000);
+        forceKillHandle.unref?.();
+      }, command.timeoutMs);
+      timeoutHandle.unref?.();
+    }
+
     child.on('error', (error) => {
       if (settled) {
         return;
       }
       settled = true;
+      clearTimers();
       process.stderr.write(`${prefix}spawn error: ${error.message}\n`);
       resolve({
         ...command,
@@ -55,9 +90,10 @@ export const runCommand = (command) =>
         return;
       }
       settled = true;
+      clearTimers();
       resolve({
         ...command,
-        code: code ?? 1,
+        code: timedOut ? 1 : (code ?? 1),
         signal: signal ?? null,
         durationMs: Date.now() - startedAt,
       });

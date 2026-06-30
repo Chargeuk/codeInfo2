@@ -257,7 +257,7 @@ export const createSummaryWrapperRun = ({
     return `${lines.join('\n')}\n`;
   };
 
-  const failCli = async (reason, { promoteLatest = true } = {}) => {
+  const failCli = async (reason, { promoteLatest = false } = {}) => {
     appendLogSection('WRAPPER CLI FAILURE', reason);
     await closeLog({ promoteLatest });
     protocol.emitFinal({

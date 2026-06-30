@@ -4,11 +4,24 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runCommandsInParallel } from './test-summary-parallel-runner.mjs';
+import {
+  allocateWeightedParallelBudget,
+  formatWorkerSummaryLine,
+} from './test-parallelism.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
+const serverParallelBudget = allocateWeightedParallelBudget({
+  budgetFraction: 0.75,
+  weights: {
+    'server:unit': 1,
+  },
+  reservedWorkers: {
+    'server:cucumber': 1,
+  },
+});
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -39,13 +52,41 @@ if (prebuild.exitCode !== 0) {
   process.exit(prebuild.exitCode);
 }
 
+console.log(
+  `[server:parallel] shared_budget=${serverParallelBudget.budget} effective_budget=${serverParallelBudget.effectiveBudget} available_cores=${serverParallelBudget.availableCores} source=${serverParallelBudget.source}`,
+);
+console.log(
+  `[server:parallel] reserved_budget=${serverParallelBudget.reservedBudget} remaining_budget=${serverParallelBudget.weightedBudget} available_cores=${serverParallelBudget.availableCores} source=${serverParallelBudget.source}`,
+);
+console.log(
+  `[server:parallel] ${formatWorkerSummaryLine({
+    label: 'server_unit_concurrency',
+    availableCores: serverParallelBudget.availableCores,
+    workerCount: serverParallelBudget.workerCounts['server:unit'],
+    source: serverParallelBudget.source,
+  })}`,
+);
+console.log(
+  `[server:parallel] ${formatWorkerSummaryLine({
+    label: 'server_cucumber_workers',
+    availableCores: serverParallelBudget.availableCores,
+    workerCount: serverParallelBudget.workerCounts['server:cucumber'],
+    source: serverParallelBudget.source,
+  })}`,
+);
+
 const results = await runCommandsInParallel([
   {
     label: 'server:unit',
     cmd: 'npm',
     args: ['run', 'test:summary:server:unit', '--', '--skip-build'],
     cwd: rootDir,
-    env: process.env,
+    env: {
+      ...process.env,
+      CODEINFO_SERVER_UNIT_CONCURRENCY: String(
+        serverParallelBudget.workerCounts['server:unit'],
+      ),
+    },
   },
   {
     label: 'server:cucumber',

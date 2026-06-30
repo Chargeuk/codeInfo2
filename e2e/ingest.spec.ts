@@ -513,6 +513,7 @@ const selectEmbeddingModel = async (
 
 test.describe.serial('Ingest flows', () => {
   let releaseIngestLock: (() => Promise<void>) | undefined;
+  const ingestLockTimeoutMs = 60_000;
 
   test.setTimeout(240_000);
   test.beforeAll(async () => {
@@ -520,7 +521,10 @@ test.describe.serial('Ingest flows', () => {
   });
 
   test.beforeEach(async ({}, testInfo) => {
-    releaseIngestLock = await acquireE2eResourceLock('ingest-root-fixtures-repo');
+    releaseIngestLock = await acquireE2eResourceLock(
+      'ingest-root-fixtures-repo',
+      { timeoutMs: ingestLockTimeoutMs },
+    );
     test.skip(Boolean(skipReason), skipReason ?? 'prerequisites missing');
     const requiresLiveIngestPrereqs =
       testInfo.title !== overlappingRefreshRetainsVisibleRowsScenario;

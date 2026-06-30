@@ -47,7 +47,7 @@ const parsedArgs = wrapper.parseArgs(process.argv.slice(2));
 
 if (parsedArgs.helpRequested) {
   process.stdout.write(wrapper.renderHelp());
-  await wrapper.closeLog();
+  await wrapper.closeLog({ promoteLatest: false });
   process.exit(0);
 }
 

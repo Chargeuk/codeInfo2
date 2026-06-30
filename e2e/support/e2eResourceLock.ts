@@ -14,6 +14,12 @@ type LockMetadata = {
   createdAtMs: number;
 };
 
+type LockSnapshot = {
+  metadata: Partial<LockMetadata> | null;
+  metadataMissing: boolean;
+  mtimeMs: number;
+};
+
 async function writeLockMetadata(lockDir: string) {
   const metadata: LockMetadata = {
     pid: process.pid,
@@ -39,13 +45,15 @@ function isProcessAlive(pid: number) {
   }
 }
 
-async function shouldReclaimStaleLock(lockDir: string, staleAfterMs: number) {
+async function readLockSnapshot(lockDir: string): Promise<LockSnapshot | null> {
+  let metadata: Partial<LockMetadata> | null = null;
+  let metadataMissing = false;
+
   try {
     const metadataRaw = await fs.readFile(
       path.join(lockDir, LOCK_METADATA_FILE),
       'utf8',
     );
-    let metadata: Partial<LockMetadata> | null = null;
     try {
       metadata = JSON.parse(metadataRaw) as Partial<LockMetadata>;
     } catch (error) {
@@ -55,30 +63,83 @@ async function shouldReclaimStaleLock(lockDir: string, staleAfterMs: number) {
         throw error;
       }
     }
-    if (
-      typeof metadata?.pid === 'number' &&
-      Number.isFinite(metadata.pid) &&
-      metadata.pid > 0
-    ) {
-      return !isProcessAlive(metadata.pid);
-    }
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    if (code !== 'ENOENT') {
+    if (code === 'ENOENT') {
+      metadataMissing = true;
+    } else {
       throw error;
     }
   }
 
   try {
     const stats = await fs.stat(lockDir);
-    return Date.now() - stats.mtimeMs > staleAfterMs;
+    return {
+      metadata,
+      metadataMissing,
+      mtimeMs: stats.mtimeMs,
+    };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') {
-      return false;
+      return null;
     }
     throw error;
   }
+}
+
+async function describeReclaimableLock(lockDir: string, staleAfterMs: number) {
+  const snapshot = await readLockSnapshot(lockDir);
+  if (!snapshot) {
+    return null;
+  }
+
+  if (
+    typeof snapshot.metadata?.pid === 'number' &&
+    Number.isFinite(snapshot.metadata.pid) &&
+    snapshot.metadata.pid > 0 &&
+    !isProcessAlive(snapshot.metadata.pid)
+  ) {
+    return snapshot;
+  }
+
+  if (Date.now() - snapshot.mtimeMs > staleAfterMs) {
+    return snapshot;
+  }
+
+  return null;
+}
+
+function sameMetadata(
+  left: Partial<LockMetadata> | null,
+  right: Partial<LockMetadata> | null,
+) {
+  if (!left && !right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.pid === right.pid && left.createdAtMs === right.createdAtMs;
+}
+
+async function reclaimIfUnchanged(lockDir: string, snapshot: LockSnapshot) {
+  const current = await readLockSnapshot(lockDir);
+  if (!current) {
+    return false;
+  }
+
+  if (
+    current.metadataMissing !== snapshot.metadataMissing ||
+    !sameMetadata(current.metadata, snapshot.metadata) ||
+    current.mtimeMs !== snapshot.mtimeMs
+  ) {
+    return false;
+  }
+
+  await fs.rm(lockDir, { recursive: true, force: true });
+  return true;
 }
 
 export async function acquireE2eResourceLock(
@@ -107,8 +168,11 @@ export async function acquireE2eResourceLock(
         throw error;
       }
 
-      if (await shouldReclaimStaleLock(lockDir, staleAfterMs)) {
-        await fs.rm(lockDir, { recursive: true, force: true });
+      const staleSnapshot = await describeReclaimableLock(
+        lockDir,
+        staleAfterMs,
+      );
+      if (staleSnapshot && (await reclaimIfUnchanged(lockDir, staleSnapshot))) {
         continue;
       }
     }

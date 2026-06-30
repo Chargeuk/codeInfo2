@@ -36,10 +36,11 @@ Flow:
   1. npm run build:summary:client
   2. npm run build:summary:server
   3. npm run compose:build:summary
-  4. npm run test:summary:client
-  5. npm run test:summary:server:unit -- --skip-build
-  6. npm run test:summary:server:cucumber -- --skip-build
-  7. npm run test:summary:e2e -- --skip-compose-build
+  4. npm run compose:e2e:build
+  5. npm run test:summary:client
+  6. npm run test:summary:server:unit -- --skip-build
+  7. npm run test:summary:server:cucumber -- --skip-build
+  8. npm run test:summary:e2e -- --skip-compose-build
 
 Shared worker budget:
   Uses 60% of available cores as a shared worker budget.
@@ -110,6 +111,13 @@ const prebuild = await runCommandsInParallel([
     label: 'compose:build',
     cmd: 'npm',
     args: ['run', 'compose:build:summary'],
+    cwd: rootDir,
+    env: process.env,
+  },
+  {
+    label: 'compose:e2e:build',
+    cmd: 'npm',
+    args: ['run', 'compose:e2e:build'],
     cwd: rootDir,
     env: process.env,
   },

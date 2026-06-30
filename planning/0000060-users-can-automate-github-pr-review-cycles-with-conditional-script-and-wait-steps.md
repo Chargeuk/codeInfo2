@@ -2762,8 +2762,8 @@ There are no inline-resolved minor findings recorded for this review cycle today
 - Review pass `0000060-20260630T011157Z-0ca69c71` is revalidated on current `HEAD` after Task 29 completes with no unresolved findings remaining from this review-created block.
 - The repaired execution-scoped handoff-authority seam is covered by both its focused proof owners and the relevant repository-supported broad regression wrappers for the current repository.
 - This task title and `codeInfoStatus/flow-state/review-disposition-state.json` continue to name the same review cycle `0000060-rc-20260630T021700Z-fd13875d` and the same one final revalidation owner for the whole active cycle.
-- Client, browser, compose, and e2e surfaces remain non-applicable for this review-created block unless later work widens the affected seam beyond the current server runtime and script-helper ownership.
-- Shared baseline ownership remains explicit in this task: the broad proof surface for this review-created block is the repository-supported server build, broad server-unit wrapper, helper test invocation, lint, and format only, not compose, host-network, browser, or e2e startup.
+- Client, browser, and e2e surfaces remain non-applicable for this review-created block unless later work widens the affected seam beyond the current server runtime and script-helper ownership.
+- Shared baseline ownership remains explicit in this task: because the repair changes current-repository server runtime behavior, the broad proof surface for this review-created block includes the supported compose build path plus one supported main-stack smoke start and stop through `npm run compose:up`, `npm run test:summary:host-network:main`, and `npm run compose:down`, while browser and e2e proof remain non-applicable for this backend-only seam.
 
 #### Addresses Findings
 
@@ -2777,7 +2777,7 @@ There are no inline-resolved minor findings recorded for this review cycle today
 
 #### Subtasks
 
-1. [ ] In `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, patch the final-owner proof surface for review pass `0000060-20260630T011157Z-0ca69c71` so finding `1` points to Task 29's focused proof homes, the active cycle id stays `0000060-rc-20260630T021700Z-fd13875d`, compose/host-network/browser/e2e surfaces remain explicitly non-applicable for this review-created block unless later work widens the seam, and the broad wrapper ownership for server build, server-unit, helper test, lint, and format is listed as the closeout proof path.
+1. [ ] In `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, patch the final-owner proof surface for review pass `0000060-20260630T011157Z-0ca69c71` so finding `1` points to Task 29's focused proof homes, the active cycle id stays `0000060-rc-20260630T021700Z-fd13875d`, browser and e2e surfaces remain explicitly non-applicable for this review-created block unless later work widens the seam, and the broad wrapper ownership for compose build, server build, server-unit, server-cucumber, helper test, supported main-stack smoke start or stop, lint, and format is listed as the closeout proof path.
 2. [ ] In `codeInfoStatus/flow-state/review-disposition-state.json` and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, compare the stored final-owner title, review pass id, and review cycle id with this Task 30 heading; if any one of those values drifted, repair only those task-owned identifiers so the active cycle still has one matching final revalidation owner record before broad reruns begin.
 3. [ ] In `server/src/flows/service.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, `server/src/test/integration/flows.run.loop.test.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, make the smallest edits needed so the final review-created repair surface is lint-clean before the broad reruns in this task begin.
 4. [ ] In those same Task 30 final-owner files, make the smallest formatting-only edits needed so the final review-created repair surface satisfies the repository format check before the broad reruns in this task begin.
@@ -2789,18 +2789,23 @@ There are no inline-resolved minor findings recorded for this review cycle today
    Proof owners: the focused proof homes named in Task 29 plus the broad wrappers listed in this task's `Testing` section.
 2. Requirement: the current repository's broad server and script-backed proof surfaces must stay green after the handoff-authority repair.
    Implementation owners: current repository server runtime and script-helper seams touched by Task 29.
-   Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py`, `npm run lint`, and `npm run format:check`.
-3. Requirement: non-applicable baseline surfaces must stay explicitly out of scope for this review-created block unless later work widens the seam.
-   Implementation owners: Task 30 closeout wording plus `codeInfoStatus/pr-summaries/0000060-pr-summary.md`.
-   Proof owners: the Task 30 PR summary refresh and final closeout notes, which must continue to name compose, browser, host-network, and e2e surfaces as non-applicable for this specific review-created block.
+   Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py`, `npm run lint`, and `npm run format:check`.
+3. Requirement: the current repository's normal supported startup path must still remain reachable after the repaired handoff-authority seam lands, even though browser and e2e proof are not required for this backend-only review-created block.
+   Implementation owners: current repository compose wrappers, supported main-stack startup path, and Task 30 closeout wording in `codeInfoStatus/pr-summaries/0000060-pr-summary.md`.
+   Proof owners: `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:host-network:main`, and `npm run compose:down`, plus the Task 30 PR summary refresh that records browser and e2e as non-applicable for this seam.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root because this review-created block changes only current-repository server runtime seams and must keep the supported server build surface healthy.
-2. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the repaired resumed handoff-authority seam on the repository-supported broad server wrapper.
-3. [ ] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root because this final task must also revalidate the repaired script-helper authority seam on its broad repository-supported proof home.
-4. [ ] Run `npm run lint` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+1. [ ] Run `npm run compose:build:summary` from the repository root because this final task must keep the supported main-stack Docker build path healthy for the repaired current-repository server runtime seam.
+2. [ ] Run `npm run build:summary:server` from the repository root because this review-created block changes current-repository server runtime seams and must keep the supported server build surface healthy.
+3. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the repaired resumed handoff-authority seam on the repository-supported broad server wrapper.
+4. [ ] Run full `npm run test:summary:server:cucumber` from the repository root because this final task must keep the repository's primary backend integration-test path green after the repaired handoff-authority seam lands.
+5. [ ] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root because this final task must also revalidate the repaired script-helper authority seam on its broad repository-supported proof home.
+6. [ ] Run `npm run compose:up` from the repository root because this backend runtime repair must still preserve the normal supported main-stack startup path after the broad automated proof completes.
+7. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because the repository-supported automated smoke owner for the default main-stack path is the host-network probe wrapper rather than a raw healthcheck curl.
+8. [ ] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final task must leave that baseline stopped again after automated smoke proof.
+9. [ ] Run `npm run lint` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+10. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 

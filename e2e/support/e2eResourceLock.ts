@@ -94,16 +94,19 @@ async function describeReclaimableLock(lockDir: string, staleAfterMs: number) {
     return null;
   }
 
-  if (
+  const hasTrackedPid =
     typeof snapshot.metadata?.pid === 'number' &&
     Number.isFinite(snapshot.metadata.pid) &&
-    snapshot.metadata.pid > 0 &&
-    !isProcessAlive(snapshot.metadata.pid)
-  ) {
-    return snapshot;
+    snapshot.metadata.pid > 0;
+
+  if (hasTrackedPid) {
+    return isProcessAlive(snapshot.metadata.pid) ? null : snapshot;
   }
 
-  if (Date.now() - snapshot.mtimeMs > staleAfterMs) {
+  if (
+    (snapshot.metadataMissing || !hasTrackedPid) &&
+    Date.now() - snapshot.mtimeMs > staleAfterMs
+  ) {
     return snapshot;
   }
 

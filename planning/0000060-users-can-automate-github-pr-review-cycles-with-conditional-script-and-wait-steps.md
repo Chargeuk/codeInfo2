@@ -2752,7 +2752,7 @@ This task must preserve Story 60's approved resumed GitHub review behavior while
 - Repository Name: `Current Repository`
 - Affected Repositories: `Current Repository`
 - Task Dependencies: `Task 29`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2828,3 +2828,4 @@ There are no inline-resolved minor findings recorded for this review cycle today
 - `npm run compose:up` brought the supported main stack up cleanly on the default compose path; server and client containers both reached healthy started state, so the backend-only repair did not break baseline startup.
 - `npm run test:summary:host-network:main` passed on the live main stack with all expected MCP and web surfaces reachable, and the seeded mixed-shape bridge probe was observed and cleaned as expected.
 - `npm run compose:down` removed the supported main stack cleanly after smoke proof, so Task 30 leaves the default compose baseline stopped again after final automated revalidation.
+- Automated-proof audit re-read the bound Task 30 section, confirmed the final-owner PR summary refresh plus all ten repository-supported broad proof steps matched current `HEAD` and commit `96257069`, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 30`, and closed the task because both the implementation-prep work and the full automated revalidation were already honestly complete on disk.

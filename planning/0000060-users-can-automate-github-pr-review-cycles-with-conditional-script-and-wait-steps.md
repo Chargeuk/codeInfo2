@@ -2803,14 +2803,14 @@ There are no inline-resolved minor findings recorded for this review cycle today
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` from the repository root because this final task must keep the supported main-stack Docker build path healthy for the repaired current-repository server runtime seam.
-2. [ ] Run `npm run build:summary:server` from the repository root because this review-created block changes current-repository server runtime seams and must keep the supported server build surface healthy.
-3. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the repaired resumed handoff-authority seam on the repository-supported broad server wrapper.
-4. [ ] Run full `npm run test:summary:server:cucumber` from the repository root because this final task must keep the repository's primary backend integration-test path green after the repaired handoff-authority seam lands.
-5. [ ] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root because this final task must also revalidate the repaired script-helper authority seam on its broad repository-supported proof home.
-6. [ ] Run `npm run compose:up` from the repository root because this backend runtime repair must still preserve the normal supported main-stack startup path after the broad automated proof completes.
-7. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because the repository-supported automated smoke owner for the default main-stack path is the host-network probe wrapper rather than a raw healthcheck curl.
-8. [ ] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final task must leave that baseline stopped again after automated smoke proof.
+1. [x] Run `npm run compose:build:summary` from the repository root because this final task must keep the supported main-stack Docker build path healthy for the repaired current-repository server runtime seam.
+2. [x] Run `npm run build:summary:server` from the repository root because this review-created block changes current-repository server runtime seams and must keep the supported server build surface healthy.
+3. [x] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the repaired resumed handoff-authority seam on the repository-supported broad server wrapper.
+4. [x] Run full `npm run test:summary:server:cucumber` from the repository root because this final task must keep the repository's primary backend integration-test path green after the repaired handoff-authority seam lands.
+5. [x] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root because this final task must also revalidate the repaired script-helper authority seam on its broad repository-supported proof home.
+6. [x] Run `npm run compose:up` from the repository root because this backend runtime repair must still preserve the normal supported main-stack startup path after the broad automated proof completes.
+7. [x] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because the repository-supported automated smoke owner for the default main-stack path is the host-network probe wrapper rather than a raw healthcheck curl.
+8. [x] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final task must leave that baseline stopped again after automated smoke proof.
 9. [x] Run `npm run lint` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
 10. [x] Run `npm run format:check` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
@@ -2820,3 +2820,11 @@ There are no inline-resolved minor findings recorded for this review cycle today
 - Compared the Task 30 title, review pass id, and review cycle id against `codeInfoStatus/flow-state/review-disposition-state.json`; no repair was needed there because the stored final-owner record already matched the active Task 30 identifiers, so only the PR summary drift had to be corrected.
 - Ran `npm run lint` across the repository to close the Task 30 lint-prep subtask; the final review-created repair surface was already lint-clean, so no source edits beyond the PR summary refresh were required before broad reruns.
 - Ran `npm run format:check` across the repository to close the Task 30 format-prep subtask; Prettier reported the final repair surface already matched repository formatting, so no additional formatting-only edits were needed.
+- `npm run compose:build:summary` passed cleanly for the supported main-stack Docker build path during final revalidation, so the repaired server-runtime seam still packages without requiring any follow-up build fixes.
+- `npm run build:summary:server` passed cleanly on current `HEAD`, confirming the repaired server-runtime seam still clears the repository-supported server build wrapper before broader reruns.
+- Full `npm run test:summary:server:unit` passed with `2535/2535`, so the repaired resumed handoff-authority seam and the broader repository-supported server-unit wrapper both stayed green on current `HEAD` without needing any new code repair.
+- Full `npm run test:summary:server:cucumber` passed with `133/133`, so the primary backend integration-test wrapper remained green after the handoff-authority repair landed.
+- `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` passed with `Ran 7 tests`, confirming the repaired script-helper authority seam stayed green on its repository-supported proof home during final revalidation.
+- `npm run compose:up` brought the supported main stack up cleanly on the default compose path; server and client containers both reached healthy started state, so the backend-only repair did not break baseline startup.
+- `npm run test:summary:host-network:main` passed on the live main stack with all expected MCP and web surfaces reachable, and the seeded mixed-shape bridge probe was observed and cleaned as expected.
+- `npm run compose:down` removed the supported main stack cleanly after smoke proof, so Task 30 leaves the default compose baseline stopped again after final automated revalidation.

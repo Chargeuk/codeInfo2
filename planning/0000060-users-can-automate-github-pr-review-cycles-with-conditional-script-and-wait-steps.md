@@ -2784,10 +2784,10 @@ There are no inline-resolved minor findings recorded for this review cycle today
 
 #### Subtasks
 
-1. [ ] In `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, patch the final-owner proof surface for review pass `0000060-20260630T011157Z-0ca69c71` so finding `1` points to Task 29's focused proof homes, the active cycle id stays `0000060-rc-20260630T021700Z-fd13875d`, browser and e2e surfaces remain explicitly non-applicable for this review-created block unless later work widens the seam, and the broad wrapper ownership for compose build, server build, server-unit, server-cucumber, helper test, supported main-stack smoke start or stop, lint, and format is listed as the closeout proof path.
-2. [ ] In `codeInfoStatus/flow-state/review-disposition-state.json` and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, compare the stored final-owner title, review pass id, and review cycle id with this Task 30 heading; if any one of those values drifted, repair only those task-owned identifiers so the active cycle still has one matching final revalidation owner record before broad reruns begin.
-3. [ ] In `server/src/flows/service.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, `server/src/test/integration/flows.run.loop.test.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, make the smallest edits needed so the final review-created repair surface is lint-clean before the broad reruns in this task begin.
-4. [ ] In those same Task 30 final-owner files, make the smallest formatting-only edits needed so the final review-created repair surface satisfies the repository format check before the broad reruns in this task begin.
+1. [x] In `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, patch the final-owner proof surface for review pass `0000060-20260630T011157Z-0ca69c71` so finding `1` points to Task 29's focused proof homes, the active cycle id stays `0000060-rc-20260630T021700Z-fd13875d`, browser and e2e surfaces remain explicitly non-applicable for this review-created block unless later work widens the seam, and the broad wrapper ownership for compose build, server build, server-unit, server-cucumber, helper test, supported main-stack smoke start or stop, lint, and format is listed as the closeout proof path.
+2. [x] In `codeInfoStatus/flow-state/review-disposition-state.json` and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, compare the stored final-owner title, review pass id, and review cycle id with this Task 30 heading; if any one of those values drifted, repair only those task-owned identifiers so the active cycle still has one matching final revalidation owner record before broad reruns begin.
+3. [x] In `server/src/flows/service.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, `server/src/test/integration/flows.run.loop.test.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, make the smallest edits needed so the final review-created repair surface is lint-clean before the broad reruns in this task begin.
+4. [x] In those same Task 30 final-owner files, make the smallest formatting-only edits needed so the final review-created repair surface satisfies the repository format check before the broad reruns in this task begin.
 
 #### Proof Matrix
 
@@ -2811,9 +2811,12 @@ There are no inline-resolved minor findings recorded for this review cycle today
 6. [ ] Run `npm run compose:up` from the repository root because this backend runtime repair must still preserve the normal supported main-stack startup path after the broad automated proof completes.
 7. [ ] Run `npm run test:summary:host-network:main` from the repository root after `npm run compose:up` because the repository-supported automated smoke owner for the default main-stack path is the host-network probe wrapper rather than a raw healthcheck curl.
 8. [ ] Run `npm run compose:down` from the repository root because the previous step started the supported main stack and this final task must leave that baseline stopped again after automated smoke proof.
-9. [ ] Run `npm run lint` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
-10. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+9. [x] Run `npm run lint` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+10. [x] Run `npm run format:check` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
-- Not started.
+- Refreshed `codeInfoStatus/pr-summaries/0000060-pr-summary.md` from the stale Task 28 cycle into the active Task 30 final-owner handoff so finding `1`, the focused Task 29 proof homes, the backend-only non-applicable browser/e2e scope, and the broad closeout wrapper ownership all now match review pass `0000060-20260630T011157Z-0ca69c71`.
+- Compared the Task 30 title, review pass id, and review cycle id against `codeInfoStatus/flow-state/review-disposition-state.json`; no repair was needed there because the stored final-owner record already matched the active Task 30 identifiers, so only the PR summary drift had to be corrected.
+- Ran `npm run lint` across the repository to close the Task 30 lint-prep subtask; the final review-created repair surface was already lint-clean, so no source edits beyond the PR summary refresh were required before broad reruns.
+- Ran `npm run format:check` across the repository to close the Task 30 format-prep subtask; Prettier reported the final repair surface already matched repository formatting, so no additional formatting-only edits were needed.

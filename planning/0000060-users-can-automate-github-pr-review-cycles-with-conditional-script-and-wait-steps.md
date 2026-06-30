@@ -2752,7 +2752,7 @@ This task must preserve Story 60's approved resumed GitHub review behavior while
 - Repository Name: `Current Repository`
 - Affected Repositories: `Current Repository`
 - Task Dependencies: `Task 29`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

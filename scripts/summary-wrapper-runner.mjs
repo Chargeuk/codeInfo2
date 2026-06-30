@@ -127,21 +127,18 @@ const parseDeclaredArgs = (argv, flagDefinitions) => {
 
 export const resolveWritableYarnEnv = () => {
   const homeDir = process.env.HOME;
-  const configHome = process.env.XDG_CONFIG_HOME || '/tmp';
+  const configHome =
+    process.env.XDG_CONFIG_HOME ||
+    (homeDir ? path.join(homeDir, '.config') : '/tmp');
 
-  if (homeDir) {
-    try {
-      accessSync(
-        path.join(homeDir, '.config'),
-        constants.R_OK | constants.W_OK,
-      );
-      return {
-        ...process.env,
-        XDG_CONFIG_HOME: configHome,
-      };
-    } catch {
-      // Fall back to /tmp when the container-local HOME config path is unreadable.
-    }
+  try {
+    accessSync(configHome, constants.R_OK | constants.W_OK);
+    return {
+      ...process.env,
+      XDG_CONFIG_HOME: configHome,
+    };
+  } catch {
+    // Fall back to /tmp when the preferred config path is unreadable.
   }
 
   return {
@@ -192,13 +189,15 @@ export const createSummaryWrapperRun = ({
     }
   };
 
-  const closeLog = async () => {
+  const closeLog = async ({ promoteLatest = true } = {}) => {
     if (closed) {
       return;
     }
     closed = true;
     await endWritable(logStream);
-    await refreshLatestLog();
+    if (promoteLatest) {
+      await refreshLatestLog();
+    }
   };
 
   const appendLogSection = (label, lines = []) => {
@@ -258,9 +257,9 @@ export const createSummaryWrapperRun = ({
     return `${lines.join('\n')}\n`;
   };
 
-  const failCli = async (reason) => {
+  const failCli = async (reason, { promoteLatest = true } = {}) => {
     appendLogSection('WRAPPER CLI FAILURE', reason);
-    await closeLog();
+    await closeLog({ promoteLatest });
     protocol.emitFinal({
       status: 'failed',
       reason: 'wrapper_cli_failure',

@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import http, { type Server } from 'node:http';
 import os from 'node:os';
@@ -146,7 +147,7 @@ When('I start a chat run and subscribe to its WebSocket stream', async () => {
         )?.content ?? 'Hello',
       )
     : 'Hello';
-  const conversationId = 'chat-visibility-fixture';
+  const conversationId = `chat-visibility-fixture-${randomUUID()}`;
 
   ws = await connectWs({ baseUrl });
   sendJson(ws, {

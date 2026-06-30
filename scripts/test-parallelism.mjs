@@ -102,6 +102,9 @@ export const allocateWeightedParallelBudget = ({
     remaining -= 1;
   }
 
+  // Keep at least one worker per configured harness even on tiny machines.
+  // This can intentionally push the effective total above the weighted budget,
+  // and that tradeoff is part of the agreed design for these wrappers.
   const workerCounts = Object.fromEntries(
     [
       ...provisional.map((item) => [item.label, Math.max(1, item.base)]),

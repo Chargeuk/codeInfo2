@@ -25,25 +25,34 @@ test('Logs page shows a streamed sample log through the utility shell', async ({
       response.status() === 202,
   );
   await page.getByRole('button', { name: 'Send sample log' }).click();
-  await postResponsePromise;
+  const postResponse = await postResponsePromise;
+  const postBody = (await postResponse.json()) as { sequence?: number };
+  expect(postBody.sequence).toEqual(expect.any(Number));
+  const newLogSequence = postBody.sequence as number;
 
   await expect
     .poll(
       async () => {
         const response = await page.request.get(
-          `${apiBase}/logs?text=${encodeURIComponent('sample log')}&source=client`,
+          `${apiBase}/logs?text=${encodeURIComponent('sample log')}&source=client&sinceSequence=${newLogSequence - 1}`,
         );
         if (!response.ok()) {
           return false;
         }
-        const body = (await response.json()) as { items?: Array<{ message?: string }> };
+        const body = (await response.json()) as {
+          items?: Array<{ message?: string; sequence?: number }>;
+        };
         return (
-          body.items?.some((entry) => entry.message === 'sample log') ?? false
+          body.items?.some(
+            (entry) =>
+              entry.message === 'sample log' &&
+              entry.sequence === newLogSequence,
+          ) ?? false
         );
       },
       {
         timeout: 20_000,
-        message: 'waiting for sample log to reach the logs API',
+        message: 'waiting for this test run sample log to reach the logs API',
       },
     )
     .toBe(true);

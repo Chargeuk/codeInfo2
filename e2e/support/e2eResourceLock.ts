@@ -45,9 +45,18 @@ async function shouldReclaimStaleLock(lockDir: string, staleAfterMs: number) {
       path.join(lockDir, LOCK_METADATA_FILE),
       'utf8',
     );
-    const metadata = JSON.parse(metadataRaw) as Partial<LockMetadata>;
+    let metadata: Partial<LockMetadata> | null = null;
+    try {
+      metadata = JSON.parse(metadataRaw) as Partial<LockMetadata>;
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        metadata = null;
+      } else {
+        throw error;
+      }
+    }
     if (
-      typeof metadata.pid === 'number' &&
+      typeof metadata?.pid === 'number' &&
       Number.isFinite(metadata.pid) &&
       metadata.pid > 0
     ) {
@@ -60,8 +69,16 @@ async function shouldReclaimStaleLock(lockDir: string, staleAfterMs: number) {
     }
   }
 
-  const stats = await fs.stat(lockDir);
-  return Date.now() - stats.mtimeMs > staleAfterMs;
+  try {
+    const stats = await fs.stat(lockDir);
+    return Date.now() - stats.mtimeMs > staleAfterMs;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
 }
 
 export async function acquireE2eResourceLock(

@@ -140,7 +140,9 @@ async function connectScenarioMongo() {
       return;
     } catch (error) {
       lastError = error;
-      if (attempt >= maxAttempts || !isRetryableMongoBootstrapError(error)) {
+      const retryable = isRetryableMongoBootstrapError(error);
+      if (attempt >= maxAttempts || !retryable) {
+        await resetMongoContainerState(`failed-${attempt}`);
         throw error;
       }
 

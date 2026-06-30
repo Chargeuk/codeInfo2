@@ -58,70 +58,90 @@ const createDummyClientFactory = () => () =>
   }) as unknown as LMStudioClient;
 
 async function startServerForScenario(scenarioName: string) {
-  env.set('CODEINFO_FAKE_COPILOT_SCENARIO', scenarioName);
-  env.set('CODEX_HOME', undefined);
-  env.set('CODEINFO_CODEX_HOME', undefined);
-  env.set('CODEINFO_COPILOT_HOME', undefined);
-  env.set('CODEINFO_LMSTUDIO_HOME', undefined);
-  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
-  env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
-  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://127.0.0.1:9');
-  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
-  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
-  resetStore();
-  memoryConversations.clear();
-  memoryTurns.clear();
+  let httpServer: http.Server | null = null;
+  let wsHandle: ReturnType<typeof attachWs> | null = null;
 
-  const seam = createFakeCopilotRuntimeSeamFromEnv(process.env);
-  assert.ok(seam, 'expected fake Copilot runtime seam');
+  try {
+    env.set('CODEINFO_FAKE_COPILOT_SCENARIO', scenarioName);
+    env.set('CODEX_HOME', undefined);
+    env.set('CODEINFO_CODEX_HOME', undefined);
+    env.set('CODEINFO_COPILOT_HOME', undefined);
+    env.set('CODEINFO_LMSTUDIO_HOME', undefined);
+    env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
+    env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
+    env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://127.0.0.1:9');
+    env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
+    env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
+    resetStore();
+    memoryConversations.clear();
+    memoryTurns.clear();
 
-  const app = express();
-  app.use(express.json());
-  const clientFactory = createDummyClientFactory();
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory,
-      copilotLifecycleFactory: seam.createCopilotLifecycle,
-    }),
-  );
-  app.use(
-    '/chat',
-    createChatProvidersRouter({
-      clientFactory,
-      copilotRuntimeFactory: seam.createCopilotReadinessRuntime,
-    }),
-  );
-  app.use(
-    '/chat',
-    createChatModelsRouter({
-      clientFactory,
-      copilotRuntimeFactory: seam.createCopilotReadinessRuntime,
-    }),
-  );
-  app.use(
-    '/copilot',
-    createCopilotDeviceAuthRouter(seam.createDeviceAuthRouterDeps()),
-  );
+    const seam = createFakeCopilotRuntimeSeamFromEnv(process.env);
+    assert.ok(seam, 'expected fake Copilot runtime seam');
 
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
+    const app = express();
+    app.use(express.json());
+    const clientFactory = createDummyClientFactory();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory,
+        copilotLifecycleFactory: seam.createCopilotLifecycle,
+      }),
+    );
+    app.use(
+      '/chat',
+      createChatProvidersRouter({
+        clientFactory,
+        copilotRuntimeFactory: seam.createCopilotReadinessRuntime,
+      }),
+    );
+    app.use(
+      '/chat',
+      createChatModelsRouter({
+        clientFactory,
+        copilotRuntimeFactory: seam.createCopilotReadinessRuntime,
+      }),
+    );
+    app.use(
+      '/copilot',
+      createCopilotDeviceAuthRouter(seam.createDeviceAuthRouterDeps()),
+    );
 
-  return {
-    baseUrl: `http://127.0.0.1:${address.port}`,
-    httpServer,
-    wsHandle,
-    stop: async () => {
+    httpServer = http.createServer(app);
+    wsHandle = attachWs({ httpServer });
+    await new Promise<void>((resolve) => httpServer?.listen(0, resolve));
+    const address = httpServer.address();
+    assert(address && typeof address === 'object');
+
+    return {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      httpServer,
+      wsHandle,
+      stop: async () => {
+        await wsHandle?.close();
+        if (httpServer?.listening) {
+          await new Promise<void>((resolve) =>
+            httpServer?.close(() => resolve()),
+          );
+        }
+        memoryConversations.clear();
+        memoryTurns.clear();
+        env.restore();
+      },
+    };
+  } catch (error) {
+    if (wsHandle) {
       await wsHandle.close();
-      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-      memoryConversations.clear();
-      memoryTurns.clear();
-      env.restore();
-    },
-  };
+    }
+    if (httpServer?.listening) {
+      await new Promise<void>((resolve) => httpServer?.close(() => resolve()));
+    }
+    memoryConversations.clear();
+    memoryTurns.clear();
+    env.restore();
+    throw error;
+  }
 }
 
 test('compose-style env seam activates the fake Copilot happy path through normal routers', async () => {

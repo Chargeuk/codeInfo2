@@ -1,16 +1,26 @@
 import { availableParallelism } from 'node:os';
 import { defineConfig } from '@playwright/test';
 
-const resolvePlaywrightWorkers = () => {
-  const explicitWorkers = Number.parseInt(
-    process.env.PLAYWRIGHT_WORKERS ?? '',
-    10,
-  );
-  if (Number.isFinite(explicitWorkers) && explicitWorkers >= 1) {
-    return explicitWorkers;
+const parsePositiveInteger = (value: string | undefined) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
   }
 
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const resolvePlaywrightWorkers = () => {
   const availableCores = Math.max(1, availableParallelism());
+  const explicitWorkers = parsePositiveInteger(process.env.PLAYWRIGHT_WORKERS);
+  if (explicitWorkers !== null) {
+    return Math.min(availableCores, explicitWorkers);
+  }
+
   const requestedWorkers = Math.max(2, Math.floor(availableCores / 2));
   return Math.min(availableCores, requestedWorkers);
 };

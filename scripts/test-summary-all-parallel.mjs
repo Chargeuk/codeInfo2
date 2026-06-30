@@ -36,7 +36,7 @@ Flow:
   1. npm run build:summary:client
   2. npm run build:summary:server
   3. npm run compose:build:summary
-  4. npm run compose:e2e:build
+  4. npm run compose:e2e:build:summary
   5. npm run test:summary:client
   6. npm run test:summary:server:unit -- --skip-build
   7. npm run test:summary:server:cucumber -- --skip-build
@@ -117,7 +117,7 @@ const prebuild = await runCommandsInParallel([
   {
     label: 'compose:e2e:build',
     cmd: 'npm',
-    args: ['run', 'compose:e2e:build'],
+    args: ['run', 'compose:e2e:build:summary'],
     cwd: rootDir,
     env: process.env,
   },

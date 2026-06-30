@@ -70,13 +70,15 @@ const parsedArgs = wrapper.parseArgs(args);
 
 if (parsedArgs.helpRequested) {
   process.stdout.write(wrapper.renderHelp());
-  await wrapper.closeLog();
+  await wrapper.closeLog({ promoteLatest: false });
   process.exit(0);
 }
 
 if (parsedArgs.error) {
   console.error(parsedArgs.error);
-  process.exit(await wrapper.failCli(parsedArgs.error));
+  process.exit(
+    await wrapper.failCli(parsedArgs.error, { promoteLatest: false }),
+  );
 }
 
 wrapper.startHeartbeat();

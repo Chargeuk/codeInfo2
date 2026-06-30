@@ -234,7 +234,7 @@ Optional guidance for the manual testing agent only.
 
 The final task must validate the full story rather than only isolated task-level behavior. It should prove the Acceptance Criteria, important Description requirements, and relevant regression surfaces using the repository's wrapper-first workflow and any final runtime checks that the story actually needs.
 When the story includes `## Story Manual Testing Guidance`, the final task must ensure its later manual-proof scope covers the applicable story-level guidance honestly.
-When creating a new final task for this repository, include `npm run test:summary:all:parallel` in the `Testing` section as the required automated all-tests step.
+When creating a new final task for this repository, treat full-suite automated proof as mandatory and include `npm run test:summary:all:parallel` in the `Testing` section as the required automated all-tests step.
 
 #### Task Exit Criteria
 
@@ -256,7 +256,7 @@ When creating a new final task for this repository, include `npm run test:summar
 #### Testing
 
 1. [ ] Run the full relevant primary Docker or Compose build wrappers for every affected project or repository when those are the repository's primary build mechanism, otherwise use the highest-level safe build commands.
-2. [ ] Run the repository's required all-tests wrapper when the final task must prove the full automated suite. For this repository, write the exact command `npm run test:summary:all:parallel` unless repository instructions have changed.
+2. [ ] Run the repository's required all-tests wrapper. For this repository, write the exact command `npm run test:summary:all:parallel` unless repository instructions have changed.
 3. [ ] Start the full runnable system if final story validation requires runtime proof.
 4. [ ] Stop any system or services started for automated final validation.
 5. [ ] Run the repository-supported lint command for the final validation surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.

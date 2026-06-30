@@ -4952,6 +4952,29 @@ async function runFlowUnlocked(params: {
         ...params.resumeState.wait.githubReviewContext,
       }
     : undefined;
+  const normalizeActiveGitHubReviewScratchAuthority = () => {
+    if (
+      !activeGitHubReviewContext?.executionId ||
+      !activeGitHubReviewContext.storyNumber ||
+      !params.repositoryContext.workingRepositoryPath
+    ) {
+      return;
+    }
+    const canonicalScratchPaths = resolveCanonicalGitHubReviewScratchPaths({
+      workingRepositoryRoot: params.repositoryContext.workingRepositoryPath,
+      storyNumber: activeGitHubReviewContext.storyNumber,
+      executionId: activeGitHubReviewContext.executionId,
+    });
+    if (canonicalScratchPaths.kind !== 'ok') {
+      return;
+    }
+    activeGitHubReviewContext = {
+      ...activeGitHubReviewContext,
+      selectorPath: canonicalScratchPaths.value.selectorPath,
+      handoffPath: canonicalScratchPaths.value.handoffPath,
+    };
+  };
+  normalizeActiveGitHubReviewScratchAuthority();
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
@@ -5601,6 +5624,7 @@ async function runFlowUnlocked(params: {
         return { status: 'failed' };
       }
 
+      normalizeActiveGitHubReviewScratchAuthority();
       const evaluated = await _evaluateScriptDecision({
         kind: paramsForDecision.kind,
         scriptPath: paramsForDecision.decisionInput,

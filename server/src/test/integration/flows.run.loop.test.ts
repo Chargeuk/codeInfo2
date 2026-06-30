@@ -1281,6 +1281,187 @@ test('github review runtime resumes through repaired wait and review handoff sta
   }
 });
 
+test('github review runtime re-derives canonical execution-scoped handoff authority before helper launch reads disk', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-canonical-resume-authority',
+          includeWait: true,
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    'Canonical resumed handoff authority stayed on the findings branch.',
+                  ],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    'Foreign resumed handoff path should stay excluded before helper reads disk.',
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-canonical-resume-authority/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+            retryOwnershipId: 'canonical-review-resume-retry',
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: { stepPath?: number[] } };
+          };
+          return (
+            Array.isArray(flowState.flow?.wait?.stepPath) &&
+            flowState.flow?.wait?.stepPath?.[0] === 0
+          );
+        }, 4000, 'Timed out waiting for persisted canonical review wait state');
+
+        const foreignHandoffDir = path.join(
+          workingRepo,
+          'codeInfoTmp/reviews/foreign-handoff-dir',
+        );
+        const foreignSelectorDir = path.join(
+          workingRepo,
+          'codeInfoTmp/reviews/foreign-selector-dir',
+        );
+        await fs.mkdir(foreignHandoffDir, { recursive: true });
+        await fs.mkdir(foreignSelectorDir, { recursive: true });
+
+        const flowFlags = (memoryConversations.get(conversationId)?.flags ??
+          {}) as {
+          flow?: {
+            executionId?: string;
+            wait?: {
+              githubReviewContext?: {
+                executionId?: string;
+                prNumber?: number;
+                storyNumber?: string;
+                branchName?: string;
+                selectorPath?: string;
+                handoffPath?: string;
+              };
+            };
+          };
+        };
+        assert.ok(flowFlags.flow?.executionId);
+        await writeGitHubReviewHandoff({
+          repoRoot: workingRepo,
+          executionId: flowFlags.flow!.executionId,
+          reviewCount: 1,
+          commentCount: 1,
+          legacyReviewCount: 0,
+          legacyCommentCount: 0,
+        });
+        flowFlags.flow!.wait!.githubReviewContext = {
+          executionId: flowFlags.flow!.executionId,
+          storyNumber: '0000060',
+          branchName: 'feature/0000060-demo',
+          selectorPath: foreignSelectorDir,
+          handoffPath: foreignHandoffDir,
+        };
+        memoryConversations.get(conversationId)!.flags = flowFlags;
+
+        const resumed = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-canonical-resume-authority/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: workingRepo,
+            resumeStepPath: [0],
+          });
+        assert.equal(resumed.status, 202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes(
+                  'Canonical resumed handoff authority stayed on the findings branch.',
+                ),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Canonical resumed handoff authority stayed on the findings branch.',
+              ),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Foreign resumed handoff path should stay excluded before helper reads disk.',
+              ),
+          ).length,
+          0,
+        );
+        assert.equal(
+          turns.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'failed' &&
+              turn.content.includes(
+                'canonical execution-scoped ownership contract',
+              ),
+          ),
+          false,
+        );
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: unknown };
+          };
+          return flowState.flow?.wait === undefined;
+        }, 4000, 'Timed out waiting for canonical resumed review wait state to clear');
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
 test('github review runtime keeps the newer execution selector authoritative after an older run later attempts to reclaim scratch ownership', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {

@@ -16,16 +16,51 @@ def _execution_file_token(execution_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", execution_id)
 
 
+def _resolve_expected_handoff_path(
+    repo_root: Path, *, story_number: str, execution_id: str
+) -> Path:
+    return (
+        repo_root
+        / "codeInfoTmp/reviews"
+        / f"{story_number}-github-review-{_execution_file_token(execution_id)}-current.json"
+    )
+
+
+def _resolve_repo_relative_path(repo_root: Path, raw_path: str) -> Path:
+    candidate = Path(raw_path)
+    if not candidate.is_absolute():
+        candidate = repo_root / candidate
+    return candidate
+
+
+def _require_canonical_handoff_path(
+    repo_root: Path, *, story_number: str, execution_id: str, handoff_path_raw: str
+) -> Path:
+    handoff_path = _resolve_repo_relative_path(repo_root, handoff_path_raw)
+    expected_handoff_path = _resolve_expected_handoff_path(
+        repo_root, story_number=story_number, execution_id=execution_id
+    )
+    if handoff_path.resolve(strict=False) != expected_handoff_path.resolve(strict=False):
+        raise RuntimeError(
+            "GitHub review handoff path does not match the supported canonical execution-scoped ownership contract"
+        )
+    return handoff_path
+
+
 def _load_execution_scoped_handoff(
     repo_root: Path,
     *,
+    story_number: str,
     execution_id: str,
     handoff_path_raw: str,
     expected_pr_number_raw: str,
 ) -> dict:
-    handoff_path = Path(handoff_path_raw)
-    if not handoff_path.is_absolute():
-        handoff_path = repo_root / handoff_path
+    handoff_path = _require_canonical_handoff_path(
+        repo_root,
+        story_number=story_number,
+        execution_id=execution_id,
+        handoff_path_raw=handoff_path_raw,
+    )
     handoff = _read_json(handoff_path)
     if str(handoff.get("handoff_kind", "")).strip() != "github-review-handoff-v1":
         raise RuntimeError(
@@ -65,6 +100,7 @@ def main() -> int:
     if persisted_execution_id.strip() and persisted_handoff_path.strip():
         handoff = _load_execution_scoped_handoff(
             repo_root,
+            story_number=story_number,
             execution_id=persisted_execution_id.strip(),
             handoff_path_raw=persisted_handoff_path.strip(),
             expected_pr_number_raw=persisted_pr_number,
@@ -85,16 +121,18 @@ def main() -> int:
             )
 
         handoff_path = Path(handoff_path_raw)
-        expected_handoff_path = (
-            reviews_dir
-            / f"{story_number}-github-review-{_execution_file_token(execution_id)}-current.json"
+        expected_handoff_path = _resolve_expected_handoff_path(
+            repo_root, story_number=story_number, execution_id=execution_id
         )
-        if handoff_path.resolve() != expected_handoff_path.resolve():
+        if _resolve_repo_relative_path(repo_root, handoff_path_raw).resolve(
+            strict=False
+        ) != expected_handoff_path.resolve(strict=False):
             raise RuntimeError(
                 "GitHub review selector handoff_path does not match the supported execution-scoped ownership contract"
             )
         handoff = _load_execution_scoped_handoff(
             repo_root,
+            story_number=story_number,
             execution_id=execution_id,
             handoff_path_raw=handoff_path_raw,
             expected_pr_number_raw="",

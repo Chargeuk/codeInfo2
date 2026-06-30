@@ -229,6 +229,80 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(json.loads(result.stdout), {"answer": "yes"})
 
+    def test_env_provided_foreign_handoff_path_is_rejected_before_any_json_read(
+        self,
+    ) -> None:
+        repo = self.make_repo()
+        self.write_selector_and_handoff(
+            repo, execution_id="exec-1", review_count=1, comment_count=0
+        )
+        foreign_dir = repo / "foreign-handoff"
+        foreign_dir.mkdir()
+
+        result = self.run_helper(
+            repo,
+            env_overrides={
+                "CODEINFO_GITHUB_REVIEW_EXECUTION_ID": "exec-1",
+                "CODEINFO_GITHUB_REVIEW_PR_NUMBER": "45",
+                "CODEINFO_GITHUB_REVIEW_HANDOFF_PATH": str(foreign_dir),
+            },
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("canonical execution-scoped ownership contract", result.stderr)
+        self.assertNotIn("Is a directory", result.stderr)
+
+    def test_env_provided_generic_current_review_fallback_remains_rejected(
+        self,
+    ) -> None:
+        repo = self.make_repo()
+        self.write_selector_and_handoff(
+            repo, execution_id="exec-1", review_count=0, comment_count=0
+        )
+        generic_current_review = repo / "codeInfoTmp/reviews/0000060-current-review.json"
+        generic_current_review.write_text(
+            json.dumps(
+                {
+                    "filtered_review_count": 3,
+                    "filtered_review_comment_count": 1,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_helper(
+            repo,
+            env_overrides={
+                "CODEINFO_GITHUB_REVIEW_EXECUTION_ID": "exec-1",
+                "CODEINFO_GITHUB_REVIEW_HANDOFF_PATH": str(generic_current_review),
+            },
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("canonical execution-scoped ownership contract", result.stderr)
+
+    def test_canonical_malformed_handoff_stays_on_read_only_parse_failure_path(
+        self,
+    ) -> None:
+        repo = self.make_repo()
+        handoff_path = (
+            repo / "codeInfoTmp/reviews/0000060-github-review-exec-1-current.json"
+        )
+        handoff_path.write_text("{not-json\n", encoding="utf-8")
+
+        result = self.run_helper(
+            repo,
+            env_overrides={
+                "CODEINFO_GITHUB_REVIEW_EXECUTION_ID": "exec-1",
+                "CODEINFO_GITHUB_REVIEW_HANDOFF_PATH": str(handoff_path),
+            },
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Expecting property name enclosed in double quotes", result.stderr)
+        self.assertNotIn("ownership contract", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

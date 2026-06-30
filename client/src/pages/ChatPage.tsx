@@ -1828,9 +1828,9 @@ export default function ChatPage() {
                 ? 'failed'
                 : turn.status === 'warning'
                   ? 'warning'
-                : turn.status === 'stopped'
-                  ? 'stopped'
-                  : 'complete',
+                  : turn.status === 'stopped'
+                    ? 'stopped'
+                    : 'complete',
             usage: turn.usage,
             timing: turn.timing,
             createdAt: turn.createdAt,

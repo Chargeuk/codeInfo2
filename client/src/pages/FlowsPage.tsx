@@ -1033,9 +1033,9 @@ export default function FlowsPage() {
                 ? 'failed'
                 : turn.status === 'warning'
                   ? 'warning'
-                : turn.status === 'stopped'
-                  ? 'stopped'
-                  : 'complete',
+                  : turn.status === 'stopped'
+                    ? 'stopped'
+                    : 'complete',
             command: turn.command,
             usage: turn.usage,
             timing: turn.timing,

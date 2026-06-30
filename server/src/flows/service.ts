@@ -823,6 +823,19 @@ const getPersistedFreshRunRetryOwnershipPending = async (params: {
       launchSignature: pending.launchSignature,
     };
   }
+  const resumedState = parseFlowResumeState(
+    isRecord(conversation.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  if (resumedState?.wait) {
+    return {
+      retryOwnershipId: pending.retryOwnershipId,
+      sourceId: pending.sourceId,
+      result: cloneFlowRunStartResult(pending.result),
+      launchSignature: pending.launchSignature,
+    };
+  }
   await clearFreshRunRetryOwnershipPending({
     conversationId: conversation._id,
     conversation,

@@ -332,10 +332,34 @@ test('GitHub PR creation keeps lower-layer runtime failures as errors and preser
 test('latest-open PR lookup uses explicit repository-plus-branch filtering, retries post-create reconciliation, and preserves ambiguous create failures when a PR is eventually resolved', async () => {
   const tempRepo = await createTempRepo();
   try {
-    const pullsSlurp = await fs.readFile(
-      path.join(fixturesDir, 'pulls-slurp.json'),
-      'utf8',
-    );
+    const pullPages = [
+      Array.from({ length: 100 }, (_, index) => ({
+        number: index + 1,
+        html_url: `https://github.com/example/repo/pull/${String(index + 1)}`,
+        title: `older pull request ${String(index + 1)}`,
+        created_at: new Date(
+          Date.UTC(2026, 5, 20, 10, 0, index + 1),
+        ).toISOString(),
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      })),
+      [
+        {
+          number: 145,
+          html_url: 'https://github.com/example/repo/pull/145',
+          title: 'latest pull request',
+          created_at: '2026-06-24T10:00:00Z',
+          head: {
+            ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          },
+          base: { ref: 'main' },
+          user: { login: 'review-bot' },
+        },
+      ],
+    ];
     const seenArgs: string[][] = [];
     __setGitHubReviewDepsForTests({
       runCommand: async (params) => {
@@ -347,9 +371,14 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
             stderr: '',
           };
         }
+        const endpoint = params.args.at(-1) ?? '';
+        const page = Number(
+          new URL(`https://example.test/${endpoint}`).searchParams.get('page') ??
+            '1',
+        );
         return {
           exitCode: 0,
-          stdout: pullsSlurp,
+          stdout: JSON.stringify(pullPages[page - 1] ?? []),
           stderr: '',
         };
       },
@@ -360,7 +389,7 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
       token: 'secret',
     });
     assert.equal(latest.kind, 'ok');
-    assert.equal(latest.value?.number, 45);
+    assert.equal(latest.value?.number, 145);
 
     const created = await createPullRequest({
       repository: baseRepositoryState(tempRepo.repoRoot),
@@ -369,16 +398,25 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
       body: 'body',
     });
     assert.equal(created.kind, 'ok');
-    assert.equal(created.value.number, 45);
+    assert.equal(created.value.number, 145);
     assert.deepEqual(created.lookupDiagnostics, []);
     assert.ok(
-      seenArgs.some((args) =>
-        args
-          .join(' ')
-          .includes(
-            'repos/example/repo/pulls?state=open&head=example:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
-        ),
-      ),
+      seenArgs.some((args) => {
+        const endpoint = args.at(-1);
+        if (!endpoint) return false;
+        const parsed = new URL(`https://example.test/${endpoint}`);
+        return (
+          parsed.pathname === '/repos/example/repo/pulls' &&
+          parsed.searchParams.get('state') === 'open' &&
+          parsed.searchParams.get('head') ===
+            'example:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+        );
+      }),
+    );
+    assert.ok(seenArgs.every((args) => !args.includes('--paginate')));
+    assert.ok(seenArgs.every((args) => !args.includes('--slurp')));
+    assert.ok(
+      seenArgs.some((args) => (args.at(-1) ?? '').includes('page=2')),
     );
 
     const retrySleepCalls: number[] = [];
@@ -403,9 +441,14 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
             stderr: `lookup attempt ${lookupAttempts} failed`,
           };
         }
+        const endpoint = params.args.at(-1) ?? '';
+        const page = Number(
+          new URL(`https://example.test/${endpoint}`).searchParams.get('page') ??
+            '1',
+        );
         return {
           exitCode: 0,
-          stdout: pullsSlurp,
+          stdout: JSON.stringify(pullPages[page - 1] ?? []),
           stderr: '',
         };
       },
@@ -418,7 +461,7 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
       body: 'body',
     });
     assert.equal(replayResolved.kind, 'ok');
-    assert.equal(replayResolved.value.number, 45);
+    assert.equal(replayResolved.value.number, 145);
     assert.equal(replayResolved.lookupDiagnostics.length, 2);
     assert.deepEqual(
       replayResolved.lookupDiagnostics.map((diagnostic) => diagnostic.stderr),
@@ -439,9 +482,14 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
             stderr: 'connection dropped after create',
           };
         }
+        const endpoint = params.args.at(-1) ?? '';
+        const page = Number(
+          new URL(`https://example.test/${endpoint}`).searchParams.get('page') ??
+            '1',
+        );
         return {
           exitCode: 0,
-          stdout: pullsSlurp,
+          stdout: JSON.stringify(pullPages[page - 1] ?? []),
           stderr: '',
         };
       },
@@ -454,7 +502,7 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
       body: 'body',
     });
     assert.equal(createFailureRecovered.kind, 'ok');
-    assert.equal(createFailureRecovered.value.number, 45);
+    assert.equal(createFailureRecovered.value.number, 145);
     assert.equal(createFailureRecovered.createFailure?.reason, 'GITHUB_CLI_FAILED');
     assert.equal(
       createFailureRecovered.createFailure?.stderr,
@@ -506,14 +554,23 @@ test('resumed GitHub review reconciliation warns and keeps the persisted handoff
       ),
       'utf8',
     );
-    const pullsSlurp = await fs.readFile(
-      path.join(fixturesDir, 'pulls-slurp.json'),
-      'utf8',
-    );
+    const latestPullPage = JSON.stringify([
+      {
+        number: 45,
+        html_url: 'https://github.com/example/repo/pull/45',
+        title: 'latest pull request',
+        created_at: '2026-06-24T10:00:00Z',
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      },
+    ]);
     __setGitHubReviewDepsForTests({
       runCommand: async () => ({
         exitCode: 0,
-        stdout: pullsSlurp,
+        stdout: latestPullPage,
         stderr: '',
       }),
     });

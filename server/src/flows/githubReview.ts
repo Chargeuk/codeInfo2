@@ -993,37 +993,50 @@ const normalizePullRequestIdentity = (
   };
 };
 
-const parsePaginatedArray = (stdout: string): GitHubStepOutcome<unknown[]> => {
-  const parsed = parseJson<unknown>(stdout, 'GitHub API returned invalid JSON');
-  if (parsed.kind !== 'ok') return parsed;
-  return {
-    kind: 'ok',
-    value: flattenPaginatedSlurpPayload(parsed.value),
-  };
-};
-
 export const lookupLatestOpenPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
 }): Promise<GitHubStepOutcome<GitHubPullRequestIdentity | null>> => {
-  const endpoint = `repos/${params.repository.repositoryFullName}/pulls?state=open&head=${params.repository.repositoryOwner}:${encodeURIComponent(params.repository.currentBranch)}&sort=created&direction=desc&per_page=100`;
-  const result = await runGitHubCli({
-    workingRepositoryRoot: params.repository.workingRepositoryRoot,
-    token: params.token,
-    args: ['api', '--paginate', '--slurp', endpoint],
-  });
-  if (result.kind !== 'ok') return result;
-  const parsed = parsePaginatedArray(result.value.stdout);
-  if (parsed.kind !== 'ok') return parsed;
-  const pulls = parsed.value
-    .map((item) => normalizePullRequestIdentity(item))
-    .filter((item): item is GitHubPullRequestIdentity => Boolean(item))
-    .sort((first, second) => {
-      const firstTs = first.createdAt ? Date.parse(first.createdAt) : 0;
-      const secondTs = second.createdAt ? Date.parse(second.createdAt) : 0;
-      return secondTs - firstTs;
+  const endpoint = `repos/${params.repository.repositoryFullName}/pulls?state=open&head=${params.repository.repositoryOwner}:${encodeURIComponent(params.repository.currentBranch)}&sort=created&direction=desc`;
+  const perPage = 100;
+  let page = 1;
+  let latestPullRequest: GitHubPullRequestIdentity | null = null;
+  let latestTimestamp = Number.NEGATIVE_INFINITY;
+
+  while (true) {
+    const pagedEndpoint = buildPagedGitHubApiEndpoint({
+      endpoint,
+      page,
+      perPage,
     });
-  return { kind: 'ok', value: pulls[0] ?? null };
+    const result = await runGitHubCli({
+      workingRepositoryRoot: params.repository.workingRepositoryRoot,
+      token: params.token,
+      args: ['api', pagedEndpoint],
+    });
+    if (result.kind !== 'ok') return result;
+    const parsed = parseJson<unknown>(
+      result.value.stdout,
+      'GitHub API returned invalid JSON',
+    );
+    if (parsed.kind !== 'ok') return parsed;
+    const pageEntries = flattenPaginatedSlurpPayload(parsed.value);
+    for (const entry of pageEntries) {
+      const normalized = normalizePullRequestIdentity(entry);
+      if (!normalized) continue;
+      const candidateTimestamp = normalized.createdAt
+        ? Date.parse(normalized.createdAt)
+        : Number.NEGATIVE_INFINITY;
+      if (candidateTimestamp > latestTimestamp) {
+        latestPullRequest = normalized;
+        latestTimestamp = candidateTimestamp;
+      }
+    }
+    if (pageEntries.length < perPage) {
+      return { kind: 'ok', value: latestPullRequest };
+    }
+    page += 1;
+  }
 };
 
 const buildMissingPullRequestLookupFailure = (): GitHubCommandFailureDetail => ({

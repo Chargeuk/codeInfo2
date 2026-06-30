@@ -2414,10 +2414,19 @@ test('github review open PR surfaces recovered gh pr create ambiguity as a warni
       'CODEINFO_PR_TOKEN=test-token\n',
       'utf8',
     );
-    const pullsSlurp = await fs.readFile(
-      path.join(fixturesDir, 'github-review', 'pulls-slurp.json'),
-      'utf8',
-    );
+    const latestPullPage = JSON.stringify([
+      {
+        number: 45,
+        html_url: 'https://github.com/test-owner/test-repo/pull/45',
+        title: 'latest pull request',
+        created_at: '2026-06-24T10:00:00Z',
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      },
+    ]);
     __setGitHubReviewDepsForTests({
       readFile: async (filePath, encoding) =>
         await fs.readFile(filePath, encoding),
@@ -2475,7 +2484,7 @@ test('github review open PR surfaces recovered gh pr create ambiguity as a warni
           }
           return {
             exitCode: 0,
-            stdout: pullsSlurp,
+            stdout: latestPullPage,
             stderr: '',
           };
         }

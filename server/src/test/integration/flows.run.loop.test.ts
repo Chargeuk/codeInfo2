@@ -1305,10 +1305,19 @@ test('github review runtime keeps the newer execution selector authoritative aft
       'utf8',
     );
 
-    const pullsSlurp = await fs.readFile(
-      path.join(githubReviewFixturesDir, 'pulls-slurp.json'),
-      'utf8',
-    );
+    const latestPullPage = JSON.stringify([
+      {
+        number: 45,
+        html_url: 'https://github.com/example/repo/pull/45',
+        title: 'latest pull request',
+        created_at: '2026-06-24T10:00:00Z',
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      },
+    ]);
     const reviewsSlurp = await fs.readFile(
       path.join(githubReviewFixturesDir, 'reviews-slurp.json'),
       'utf8',
@@ -1362,7 +1371,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
         }
         const endpoint = params.args.at(-1) ?? '';
         if (endpoint.includes('/pulls?state=open&head=')) {
-          return { exitCode: 0, stdout: pullsSlurp, stderr: '' };
+          return { exitCode: 0, stdout: latestPullPage, stderr: '' };
         }
         if (endpoint.endsWith('/pulls/45')) {
           return {

@@ -5,12 +5,12 @@ const parsePositiveInteger = (value) => {
     return null;
   }
 
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isFinite(parsed) || parsed < 1) {
+  const normalized = String(value);
+  if (!/^[1-9]\d*$/.test(normalized)) {
     return null;
   }
 
-  return parsed;
+  return Number(normalized);
 };
 
 export const computeHalfAvailableCoresMinTwo = () => {

@@ -6,12 +6,12 @@ const parsePositiveInteger = (value: string | undefined) => {
     return null;
   }
 
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isFinite(parsed) || parsed < 1) {
+  const normalized = String(value);
+  if (!/^[1-9]\d*$/.test(normalized)) {
     return null;
   }
 
-  return parsed;
+  return Number(normalized);
 };
 
 const resolvePlaywrightWorkers = () => {

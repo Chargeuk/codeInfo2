@@ -60,6 +60,35 @@ const createDummyClientFactory = () => () =>
 async function startServerForScenario(scenarioName: string) {
   let httpServer: http.Server | null = null;
   let wsHandle: ReturnType<typeof attachWs> | null = null;
+  const cleanup = async () => {
+    let firstError: unknown;
+
+    try {
+      await wsHandle?.close();
+    } catch (error) {
+      firstError = error;
+    }
+
+    try {
+      if (httpServer?.listening) {
+        await new Promise<void>((resolve) =>
+          httpServer?.close(() => resolve()),
+        );
+      }
+    } catch (error) {
+      if (firstError === undefined) {
+        firstError = error;
+      }
+    } finally {
+      memoryConversations.clear();
+      memoryTurns.clear();
+      env.restore();
+    }
+
+    if (firstError !== undefined) {
+      throw firstError;
+    }
+  };
 
   try {
     env.set('CODEINFO_FAKE_COPILOT_SCENARIO', scenarioName);
@@ -118,28 +147,17 @@ async function startServerForScenario(scenarioName: string) {
       baseUrl: `http://127.0.0.1:${address.port}`,
       httpServer,
       wsHandle,
-      stop: async () => {
-        await wsHandle?.close();
-        if (httpServer?.listening) {
-          await new Promise<void>((resolve) =>
-            httpServer?.close(() => resolve()),
-          );
-        }
-        memoryConversations.clear();
-        memoryTurns.clear();
-        env.restore();
-      },
+      stop: cleanup,
     };
   } catch (error) {
-    if (wsHandle) {
-      await wsHandle.close();
+    try {
+      await cleanup();
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        'startServerForScenario setup and cleanup both failed',
+      );
     }
-    if (httpServer?.listening) {
-      await new Promise<void>((resolve) => httpServer?.close(() => resolve()));
-    }
-    memoryConversations.clear();
-    memoryTurns.clear();
-    env.restore();
     throw error;
   }
 }

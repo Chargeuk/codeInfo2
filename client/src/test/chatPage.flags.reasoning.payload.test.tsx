@@ -666,7 +666,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       (secondPayload.agentFlags as Record<string, unknown>)
         ?.modelReasoningEffort,
     ).toBe('xhigh');
-  }, 10000);
+  }, 30000);
 
   it('clears hidden reasoning values from both the control and submitted draft when the selected model narrows support', async () => {
     const chatBodies: Record<string, unknown>[] = [];

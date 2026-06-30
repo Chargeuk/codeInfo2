@@ -73,6 +73,12 @@ const buildApp = (copilotRuntimeFactory: () => CopilotReadinessRuntime) => {
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  setEnv('CODEX_HOME', undefined);
+  setEnv('CODEINFO_CODEX_HOME', undefined);
+  setEnv('CODEINFO_COPILOT_HOME', undefined);
+  setEnv('CODEINFO_LMSTUDIO_HOME', undefined);
+  setEnv('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
+  setEnv('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
   setEnv('CODEINFO_SERVER_PORT', '5010');
   setEnv('COPILOT_GITHUB_TOKEN', undefined);
   setEnv('GH_TOKEN', undefined);

@@ -641,7 +641,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.2/i,
+    /gpt-5\.2 \(alpha\.example \/ base\)/i,
   );
 
   await page
@@ -858,7 +858,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
   );
 
   await page.getByRole('button', { name: /new conversation/i }).click();
@@ -866,7 +866,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
   );
 
   await page.getByTestId('provider-select').click();
@@ -894,7 +894,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
   );
 
   await page
@@ -1683,7 +1683,10 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
   page,
 }) => {
   await skipIfUnreachable(page);
-  test.skip(!useMockChat, 'chat chrome browser proof requires mock chat routing');
+  test.skip(
+    !useMockChat,
+    'chat chrome browser proof requires mock chat routing',
+  );
 
   const mockWs = await installMockChatWs(page);
 
@@ -1782,7 +1785,9 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${baseUrl}/chat`);
 
-  await expect(page.getByRole('button', { name: /^Re-authenticate$/i })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: /^Re-authenticate$/i }),
+  ).toHaveCount(0);
 
   const newConversationButton = page.getByTestId('conversation-new');
   const refreshButton = page.getByTestId('conversation-refresh');
@@ -1799,14 +1804,18 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
   );
 
   const firstConversationRow = page.getByTestId('conversation-row').first();
-  await expect(firstConversationRow.getByTestId('conversation-provider-icon')).toBeVisible();
-  await expect(firstConversationRow.getByTestId('conversation-model-chip')).toContainText(
-    'qwen-coder-14b',
-  );
-  await expect(firstConversationRow.getByTestId('conversation-source-chip')).toContainText(
-    'REST',
-  );
-  await expect(firstConversationRow.getByTestId('conversation-provider-chip')).toHaveCount(0);
+  await expect(
+    firstConversationRow.getByTestId('conversation-provider-icon'),
+  ).toBeVisible();
+  await expect(
+    firstConversationRow.getByTestId('conversation-model-chip'),
+  ).toContainText('qwen-coder-14b');
+  await expect(
+    firstConversationRow.getByTestId('conversation-source-chip'),
+  ).toContainText('REST');
+  await expect(
+    firstConversationRow.getByTestId('conversation-provider-chip'),
+  ).toHaveCount(0);
 
   await page.getByTestId('chat-input').fill('Chrome cleanup proof');
   await page.getByTestId('chat-send').click();
@@ -1817,7 +1826,9 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
   const userBubble = page
     .locator('[data-testid="chat-bubble"][data-role="user"]')
     .first();
-  await expect(assistantBubble.getByTestId('assistant-transcript-slice')).toBeVisible();
+  await expect(
+    assistantBubble.getByTestId('assistant-transcript-slice'),
+  ).toBeVisible();
   await expect(userBubble.getByTestId('user-transcript-bubble')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1827,14 +1838,20 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
   const toggleBox = await drawerToggle.boundingBox();
   expect(toggleBox).not.toBeNull();
   expect(toggleBox?.x ?? 0).toBeGreaterThanOrEqual(0);
-  expect((toggleBox?.x ?? 0) + (toggleBox?.width ?? 0)).toBeLessThanOrEqual(390);
+  expect((toggleBox?.x ?? 0) + (toggleBox?.width ?? 0)).toBeLessThanOrEqual(
+    390,
+  );
 
-  const assistantFooter = page.getByTestId('assistant-transcript-footer').first();
+  const assistantFooter = page
+    .getByTestId('assistant-transcript-footer')
+    .first();
   const userFooter = page.getByTestId('user-transcript-footer').first();
   await expect(assistantFooter).toBeVisible();
   await expect(userFooter).toBeVisible();
   await expect
-    .poll(() => assistantFooter.evaluate((node) => getComputedStyle(node).flexWrap))
+    .poll(() =>
+      assistantFooter.evaluate((node) => getComputedStyle(node).flexWrap),
+    )
     .toBe('nowrap');
   await expect
     .poll(() => userFooter.evaluate((node) => getComputedStyle(node).flexWrap))

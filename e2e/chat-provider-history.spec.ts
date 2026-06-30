@@ -668,7 +668,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
   );
 });
 
@@ -878,7 +878,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.1-codex-max/i,
+    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
   );
 
   await page.getByRole('button', { name: /new conversation/i }).click();
@@ -886,7 +886,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /alpha\.example \/ gpt-5\.2/i,
+    /gpt-5\.2 \(alpha\.example \/ base\)/i,
   );
 
   await page.getByTestId('chat-input').fill('Fresh run after endpoint history');
@@ -896,5 +896,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
   expect(chatBodies[0]?.provider).toBe('codex');
   expect(chatBodies[0]?.model).toBe('gpt-5.2');
   expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
-  expect(chatBodies[0]?.conversationId).not.toBe('endpoint-history-conversation');
+  expect(chatBodies[0]?.conversationId).not.toBe(
+    'endpoint-history-conversation',
+  );
 });

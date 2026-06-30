@@ -169,10 +169,10 @@ test('renders Codex thought process when analysis frames stream', async ({
 
   await page.goto(`${baseUrl}/chat`);
 
-  await page.getByLabel('Provider').click();
+  await page.getByTestId('provider-select').click();
   await page.getByRole('option', { name: 'OpenAI Codex' }).click();
 
-  await page.getByLabel('Model').click();
+  await page.getByTestId('model-select').click();
   await page.getByRole('option', { name: 'gpt-5.1-codex-max' }).click();
 
   const agentFlagsPanel = page.locator('[data-testid="agent-flags-panel"]');

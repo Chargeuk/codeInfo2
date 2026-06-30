@@ -5,83 +5,120 @@
 // and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing test names when present.
 // Optional targeting:
 //   --file <path>       repeatable; mapped to Jest --runTestsByPath
+//   --max-workers <n>   forwarded to Jest --maxWorkers
 //   --subset <pattern>  mapped to Jest --testPathPatterns
 //   --test-name <expr>  mapped to Jest --testNamePattern
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { runLoggedCommand } from './summary-wrapper-protocol.mjs';
 import {
-  createSummaryLogStream,
-  createSummaryWrapperProtocol,
-  runLoggedCommand,
-} from './summary-wrapper-protocol.mjs';
+  createSummaryWrapperRun,
+  resolveWritableYarnEnv,
+} from './summary-wrapper-runner.mjs';
+import {
+  formatWorkerSummaryLine,
+  resolveWorkerSetting,
+} from './test-parallelism.mjs';
 
-const rootDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
+const wrapper = createSummaryWrapperRun({
+  wrapperName: 'client',
+  logBaseName: 'client-tests',
+  logDir: 'test-results',
+  initialPhase: 'test',
+  description:
+    'Runs the client workspace test command with compact wrapper output and saved full logs.',
+  allowedFlags: [
+    {
+      name: 'help',
+      alias: 'h',
+      type: 'boolean',
+      description: 'Show wrapper help and exit without starting client tests.',
+    },
+    {
+      name: 'file',
+      type: 'value',
+      multiple: true,
+      description:
+        'Run one or more exact Jest test files with --runTestsByPath.',
+    },
+    {
+      name: 'max-workers',
+      type: 'value',
+      description:
+        'Set Jest worker parallelism with --maxWorkers for tuning client test throughput.',
+    },
+    {
+      name: 'subset',
+      type: 'value',
+      description: 'Filter test files with Jest --testPathPatterns.',
+    },
+    {
+      name: 'test-name',
+      type: 'value',
+      description: 'Filter assertions with Jest --testNamePattern.',
+    },
+  ],
+  examples: [
+    'node scripts/test-summary-client.mjs --help',
+    'npm run test:summary:client -- --subset smoke',
+    'npm run test:summary:client -- --max-workers 2 --file client/src/test/router.test.tsx --file client/src/test/version.test.tsx',
+    'npm run test:summary:client -- --file client/src/__tests__/example.test.tsx',
+    'npm run test:summary:client -- --file /abs/path/to/codeInfo2/client/src/test/router.test.tsx',
+  ],
+});
+const resultsDir = wrapper.logDirPath;
+const jsonPath = path.join(
+  resultsDir,
+  `client-tests-${wrapper.timestamp}.json`,
 );
-const resultsDir = path.join(rootDir, 'test-results');
-const timestamp = new Date()
-  .toISOString()
-  .replaceAll(':', '-')
-  .replaceAll('.', '-');
-const logPath = path.join(resultsDir, `client-tests-${timestamp}.log`);
-const jsonPath = path.join(resultsDir, `client-tests-${timestamp}.json`);
 
-const args = process.argv.slice(2);
-const options = {
-  files: [],
-  subset: undefined,
-  testName: undefined,
-};
+const parsedArgs = wrapper.parseArgs(process.argv.slice(2));
 
-for (let i = 0; i < args.length; i += 1) {
-  const arg = args[i];
-  if (arg === '--file') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --file');
-      process.exit(1);
-    }
-    options.files.push(value);
-    i += 1;
-    continue;
-  }
-  if (arg === '--subset') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --subset');
-      process.exit(1);
-    }
-    options.subset = value;
-    i += 1;
-    continue;
-  }
-  if (arg === '--test-name') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --test-name');
-      process.exit(1);
-    }
-    options.testName = value;
-    i += 1;
-    continue;
-  }
-  if (arg === '--help') {
-    console.log(
-      'Usage: npm run test:summary:client -- [--file <path>] [--subset <pattern>] [--test-name <pattern>]',
-    );
-    process.exit(0);
-  }
-  console.error(`Unknown argument: ${arg}`);
-  process.exit(1);
+if (parsedArgs.helpRequested) {
+  process.stdout.write(wrapper.renderHelp());
+  await wrapper.closeLog({ promoteLatest: false });
+  process.exit(0);
 }
 
+if (parsedArgs.error) {
+  console.error(parsedArgs.error);
+  process.exit(await wrapper.failCli(parsedArgs.error));
+}
+
+const options = {
+  files: parsedArgs.values.file ?? [],
+  maxWorkers: parsedArgs.values['max-workers'] ?? undefined,
+  subset: parsedArgs.values.subset ?? undefined,
+  testName: parsedArgs.values['test-name'] ?? undefined,
+};
+const jestWorkerSetting = resolveWorkerSetting(options.maxWorkers);
+const jestWorkerSummaryLine = formatWorkerSummaryLine({
+  label: 'jest_workers',
+  availableCores: jestWorkerSetting.availableCores,
+  workerCount: jestWorkerSetting.workerCount,
+  source: jestWorkerSetting.source,
+});
+
 const normalizeClientPath = (value) => {
-  if (path.isAbsolute(value)) return value;
+  const clientDir = path.join(wrapper.rootDir, 'client');
+  if (path.isAbsolute(value)) {
+    const relativeToClientDir = path.relative(clientDir, value);
+    const normalizedRelative = relativeToClientDir.replace(/\\/g, '/');
+
+    if (
+      normalizedRelative &&
+      !normalizedRelative.startsWith('../') &&
+      normalizedRelative !== '..'
+    ) {
+      return normalizedRelative;
+    }
+
+    return value;
+  }
+
   const normalized = value.replace(/\\/g, '/');
   const withoutDotPrefix = normalized.startsWith('./')
     ? normalized.slice(2)
@@ -105,21 +142,18 @@ if (options.subset) {
 if (options.testName) {
   jestArgs.push('--testNamePattern', options.testName);
 }
+jestArgs.push('--maxWorkers', jestWorkerSetting.workerArgValue);
 
-const logStream = createSummaryLogStream(logPath);
-const protocol = createSummaryWrapperProtocol({
-  wrapperName: 'client',
-  logPath,
-  logDisplayPath: path.relative(rootDir, logPath),
-  initialPhase: 'test',
-});
+console.log(`[client] ${jestWorkerSummaryLine}`);
+wrapper.appendLogSection('Parallelism', [jestWorkerSummaryLine]);
 
-protocol.startHeartbeat();
+wrapper.startHeartbeat();
 
 // Ensure sufficient Node heap for large client test runs when the wrapper spawns npm/jest
 process.env.NODE_OPTIONS =
   process.env.NODE_OPTIONS || '--max-old-space-size=8192';
 
+const clientTestEnv = resolveWritableYarnEnv();
 const result = await runLoggedCommand({
   cmd: 'npm',
   args: [
@@ -128,23 +162,23 @@ const result = await runLoggedCommand({
     '--workspace',
     'client',
     '--',
-    '--runInBand',
     '--silent',
     ...jestArgs,
     '--json',
     '--outputFile',
     jsonPath,
   ],
-  cwd: rootDir,
-  logStream,
-  protocol,
+  cwd: wrapper.rootDir,
+  env: clientTestEnv,
+  logStream: wrapper.logStream,
+  protocol: wrapper.protocol,
   phase: 'test',
   bannerPrefix: '',
   semanticProgressPatterns: [/^PASS /, /^FAIL /, /^Tests:/, /^Test Suites:/],
   terminalSummaryPatterns: [/^Tests:/, /^Test Suites:/, /^Ran all test suites/],
 });
 
-await new Promise((resolve) => logStream.end(resolve));
+await wrapper.closeLog();
 
 let total = 0;
 let passed = 0;
@@ -195,7 +229,7 @@ const finalReason =
           : 'clean_success'
         : 'test_failed';
 
-protocol.emitFinal({
+wrapper.protocol.emitFinal({
   status,
   ambiguousCounts,
   reason: finalReason,

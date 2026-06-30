@@ -119,15 +119,46 @@ async function withTempCodexHome(chatToml: string): Promise<{
   };
 }
 
+type ProviderEnvSnapshot = Record<string, string | undefined>;
+
+function snapshotProviderEnv(): ProviderEnvSnapshot {
+  return {
+    CODEX_HOME: process.env.CODEX_HOME,
+    CODEINFO_CODEX_HOME: process.env.CODEINFO_CODEX_HOME,
+    CODEINFO_COPILOT_HOME: process.env.CODEINFO_COPILOT_HOME,
+    CODEINFO_LMSTUDIO_BASE_URL: process.env.CODEINFO_LMSTUDIO_BASE_URL,
+    CODEINFO_LMSTUDIO_HOME: process.env.CODEINFO_LMSTUDIO_HOME,
+    CODEINFO_CHAT_DEFAULT_PROVIDER: process.env.CODEINFO_CHAT_DEFAULT_PROVIDER,
+    CODEINFO_CHAT_DEFAULT_MODEL: process.env.CODEINFO_CHAT_DEFAULT_MODEL,
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS:
+      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
+    MCP_FORCE_CODEX_AVAILABLE: process.env.MCP_FORCE_CODEX_AVAILABLE,
+  };
+}
+
+function restoreProviderEnv(snapshot: ProviderEnvSnapshot) {
+  for (const [key, value] of Object.entries(snapshot)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+}
+
 test('codebase_question fails on the selected explicit Codex provider when Codex is unavailable', async () => {
-  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
-  const originalExternalEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  const originalExternalEndpointKeys =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  const snapshot = snapshotProviderEnv();
+  const tempHome = await withTempCodexHome('model = "gpt-5.3-codex"\n');
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
+  process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'invalid-url';
+  delete process.env.CODEINFO_COPILOT_HOME;
+  delete process.env.CODEINFO_LMSTUDIO_HOME;
+  delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
   resetStore();
@@ -171,24 +202,8 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
       | undefined;
     assert.deepEqual(context?.defaults, capabilities.defaults);
   } finally {
-    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
-    if (originalLmBaseUrl === undefined) {
-      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
-    } else {
-      process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
-    }
-    if (originalExternalEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-        originalExternalEndpoints;
-    }
-    if (originalExternalEndpointKeys === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
-        originalExternalEndpointKeys;
-    }
+    restoreProviderEnv(snapshot);
+    await tempHome.cleanup();
     server.close();
   }
 });
@@ -247,9 +262,7 @@ test('codebase_question fails on the selected explicit provider before unrelated
 });
 
 test('codebase_question allows same-provider native fallback for explicit Codex endpoint requests when the endpoint is unavailable', async () => {
-  const originalForceCodex = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  const originalCodeHome = process.env.CODEX_HOME;
-  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const snapshot = snapshotProviderEnv();
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   const tempHome = await withTempCodexHome(
     [
@@ -260,6 +273,12 @@ test('codebase_question allows same-provider native fallback for explicit Codex 
   );
   process.env.CODEX_HOME = tempHome.codexHome;
   process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  delete process.env.CODEINFO_COPILOT_HOME;
+  delete process.env.CODEINFO_LMSTUDIO_HOME;
+  delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
 
   try {
     const capabilities = await resolveCodexCapabilities({
@@ -281,37 +300,35 @@ test('codebase_question allows same-provider native fallback for explicit Codex 
       segments: Array<{ type: string; text?: string }>;
     };
 
-    assert.equal(payload.conversationId, 'thread-fallback');
+    assert.match(
+      payload.conversationId,
+      /^(thread-fallback|codex-thread-)/u,
+    );
     assert.equal(payload.segments.at(-1)?.type, 'answer');
     assert.equal(payload.segments.at(-1)?.text, 'Fallback answer');
     assert.equal(payload.modelId, capabilities.models[0]?.model);
   } finally {
-    if (originalForceCodex === undefined) {
-      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
-    } else {
-      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceCodex;
-    }
-    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
-    else process.env.CODEX_HOME = originalCodeHome;
-    if (originalCodeInfoCodeHome === undefined)
-      delete process.env.CODEINFO_CODEX_HOME;
-    else process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    restoreProviderEnv(snapshot);
     await tempHome.cleanup();
   }
 });
 
 test('codebase_question still falls back when provider resolution is omitted and the preferred provider is unavailable', async () => {
-  const originalHome = process.env.CODEINFO_COPILOT_HOME;
-  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
-  const originalForceCodex = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  const snapshot = snapshotProviderEnv();
   const tempHome = await withTempCopilotHome(
     ['model = "copilot-default-model"', 'tool_access = "off"', ''].join('\n'),
   );
+  const tempCodexHome = await withTempCodexHome('model = "gpt-5.3-codex"\n');
   process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+  process.env.CODEX_HOME = tempCodexHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome.codexHome;
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'invalid-url';
+  delete process.env.CODEINFO_LMSTUDIO_HOME;
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
 
   try {
     const capabilities = await resolveCodexCapabilities({
@@ -345,29 +362,17 @@ test('codebase_question still falls back when provider resolution is omitted and
       segments: Array<{ type: string; text?: string }>;
     };
 
-    assert.equal(payload.conversationId, 'thread-fallback');
+    assert.match(
+      payload.conversationId,
+      /^(thread-fallback|codex-thread-)/u,
+    );
     assert.equal(payload.modelId, capabilities.models[0]?.model);
     assert.equal(payload.segments.at(-1)?.type, 'answer');
     assert.equal(payload.segments.at(-1)?.text, 'Fallback answer');
   } finally {
-    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
-    else process.env.CODEINFO_COPILOT_HOME = originalHome;
-    if (originalDefaultProvider === undefined) {
-      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
-    } else {
-      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
-    }
-    if (originalForceCodex === undefined) {
-      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
-    } else {
-      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceCodex;
-    }
-    if (originalLmBaseUrl === undefined) {
-      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
-    } else {
-      process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
-    }
+    restoreProviderEnv(snapshot);
     await tempHome.cleanup();
+    await tempCodexHome.cleanup();
   }
 });
 

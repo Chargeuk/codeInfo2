@@ -11,6 +11,11 @@ import cors from 'cors';
 import express from 'express';
 import type WebSocket from 'ws';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
+import {
+  getPendingConversationCancel,
+  snapshotInflight,
+} from '../../chat/inflightRegistry.js';
 import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
@@ -52,6 +57,7 @@ let ws: WebSocket | null = null;
 let baseUrl = '';
 let startResponse: ChatStartResponse | null = null;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+const RUN_SETTLE_TIMEOUT_MS = 15_000;
 let tempCodexHomeForScenario: string | null = null;
 
 async function ensureWs() {
@@ -69,6 +75,12 @@ async function startChatRunAndSubscribe() {
         )?.content ?? 'Hello',
       )
     : 'Hello';
+  const conversationId = `chat-cancel-fixture-${crypto.randomUUID()}`;
+  const socket = await ensureWs();
+  sendJson(socket, {
+    type: 'subscribe_conversation',
+    conversationId,
+  });
 
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
@@ -77,7 +89,7 @@ async function startChatRunAndSubscribe() {
       provider:
         (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
       model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
-      conversationId: `chat-cancel-fixture-${crypto.randomUUID()}`,
+      conversationId,
       message: userMessage,
     }),
   });
@@ -85,12 +97,6 @@ async function startChatRunAndSubscribe() {
   startResponse = (await res.json()) as ChatStartResponse;
   assert.equal(res.status, 202);
   assert.ok(startResponse.inflightId);
-
-  const socket = await ensureWs();
-  sendJson(socket, {
-    type: 'subscribe_conversation',
-    conversationId: startResponse.conversationId,
-  });
 
   await waitForEvent({
     ws: socket,
@@ -102,6 +108,38 @@ async function startChatRunAndSubscribe() {
         e.inflight?.inflightId === startResponse?.inflightId
       );
     },
+  });
+}
+
+async function waitForServerRunToSettle(conversationId: string) {
+  const deadline = Date.now() + RUN_SETTLE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const inflight = snapshotInflight(conversationId);
+    const ownership = getActiveRunOwnership(conversationId);
+    const pendingCancel = getPendingConversationCancel(conversationId);
+    if (!inflight && !ownership && !pendingCancel) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('Timed out waiting for chat run cleanup to settle');
+}
+
+async function waitForActiveChatRunToStartStreaming() {
+  assert.ok(startResponse);
+  const socket = await ensureWs();
+
+  await waitForEvent({
+    ws: socket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'assistant_delta' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflightId === startResponse?.inflightId
+      );
+    },
+    timeoutMs: 15_000,
   });
 }
 
@@ -188,6 +226,7 @@ When(
   async () => {
     await startChatRunAndSubscribe();
     assert.ok(startResponse);
+    await waitForActiveChatRunToStartStreaming();
     const socket = await ensureWs();
     sendJson(socket, {
       type: 'unsubscribe_conversation',
@@ -202,6 +241,10 @@ When(
     await startChatRunAndSubscribe();
   },
 );
+
+When('the active chat run starts streaming', async () => {
+  await waitForActiveChatRunToStartStreaming();
+});
 
 Then('the chat prediction is not cancelled server side', async () => {
   const state = getLastPredictionState();
@@ -253,6 +296,7 @@ When('I wait for the active run to complete normally', async () => {
 
 When('I send late cancel_inflight for the completed run', async () => {
   assert.ok(startResponse);
+  await waitForServerRunToSettle(startResponse.conversationId);
   const socket = await ensureWs();
   sendJson(socket, {
     type: 'cancel_inflight',

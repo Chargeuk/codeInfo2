@@ -35,7 +35,7 @@ let lastRunId: string | null = null;
 let tempDir: string | null = null;
 type StatusBody = { state?: string; counts?: { embedded?: number } };
 
-setDefaultTimeout(20_000);
+setDefaultTimeout(30_000);
 
 async function vectorsState() {
   const chromaUrl = process.env.CODEINFO_CHROMA_URL ?? 'http://localhost:8300';

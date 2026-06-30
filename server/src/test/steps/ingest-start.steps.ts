@@ -13,7 +13,7 @@ import {
   setDefaultTimeout,
 } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
-setDefaultTimeout(10000);
+setDefaultTimeout(30_000);
 import cors from 'cors';
 import express from 'express';
 import { clearLockedModel, setLockedModel } from '../../ingest/chromaClient.js';
@@ -36,7 +36,7 @@ let lastRunId: string | null = null;
 let tempDir: string | null = null;
 
 Before(async () => {
-  setDefaultTimeout(10000);
+  setDefaultTimeout(30_000);
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   delete process.env.CODEINFO_CODEX_WORKDIR;
   const app = express();

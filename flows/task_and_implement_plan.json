@@ -479,6 +479,13 @@
               "markdownFile": "classify_review_disposition.md"
             },
             {
+              "type": "llm",
+              "label": "Filter Review Findings To Story Scope",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "filter_review_findings_to_story_scope.md"
+            },
+            {
               "type": "startLoop",
               "label": "Minor Review Fix Path",
               "steps": [
@@ -570,6 +577,35 @@
                   "agentType": "planning_agent",
                   "identifier": "planner",
                   "markdownFile": "ensure_task_testing_matches_current_contract.md"
+                },
+                {
+                  "type": "startLoop",
+                  "label": "Review-Created Task Scope Loop",
+                  "steps": [
+                    {
+                      "type": "break",
+                      "label": "Exit Review-Created Task Scope Loop If Context Is Not Safely Usable",
+                      "agentType": "planning_agent",
+                      "identifier": "planner",
+                      "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step. Then re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json` when it exists and is valid enough to supply current review-cycle context, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, whenever the current review handoff is needed to identify the active review-created block safely. Do not rely on conversational memory, prior loop passes, earlier summaries, or any previous snapshot. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` if this loop should exit cleanly without another repair pass because the context is not safely usable, including when `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`; when the canonical plan is missing, unreadable, or unusable; when the current branch story number does not match the selected plan filename; when both the review disposition state and the current review handoff are missing, unreadable, malformed, or otherwise unusable for active review-cycle identification; when multiple plausible current-cycle review-created blocks still remain after the selector order; or when the active review-created block still cannot be identified safely. Answer `no` only when the loop context is safe enough to continue into the repair step.",
+                      "breakOn": "yes"
+                    },
+                    {
+                      "type": "llm",
+                      "label": "Repair Review-Created Task Scope",
+                      "agentType": "planning_agent",
+                      "identifier": "planner",
+                      "markdownFile": "repair_review_created_task_scope.md"
+                    },
+                    {
+                      "type": "break",
+                      "label": "Exit Review-Created Task Scope Loop When Clean",
+                      "agentType": "planning_agent",
+                      "identifier": "planner",
+                      "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step. Then read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json` when it exists and is valid enough to provide the active review-cycle context, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Re-open the exact relative `plan_path` from disk immediately before answering, using explicit shell reads such as `sed`, `cat`, or `rg`. Do not rely on conversational memory, prior loop passes, earlier summaries, or any previous snapshot because the plan may have been modified by another llm in the previous loop pass. Inspect only the newly added or updated review-created tasks for the current review cycle. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` only if every newly added or updated review-created task is now fully within current-story scope across all relevant sections, including heading/title, `Repository Name`, `Task Dependencies`, `Notes`, `Overview`, `Task Exit Criteria`, `Addresses Findings`, `Risk Ownership`, `Owner Map`, `Requirement-To-Proof Mapping` or `Proof Mapping`, `Affected Repositories`, `Documentation Locations`, `Subtasks`, `Testing`, `Manual Testing Guidance`, and `Implementation Notes`. Answer `no` if another repair pass is still needed.",
+                      "breakOn": "yes"
+                    }
+                  ]
                 },
                 {
                   "type": "llm",

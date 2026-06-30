@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import http, { type Server } from 'node:http';
 import os from 'node:os';
@@ -146,6 +147,13 @@ When('I start a chat run and subscribe to its WebSocket stream', async () => {
         )?.content ?? 'Hello',
       )
     : 'Hello';
+  const conversationId = `chat-visibility-fixture-${randomUUID()}`;
+
+  ws = await connectWs({ baseUrl });
+  sendJson(ws, {
+    type: 'subscribe_conversation',
+    conversationId,
+  });
 
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
@@ -154,19 +162,13 @@ When('I start a chat run and subscribe to its WebSocket stream', async () => {
       provider:
         (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
       model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
-      conversationId: 'chat-visibility-fixture',
+      conversationId,
       message: userMessage,
     }),
   });
 
   assert.equal(res.status, 202);
   startResponse = (await res.json()) as ChatStartResponse;
-
-  ws = await connectWs({ baseUrl });
-  sendJson(ws, {
-    type: 'subscribe_conversation',
-    conversationId: startResponse.conversationId,
-  });
 
   // Wait for snapshot to ensure subscription is active before asserting tool events.
   await waitForEvent({

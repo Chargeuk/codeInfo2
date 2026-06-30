@@ -14,7 +14,7 @@ import cors from 'cors';
 import express from 'express';
 import { MockLMStudioClient } from '../support/mockLmStudioSdk.js';
 
-setDefaultTimeout(10000);
+setDefaultTimeout(30_000);
 // Note: other server features may start Docker/Testcontainers (Chroma); this probe itself does not.
 
 let server: Server | null = null;

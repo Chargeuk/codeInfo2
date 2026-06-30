@@ -16,11 +16,9 @@ DOCKER_BIN="${CODEINFO_DOCKER_BIN:-docker}"
 #   ~/.docker/run/docker.sock, not always /var/run/docker.sock.
 # - Even when host-side socket metadata looks non-root, the mounted socket can
 #   appear inside Linux containers as root:root with mode 660.
-# - Because Compose user/group values are decided on the host, host-side gid
-#   checks are not always enough to predict container-side socket access.
-# - For reliability, this script defaults to running services as root on macOS
-#   (opt-out available), and normalizes the container-visible socket group to
-#   root on Docker Desktop so non-root Linux runtimes still reach the daemon.
+# - Because Compose user/group values are decided on the host, macOS keeps the
+#   existing root-based fallback rather than trying to mirror host-side gid
+#   values that do not map cleanly into Linux containers.
 #
 # WSL/Linux:
 # - The socket is typically /var/run/docker.sock with a non-root group
@@ -760,13 +758,13 @@ if [[ "${DOCKER_OPERATING_SYSTEM_LC}" == *"docker desktop"* ]]; then
     RUNTIME_SUPPLEMENTARY_GIDS="${SOCKET_GID},0"
   fi
 fi
-
 # macOS default:
 # - Force compose service user to root unless explicitly disabled.
 # - This avoids host->container socket ownership translation surprises.
 if [ "${HOST_OS}" = "Darwin" ] && [ "${CODEINFO_DOCKER_FORCE_ROOT_ON_DARWIN:-1}" = "1" ]; then
   DOCKER_UID=0
   DOCKER_GID=0
+  CONTAINER_SOCKET_GID=0
 # Non-mac fallback:
 # - If socket gid is 0, treat it as a root-owned socket case and fallback to
 #   root so /var/run/docker.sock remains accessible.

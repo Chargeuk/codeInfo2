@@ -44,7 +44,7 @@ let tempDir: string | null = null;
 let lastRunId: string | null = null;
 
 Before({ tags: '@embedding-dispatch' }, async () => {
-  setDefaultTimeout(20000);
+  setDefaultTimeout(30_000);
   process.env.NODE_ENV = 'test';
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '2';

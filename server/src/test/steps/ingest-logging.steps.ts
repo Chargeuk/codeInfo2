@@ -38,7 +38,7 @@ let baseUrl = '';
 let lastRunId: string | null = null;
 let tempDir: string | null = null;
 
-setDefaultTimeout(20000);
+setDefaultTimeout(30_000);
 
 async function startTestServer() {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';

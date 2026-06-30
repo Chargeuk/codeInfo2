@@ -8,6 +8,7 @@ import {
   type APIRequestContext,
   type Route,
 } from '@playwright/test';
+import { acquireE2eResourceLock } from './support/e2eResourceLock';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -511,12 +512,19 @@ const selectEmbeddingModel = async (
 };
 
 test.describe.serial('Ingest flows', () => {
+  let releaseIngestLock: (() => Promise<void>) | undefined;
+  const ingestLockTimeoutMs = 60_000;
+
   test.setTimeout(240_000);
   test.beforeAll(async () => {
     await checkPrereqs();
   });
 
   test.beforeEach(async ({}, testInfo) => {
+    releaseIngestLock = await acquireE2eResourceLock(
+      'ingest-root-fixtures-repo',
+      { timeoutMs: ingestLockTimeoutMs },
+    );
     test.skip(Boolean(skipReason), skipReason ?? 'prerequisites missing');
     const requiresLiveIngestPrereqs =
       testInfo.title !== overlappingRefreshRetainsVisibleRowsScenario;
@@ -525,6 +533,11 @@ test.describe.serial('Ingest flows', () => {
       ingestSkip ?? 'ingest unavailable',
     );
     await ensureCleanRoots();
+  });
+
+  test.afterEach(async () => {
+    await releaseIngestLock?.();
+    releaseIngestLock = undefined;
   });
 
   test('ingest status shows per-file progress updates', async ({ page }) => {

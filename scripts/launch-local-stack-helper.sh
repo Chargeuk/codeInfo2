@@ -173,6 +173,14 @@ case "${LOG_RELATIVE_PATH}" in
 esac
 
 SOCKET_PATH="$(resolve_docker_socket)"
+SOCKET_GID="$(stat -c %g "${SOCKET_PATH}" 2>/dev/null || stat -f %g "${SOCKET_PATH}" 2>/dev/null || echo 0)"
+HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
+HELPER_SOCKET_GID="${SOCKET_GID}"
+
+if [ "${HOST_OS}" = "Darwin" ] && [ "${CODEINFO_DOCKER_FORCE_ROOT_ON_DARWIN:-1}" = "1" ]; then
+  HELPER_SOCKET_GID=0
+fi
+
 CONTAINER_LOG_PATH="/workspace/${LOG_RELATIVE_PATH}"
 helper_args=(
   bash
@@ -197,6 +205,7 @@ remove_existing_helper
 run_or_echo \
   "${DOCKER_BIN}" run -d \
   --name "${CONTAINER_NAME}" \
+  --group-add "${HELPER_SOCKET_GID}" \
   -v "${SOCKET_PATH}:/var/run/docker.sock" \
   -v "${REPO_ROOT}:/workspace" \
   -w /workspace \

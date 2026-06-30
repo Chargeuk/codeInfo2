@@ -2779,8 +2779,8 @@ There are no inline-resolved minor findings recorded for this review cycle today
 
 1. [ ] In `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, patch the final-owner proof surface for review pass `0000060-20260630T011157Z-0ca69c71` so finding `1` points to Task 29's focused proof homes, the active cycle id stays `0000060-rc-20260630T021700Z-fd13875d`, compose/host-network/browser/e2e surfaces remain explicitly non-applicable for this review-created block unless later work widens the seam, and the broad wrapper ownership for server build, server-unit, helper test, lint, and format is listed as the closeout proof path.
 2. [ ] In `codeInfoStatus/flow-state/review-disposition-state.json` and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, compare the stored final-owner title, review pass id, and review cycle id with this Task 30 heading; if any one of those values drifted, repair only those task-owned identifiers so the active cycle still has one matching final revalidation owner record before broad reruns begin.
-3. [ ] In the current-repository files touched by Task 29 or Task 30's PR-summary refresh, make the smallest edits needed so the final review-created repair surface is lint-clean before the broad reruns in this task begin.
-4. [ ] In those same final review-created repair files, make the smallest formatting-only edits needed so the final review-created repair surface satisfies the repository format check before the broad reruns in this task begin.
+3. [ ] In `server/src/flows/service.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, `server/src/test/integration/flows.run.loop.test.ts`, and `codeInfoStatus/pr-summaries/0000060-pr-summary.md`, make the smallest edits needed so the final review-created repair surface is lint-clean before the broad reruns in this task begin.
+4. [ ] In those same Task 30 final-owner files, make the smallest formatting-only edits needed so the final review-created repair surface satisfies the repository format check before the broad reruns in this task begin.
 
 #### Proof Matrix
 

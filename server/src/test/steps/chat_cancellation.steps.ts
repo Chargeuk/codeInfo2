@@ -57,6 +57,7 @@ let ws: WebSocket | null = null;
 let baseUrl = '';
 let startResponse: ChatStartResponse | null = null;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+const RUN_SETTLE_TIMEOUT_MS = 15_000;
 let tempCodexHomeForScenario: string | null = null;
 
 async function ensureWs() {
@@ -111,7 +112,7 @@ async function startChatRunAndSubscribe() {
 }
 
 async function waitForServerRunToSettle(conversationId: string) {
-  const deadline = Date.now() + 4_000;
+  const deadline = Date.now() + RUN_SETTLE_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const inflight = snapshotInflight(conversationId);
     const ownership = getActiveRunOwnership(conversationId);

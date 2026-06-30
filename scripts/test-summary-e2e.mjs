@@ -262,6 +262,7 @@ let testResultProgressLine = '';
 let summarySource = 'not_run';
 let preflightPassed = false;
 let setupFailureLabel = '';
+let teardownFailureLabel = '';
 
 try {
   const configResult = await runLoggedCommand({
@@ -386,6 +387,7 @@ try {
   });
   if (downResult.code !== 0) {
     teardownFailed = true;
+    teardownFailureLabel = 'compose_down_failed';
   }
   if (!setupFailed && !teardownFailed && testExitCode === 0) {
     const markerPayload = {
@@ -402,6 +404,7 @@ try {
   wrapper.appendLogSection('E2E proof summary', [
     `compose_config_validation=${preflightPassed ? 'passed' : 'failed'}`,
     `setup_failure=${setupFailureLabel || 'none'}`,
+    `teardown_failure=${teardownFailureLabel || 'none'}`,
     `summary_source=${summarySource}`,
     `artifact_output_dir=${e2eArtifactDir}`,
     `wrapper_log_dir=${e2eOutputDir}`,

@@ -203,8 +203,8 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
     assert.deepEqual(context?.defaults, capabilities.defaults);
   } finally {
     restoreProviderEnv(snapshot);
-    await tempHome.cleanup();
     server.close();
+    await tempHome.cleanup();
   }
 });
 

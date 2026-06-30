@@ -1031,9 +1031,11 @@ export default function FlowsPage() {
             streamStatus:
               turn.status === 'failed'
                 ? 'failed'
-                : turn.status === 'stopped'
-                  ? 'stopped'
-                  : 'complete',
+                : turn.status === 'warning'
+                  ? 'warning'
+                  : turn.status === 'stopped'
+                    ? 'stopped'
+                    : 'complete',
             command: turn.command,
             usage: turn.usage,
             timing: turn.timing,
@@ -1131,6 +1133,8 @@ export default function FlowsPage() {
   const handleFlowSelect = useCallback(
     (next: string) => {
       if (next === selectedFlowKey) return;
+      const nextFlow = flowOptions.find((flow) => flow.key === next);
+      if (nextFlow?.disabled) return;
       setSelectedFlowKey(next);
       setSuppressAutoSelect(false);
       resetConversation();
@@ -1139,6 +1143,7 @@ export default function FlowsPage() {
       setTitleAnchorEl(null);
     },
     [
+      flowOptions,
       resetConversation,
       selectedFlowKey,
       setSuppressAutoSelect,
@@ -1149,7 +1154,7 @@ export default function FlowsPage() {
   );
 
   const handleFlowChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
+    (event: ChangeEvent<HTMLSelectElement>) => {
       handleFlowSelect(event.target.value);
     },
     [handleFlowSelect],
@@ -2093,12 +2098,18 @@ export default function FlowsPage() {
             opacity: 0,
           }}
         >
-          <input
+          <select
             data-testid="flow-select"
             value={selectedFlowKey}
             onChange={handleFlowChange}
             disabled={selectedFlowTriggerDisabled}
-          />
+          >
+            {flowOptions.map((flow) => (
+              <option key={flow.key} value={flow.key} disabled={flow.disabled}>
+                {flow.label}
+              </option>
+            ))}
+          </select>
           <input
             data-testid="flow-working-folder"
             value={workingFolder}

@@ -65,9 +65,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [
-            { name: 'echo', description: 'Echo flow', disabled: false },
-          ],
+          flows: [{ name: 'echo', description: 'Echo flow', disabled: false }],
         }),
       });
       return;
@@ -227,12 +225,12 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
     timeout: 20000,
   });
   await page.getByRole('button', { name: /open menu/i }).click();
-  await expect(page.getByTestId('workspace-mobile-app-menu-overlay')).toBeVisible(
-    { timeout: 20000 },
-  );
+  await expect(
+    page.getByTestId('workspace-mobile-app-menu-overlay'),
+  ).toBeVisible({ timeout: 20000 });
   await page
     .getByTestId('workspace-mobile-app-menu-overlay')
-  .getByRole('link', { name: 'Flows' })
+    .getByRole('link', { name: 'Flows' })
     .click();
   await expect(page).toHaveURL(/\/flows$/);
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
@@ -414,6 +412,174 @@ test('flows warning rendering and disabled run guard stay visible at the browser
   expect(runBodies).toHaveLength(0);
 });
 
+test('flows let operators select the GitHub review variant without mutating the default entrypoint', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  await installMockChatWs(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const runPaths: string[] = [];
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const method = req.method();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const pathname = url.pathname;
+
+    if (pathname === '/health' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+
+    if (pathname === '/flows' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flows: [
+            {
+              name: 'implement_next_plan',
+              description: 'Default implementation flow',
+              disabled: false,
+            },
+            {
+              name: 'implement_next_plan_github_review',
+              description: 'GitHub review variant',
+              disabled: false,
+            },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (pathname === '/flows/implement_next_plan' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'implement_next_plan',
+            description: 'Default implementation flow',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (
+      pathname === '/flows/implement_next_plan_github_review' &&
+      method === 'GET'
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'implement_next_plan_github_review',
+            description: 'GitHub review variant',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (pathname === '/conversations' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    if (pathname.startsWith('/conversations/') && pathname.endsWith('/turns')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    if (
+      pathname === '/flows/implement_next_plan_github_review/run' &&
+      method === 'POST'
+    ) {
+      runPaths.push(pathname);
+      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          flowName: 'implement_next_plan_github_review',
+          conversationId: 'github-run',
+          inflightId: 'github-inflight',
+          providerId: 'codex',
+          modelId: 'gpt-5.2',
+        }),
+      });
+      return;
+    }
+
+    if (pathname === '/flows/implement_next_plan/run' && method === 'POST') {
+      runPaths.push(pathname);
+      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          flowName: 'implement_next_plan',
+          conversationId: 'default-run',
+          inflightId: 'default-inflight',
+          providerId: 'codex',
+          modelId: 'gpt-5.2',
+        }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByTestId('flow-select-trigger')).toContainText(
+    'implement_next_plan',
+  );
+
+  await page.getByTestId('flow-select-trigger').click();
+  await page
+    .getByText('implement_next_plan_github_review', { exact: true })
+    .click();
+  await expect(page.getByTestId('flow-select-trigger')).toContainText(
+    'implement_next_plan_github_review',
+  );
+
+  await page.getByTestId('flow-run').click();
+  await expect
+    .poll(() => runBodies.length, {
+      timeout: 10000,
+      message: 'Expected the selected GitHub review variant flow to start',
+    })
+    .toBe(1);
+  expect(runPaths).toEqual(['/flows/implement_next_plan_github_review/run']);
+});
+
 test('flows composer footer controls use upward desktop popovers and centered mobile dialogs', async ({
   page,
 }) => {
@@ -444,7 +610,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
         }),
       });
       return;
@@ -504,9 +672,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     expect(triggerBox).not.toBeNull();
     expect(popoverBox).not.toBeNull();
     expect(popoverBox?.y ?? 0).toBeLessThan(triggerBox?.y ?? 0);
-    expect((popoverBox?.y ?? 0) + (popoverBox?.height ?? 0)).toBeLessThanOrEqual(
-      (triggerBox?.y ?? 0) + 12,
-    );
+    expect(
+      (popoverBox?.y ?? 0) + (popoverBox?.height ?? 0),
+    ).toBeLessThanOrEqual((triggerBox?.y ?? 0) + 12);
 
     await page.keyboard.press('Escape');
     await expect(popover).toBeHidden({ timeout: 20000 });
@@ -614,7 +782,9 @@ test('flows existing-conversation working-folder picker applies a local reposito
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
         }),
       });
       return;
@@ -677,17 +847,13 @@ test('flows existing-conversation working-folder picker applies a local reposito
         body: JSON.stringify({
           base: '/base',
           path: requestedPath,
-          dirs:
-            requestedPath === '/base/repo' ? ['child'] : [],
+          dirs: requestedPath === '/base/repo' ? ['child'] : [],
         }),
       });
       return;
     }
 
-    if (
-      path === '/conversations/flow-1/working-folder' &&
-      method === 'POST'
-    ) {
+    if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
       const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
       workingFolderBodies.push(payload);
       const workingFolder =
@@ -729,9 +895,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
                 ? 'working_folder_unavailable'
                 : 'invalid_request',
             code: err.code ?? 'WORKING_FOLDER_INVALID',
-            message:
-              err.reason ??
-              'working_folder validation failed',
+            message: err.reason ?? 'working_folder validation failed',
           }),
         });
       }
@@ -754,15 +918,15 @@ test('flows existing-conversation working-folder picker applies a local reposito
   );
 
   await page.getByTestId('flow-working-folder-trigger').click();
-  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toBeVisible(
-    { timeout: 20000 },
-  );
+  await expect(
+    page.getByRole('dialog', { name: 'Choose folder…' }),
+  ).toBeVisible({ timeout: 20000 });
   await page.getByRole('button', { name: 'child' }).click();
   await page.getByRole('button', { name: 'Use this folder' }).click();
 
-  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole('dialog', { name: 'Choose folder…' }),
+  ).toHaveCount(0);
 
   await expect(page.getByTestId('flow-working-folder-trigger')).toContainText(
     'child',
@@ -872,10 +1036,7 @@ test('flows existing conversations open at the newest visible content and preser
       return;
     }
 
-    if (
-      path === '/conversations/flow-1/working-folder' &&
-      method === 'POST'
-    ) {
+    if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
       const payload = req.postDataJSON?.() ?? {};
       await route.fulfill({
         status: 200,
@@ -894,9 +1055,8 @@ test('flows existing conversations open at the newest visible content and preser
               typeof (payload as { workingFolder?: string }).workingFolder ===
               'string'
                 ? {
-                    workingFolder: (
-                      payload as { workingFolder: string }
-                    ).workingFolder,
+                    workingFolder: (payload as { workingFolder: string })
+                      .workingFolder,
                   }
                 : {},
           },

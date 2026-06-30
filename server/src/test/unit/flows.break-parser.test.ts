@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseBreakAnswer, parseContinueAnswer } from '../../flows/service.js';
+import { parseBreakAnswer, parseContinueAnswer, parseIfAnswer } from '../../flows/service.js';
 
 const runDecisionParserSuite = (params: {
-  kind: 'break' | 'continue';
-  label: 'Break' | 'Continue';
+  kind: 'break' | 'continue' | 'if';
+  label: 'Break' | 'Continue' | 'If';
   parse: (content: string) =>
     | {
         ok: true;
@@ -101,4 +101,10 @@ runDecisionParserSuite({
   kind: 'continue',
   label: 'Continue',
   parse: parseContinueAnswer,
+});
+
+runDecisionParserSuite({
+  kind: 'if',
+  label: 'If',
+  parse: parseIfAnswer,
 });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +25,10 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import {
+  __resetGitHubReviewDepsForTests,
+  __setGitHubReviewDepsForTests,
+} from '../../flows/githubReview.js';
+import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
@@ -32,6 +37,7 @@ import {
   __setFlowServiceDepsForTests,
 } from '../../flows/service.js';
 import { startFlowRun } from '../../flows/service.js';
+import { closeAll as closeLmStudioClients } from '../../lmstudio/clientPool.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
@@ -55,8 +61,10 @@ beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetGitHubReviewDepsForTests();
+  await closeLmStudioClients();
 });
 
 const withTimeout = async <T>(
@@ -258,6 +266,65 @@ const buildWaitTimeQueueUnavailableError = (params: {
     ],
   },
 });
+
+const createGitHubReviewRepoFixture = async (taskNumber = 4) => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'github-command-'));
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: taskNumber,
+          title: 'Task 4',
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      '### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints',
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  return repoRoot;
+};
 
 const withFlowServer = async (
   task: (params: {
@@ -597,6 +664,147 @@ test('command steps execute agent command items', async () => {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   });
+});
+
+test('github PR open generates reviewer-facing title and body from active story context', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-pr-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture();
+  const conversationId = 'github-open-conversation';
+  const seenCommands: string[][] = [];
+
+  process.env.FLOWS_DIR = tempFlowsDir;
+  await fs.writeFile(
+    path.join(repoRoot, '.env.local'),
+    'CODEINFO_PR_TOKEN=secret\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(tempFlowsDir, 'github-open.json'),
+    JSON.stringify(
+      {
+        description: 'github open',
+        steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  __setGitHubReviewDepsForTests({
+    runCommand: async ({ args }) => {
+      seenCommands.push(args);
+      const joined = args.join(' ');
+      if (joined === 'branch --show-current') {
+        return { exitCode: 0, stdout: 'feature/0000060-demo\n', stderr: '' };
+      }
+      if (joined === 'rev-parse HEAD') {
+        return { exitCode: 0, stdout: 'deadbeef\n', stderr: '' };
+      }
+      if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+        return {
+          exitCode: 0,
+          stdout: 'origin/feature/0000060-demo\n',
+          stderr: '',
+        };
+      }
+      if (joined === 'remote get-url origin') {
+        return {
+          exitCode: 0,
+          stdout: 'https://github.com/example/repo.git\n',
+          stderr: '',
+        };
+      }
+      if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
+        return {
+          exitCode: 0,
+          stdout: 'refs/remotes/origin/main\n',
+          stderr: '',
+        };
+      }
+      if (joined === 'push origin HEAD:feature/0000060-demo') {
+        return { exitCode: 0, stdout: '', stderr: '' };
+      }
+      if (args[0] === 'pr' && args[1] === 'create') {
+        return {
+          exitCode: 0,
+          stdout: 'https://github.com/example/repo/pull/45\n',
+          stderr: '',
+        };
+      }
+      if (
+        args[0] === 'api' &&
+        args.includes(
+          'repos/example/repo/pulls?state=open&head=example:feature%2F0000060-demo&sort=created&direction=desc&per_page=100',
+        )
+      ) {
+        return {
+          exitCode: 0,
+          stdout:
+            '[[{"number":45,"html_url":"https://github.com/example/repo/pull/45","head":{"ref":"feature/0000060-demo"},"base":{"ref":"main"},"user":{"login":"review-author"},"created_at":"2026-06-24T12:00:00Z","title":"Story review"}]]',
+          stderr: '',
+        };
+      }
+      throw new Error(`Unexpected command: ${joined}`);
+    },
+    sleep: async () => {},
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'github-open',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new ScriptedChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry({ containerPath: repoRoot })],
+        lockedModelId: null,
+      }),
+    });
+
+    await withTimeout(
+      (async () => {
+        while (
+          !seenCommands.some((args) => args[0] === 'pr' && args[1] === 'create')
+        ) {
+          await delay(20);
+        }
+      })(),
+      4000,
+      'Timed out waiting for GitHub PR create call',
+    );
+
+    const createArgs = seenCommands.find(
+      (args) => args[0] === 'pr' && args[1] === 'create',
+    );
+    assert.ok(createArgs);
+    const title = createArgs[createArgs.indexOf('--title') + 1];
+    const body = createArgs[createArgs.indexOf('--body') + 1];
+
+    assert.equal(
+      title,
+      'Story 0000060 review: Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+    );
+    assert.match(body, /Implemented work summary:/);
+    assert.match(
+      body,
+      /Do not request behavior changes outside the active story scope/,
+    );
+    assert.match(body, /Flow: github-open/);
+  } finally {
+    await cleanupConversationRuntime(conversationId);
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
 });
 
 test('flow-owned commands execute one markdown-backed message item', async () => {

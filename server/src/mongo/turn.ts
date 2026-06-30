@@ -3,7 +3,7 @@ import mongoose, { type HydratedDocument, type Model } from 'mongoose';
 const { Schema, model, models } = mongoose;
 
 export type TurnRole = 'user' | 'assistant' | 'system';
-export type TurnStatus = 'ok' | 'stopped' | 'failed';
+export type TurnStatus = 'ok' | 'warning' | 'stopped' | 'failed';
 export type TurnSource = 'REST' | 'MCP';
 
 export type TurnCommandMetadata =
@@ -141,7 +141,11 @@ const turnSchema = new Schema<Turn>(
     model: { type: String, required: true },
     provider: { type: String, required: true },
     toolCalls: { type: Schema.Types.Mixed, default: null },
-    status: { type: String, enum: ['ok', 'stopped', 'failed'], required: true },
+    status: {
+      type: String,
+      enum: ['ok', 'warning', 'stopped', 'failed'],
+      required: true,
+    },
     source: { type: String, enum: ['REST', 'MCP'], default: 'REST' },
     command: { type: turnCommandSchema, required: false },
     usage: { type: turnUsageSchema, required: false },

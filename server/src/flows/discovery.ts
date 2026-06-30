@@ -86,6 +86,15 @@ const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
       case 'command':
         names.add(step.agentType);
         break;
+      case 'if':
+        if (step.agentType?.trim()) {
+          names.add(step.agentType);
+        }
+        collectAgentTypes(step.then, names);
+        if (step.else) {
+          collectAgentTypes(step.else, names);
+        }
+        break;
       case 'startLoop':
         collectAgentTypes(step.steps, names);
         break;
@@ -112,6 +121,88 @@ const collectFlowWarnings = async (params: {
     }
   }
   return warnings.size > 0 ? [...warnings] : undefined;
+};
+
+const resolveFlowAgentForDiscovery = async (params: {
+  agentName: string;
+  discoveredAgentsByName: Map<
+    string,
+    Awaited<ReturnType<typeof discoverAgents>>[number]
+  >;
+  flowSourceId?: string;
+  flowSourceLabel?: string;
+  codeInfo2Root: string;
+  repos: Array<{ sourceId: string; sourceLabel: string }>;
+}) => {
+  const validatedAgentType = validateRepositoryBackedAgentType(params.agentName);
+  if (!validatedAgentType.ok) {
+    return {
+      ok: false as const,
+      message: `Flow agent "${params.agentName}" ${validatedAgentType.message}.`,
+    };
+  }
+
+  const ownerRepositoryPath = params.flowSourceId?.trim()
+    ? path.resolve(params.flowSourceId)
+    : params.codeInfo2Root;
+  const ownerRepositoryLabel = params.flowSourceId?.trim()
+    ? params.flowSourceLabel
+    : normalizeRepositoryCandidateLabel({ sourceId: params.codeInfo2Root });
+  const orderedCandidates = buildRepositoryCandidateOrder({
+    caller: 'flow-agent-discovery',
+    codeInfo2Root: params.codeInfo2Root,
+    ownerRepositoryPath,
+    ownerRepositoryLabel,
+    otherRepositoryRoots: params.repos,
+  });
+
+  for (const candidate of orderedCandidates.candidates) {
+    const resolvedAgentHome = await resolveAgentHomeForRepository({
+      repositoryRoot: candidate.sourceId,
+      agentName: validatedAgentType.agentType,
+    });
+    if (!resolvedAgentHome.home) {
+      continue;
+    }
+
+    const configPath = path.join(resolvedAgentHome.home, 'config.toml');
+    const configStat = await fs.stat(configPath).catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      return error;
+    });
+
+    if (configStat instanceof Error) {
+      return {
+        ok: false as const,
+        message: `Flow agent "${params.agentName}" runtime config could not be read.`,
+      };
+    }
+    if (!configStat?.isFile()) {
+      continue;
+    }
+
+    return {
+      ok: true as const,
+      configPath,
+      warnings: resolvedAgentHome.warnings,
+    };
+  }
+
+  const discovered = params.discoveredAgentsByName.get(
+    validatedAgentType.agentType,
+  );
+  if (discovered) {
+    return {
+      ok: true as const,
+      configPath: discovered.configPath,
+      warnings: discovered.warnings,
+    };
+  }
+
+  return {
+    ok: false as const,
+    message: `Flow agent "${params.agentName}" is not available in the configured agent homes.`,
+  };
 };
 
 const resolveFlowCommandForDiscovery = async (params: {
@@ -229,24 +320,16 @@ const collectFlowAvailability = async (params: {
   let disabledReason: AgentDisabledReason | undefined;
 
   for (const agentName of collectAgentTypes(params.parsedFlow.steps)) {
-    const validatedAgentType = validateRepositoryBackedAgentType(agentName);
-    if (!validatedAgentType.ok) {
-      const message = `Flow agent "${agentName}" ${validatedAgentType.message}.`;
-      warningDetails.push({
-        code: 'discovery_warning',
-        message,
-        visibility: 'details',
-      });
-      disabledReason ??= {
-        code: 'agent_not_found',
-        message,
-      };
-      continue;
-    }
-
-    const discovered = params.discoveredAgentsByName.get(agentName);
-    if (!discovered) {
-      const message = `Flow agent "${agentName}" is not available in the configured agent homes.`;
+    const resolvedAgent = await resolveFlowAgentForDiscovery({
+      agentName,
+      discoveredAgentsByName: params.discoveredAgentsByName,
+      flowSourceId: params.sourceId,
+      flowSourceLabel: params.sourceLabel,
+      codeInfo2Root: params.codeInfo2Root,
+      repos: params.repos,
+    });
+    if (!resolvedAgent.ok) {
+      const message = resolvedAgent.message;
       warningDetails.push({
         code: 'discovery_warning',
         message,
@@ -263,8 +346,8 @@ const collectFlowAvailability = async (params: {
     try {
       availability = await evaluateAgentAvailability({
         agentName,
-        configPath: discovered.configPath,
-        discoveryWarnings: discovered.warnings,
+        configPath: resolvedAgent.configPath,
+        discoveryWarnings: resolvedAgent.warnings,
         entrypoint: 'flows.service',
         context: params.availabilityContext,
       });
@@ -341,6 +424,13 @@ const collectCommandSteps = (
   for (const step of steps) {
     if (step.type === 'command') {
       collected.push(step);
+      continue;
+    }
+    if (step.type === 'if') {
+      collectCommandSteps(step.then, collected);
+      if (step.else) {
+        collectCommandSteps(step.else, collected);
+      }
       continue;
     }
     if (step.type === 'startLoop') {

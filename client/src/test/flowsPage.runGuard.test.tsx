@@ -279,6 +279,121 @@ describe('Flows page run guards', () => {
     ).toBe(false);
   });
 
+  it('keeps the active runnable selection when an ingested GitHub review variant is disabled from list data', async () => {
+    const user = userEvent.setup();
+    let runRequests = 0;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/echo?') || target.endsWith('/flows/echo')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'echo',
+            description: 'Echo flow',
+            disabled: false,
+            warnings: [],
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'echo', description: 'Echo flow', disabled: false },
+            {
+              name: 'implement_next_plan_github_review',
+              description: 'GitHub review cycle',
+              disabled: true,
+              sourceId: '/data/codeInfo2',
+              sourceLabel: '/data/codeInfo2',
+              error:
+                'Flow agent "review_agent" is not available in the configured agent homes.',
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/flows/echo/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'echo',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      if (target.includes('/flows/implement_next_plan_github_review/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            error: 'AGENT_NOT_FOUND',
+          },
+          { status: 400 },
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+        'echo',
+      ),
+    );
+    await user.click(screen.getByTestId('flow-select-trigger'));
+    const disabledOption = await screen.findByTestId(
+      'flow-option-implement_next_plan_github_review::/data/codeInfo2',
+    );
+    expect(disabledOption).toHaveAttribute('aria-disabled', 'true');
+    const hiddenSelect = screen.getByTestId('flow-select') as HTMLSelectElement;
+    const hiddenDisabledOption = hiddenSelect.querySelector(
+      'option[value="implement_next_plan_github_review::/data/codeInfo2"]',
+    );
+    expect(hiddenDisabledOption).not.toBeNull();
+    expect(hiddenDisabledOption).toBeDisabled();
+
+    fireEvent.change(hiddenSelect, {
+      target: {
+        value: 'implement_next_plan_github_review::/data/codeInfo2',
+      },
+    });
+
+    await expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+      'echo',
+    );
+    await expect(hiddenSelect).toHaveValue('echo::local');
+    await expect(screen.getByTestId('flow-run')).toBeEnabled();
+    expect(runRequests).toBe(0);
+  });
+
   it('revalidates selected flow details before starting a new run', async () => {
     const user = userEvent.setup();
     let runRequests = 0;
@@ -449,6 +564,102 @@ describe('Flows page run guards', () => {
 
     await screen.findByText('No usable provider remains');
     await waitFor(() => expect(resumeButton).toBeDisabled());
+
+    expect(runRequests).toBe(0);
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),
+    ).toBe(false);
+  });
+
+  it('revalidates selected flow details before the visible composer send path resumes a flow', async () => {
+    const user = userEvent.setup();
+    let runRequests = 0;
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: true,
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'No usable provider remains',
+            },
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: { flow: { stepPath: [2, 0] } },
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await screen.findByText('No usable provider remains');
+    await waitFor(() => expect(runButton).toBeDisabled());
 
     expect(runRequests).toBe(0);
     expect(

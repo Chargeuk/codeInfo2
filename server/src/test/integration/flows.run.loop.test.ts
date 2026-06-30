@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +25,20 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __resetGitHubReviewDepsForTests,
+  __setGitHubReviewDepsForTests,
+  MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+  MAX_GITHUB_REVIEW_SUBMISSIONS,
+  readGitHubReviewScratch,
+  materializeGitHubExternalReviewInput,
+  writeGitHubReviewScratch,
+} from '../../flows/githubReview.js';
+import {
+  __resetFlowWaitResumeDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -48,6 +62,8 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetGitHubReviewDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 const withTimeout = async <T>(
@@ -183,15 +199,246 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+const githubReviewFixturesDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../fixtures/flows/github-review',
+);
+
+const createGitHubReviewRepoFixture = async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-loop-repo-'),
+  );
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, 'scripts/flow_control'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: 4,
+          title: 'Task 4',
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      '### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints',
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.copyFile(
+    path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../../scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+    path.join(
+      repoRoot,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+  );
+  await fs.writeFile(
+    path.join(repoRoot, '.env.local'),
+    'CODEINFO_PR_TOKEN=secret\n',
+    'utf8',
+  );
+  return repoRoot;
+};
+
+const writeGitHubReviewHandoff = async (params: {
+  repoRoot: string;
+  executionId?: string;
+  reviewCount: number;
+  commentCount?: number;
+  legacyReviewCount?: number;
+  legacyCommentCount?: number;
+}) => {
+  const reviewsDir = path.join(params.repoRoot, 'codeInfoTmp/reviews');
+  await fs.mkdir(reviewsDir, { recursive: true });
+  const executionId = params.executionId ?? 'exec-1';
+
+  const writeHandoff = async (
+    reviewCount: number,
+    commentCount: number,
+  ) => {
+    const handoffPath = path.join(
+      reviewsDir,
+      `0000060-github-review-${executionId}-current.json`,
+    );
+    await fs.writeFile(
+      path.join(reviewsDir, '0000060-github-review-current.json'),
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: executionId,
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: params.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: executionId,
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: params.repoRoot,
+          filtered_review_count: reviewCount,
+          filtered_review_comment_count: commentCount,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  };
+
+  await writeHandoff(params.reviewCount, params.commentCount ?? 0);
+  if (
+    params.legacyReviewCount !== undefined ||
+    params.legacyCommentCount !== undefined
+  ) {
+    await fs.writeFile(
+      path.join(reviewsDir, '0000060-current-review.json'),
+      JSON.stringify(
+        {
+          filtered_review_count: params.legacyReviewCount ?? 0,
+          filtered_review_comment_count: params.legacyCommentCount ?? 0,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  }
+};
+
+const writeGitHubReviewRuntimeFlow = async (params: {
+  dir: string;
+  flowName: string;
+  includeWait?: boolean;
+  thenSteps: Array<Record<string, unknown>>;
+  elseSteps: Array<Record<string, unknown>>;
+}) => {
+  const steps: Array<Record<string, unknown>> = [];
+  if (params.includeWait) {
+    steps.push({
+      type: 'wait',
+      label: 'Wait for review feedback',
+      seconds: 60,
+    });
+  }
+  steps.push({
+    type: 'if',
+    condition: 'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    then: params.thenSteps,
+    else: params.elseSteps,
+  });
+
+  await fs.writeFile(
+    path.join(params.dir, `${params.flowName}.json`),
+    JSON.stringify(
+      {
+        description: 'GitHub review runtime branch-authority fixture',
+        steps,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+};
+
+const buildHarnessRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'flow-test-repo',
+  description: null,
+  containerPath,
+  hostPath: `/host${containerPath}`,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+});
+
+const listHarnessRepo = async (
+  containerPath: string,
+): Promise<ListReposResult> => ({
+  repos: [buildHarnessRepoEntry(containerPath)],
+  lockedModelId: null,
+});
 
 const withFlowServer = async (
   responder: (message: string) => string,
-  task: (params: { baseUrl: string; wsUrl: WebSocket }) => Promise<void>,
+  task: (params: {
+    baseUrl: string;
+    wsUrl: WebSocket;
+    tmpDir: string;
+  }) => Promise<void>,
   options?: {
     cleanupInflightFn?: (params: {
       conversationId: string;
       inflightId?: string;
     }) => void;
+    listIngestedRepositoriesFn?: () => Promise<ListReposResult>;
     releaseConversationLockFn?: (
       conversationId: string,
       expectedRunToken?: string,
@@ -201,6 +448,7 @@ const withFlowServer = async (
       conversationId: string;
       detail?: string;
     }) => void | Promise<void>;
+    registerTmpDirAsRepo?: boolean;
   },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -218,6 +466,11 @@ const withFlowServer = async (
         startFlowRun({
           ...params,
           chatFactory: () => new ScriptedChat(responder),
+          listIngestedRepositories:
+            options?.listIngestedRepositoriesFn ??
+            (options?.registerTmpDirAsRepo
+              ? () => listHarnessRepo(tmpDir)
+              : undefined),
           onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
           cleanupInflightFn: options?.cleanupInflightFn,
           releaseConversationLockFn: options?.releaseConversationLockFn,
@@ -234,7 +487,7 @@ const withFlowServer = async (
   const ws = await connectWs({ baseUrl });
 
   try {
-    await task({ baseUrl, wsUrl: ws });
+    await task({ baseUrl, wsUrl: ws, tmpDir });
   } finally {
     await closeFlowHarness({ ws, wsHandle, httpServer });
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
@@ -476,6 +729,1983 @@ test('flow loops until break answer matches breakOn', async () => {
       await cleanupConversationRuntime(conversationId, agentConversationId);
     },
   );
+});
+
+test('github review bounded corpus scratch replacement stays authoritative before classification', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-1-current.json',
+    );
+    const rawArtifactPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-1-pr-45.json',
+    );
+    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-exec-1-external-review-input.md',
+      ),
+      'stale input\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-1',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-1',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name: 'feature/0000060-demo',
+          head_sha: 'deadbeef',
+          raw_review_artifact_path: rawArtifactPath,
+          pull_request: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const reviews = Array.from(
+      { length: MAX_GITHUB_REVIEW_SUBMISSIONS },
+      (_, index) => ({
+        id: 3000 + index + 1,
+        user: { login: `reviewer-${String(index + 1)}` },
+        body:
+          index === 0
+            ? 'Fresh bounded review entry one.'
+            : index === MAX_GITHUB_REVIEW_SUBMISSIONS - 1
+              ? 'Fresh bounded review entry final.'
+              : `Fresh bounded review entry ${String(index + 1)}.`,
+        state: 'COMMENTED',
+        submitted_at: new Date(
+          Date.UTC(2026, 5, 24, 10, 0, index + 1),
+        ).toISOString(),
+      }),
+    );
+    const reviewComments = Array.from(
+      { length: MAX_GITHUB_INLINE_REVIEW_COMMENTS },
+      (_, index) => ({
+        id: 4000 + index + 1,
+        pull_request_review_id: 3000 + index + 1,
+        user: { login: `inline-reviewer-${String(index + 1)}` },
+        body:
+          index === 0
+            ? 'Fresh bounded inline entry one.'
+            : index === MAX_GITHUB_INLINE_REVIEW_COMMENTS - 1
+              ? 'Fresh bounded inline entry final.'
+              : `Fresh bounded inline entry ${String(index + 1)}.`,
+        path: 'server/src/flows/githubReview.ts',
+        line: index + 1,
+        created_at: new Date(
+          Date.UTC(2026, 5, 24, 11, 0, index + 1),
+        ).toISOString(),
+      }),
+    );
+    await fs.writeFile(
+      rawArtifactPath,
+      JSON.stringify(
+        {
+          repository: { owner: 'example', name: 'repo' },
+          pullRequest: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+          fetchedAt: '2026-06-24T12:00:00.000Z',
+          reviews,
+          reviewComments,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const result = await materializeGitHubExternalReviewInput({
+      handoff: await (async () => {
+        const parsed = await readGitHubReviewScratch({ handoffPath: selectorPath });
+        assert.equal(parsed.kind, 'ok');
+        return parsed.value;
+      })(),
+    });
+    assert.equal(result.kind, 'ok');
+
+    const updatedHandoff = JSON.parse(
+      await fs.readFile(handoffPath, 'utf8'),
+    ) as {
+      filtered_review_count?: number;
+      filtered_review_comment_count?: number;
+      external_review_input_file?: string;
+    };
+    const externalInput = await fs.readFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-exec-1-external-review-input.md',
+      ),
+      'utf8',
+    );
+    assert.equal(
+      updatedHandoff.filtered_review_count,
+      MAX_GITHUB_REVIEW_SUBMISSIONS,
+    );
+    assert.equal(
+      updatedHandoff.filtered_review_comment_count,
+      MAX_GITHUB_INLINE_REVIEW_COMMENTS,
+    );
+    assert.match(
+      updatedHandoff.external_review_input_file ?? '',
+      /0000060-github-review-exec-1-external-review-input\.md$/,
+    );
+    assert.match(externalInput, /Fresh bounded review entry one\./);
+    assert.match(externalInput, /Fresh bounded review entry final\./);
+    assert.match(externalInput, /Fresh bounded inline entry one\./);
+    assert.match(externalInput, /Fresh bounded inline entry final\./);
+    assert.doesNotMatch(externalInput, /stale input/);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('checked-in GitHub review flow variant keeps clean ordering and closes PRs only inside findings repair paths', async () => {
+  const variant = JSON.parse(
+    await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
+      'utf8',
+    ),
+  ) as {
+    steps: Array<Record<string, unknown>>;
+  };
+
+  const flattenSteps = (
+    steps: Array<Record<string, unknown>>,
+  ): Array<Record<string, unknown>> =>
+    steps.flatMap((step) => {
+      const nested = Array.isArray(step.steps)
+        ? flattenSteps(step.steps as Array<Record<string, unknown>>)
+        : [];
+      const thenBranch = Array.isArray(step.then)
+        ? flattenSteps(step.then as Array<Record<string, unknown>>)
+        : [];
+      const elseBranch = Array.isArray(step.else)
+        ? flattenSteps(step.else as Array<Record<string, unknown>>)
+        : [];
+      return [step, ...nested, ...thenBranch, ...elseBranch];
+    });
+
+  const flattened = flattenSteps(variant.steps);
+  const openIndex = flattened.findIndex(
+    (step) => step.type === 'github_open_pr',
+  );
+  const waitIndex = flattened.findIndex((step) => step.type === 'wait');
+  const fetchIndex = flattened.findIndex(
+    (step) => step.type === 'github_fetch_reviews',
+  );
+  const ifIndex = flattened.findIndex((step) => step.type === 'if');
+  const closeLabels = flattened
+    .filter((step) => step.type === 'github_close_pr')
+    .map((step) => step.label);
+
+  assert.ok(openIndex > -1);
+  assert.ok(waitIndex > openIndex);
+  assert.ok(fetchIndex > waitIndex);
+  assert.ok(ifIndex > fetchIndex);
+  assert.deepEqual(closeLabels, [
+    'Close GitHub Review Pull Request Before Minor Fix Loopback',
+    'Close GitHub Review Pull Request Before Task-Up Loopback',
+  ]);
+  assert.ok(
+    flattened.some((step) => step.commandName === 'external_review_findings'),
+  );
+});
+
+test('github review runtime keeps clean-cycle reachable before untaken findings agent validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 0,
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-clean',
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'missing_agent',
+              identifier: 'untaken-findings',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Untaken findings branch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Clean-cycle branch stayed reachable.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-clean/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Clean-cycle branch stayed reachable.'),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Clean-cycle branch stayed reachable.'),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Untaken findings branch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime keeps findings-present reachable before untaken clean-branch command validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 2,
+      commentCount: 1,
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-findings',
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Findings branch stayed reachable.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              commandName: 'missing_command',
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Untaken clean branch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-findings/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Findings branch stayed reachable.'),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Findings branch stayed reachable.'),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Untaken clean branch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime resumes through repaired wait and review handoff state before untaken branch validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 1,
+      commentCount: 1,
+      legacyReviewCount: 0,
+      legacyCommentCount: 0,
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-resume',
+          includeWait: true,
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Resumed review context stayed on findings branch.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              commandName: 'missing_command',
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Stale clean-cycle scratch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-resume/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+            retryOwnershipId: 'review-resume-retry',
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: {
+              wait?: { stepPath?: number[] };
+            };
+          };
+          return (
+            Array.isArray(flowState.flow?.wait?.stepPath) &&
+            flowState.flow?.wait?.stepPath?.[0] === 0
+          );
+        }, 4000, 'Timed out waiting for persisted review wait state');
+        const resumed = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-resume/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: workingRepo,
+            resumeStepPath: [0],
+          });
+        assert.equal(resumed.status, 202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes(
+                  'Resumed review context stayed on findings branch.',
+                ),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Resumed review context stayed on findings branch.',
+              ),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Stale clean-cycle scratch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: unknown };
+          };
+          return flowState.flow?.wait === undefined;
+        }, 4000, 'Timed out waiting for resumed review wait state to clear');
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime re-derives canonical execution-scoped handoff authority before helper launch reads disk', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-canonical-resume-authority',
+          includeWait: true,
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    'Canonical resumed handoff authority stayed on the findings branch.',
+                  ],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    'Foreign resumed handoff path should stay excluded before helper reads disk.',
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-canonical-resume-authority/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+            retryOwnershipId: 'canonical-review-resume-retry',
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: { stepPath?: number[] } };
+          };
+          return (
+            Array.isArray(flowState.flow?.wait?.stepPath) &&
+            flowState.flow?.wait?.stepPath?.[0] === 0
+          );
+        }, 4000, 'Timed out waiting for persisted canonical review wait state');
+
+        const foreignHandoffDir = path.join(
+          workingRepo,
+          'codeInfoTmp/reviews/foreign-handoff-dir',
+        );
+        const foreignSelectorDir = path.join(
+          workingRepo,
+          'codeInfoTmp/reviews/foreign-selector-dir',
+        );
+        await fs.mkdir(foreignHandoffDir, { recursive: true });
+        await fs.mkdir(foreignSelectorDir, { recursive: true });
+
+        const flowFlags = (memoryConversations.get(conversationId)?.flags ??
+          {}) as {
+          flow?: {
+            executionId?: string;
+            wait?: {
+              githubReviewContext?: {
+                executionId?: string;
+                prNumber?: number;
+                storyNumber?: string;
+                branchName?: string;
+                selectorPath?: string;
+                handoffPath?: string;
+              };
+            };
+          };
+        };
+        assert.ok(flowFlags.flow?.executionId);
+        await writeGitHubReviewHandoff({
+          repoRoot: workingRepo,
+          executionId: flowFlags.flow!.executionId,
+          reviewCount: 1,
+          commentCount: 1,
+          legacyReviewCount: 0,
+          legacyCommentCount: 0,
+        });
+        flowFlags.flow!.wait!.githubReviewContext = {
+          executionId: flowFlags.flow!.executionId,
+          storyNumber: '0000060',
+          branchName: 'feature/0000060-demo',
+          selectorPath: foreignSelectorDir,
+          handoffPath: foreignHandoffDir,
+        };
+        memoryConversations.get(conversationId)!.flags = flowFlags;
+
+        const resumed = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-canonical-resume-authority/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: workingRepo,
+            resumeStepPath: [0],
+          });
+        assert.equal(resumed.status, 202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes(
+                  'Canonical resumed handoff authority stayed on the findings branch.',
+                ),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Canonical resumed handoff authority stayed on the findings branch.',
+              ),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Foreign resumed handoff path should stay excluded before helper reads disk.',
+              ),
+          ).length,
+          0,
+        );
+        assert.equal(
+          turns.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'failed' &&
+              turn.content.includes(
+                'canonical execution-scoped ownership contract',
+              ),
+          ),
+          false,
+        );
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: unknown };
+          };
+          return flowState.flow?.wait === undefined;
+        }, 4000, 'Timed out waiting for canonical resumed review wait state to clear');
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime keeps the newer execution selector authoritative after an older run later attempts to reclaim scratch ownership', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp/reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp/reviews/0000060-current-review.json'),
+      JSON.stringify(
+        {
+          pull_request: { number: 12 },
+          stale: true,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp/reviews/0000060-external-review-input.md'),
+      'stale input\n',
+      'utf8',
+    );
+
+    const latestPullPage = JSON.stringify([
+      {
+        number: 45,
+        html_url: 'https://github.com/example/repo/pull/45',
+        title: 'latest pull request',
+        created_at: '2026-06-24T10:00:00Z',
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      },
+    ]);
+    const reviewsSlurp = await fs.readFile(
+      path.join(githubReviewFixturesDir, 'reviews-slurp.json'),
+      'utf8',
+    );
+    const commentsSlurp = await fs.readFile(
+      path.join(githubReviewFixturesDir, 'comments-slurp.json'),
+      'utf8',
+    );
+
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        if (joined === 'branch --show-current') {
+          return {
+            exitCode: 0,
+            stdout:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'deadbeef\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return {
+            exitCode: 0,
+            stdout:
+              'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo.git\n',
+            stderr: '',
+          };
+        }
+        if (
+          joined ===
+          'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+        ) {
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: 'connection dropped after create',
+          };
+        }
+        const endpoint = params.args.at(-1) ?? '';
+        if (endpoint.includes('/pulls?state=open&head=')) {
+          return { exitCode: 0, stdout: latestPullPage, stderr: '' };
+        }
+        if (endpoint.endsWith('/pulls/45')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 45,
+              html_url: 'https://github.com/example/repo/pull/45',
+              head: {
+                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              },
+              base: { ref: 'main' },
+            }),
+            stderr: '',
+          };
+        }
+        if (endpoint.includes('/reviews?')) {
+          return { exitCode: 0, stdout: reviewsSlurp, stderr: '' };
+        }
+        if (endpoint.includes('/comments?')) {
+          return { exitCode: 0, stdout: commentsSlurp, stderr: '' };
+        }
+        throw new Error(`Unexpected command: ${joined}`);
+      },
+      sleep: async () => {},
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-runtime-conv';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-runtime.json'),
+          JSON.stringify(
+            {
+              description: 'Minimal GitHub review runtime proof',
+              steps: [
+                {
+                  type: 'github_open_pr',
+                  label: 'Open GitHub Review Pull Request',
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch GitHub Review Feedback',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime/run')
+          .send({ conversationId, working_folder: repoRoot })
+          .expect(202);
+
+        const selectorPath = path.join(
+          repoRoot,
+          'codeInfoTmp/reviews/0000060-github-review-current.json',
+        );
+        let handoff:
+          | {
+              handoff_kind?: string;
+              execution_id?: string;
+              pull_request: { number: number };
+              external_review_input_file?: string;
+            }
+          | undefined;
+        let externalInput = '';
+        const started = Date.now();
+        while (Date.now() - started < 4000) {
+          try {
+            const parsed = await readGitHubReviewScratch({
+              handoffPath: selectorPath,
+            });
+            if (parsed.kind !== 'ok') {
+              throw new Error(parsed.message);
+            }
+            const currentHandoff = parsed.value;
+            handoff = currentHandoff as typeof handoff;
+            externalInput = await fs.readFile(
+              currentHandoff.external_review_input_file ?? '',
+              'utf8',
+            );
+            if (
+              currentHandoff.pull_request.number === 45 &&
+              /Please revisit the retry wording\./u.test(externalInput)
+            ) {
+              break;
+            }
+          } catch {
+            // Keep polling until the runtime publishes the fresh Task 7 scratch.
+          }
+          await delay(25);
+        }
+
+        assert.ok(handoff);
+        assert.equal(handoff.handoff_kind, 'github-review-handoff-v1');
+        assert.ok(handoff.execution_id);
+        assert.equal(handoff.pull_request.number, 45);
+        assert.match(
+          handoff.external_review_input_file ?? '',
+          /0000060-github-review-.*-external-review-input\.md$/,
+        );
+        assert.match(externalInput, /Please revisit the retry wording\./);
+        assert.doesNotMatch(externalInput, /stale input/);
+
+        const reclaimAttempt = await writeGitHubReviewScratch({
+          repository: {
+            workingRepositoryRoot: repoRoot,
+            repositoryOwner: 'example',
+            repositoryName: 'repo',
+            repositoryFullName: 'example/repo',
+            currentBranch:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            headSha: 'cafebabe',
+            upstreamRemote: 'origin',
+            upstreamBranch:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseBranch: 'main',
+            remoteUrl: 'https://github.com/example/repo.git',
+          },
+          executionId: 'older-execution',
+          pullRequest: {
+            number: 12,
+            url: 'https://github.com/example/repo/pull/12',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+          artifact: {
+            repository: { owner: 'example', name: 'repo' },
+            pullRequest: {
+              number: 12,
+              url: 'https://github.com/example/repo/pull/12',
+              headRefName:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              baseRefName: 'main',
+            },
+            fetchedAt: '2026-06-27T11:00:00Z',
+            reviews: [],
+            reviewComments: [],
+          },
+        });
+        assert.equal(reclaimAttempt.kind, 'error');
+        assert.match(reclaimAttempt.message, /newer or foreign flow execution/i);
+
+        const stillAuthoritative = await readGitHubReviewScratch({
+          handoffPath: selectorPath,
+        });
+        assert.equal(stillAuthoritative.kind, 'ok');
+        assert.equal(
+          stillAuthoritative.value.execution_id,
+          handoff.execution_id,
+        );
+        assert.equal(stillAuthoritative.value.pull_request.number, 45);
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime preserves producer-side token loader failures instead of rewriting them into skip warnings', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    await fs.rm(path.join(repoRoot, '.env.local'), { force: true });
+    await fs.mkdir(path.join(repoRoot, '.env.local'));
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-runtime-token-loader-failure';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-runtime-token-loader-failure.json'),
+          JSON.stringify(
+            {
+              description: 'Minimal GitHub review runtime failure proof',
+              steps: [
+                {
+                  type: 'github_open_pr',
+                  label: 'Open GitHub Review Pull Request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime-token-loader-failure/run')
+          .send({ conversationId, working_folder: repoRoot })
+          .expect(202);
+
+        const final = await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'turn_final';
+            status: string;
+            error?: { code?: string; message?: string };
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+              error?: { code?: string; message?: string };
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.status === 'failed'
+            );
+          },
+          timeoutMs: 4000,
+        });
+
+        assert.equal(final.status, 'failed');
+        assert.equal(final.error?.code, 'ENV_LOCAL_READ_FAILED');
+        assert.match(
+          final.error?.message ?? '',
+          /(?:\.env\.local|EISDIR|permission denied)/u,
+        );
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) => turn.role === 'assistant' && turn.status === 'failed',
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'warning' &&
+              turn.content.includes('GitHub review stage skipped during PR open'),
+          ),
+          false,
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review resume keeps execution-scoped fetch and close authority even when a newer run owns the shared selector', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const oldHandoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-old-current.json',
+    );
+    const newHandoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-new-current.json',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      oldHandoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-old',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'oldsha',
+          raw_review_artifact_path: path.join(
+            repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-exec-old-pr-77.json',
+          ),
+          pull_request: {
+            number: 77,
+            url: 'https://github.com/example/repo/pull/77',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      newHandoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-new',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'newsha',
+          raw_review_artifact_path: path.join(
+            repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-exec-new-pr-88.json',
+          ),
+          pull_request: {
+            number: 88,
+            url: 'https://github.com/example/repo/pull/88',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-new',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          handoff_path: newHandoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const commandLog: string[] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        commandLog.push(`${params.command} ${joined}`);
+        if (params.command === 'git') {
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'cafebabe\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/example/repo.git\n',
+              stderr: '',
+            };
+          }
+        }
+        if (params.command === 'gh') {
+          const endpoint = params.args.at(-1) ?? '';
+          if (endpoint.includes('/pulls?state=open&head=')) {
+            throw new Error(
+              'resumed execution should not fall back to branch-latest PR lookup',
+            );
+          }
+          if (endpoint.includes('/pulls/77/reviews?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([[{
+                id: 101,
+                user: { login: 'reviewer' },
+                body: 'Persist the older execution authority.',
+                state: 'COMMENTED',
+                submitted_at: '2026-06-27T18:45:00Z',
+              }]]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/77/comments?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([[{
+                id: 202,
+                user: { login: 'reviewer' },
+                body: 'Inline reminder',
+                path: 'server/src/flows/service.ts',
+                line: 1,
+                created_at: '2026-06-27T18:46:00Z',
+              }]]),
+              stderr: '',
+            };
+          }
+          if (joined === 'pr close 77 --repo example/repo') {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+        }
+        throw new Error(`Unexpected command: ${params.command} ${joined}`);
+      },
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-resume-authority-conv';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+        memoryConversations.set(conversationId, {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          title: 'Flow: github-review-resume-authority',
+          flowName: 'github-review-resume-authority',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId: 'exec-old',
+              stepPath: [0],
+              loopStack: [],
+              agentConversations: {},
+              agentThreads: {},
+              wait: {
+                executionId: 'exec-old',
+                stepPath: [0],
+                loopStack: [],
+                workingFolder: repoRoot,
+                resumeAt: Date.now() - 1000,
+                githubReviewContext: {
+                  executionId: 'exec-old',
+                  prNumber: 77,
+                  storyNumber: '0000060',
+                  branchName:
+                    'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  selectorPath,
+                  handoffPath: oldHandoffPath,
+                },
+              },
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-resume-authority.json'),
+          JSON.stringify(
+            {
+              description:
+                'Resume GitHub review with execution-scoped authority',
+              steps: [
+                {
+                  type: 'wait',
+                  label: 'Wait before resuming review authority',
+                  seconds: 60,
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch persisted GitHub review feedback',
+                },
+                {
+                  type: 'github_close_pr',
+                  label: 'Close persisted GitHub review pull request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-resume-authority/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [0],
+          })
+          .expect(202);
+
+        const started = Date.now();
+        while (Date.now() - started < 4000) {
+          const currentHandoff = await readGitHubReviewScratch({
+            handoffPath: oldHandoffPath,
+            expectedExecutionId: 'exec-old',
+          });
+          if (
+            currentHandoff.kind === 'ok' &&
+            currentHandoff.value.filtered_review_count === 1 &&
+            currentHandoff.value.filtered_review_comment_count === 1 &&
+            commandLog.some((entry) => entry.includes('gh pr close 77 --repo'))
+          ) {
+            break;
+          }
+          await delay(25);
+        }
+
+        const selector = JSON.parse(
+          await fs.readFile(selectorPath, 'utf8'),
+        ) as { execution_id: string };
+        assert.equal(selector.execution_id, 'exec-new');
+        const handoff = await readGitHubReviewScratch({
+          handoffPath: oldHandoffPath,
+          expectedExecutionId: 'exec-old',
+        });
+        assert.equal(handoff.kind, 'ok');
+        assert.equal(handoff.value.pull_request.number, 77);
+        assert.equal(handoff.value.filtered_review_count, 1);
+        assert.equal(handoff.value.filtered_review_comment_count, 1);
+        assert.ok(
+          commandLog.some((entry) => entry.includes('gh pr close 77 --repo')),
+        );
+        assert.equal(
+          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
+          false,
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review resume warns on PR mismatch and adopts a same-branch newer PR for fetch and close', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-mismatch-current.json',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-mismatch',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'oldsha',
+          raw_review_artifact_path: path.join(
+            repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-exec-mismatch-pr-77.json',
+          ),
+          pull_request: {
+            number: 77,
+            url: 'https://github.com/example/repo/pull/77',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-mismatch',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const commandLog: string[] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        commandLog.push(`${params.command} ${joined}`);
+        if (params.command === 'git') {
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'cafebabe\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/example/repo.git\n',
+              stderr: '',
+            };
+          }
+        }
+        if (params.command === 'gh') {
+          const endpoint = params.args.at(-1) ?? '';
+          if (endpoint.includes('/pulls?state=open&head=')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    number: 79,
+                    html_url: 'https://github.com/example/repo/pull/79',
+                    head: {
+                      ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                    },
+                    base: { ref: 'main' },
+                    created_at: '2026-06-28T19:00:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/79/reviews?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 301,
+                    user: { login: 'reviewer' },
+                    body: 'Use the newer same-branch PR.',
+                    state: 'COMMENTED',
+                    submitted_at: '2026-06-28T19:10:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/79/comments?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 302,
+                    user: { login: 'reviewer' },
+                    body: 'Inline reminder on the newer PR.',
+                    path: 'server/src/flows/service.ts',
+                    line: 1,
+                    created_at: '2026-06-28T19:11:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (joined === 'pr close 79 --repo example/repo') {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+        }
+        throw new Error(`Unexpected command: ${params.command} ${joined}`);
+      },
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-resume-mismatch-conv';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+        memoryConversations.set(conversationId, {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          title: 'Flow: github-review-resume-mismatch',
+          flowName: 'github-review-resume-mismatch',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId: 'exec-mismatch',
+              stepPath: [0],
+              loopStack: [],
+              agentConversations: {},
+              agentThreads: {},
+              wait: {
+                executionId: 'exec-mismatch',
+                stepPath: [0],
+                loopStack: [],
+                workingFolder: repoRoot,
+                resumeAt: Date.now() - 1000,
+                githubReviewContext: {
+                  executionId: 'exec-mismatch',
+                  prNumber: 78,
+                  storyNumber: '0000060',
+                  branchName:
+                    'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  selectorPath,
+                  handoffPath,
+                },
+              },
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-resume-mismatch.json'),
+          JSON.stringify(
+            {
+              description:
+                'Resume GitHub review with mismatch recovery to newer PR',
+              steps: [
+                {
+                  type: 'wait',
+                  label: 'Wait before resuming review mismatch flow',
+                  seconds: 60,
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch reconciled GitHub review feedback',
+                },
+                {
+                  type: 'github_close_pr',
+                  label: 'Close reconciled GitHub review pull request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-resume-mismatch/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [0],
+          })
+          .expect(202);
+
+        const warningTurns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.status === 'warning' &&
+                turn.content.includes(
+                  'Resumed GitHub review execution expected persisted pull request #77',
+                ),
+            ),
+          4000,
+        );
+        assert.equal(
+          warningTurns.filter(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'warning' &&
+              turn.content.includes('Adopting newer pull request #79'),
+          ).length,
+          1,
+        );
+
+        const started = Date.now();
+        while (Date.now() - started < 4000) {
+          const currentHandoff = await readGitHubReviewScratch({
+            handoffPath,
+            expectedExecutionId: 'exec-mismatch',
+          });
+          if (
+            currentHandoff.kind === 'ok' &&
+            currentHandoff.value.pull_request.number === 79 &&
+            currentHandoff.value.filtered_review_count === 1 &&
+            currentHandoff.value.filtered_review_comment_count === 1 &&
+            commandLog.some((entry) => entry.includes('gh pr close 79 --repo'))
+          ) {
+            break;
+          }
+          await delay(25);
+        }
+
+        const updatedHandoff = await readGitHubReviewScratch({
+          handoffPath,
+          expectedExecutionId: 'exec-mismatch',
+        });
+        assert.equal(updatedHandoff.kind, 'ok');
+        assert.equal(updatedHandoff.value.pull_request.number, 79);
+        assert.equal(updatedHandoff.value.filtered_review_count, 1);
+        assert.equal(updatedHandoff.value.filtered_review_comment_count, 1);
+        assert.ok(
+          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
+        );
+        assert.ok(
+          commandLog.some((entry) => entry.includes('/pulls/79/reviews?')),
+        );
+        assert.ok(
+          commandLog.some((entry) => entry.includes('gh pr close 79 --repo')),
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review resume re-enters same-branch authority before stale PR fallback when the execution-scoped handoff is missing', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-missing-current.json',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-missing',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const commandLog: string[] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        commandLog.push(`${params.command} ${joined}`);
+        if (params.command === 'git') {
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'cafebabe\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/example/repo.git\n',
+              stderr: '',
+            };
+          }
+        }
+        if (params.command === 'gh') {
+          const endpoint = params.args.at(-1) ?? '';
+          if (endpoint.includes('/pulls?state=open&head=')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    number: 79,
+                    html_url: 'https://github.com/example/repo/pull/79',
+                    head: {
+                      ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                    },
+                    base: { ref: 'main' },
+                    created_at: '2026-06-28T19:00:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/79/reviews?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 401,
+                    user: { login: 'reviewer' },
+                    body: 'Use the latest branch PR.',
+                    state: 'COMMENTED',
+                    submitted_at: '2026-06-28T19:20:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/79/comments?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 402,
+                    user: { login: 'reviewer' },
+                    body: 'Inline on the recovered PR.',
+                    path: 'server/src/flows/service.ts',
+                    line: 1,
+                    created_at: '2026-06-28T19:21:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (joined === 'pr close 79 --repo example/repo') {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+        }
+        throw new Error(`Unexpected command: ${params.command} ${joined}`);
+      },
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-resume-missing-handoff-conv';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+        memoryConversations.set(conversationId, {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          title: 'Flow: github-review-resume-missing-handoff',
+          flowName: 'github-review-resume-missing-handoff',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId: 'exec-missing',
+              stepPath: [0],
+              loopStack: [],
+              agentConversations: {},
+              agentThreads: {},
+              wait: {
+                executionId: 'exec-missing',
+                stepPath: [0],
+                loopStack: [],
+                workingFolder: repoRoot,
+                resumeAt: Date.now() - 1000,
+                githubReviewContext: {
+                  executionId: 'exec-missing',
+                  prNumber: 78,
+                  storyNumber: '0000060',
+                  branchName:
+                    'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  selectorPath,
+                  handoffPath,
+                },
+              },
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-resume-missing-handoff.json'),
+          JSON.stringify(
+            {
+              description:
+                'Resume GitHub review after losing the execution-scoped handoff',
+              steps: [
+                {
+                  type: 'wait',
+                  label: 'Wait before resuming review after handoff loss',
+                  seconds: 60,
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch recovered GitHub review feedback',
+                },
+                {
+                  type: 'github_close_pr',
+                  label: 'Close recovered GitHub review pull request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-resume-missing-handoff/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [0],
+          })
+          .expect(202);
+
+        const warningTurns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.status === 'warning' &&
+                turn.content.includes('lost its execution-scoped handoff'),
+            ),
+          4000,
+        );
+        assert.equal(
+          warningTurns.filter(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'warning' &&
+              turn.content.includes('lost its execution-scoped handoff'),
+          ).length,
+          1,
+        );
+
+        const started = Date.now();
+        while (Date.now() - started < 4000) {
+          const currentHandoff = await readGitHubReviewScratch({
+            handoffPath,
+            expectedExecutionId: 'exec-missing',
+          });
+          if (
+            currentHandoff.kind === 'ok' &&
+            currentHandoff.value.pull_request.number === 79 &&
+            currentHandoff.value.filtered_review_count === 1 &&
+            currentHandoff.value.filtered_review_comment_count === 1 &&
+            commandLog.some((entry) => entry.includes('gh pr close 79 --repo'))
+          ) {
+            break;
+          }
+          await delay(25);
+        }
+
+        const updatedHandoff = await readGitHubReviewScratch({
+          handoffPath,
+          expectedExecutionId: 'exec-missing',
+        });
+        assert.equal(updatedHandoff.kind, 'ok');
+        assert.equal(updatedHandoff.value.pull_request.number, 79);
+        assert.equal(updatedHandoff.value.filtered_review_count, 1);
+        assert.equal(updatedHandoff.value.filtered_review_comment_count, 1);
+        assert.ok(
+          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
+        );
+        assert.equal(
+          commandLog.some((entry) => entry.includes('/pulls/78')),
+          false,
+        );
+        assert.ok(
+          commandLog.some((entry) => entry.includes('gh pr close 79 --repo')),
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
 });
 
 test('continue step skips remaining iteration steps and starts the next iteration', async () => {
@@ -1915,7 +4145,7 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
           timeoutMs: 5000,
         });
 
-        await delay(200);
+        await waitForRuntimeCleanup(conversationId);
 
         const finals = events.filter(
           (event) =>
@@ -2342,5 +4572,500 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         }
       },
     },
+  );
+});
+
+test('parallel subflow batch stop reports mixed child outcomes instead of a clean stopped parent status', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('slow child')) {
+        return '__delay:1000::ok';
+      }
+      return 'ok';
+    },
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      const writeFlow = async (flowName: string, steps: unknown[]) => {
+        await fs.writeFile(
+          path.join(tmpDir, `${flowName}.json`),
+          JSON.stringify(
+            {
+              description: flowName,
+              steps,
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+      };
+      const childStep = (content: string) => ({
+        type: 'llm' as const,
+        label: 'Child Step',
+        agentType: 'planning_agent',
+        identifier: 'main',
+        messages: [{ role: 'user' as const, content: [content] }],
+      });
+
+      await writeFlow('child-fast-ok', [childStep('child ok')]);
+      await writeFlow('child-slow-ok', [childStep('slow child')]);
+      await writeFlow('parent-mixed-subflow-stop', [
+        {
+          type: 'subflow',
+          label: 'Run Slow Batch',
+          flowNames: ['child-fast-ok', 'child-slow-ok'],
+        },
+      ]);
+
+      const conversationId = 'flow-subflow-mixed-stop-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/parent-mixed-subflow-stop/run')
+        .send({ conversationId, customTitle: 'Parent Review' })
+        .expect(202);
+
+      await waitForPredicate(() => {
+        const activeSubflows = (
+          (memoryConversations.get(conversationId)?.flags ?? {}) as {
+            flow?: {
+              activeSubflows?: Array<{
+                flowName?: string;
+                conversationId?: string;
+              }>;
+            };
+          }
+        ).flow?.activeSubflows;
+        return Array.isArray(activeSubflows) && activeSubflows.length === 2;
+      }, 4000, 'Timed out waiting for active parallel subflows');
+
+      const activeSubflows = (
+        (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: {
+            activeSubflows?: Array<{
+              flowName?: string;
+              conversationId?: string;
+            }>;
+          };
+        }
+      ).flow?.activeSubflows;
+      assert.ok(Array.isArray(activeSubflows));
+      const fastChildConversationId = String(
+        activeSubflows.find((child) => child.flowName === 'child-fast-ok')
+          ?.conversationId ?? '',
+      );
+      const slowChildConversationId = String(
+        activeSubflows.find((child) => child.flowName === 'child-slow-ok')
+          ?.conversationId ?? '',
+      );
+      assert.ok(fastChildConversationId);
+      assert.ok(slowChildConversationId);
+
+      await waitForTurns(
+        fastChildConversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'ok',
+          ),
+        4000,
+      );
+
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            (candidate.status === 'warning' || candidate.status === 'failed')
+          );
+        },
+        timeoutMs: 4000,
+      });
+      assert.equal(final.status, 'warning');
+
+      await waitForTurns(
+        slowChildConversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'stopped',
+          ),
+        4000,
+      );
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'warning',
+          ),
+        4000,
+      );
+      const finalAssistant = [...turns]
+        .reverse()
+        .find((turn) => turn.role === 'assistant');
+      assert.equal(finalAssistant?.status, 'warning');
+      assert.equal(
+        finalAssistant?.content,
+        'Subflow batch stop had mixed child outcomes (stopped: Parent Review-Run Slow Batch-child-slow-ok; completed: Parent Review-Run Slow Batch-child-fast-ok)',
+      );
+
+      await cleanupConversationRuntime(
+        conversationId,
+        fastChildConversationId,
+        slowChildConversationId,
+      );
+    },
+  );
+});
+
+test('shared decision seam follows valid script-driven if branch through happy path', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-if-flow.json'),
+        JSON.stringify({
+          description: 'Flow with if-step using script decision',
+          steps: [
+            {
+              type: 'if',
+              condition: 'flow-control/decision-yes.py',
+              then: [
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: [
+                        'Decision was yes, proceeding with then branch.',
+                      ],
+                    },
+                  ],
+                },
+              ],
+              else: [
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Else branch should not run.'],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-if-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            candidate.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Decision was yes, proceeding with then branch.',
+              ),
+          ),
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes(
+              'Decision was yes, proceeding with then branch.',
+            ),
+        ).length,
+        1,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Else branch should not run.'),
+        ).length,
+        0,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam follows valid script-driven break branch through happy path', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-break-flow.json'),
+        JSON.stringify({
+          description: 'Flow with break-step using script decision',
+          steps: [
+            {
+              type: 'startLoop',
+              steps: [
+                {
+                  type: 'break',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-yes.py',
+                  breakOn: 'yes',
+                },
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Loop body should stop before this step.'],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Break exited the loop cleanly.'],
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-break-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            candidate.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Break exited the loop cleanly.'),
+          ),
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Loop body should stop before this step.'),
+        ).length,
+        0,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Break exited the loop cleanly.'),
+        ).length,
+        1,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam follows valid script-driven continue branch through happy path', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'flow-control', 'decision-continue-once.py'),
+        [
+          '#!/usr/bin/env python3',
+          'import json',
+          'from pathlib import Path',
+          '',
+          "state_file = Path('.continue-once-state')",
+          'count = int(state_file.read_text()) if state_file.exists() else 0',
+          'count += 1',
+          'state_file.write_text(str(count))',
+          "answer = 'yes' if count == 1 else 'no'",
+          'print(json.dumps({"answer": answer}))',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-continue-flow.json'),
+        JSON.stringify({
+          description: 'Flow with continue-step using script decision',
+          steps: [
+            {
+              type: 'startLoop',
+              steps: [
+                {
+                  type: 'continue',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-continue-once.py',
+                  continueOn: 'yes',
+                },
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Reached post-continue step.'],
+                    },
+                  ],
+                },
+                {
+                  type: 'break',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-yes.py',
+                  breakOn: 'yes',
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-continue-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const candidate = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            candidate.type === 'turn_final' &&
+            candidate.conversationId === conversationId &&
+            candidate.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Reached post-continue step.'),
+          ).length === 1,
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Reached post-continue step.'),
+        ).length,
+        1,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
   );
 });

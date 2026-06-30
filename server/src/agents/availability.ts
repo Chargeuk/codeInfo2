@@ -5,6 +5,7 @@ import {
 } from '@lmstudio/sdk';
 
 import { resolveAgentProviderFallbackOrder } from '../config/startupEnv.js';
+import { disposeClient } from '../lmstudio/clientPool.js';
 import {
   getCodexDetection,
   type CodexDetection,
@@ -164,13 +165,17 @@ async function resolveLmStudioAvailability(
 
   try {
     const client = deps.lmstudioClientFactory(toWebSocketUrl(baseUrl));
-    const models = await client.system.listDownloadedModels();
-    const available = models.some(isChatModel);
-    return {
-      providerId: 'lmstudio',
-      available,
-      reason: available ? undefined : 'lmstudio unavailable',
-    };
+    try {
+      const models = await client.system.listDownloadedModels();
+      const available = models.some(isChatModel);
+      return {
+        providerId: 'lmstudio',
+        available,
+        reason: available ? undefined : 'lmstudio unavailable',
+      };
+    } finally {
+      await disposeClient(client);
+    }
   } catch (error) {
     return {
       providerId: 'lmstudio',

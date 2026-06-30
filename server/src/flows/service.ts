@@ -1,6 +1,8 @@
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as scheduleTimeout } from 'node:timers';
 
 import type { CodexOptions } from '@openai/codex-sdk';
 
@@ -121,18 +123,42 @@ import {
   type FlowBreakStep,
   type FlowContinueStep,
   type FlowCommandStep,
+  type FlowIfStep,
   type FlowLlmStep,
   type FlowReingestStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
+  type FlowWaitStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
   FlowActiveSubflow,
   FlowPendingLoopControl,
   FlowResumeState,
+  FlowWaitState,
   FreshRunRetryOwnershipCompletion,
+  FreshRunRetryOwnershipPending,
 } from './flowState.js';
+import {
+  appendGitHubReviewPlanNote,
+  buildGitHubReviewScratchPaths,
+  claimGitHubReviewScratchOwnership,
+  materializeGitHubExternalReviewInput,
+  closePullRequest,
+  createPullRequest,
+  fetchPullRequestReviews,
+  type GitHubCommandFailureDetail,
+  type GitHubLookupRetryDiagnostic,
+  type GitHubRepositoryState,
+  lookupLatestOpenPullRequest,
+  reconcileResumedGitHubReviewPullRequest,
+  pushBranchToExistingUpstream,
+  readGitHubReviewScratch,
+  readWorkedRepositoryGitHubToken,
+  resolveCanonicalGitHubReviewScratchPaths,
+  resolveGitHubRepositoryState,
+  writeGitHubReviewScratch,
+} from './githubReview.js';
 import {
   normalizeSourceLabel,
   prepareMarkdownInstruction,
@@ -234,6 +260,13 @@ type FreshRunRetryOwnershipCompletionRecord = {
   completedAt: number;
 };
 
+type FreshRunRetryOwnershipPendingRecord = {
+  retryOwnershipId: string;
+  sourceId?: string;
+  result: FlowRunStartResult;
+  launchSignature: string;
+};
+
 const FRESH_RUN_RETRY_OWNERSHIP_COMPLETION_WINDOW_MS = 10 * 60 * 1000;
 
 type FreshRunRetryOwnershipLaunch = {
@@ -243,6 +276,46 @@ type FreshRunRetryOwnershipLaunch = {
   workingFolder?: string;
   customTitle?: string;
 };
+
+type ScheduledWaitHandle = {
+  cancel: () => void;
+};
+
+type FlowWaitResumeDeps = {
+  now: () => number;
+  nowIso: () => string;
+  scheduleWake: (params: {
+    resumeAt: number;
+    onWake: () => void;
+  }) => ScheduledWaitHandle;
+  resumeFlowRun: (params: {
+    flowName: string;
+    conversationId: string;
+    resumeStepPath: number[];
+    sourceId?: string;
+    source: 'REST' | 'MCP';
+  }) => Promise<unknown>;
+};
+
+export const FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT =
+  'FLOW_WAIT_STARTUP_RECOVERY_DEGRADED';
+export const FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_MESSAGE =
+  'Persisted flow wait recovery degraded during startup';
+
+export type FlowWaitStartupRecoveryResult =
+  | {
+      reachable: true;
+      degraded: false;
+      resumedCandidateCount: number;
+      diagnosticEvent: null;
+    }
+  | {
+      reachable: true;
+      degraded: true;
+      resumedCandidateCount: number;
+      diagnosticEvent: typeof FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT;
+      causeMessage: string;
+    };
 
 const freshRunRetryOwnershipByKey = new Map<
   string,
@@ -314,12 +387,78 @@ const rememberFreshRunRetryOwnershipCompletion = (params: {
       retryOwnershipId: params.retryOwnershipId,
       sourceId: params.sourceId?.trim() || undefined,
       result: cloneFlowRunStartResult(params.result),
-      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
-        params.launch,
-      ),
+      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(params.launch),
       completedAt: Date.now(),
     },
   );
+};
+
+const parseFreshRunRetryOwnershipPending = (
+  pending: unknown,
+): FreshRunRetryOwnershipPendingRecord | null => {
+  if (!isRecord(pending)) return null;
+  const retryOwnershipId =
+    typeof pending.retryOwnershipId === 'string' &&
+    pending.retryOwnershipId.trim().length > 0
+      ? pending.retryOwnershipId.trim()
+      : undefined;
+  const sourceId =
+    typeof pending.sourceId === 'string' && pending.sourceId.trim().length > 0
+      ? pending.sourceId.trim()
+      : undefined;
+  const launchSignature =
+    typeof pending.launchSignature === 'string' &&
+    pending.launchSignature.trim().length > 0
+      ? pending.launchSignature.trim()
+      : undefined;
+  const result = pending.result;
+  if (!retryOwnershipId || !launchSignature || !isRecord(result)) {
+    return null;
+  }
+  const flowName =
+    typeof result.flowName === 'string' && result.flowName.trim().length > 0
+      ? result.flowName.trim()
+      : undefined;
+  const conversationId =
+    typeof result.conversationId === 'string' &&
+    result.conversationId.trim().length > 0
+      ? result.conversationId.trim()
+      : undefined;
+  const inflightId =
+    typeof result.inflightId === 'string' && result.inflightId.trim().length > 0
+      ? result.inflightId.trim()
+      : undefined;
+  const providerId =
+    typeof result.providerId === 'string' && result.providerId.trim().length > 0
+      ? result.providerId.trim()
+      : undefined;
+  const modelId =
+    typeof result.modelId === 'string' && result.modelId.trim().length > 0
+      ? result.modelId.trim()
+      : undefined;
+  const warnings =
+    Array.isArray(result.warnings) &&
+    result.warnings.every((item) => typeof item === 'string')
+      ? result.warnings.filter(
+          (item): item is string => typeof item === 'string',
+        )
+      : undefined;
+  if (!flowName || !conversationId || !inflightId || !providerId || !modelId) {
+    return null;
+  }
+  return {
+    retryOwnershipId,
+    sourceId,
+    launchSignature,
+    result: {
+      flowName,
+      conversationId,
+      inflightId,
+      providerId,
+      modelId,
+      ...(warnings ? { warnings: [...warnings] } : {}),
+    },
+  };
 };
 
 const parseFreshRunRetryOwnershipCompletion = (
@@ -332,7 +471,8 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? completion.retryOwnershipId.trim()
       : undefined;
   const sourceId =
-    typeof completion.sourceId === 'string' && completion.sourceId.trim().length > 0
+    typeof completion.sourceId === 'string' &&
+    completion.sourceId.trim().length > 0
       ? completion.sourceId.trim()
       : undefined;
   const launchSignature =
@@ -376,18 +516,13 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? result.modelId.trim()
       : undefined;
   const warnings =
-    Array.isArray(result.warnings) && result.warnings.every((item) =>
-      typeof item === 'string',
-    )
-      ? result.warnings.filter((item): item is string => typeof item === 'string')
+    Array.isArray(result.warnings) &&
+    result.warnings.every((item) => typeof item === 'string')
+      ? result.warnings.filter(
+          (item): item is string => typeof item === 'string',
+        )
       : undefined;
-  if (
-    !flowName ||
-    !conversationId ||
-    !inflightId ||
-    !providerId ||
-    !modelId
-  ) {
+  if (!flowName || !conversationId || !inflightId || !providerId || !modelId) {
     return null;
   }
   return {
@@ -428,6 +563,55 @@ const getFreshRunRetryOwnershipCompletionFromConversation = (
     return null;
   }
   return completion;
+};
+
+const getFreshRunRetryOwnershipPendingFromConversation = (
+  conversation: Conversation | null | undefined,
+  params: {
+    flowName: string;
+    retryOwnershipId: string;
+    launch: FreshRunRetryOwnershipLaunch;
+  },
+): FreshRunRetryOwnershipPendingRecord | null => {
+  if (!conversation || conversation.flowName !== params.flowName) return null;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow)) return null;
+  const pending = parseFreshRunRetryOwnershipPending(
+    flow.retryOwnershipPending,
+  );
+  if (!pending) return null;
+  if (pending.retryOwnershipId !== params.retryOwnershipId) return null;
+  if (params.launch.sourceId) {
+    if (pending.sourceId !== params.launch.sourceId) return null;
+  } else if (pending.sourceId) {
+    return null;
+  }
+  return pending;
+};
+
+const clearFreshRunRetryOwnershipPending = async (params: {
+  conversationId: string;
+  conversation: Conversation | null | undefined;
+}) => {
+  const conversation = params.conversation;
+  if (!conversation) return;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow) || !flow.retryOwnershipPending) return;
+  const nextFlow = { ...flow } as Record<string, unknown>;
+  delete nextFlow.retryOwnershipPending;
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(params.conversationId, {
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: nextFlow,
+      },
+    });
+    return;
+  }
+  await updateConversationFlowState({
+    conversationId: params.conversationId,
+    flow: nextFlow as FlowResumeState,
+  });
 };
 
 const clearFreshRunRetryOwnershipCompletion = async (params: {
@@ -476,6 +660,7 @@ const persistFreshRunRetryOwnershipCompletion = async (params: {
       : {}),
     retryOwnershipCompletion: completion,
   } as FlowResumeState;
+  delete (nextFlow as Record<string, unknown>).retryOwnershipPending;
   if (shouldUseMemoryPersistence()) {
     updateMemoryConversationMeta(params.conversationId, {
       flags: {
@@ -577,6 +762,130 @@ const getPersistedFreshRunRetryOwnershipCompletion = async (params: {
   };
 };
 
+const getPersistedFreshRunRetryOwnershipPending = async (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}): Promise<FreshRunRetryOwnershipPendingRecord | null> => {
+  const loadPendingConversation = async (): Promise<Conversation | null> => {
+    if (shouldUseMemoryPersistence()) {
+      const conversation = [...memoryConversations.values()].find((item) =>
+        Boolean(getFreshRunRetryOwnershipPendingFromConversation(item, params)),
+      );
+      return conversation ?? null;
+    }
+
+    return (await ConversationModel.findOne({
+      flowName: params.flowName,
+      'flags.flow.retryOwnershipPending.retryOwnershipId':
+        params.retryOwnershipId,
+      ...(params.sourceId
+        ? {
+            'flags.flow.retryOwnershipPending.sourceId': params.sourceId,
+          }
+        : {
+            'flags.flow.retryOwnershipPending.sourceId': { $exists: false },
+          }),
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .lean()
+      .exec()) as Conversation | null;
+  };
+
+  const conversation = await loadPendingConversation();
+  if (!conversation) return null;
+  const pending = getFreshRunRetryOwnershipPendingFromConversation(
+    conversation,
+    params,
+  );
+  if (!pending) {
+    await clearFreshRunRetryOwnershipPending({
+      conversationId: conversation._id,
+      conversation,
+    });
+    return null;
+  }
+  if (
+    pending.launchSignature !==
+    makeFreshRunRetryOwnershipLaunchSignature(params.launch)
+  ) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      'retryOwnershipId already belongs to a different fresh-run launch',
+    );
+  }
+  if (getActiveRunOwnership(conversation._id)) {
+    return {
+      retryOwnershipId: pending.retryOwnershipId,
+      sourceId: pending.sourceId,
+      result: cloneFlowRunStartResult(pending.result),
+      launchSignature: pending.launchSignature,
+    };
+  }
+  const resumedState = parseFlowResumeState(
+    isRecord(conversation.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  if (resumedState?.wait) {
+    return {
+      retryOwnershipId: pending.retryOwnershipId,
+      sourceId: pending.sourceId,
+      result: cloneFlowRunStartResult(pending.result),
+      launchSignature: pending.launchSignature,
+    };
+  }
+  await clearFreshRunRetryOwnershipPending({
+    conversationId: conversation._id,
+    conversation,
+  });
+  return null;
+};
+
+const isPermanentPersistedWaitResumeFailure = (error: unknown): boolean => {
+  if (!isFlowRunError(error)) return false;
+  return (
+    error.code === 'INVALID_REQUEST' ||
+    error.code === 'FLOW_NOT_FOUND' ||
+    error.code === 'CONVERSATION_ARCHIVED'
+  );
+};
+
+const describeFlowRunFailure = (error: unknown): string => {
+  if (isFlowRunError(error)) {
+    return error.reason ?? error.code;
+  }
+  return error instanceof Error ? error.message : String(error);
+};
+
+const retirePersistedWaitRecoveryFailure = async (params: {
+  conversationId: string;
+  modelId: string;
+  providerId?: ConversationProvider;
+  source: 'REST' | 'MCP';
+  flowName: string;
+  waitStepPath: number[];
+  recoveryReason: string;
+}) => {
+  await persistUnexpectedFlowFailureIfNeeded({
+    conversationId: params.conversationId,
+    modelId: params.modelId,
+    providerId: params.providerId,
+    source: params.source,
+    message: `Persisted wait recovery retired a permanently invalid resume mismatch at step ${getStepPathKey(params.waitStepPath)}: ${params.recoveryReason}`,
+  });
+  baseLogger.warn(
+    {
+      conversationId: params.conversationId,
+      flowName: params.flowName,
+      waitStepPath: params.waitStepPath,
+      recoveryReason: params.recoveryReason,
+    },
+    'flows.wait.resume.retired_permanent_invalid_state',
+  );
+};
+
 const getFreshRunRetryOwnershipCompletion = async (params: {
   flowName: string;
   sourceId?: string;
@@ -636,6 +945,7 @@ const getFreshRunRetryOwnership = async (params: {
     };
   }
   const completedRecord =
+    (await getPersistedFreshRunRetryOwnershipPending(params)) ??
     (await getFreshRunRetryOwnershipCompletion(params)) ??
     (await getPersistedFreshRunRetryOwnershipCompletion(params));
   if (!completedRecord) return null;
@@ -681,14 +991,12 @@ export function __resetFreshRunRetryOwnershipCompletionForTests() {
   freshRunRetryOwnershipCompletedByKey.clear();
 }
 
-export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(
-  params: {
-    flowName: string;
-    sourceId?: string;
-    retryOwnershipId: string;
-    launch: FreshRunRetryOwnershipLaunch;
-  },
-) {
+export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}) {
   return getPersistedFreshRunRetryOwnershipCompletion(params);
 }
 
@@ -780,6 +1088,9 @@ const normalizeOptionalString = (value: unknown): string | undefined =>
     ? value.trim()
     : undefined;
 
+const normalizeOptionalFiniteNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
 const normalizeStringMap = (value: unknown): Record<string, string> => {
   if (!isRecord(value)) return {};
   const entries = Object.entries(value).filter(
@@ -801,6 +1112,114 @@ const normalizeActiveSubflow = (value: unknown): FlowActiveSubflow | null => {
     runToken,
     ...(normalizeOptionalString(value.title)
       ? { title: normalizeOptionalString(value.title) }
+      : {}),
+  };
+};
+
+const normalizeActiveSubflows = (params: {
+  activeSubflows?: unknown;
+  legacyActiveSubflow?: unknown;
+}): FlowActiveSubflow[] => {
+  if (Array.isArray(params.activeSubflows)) {
+    return params.activeSubflows
+      .map((item) => normalizeActiveSubflow(item))
+      .filter((item): item is FlowActiveSubflow => Boolean(item));
+  }
+  const legacyActiveSubflow = normalizeActiveSubflow(
+    params.legacyActiveSubflow,
+  );
+  return legacyActiveSubflow ? [legacyActiveSubflow] : [];
+};
+
+const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
+  if (!isRecord(value)) return null;
+  const executionId = normalizeOptionalString(value.executionId);
+  const resumeAt = normalizeOptionalFiniteNumber(value.resumeAt);
+  const stepPath = normalizeNumberArray(value.stepPath);
+  if (!executionId || resumeAt === undefined || stepPath.length === 0) {
+    return null;
+  }
+
+  const activeSubflows = normalizeActiveSubflows({
+    activeSubflows: value.activeSubflows,
+    legacyActiveSubflow: value.activeSubflow,
+  });
+
+  const githubReviewContext = isRecord(value.githubReviewContext)
+    ? {
+        ...(normalizeOptionalString(value.githubReviewContext.executionId)
+          ? {
+              executionId: normalizeOptionalString(
+                value.githubReviewContext.executionId,
+              ),
+            }
+          : {}),
+        ...(typeof value.githubReviewContext.prNumber === 'number' &&
+        Number.isFinite(value.githubReviewContext.prNumber)
+          ? { prNumber: value.githubReviewContext.prNumber }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.storyNumber)
+          ? {
+              storyNumber: normalizeOptionalString(
+                value.githubReviewContext.storyNumber,
+              ),
+            }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.branchName)
+          ? {
+              branchName: normalizeOptionalString(
+                value.githubReviewContext.branchName,
+              ),
+            }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.selectorPath)
+          ? {
+              selectorPath: normalizeOptionalString(
+                value.githubReviewContext.selectorPath,
+              ),
+            }
+          : {}),
+        ...(normalizeOptionalString(value.githubReviewContext.handoffPath)
+          ? {
+              handoffPath: normalizeOptionalString(
+                value.githubReviewContext.handoffPath,
+              ),
+            }
+          : {}),
+      }
+    : undefined;
+
+  return {
+    executionId,
+    stepPath,
+    loopStack: Array.isArray(value.loopStack)
+      ? value.loopStack
+          .map((item) => {
+            if (!isRecord(item)) return null;
+            return {
+              loopStepPath: normalizeNumberArray(item.loopStepPath),
+              iteration:
+                typeof item.iteration === 'number' &&
+                Number.isFinite(item.iteration)
+                  ? item.iteration
+                  : 0,
+            };
+          })
+          .filter(
+            (item): item is { loopStepPath: number[]; iteration: number } =>
+              Boolean(item),
+          )
+      : [],
+    ...(activeSubflows.length > 0 ? { activeSubflows } : {}),
+    ...(normalizeOptionalString(value.workingFolder)
+      ? { workingFolder: normalizeOptionalString(value.workingFolder) }
+      : {}),
+    ...(normalizeOptionalString(value.sourceId)
+      ? { sourceId: normalizeOptionalString(value.sourceId) }
+      : {}),
+    resumeAt,
+    ...(githubReviewContext && Object.keys(githubReviewContext).length > 0
+      ? { githubReviewContext }
       : {}),
   };
 };
@@ -858,19 +1277,17 @@ const parseFlowResumeState = (
     flow.agentRequestedProviders,
   );
   const agentEndpointIds = normalizeStringMap(flow.agentEndpointIds);
+  const retryOwnershipPending = parseFreshRunRetryOwnershipPending(
+    flow.retryOwnershipPending,
+  );
   const retryOwnershipCompletion = parseFreshRunRetryOwnershipCompletion(
     flow.retryOwnershipCompletion,
   );
-  const activeSubflows = Array.isArray(flow.activeSubflows)
-    ? flow.activeSubflows
-        .map((item) => normalizeActiveSubflow(item))
-        .filter((item): item is FlowActiveSubflow => Boolean(item))
-    : (() => {
-        const legacyActiveSubflow = normalizeActiveSubflow(
-          (flow as { activeSubflow?: unknown }).activeSubflow,
-        );
-        return legacyActiveSubflow ? [legacyActiveSubflow] : [];
-      })();
+  const wait = parseFlowWaitState(flow.wait);
+  const activeSubflows = normalizeActiveSubflows({
+    activeSubflows: flow.activeSubflows,
+    legacyActiveSubflow: (flow as { activeSubflow?: unknown }).activeSubflow,
+  });
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {
@@ -906,9 +1323,9 @@ const parseFlowResumeState = (
       ? { agentRequestedProviders }
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
-    ...(retryOwnershipCompletion
-      ? { retryOwnershipCompletion }
-      : {}),
+    ...(wait ? { wait } : {}),
+    ...(retryOwnershipPending ? { retryOwnershipPending } : {}),
+    ...(retryOwnershipCompletion ? { retryOwnershipCompletion } : {}),
   };
 };
 
@@ -922,6 +1339,141 @@ async function getConversation(
     .lean()
     .exec()) as Conversation | null;
 }
+
+const latestAssistantStatusForConversation = async (
+  conversationId: string,
+): Promise<TurnStatus | null> => {
+  if (shouldUseMemoryPersistence()) {
+    const turns = memoryTurns.get(conversationId) ?? [];
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+      const turn = turns[index];
+      if (turn?.role === 'assistant') {
+        return turn.status;
+      }
+    }
+    return null;
+  }
+
+  const persistedTurns = await listTurns({
+    conversationId,
+    limit: 10,
+  });
+  const assistantTurn = persistedTurns.items.find(
+    (turn) => turn.role === 'assistant',
+  );
+  return assistantTurn?.status ?? null;
+};
+
+const clearScheduledFlowWait = (conversationId: string) => {
+  const scheduled = scheduledFlowWaits.get(conversationId);
+  if (!scheduled) return;
+  scheduled.handle.cancel();
+  scheduledFlowWaits.delete(conversationId);
+};
+
+const rearmPersistedWaitRecoveryOwnership = async (params: {
+  conversation: Conversation;
+  persistedState: FlowResumeState;
+  persistedWait: FlowWaitState;
+  flowName: string;
+  source: 'REST' | 'MCP';
+  recoveryReason: string;
+}) => {
+  const nextResumeAt = Math.max(
+    flowWaitResumeDeps.now() + 1_000,
+    params.persistedWait.resumeAt + 1_000,
+  );
+  const rearmedWait: FlowWaitState = {
+    ...cloneFlowWaitState(params.persistedWait),
+    resumeAt: nextResumeAt,
+  };
+  const nextFlowState: FlowResumeState = {
+    ...params.persistedState,
+    stepPath: [...params.persistedState.stepPath],
+    loopStack: params.persistedState.loopStack.map((frame) => ({
+      loopStepPath: [...frame.loopStepPath],
+      iteration: frame.iteration,
+    })),
+    ...(params.persistedState.pendingLoopControl
+      ? {
+          pendingLoopControl: {
+            kind: params.persistedState.pendingLoopControl.kind,
+            loopStepPath: [
+              ...params.persistedState.pendingLoopControl.loopStepPath,
+            ],
+          },
+        }
+      : {}),
+    ...(params.persistedState.activeSubflows &&
+    params.persistedState.activeSubflows.length > 0
+      ? {
+          activeSubflows: cloneActiveSubflows(
+            params.persistedState.activeSubflows,
+          ),
+        }
+      : {}),
+    wait: rearmedWait,
+  };
+
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(params.conversation._id, {
+      flags: {
+        ...(params.conversation.flags ?? {}),
+        flow: nextFlowState,
+      },
+    });
+  } else {
+    await updateConversationFlowState({
+      conversationId: params.conversation._id,
+      flow: nextFlowState,
+    });
+  }
+
+  schedulePersistedWaitResume({
+    conversationId: params.conversation._id,
+    flowName: params.flowName,
+    source: params.source,
+    wait: rearmedWait,
+  });
+
+  append({
+    level: 'warn',
+    message: 'flows.wait.resume.rearmed_after_preflight_failure',
+    timestamp: flowWaitResumeDeps.nowIso(),
+    source: 'server',
+    context: {
+      conversationId: params.conversation._id,
+      flowName: params.flowName,
+      stepPath: rearmedWait.stepPath,
+      previousResumeAt: params.persistedWait.resumeAt,
+      nextResumeAt,
+      recoveryReason: params.recoveryReason,
+    },
+  });
+};
+
+const clearPersistedWaitStateIfPresent = async (conversationId: string) => {
+  clearScheduledFlowWait(conversationId);
+  const conversation = await getConversation(conversationId);
+  if (!conversation) return;
+  const flow = conversation.flags?.flow;
+  if (!isRecord(flow) || !isRecord(flow.wait)) return;
+  const nextFlow = { ...flow } as Record<string, unknown>;
+  delete nextFlow.wait;
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(conversationId, {
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: nextFlow,
+      },
+    });
+    return;
+  }
+  await updateConversationFlowState({
+    conversationId,
+    flow: nextFlow as FlowResumeState,
+  });
+};
 
 const getFlowChildExecutionId = (
   conversation: Conversation | null | undefined,
@@ -1022,6 +1574,67 @@ const flowResumeTestDeps: FlowResumeTestDeps = {
   ...defaultFlowResumeTestDeps,
 };
 
+const defaultFlowWaitResumeDeps: FlowWaitResumeDeps = {
+  now: () => Date.now(),
+  nowIso: () => new Date().toISOString(),
+  scheduleWake: ({ resumeAt, onWake }) => {
+    const delayMs = Math.max(resumeAt - Date.now(), 0);
+    const timeout = scheduleTimeout(() => {
+      onWake();
+    }, delayMs);
+    timeout.unref?.();
+    return {
+      cancel: () => clearTimeout(timeout),
+    };
+  },
+  resumeFlowRun: async (params) =>
+    await startFlowRun({
+      flowName: params.flowName,
+      conversationId: params.conversationId,
+      resumeStepPath: params.resumeStepPath,
+      sourceId: params.sourceId,
+      source: params.source,
+    }),
+};
+
+const flowWaitResumeDeps: FlowWaitResumeDeps = {
+  ...defaultFlowWaitResumeDeps,
+};
+
+const scheduledFlowWaits = new Map<
+  string,
+  {
+    executionId: string;
+    resumeAt: number;
+    stepPath: number[];
+    handle: ScheduledWaitHandle;
+  }
+>();
+
+const cloneFlowWaitState = (wait: FlowWaitState): FlowWaitState => ({
+  executionId: wait.executionId,
+  stepPath: [...wait.stepPath],
+  loopStack: wait.loopStack.map((frame) => ({
+    loopStepPath: [...frame.loopStepPath],
+    iteration: frame.iteration,
+  })),
+  ...(wait.activeSubflows && wait.activeSubflows.length > 0
+    ? {
+        activeSubflows: cloneActiveSubflows(wait.activeSubflows),
+      }
+    : {}),
+  ...(wait.workingFolder ? { workingFolder: wait.workingFolder } : {}),
+  ...(wait.sourceId ? { sourceId: wait.sourceId } : {}),
+  resumeAt: wait.resumeAt,
+  ...(wait.githubReviewContext
+    ? {
+        githubReviewContext: {
+          ...wait.githubReviewContext,
+        },
+      }
+    : {}),
+});
+
 export function __setFlowResumeTestDepsForTests(
   overrides: Partial<FlowResumeTestDeps>,
 ) {
@@ -1034,6 +1647,20 @@ export function __resetFlowResumeTestDepsForTests() {
 
 export function __getFlowResumeTestDepsForTests(): FlowResumeTestDeps {
   return defaultFlowResumeTestDeps;
+}
+
+export function __setFlowWaitResumeDepsForTests(
+  overrides: Partial<FlowWaitResumeDeps>,
+) {
+  Object.assign(flowWaitResumeDeps, overrides);
+}
+
+export function __resetFlowWaitResumeDepsForTests() {
+  Object.assign(flowWaitResumeDeps, defaultFlowWaitResumeDeps);
+  for (const scheduled of scheduledFlowWaits.values()) {
+    scheduled.handle.cancel();
+  }
+  scheduledFlowWaits.clear();
 }
 
 const persistConversationWorkingFolder = async (params: {
@@ -1257,7 +1884,9 @@ const ensureFlowAgentConversation = async (params: {
         ...(params.requestedProviderId?.trim()
           ? { requestedProviderId: params.requestedProviderId.trim() }
           : {}),
-        ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+        ...(params.endpointId?.trim()
+          ? { endpointId: params.endpointId.trim() }
+          : {}),
         flowChild: { executionId: params.executionId },
       },
       lastMessageAt: now,
@@ -1330,7 +1959,9 @@ const ensureFlowAgentConversation = async (params: {
       ...(params.requestedProviderId?.trim()
         ? { requestedProviderId: params.requestedProviderId.trim() }
         : {}),
-      ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+      ...(params.endpointId?.trim()
+        ? { endpointId: params.endpointId.trim() }
+        : {}),
       flowChild: { executionId: params.executionId },
     },
     lastMessageAt: now,
@@ -1431,7 +2062,7 @@ const ensureAgentState = async (params: {
     const existingConversation = await getConversation(existing.conversationId);
     const requestedProviderIdToUse =
       typeof params.requestedProviderId === 'string' &&
-        params.requestedProviderId.trim()
+      params.requestedProviderId.trim()
         ? params.requestedProviderId.trim()
         : getSavedRequestedProviderId(existingConversation);
     const savedEndpointId =
@@ -1670,6 +2301,9 @@ const persistAgentThreadId = async (params: {
 
 const shouldStopAfter = (status: TurnStatus): boolean => status !== 'ok';
 
+const isTerminalFlowStatus = (status: TurnStatus): boolean =>
+  status === 'warning' || status === 'stopped' || status === 'failed';
+
 const deriveStatusFromError = (message: string | undefined): TurnStatus => {
   const text = (message ?? '').toLowerCase();
   if (text.includes('abort') || text.includes('stop')) return 'stopped';
@@ -1685,6 +2319,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowLlmStep
     | FlowBreakStep
     | FlowContinueStep
+    | FlowIfStep
     | FlowCommandStep
     | FlowSubflowStep
     | FlowReingestStep;
@@ -2431,14 +3066,12 @@ const persistUnexpectedFlowFailureIfNeeded = async (params: {
         })
       ).items.find((turn) => turn.role === 'assistant');
 
-  if (
-    latestAssistantTurn &&
-    (latestAssistantTurn.status === 'failed' ||
-      latestAssistantTurn.status === 'stopped')
-  ) {
+  if (latestAssistantTurn && isTerminalFlowStatus(latestAssistantTurn.status)) {
+    await clearPersistedWaitStateIfPresent(params.conversationId);
     return;
   }
 
+  await clearPersistedWaitStateIfPresent(params.conversationId);
   await persistFlowTurn({
     conversationId: params.conversationId,
     role: 'assistant',
@@ -2463,6 +3096,7 @@ const emitFailedFlowStep = async (params: {
   errorCode?: string;
   command?: TurnCommandMetadata;
 }) => {
+  await clearPersistedWaitStateIfPresent(params.flowConversationId);
   const createdAtIso = new Date().toISOString();
   const providerId = params.providerId ?? 'codex';
   createInflight({
@@ -2558,6 +3192,7 @@ const emitStoppedFlowStep = async (params: {
   source: 'REST' | 'MCP';
   command?: TurnCommandMetadata;
 }) => {
+  await clearPersistedWaitStateIfPresent(params.flowConversationId);
   const createdAtIso = new Date().toISOString();
   const providerId = params.providerId ?? 'codex';
   createInflight({
@@ -2650,12 +3285,120 @@ const emitStoppedFlowStep = async (params: {
   });
 };
 
-type FlowStepOutcome = TurnStatus | 'break' | 'continue';
+const emitWarningFlowStep = async (params: {
+  flowConversationId: string;
+  inflightId: string;
+  instruction: string;
+  modelId: string;
+  providerId?: ConversationProvider;
+  source: 'REST' | 'MCP';
+  message: string;
+  command?: TurnCommandMetadata;
+}) => {
+  await clearPersistedWaitStateIfPresent(params.flowConversationId);
+  const createdAtIso = new Date().toISOString();
+  const providerId = params.providerId ?? 'codex';
+  createInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: providerId,
+    model: params.modelId,
+    source: params.source,
+    command: params.command,
+    userTurn: { content: params.instruction, createdAt: createdAtIso },
+  });
+
+  publishUserTurn({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    content: params.instruction,
+    createdAt: createdAtIso,
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: providerId,
+    model: params.modelId,
+    chat: createNoopChat(),
+    deferFinal: true,
+  });
+
+  const userCreatedAt = new Date(createdAtIso);
+  const userPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'user',
+    content: params.instruction,
+    model: params.modelId,
+    provider: providerId,
+    source: params.source,
+    status: 'ok',
+    toolCalls: null,
+    command: params.command,
+    createdAt: userCreatedAt,
+  });
+
+  const assistantCreatedAt = new Date();
+  const assistantPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'assistant',
+    content: params.message,
+    model: params.modelId,
+    provider: providerId,
+    source: params.source,
+    status: 'warning',
+    toolCalls: null,
+    command: params.command,
+    createdAt: assistantCreatedAt,
+  });
+
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'user',
+    turnId: userPersisted.turnId,
+  });
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'assistant',
+    turnId: assistantPersisted.turnId,
+  });
+
+  bridge.finalize({
+    fallback: {
+      status: 'warning',
+    },
+  });
+  bridge.cleanup();
+
+  cleanupInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+  });
+};
+
+type FlowStepOutcome = TurnStatus | 'break' | 'continue' | 'paused';
 
 type LoopFrame = {
   loopStepPath: number[];
   iteration: number;
 };
+
+const cloneActiveSubflow = (
+  activeSubflow: FlowActiveSubflow,
+): FlowActiveSubflow => ({
+  stepPath: [...activeSubflow.stepPath],
+  flowName: activeSubflow.flowName,
+  conversationId: activeSubflow.conversationId,
+  runToken: activeSubflow.runToken,
+  ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
+});
+
+const cloneActiveSubflows = (
+  activeSubflows: FlowActiveSubflow[] | undefined,
+): FlowActiveSubflow[] | undefined =>
+  activeSubflows?.map((activeSubflow) => cloneActiveSubflow(activeSubflow));
 
 const buildFlowResumeState = (params: {
   executionId: string;
@@ -2663,8 +3406,11 @@ const buildFlowResumeState = (params: {
   stepPath: number[];
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
+  wait?: FlowWaitState;
   activeSubflows?: FlowResumeState['activeSubflows'];
   workingFolder?: string;
+  retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
+  retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
   const agentWorkingFolders: Record<string, string> = {};
@@ -2712,13 +3458,39 @@ const buildFlowResumeState = (params: {
       : {}),
     ...(params.activeSubflows && params.activeSubflows.length > 0
       ? {
-          activeSubflows: params.activeSubflows.map((activeSubflow) => ({
-            stepPath: [...activeSubflow.stepPath],
-            flowName: activeSubflow.flowName,
-            conversationId: activeSubflow.conversationId,
-            runToken: activeSubflow.runToken,
-            ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
-          })),
+          activeSubflows: cloneActiveSubflows(params.activeSubflows),
+        }
+      : {}),
+    ...(params.wait
+      ? {
+          wait: {
+            executionId: params.wait.executionId,
+            stepPath: [...params.wait.stepPath],
+            loopStack: params.wait.loopStack.map((frame) => ({
+              loopStepPath: [...frame.loopStepPath],
+              iteration: frame.iteration,
+            })),
+            ...(params.wait.activeSubflows &&
+            params.wait.activeSubflows.length > 0
+              ? {
+                  activeSubflows: cloneActiveSubflows(
+                    params.wait.activeSubflows,
+                  ),
+                }
+              : {}),
+            ...(params.wait.workingFolder
+              ? { workingFolder: params.wait.workingFolder }
+              : {}),
+            ...(params.wait.sourceId ? { sourceId: params.wait.sourceId } : {}),
+            resumeAt: params.wait.resumeAt,
+            ...(params.wait.githubReviewContext
+              ? {
+                  githubReviewContext: {
+                    ...params.wait.githubReviewContext,
+                  },
+                }
+              : {}),
+          },
         }
       : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
@@ -2733,6 +3505,26 @@ const buildFlowResumeState = (params: {
       ? { agentRequestedProviders }
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
+    ...(params.retryOwnershipPending
+      ? {
+          retryOwnershipPending: {
+            ...params.retryOwnershipPending,
+            result: cloneFlowRunStartResult(
+              params.retryOwnershipPending.result,
+            ),
+          },
+        }
+      : {}),
+    ...(params.retryOwnershipCompletion
+      ? {
+          retryOwnershipCompletion: {
+            ...params.retryOwnershipCompletion,
+            result: cloneFlowRunStartResult(
+              params.retryOwnershipCompletion.result,
+            ),
+          },
+        }
+      : {}),
   };
 };
 
@@ -2743,8 +3535,11 @@ const persistFlowResumeState = async (params: {
   stepPath: number[];
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
+  wait?: FlowWaitState;
   activeSubflows?: FlowResumeState['activeSubflows'];
   workingFolder?: string;
+  retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
+  retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
 }) => {
   const flowState = buildFlowResumeState({
     executionId: params.executionId,
@@ -2752,16 +3547,28 @@ const persistFlowResumeState = async (params: {
     stepPath: params.stepPath,
     loopStack: params.loopStack,
     pendingLoopControl: params.pendingLoopControl,
+    wait: params.wait,
     activeSubflows: params.activeSubflows,
     workingFolder: params.workingFolder,
+    retryOwnershipPending: params.retryOwnershipPending,
+    retryOwnershipCompletion: params.retryOwnershipCompletion,
   });
   const existingConversation = await getConversation(params.conversationId);
   const existingFlowState = parseFlowResumeState(
-    isRecord(existingConversation?.flags?.flow)
-      ? (existingConversation.flags.flow as Record<string, unknown>)
+    isRecord(existingConversation?.flags)
+      ? (existingConversation.flags as Record<string, unknown>)
       : undefined,
   );
-  if (existingFlowState?.retryOwnershipCompletion) {
+  if (
+    params.retryOwnershipPending === undefined &&
+    existingFlowState?.retryOwnershipPending
+  ) {
+    flowState.retryOwnershipPending = existingFlowState.retryOwnershipPending;
+  }
+  if (
+    params.retryOwnershipCompletion === undefined &&
+    existingFlowState?.retryOwnershipCompletion
+  ) {
     flowState.retryOwnershipCompletion =
       existingFlowState.retryOwnershipCompletion;
   }
@@ -2823,13 +3630,14 @@ type BreakParseFailure = {
   reasonCode: BreakParseReasonCode;
 };
 
-type FlowDecisionKind = 'break' | 'continue';
+type FlowDecisionKind = 'break' | 'continue' | 'if';
 
 const MAX_BREAK_PARSE_SCAN_LENGTH = 20_000;
 const MAX_BREAK_PARSE_CANDIDATES = 100;
+const FLOW_DECISION_SCRIPT_TIMEOUT_MS = 1000;
 
 const getFlowDecisionLabel = (kind: FlowDecisionKind) =>
-  kind === 'break' ? 'Break' : 'Continue';
+  kind === 'break' ? 'Break' : kind === 'continue' ? 'Continue' : 'If';
 
 const validateFlowDecisionPayload = (
   kind: FlowDecisionKind,
@@ -3031,22 +3839,478 @@ export const parseBreakAnswer = (content: string) =>
 export const parseContinueAnswer = (content: string) =>
   parseFlowDecisionAnswer('continue', content);
 
+export const parseIfAnswer = (content: string) =>
+  parseFlowDecisionAnswer('if', content);
+
+/**
+ * Story 60: Shared decision-evaluation launcher.
+ * Called by if, break, and continue steps to evaluate a condition
+ * via either the existing AI yes-or-no path or a direct Python script.
+ *
+ * @param kind - The decision kind: 'break', 'continue', or 'if'.
+ * @param params - Decision evaluation parameters.
+ */
+type SharedDecisionResult =
+  | { ok: true; answer: 'yes' | 'no'; reason: 'ai' | 'script' }
+  | { ok: false; reason: string };
+
+const isPathContainedWithinRoot = (rootPath: string, targetPath: string) => {
+  const resolvedRoot = path.resolve(rootPath);
+  const resolvedTarget = path.resolve(targetPath);
+  const relative = path.relative(resolvedRoot, resolvedTarget);
+  return (
+    relative.length === 0 ||
+    (!relative.startsWith('..') && !path.isAbsolute(relative))
+  );
+};
+
+export const __readCurrentPlanStoryContextForTests = async (params: {
+  workingRepositoryRoot?: string;
+  defaultRepositoryRoot?: string;
+}) => {
+  const workingRepositoryRoot =
+    params.workingRepositoryRoot ?? params.defaultRepositoryRoot;
+  if (!workingRepositoryRoot) {
+    return null;
+  }
+  const currentPlanPath = path.join(
+    workingRepositoryRoot,
+    'codeInfoStatus/flow-state/current-plan.json',
+  );
+  try {
+    const raw = await fs.readFile(currentPlanPath, 'utf8');
+    const parsed = JSON.parse(raw) as { plan_path?: unknown };
+    const planPath =
+      typeof parsed.plan_path === 'string' && parsed.plan_path.trim().length > 0
+        ? parsed.plan_path.trim()
+        : undefined;
+    if (!planPath) return null;
+    const planFullPath = path.resolve(workingRepositoryRoot, planPath);
+    if (!isPathContainedWithinRoot(workingRepositoryRoot, planFullPath)) {
+      return null;
+    }
+    const storyNumberMatch = path.basename(planPath).match(/^(\d+)/u);
+    const storyNumber = storyNumberMatch?.[1];
+    const planRaw = await fs.readFile(planFullPath, 'utf8');
+    const headingMatch = planRaw.match(/^#\s+Story\s+\d+\s+-\s+(.+)$/mu);
+    const title =
+      headingMatch?.[1]?.trim() ||
+      path.basename(planPath, '.md').replace(/^\d+-/u, '').replace(/-/gu, ' ');
+    return {
+      workingRepositoryRoot,
+      planPath,
+      storyNumber,
+      title,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const _evaluateScriptDecision = async (params: {
+  kind: FlowDecisionKind;
+  scriptPath: string;
+  workingRepositoryRoot: string;
+  timeoutMs: number;
+  env?: NodeJS.ProcessEnv;
+}): Promise<SharedDecisionResult> => {
+  const normalizedScriptPath = path.normalize(params.scriptPath.trim());
+  if (
+    path.isAbsolute(normalizedScriptPath) ||
+    normalizedScriptPath === '..' ||
+    normalizedScriptPath.startsWith(`..${path.sep}`)
+  ) {
+    return {
+      ok: false,
+      reason: `Script path must stay inside the worked repository root: ${params.scriptPath}`,
+    };
+  }
+
+  const fullPath = path.resolve(
+    params.workingRepositoryRoot,
+    normalizedScriptPath,
+  );
+  let realWorkingRepositoryRoot: string;
+  try {
+    realWorkingRepositoryRoot = await fs.realpath(params.workingRepositoryRoot);
+  } catch {
+    return {
+      ok: false,
+      reason: `Worked repository root could not be resolved: ${params.workingRepositoryRoot}`,
+    };
+  }
+  let realScriptPath: string;
+  try {
+    realScriptPath = await fs.realpath(fullPath);
+  } catch {
+    return { ok: false, reason: `Script file not found: ${fullPath}` };
+  }
+  if (!isPathContainedWithinRoot(realWorkingRepositoryRoot, realScriptPath)) {
+    return {
+      ok: false,
+      reason: `Script path must resolve inside the worked repository root: ${params.scriptPath}`,
+    };
+  }
+  let fileContent: string;
+  try {
+    fileContent = await fs.readFile(realScriptPath, 'utf8');
+  } catch {
+    return { ok: false, reason: `Script file not found: ${fullPath}` };
+  }
+
+  if (!fileContent.trim().length) {
+    return { ok: false, reason: `Script file is empty: ${fullPath}` };
+  }
+
+  try {
+    const result = await new Promise<{
+      stdout: string;
+      stderr: string;
+      exitCode: number | null;
+      signal: NodeJS.Signals | null;
+      timedOut: boolean;
+    }>((resolve, reject) => {
+      const child = spawn('python3', [realScriptPath], {
+        cwd: params.workingRepositoryRoot,
+        env: params.env,
+      });
+      let stdout = '';
+      let stderr = '';
+      let timedOut = false;
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGKILL');
+      }, params.timeoutMs);
+      child.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+      child.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+      child.on('error', (error) => {
+        clearTimeout(timeoutHandle);
+        reject(error);
+      });
+      child.on('close', (exitCode, signal) => {
+        clearTimeout(timeoutHandle);
+        resolve({
+          stdout,
+          stderr,
+          exitCode,
+          signal,
+          timedOut,
+        });
+      });
+    });
+
+    if (result.timedOut) {
+      return {
+        ok: false,
+        reason: `Script timed out after ${params.timeoutMs}ms: ${normalizedScriptPath}`,
+      };
+    }
+
+    if ((result.exitCode ?? -1) !== 0) {
+      const stderrSection = result.stderr.trim().length
+        ? `\nstderr: ${result.stderr.trim()}`
+        : '';
+      const signalSection = result.signal ? ` (signal ${result.signal})` : '';
+      return {
+        ok: false,
+        reason: `Script exited with code ${String(result.exitCode ?? -1)}${signalSection}: ${result.stdout.trim()}${stderrSection}`,
+      };
+    }
+
+    const parsed = parseFlowDecisionAnswer(params.kind, result.stdout.trim());
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        reason: `Script output failed decision parsing: ${parsed.message}`,
+      };
+    }
+
+    return { ok: true, answer: parsed.answer, reason: 'script' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, reason: `Script execution failed: ${message}` };
+  }
+};
+
+const schedulePersistedWaitResume = (params: {
+  conversationId: string;
+  flowName: string;
+  source: 'REST' | 'MCP';
+  wait: FlowWaitState;
+}) => {
+  clearScheduledFlowWait(params.conversationId);
+  const handle = flowWaitResumeDeps.scheduleWake({
+    resumeAt: params.wait.resumeAt,
+    onWake: () => {
+      void (async () => {
+        const conversation = await getConversation(params.conversationId);
+        if (!conversation || conversation.flowName !== params.flowName) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
+        const persistedState = parseFlowResumeState(
+          (conversation.flags ?? undefined) as
+            | Record<string, unknown>
+            | undefined,
+        );
+        const persistedWait = persistedState?.wait;
+        if (!persistedState || !persistedWait) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
+        if (persistedWait.executionId !== params.wait.executionId) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
+        if (
+          getStepPathKey(persistedWait.stepPath) !==
+          getStepPathKey(params.wait.stepPath)
+        ) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
+        const latestAssistantStatus =
+          await latestAssistantStatusForConversation(params.conversationId);
+        if (
+          latestAssistantStatus &&
+          isTerminalFlowStatus(latestAssistantStatus)
+        ) {
+          clearScheduledFlowWait(params.conversationId);
+          return;
+        }
+        try {
+          await flowWaitResumeDeps.resumeFlowRun({
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            resumeStepPath: persistedWait.stepPath,
+            sourceId: persistedWait.sourceId,
+            source: params.source,
+          });
+        } catch (error) {
+          if ((error as FlowRunError | undefined)?.code === 'RUN_IN_PROGRESS') {
+            baseLogger.info(
+              {
+                conversationId: params.conversationId,
+                flowName: params.flowName,
+                waitStepPath: persistedWait.stepPath,
+              },
+              'flows.wait.resume.skipped_run_in_progress',
+            );
+            clearScheduledFlowWait(params.conversationId);
+            return;
+          }
+          const recoveryReason = describeFlowRunFailure(error);
+          if (isPermanentPersistedWaitResumeFailure(error)) {
+            await retirePersistedWaitRecoveryFailure({
+              conversationId: params.conversationId,
+              modelId: conversation.model,
+              providerId: conversation.provider,
+              source: params.source,
+              flowName: params.flowName,
+              waitStepPath: persistedWait.stepPath,
+              recoveryReason,
+            });
+            return;
+          }
+          try {
+            await rearmPersistedWaitRecoveryOwnership({
+              conversation,
+              persistedState,
+              persistedWait,
+              flowName: params.flowName,
+              source: params.source,
+              recoveryReason,
+            });
+            return;
+          } catch (rearmError) {
+            const rearmReason =
+              rearmError instanceof Error
+                ? rearmError.message
+                : String(rearmError);
+            await persistUnexpectedFlowFailureIfNeeded({
+              conversationId: params.conversationId,
+              modelId: conversation.model,
+              providerId: conversation.provider,
+              source: params.source,
+              message: `Persisted wait recovery could not resume or rearm ownership: ${recoveryReason}; rearm failed: ${rearmReason}`,
+            });
+          }
+          baseLogger.error(
+            {
+              conversationId: params.conversationId,
+              flowName: params.flowName,
+              error,
+            },
+            'flows.wait.resume.failed',
+          );
+        }
+      })();
+    },
+  });
+  scheduledFlowWaits.set(params.conversationId, {
+    executionId: params.wait.executionId,
+    resumeAt: params.wait.resumeAt,
+    stepPath: [...params.wait.stepPath],
+    handle,
+  });
+};
+
+export async function __resumePendingFlowWaitsForTests(
+  conversationIds?: string[],
+) {
+  const candidates: Conversation[] = shouldUseMemoryPersistence()
+    ? [...memoryConversations.values()]
+    : ((await ConversationModel.find({
+        flowName: { $exists: true, $ne: null },
+        'flags.flow.wait.resumeAt': { $exists: true },
+      })
+        .lean()
+        .exec()) as Conversation[]);
+  const candidateIds = conversationIds ? new Set(conversationIds) : null;
+  let resumedCandidateCount = 0;
+  for (const conversation of candidates) {
+    if (candidateIds && !candidateIds.has(conversation._id)) continue;
+    if (!conversation.flowName) continue;
+    const state = parseFlowResumeState(
+      (conversation.flags ?? undefined) as Record<string, unknown> | undefined,
+    );
+    if (!state?.wait) continue;
+    schedulePersistedWaitResume({
+      conversationId: conversation._id,
+      flowName: conversation.flowName,
+      source: conversation.source,
+      wait: state.wait,
+    });
+    resumedCandidateCount += 1;
+  }
+  return resumedCandidateCount;
+}
+
+export async function resumePendingFlowWaitsForStartup(): Promise<FlowWaitStartupRecoveryResult> {
+  try {
+    const resumedCandidateCount = await __resumePendingFlowWaitsForTests();
+    return {
+      reachable: true,
+      degraded: false,
+      resumedCandidateCount,
+      diagnosticEvent: null,
+    };
+  } catch (error) {
+    const causeMessage =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : String(error);
+    baseLogger.error(
+      {
+        event: FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+        err: error,
+        causeMessage,
+      },
+      FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+    );
+    append({
+      level: 'error',
+      message: FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+      timestamp: flowWaitResumeDeps.nowIso(),
+      source: 'server',
+      context: {
+        causeMessage,
+        recoveryUnavailableMessage:
+          FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+      },
+    });
+    return {
+      reachable: true,
+      degraded: true,
+      resumedCandidateCount: 0,
+      diagnosticEvent: FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+      causeMessage,
+    };
+  }
+}
+
+const isFlowDecisionScriptPath = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed.endsWith('.py') || path.isAbsolute(trimmed)) {
+    return false;
+  }
+  const normalized = path.normalize(trimmed);
+  return normalized !== '..' && !normalized.startsWith(`..${path.sep}`);
+};
+
+const getInvalidDecisionResponseCode = (kind: FlowDecisionKind): string =>
+  `INVALID_${kind.toUpperCase()}_RESPONSE`;
+
+const getScriptDecisionFailureCode = (kind: FlowDecisionKind): string =>
+  `${kind.toUpperCase()}_DECISION_SCRIPT_FAILED`;
+
+const getFlowDecisionLogMessages = (kind: FlowDecisionKind) => ({
+  attempted: `flows.run.${kind}_parse_strategy_attempted`,
+  parsed: `flows.run.${kind}_parse_result`,
+  decision: `flows.run.${kind}_decision`,
+});
+
+const appendFlowDecisionParseLogs = (
+  kind: FlowDecisionKind,
+  parsed: BreakParseSuccess | BreakParseFailure,
+) => {
+  const messages = getFlowDecisionLogMessages(kind);
+  parsed.attempts.forEach((attempt) => {
+    append({
+      level: 'info',
+      message: messages.attempted,
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        strategy: attempt.strategy,
+        candidateCount: attempt.candidateCount,
+      },
+    });
+  });
+  append({
+    level: parsed.ok ? 'info' : 'warn',
+    message: messages.parsed,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      accepted: parsed.ok,
+      reasonCode: parsed.reasonCode,
+    },
+  });
+};
+
 const findFirstAgentStep = (
   steps: FlowStep[],
 ):
   | FlowLlmStep
   | FlowBreakStep
   | FlowContinueStep
+  | FlowIfStep
   | FlowCommandStep
   | undefined => {
   for (const step of steps) {
+    if (step.type === 'llm' || step.type === 'command') {
+      return step;
+    }
     if (
-      step.type === 'llm' ||
-      step.type === 'break' ||
-      step.type === 'continue' ||
-      step.type === 'command'
+      (step.type === 'break' || step.type === 'continue') &&
+      !isFlowDecisionScriptPath(step.question)
     ) {
       return step;
+    }
+    if (step.type === 'if') {
+      if (
+        step.agentType &&
+        step.identifier &&
+        !isFlowDecisionScriptPath(step.condition)
+      ) {
+        return step;
+      }
+      continue;
     }
     if (step.type === 'startLoop') {
       const nested = findFirstAgentStep(step.steps);
@@ -3056,6 +4320,49 @@ const findFirstAgentStep = (
   return undefined;
 };
 
+const findImmediateResumeBoundaryStep = (
+  steps: FlowStep[],
+  resumeStepPath?: number[] | null,
+): FlowStep | undefined => {
+  if (!resumeStepPath || resumeStepPath.length === 0) {
+    return steps[0];
+  }
+
+  const [stepIndex, ...rest] = resumeStepPath;
+  const resumedStep = steps[stepIndex];
+  if (!resumedStep) {
+    return undefined;
+  }
+  if (rest.length > 0) {
+    if (resumedStep.type !== 'startLoop') {
+      return undefined;
+    }
+    return findImmediateResumeBoundaryStep(resumedStep.steps, rest);
+  }
+  if (resumedStep.type === 'startLoop') {
+    return findImmediateResumeBoundaryStep(resumedStep.steps, null);
+  }
+  return steps[stepIndex + 1];
+};
+
+const stepRequiresProviderBootstrap = (step: FlowStep | undefined): boolean => {
+  if (!step) return false;
+  if (step.type === 'llm' || step.type === 'command') {
+    return true;
+  }
+  if (step.type === 'break' || step.type === 'continue') {
+    return !isFlowDecisionScriptPath(step.question);
+  }
+  if (step.type === 'if') {
+    return Boolean(
+      step.agentType &&
+        step.identifier &&
+        !isFlowDecisionScriptPath(step.condition),
+    );
+  }
+  return false;
+};
+
 const findRuntimeIdentityStep = (
   steps: FlowStep[],
   resumeStepPath?: number[] | null,
@@ -3063,6 +4370,7 @@ const findRuntimeIdentityStep = (
   | FlowLlmStep
   | FlowBreakStep
   | FlowContinueStep
+  | FlowIfStep
   | FlowCommandStep
   | undefined => {
   let resumePathRemaining =
@@ -3099,13 +4407,24 @@ const findRuntimeIdentityStep = (
       continue;
     }
 
+    if (step.type === 'llm' || step.type === 'command') {
+      return step;
+    }
     if (
-      step.type === 'llm' ||
-      step.type === 'break' ||
-      step.type === 'continue' ||
-      step.type === 'command'
+      (step.type === 'break' || step.type === 'continue') &&
+      !isFlowDecisionScriptPath(step.question)
     ) {
       return step;
+    }
+    if (step.type === 'if') {
+      if (
+        step.agentType &&
+        step.identifier &&
+        !isFlowDecisionScriptPath(step.condition)
+      ) {
+        return step;
+      }
+      continue;
     }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);
@@ -3124,6 +4443,42 @@ const validateCommandSteps = async (
   for (const step of steps) {
     if (step.type === 'startLoop') {
       await validateCommandSteps(step.steps, agentByName, repositoryContext);
+      continue;
+    }
+    if (step.type === 'if') {
+      if (
+        !isFlowDecisionScriptPath(step.condition) &&
+        (!step.agentType || !step.identifier)
+      ) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'If steps that use the AI decision path must provide agentType and identifier.',
+        );
+      }
+      if (step.agentType) {
+        const validatedAgentType = validateRepositoryBackedAgentType(
+          step.agentType,
+        );
+        if (!validatedAgentType.ok) {
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            `Flow agent "${step.agentType}" ${validatedAgentType.message}.`,
+          );
+        }
+        const agent = agentByName.get(step.agentType);
+        if (!agent) {
+          throw toFlowRunError(
+            'AGENT_NOT_FOUND',
+            `Agent ${step.agentType} not found`,
+          );
+        }
+      }
+      continue;
+    }
+    if (
+      (step.type === 'break' || step.type === 'continue') &&
+      isFlowDecisionScriptPath(step.question)
+    ) {
       continue;
     }
     if (step.type === 'command') {
@@ -3541,7 +4896,7 @@ async function runFlowUnlocked(params: {
   }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
-}) {
+}): Promise<'ok' | 'paused' | 'failed'> {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
   const runtimeState = hydrateFlowAgentState(params.resumeState ?? null);
@@ -3559,15 +4914,67 @@ async function runFlowUnlocked(params: {
         loopStepPath: [...params.resumeState.pendingLoopControl.loopStepPath],
       }
     : null;
-  let activeSubflows = params.resumeState?.activeSubflows?.map(
-    (activeSubflow) => ({
-      stepPath: [...activeSubflow.stepPath],
-      flowName: activeSubflow.flowName,
-      conversationId: activeSubflow.conversationId,
-      runToken: activeSubflow.runToken,
-      ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
-    }),
-  );
+  let activeSubflows = cloneActiveSubflows(params.resumeState?.activeSubflows);
+  let activeWait = params.resumeState?.wait
+    ? {
+        executionId: params.resumeState.wait.executionId,
+        stepPath: [...params.resumeState.wait.stepPath],
+        loopStack: params.resumeState.wait.loopStack.map((frame) => ({
+          loopStepPath: [...frame.loopStepPath],
+          iteration: frame.iteration,
+        })),
+        ...(params.resumeState.wait.activeSubflows &&
+        params.resumeState.wait.activeSubflows.length > 0
+          ? {
+              activeSubflows: cloneActiveSubflows(
+                params.resumeState.wait.activeSubflows,
+              ),
+            }
+          : {}),
+        ...(params.resumeState.wait.workingFolder
+          ? { workingFolder: params.resumeState.wait.workingFolder }
+          : {}),
+        ...(params.resumeState.wait.sourceId
+          ? { sourceId: params.resumeState.wait.sourceId }
+          : {}),
+        resumeAt: params.resumeState.wait.resumeAt,
+        ...(params.resumeState.wait.githubReviewContext
+          ? {
+              githubReviewContext: {
+                ...params.resumeState.wait.githubReviewContext,
+              },
+            }
+          : {}),
+      }
+    : undefined;
+  let activeGitHubReviewContext = params.resumeState?.wait?.githubReviewContext
+    ? {
+        ...params.resumeState.wait.githubReviewContext,
+      }
+    : undefined;
+  const normalizeActiveGitHubReviewScratchAuthority = () => {
+    if (
+      !activeGitHubReviewContext?.executionId ||
+      !activeGitHubReviewContext.storyNumber ||
+      !params.repositoryContext.workingRepositoryPath
+    ) {
+      return;
+    }
+    const canonicalScratchPaths = resolveCanonicalGitHubReviewScratchPaths({
+      workingRepositoryRoot: params.repositoryContext.workingRepositoryPath,
+      storyNumber: activeGitHubReviewContext.storyNumber,
+      executionId: activeGitHubReviewContext.executionId,
+    });
+    if (canonicalScratchPaths.kind !== 'ok') {
+      return;
+    }
+    activeGitHubReviewContext = {
+      ...activeGitHubReviewContext,
+      selectorPath: canonicalScratchPaths.value.selectorPath,
+      handoffPath: canonicalScratchPaths.value.handoffPath,
+    };
+  };
+  normalizeActiveGitHubReviewScratchAuthority();
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
@@ -3592,6 +4999,7 @@ async function runFlowUnlocked(params: {
       stepPath,
       loopStack,
       pendingLoopControl,
+      wait: activeWait,
       activeSubflows,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
@@ -3607,6 +5015,77 @@ async function runFlowUnlocked(params: {
     pendingLoopControl = null;
     continueBoundaryLoopKey = null;
   };
+
+  if (resumeStepPath && activeWait) {
+    if (activeWait.executionId !== params.executionId) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state executionId no longer matches the resumed flow execution.',
+      );
+    }
+    if (
+      getStepPathKey(activeWait.stepPath) !== getStepPathKey(resumeStepPath)
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state stepPath no longer matches the requested resumeStepPath.',
+      );
+    }
+    if (
+      activeWait.workingFolder &&
+      params.repositoryContext.workingRepositoryPath &&
+      activeWait.workingFolder !==
+        params.repositoryContext.workingRepositoryPath
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state workingFolder no longer matches the resumed flow execution.',
+      );
+    }
+    if (
+      activeWait.sourceId &&
+      params.repositoryContext.flowSourceId &&
+      activeWait.sourceId !== params.repositoryContext.flowSourceId
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state sourceId no longer matches the resumed flow execution.',
+      );
+    }
+    const savedLoopKey = activeWait.loopStack.map(
+      (frame) => `${getStepPathKey(frame.loopStepPath)}:${frame.iteration}`,
+    );
+    const currentLoopKey = (params.resumeState?.loopStack ?? []).map(
+      (frame) => `${getStepPathKey(frame.loopStepPath)}:${frame.iteration}`,
+    );
+    if (savedLoopKey.join('|') !== currentLoopKey.join('|')) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state loop context no longer matches the resumed flow execution.',
+      );
+    }
+    const savedActiveSubflowKeys = (activeWait.activeSubflows ?? [])
+      .map(
+        (activeSubflow) =>
+          `${getStepPathKey(activeSubflow.stepPath)}:${activeSubflow.flowName}:${activeSubflow.conversationId}:${activeSubflow.runToken}`,
+      )
+      .sort();
+    const currentActiveSubflowKeys = (activeSubflows ?? [])
+      .map(
+        (activeSubflow) =>
+          `${getStepPathKey(activeSubflow.stepPath)}:${activeSubflow.flowName}:${activeSubflow.conversationId}:${activeSubflow.runToken}`,
+      )
+      .sort();
+    if (
+      savedActiveSubflowKeys.join('|') !== currentActiveSubflowKeys.join('|')
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Persisted wait state active subflows no longer match the resumed flow execution.',
+      );
+    }
+    activeWait = undefined;
+  }
 
   const finalizeFlowRuntime = () => {
     if (finalizedFlowRuntime) return;
@@ -3733,37 +5212,37 @@ async function runFlowUnlocked(params: {
       );
     }
 
-  const agentState = runtimeState.get(
-    getAgentKey(params.agentType, params.identifier),
-  );
-  if (agentState?.conversationId) {
-    const persistedConversation = await getConversation(
-      agentState.conversationId,
+    const agentState = runtimeState.get(
+      getAgentKey(params.agentType, params.identifier),
     );
-    if (persistedConversation?.agentName === params.agentType) {
-      const savedEndpointId =
-        typeof persistedConversation.flags?.endpointId === 'string' &&
-        persistedConversation.flags.endpointId.trim().length > 0
-          ? persistedConversation.flags.endpointId.trim()
-          : undefined;
-      if (!agentState.providerId || !agentState.modelId) {
-        agentState.providerId = persistedConversation.provider;
-        agentState.modelId = persistedConversation.model;
-        agentState.requestedProviderId = getSavedRequestedProviderId(
-          persistedConversation,
-        );
-      }
-      if (savedEndpointId) {
-        agentState.endpointId = savedEndpointId;
+    if (agentState?.conversationId) {
+      const persistedConversation = await getConversation(
+        agentState.conversationId,
+      );
+      if (persistedConversation?.agentName === params.agentType) {
+        const savedEndpointId =
+          typeof persistedConversation.flags?.endpointId === 'string' &&
+          persistedConversation.flags.endpointId.trim().length > 0
+            ? persistedConversation.flags.endpointId.trim()
+            : undefined;
+        if (!agentState.providerId || !agentState.modelId) {
+          agentState.providerId = persistedConversation.provider;
+          agentState.modelId = persistedConversation.model;
+          agentState.requestedProviderId = getSavedRequestedProviderId(
+            persistedConversation,
+          );
+        }
+        if (savedEndpointId) {
+          agentState.endpointId = savedEndpointId;
+        }
       }
     }
-  }
-  const providerBootstrapReady =
-    agentState?.providerId !== undefined
-      ? getProviderBootstrapStatus(
-          agentState.providerId as ConversationProvider,
-        ).healthy
-      : true;
+    const providerBootstrapReady =
+      agentState?.providerId !== undefined
+        ? getProviderBootstrapStatus(
+            agentState.providerId as ConversationProvider,
+          ).healthy
+        : true;
 
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
@@ -4114,49 +5593,127 @@ async function runFlowUnlocked(params: {
     return result.status;
   };
 
-  const runBreakStep = async (
-    step: FlowBreakStep,
-    command: TurnCommandMetadata,
-  ): Promise<{
+  const runSharedDecisionStep = async (paramsForDecision: {
+    kind: FlowDecisionKind;
+    decisionInput: string;
+    command: TurnCommandMetadata;
+    agentType?: string;
+    identifier?: string;
+    instructionLabel: string;
+  }): Promise<{
     status: TurnStatus;
-    shouldBreak: boolean;
+    answer?: 'yes' | 'no';
+    source?: 'ai' | 'script';
   }> => {
-    let breakAnswer: 'yes' | 'no' | undefined;
+    if (isFlowDecisionScriptPath(paramsForDecision.decisionInput)) {
+      const workingRepositoryRoot =
+        params.repositoryContext.workingRepositoryPath;
+      if (!workingRepositoryRoot) {
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command: paramsForDecision.command,
+          message:
+            'Script-backed flow decisions require a worked repository root.',
+          errorCode: getScriptDecisionFailureCode(paramsForDecision.kind),
+        });
+        return { status: 'failed' };
+      }
+
+      normalizeActiveGitHubReviewScratchAuthority();
+      const evaluated = await _evaluateScriptDecision({
+        kind: paramsForDecision.kind,
+        scriptPath: paramsForDecision.decisionInput,
+        workingRepositoryRoot,
+        timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
+        env: {
+          ...process.env,
+          ...(activeGitHubReviewContext?.executionId
+            ? {
+                CODEINFO_GITHUB_REVIEW_EXECUTION_ID:
+                  activeGitHubReviewContext.executionId,
+              }
+            : {}),
+          ...(typeof activeGitHubReviewContext?.prNumber === 'number'
+            ? {
+                CODEINFO_GITHUB_REVIEW_PR_NUMBER: String(
+                  activeGitHubReviewContext.prNumber,
+                ),
+              }
+            : {}),
+          ...(activeGitHubReviewContext?.selectorPath
+            ? {
+                CODEINFO_GITHUB_REVIEW_SELECTOR_PATH:
+                  activeGitHubReviewContext.selectorPath,
+              }
+            : {}),
+          ...(activeGitHubReviewContext?.handoffPath
+            ? {
+                CODEINFO_GITHUB_REVIEW_HANDOFF_PATH:
+                  activeGitHubReviewContext.handoffPath,
+              }
+            : {}),
+        },
+      });
+      if (!evaluated.ok) {
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command: paramsForDecision.command,
+          message: evaluated.reason,
+          errorCode: getScriptDecisionFailureCode(paramsForDecision.kind),
+        });
+        return { status: 'failed' };
+      }
+      return {
+        status: 'ok',
+        answer: evaluated.answer,
+        source: evaluated.reason,
+      };
+    }
+
+    if (!paramsForDecision.agentType || !paramsForDecision.identifier) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command: paramsForDecision.command,
+        message:
+          'AI-backed flow decisions require both agentType and identifier.',
+        errorCode: getInvalidDecisionResponseCode(paramsForDecision.kind),
+      });
+      return { status: 'failed' };
+    }
+
+    let answer: 'yes' | 'no' | undefined;
     const instruction = [
       'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
-      `Question: ${step.question}`,
+      `Question: ${paramsForDecision.decisionInput}`,
     ].join('\n');
 
     const result = await runInstruction({
-      agentType: step.agentType,
-      identifier: step.identifier,
+      agentType: paramsForDecision.agentType,
+      identifier: paramsForDecision.identifier,
       instruction,
       deferFinal: true,
-      command,
+      command: paramsForDecision.command,
       postProcess: (candidate) => {
-        const parsed = parseBreakAnswer(candidate.content);
-        parsed.attempts.forEach((attempt) => {
-          append({
-            level: 'info',
-            message: 'DEV-0000036:T4:break_parse_strategy_attempted',
-            timestamp: new Date().toISOString(),
-            source: 'server',
-            context: {
-              strategy: attempt.strategy,
-              candidateCount: attempt.candidateCount,
-            },
-          });
-        });
-        append({
-          level: parsed.ok ? 'info' : 'warn',
-          message: 'DEV-0000036:T4:break_parse_result',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            accepted: parsed.ok,
-            reasonCode: parsed.reasonCode,
-          },
-        });
+        const parsed = parseFlowDecisionAnswer(
+          paramsForDecision.kind,
+          candidate.content,
+        );
+        appendFlowDecisionParseLogs(paramsForDecision.kind, parsed);
 
         if (!parsed.ok) {
           return {
@@ -4165,18 +5722,49 @@ async function runFlowUnlocked(params: {
             finalOverride: {
               status: 'failed',
               error: {
-                code: 'INVALID_BREAK_RESPONSE',
+                code: getInvalidDecisionResponseCode(paramsForDecision.kind),
                 message: parsed.message,
               },
             },
           };
         }
 
-        breakAnswer = parsed.answer;
+        answer = parsed.answer;
         return {
           content: parsed.normalizedContent,
         };
       },
+    });
+
+    if (shouldStopAfter(result.status)) {
+      return { status: result.status };
+    }
+
+    if (!answer) {
+      return { status: 'failed' };
+    }
+
+    return {
+      status: 'ok',
+      answer,
+      source: 'ai',
+    };
+  };
+
+  const runBreakStep = async (
+    step: FlowBreakStep,
+    command: TurnCommandMetadata,
+  ): Promise<{
+    status: TurnStatus;
+    shouldBreak: boolean;
+  }> => {
+    const result = await runSharedDecisionStep({
+      kind: 'break',
+      decisionInput: step.question,
+      command,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instructionLabel: 'Break decision',
     });
 
     if (shouldStopAfter(result.status)) {
@@ -4188,26 +5776,27 @@ async function runFlowUnlocked(params: {
       return { status: result.status, shouldBreak: false };
     }
 
-    if (!breakAnswer) {
+    if (!result.answer) {
       return { status: 'failed', shouldBreak: false };
     }
 
     append({
       level: 'info',
-      message: 'flows.run.break_decision',
+      message: getFlowDecisionLogMessages('break').decision,
       timestamp: new Date().toISOString(),
       source: 'server',
       context: {
         flowName: params.flowName,
-        answer: breakAnswer,
+        answer: result.answer,
         breakOn: step.breakOn,
         loopDepth: loopStack.length,
+        source: result.source,
       },
     });
 
     return {
       status: 'ok',
-      shouldBreak: breakAnswer === step.breakOn,
+      shouldBreak: result.answer === step.breakOn,
     };
   };
 
@@ -4218,96 +5807,1015 @@ async function runFlowUnlocked(params: {
     status: TurnStatus;
     shouldContinue: boolean;
   }> => {
-    let continueAnswer: 'yes' | 'no' | undefined;
-    const instruction = [
-      'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
-      `Question: ${step.question}`,
-    ].join('\n');
-
-    const result = await runInstruction({
+    const result = await runSharedDecisionStep({
+      kind: 'continue',
+      decisionInput: step.question,
+      command,
       agentType: step.agentType,
       identifier: step.identifier,
-      instruction,
-      deferFinal: true,
-      command,
-      postProcess: (candidate) => {
-        const parsed = parseContinueAnswer(candidate.content);
-        parsed.attempts.forEach((attempt) => {
-          append({
-            level: 'info',
-            message: 'DEV-0000036:T4:continue_parse_strategy_attempted',
-            timestamp: new Date().toISOString(),
-            source: 'server',
-            context: {
-              strategy: attempt.strategy,
-              candidateCount: attempt.candidateCount,
-            },
-          });
-        });
-        append({
-          level: parsed.ok ? 'info' : 'warn',
-          message: 'DEV-0000036:T4:continue_parse_result',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            accepted: parsed.ok,
-            reasonCode: parsed.reasonCode,
-          },
-        });
-
-        if (!parsed.ok) {
-          return {
-            status: 'failed',
-            content: parsed.message,
-            finalOverride: {
-              status: 'failed',
-              error: {
-                code: 'INVALID_CONTINUE_RESPONSE',
-                message: parsed.message,
-              },
-            },
-          };
-        }
-
-        continueAnswer = parsed.answer;
-        return {
-          content: parsed.normalizedContent,
-        };
-      },
+      instructionLabel: 'Continue decision',
     });
 
     if (shouldStopAfter(result.status)) {
       return { status: result.status, shouldContinue: false };
     }
 
-    if (!continueAnswer) {
+    if (!result.answer) {
       return { status: 'failed', shouldContinue: false };
     }
 
     append({
       level: 'info',
-      message: 'flows.run.continue_decision',
+      message: getFlowDecisionLogMessages('continue').decision,
       timestamp: new Date().toISOString(),
       source: 'server',
       context: {
         flowName: params.flowName,
-        answer: continueAnswer,
+        answer: result.answer,
         continueOn: step.continueOn,
         loopDepth: loopStack.length,
+        source: result.source,
       },
     });
 
     return {
       status: 'ok',
-      shouldContinue: continueAnswer === step.continueOn,
+      shouldContinue: result.answer === step.continueOn,
     };
+  };
+
+  const runIfStep = async (
+    step: FlowIfStep,
+    command: TurnCommandMetadata,
+    nextPath: number[],
+  ): Promise<FlowStepOutcome> => {
+    const result = await runSharedDecisionStep({
+      kind: 'if',
+      decisionInput: step.condition,
+      command,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instructionLabel: 'If condition',
+    });
+
+    if (shouldStopAfter(result.status)) {
+      return result.status;
+    }
+
+    if (!result.answer) {
+      return 'failed';
+    }
+
+    const branch = result.answer === 'yes' ? step.then : (step.else ?? []);
+    append({
+      level: 'info',
+      message: getFlowDecisionLogMessages('if').decision,
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        answer: result.answer,
+        branch: result.answer === 'yes' ? 'then' : 'else',
+        branchLength: branch.length,
+        loopDepth: loopStack.length,
+        source: result.source,
+      },
+    });
+
+    if (branch.length === 0) {
+      return 'ok';
+    }
+
+    try {
+      await validateCommandSteps(branch, agentByName, params.repositoryContext);
+    } catch (error) {
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
+          ? error.message
+          : 'Selected if branch failed validation.';
+      const errorCode = isFlowRunError(error) ? error.code : 'INVALID_REQUEST';
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `If branch: ${step.label ?? 'conditional flow branch'}`,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message,
+        errorCode,
+        command,
+      });
+      return 'failed';
+    }
+
+    return runSteps(branch, nextPath, null);
+  };
+
+  const runWaitStep = async (
+    step: FlowWaitStep,
+    nextPath: number[],
+  ): Promise<'paused'> => {
+    const resumeAt = flowWaitResumeDeps.now() + step.seconds * 1000;
+    activeWait = {
+      executionId: params.executionId,
+      stepPath: [...nextPath],
+      loopStack: loopStack.map((frame) => ({
+        loopStepPath: [...frame.loopStepPath],
+        iteration: frame.iteration,
+      })),
+      ...(activeSubflows && activeSubflows.length > 0
+        ? {
+            activeSubflows: cloneActiveSubflows(activeSubflows),
+          }
+        : {}),
+      ...(params.repositoryContext.workingRepositoryPath
+        ? { workingFolder: params.repositoryContext.workingRepositoryPath }
+        : {}),
+      ...(params.repositoryContext.flowSourceId
+        ? { sourceId: params.repositoryContext.flowSourceId }
+        : {}),
+      resumeAt,
+      ...(activeGitHubReviewContext
+        ? {
+            githubReviewContext: {
+              ...activeGitHubReviewContext,
+            },
+          }
+        : {}),
+    };
+    lastCompletedStepPath = nextPath;
+    await persistRuntimeResumeState(nextPath);
+    schedulePersistedWaitResume({
+      conversationId: params.conversationId,
+      flowName: params.flowName,
+      source: params.source,
+      wait: activeWait,
+    });
+    append({
+      level: 'info',
+      message: 'flows.wait.persisted',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        stepPath: nextPath,
+        seconds: step.seconds,
+        resumeAt,
+      },
+    });
+    return 'paused';
+  };
+
+  const readCurrentPlanStoryContext = async () => {
+    return await __readCurrentPlanStoryContextForTests({
+      workingRepositoryRoot: params.repositoryContext.workingRepositoryPath,
+      defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
+    });
+  };
+
+  const buildGitHubReviewPullRequestContent = async (paramsForPr: {
+    repositoryFullName: string;
+    branchName: string;
+  }) => {
+    const storyContext = await readCurrentPlanStoryContext();
+    const storyLabel = storyContext?.storyNumber
+      ? `Story ${storyContext.storyNumber}`
+      : 'Active Story';
+    const storyTitle = storyContext?.title ?? params.flowName;
+    const title = `${storyLabel} review: ${storyTitle}`;
+    const body = [
+      `${storyLabel}: ${storyTitle}`,
+      '',
+      `Repository: ${paramsForPr.repositoryFullName}`,
+      `Branch: ${paramsForPr.branchName}`,
+      `Flow: ${params.flowName}`,
+      '',
+      'Implemented work summary:',
+      `- This branch contains the current implementation pass for ${storyLabel.toLowerCase()} on \`${paramsForPr.branchName}\`.`,
+      `- The review request was generated by the opt-in GitHub review-cycle flow \`${params.flowName}\`.`,
+      '',
+      'Reviewer instruction:',
+      '- Please focus feedback on the active story scope and the implemented behavior on this branch.',
+      '- Do not request behavior changes outside the active story scope in this review cycle.',
+    ].join('\n');
+    return { title, body };
+  };
+
+  const appendGitHubStagePlanNote = async (note: string) => {
+    const workingRepositoryRoot =
+      params.repositoryContext.workingRepositoryPath;
+    if (!workingRepositoryRoot) return;
+    const appended = await appendGitHubReviewPlanNote({
+      workingRepositoryRoot,
+      note,
+    });
+    if (appended.kind !== 'ok') {
+      append({
+        level: 'warn',
+        message: 'flows.github.plan_note.failed',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          detail: appended.message,
+          reason: appended.reason,
+        },
+      });
+    }
+  };
+
+  const emitGitHubStepFailure = async (paramsForFailure: {
+    instruction: string;
+    message: string;
+    errorCode: string;
+  }) => {
+    await emitFailedFlowStep({
+      flowConversationId: params.conversationId,
+      inflightId: stepInflightId,
+      instruction: paramsForFailure.instruction,
+      modelId: params.modelId,
+      providerId: params.providerId,
+      source: params.source,
+      message: paramsForFailure.message,
+      errorCode: paramsForFailure.errorCode,
+    });
+  };
+
+  const emitGitHubStepWarning = async (paramsForWarning: {
+    instruction: string;
+    message: string;
+  }) => {
+    await emitWarningFlowStep({
+      flowConversationId: params.conversationId,
+      inflightId: stepInflightId,
+      instruction: paramsForWarning.instruction,
+      modelId: params.modelId,
+      providerId: params.providerId,
+      source: params.source,
+      message: paramsForWarning.message,
+    });
+  };
+
+  const emitGitHubStepWarnings = async (paramsForWarning: {
+    instruction: string;
+    warnings: string[];
+    logMessage: string;
+  }) => {
+    for (const warningMessage of paramsForWarning.warnings) {
+      await appendGitHubStagePlanNote(warningMessage);
+      append({
+        level: 'warn',
+        message: paramsForWarning.logMessage,
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          detail: warningMessage,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: paramsForWarning.instruction,
+        message: warningMessage,
+      });
+    }
+  };
+
+  const formatGitHubFailureDetail = (paramsForDetail: {
+    message: string;
+    stderr?: string;
+    exitCode?: number | null;
+  }) => {
+    const lines = [paramsForDetail.message];
+    if (paramsForDetail.exitCode !== undefined) {
+      lines.push(`exitCode: ${String(paramsForDetail.exitCode)}`);
+    }
+    if (paramsForDetail.stderr) {
+      lines.push(`stderr: ${paramsForDetail.stderr}`);
+    }
+    return lines.join('\n');
+  };
+
+  const buildGitHubLookupRetryWarningMessage = (
+    diagnostic: GitHubLookupRetryDiagnostic,
+  ) =>
+    `GitHub review stage warning during PR open lookup retry ${diagnostic.attemptNumber} after waiting ${Math.round(diagnostic.waitMs / 1000)}s:\n${formatGitHubFailureDetail({
+      message: diagnostic.message,
+      stderr: diagnostic.stderr,
+      exitCode: diagnostic.exitCode,
+    })}`;
+
+  const buildGitHubRecoveredCreateWarningMessage = (paramsForMessage: {
+    pullRequestNumber: number;
+    createFailure: GitHubCommandFailureDetail;
+  }) =>
+    `GitHub review stage warning during PR open: gh pr create reported a failure before reconciliation, but latest-open PR lookup resolved pull request #${String(paramsForMessage.pullRequestNumber)}.\n${formatGitHubFailureDetail({
+      message: paramsForMessage.createFailure.message,
+      stderr: paramsForMessage.createFailure.stderr,
+      exitCode: paramsForMessage.createFailure.exitCode,
+    })}`;
+
+  const buildGitHubOpenPrFailureMessage = (paramsForMessage: {
+    failure: GitHubCommandFailureDetail;
+    lookupDiagnostics: GitHubLookupRetryDiagnostic[];
+    createFailure?: GitHubCommandFailureDetail;
+  }) => {
+    const lines = ['GitHub review stage failed during PR open.'];
+    if (paramsForMessage.createFailure) {
+      lines.push(
+        `Initial gh pr create failure before reconciliation:\n${formatGitHubFailureDetail({
+          message: paramsForMessage.createFailure.message,
+          stderr: paramsForMessage.createFailure.stderr,
+          exitCode: paramsForMessage.createFailure.exitCode,
+        })}`,
+      );
+    }
+    for (const diagnostic of paramsForMessage.lookupDiagnostics.slice(0, -1)) {
+      lines.push(
+        `Lookup retry warning ${diagnostic.attemptNumber} after ${Math.round(diagnostic.waitMs / 1000)}s:\n${formatGitHubFailureDetail({
+          message: diagnostic.message,
+          stderr: diagnostic.stderr,
+          exitCode: diagnostic.exitCode,
+        })}`,
+      );
+    }
+    if (paramsForMessage.lookupDiagnostics.length > 0) {
+      const finalDiagnostic =
+        paramsForMessage.lookupDiagnostics[
+          paramsForMessage.lookupDiagnostics.length - 1
+        ];
+      lines.push(
+        `Final lookup failure ${finalDiagnostic.attemptNumber} after ${Math.round(finalDiagnostic.waitMs / 1000)}s:\n${formatGitHubFailureDetail({
+          message: finalDiagnostic.message,
+          stderr: finalDiagnostic.stderr,
+          exitCode: finalDiagnostic.exitCode,
+        })}`,
+      );
+      return lines.join('\n\n');
+    }
+    lines.push(
+      formatGitHubFailureDetail({
+        message: paramsForMessage.failure.message,
+        stderr: paramsForMessage.failure.stderr,
+        exitCode: paramsForMessage.failure.exitCode,
+      }),
+    );
+    return lines.join('\n\n');
+  };
+
+  const resolveGitHubStepContext = async () => {
+    const workingRepositoryRoot =
+      params.repositoryContext.workingRepositoryPath;
+    if (!workingRepositoryRoot) {
+      return {
+        kind: 'error' as const,
+        reason: 'INVALID_REQUEST' as const,
+        message:
+          'GitHub flow steps require a worked repository root for repository-local git and .env.local access.',
+      };
+    }
+    const tokenResult = await readWorkedRepositoryGitHubToken({
+      workingRepositoryRoot,
+    });
+    if (tokenResult.kind !== 'ok') {
+      return tokenResult;
+    }
+    const repositoryResult = await resolveGitHubRepositoryState({
+      workingRepositoryRoot,
+    });
+    if (repositoryResult.kind !== 'ok') {
+      return repositoryResult;
+    }
+    return {
+      kind: 'ok' as const,
+      value: {
+        token: tokenResult.value.token,
+        repository: repositoryResult.value,
+      },
+    };
+  };
+
+  const runGitHubOpenPrStep = async (): Promise<TurnStatus> => {
+    const context = await resolveGitHubStepContext();
+    if (context.kind === 'skip') {
+      const warningMessage = `GitHub review stage skipped during PR open: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: context.reason,
+          detail: context.message,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: warningMessage,
+      });
+      return 'warning';
+    }
+    if (context.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during PR open: ${context.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: context.message,
+        errorCode: context.reason,
+      });
+      return 'failed';
+    }
+    const pushResult = await pushBranchToExistingUpstream({
+      repository: context.value.repository,
+    });
+    if (pushResult.kind === 'skip') {
+      const warningMessage = `GitHub review stage skipped during PR open: ${pushResult.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: pushResult.reason,
+          detail: pushResult.message,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: warningMessage,
+      });
+      return 'warning';
+    }
+    if (pushResult.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during PR open: ${pushResult.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: pushResult.message,
+        errorCode: pushResult.reason,
+      });
+      return 'failed';
+    }
+    const { title, body } = await buildGitHubReviewPullRequestContent({
+      repositoryFullName: context.value.repository.repositoryFullName,
+      branchName: context.value.repository.currentBranch,
+    });
+    const createResult = await createPullRequest({
+      repository: context.value.repository,
+      token: context.value.token,
+      title,
+      body,
+    });
+    const warningDiagnostics =
+      createResult.kind === 'ok'
+        ? createResult.lookupDiagnostics
+        : createResult.lookupDiagnostics.slice(0, -1);
+    for (const diagnostic of warningDiagnostics) {
+      const warningMessage = buildGitHubLookupRetryWarningMessage(diagnostic);
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.lookup_retry_failed',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          attemptNumber: diagnostic.attemptNumber,
+          waitMs: diagnostic.waitMs,
+          reason: diagnostic.reason,
+          detail: diagnostic.message,
+          stderr: diagnostic.stderr,
+          exitCode: diagnostic.exitCode,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: warningMessage,
+      });
+    }
+    if (createResult.kind !== 'ok') {
+      const failureMessage = buildGitHubOpenPrFailureMessage({
+        failure: {
+          reason: createResult.reason,
+          message: createResult.message,
+          stderr: createResult.stderr,
+          exitCode: createResult.exitCode,
+        },
+        lookupDiagnostics: createResult.lookupDiagnostics,
+        createFailure: createResult.createFailure,
+      });
+      await appendGitHubStagePlanNote(failureMessage);
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: failureMessage,
+        errorCode: createResult.reason,
+      });
+      return 'failed';
+    }
+    if (createResult.createFailure) {
+      const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage({
+        pullRequestNumber: createResult.value.number,
+        createFailure: createResult.createFailure,
+      });
+      await appendGitHubStagePlanNote(recoveredCreateWarning);
+      append({
+        level: 'warn',
+        message: 'flows.github.open_pr.create_recovered',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          prNumber: createResult.value.number,
+          detail: recoveredCreateWarning,
+          reason: createResult.createFailure.reason,
+          stderr: createResult.createFailure.stderr,
+          exitCode: createResult.createFailure.exitCode,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub open PR step',
+        message: recoveredCreateWarning,
+      });
+    }
+    append({
+      level: 'info',
+      message: 'flows.github.open_pr.created',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        repository: context.value.repository.repositoryFullName,
+        branch: context.value.repository.currentBranch,
+        prNumber: createResult.value.number,
+        prUrl: createResult.value.url,
+      },
+    });
+    const scratchOwnershipClaim = await claimGitHubReviewScratchOwnership({
+      repository: context.value.repository,
+      executionId: params.executionId,
+    });
+    if (scratchOwnershipClaim.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during PR open: ${scratchOwnershipClaim.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub open PR step',
+        message: scratchOwnershipClaim.message,
+        errorCode: scratchOwnershipClaim.reason,
+      });
+      return 'failed';
+    }
+    activeGitHubReviewContext = {
+      executionId: params.executionId,
+      prNumber: createResult.value.number,
+      storyNumber: scratchOwnershipClaim.value.story_number,
+      branchName: scratchOwnershipClaim.value.branch_name,
+      selectorPath: buildGitHubReviewScratchPaths(
+        context.value.repository.workingRepositoryRoot,
+        scratchOwnershipClaim.value.story_number,
+      ).selectorPath,
+      handoffPath: scratchOwnershipClaim.value.handoff_path,
+    };
+    return 'ok';
+  };
+
+  const resolveExecutionScopedGitHubReviewPullRequest = async (params: {
+    repository: GitHubRepositoryState;
+    token: string;
+  }) => {
+    if (!activeGitHubReviewContext?.executionId) {
+      const latestOpenPullRequest = await lookupLatestOpenPullRequest({
+        repository: params.repository,
+        token: params.token,
+      });
+      if (latestOpenPullRequest.kind !== 'ok') {
+        return {
+          kind: latestOpenPullRequest.kind,
+          reason: latestOpenPullRequest.reason,
+          message: latestOpenPullRequest.message,
+          stderr: latestOpenPullRequest.stderr,
+          exitCode: latestOpenPullRequest.exitCode,
+          warnings: [],
+        } as const;
+      }
+      return {
+        kind: 'ok',
+        value: latestOpenPullRequest.value,
+        warnings: [],
+      } as const;
+    }
+    if (!activeGitHubReviewContext.storyNumber) {
+      return {
+        kind: 'error',
+        reason: 'SCRATCH_INVALID',
+        message:
+          'Resumed GitHub review execution is missing its authoritative story number.',
+        warnings: [],
+      } as const;
+    }
+
+    const canonicalScratchPaths = resolveCanonicalGitHubReviewScratchPaths({
+      workingRepositoryRoot: params.repository.workingRepositoryRoot,
+      storyNumber: activeGitHubReviewContext.storyNumber,
+      executionId: activeGitHubReviewContext.executionId,
+      ...(activeGitHubReviewContext.selectorPath
+        ? { selectorPath: activeGitHubReviewContext.selectorPath }
+        : {}),
+      ...(activeGitHubReviewContext.handoffPath
+        ? { handoffPath: activeGitHubReviewContext.handoffPath }
+        : {}),
+    });
+    if (canonicalScratchPaths.kind !== 'ok') {
+      return {
+        kind: 'error',
+        reason: canonicalScratchPaths.reason,
+        message: canonicalScratchPaths.message,
+        warnings: [],
+      } as const;
+    }
+
+    const persistedHandoff = await readGitHubReviewScratch({
+      handoffPath: canonicalScratchPaths.value.handoffPath,
+      expectedExecutionId: activeGitHubReviewContext.executionId,
+    });
+    if (
+      persistedHandoff.kind !== 'ok' &&
+      /ENOENT|no such file or directory/i.test(persistedHandoff.message)
+    ) {
+      const latestOpenPullRequest = await lookupLatestOpenPullRequest({
+        repository: params.repository,
+        token: params.token,
+      });
+      if (latestOpenPullRequest.kind !== 'ok') {
+        return {
+          kind: latestOpenPullRequest.kind,
+          reason: latestOpenPullRequest.reason,
+          message: latestOpenPullRequest.message,
+          stderr: latestOpenPullRequest.stderr,
+          exitCode: latestOpenPullRequest.exitCode,
+          warnings: [
+            'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.',
+          ],
+        } as const;
+      }
+      if (!latestOpenPullRequest.value) {
+        return {
+          kind: 'error',
+          reason: 'SCRATCH_INVALID',
+          message:
+            'Resumed GitHub review execution lost its execution-scoped handoff and no latest open pull request was available for the current branch.',
+          warnings: [
+            'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.',
+          ],
+        } as const;
+      }
+      activeGitHubReviewContext.selectorPath =
+        canonicalScratchPaths.value.selectorPath;
+      activeGitHubReviewContext.handoffPath =
+        canonicalScratchPaths.value.handoffPath;
+      activeGitHubReviewContext.prNumber = latestOpenPullRequest.value.number;
+      return {
+        kind: 'ok',
+        value: latestOpenPullRequest.value,
+        warnings: [
+          'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.',
+        ],
+      } as const;
+    }
+    if (persistedHandoff.kind !== 'ok') {
+      return {
+        kind: 'error',
+        reason: persistedHandoff.reason,
+        message: persistedHandoff.message,
+        stderr: persistedHandoff.stderr,
+        exitCode: persistedHandoff.exitCode,
+        warnings: [],
+      } as const;
+    }
+
+    const reconciled = await reconcileResumedGitHubReviewPullRequest({
+      repository: params.repository,
+      token: params.token,
+      executionId: activeGitHubReviewContext.executionId,
+      handoffPath: canonicalScratchPaths.value.handoffPath,
+      resumedPullRequestNumber:
+        typeof activeGitHubReviewContext.prNumber === 'number'
+          ? activeGitHubReviewContext.prNumber
+          : persistedHandoff.value.pull_request.number,
+    });
+    if (reconciled.kind !== 'ok') {
+      return reconciled;
+    }
+    activeGitHubReviewContext.prNumber = reconciled.value.number;
+    activeGitHubReviewContext.selectorPath =
+      canonicalScratchPaths.value.selectorPath;
+    activeGitHubReviewContext.handoffPath =
+      canonicalScratchPaths.value.handoffPath;
+    return reconciled;
+  };
+
+  const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> => {
+    const context = await resolveGitHubStepContext();
+    if (context.kind === 'skip') {
+      const warningMessage = `GitHub review stage skipped during review fetch: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      append({
+        level: 'warn',
+        message: 'flows.github.fetch_reviews.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: context.reason,
+          detail: context.message,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub fetch reviews step',
+        message: warningMessage,
+      });
+      return 'warning';
+    }
+    if (context.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during review fetch: ${context.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: context.message,
+        errorCode: context.reason,
+      });
+      return 'failed';
+    }
+    const pullRequestResult = await resolveExecutionScopedGitHubReviewPullRequest(
+      {
+        repository: context.value.repository,
+        token: context.value.token,
+      },
+    );
+    await emitGitHubStepWarnings({
+      instruction: 'GitHub fetch reviews step',
+      warnings: [...pullRequestResult.warnings],
+      logMessage: 'flows.github.fetch_reviews.execution_pr_reconciled',
+    });
+    if (pullRequestResult.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during review fetch: ${pullRequestResult.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: pullRequestResult.message,
+        errorCode: pullRequestResult.reason,
+      });
+      return 'failed';
+    }
+    if (!pullRequestResult.value) {
+      const warningMessage =
+        'GitHub review stage stopped before review fetch because no latest open pull request was available for the current branch.';
+      await appendGitHubStagePlanNote(warningMessage);
+      append({
+        level: 'info',
+        message: 'flows.github.fetch_reviews.no_open_pr',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          repository: context.value.repository.repositoryFullName,
+          branch: context.value.repository.currentBranch,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub fetch reviews step',
+        message: warningMessage,
+      });
+      return 'warning';
+    }
+    const reviewArtifactResult = await fetchPullRequestReviews({
+      repository: context.value.repository,
+      token: context.value.token,
+      pullRequest: pullRequestResult.value,
+    });
+    if (reviewArtifactResult.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during review fetch: ${reviewArtifactResult.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: reviewArtifactResult.message,
+        errorCode: reviewArtifactResult.reason,
+      });
+      return 'failed';
+    }
+    const scratchWriteResult = await writeGitHubReviewScratch({
+      repository: context.value.repository,
+      executionId: params.executionId,
+      pullRequest: pullRequestResult.value,
+      artifact: reviewArtifactResult.value,
+      preserveForeignSelectorOwnership: Boolean(
+        activeGitHubReviewContext?.executionId,
+      ),
+    });
+    if (scratchWriteResult.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during review fetch: ${scratchWriteResult.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: scratchWriteResult.message,
+        errorCode: scratchWriteResult.reason,
+      });
+      return 'failed';
+    }
+    const canonicalScratchPaths = resolveCanonicalGitHubReviewScratchPaths({
+      workingRepositoryRoot: context.value.repository.workingRepositoryRoot,
+      storyNumber: scratchWriteResult.value.story_number,
+      executionId: scratchWriteResult.value.execution_id,
+      ...(activeGitHubReviewContext?.selectorPath
+        ? { selectorPath: activeGitHubReviewContext.selectorPath }
+        : {}),
+      ...(activeGitHubReviewContext?.handoffPath
+        ? { handoffPath: activeGitHubReviewContext.handoffPath }
+        : {}),
+    });
+    if (canonicalScratchPaths.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during review fetch: ${canonicalScratchPaths.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: canonicalScratchPaths.message,
+        errorCode: canonicalScratchPaths.reason,
+      });
+      return 'failed';
+    }
+    const handoffPath = canonicalScratchPaths.value.handoffPath;
+    const handoffReadResult = await readGitHubReviewScratch({
+      handoffPath,
+      expectedExecutionId:
+        activeGitHubReviewContext?.executionId ?? params.executionId,
+    });
+    if (handoffReadResult.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during review fetch: ${handoffReadResult.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: handoffReadResult.message,
+        errorCode: handoffReadResult.reason,
+      });
+      return 'failed';
+    }
+    activeGitHubReviewContext = {
+      executionId: handoffReadResult.value.execution_id,
+      prNumber: pullRequestResult.value.number,
+      storyNumber: handoffReadResult.value.story_number,
+      branchName: handoffReadResult.value.branch_name,
+      selectorPath: canonicalScratchPaths.value.selectorPath,
+      handoffPath,
+    };
+    const materializedReviewInput = await materializeGitHubExternalReviewInput({
+      handoff: handoffReadResult.value,
+    });
+    if (materializedReviewInput.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during review fetch: ${materializedReviewInput.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub fetch reviews step',
+        message: materializedReviewInput.message,
+        errorCode: materializedReviewInput.reason,
+      });
+      return 'failed';
+    }
+    append({
+      level: 'info',
+      message: 'flows.github.fetch_reviews.recorded',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        repository: context.value.repository.repositoryFullName,
+        branch: context.value.repository.currentBranch,
+        prNumber: pullRequestResult.value.number,
+        reviewCount: reviewArtifactResult.value.reviews.length,
+        reviewCommentCount: reviewArtifactResult.value.reviewComments.length,
+        handoffPath: activeGitHubReviewContext?.handoffPath ?? handoffPath,
+        rawReviewArtifactPath:
+          scratchWriteResult.value.raw_review_artifact_path,
+        externalReviewInputPath:
+          materializedReviewInput.value.externalReviewInputPath,
+        filteredFeedbackCount: materializedReviewInput.value.feedback.length,
+      },
+    });
+    return 'ok';
+  };
+
+  const runGitHubClosePrStep = async (): Promise<TurnStatus> => {
+    const context = await resolveGitHubStepContext();
+    if (context.kind === 'skip') {
+      const warningMessage = `GitHub review stage skipped during PR close: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      append({
+        level: 'warn',
+        message: 'flows.github.close_pr.skipped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          reason: context.reason,
+          detail: context.message,
+        },
+      });
+      await emitGitHubStepWarning({
+        instruction: 'GitHub close PR step',
+        message: warningMessage,
+      });
+      return 'warning';
+    }
+    if (context.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during PR close: ${context.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub close PR step',
+        message: context.message,
+        errorCode: context.reason,
+      });
+      return 'failed';
+    }
+    const pullRequestResult = await resolveExecutionScopedGitHubReviewPullRequest(
+      {
+        repository: context.value.repository,
+        token: context.value.token,
+      },
+    );
+    await emitGitHubStepWarnings({
+      instruction: 'GitHub close PR step',
+      warnings: [...pullRequestResult.warnings],
+      logMessage: 'flows.github.close_pr.execution_pr_reconciled',
+    });
+    if (pullRequestResult.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during PR close: ${pullRequestResult.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub close PR step',
+        message: pullRequestResult.message,
+        errorCode: pullRequestResult.reason,
+      });
+      return 'failed';
+    }
+    if (!pullRequestResult.value) {
+      const warningMessage =
+        'GitHub review stage stopped before PR close because no latest open pull request was available for the current branch.';
+      await appendGitHubStagePlanNote(warningMessage);
+      await emitGitHubStepWarning({
+        instruction: 'GitHub close PR step',
+        message: warningMessage,
+      });
+      return 'warning';
+    }
+    const closeResult = await closePullRequest({
+      repository: context.value.repository,
+      token: context.value.token,
+      pullRequest: pullRequestResult.value,
+    });
+    if (closeResult.kind !== 'ok') {
+      await appendGitHubStagePlanNote(
+        `GitHub review stage failed during PR close: ${closeResult.message}`,
+      );
+      await emitGitHubStepFailure({
+        instruction: 'GitHub close PR step',
+        message: closeResult.message,
+        errorCode: closeResult.reason,
+      });
+      return 'failed';
+    }
+    append({
+      level: 'info',
+      message: 'flows.github.close_pr.closed',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        repository: context.value.repository.repositoryFullName,
+        branch: context.value.repository.currentBranch,
+        prNumber: pullRequestResult.value.number,
+      },
+    });
+    return 'ok';
   };
 
   const getActiveSubflowsForStep = (stepPath: number[]) => {
     const stepPathKey = getStepPathKey(stepPath);
     return (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) === stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) === stepPathKey,
     );
   };
 
@@ -4317,8 +6825,7 @@ async function runFlowUnlocked(params: {
   ) => {
     const stepPathKey = getStepPathKey(stepPath);
     const retainedSubflows = (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
     );
     const mergedSubflows = [...retainedSubflows, ...nextSubflows];
     activeSubflows = mergedSubflows.length > 0 ? mergedSubflows : undefined;
@@ -4520,6 +7027,12 @@ async function runFlowUnlocked(params: {
       }
 
       let terminalStatus: TurnStatus;
+      let terminalSummary:
+        | {
+            completedChildTitles: string[];
+            stoppedChildTitles: string[];
+          }
+        | undefined;
       let parentStopRequested = false;
       let allChildrenOkObservedAt: number | null = null;
       while (true) {
@@ -4575,7 +7088,24 @@ async function runFlowUnlocked(params: {
             parentStopRequested ||
             terminalStatuses.includes('stopped')
           ) {
-            terminalStatus = 'stopped';
+            const completedChildTitles = childStatuses
+              .filter(({ status }) => status === 'ok')
+              .map(({ childRun }) => childRun.title ?? childRun.flowName);
+            const stoppedChildTitles = childStatuses
+              .filter(({ status }) => status === 'stopped')
+              .map(({ childRun }) => childRun.title ?? childRun.flowName);
+            if (
+              stoppedChildTitles.length === childStatuses.length &&
+              childStatuses.length > 0
+            ) {
+              terminalStatus = 'stopped';
+            } else {
+              terminalStatus = 'warning';
+              terminalSummary = {
+                completedChildTitles,
+                stoppedChildTitles,
+              };
+            }
           } else {
             terminalStatus = 'ok';
           }
@@ -4606,13 +7136,33 @@ async function runFlowUnlocked(params: {
                 ? 'Completed subflows'
                 : 'Completed subflow',
             )
-          : terminalStatus === 'stopped'
-            ? buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',
-              )
-            : buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Subflows' : 'Subflow',
-              ) + ' failed';
+          : terminalStatus === 'warning'
+            ? (() => {
+                const completed =
+                  terminalSummary?.completedChildTitles.join(', ') ?? '';
+                const stopped =
+                  terminalSummary?.stoppedChildTitles.join(', ') ?? '';
+                if (stopped && completed) {
+                  return `Subflow batch stop had mixed child outcomes (stopped: ${stopped}; completed: ${completed})`;
+                }
+                if (completed) {
+                  return `Subflow stop request arrived after child completion (completed: ${completed})`;
+                }
+                return buildSubflowSummaryText(
+                  launchesMultipleChildren
+                    ? 'Subflow batch stop completed with warnings for'
+                    : 'Subflow stop completed with warnings for',
+                );
+              })()
+            : terminalStatus === 'stopped'
+              ? buildSubflowSummaryText(
+                  launchesMultipleChildren
+                    ? 'Stopped subflows'
+                    : 'Stopped subflow',
+                )
+              : buildSubflowSummaryText(
+                  launchesMultipleChildren ? 'Subflows' : 'Subflow',
+                ) + ' failed';
       setAssistantText({
         conversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5429,6 +7979,82 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'if') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const outcome = await runIfStep(step, command, nextPath);
+        if (outcome !== 'ok') {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return outcome;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
+      }
+
+      if (step.type === 'wait') {
+        const outcome = await runWaitStep(step, nextPath);
+        if (outcome === 'paused') {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.paused.wait',
+            conversationId: params.conversationId,
+            detail: `stepPath=${nextPath.join('.')} seconds=${step.seconds}`,
+          });
+          return 'paused';
+        }
+      }
+
+      if (step.type === 'github_open_pr') {
+        const status = await runGitHubOpenPrStep();
+        if (shouldStopAfter(status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
+      }
+
+      if (step.type === 'github_fetch_reviews') {
+        const status = await runGitHubFetchReviewsStep();
+        if (shouldStopAfter(status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
+      }
+
+      if (step.type === 'github_close_pr') {
+        const status = await runGitHubClosePrStep();
+        if (shouldStopAfter(status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
+      }
+
       if (step.type === 'startLoop') {
         const outcome = await runStartLoopStep(step, nextPath, null);
         if (outcome !== 'ok') return outcome;
@@ -5546,18 +8172,26 @@ async function runFlowUnlocked(params: {
 
   try {
     const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
+    if (outcome === 'paused') {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.return.paused',
+        conversationId: params.conversationId,
+      });
+      return 'paused';
+    }
     if (outcome !== 'ok') {
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'runFlowUnlocked.return.non_ok',
         conversationId: params.conversationId,
         detail: `outcome=${outcome}`,
       });
-      return;
+      return 'failed';
     }
     params.onStopUnwindCheckpoint?.({
       checkpoint: 'runFlowUnlocked.return.ok',
       conversationId: params.conversationId,
     });
+    return 'ok';
   } finally {
     finalizeFlowRuntime();
   }
@@ -5567,7 +8201,23 @@ export async function startFlowRun(
   params: FlowRunStartParams,
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
-  const sourceId = params.sourceId?.trim() || undefined;
+  const requestedSourceId = params.sourceId?.trim() || undefined;
+  const requestedConversationId = params.conversationId?.trim() || undefined;
+  let existingConversation = requestedConversationId
+    ? await getConversation(requestedConversationId)
+    : null;
+  const trustedRequestedFlowState =
+    existingConversation?.flowName === flowName
+      ? parseFlowResumeState(
+          (existingConversation.flags ?? undefined) as
+            | Record<string, unknown>
+            | undefined,
+        )
+      : null;
+  const sourceId =
+    params.resumeStepPath && trustedRequestedFlowState?.wait?.sourceId
+      ? trustedRequestedFlowState.wait.sourceId
+      : requestedSourceId;
   const flowPathEntry = buildFlowPathEntry({ flowName, sourceId });
   if (params.flowPath?.includes(flowPathEntry)) {
     const cyclePath = [...params.flowPath, flowPathEntry].join(' -> ');
@@ -5578,7 +8228,6 @@ export async function startFlowRun(
   }
   const flowPath = [...(params.flowPath ?? []), flowPathEntry];
   const retryOwnershipId = params.retryOwnershipId?.trim() || undefined;
-  const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
   const retryOwnershipLaunch = normalizeFreshRunRetryOwnershipLaunch({
@@ -5606,9 +8255,6 @@ export async function startFlowRun(
     }
   }
   const listRepos = params.listIngestedRepositories ?? listIngestedRepositories;
-  let existingConversation = requestedConversationId
-    ? await getConversation(requestedConversationId)
-    : null;
   const conversationId =
     resumeStepPath || !existingConversation
       ? (requestedConversationId ?? crypto.randomUUID())
@@ -5636,6 +8282,7 @@ export async function startFlowRun(
   let startupWarnings: string[] = [];
   let childExecutionBackfills: string[] = [];
   let completedSuccessfully = false;
+  let acceptedStartResult: FlowRunStartResult | null = null;
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -5725,8 +8372,15 @@ export async function startFlowRun(
       flow.steps,
       resumeStepPath,
     );
-    const firstAgentStep =
-      runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
+    const immediateResumeBoundaryStep = findImmediateResumeBoundaryStep(
+      flow.steps,
+      resumeStepPath,
+    );
+    const shouldBootstrapRuntimeIdentity =
+      !resumeStepPath || stepRequiresProviderBootstrap(immediateResumeBoundaryStep);
+    const firstAgentStep = shouldBootstrapRuntimeIdentity
+      ? (runtimeIdentityStep ?? findFirstAgentStep(flow.steps))
+      : undefined;
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -5738,24 +8392,30 @@ export async function startFlowRun(
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
     if (firstAgentStep) {
-      const validatedAgentType = validateRepositoryBackedAgentType(
-        firstAgentStep.agentType,
-      );
+      const firstAgentType = firstAgentStep.agentType;
+      if (!firstAgentType) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'AI-backed flow decisions require an agentType.',
+        );
+      }
+      const validatedAgentType =
+        validateRepositoryBackedAgentType(firstAgentType);
       if (!validatedAgentType.ok) {
         throw toFlowRunError(
           'INVALID_REQUEST',
-          `Flow agent "${firstAgentStep.agentType}" ${validatedAgentType.message}.`,
+          `Flow agent "${firstAgentType}" ${validatedAgentType.message}.`,
         );
       }
-      const agent = agentByName.get(firstAgentStep.agentType);
+      const agent = agentByName.get(firstAgentType);
       if (!agent) {
         throw toFlowRunError(
           'AGENT_NOT_FOUND',
-          `Agent ${firstAgentStep.agentType} not found`,
+          `Agent ${firstAgentType} not found`,
         );
       }
       const prepared = await resolveFlowAgentRuntimeExecution({
-        agentName: firstAgentStep.agentType,
+        agentName: firstAgentType,
         configPath: agent.configPath,
         workingFolder: effectiveWorkingFolder,
         defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
@@ -5764,6 +8424,9 @@ export async function startFlowRun(
       modelId = prepared.modelId;
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
+    } else if (resumeStepPath && existingConversation) {
+      providerId = existingConversation.provider;
+      modelId = existingConversation.model;
     }
 
     const codeInfo2Root = codeInfo2RootForRun();
@@ -5823,6 +8486,8 @@ export async function startFlowRun(
           executionId,
         });
       }
+    } else {
+      clearScheduledFlowWait(conversationId);
     }
     // Build runtimeState from the persisted resumeState and backfill requestedProviderId
     // from the parent flow's canonical requested provider first, then fall back to
@@ -5844,6 +8509,14 @@ export async function startFlowRun(
       }
     }
 
+    acceptedStartResult = {
+      flowName,
+      conversationId,
+      inflightId,
+      providerId,
+      modelId,
+      ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
+    };
     await persistFlowResumeState({
       conversationId,
       executionId,
@@ -5859,14 +8532,19 @@ export async function startFlowRun(
             loopStepPath: [...resumeState.pendingLoopControl.loopStepPath],
           }
         : null,
-      activeSubflows: resumeState?.activeSubflows?.map((activeSubflow) => ({
-        stepPath: [...activeSubflow.stepPath],
-        flowName: activeSubflow.flowName,
-        conversationId: activeSubflow.conversationId,
-        runToken: activeSubflow.runToken,
-        ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
-      })),
+      wait: undefined,
+      activeSubflows: cloneActiveSubflows(resumeState?.activeSubflows),
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
+      retryOwnershipPending:
+        retryOwnershipId && !resumeStepPath
+          ? {
+              retryOwnershipId,
+              sourceId,
+              launchSignature:
+                makeFreshRunRetryOwnershipLaunchSignature(retryOwnershipLaunch),
+              result: acceptedStartResult,
+            }
+          : null,
     });
     if (retryOwnershipId && !resumeStepPath) {
       rememberFreshRunRetryOwnership({
@@ -5875,14 +8553,7 @@ export async function startFlowRun(
         retryOwnershipId,
         runToken,
         launch: retryOwnershipLaunch,
-        result: {
-          flowName,
-          conversationId,
-          inflightId,
-          providerId,
-          modelId,
-          ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
-        },
+        result: acceptedStartResult,
       });
     }
     params.working_folder = effectiveWorkingFolder;
@@ -5903,6 +8574,7 @@ export async function startFlowRun(
   }
 
   void (async () => {
+    let failedTerminally = false;
     try {
       if (!repositoryContext) {
         throw toFlowRunError(
@@ -5916,7 +8588,7 @@ export async function startFlowRun(
           defaultRepositoryRoot: repositoryContext.defaultRepositoryRoot,
         })
       ).workingDirectoryOverride;
-      await runFlowUnlocked({
+      const runOutcome = await runFlowUnlocked({
         flowName,
         flow,
         flowPath,
@@ -5937,12 +8609,15 @@ export async function startFlowRun(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      completedSuccessfully = true;
+      completedSuccessfully = runOutcome === 'ok';
+      failedTerminally = runOutcome !== 'ok' && runOutcome !== 'paused';
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
         conversationId,
+        detail: `outcome=${runOutcome}`,
       });
     } catch (err) {
+      failedTerminally = true;
       const failureMessage = isFlowRunError(err)
         ? (err.reason ?? err.code)
         : err instanceof Error
@@ -5985,9 +8660,6 @@ export async function startFlowRun(
         conversationId,
       });
       cleanupPendingConversationCancel({ conversationId, runToken });
-      const releaseConversationLockFn =
-        params.releaseConversationLockFn ?? releaseConversationLock;
-      const released = releaseConversationLockFn(conversationId, runToken);
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -6018,6 +8690,19 @@ export async function startFlowRun(
           result: completedResult,
         });
       }
+      if (retryOwnershipId && !resumeStepPath && failedTerminally) {
+        try {
+          await clearFreshRunRetryOwnershipPending({
+            conversationId,
+            conversation: await getConversation(conversationId),
+          });
+        } catch (error) {
+          baseLogger.error(
+            { flowName, conversationId, inflightId, error },
+            'fresh run retry pending cleanup failed after terminal error',
+          );
+        }
+      }
       if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
@@ -6026,6 +8711,9 @@ export async function startFlowRun(
           expectedRunToken: runToken,
         });
       }
+      const releaseConversationLockFn =
+        params.releaseConversationLockFn ?? releaseConversationLock;
+      const released = releaseConversationLockFn(conversationId, runToken);
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.finally.exit',
         conversationId,

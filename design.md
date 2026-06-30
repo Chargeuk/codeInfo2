@@ -11,6 +11,32 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000060 flow-only GitHub review-cycle primitives
+
+- Story `0000060` extends the flow runtime only. Agent command JSON does not gain matching `if`, timed `wait`, or GitHub PR step support in this story.
+- The flow schema now exposes five Story 60 step types in `server/src/flows/flowSchema.ts`: `if`, `wait`, `github_open_pr`, `github_fetch_reviews`, and `github_close_pr`.
+- The shared condition contract lives in `server/src/flows/service.ts` and is intentionally reused by `if`, `break`, and `continue`:
+  - the authored condition may stay on the existing AI yes-or-no path;
+  - or it may be a checked-in repository-relative Python entrypoint evaluated from the worked repository root;
+  - script answers must resolve to exactly `{"answer":"yes"}` or `{"answer":"no"}`;
+  - missing files, paths that escape the worked repository root, malformed JSON, extra top-level keys, non-zero exits, timeouts, or any non-`yes`/`no` answer are hard step failures rather than silent fallbacks.
+- Story 60 keeps the flow-control seams thin and composable on purpose. `github_open_pr`, `github_fetch_reviews`, and `github_close_pr` are transport primitives, while branching and loopback policy remains authored in the copied flow definition instead of being hidden inside the GitHub adapter.
+- The shipped opt-in flow entrypoint is `flows/implement_next_plan_github_review.json`. The existing default `flows/implement_next_plan.json` remains the preserved non-GitHub path.
+
+## Story 0000060 persisted wait and GitHub review lifecycle
+
+- The `wait` step stores workflow-authored whole-second delay input in the flow file, but persists an absolute resume timestamp in runtime state. Zero, negative, fractional, or non-numeric values are rejected at flow-parse time.
+- Persisted wait state is resume-safe rather than sleep-based. The runtime keeps the current execution identity, next step path, and loop context so automatic wake resumes the same flow execution instead of creating a fresh run or replaying the wrong loop boundary.
+- Wait resume is automatic after the saved wake timestamp elapses, and cancellation or terminal stop still wins over later wake processing. Story 60 therefore treats `wait` as another persisted flow lifecycle seam rather than as an in-memory timer convenience.
+- GitHub transport and scratch ownership live in `server/src/flows/githubReview.ts`, with `server/src/flows/service.ts` handling step dispatch, plan-note writes, status routing, and review-input materialization.
+- Repository-local GitHub auth is explicit and narrow:
+  - the runtime reads `CODEINFO_PR_TOKEN` only from the worked repository root `.env.local`;
+  - the token is mapped only to `GH_TOKEN` for the child `gh` invocation;
+  - the token is not loaded through `server/.env.local`, not promoted into long-lived server process env, and not written into a persisted `gh` credential store.
+- The minimum documented fine-grained token contract for this story is repository `Pull requests` permission at `write`, because PR open and close need write access while review and inline-comment retrieval needs read access.
+- Supported GitHub review-cycle skip paths finish as completed-with-warning instead of pretending a clean external review occurred. The current supported reasons are missing `.env.local`, malformed `.env.local`, missing token key, blank token value, missing upstream branch, missing trustworthy base branch, upstream push failure, and PR creation failure.
+- GitHub review scratch remains separate from the existing external-review ingest path. Story 60 writes transient handoff and raw review artifacts under `codeInfoTmp/reviews/`, preserves safe replacement semantics for the story-local handoff file, filters out PR-author feedback before classification, and replaces stale scratch with the fresh fetch before later review disposition reads it back.
+
 ## Story 0000057 final provider-neutral runtime closeout
 
 - Story `0000057` finishes the migration from provider-specific agent assumptions to one shared provider-neutral execution contract for direct agents, commands, flow-owned agent execution, and MCP `code_info` grounding.

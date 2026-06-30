@@ -30,7 +30,7 @@ export type InflightState = {
   command?: TurnCommandMetadata;
   userTurn?: { content: string; createdAt: string };
   assistantCreatedAt?: string;
-  finalStatus?: 'ok' | 'stopped' | 'failed';
+  finalStatus?: 'ok' | 'warning' | 'stopped' | 'failed';
   persisted?: { user: boolean; assistant: boolean };
   persistedTurnIds?: { user?: string; assistant?: string };
   assistantText: string;
@@ -56,7 +56,7 @@ export type CompletedInflightState = {
   model?: string;
   source?: 'REST' | 'MCP';
   userTurn?: { content: string; createdAt: string };
-  finalStatus?: 'ok' | 'stopped' | 'failed';
+  finalStatus?: 'ok' | 'warning' | 'stopped' | 'failed';
   persisted?: { user: boolean; assistant: boolean };
   persistedTurnIds?: { user?: string; assistant?: string };
   assistantText: string;
@@ -561,7 +561,7 @@ export function setInflightUserTurn(params: {
 export function markInflightFinal(params: {
   conversationId: string;
   inflightId: string;
-  status: 'ok' | 'stopped' | 'failed';
+  status: 'ok' | 'warning' | 'stopped' | 'failed';
   finalizedAt?: string;
 }): { ok: true; alreadyFinalized: boolean } | { ok: false } {
   const state = inflightByConversationId.get(params.conversationId);
@@ -622,7 +622,7 @@ export type InflightMergedTurn = {
   source: 'REST' | 'MCP';
   command?: TurnCommandMetadata;
   toolCalls: Record<string, unknown> | null;
-  status: 'ok' | 'stopped' | 'failed';
+  status: 'ok' | 'warning' | 'stopped' | 'failed';
   createdAt: Date;
 };
 

@@ -278,7 +278,7 @@ const applyBootstrapStatusToRuntimeProviderState = <
 function buildCompletedReplayResponse(params: {
   conversationId: string;
   inflightId: string;
-  finalStatus?: 'ok' | 'stopped' | 'failed';
+  finalStatus?: 'ok' | 'warning' | 'stopped' | 'failed';
 }) {
   return {
     status: 'error' as const,
@@ -295,7 +295,7 @@ function buildCompletedReplayResponse(params: {
 async function getPersistedCompletedReplay(params: {
   conversationId: string;
   inflightId: string;
-}): Promise<{ finalStatus?: 'ok' | 'stopped' | 'failed' } | null> {
+}): Promise<{ finalStatus?: 'ok' | 'warning' | 'stopped' | 'failed' } | null> {
   if (shouldUseMemoryPersistence()) {
     const turns = getMemoryTurns(params.conversationId);
     for (let index = turns.length - 1; index >= 0; index -= 1) {

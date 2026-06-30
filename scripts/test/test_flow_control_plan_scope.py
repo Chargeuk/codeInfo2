@@ -50,6 +50,44 @@ class FlowControlPlanScopeTests(unittest.TestCase):
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "plan_scope_story_incomplete")
 
+    def test_github_pr_review_support_requires_github_like_upstream_remote(self) -> None:
+        with mock.patch.object(
+            plan_scope.subprocess,
+            "run",
+            side_effect=[
+                mock.Mock(returncode=0, stdout="origin/feature/0000060-demo\n"),
+                mock.Mock(
+                    returncode=0,
+                    stdout="https://github.com/example/repo.git\n",
+                ),
+            ],
+        ):
+            outcome = plan_scope.check_plan_scope_supports_github_pr_review()
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "plan_scope_github_pr_review_supported"
+        )
+
+    def test_github_pr_review_support_rejects_non_github_upstream_remote(self) -> None:
+        with mock.patch.object(
+            plan_scope.subprocess,
+            "run",
+            side_effect=[
+                mock.Mock(returncode=0, stdout="origin/feature/0000060-demo\n"),
+                mock.Mock(
+                    returncode=0,
+                    stdout="https://bitbucket.org/example/repo.git\n",
+                ),
+            ],
+        ):
+            outcome = plan_scope.check_plan_scope_supports_github_pr_review()
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(
+            outcome.reason_code, "plan_scope_github_pr_review_unsupported"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

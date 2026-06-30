@@ -11,6 +11,7 @@ import supertest from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 
 import {
+  getActiveRunOwnership,
   tryAcquireConversationLock,
   releaseConversationLock,
 } from '../../agents/runLock.js';
@@ -24,6 +25,10 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
+import {
+  __resetGitHubReviewDepsForTests,
+  __setGitHubReviewDepsForTests,
+} from '../../flows/githubReview.js';
 import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
@@ -56,6 +61,10 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
+);
+const checkedInRepoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
 );
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
@@ -253,6 +262,7 @@ beforeEach(() => {
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetFreshRunRetryOwnershipCompletionForTests();
+  __resetGitHubReviewDepsForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -305,6 +315,22 @@ const writeFlowFile = async (params: {
   );
 };
 
+const flowContainsStepType = (value: unknown, stepType: string): boolean => {
+  if (Array.isArray(value)) {
+    return value.some((entry) => flowContainsStepType(entry, stepType));
+  }
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.type === stepType) {
+    return true;
+  }
+  return Object.values(record).some((entry) =>
+    flowContainsStepType(entry, stepType),
+  );
+};
+
 const writeMarkdownFile = async (params: {
   repoRoot: string;
   relativePath: string;
@@ -325,6 +351,86 @@ const writeMarkdownFile = async (params: {
   return filePath;
 };
 
+const createGitHubReviewRepoFixture = async (params?: {
+  repoRoot?: string;
+  flowTaskNumber?: number;
+}) => {
+  const repoRoot =
+    params?.repoRoot ??
+    (await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-repo-')));
+  const taskNumber = params?.flowTaskNumber ?? 4;
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, 'scripts/flow_control'), {
+    recursive: true,
+  });
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: taskNumber,
+          title: `Task ${taskNumber}`,
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      `### Task ${taskNumber}. Fixture task`,
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.copyFile(
+    path.join(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        '../../../../scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+      ),
+    ),
+    path.join(
+      repoRoot,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+  );
+  return repoRoot;
+};
+
 const getAgentConversationId = (conversationId: string) => {
   const conversation = memoryConversations.get(conversationId);
   const flags = (conversation?.flags ?? {}) as {
@@ -343,6 +449,11 @@ const collectAgentConversationIds = (conversationId: string) => {
   };
   return Object.values(flags.flow?.agentConversations ?? {});
 };
+
+const getLatestAssistantTurn = (conversationId: string) =>
+  [...(memoryTurns.get(conversationId) ?? [])]
+    .reverse()
+    .find((turn) => turn?.role === 'assistant');
 
 const getFlowExecutionId = (conversationId: string) => {
   const conversation = memoryConversations.get(conversationId);
@@ -1147,7 +1258,7 @@ test('fresh executions of the same flow can run concurrently in different parent
   }
 });
 
-test('durable retryOwnershipId replay reuses the accepted launch after completed-cache loss', async () => {
+test('retryOwnershipPending replay distinguishes still running, finished, and accepted-then-died-before-terminal cleanup', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const prevNodeEnv = process.env.NODE_ENV;
@@ -1169,72 +1280,50 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
   process.env.FLOWS_DIR = tmpDir;
   const customTitle = 'Accepted Retry Launch';
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new InstantChat(),
-        }),
-    }),
-  );
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const ws = await connectWs({ baseUrl });
-
   try {
     const firstConversationId = 'flow-retry-ownership-a';
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    const retryOwnershipId = 'fresh-run-retry-1';
+    const launchSignature = JSON.stringify({
+      flowName: 'llm-basic',
+      source: 'REST',
+      customTitle,
+    });
+    const firstResult = await startFlowRun({
+      flowName: 'llm-basic',
       conversationId: firstConversationId,
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new DelayedInstantChat(250),
     });
-    const firstResultPromise = supertest(baseUrl)
-      .post('/flows/llm-basic/run')
-      .send({
-        conversationId: firstConversationId,
-        retryOwnershipId: 'fresh-run-retry-1',
-        customTitle,
-      })
-      .expect(202);
-    const firstFinalPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; status: string } => {
-        const candidate = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return (
-          candidate.type === 'turn_final' &&
-          candidate.conversationId === firstConversationId &&
-          candidate.status === 'ok'
-        );
-      },
-      timeoutMs: 8000,
+    await waitFor(() => Boolean(getActiveRunOwnership(firstConversationId)));
+    await waitFor(() =>
+      Boolean(
+        (
+          (memoryConversations.get(firstConversationId)?.flags ?? {}) as {
+            flow?: { retryOwnershipPending?: unknown };
+          }
+        ).flow?.retryOwnershipPending,
+      ),
+    );
+
+    const replayWhileRunning = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-running',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
     });
-    const firstResult = (await firstResultPromise).body as {
-      flowName: string;
-      conversationId: string;
-      inflightId: string;
-      providerId: string;
-      modelId: string;
-      warnings?: string[];
-    };
-    await firstFinalPromise;
+    assert.deepEqual(replayWhileRunning, firstResult);
+
     await waitForConversationUnlocked(firstResult.conversationId);
     await waitFor(
       async () =>
         Boolean(
           await __getPersistedFreshRunRetryOwnershipCompletionForTests({
             flowName: 'llm-basic',
-            retryOwnershipId: 'fresh-run-retry-1',
+            retryOwnershipId,
             launch: {
               flowName: 'llm-basic',
               source: 'REST',
@@ -1250,32 +1339,71 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
     );
     __resetFreshRunRetryOwnershipCompletionForTests();
 
-    const replayConversationId = 'flow-retry-ownership-b';
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId: replayConversationId,
+    const replayAfterCompletion = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-finished',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
     });
-    const replayResult = (
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({
-          conversationId: replayConversationId,
-          retryOwnershipId: 'fresh-run-retry-1',
-          customTitle,
-        })
-        .expect(202)
-    ).body as typeof firstResult;
-    assert.deepEqual(replayResult, firstResult);
+    assert.deepEqual(replayAfterCompletion, firstResult);
     await waitForTurnCountToStay(firstResult.conversationId, 2);
+
+    const firstConversation = memoryConversations.get(firstResult.conversationId);
+    assert.ok(firstConversation, 'expected original retry conversation');
+    const originalFlow = ((firstConversation.flags ?? {}) as {
+      flow?: Record<string, unknown>;
+    }).flow;
+    assert.ok(originalFlow, 'expected persisted flow state');
+
+    memoryConversations.set(firstResult.conversationId, {
+      ...firstConversation,
+      flags: {
+        ...(firstConversation.flags ?? {}),
+        flow: {
+          ...originalFlow,
+          retryOwnershipPending: {
+            retryOwnershipId,
+            launchSignature,
+            result: firstResult,
+          },
+        },
+      },
+    });
+    const stalePendingFlow = (
+      (memoryConversations.get(firstResult.conversationId)?.flags ?? {}) as {
+        flow?: Record<string, unknown>;
+      }
+    ).flow;
+    if (stalePendingFlow) {
+      delete stalePendingFlow.retryOwnershipCompletion;
+    }
+
+    __resetFreshRunRetryOwnershipCompletionForTests();
+
+    const replayAfterCrash = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-crash-retry',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+    assert.equal(
+      replayAfterCrash.conversationId,
+      'flow-retry-ownership-crash-retry',
+    );
+    assert.notEqual(replayAfterCrash.inflightId, firstResult.inflightId);
+    await waitForConversationUnlocked(replayAfterCrash.conversationId);
   } finally {
     cleanupMemory(
       'flow-retry-ownership-a',
-      'flow-retry-ownership-b',
+      'flow-retry-ownership-running',
+      'flow-retry-ownership-finished',
+      'flow-retry-ownership-crash-retry',
     );
     __resetFreshRunRetryOwnershipCompletionForTests();
-    await closeWs(ws);
-    await wsHandle.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     if (prevNodeEnv === undefined) {
       delete process.env.NODE_ENV;
     } else {
@@ -1415,7 +1543,7 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
     await withMockedMongoConversationPersistence({
       seedConversations: [],
       run: async ({ conversations, turns }) => {
-        ConversationModel.prototype.save = (async function save(this: unknown) {
+        ConversationModel.prototype.save = async function save(this: unknown) {
           const doc = this as { _id?: unknown; toObject?: () => unknown };
           const saved = {
             ...structuredClone(doc.toObject?.() ?? doc),
@@ -1423,15 +1551,13 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
           } as Conversation;
           conversations.set(String(saved._id), saved);
           return saved;
-        }) as typeof ConversationModel.prototype.save;
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => {
-              updateAttempts += 1;
-              return null;
-            },
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        } as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => {
+            updateAttempts += 1;
+            return null;
+          },
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         const result = await startFlowRun({
           flowName: 'llm-basic',
@@ -1445,10 +1571,7 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
         });
 
         assert.equal(result.conversationId, conversationId);
-        await waitFor(
-          () => updateAttempts > 0,
-          20000,
-        );
+        await waitFor(() => updateAttempts > 0, 20000);
         await waitForConversationUnlocked(conversationId, 20000);
 
         assert.ok(updateAttempts > 0);
@@ -1460,7 +1583,10 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
   } finally {
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
     ConversationModel.prototype.save = originalSave;
-    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
     __resetFreshRunRetryOwnershipCompletionForTests();
     if (prevNodeEnv === undefined) {
       delete process.env.NODE_ENV;
@@ -1746,7 +1872,7 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
     await withMockedMongoConversationPersistence({
       seedConversations: [],
       run: async ({ conversations, turns }) => {
-        ConversationModel.prototype.save = (async function save(this: unknown) {
+        ConversationModel.prototype.save = async function save(this: unknown) {
           const doc = this as { _id?: unknown; toObject?: () => unknown };
           const saved = {
             ...structuredClone(doc.toObject?.() ?? doc),
@@ -1754,16 +1880,14 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
           } as Conversation;
           conversations.set(String(saved._id), saved);
           return saved;
-        }) as typeof ConversationModel.prototype.save;
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => {
-              updateAttempts += 1;
-              conversations.delete(conversationId);
-              return null;
-            },
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        } as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => {
+            updateAttempts += 1;
+            conversations.delete(conversationId);
+            return null;
+          },
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         const app = express();
         app.use(
@@ -2027,6 +2151,719 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
       assert.deepEqual(messages, ['source markdown']);
     },
   );
+});
+
+test('github review skip publishes completed-with-warning, records a durable plan note, and leaves the default entrypoint untouched', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
+  const repoRoot = await createGitHubReviewRepoFixture();
+  process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-skip-conversation';
+
+  try {
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-skip',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+
+    await startFlowRun({
+      flowName: 'github-skip',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(async () => {
+      const planRaw = await fs.readFile(
+        path.join(
+          repoRoot,
+          'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        ),
+        'utf8',
+      );
+      return planRaw.includes(
+        'GitHub review stage skipped during PR open: The repository-local GitHub token file `.env.local` is missing.',
+      );
+    }, 4000);
+
+    const warningTurns = await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    const warningTurn = [...warningTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant' && turn.status === 'warning');
+    assert.ok(warningTurn);
+    assert.match(
+      warningTurn.content,
+      /GitHub review stage skipped during PR open:/,
+    );
+
+    const defaultFlow = JSON.parse(
+      await fs.readFile(
+        path.join(checkedInRepoRoot, 'flows/implement_next_plan.json'),
+        'utf8',
+      ),
+    ) as { steps: unknown[] };
+    const variantFlow = JSON.parse(
+      await fs.readFile(
+        path.join(
+          checkedInRepoRoot,
+          'flows/implement_next_plan_github_review.json',
+        ),
+        'utf8',
+      ),
+    ) as { steps: unknown[] };
+
+    assert.equal(
+      flowContainsStepType(defaultFlow.steps, 'github_open_pr'),
+      false,
+    );
+    assert.equal(
+      flowContainsStepType(variantFlow.steps, 'github_open_pr'),
+      true,
+    );
+  } finally {
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review open PR emits retry warnings and a final aggregated failure when post-create reconciliation exhausts all lookup attempts', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-open-pr-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
+  process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-open-pr-retry-failure';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    let lookupAttempts = 0;
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      sleep: async () => {},
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (
+            joined ===
+            'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+          ) {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          if (args[0] === 'pr' && args[1] === 'create') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo/pull/206\n',
+              stderr: '',
+            };
+          }
+          lookupAttempts += 1;
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `lookup attempt ${lookupAttempts} failed`,
+          };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-open-pr-retry-failure',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+
+    await startFlowRun({
+      flowName: 'github-open-pr-retry-failure',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'failed',
+        ),
+      4000,
+    );
+
+    const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
+      (turn) => turn.role === 'assistant',
+    );
+    const warningTurns = assistantTurns.filter(
+      (turn) => turn.status === 'warning',
+    );
+    assert.equal(warningTurns.length, 4);
+    assert.match(
+      warningTurns[0]?.content ?? '',
+      /lookup retry 1 after waiting 30s/i,
+    );
+    assert.match(
+      warningTurns[3]?.content ?? '',
+      /lookup retry 4 after waiting 120s/i,
+    );
+
+    const failedTurn = assistantTurns.find((turn) => turn.status === 'failed');
+    assert.ok(failedTurn);
+    assert.match(failedTurn.content, /Final lookup failure 5 after 150s/i);
+    assert.match(failedTurn.content, /stderr: lookup attempt 5 failed/i);
+
+    const planRaw = await fs.readFile(
+      path.join(
+        repoRoot,
+        'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+      ),
+      'utf8',
+    );
+    assert.match(planRaw, /GitHub review stage failed during PR open\./);
+    assert.match(planRaw, /Lookup retry warning 4 after 120s:/);
+    assert.match(planRaw, /Final lookup failure 5 after 150s:/);
+  } finally {
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review open PR surfaces recovered gh pr create ambiguity as a warning while the run still continues', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-open-pr-ambiguous-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
+  process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-open-pr-ambiguous-success';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    const latestPullPage = JSON.stringify([
+      {
+        number: 45,
+        html_url: 'https://github.com/test-owner/test-repo/pull/45',
+        title: 'latest pull request',
+        created_at: '2026-06-24T10:00:00Z',
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      },
+    ]);
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      sleep: async () => {},
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (
+            joined ===
+            'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+          ) {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          if (args[0] === 'pr' && args[1] === 'create') {
+            return {
+              exitCode: 1,
+              stdout: '',
+              stderr: 'connection dropped after create',
+            };
+          }
+          return {
+            exitCode: 0,
+            stdout: latestPullPage,
+            stderr: '',
+          };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-open-pr-ambiguous-success',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+
+    await startFlowRun({
+      flowName: 'github-open-pr-ambiguous-success',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'warning' &&
+            /connection dropped after create/i.test(turn.content),
+        ),
+      4000,
+    );
+    const warningTurn = getLatestAssistantTurn(conversationId);
+    assert.ok(warningTurn);
+    assert.equal(warningTurn.status, 'warning');
+    assert.match(
+      warningTurn.content,
+      /gh pr create reported a failure before reconciliation/i,
+    );
+    assert.match(warningTurn.content, /pull request #45/i);
+
+    await waitForConversationUnlocked(conversationId);
+    const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
+      (turn) => turn.role === 'assistant',
+    );
+    assert.ok(
+      assistantTurns.some((turn) => turn.status === 'warning'),
+    );
+    assert.equal(
+      assistantTurns.some((turn) => turn.status === 'failed'),
+      false,
+    );
+
+    const planRaw = await fs.readFile(
+      path.join(
+        repoRoot,
+        'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+      ),
+      'utf8',
+    );
+    assert.match(
+      planRaw,
+      /GitHub review stage warning during PR open: gh pr create reported a failure before reconciliation, but latest-open PR lookup resolved pull request #45\./,
+    );
+    assert.match(planRaw, /stderr: connection dropped after create/i);
+  } finally {
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review fetch without an open pull request publishes completed-with-warning while adjacent non-GitHub flows still complete with ok status', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-fetch-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture();
+  process.env.FLOWS_DIR = tempFlowsDir;
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) => await fs.readFile(filePath, encoding),
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return { exitCode: 0, stdout: 'feature/0000060-test\n', stderr: '' };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return { exitCode: 0, stdout: 'origin/feature/0000060-test\n', stderr: '' };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
+            return {
+              exitCode: 0,
+              stdout: 'refs/remotes/origin/main\n',
+              stderr: '',
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-no-open-pr',
+      steps: [{ type: 'github_fetch_reviews', label: 'Fetch reviews' }],
+    });
+
+    const warningConversationId = 'github-no-open-pr-conversation';
+    await startFlowRun({
+      flowName: 'github-no-open-pr',
+      conversationId: warningConversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      warningConversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    const warningTurn = getLatestAssistantTurn(warningConversationId);
+    assert.ok(warningTurn);
+    assert.equal(warningTurn.status, 'warning');
+    assert.match(warningTurn.content, /no latest open pull request/i);
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-adjacent-ok',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Still OK'] }],
+        },
+      ],
+    });
+
+    const okConversationId = 'github-adjacent-ok-conversation';
+    await startFlowRun({
+      flowName: 'github-adjacent-ok',
+      conversationId: okConversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+
+    await waitForTurns(
+      okConversationId,
+      (turns) =>
+        turns.some((turn) => turn.role === 'assistant' && turn.status === 'ok'),
+      4000,
+    );
+    const okTurn = getLatestAssistantTurn(okConversationId);
+    assert.ok(okTurn);
+    assert.equal(okTurn.status, 'ok');
+  } finally {
+    __resetGitHubReviewDepsForTests();
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('resumed github review warning-stop stays provider-free until a later provider-backed step is actually needed', async () => {
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-resume-warning-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 26 });
+  process.env.FLOWS_DIR = tempFlowsDir;
+  const conversationId = 'github-resume-warning-conversation';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return { exitCode: 0, stdout: 'feature/0000060-test\n', stderr: '' };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (
+            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
+          ) {
+            return {
+              exitCode: 0,
+              stdout: 'origin/feature/0000060-test\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
+            return {
+              exitCode: 0,
+              stdout: 'refs/remotes/origin/main\n',
+              stderr: '',
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-resume-warning-stop',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Prime run state'] }],
+        },
+        { type: 'wait', label: 'Wait for review', seconds: 60 },
+        { type: 'github_fetch_reviews', label: 'Fetch reviews' },
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Should never run after warning'] }],
+        },
+      ],
+    });
+
+    await startFlowRun({
+      flowName: 'github-resume-warning-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForConversationUnlocked(conversationId);
+    const persistedWait = (
+      (memoryConversations.get(conversationId)?.flags ?? {}) as {
+        flow?: { wait?: { stepPath?: number[] } };
+      }
+    ).flow?.wait;
+    assert.ok(Array.isArray(persistedWait?.stepPath));
+
+    setCodexDetection({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      reason: 'Missing auth.json',
+    });
+
+    await startFlowRun({
+      flowName: 'github-resume-warning-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      resumeStepPath: [...(persistedWait?.stepPath ?? [])],
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'warning' &&
+            /no latest open pull request/i.test(turn.content),
+        ),
+      4000,
+    );
+
+    const latestAssistantTurn = getLatestAssistantTurn(conversationId);
+    assert.ok(latestAssistantTurn);
+    assert.equal(latestAssistantTurn.status, 'warning');
+    assert.match(latestAssistantTurn.content, /no latest open pull request/i);
+    assert.equal(
+      collectAgentConversationIds(conversationId).length,
+      1,
+      'resume should not bootstrap a second provider-backed step before the warning-stop seam finishes',
+    );
+  } finally {
+    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    __resetGitHubReviewDepsForTests();
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
 });
 
 test('flow llm.markdownFile passes loaded markdown through verbatim as one instruction', async () => {

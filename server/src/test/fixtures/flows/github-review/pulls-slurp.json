@@ -1,0 +1,28 @@
+[
+  [
+    {
+      "number": 44,
+      "html_url": "https://github.com/example/repo/pull/44",
+      "title": "older pull request",
+      "created_at": "2026-06-23T10:00:00Z",
+      "head": {
+        "ref": "feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps"
+      },
+      "base": { "ref": "main" },
+      "user": { "login": "review-bot" }
+    }
+  ],
+  [
+    {
+      "number": 45,
+      "html_url": "https://github.com/example/repo/pull/45",
+      "title": "latest pull request",
+      "created_at": "2026-06-24T10:00:00Z",
+      "head": {
+        "ref": "feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps"
+      },
+      "base": { "ref": "main" },
+      "user": { "login": "review-bot" }
+    }
+  ]
+]

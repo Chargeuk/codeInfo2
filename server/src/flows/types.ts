@@ -81,3 +81,12 @@ export type FlowChatFactory = (
   provider: string,
   deps?: Record<string, unknown>,
 ) => ChatInterface;
+
+// Story 60: Flow step type exports for runtime use
+export type {
+  FlowIfStep,
+  FlowWaitStep,
+  FlowGitHubOpenPrStep,
+  FlowGitHubFetchReviewsStep,
+  FlowGitHubClosePrStep,
+} from './flowSchema.js';

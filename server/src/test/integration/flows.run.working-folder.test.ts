@@ -101,6 +101,12 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetAgentServiceDepsForTests();
+  __resetFlowServiceDepsForTests();
+  memoryConversations.clear();
+  memoryTurns.clear();
+  setWorkingFolderStatForTests(undefined);
+  resetStore();
 });
 
 const fixturesDir = path.resolve(
@@ -278,11 +284,10 @@ test('a stale saved path yields to a newer saved working folder before a flow re
           params.expectedWorkingFolder === staleWorkingFolder
         ) {
           updateHookUsed = true;
-          updateMemoryConversationWorkingFolder({
+          return updateMemoryConversationWorkingFolder({
             conversationId: 'flow-stale-restore',
             workingFolder: refreshedWorkingFolder,
           });
-          return null;
         }
 
         return (

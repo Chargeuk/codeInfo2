@@ -2568,7 +2568,6 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 - `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed with `11/11`, and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed with `37/37`.
 - Proof audit re-read the bound Task 27 plan section, confirmed the selector-bound task still matched the page-local accumulation repair in `server/src/flows/githubReview.ts` and the focused wrapper results, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 27`, and closed the task because both checklist sections were already honestly complete on disk.
 - Manual testing skipped for the Task 27 live bounded GitHub review-fetch surface. Tried: restarted the stale supported main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, proved `http://localhost:5010/health`, `http://localhost:5001`, and `GET /flows`, then inspected `CODEINFO_HOST_INGEST_DIR=/home/dan/code` for a dedicated sandbox worked repository before attempting a live GitHub review run. Observed: the fresh stack exposed `implement_next_plan_github_review` and `implement_next_plan_github_review_test` only for `/data/codeInfo2`, the ingest root itself is not a git repository, and the only real git repository under that ingest root is this active `codeInfo2` checkout with no separate sandbox repo available for an honest large-corpus review cycle. Why fuller proof was not possible: Task 27's owned live proof surface depends on a separate sandbox worked repository under the ingest root, current Story 60 guidance explicitly says not to substitute the active `codeInfo2` checkout just to force a run, and no provider-free bounded-corpus fixture exists on the supported main stack.
-
 ### Task 28. Revalidate review pass `0000060-20260629T141234Z-d9a9011b` after review-cycle `0000060-rc-20260629T162154Z-89df94b1` task-up repairs
 
 - Repository Name: `Current Repository`
@@ -2671,3 +2670,125 @@ This is the one final revalidation owner for review cycle `0000060-rc-20260629T1
 - `npm run format:check` first failed on those three client page files, fixed them with `npx prettier --write ...`, and then reran `npm run format:check` to a clean pass so the final repair surface now satisfies the repo-wide formatting gate too.
 - Proof audit re-read the bound Task 28 plan section, confirmed the broad wrapper reruns, paused-wait barrier repair, and formatting follow-up all matched current `HEAD`, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 28`, and closed the final revalidation task because every implementation and automated-proof checklist item was already honestly complete on disk.
 - Manual testing ran as full-story closeout proof because Task 28 is the final story task: restarted the stale supported main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, passed `npm run test:summary:host-network:main`, captured fresh `/flows` proof plus supporting health/catalog artifacts under `codeInfoTmp/manual-testing/0000060/28/`, and then returned the main stack to its prior stopped state with `npm run compose:down`. The retained final-state screenshots are `proof-01-flows-desktop.png` and `proof-02-flows-left-panel.png`, which should supersede earlier Story 60 `/flows` screenshots for the surfaces re-covered here. The visible `/flows` page reopened an older `echo` conversation whose historical transcript contains expired Codex-auth failures, and the only browser-side request issue was an expected aborted turns fetch during the page's conversation reset path; those observations did not invalidate Task 28's closeout proof, so no additional subtasks were needed.
+- Resumed GitHub review execution expected persisted pull request #210, but the resumed execution context carried #211. Checking the latest open pull request for Chargeuk/codeInfo2 on branch feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.
+Adopting newer pull request #211 because it is later than the persisted expected pull request #210 on the same branch.
+
+## Code Review Findings
+
+### Task 29. Restore Canonical Execution-Scoped Handoff Authority Before Resumed GitHub Review Scripts Read Disk
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 23`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the resumed GitHub review handoff-path authority defect from review pass `0000060-20260630T011157Z-0ca69c71`. The active review found that a resumed script-backed GitHub review decision can still forward a persisted handoff path across a filesystem boundary before the runtime re-proves that the path is the canonical execution-scoped scratch file for the current execution.
+
+This task must preserve Story 60's approved resumed GitHub review behavior while restoring the existing execution-scoped scratch ownership contract. It must not widen scope into a broader redesign of review selection, scratch naming, or reviewer-feedback policy; the repair is specifically about blocking foreign or stale persisted handoff paths from being read before canonical ownership is re-established.
+
+- Highest-risk invariant: no resumed GitHub review helper may read or forward a persisted handoff path to a later filesystem reader until the runtime has re-derived and re-validated the canonical execution-scoped scratch path for that execution.
+- Likely blocker family: `authority and lifecycle seam`, because the defect crosses persisted wait state, resumed runtime normalization, script environment forwarding, and script-side file reads.
+
+#### Task Exit Criteria
+
+- The resumed GitHub review runtime re-derives the canonical execution-scoped handoff path before it exports any handoff-path environment value or allows any helper to read that path from disk.
+- The script-backed reviewer-feedback helper rejects non-canonical, stale, or foreign handoff paths before any JSON content is read from disk, while preserving the approved execution-scoped fallback selector behavior for canonical files.
+- Focused proof explicitly names the canonical execution-scoped handoff authority invariant on both the runtime seam and the script helper seam.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260630T011157Z-0ca69c71`
+- Finding `1`: `Resumed GitHub-review feedback checks can read an arbitrary persisted handoff path before canonical execution-scoped ownership is re-proved.`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - record the repaired execution-scoped handoff authority rule and the focused proof owners for this seam.
+
+#### Subtasks
+
+1. [ ] In `server/src/flows/service.ts`, trace the resumed `githubReviewContext.handoffPath` flow from persisted wait-state hydration through the script-owned review-feedback decision seam and identify the last boundary where the runtime can still replace persisted handoff-path input with the canonical execution-scoped path before any later reader sees it.
+2. [ ] In `server/src/flows/service.ts`, restore canonical execution-scoped handoff authority for resumed GitHub review runs so the exported `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` and any sibling resumed reader inputs always come from re-derived execution-scoped ownership rather than from an untrusted persisted path value.
+3. [ ] In `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, reject env-provided handoff paths that do not match the canonical execution-scoped scratch contract before reading JSON from disk, while preserving the approved selector fallback behavior for canonical execution-scoped review handoffs.
+4. [ ] Update `scripts/test/test_check_github_review_has_reviewer_feedback.py` so one focused helper proof explicitly covers rejecting a foreign or stale env-provided handoff path before file contents are read, and rename or split any reused proof so the title claims that exact authority invariant.
+5. [ ] Update `server/src/test/integration/flows.run.errors.test.ts` and/or `server/src/test/integration/flows.run.loop.test.ts` so one focused runtime proof explicitly covers resumed GitHub review runs re-deriving canonical execution-scoped handoff ownership before the script-backed decision seam executes.
+
+#### Proof Matrix
+
+1. Requirement: resumed GitHub review runtime state must not forward foreign persisted handoff paths into later script-owned filesystem reads.
+   Implementation owners: `server/src/flows/service.ts`.
+   Proof owners: `server/src/test/integration/flows.run.errors.test.ts` and/or `server/src/test/integration/flows.run.loop.test.ts` with a focused resumed-handoff authority case whose title claims the canonical execution-scoped boundary.
+2. Requirement: the script-backed reviewer-feedback helper must reject non-canonical env-provided handoff paths before it reads disk.
+   Implementation owners: `scripts/flow_control/check_github_review_has_reviewer_feedback.py`.
+   Proof owners: `scripts/test/test_check_github_review_has_reviewer_feedback.py` with a focused helper case whose title claims pre-read canonical-path enforcement.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root so the repaired resumed handoff-authority runtime seam passes on its focused server proof home.
+2. [ ] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root so the repaired script helper seam proves it rejects foreign env-provided handoff paths before reading disk.
+
+#### Implementation notes
+
+- Not started.
+
+### Task 30. Revalidate review pass `0000060-20260630T011157Z-0ca69c71` after review-cycle `0000060-rc-20260630T021700Z-fd13875d` task-up repairs
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `Current Repository`
+- Task Dependencies: `Task 29`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This fresh final revalidation task owns the full proof for the current review-created findings block after the serious task-up repair lands. It revalidates unresolved task-required finding `1` from review pass `0000060-20260630T011157Z-0ca69c71` on current `HEAD` and is the one final revalidation owner for review cycle `0000060-rc-20260630T021700Z-fd13875d`.
+
+There are no inline-resolved minor findings recorded for this review cycle today. If that same active cycle later records any resolved minor findings before closeout, this task remains the sole final revalidation owner for them too; no second final minor-fix revalidation task should be created later for this cycle.
+
+- Highest-risk invariant: the repaired resumed handoff-authority seam must stay truthful on both the server runtime and script helper surfaces without regressing the existing execution-scoped review-handoff contract elsewhere in the current repository.
+- Likely blocker family: `shared runtime and proof seam`, because the final pass must distinguish a real resumed-authority regression from a broader server-test or script-test harness issue.
+
+#### Task Exit Criteria
+
+- Review pass `0000060-20260630T011157Z-0ca69c71` is revalidated on current `HEAD` after Task 29 completes with no unresolved findings remaining from this review-created block.
+- The repaired execution-scoped handoff-authority seam is covered by both its focused proof owners and the relevant repository-supported broad regression wrappers for the current repository.
+- This task title and `codeInfoStatus/flow-state/review-disposition-state.json` continue to name the same review cycle `0000060-rc-20260630T021700Z-fd13875d` and the same one final revalidation owner for the whole active cycle.
+- Client, browser, compose, and e2e surfaces remain non-applicable for this review-created block unless later work widens the affected seam beyond the current server runtime and script-helper ownership.
+
+#### Addresses Findings
+
+- Review pass `0000060-20260630T011157Z-0ca69c71`
+- Final revalidation owner for unresolved task-required finding `1`
+- Also owns final revalidation for any inline-resolved minor findings later recorded for review cycle `0000060-rc-20260630T021700Z-fd13875d`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` - final proof map and closeout traceability for the current review-created findings block.
+
+#### Subtasks
+
+1. [ ] Update `codeInfoStatus/pr-summaries/0000060-pr-summary.md` so review pass `0000060-20260630T011157Z-0ca69c71` maps finding `1` to the focused proof owners from Task 29 and records that this task is the one final revalidation owner for review cycle `0000060-rc-20260630T021700Z-fd13875d`.
+2. [ ] Before broad reruns, compare this task title with `task_up_owned_final_revalidation_task_title` in `codeInfoStatus/flow-state/review-disposition-state.json`; if the title, review pass id, or review cycle id drifted, repair only this task-owned wording and the matching PR summary wording so there is still one final-owner record for the active cycle.
+3. [ ] Refresh the PR summary sections for comparison context, repaired seam ownership, focused proof owners, broad rerun ownership, and non-applicable proof categories so the later proof pass can record wrapper results without re-deciding task shape.
+
+#### Proof Matrix
+
+1. Requirement: final proof must revalidate unresolved task-required finding `1` on current `HEAD` after Task 29 lands.
+   Implementation owners: `server/src/flows/service.ts` and `scripts/flow_control/check_github_review_has_reviewer_feedback.py`.
+   Proof owners: the focused proof homes named in Task 29 plus the broad wrappers listed in this task's `Testing` section.
+2. Requirement: the current repository's broad server and script-backed proof surfaces must stay green after the handoff-authority repair.
+   Implementation owners: current repository server runtime and script-helper seams touched by Task 29.
+   Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py`, `npm run lint`, and `npm run format:check`.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root because this review-created block changes only current-repository server runtime seams and must keep the supported server build surface healthy.
+2. [ ] Run full `npm run test:summary:server:unit` from the repository root because this final task must revalidate the repaired resumed handoff-authority seam on the repository-supported broad server wrapper.
+3. [ ] Run `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py` from the repository root because this final task must also revalidate the repaired script-helper authority seam on its broad repository-supported proof home.
+4. [ ] Run `npm run lint` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` from the repository root for the final Story 60 review-created repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Not started.

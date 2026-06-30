@@ -184,6 +184,7 @@ Shortcut:
 - Use test wrappers as the default test path.
 - Use raw underlying commands only when wrapper maintenance or diagnosis requires them.
 - Wrapper logs are the source of full diagnostic detail.
+- When a task requires running the full automated test suite across client, server, and e2e surfaces, use `npm run test:summary:all:parallel` as the required all-tests wrapper.
 
 ### Test Wrappers
 
@@ -197,6 +198,7 @@ Shortcut:
 - These wrappers do not have a fixed failure time budget.
 - As long as a wrapper continues to emit healthy `agent_action: wait` heartbeats at least about every 2 minutes and shows ongoing progress such as growing `log_size_bytes`, you must keep waiting no matter how long the run takes.
 - Standalone wrappers remain the self-contained default for diagnosis. Use the new `*:parallel` commands for batch validation when you want shared prebuilds and cross-harness parallelism.
+- Treat `npm run test:summary:all:parallel` as the canonical batch-validation wrapper whenever repo instructions, a plan, or a task says to run "all tests", "the full automated suite", or equivalent full-suite wording.
 
 ### Targeted Test Runs
 
@@ -205,6 +207,7 @@ Shortcut:
 - Server cucumber wrapper supports `--tags`, `--feature`, `--scenario`, and `--skip-build`.
 - E2E Playwright wrapper supports `--file`, `--grep`, and `--skip-compose-build`.
 - For final validation, run the full relevant summary wrapper without targeted args.
+- When final validation must cover the entire automated repo test surface, that full wrapper is `npm run test:summary:all:parallel`.
 
 ### Test Failure Diagnosis
 

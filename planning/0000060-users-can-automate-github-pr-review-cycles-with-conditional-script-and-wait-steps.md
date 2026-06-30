@@ -2689,12 +2689,13 @@ This review-created task repairs the resumed GitHub review handoff-path authorit
 This task must preserve Story 60's approved resumed GitHub review behavior while restoring the existing execution-scoped scratch ownership contract. It must not widen scope into a broader redesign of review selection, scratch naming, or reviewer-feedback policy; the repair is specifically about blocking foreign or stale persisted handoff paths from being read before canonical ownership is re-established.
 
 - Highest-risk invariant: no resumed GitHub review helper may read or forward a persisted handoff path to a later filesystem reader until the runtime has re-derived and re-validated the canonical execution-scoped scratch path for that execution.
-- Likely blocker family: `authority and lifecycle seam`, because the defect crosses persisted wait state, resumed runtime normalization, script environment forwarding, and script-side file reads.
+- Likely blocker family: `product or story seam`, because the defect crosses persisted wait state, resumed runtime normalization, script environment forwarding, and script-side file reads while preserving Story 60's approved resumed review behavior.
 
 #### Task Exit Criteria
 
 - The resumed GitHub review runtime re-derives the canonical execution-scoped handoff path before it exports any handoff-path environment value or allows any helper to read that path from disk.
 - The script-backed reviewer-feedback helper rejects non-canonical, stale, or foreign handoff paths before any JSON content is read from disk, while preserving the approved execution-scoped fallback selector behavior for canonical files.
+- Focused proof forces the real resumed ordering boundary: persisted wait-state hydration, canonical execution-scoped handoff derivation, environment export, helper launch, and only then JSON reads from the helper's env-driven branch.
 - Focused proof explicitly names the canonical execution-scoped handoff authority invariant on both the runtime seam and the script helper seam.
 
 #### Addresses Findings
@@ -2709,18 +2710,18 @@ This task must preserve Story 60's approved resumed GitHub review behavior while
 #### Subtasks
 
 1. [ ] In `server/src/flows/service.ts`, trace the resumed `githubReviewContext.handoffPath` flow from persisted wait-state hydration through `startFlowRun(...)`, canonical scratch-path derivation, and the `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` export seam; leave one short code path where the runtime can still replace persisted handoff-path input with the canonical execution-scoped path before any later reader sees it.
-2. [ ] In `server/src/flows/service.ts`, restore canonical execution-scoped handoff authority for resumed GitHub review runs so the exported `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` and any sibling resumed reader inputs always come from re-derived execution-scoped ownership rather than from an untrusted persisted path value, while preserving the current resumed PR-selection and warning-path behavior already approved by Story 60.
+2. [ ] In `server/src/flows/service.ts`, restore canonical execution-scoped handoff authority for resumed GitHub review runs so the producer-side `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` export and any sibling resumed reader inputs always come from re-derived execution-scoped ownership rather than from an untrusted persisted path value, while preserving the current resumed PR-selection and warning-path behavior already approved by Story 60.
 3. [ ] In `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, reject env-provided handoff paths that do not match the canonical execution-scoped scratch contract before reading JSON from disk, while preserving the approved selector fallback behavior for canonical execution-scoped review handoffs and the existing rejection of the generic story-global `0000060-current-review.json` fallback for this helper seam.
 4. [ ] Update `scripts/test/test_check_github_review_has_reviewer_feedback.py` so one focused helper proof explicitly covers rejecting a foreign or stale env-provided handoff path before file contents are read, and a sibling focused proof keeps the generic current-review fallback rejection explicit instead of relying on one broad helper test with mixed authority claims.
-5. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so one focused runtime proof explicitly covers resumed GitHub review runs re-deriving canonical execution-scoped handoff ownership before the script-backed decision seam executes; if an existing resumed authority test is reused, rename or split it so the title claims pre-read canonical handoff enforcement rather than only later PR reconciliation.
+5. [ ] Update `server/src/test/integration/flows.run.loop.test.ts` so one focused runtime proof explicitly covers the exact resumed ordering boundary: persisted wait-state hydration, canonical execution-scoped handoff derivation, producer-side env export, helper launch, and no helper disk read from a foreign handoff path before that derivation finishes; if an existing resumed authority test is reused, rename or split it so the title claims pre-read canonical handoff enforcement rather than only later PR reconciliation.
 6. [ ] After the server runtime and helper-proof edits settle, reconcile any repository lint drift introduced by the Task 29 repair surface before focused proof reruns begin.
 7. [ ] After the same Task 29 repair surface settles, reconcile any repository format drift introduced by those changes before focused proof reruns begin.
 
 #### Proof Matrix
 
 1. Requirement: resumed GitHub review runtime state must not forward foreign persisted handoff paths into later script-owned filesystem reads.
-   Implementation owners: `server/src/flows/service.ts`.
-   Proof owners: `server/src/test/integration/flows.run.errors.test.ts` and/or `server/src/test/integration/flows.run.loop.test.ts` with a focused resumed-handoff authority case whose title claims the canonical execution-scoped boundary.
+   Implementation owners: producer `server/src/flows/service.ts`; consumer `scripts/flow_control/check_github_review_has_reviewer_feedback.py`.
+   Proof owners: `server/src/test/integration/flows.run.loop.test.ts` with a focused resumed-handoff authority case whose title claims the canonical execution-scoped boundary and proves the helper cannot read a foreign path before canonical derivation completes.
 2. Requirement: the script-backed reviewer-feedback helper must reject non-canonical env-provided handoff paths before it reads disk.
    Implementation owners: `scripts/flow_control/check_github_review_has_reviewer_feedback.py`.
    Proof owners: `scripts/test/test_check_github_review_has_reviewer_feedback.py` with a focused helper case whose title claims pre-read canonical-path enforcement.
@@ -2751,7 +2752,7 @@ This fresh final revalidation task owns the full proof for the current review-cr
 There are no inline-resolved minor findings recorded for this review cycle today. If that same active cycle later records any resolved minor findings before closeout, this task remains the sole final revalidation owner for them too; no second final minor-fix revalidation task should be created later for this cycle.
 
 - Highest-risk invariant: the repaired resumed handoff-authority seam must stay truthful on both the server runtime and script helper surfaces without regressing the existing execution-scoped review-handoff contract elsewhere in the current repository.
-- Likely blocker family: `shared runtime and proof seam`, because the final pass must distinguish a real resumed-authority regression from a broader server-test or script-test harness issue.
+- Likely blocker family: `proof or test harness seam`, because the final pass must distinguish a real resumed-authority regression from a broader server-test or script-test harness issue on the same focused server and helper proof homes.
 
 #### Task Exit Criteria
 
@@ -2759,6 +2760,7 @@ There are no inline-resolved minor findings recorded for this review cycle today
 - The repaired execution-scoped handoff-authority seam is covered by both its focused proof owners and the relevant repository-supported broad regression wrappers for the current repository.
 - This task title and `codeInfoStatus/flow-state/review-disposition-state.json` continue to name the same review cycle `0000060-rc-20260630T021700Z-fd13875d` and the same one final revalidation owner for the whole active cycle.
 - Client, browser, compose, and e2e surfaces remain non-applicable for this review-created block unless later work widens the affected seam beyond the current server runtime and script-helper ownership.
+- Shared baseline ownership remains explicit in this task: the broad proof surface for this review-created block is the repository-supported server build, broad server-unit wrapper, helper test invocation, lint, and format only, not compose, host-network, browser, or e2e startup.
 
 #### Addresses Findings
 
@@ -2786,6 +2788,9 @@ There are no inline-resolved minor findings recorded for this review cycle today
 2. Requirement: the current repository's broad server and script-backed proof surfaces must stay green after the handoff-authority repair.
    Implementation owners: current repository server runtime and script-helper seams touched by Task 29.
    Proof owners: `npm run build:summary:server`, `npm run test:summary:server:unit`, `python3 scripts/test/test_check_github_review_has_reviewer_feedback.py`, `npm run lint`, and `npm run format:check`.
+3. Requirement: non-applicable baseline surfaces must stay explicitly out of scope for this review-created block unless later work widens the seam.
+   Implementation owners: Task 30 closeout wording plus `codeInfoStatus/pr-summaries/0000060-pr-summary.md`.
+   Proof owners: the Task 30 PR summary refresh and final closeout notes, which must continue to name compose, browser, host-network, and e2e surfaces as non-applicable for this specific review-created block.
 
 #### Testing
 

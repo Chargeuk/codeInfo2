@@ -122,3 +122,11 @@ When this story is complete, CodeInfo2 will be able to run a bounded external Gi
 28. [codeInfo2] - Revalidate the final review-cycle task-up repair block
    - Refresh the review summary and final proof map for unresolved findings `1`, `2`, `3`, `4`, `5`, `8`, and `9`, plus inline-resolved minor findings `6`, `7`, and `10`.
    - Run the broad wrapper-first validation, supported-stack smoke path, and final review-cycle closeout proof for the current findings block.
+
+29. [codeInfo2] - Restore canonical execution-scoped handoff authority before resumed GitHub review scripts read disk
+   - Repair resumed review handoff ownership so only the active execution-scoped scratch file can be forwarded into the reviewer-feedback helper.
+   - Add focused proof for foreign-path rejection, malformed canonical-file handling, and the exact resume-to-helper ordering boundary.
+
+30. [codeInfo2] - Revalidate the latest review-created repair block after the handoff-authority fix
+   - Refresh the review summary so the newest review pass and cycle still point to one final revalidation owner and one backend-only proof map.
+   - Run the compact broad backend proof path for this repair block, including compose build, server wrappers, helper proof, supported-stack smoke, lint, and format.

@@ -4,83 +4,88 @@
 // Behavior: builds the server workspace, runs cucumber features, streams full output to test-results/,
 // and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing scenario names when present.
 // Optional targeting:
-//   --tags <expr>      cucumber tag expression.
+//   --tags <expr>      repeatable; cucumber tag expressions combined with AND.
 //   --feature <path>   repeatable; run only selected feature files.
 //   --scenario <expr>  forwarded to cucumber --name.
+//   --skip-build       reuse an existing server build instead of rebuilding first.
 
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import {
-  createSummaryLogStream,
-  createSummaryWrapperProtocol,
-  runLoggedCommand,
-} from './summary-wrapper-protocol.mjs';
+import { runLoggedCommand } from './summary-wrapper-protocol.mjs';
+import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
 import {
   buildCucumberImportArgs,
   normalizeServerPath,
 } from './test-summary-server-cucumber-imports.mjs';
 
-const rootDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-);
-const serverDir = path.join(rootDir, 'server');
-const resultsDir = path.join(rootDir, 'test-results');
-const timestamp = new Date()
-  .toISOString()
-  .replaceAll(':', '-')
-  .replaceAll('.', '-');
-const logPath = path.join(resultsDir, `server-cucumber-tests-${timestamp}.log`);
+const wrapper = createSummaryWrapperRun({
+  wrapperName: 'server:cucumber',
+  logBaseName: 'server-cucumber-tests',
+  logDir: 'test-results',
+  initialPhase: 'build',
+  description:
+    'Builds the server workspace and runs the server cucumber features with compact wrapper output.',
+  allowedFlags: [
+    {
+      name: 'help',
+      alias: 'h',
+      type: 'boolean',
+      description:
+        'Show wrapper help and exit without starting server cucumber.',
+    },
+    {
+      name: 'tags',
+      type: 'value',
+      multiple: true,
+      description:
+        'Filter scenarios with one or more cucumber tag expressions.',
+    },
+    {
+      name: 'feature',
+      type: 'value',
+      multiple: true,
+      description: 'Run one or more selected feature files.',
+    },
+    {
+      name: 'scenario',
+      type: 'value',
+      description: 'Filter scenarios with cucumber --name.',
+    },
+    {
+      name: 'skip-build',
+      type: 'boolean',
+      description:
+        'Reuse an existing server build instead of running npm run build --workspace server first.',
+    },
+  ],
+  examples: [
+    'node scripts/test-summary-server-cucumber.mjs --help',
+    'npm run test:summary:server:cucumber -- --tags "@smoke"',
+    'npm run test:summary:server:cucumber -- --tags "@logs" --tags "@smoke"',
+    'npm run test:summary:server:cucumber -- --skip-build --feature server/src/test/features/chat_models.feature',
+  ],
+});
+const serverDir = path.join(wrapper.rootDir, 'server');
 
-const args = process.argv.slice(2);
-const options = {
-  tags: undefined,
-  features: [],
-  scenario: undefined,
-};
+const parsedArgs = wrapper.parseArgs(process.argv.slice(2));
 
-for (let i = 0; i < args.length; i += 1) {
-  const arg = args[i];
-  if (arg === '--tags') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --tags');
-      process.exit(1);
-    }
-    options.tags = value;
-    i += 1;
-    continue;
-  }
-  if (arg === '--feature') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --feature');
-      process.exit(1);
-    }
-    options.features.push(value);
-    i += 1;
-    continue;
-  }
-  if (arg === '--scenario') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --scenario');
-      process.exit(1);
-    }
-    options.scenario = value;
-    i += 1;
-    continue;
-  }
-  if (arg === '--help') {
-    console.log(
-      'Usage: npm run test:summary:server:cucumber -- [--tags <expr>] [--feature <path>] [--scenario <pattern>]',
-    );
-    process.exit(0);
-  }
-  console.error(`Unknown argument: ${arg}`);
-  process.exit(1);
+if (parsedArgs.helpRequested) {
+  process.stdout.write(wrapper.renderHelp());
+  await wrapper.closeLog({ promoteLatest: false });
+  process.exit(0);
 }
+
+if (parsedArgs.error) {
+  console.error(parsedArgs.error);
+  process.exit(await wrapper.failCli(parsedArgs.error));
+}
+
+const options = {
+  tags: parsedArgs.values.tags ?? [],
+  features: parsedArgs.values.feature ?? [],
+  scenario: parsedArgs.values.scenario ?? undefined,
+  skipBuild: parsedArgs.values['skip-build'] ?? false,
+};
 
 const parseCucumberScenarioCounts = (output) => {
   let scenariosTotal = 0;
@@ -112,33 +117,38 @@ const parseFailureNames = (output) => {
   return [...names];
 };
 
-const logStream = createSummaryLogStream(logPath);
-const protocol = createSummaryWrapperProtocol({
-  wrapperName: 'server:cucumber',
-  logPath,
-  logDisplayPath: path.relative(rootDir, logPath),
-  initialPhase: 'build',
-});
+wrapper.startHeartbeat();
 
-protocol.startHeartbeat();
-
-const buildResult = await runLoggedCommand({
-  cmd: 'npm',
-  args: ['run', 'build', '--workspace', 'server'],
-  cwd: rootDir,
-  logStream,
-  protocol,
-  phase: 'build',
-  bannerPrefix: '',
-});
+let buildResult = {
+  code: 0,
+  output: '',
+};
+if (options.skipBuild) {
+  wrapper.protocol.setPhase('test');
+  wrapper.appendLogSection('Build', [
+    'build_step=skipped',
+    'reason=wrapper_flag_skip_build',
+  ]);
+} else {
+  buildResult = await runLoggedCommand({
+    cmd: 'npm',
+    args: ['run', 'build', '--workspace', 'server'],
+    cwd: wrapper.rootDir,
+    logStream: wrapper.logStream,
+    protocol: wrapper.protocol,
+    phase: 'build',
+    bannerPrefix: '',
+  });
+}
 
 const featureArgs =
   options.features.length > 0
     ? options.features.map((file) => normalizeServerPath(file))
     : ['src/test/features/**/*.feature'];
-const tagsExpression = options.tags
-  ? `(${options.tags}) and (not @skip)`
-  : 'not @skip';
+const tagsExpression =
+  options.tags.length > 0
+    ? `${options.tags.map((tag) => `(${tag})`).join(' and ')} and (not @skip)`
+    : 'not @skip';
 
 const cucumberImportArgs = buildCucumberImportArgs(serverDir, featureArgs);
 
@@ -182,8 +192,8 @@ if (buildResult.code === 0) {
     args: cucumberArgs,
     cwd: serverDir,
     env: cucumberEnv,
-    logStream,
-    protocol,
+    logStream: wrapper.logStream,
+    protocol: wrapper.protocol,
     phase: 'test',
     semanticProgressPatterns: [
       /^[ \t]*[✖✔][ \t]+/,
@@ -199,7 +209,7 @@ if (buildResult.code === 0) {
   cucumberLastProgressLine = cucumberResult.lastProgressLine ?? '';
 }
 
-await new Promise((resolve) => logStream.end(resolve));
+await wrapper.closeLog();
 
 if (buildResult.code !== 0) {
   console.log('[server:cucumber] tests run: 0');
@@ -207,7 +217,7 @@ if (buildResult.code !== 0) {
   console.log('[server:cucumber] failed: 1');
   console.log('[server:cucumber] failing tests:');
   console.log('- build failed');
-  protocol.emitFinal({
+  wrapper.protocol.emitFinal({
     status: 'failed',
     reason: 'build_failed',
   });
@@ -240,7 +250,7 @@ if (failingNames.length > 0) {
   }
 }
 
-protocol.emitFinal({
+wrapper.protocol.emitFinal({
   status,
   ambiguousCounts,
   reason: finalReason,

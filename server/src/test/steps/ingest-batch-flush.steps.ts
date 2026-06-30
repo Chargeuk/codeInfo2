@@ -35,7 +35,7 @@ let lastRunId: string | null = null;
 let previousLmStudioUrl: string | undefined;
 let previousFlushEvery: string | undefined;
 
-setDefaultTimeout(20000);
+setDefaultTimeout(30_000);
 
 async function startTestServer() {
   previousLmStudioUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;

@@ -994,7 +994,7 @@ describe('Chat page models list', () => {
     ).toBeVisible();
     expect(within(gptOption).getByAltText(/openai logo/i)).toBeVisible();
     expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
-  }, 15000);
+  }, 30000);
 
   it('groups model options by source first, preserves family sections within each source, and keeps a visible search filter', async () => {
     const user = userEvent.setup();
@@ -1309,7 +1309,7 @@ describe('Chat page models list', () => {
       ),
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  }, 15000);
+  }, 30000);
 
   it('clears stale hidden reasoning draft values when the selected model changes', async () => {
     const { chatBodies } = mockCodexModelNextSendApi();

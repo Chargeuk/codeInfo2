@@ -14,10 +14,70 @@ import { IngestFileModel } from '../../mongo/ingestFile.js';
 let container: StartedTestContainer | null = null;
 let containerPromise: Promise<StartedTestContainer> | null = null;
 let stopping = false;
+let managedMongoUri: string | null = null;
 const localMongoImage = process.env.CODEINFO_LOCAL_MONGO_IMAGE ?? 'mongo:8.2.9';
+const mongoBootstrapRetryDelaysMs = [0, 500, 1_000];
 
 process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
 process.env.TESTCONTAINERS_HOST_OVERRIDE ??= 'host.docker.internal';
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const formatErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+const isRetryableMongoBootstrapError = (error: unknown) => {
+  const message = formatErrorMessage(error);
+
+  return [
+    /No host port found for host IP/i,
+    /ECONNREFUSED/i,
+    /MongoServerSelectionError/i,
+    /Server selection timed out/i,
+    /timed out waiting/i,
+  ].some((pattern) => pattern.test(message));
+};
+
+const clearManagedMongoUri = () => {
+  if (
+    managedMongoUri &&
+    process.env.CODEINFO_MONGO_URI &&
+    process.env.CODEINFO_MONGO_URI === managedMongoUri
+  ) {
+    delete process.env.CODEINFO_MONGO_URI;
+  }
+  managedMongoUri = null;
+};
+
+async function resetMongoContainerState(reason: string) {
+  try {
+    if (isMongoConnected()) {
+      await disconnectMongo();
+    }
+  } catch (error) {
+    console.warn(
+      `[mongo-test] disconnect during reset failed reason=${reason} message="${formatErrorMessage(
+        error,
+      )}"`,
+    );
+  }
+
+  if (container) {
+    try {
+      await container.stop();
+    } catch (error) {
+      console.warn(
+        `[mongo-test] container stop during reset failed reason=${reason} message="${formatErrorMessage(
+          error,
+        )}"`,
+      );
+    }
+  }
+
+  container = null;
+  containerPromise = null;
+  clearManagedMongoUri();
+}
 
 async function ensureMongoContainer() {
   if (container) return container;
@@ -43,18 +103,59 @@ async function ensureMongoContainer() {
 
 async function connectScenarioMongo() {
   const configuredMongoUri = process.env.CODEINFO_MONGO_URI?.trim();
-  let uri = configuredMongoUri;
-
-  if (!uri) {
-    const started = await ensureMongoContainer();
-    const host = started.getHost();
-    const port = started.getMappedPort(27017);
-    uri = `mongodb://${host}:${port}/db?directConnection=true`;
-    process.env.CODEINFO_MONGO_URI = uri;
+  if (configuredMongoUri) {
+    await connectMongo(configuredMongoUri);
+    await IngestFileModel.deleteMany({}).exec();
+    return;
   }
 
-  await connectMongo(uri);
-  await IngestFileModel.deleteMany({}).exec();
+  const maxAttempts = mongoBootstrapRetryDelaysMs.length;
+  let lastError: unknown = null;
+
+  for (let index = 0; index < maxAttempts; index += 1) {
+    const attempt = index + 1;
+    let stage = 'start_container';
+
+    try {
+      if (index > 0) {
+        const delayMs = mongoBootstrapRetryDelaysMs[index];
+        console.log(
+          `[mongo-test] retrying local mongo bootstrap attempt=${attempt}/${maxAttempts} delay_ms=${delayMs}`,
+        );
+        await wait(delayMs);
+      }
+
+      const started = await ensureMongoContainer();
+      stage = 'resolve_mapped_port';
+      const host = started.getHost();
+      const port = started.getMappedPort(27017);
+      const uri = `mongodb://${host}:${port}/db?directConnection=true`;
+      process.env.CODEINFO_MONGO_URI = uri;
+      managedMongoUri = uri;
+
+      stage = 'connect';
+      await connectMongo(uri);
+      stage = 'cleanup_collection';
+      await IngestFileModel.deleteMany({}).exec();
+      return;
+    } catch (error) {
+      lastError = error;
+      const retryable = isRetryableMongoBootstrapError(error);
+      if (attempt >= maxAttempts || !retryable) {
+        await resetMongoContainerState(`failed-${attempt}`);
+        throw error;
+      }
+
+      console.warn(
+        `[mongo-test] transient local mongo bootstrap failure attempt=${attempt}/${maxAttempts} stage=${stage} message="${formatErrorMessage(
+          error,
+        )}"`,
+      );
+      await resetMongoContainerState(`retry-${attempt}`);
+    }
+  }
+
+  throw lastError;
 }
 
 Before({ tags: '@no_mongo' }, async () => {
@@ -73,18 +174,5 @@ Before({ tags: 'not @no_mongo' }, async () => {
 AfterAll(async () => {
   if (stopping) return;
   stopping = true;
-
-  try {
-    if (isMongoConnected()) {
-      await disconnectMongo();
-    }
-  } catch {
-    // ignore
-  }
-
-  if (container) {
-    await container.stop();
-    container = null;
-    containerPromise = null;
-  }
+  await resetMongoContainerState('after-all');
 });

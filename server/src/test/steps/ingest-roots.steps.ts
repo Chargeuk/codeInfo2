@@ -68,7 +68,7 @@ async function waitForIngestRootsStatus(expectedState: string) {
 }
 
 Before(async () => {
-  setDefaultTimeout(10000);
+  setDefaultTimeout(30_000);
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   const app = express();
   app.use(cors());

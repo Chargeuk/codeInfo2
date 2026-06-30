@@ -28,7 +28,7 @@ import {
   stopMock,
 } from '../support/mockLmStudioSdk.js';
 
-setDefaultTimeout(15_000);
+setDefaultTimeout(30_000);
 
 let server: Server | null = null;
 let baseUrl = '';

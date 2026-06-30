@@ -3,80 +3,98 @@
 // Use: `npm run test:summary:e2e` from repository root.
 // Behavior: runs compose build/up, executes Playwright e2e tests with JSON reporter, always performs teardown,
 // and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing test names.
-// Logging: writes full output to logs/test-summaries/e2e-tests-latest.log on every run (overwrites previous run).
+// Logging: writes a timestamped log in logs/test-summaries/ and refreshes e2e-tests-latest.log on every run.
 // Optional targeting:
 //   --file <path>  repeatable; forwarded as Playwright test file selectors.
 //   --grep <expr>  forwarded to Playwright --grep.
+//   --skip-compose-build  reuse existing e2e images instead of rebuilding before compose up.
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { runLoggedCommand, writeLogLine } from './summary-wrapper-protocol.mjs';
+import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
 import {
-  createSummaryLogStream,
-  createSummaryWrapperProtocol,
-  runLoggedCommand,
-  writeLogLine,
-} from './summary-wrapper-protocol.mjs';
+  formatWorkerSummaryLine,
+  resolveWorkerSetting,
+} from './test-parallelism.mjs';
 
-const rootDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-);
-const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
-const logPath = path.join(resultsDir, 'e2e-tests-latest.log');
-
-const logStream = createSummaryLogStream(logPath);
-const protocol = createSummaryWrapperProtocol({
+const wrapper = createSummaryWrapperRun({
   wrapperName: 'e2e',
-  logPath,
-  logDisplayPath: path.relative(rootDir, logPath),
-  initialPhase: 'compose_build',
+  logBaseName: 'e2e-tests',
+  logDir: 'logs/test-summaries',
+  initialPhase: 'compose_config',
+  description:
+    'Runs compose-backed Playwright e2e checks with preflight validation, compact wrapper output, and saved full logs.',
+  allowedFlags: [
+    {
+      name: 'help',
+      alias: 'h',
+      type: 'boolean',
+      description: 'Show wrapper help and exit without starting e2e checks.',
+    },
+    {
+      name: 'file',
+      type: 'value',
+      multiple: true,
+      description: 'Run one or more selected Playwright spec files.',
+    },
+    {
+      name: 'grep',
+      type: 'value',
+      description: 'Filter Playwright specs with --grep.',
+    },
+    {
+      name: 'skip-compose-build',
+      type: 'boolean',
+      description:
+        'Reuse existing compose-backed e2e images instead of running npm run compose:e2e:build first.',
+    },
+  ],
+  examples: [
+    'node scripts/test-summary-e2e.mjs --help',
+    'npm run test:summary:e2e -- --grep "env runtime config"',
+    'npm run test:summary:e2e -- --skip-compose-build --file e2e/env-runtime-config.spec.ts',
+  ],
 });
-
-protocol.startHeartbeat();
-
+const composeLauncher = path.join(
+  wrapper.rootDir,
+  'scripts',
+  'docker-compose-with-env.sh',
+);
+const e2eArtifactDir = 'playwright-output';
+const e2eOutputDir = 'logs/test-summaries';
 const args = process.argv.slice(2);
+
+const parsedArgs = wrapper.parseArgs(args);
+
+if (parsedArgs.helpRequested) {
+  process.stdout.write(wrapper.renderHelp());
+  await wrapper.closeLog({ promoteLatest: false });
+  process.exit(0);
+}
+
+if (parsedArgs.error) {
+  console.error(parsedArgs.error);
+  process.exit(
+    await wrapper.failCli(parsedArgs.error, { promoteLatest: false }),
+  );
+}
+
+wrapper.startHeartbeat();
+
 const options = {
-  files: [],
-  grep: undefined,
+  files: parsedArgs.values.file ?? [],
+  grep: parsedArgs.values.grep ?? undefined,
+  skipComposeBuild: parsedArgs.values['skip-compose-build'] ?? false,
 };
+const playwrightParallelism = resolveWorkerSetting(
+  process.env.PLAYWRIGHT_WORKERS,
+);
 
 const defaultBrowserBaseUrl = 'http://host.docker.internal:6001';
 const defaultApiBaseUrl = 'http://host.docker.internal:6010';
 const defaultMcpControlUrl = 'http://host.docker.internal:8932/mcp';
-
-for (let i = 0; i < args.length; i += 1) {
-  const arg = args[i];
-  if (arg === '--file') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --file');
-      process.exit(1);
-    }
-    options.files.push(value);
-    i += 1;
-    continue;
-  }
-  if (arg === '--grep') {
-    const value = args[i + 1];
-    if (!value) {
-      console.error('Missing value for --grep');
-      process.exit(1);
-    }
-    options.grep = value;
-    i += 1;
-    continue;
-  }
-  if (arg === '--help') {
-    console.log(
-      'Usage: npm run test:summary:e2e -- [--file <path>] [--grep <pattern>]',
-    );
-    process.exit(0);
-  }
-  console.error(`Unknown argument: ${arg}`);
-  process.exit(1);
-}
 
 const parsePlaywrightJson = (stdout) => {
   const trimmed = stdout.trim();
@@ -216,6 +234,23 @@ const e2eRuntimeConfig = {
   copilotScenario: process.env.E2E_COPILOT_SCENARIO ?? 'copilot-happy-path',
 };
 
+console.log(
+  `[e2e] ${formatWorkerSummaryLine({
+    label: 'playwright_workers',
+    availableCores: playwrightParallelism.availableCores,
+    workerCount: playwrightParallelism.workerCount,
+    source: playwrightParallelism.source,
+  })}`,
+);
+wrapper.appendLogSection('Parallelism', [
+  formatWorkerSummaryLine({
+    label: 'playwright_workers',
+    availableCores: playwrightParallelism.availableCores,
+    workerCount: playwrightParallelism.workerCount,
+    source: playwrightParallelism.source,
+  }),
+]);
+
 let testExitCode = 1;
 let summary = { total: 0, passed: 0, failed: 0, failingNames: [] };
 let setupFailed = false;
@@ -224,74 +259,120 @@ let parseFailed = false;
 let task13MarkerLine = '';
 let testResultReason = '';
 let testResultProgressLine = '';
+let summarySource = 'not_run';
+let preflightPassed = false;
+let setupFailureLabel = '';
+let teardownFailureLabel = '';
 
 try {
-  const buildResult = await runLoggedCommand({
-    cmd: 'npm',
-    args: ['run', 'compose:e2e:build'],
-    cwd: rootDir,
-    logStream,
-    protocol,
-    phase: 'compose_build',
+  const configResult = await runLoggedCommand({
+    cmd: 'bash',
+    args: [
+      composeLauncher,
+      '--env-file',
+      '.env.e2e',
+      '-f',
+      'docker-compose.e2e.yml',
+      'config',
+    ],
+    cwd: wrapper.rootDir,
+    logStream: wrapper.logStream,
+    protocol: wrapper.protocol,
+    phase: 'compose_config',
     bannerPrefix: '',
   });
-  if (buildResult.code !== 0) {
+  if (configResult.code !== 0) {
     setupFailed = true;
+    setupFailureLabel = 'compose_config_failed';
   } else {
-    const upResult = await runLoggedCommand({
-      cmd: 'npm',
-      args: ['run', 'e2e:up'],
-      cwd: rootDir,
-      logStream,
-      protocol,
-      phase: 'compose_up',
-    });
-    if (upResult.code !== 0) {
-      setupFailed = true;
+    preflightPassed = true;
+  }
+
+  if (!setupFailed) {
+    let buildResult = {
+      code: 0,
+    };
+    if (options.skipComposeBuild) {
+      wrapper.protocol.setPhase('compose_up');
+      wrapper.appendLogSection('Compose build', [
+        'compose_build_step=skipped',
+        'reason=wrapper_flag_skip_compose_build',
+      ]);
     } else {
-      const testResult = await runLoggedCommand({
+      buildResult = await runLoggedCommand({
         cmd: 'npm',
-        args: ['run', 'e2e:test', '--', '--reporter=json', ...playwrightArgs],
-        cwd: rootDir,
-        env: {
-          ...process.env,
-          E2E_BASE_URL: e2eRuntimeConfig.browserBaseUrl,
-          E2E_API_URL: e2eRuntimeConfig.apiBaseUrl,
-          E2E_MCP_CONTROL_URL: e2eRuntimeConfig.mcpControlUrl,
-          E2E_USE_MOCK_CHAT: e2eRuntimeConfig.useMockChat,
-          E2E_COPILOT_SCENARIO: e2eRuntimeConfig.copilotScenario,
-        },
-        logStream,
-        protocol,
-        phase: 'test',
-        collectStdout: true,
+        args: ['run', 'compose:e2e:build'],
+        cwd: wrapper.rootDir,
+        logStream: wrapper.logStream,
+        protocol: wrapper.protocol,
+        phase: 'compose_build',
+        bannerPrefix: '',
       });
-      testExitCode = testResult.code;
-      testResultReason = testResult.forcedReason ?? '';
-      testResultProgressLine = testResult.lastProgressLine ?? '';
-      try {
-        const report =
-          parsePlaywrightJson(testResult.stdout) ??
-          parsePlaywrightJson(testResult.output);
-        if (report) {
-          summary = collectSummary(report);
-        } else {
-          const fallbackSummary = parsePlaywrightStatsFallback(
-            testResult.output,
-          );
-          if (!fallbackSummary) {
-            throw new Error('Playwright JSON report not found in stdout');
+    }
+    if (buildResult.code !== 0) {
+      setupFailed = true;
+      setupFailureLabel = 'compose_build_failed';
+    } else {
+      const upResult = await runLoggedCommand({
+        cmd: 'npm',
+        args: ['run', 'e2e:up'],
+        cwd: wrapper.rootDir,
+        logStream: wrapper.logStream,
+        protocol: wrapper.protocol,
+        phase: 'compose_up',
+      });
+      if (upResult.code !== 0) {
+        setupFailed = true;
+        setupFailureLabel = 'compose_up_failed';
+      } else {
+        const testResult = await runLoggedCommand({
+          cmd: 'npm',
+          args: ['run', 'e2e:test', '--', '--reporter=json', ...playwrightArgs],
+          cwd: wrapper.rootDir,
+          env: {
+            ...process.env,
+            E2E_BASE_URL: e2eRuntimeConfig.browserBaseUrl,
+            E2E_API_URL: e2eRuntimeConfig.apiBaseUrl,
+            E2E_MCP_CONTROL_URL: e2eRuntimeConfig.mcpControlUrl,
+            E2E_USE_MOCK_CHAT: e2eRuntimeConfig.useMockChat,
+            E2E_COPILOT_SCENARIO: e2eRuntimeConfig.copilotScenario,
+            PLAYWRIGHT_WORKERS: String(playwrightParallelism.workerCount),
+          },
+          logStream: wrapper.logStream,
+          protocol: wrapper.protocol,
+          phase: 'test',
+          collectStdout: true,
+        });
+        testExitCode = testResult.code;
+        testResultReason = testResult.forcedReason ?? '';
+        testResultProgressLine = testResult.lastProgressLine ?? '';
+        try {
+          const report =
+            parsePlaywrightJson(testResult.stdout) ??
+            parsePlaywrightJson(testResult.output);
+          if (report) {
+            summary = collectSummary(report);
+            summarySource = 'stdout_json';
+          } else {
+            const fallbackSummary = parsePlaywrightStatsFallback(
+              testResult.output,
+            );
+            if (!fallbackSummary) {
+              throw new Error('Playwright JSON report not found in stdout');
+            }
+            summary = fallbackSummary;
+            summarySource = 'stdout_stats_fallback';
           }
-          summary = fallbackSummary;
+        } catch {
+          parseFailed = true;
+          summarySource = 'parse_failed';
+          summary = {
+            total: 0,
+            passed: 0,
+            failed: testExitCode === 0 ? 0 : 1,
+            failingNames: [],
+          };
         }
-      } catch {
-        parseFailed = true;
-        summary = {
-          total: 0,
-          passed: 0,
-          failed: testExitCode === 0 ? 0 : 1,
-          failingNames: [],
-        };
       }
     }
   }
@@ -299,13 +380,14 @@ try {
   const downResult = await runLoggedCommand({
     cmd: 'npm',
     args: ['run', 'e2e:down'],
-    cwd: rootDir,
-    logStream,
-    protocol,
+    cwd: wrapper.rootDir,
+    logStream: wrapper.logStream,
+    protocol: wrapper.protocol,
     phase: 'teardown',
   });
   if (downResult.code !== 0) {
     teardownFailed = true;
+    teardownFailureLabel = 'compose_down_failed';
   }
   if (!setupFailed && !teardownFailed && testExitCode === 0) {
     const markerPayload = {
@@ -316,9 +398,24 @@ try {
       copilotScenario: e2eRuntimeConfig.copilotScenario,
     };
     task13MarkerLine = `DEV-0000050:T13:e2e_host_network_config_verified ${JSON.stringify(markerPayload)}`;
-    writeLogLine(logStream, task13MarkerLine);
+    writeLogLine(wrapper.logStream, task13MarkerLine);
   }
-  await new Promise((resolve) => logStream.end(resolve));
+
+  wrapper.appendLogSection('E2E proof summary', [
+    `compose_config_validation=${preflightPassed ? 'passed' : 'failed'}`,
+    `setup_failure=${setupFailureLabel || 'none'}`,
+    `teardown_failure=${teardownFailureLabel || 'none'}`,
+    `summary_source=${summarySource}`,
+    `artifact_output_dir=${e2eArtifactDir}`,
+    `wrapper_log_dir=${e2eOutputDir}`,
+    `latest_log_alias=${path.relative(wrapper.rootDir, wrapper.latestLogPath)}`,
+    `browser_base_url=${e2eRuntimeConfig.browserBaseUrl}`,
+    `api_base_url=${e2eRuntimeConfig.apiBaseUrl}`,
+    `mcp_control_url=${e2eRuntimeConfig.mcpControlUrl}`,
+    `copilot_scenario=${e2eRuntimeConfig.copilotScenario}`,
+  ]);
+
+  await wrapper.closeLog();
 }
 
 const exitCode = setupFailed || teardownFailed ? 1 : testExitCode;
@@ -339,6 +436,18 @@ if (task13MarkerLine) {
   console.log(task13MarkerLine);
 }
 
+const status = exitCode === 0 ? 'passed' : 'failed';
+const ambiguousCounts =
+  parseFailed || (status === 'passed' && summary.total === 0);
+
+const printFailureHints = () => {
+  console.log(`artifacts=${e2eArtifactDir}`);
+  console.log(`wrapper_logs=${e2eOutputDir}`);
+  console.log(
+    `latest_log=${path.relative(wrapper.rootDir, wrapper.latestLogPath)}`,
+  );
+};
+
 console.log(`[e2e] tests run: ${summary.total}`);
 console.log(`[e2e] passed: ${summary.passed}`);
 console.log(`[e2e] failed: ${summary.failed}`);
@@ -349,23 +458,24 @@ if (summary.failingNames.length > 0) {
   }
 }
 
-const status = exitCode === 0 ? 'passed' : 'failed';
-const ambiguousCounts =
-  parseFailed || (status === 'passed' && summary.total === 0);
+if (status === 'failed' || ambiguousCounts) {
+  printFailureHints();
+}
+
 const finalReason =
   testResultReason === 'terminal_summary_without_close'
     ? 'terminal_summary_without_close'
     : testResultReason === 'semantic_progress_stalled'
       ? 'semantic_progress_stalled'
       : setupFailed || teardownFailed
-        ? 'setup_or_teardown_failed'
+        ? setupFailureLabel || 'setup_or_teardown_failed'
         : status === 'passed'
           ? ambiguousCounts
             ? 'ambiguous_counts'
             : 'clean_success'
           : 'test_failed';
 
-protocol.emitFinal({
+wrapper.protocol.emitFinal({
   status,
   ambiguousCounts,
   reason: finalReason,

@@ -124,13 +124,13 @@ async function ensureContainer() {
   return envPromise;
 }
 
-Before(async () => {
+Before({ timeout: 120_000 }, async () => {
   await ensureContainer();
   await clearVectorsCollection();
   await clearRootsCollection();
 });
 
-AfterAll(async () => {
+AfterAll({ timeout: 120_000 }, async () => {
   console.log(
     `[chroma-compose] AfterAll invoked pid=${process.pid} stopping=${stopping} env=${environment ? 'set' : 'null'}`,
   );

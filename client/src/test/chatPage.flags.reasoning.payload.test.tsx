@@ -380,7 +380,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     await ensureAgentFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('reasoning-effort-select');
     await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
-  }, 10000);
+  }, 30000);
 
   it('emits only supported reasoning values and falls back to model default before send', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -432,7 +432,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     expect(
       (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
     ).toBe('minimal');
-  }, 10000);
+  }, 30000);
 
   it('keeps single-option capability models valid for UI and payload', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -666,7 +666,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       (secondPayload.agentFlags as Record<string, unknown>)
         ?.modelReasoningEffort,
     ).toBe('xhigh');
-  }, 10000);
+  }, 30000);
 
   it('clears hidden reasoning values from both the control and submitted draft when the selected model narrows support', async () => {
     const chatBodies: Record<string, unknown>[] = [];

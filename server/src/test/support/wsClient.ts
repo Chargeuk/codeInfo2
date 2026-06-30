@@ -84,6 +84,10 @@ export function sendJson(
   return { requestId };
 }
 
+export function peekBufferedEvents(ws: WebSocket): unknown[] {
+  return [...getBuffer(ws)];
+}
+
 export async function waitForEvent<T>(params: {
   ws: WebSocket;
   predicate: (event: unknown) => event is T;

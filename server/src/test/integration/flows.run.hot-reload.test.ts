@@ -15,6 +15,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -66,8 +67,9 @@ const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 2000,
 ): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }

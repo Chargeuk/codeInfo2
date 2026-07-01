@@ -14,14 +14,16 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 5000,
   intervalMs = 50,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }

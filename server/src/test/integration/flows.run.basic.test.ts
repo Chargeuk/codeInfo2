@@ -50,6 +50,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -180,8 +181,9 @@ const waitFor = async (
   predicate: () => boolean | Promise<boolean>,
   timeoutMs = 4000,
 ): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (await predicate()) return;
     await delay(20);
   }
@@ -193,8 +195,9 @@ const waitForTurns = async (
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 4000,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     const turns = memoryTurns.get(conversationId) ?? [];
     if (predicate(turns)) return turns;
     await delay(20);
@@ -208,8 +211,9 @@ const waitForTurnCountToStay = async (
   quietWindowMs = 150,
   timeoutMs = 4000,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     const initialCount = (memoryTurns.get(conversationId) ?? []).length;
     if (initialCount === expectedCount) {
       await delay(quietWindowMs);
@@ -227,8 +231,9 @@ const waitForConversationUnlocked = async (
   conversationId: string,
   timeoutMs = 4000,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     const acquired = tryAcquireConversationLock(conversationId);
     if (acquired) {
       releaseConversationLock(conversationId);

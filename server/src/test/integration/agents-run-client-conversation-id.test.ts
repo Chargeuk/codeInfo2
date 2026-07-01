@@ -39,6 +39,7 @@ import {
 import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -120,8 +121,9 @@ class DeferredChat extends ChatInterface {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await delay(25);
   }

@@ -35,6 +35,7 @@ import { createConversationsRouter } from '../../routes/conversations.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { socketsSubscribedToConversation } from '../../ws/registry.js';
 import { attachWs } from '../../ws/server.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -49,8 +50,9 @@ async function waitForCondition(
   timeoutMs = 5000,
   pollMs = 10,
 ) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) return;
     await delay(pollMs);
   }

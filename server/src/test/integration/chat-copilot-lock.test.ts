@@ -4,6 +4,7 @@ import test from 'node:test';
 import request from 'supertest';
 
 import { getActiveRunOwnership } from '../../agents/runLock.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
 
 function createDeferred() {
@@ -18,7 +19,7 @@ async function waitForConversationLock(
   conversationId: string,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     if (getActiveRunOwnership(conversationId)) {
       return;

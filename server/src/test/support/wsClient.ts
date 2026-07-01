@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 
 import WebSocket, { type RawData } from 'ws';
 
+import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
+
 const bufferedEventsBySocket = new WeakMap<WebSocket, unknown[]>();
 
 function getBuffer(ws: WebSocket): unknown[] {
@@ -25,7 +27,7 @@ export async function connectWs(params: {
 }): Promise<WebSocket> {
   const wsUrl = `${params.baseUrl.replace(/^http/, 'ws')}/ws`;
   const ws = new WebSocket(wsUrl);
-  const timeoutMs = params.timeoutMs ?? 2000;
+  const timeoutMs = resolveConfiguredTestTimeoutMs(params.timeoutMs ?? 2000);
 
   const buffer = getBuffer(ws);
   ws.on('message', (raw) => {
@@ -93,7 +95,7 @@ export async function waitForEvent<T>(params: {
   predicate: (event: unknown) => event is T;
   timeoutMs?: number;
 }): Promise<T> {
-  const timeoutMs = params.timeoutMs ?? 2000;
+  const timeoutMs = resolveConfiguredTestTimeoutMs(params.timeoutMs ?? 2000);
 
   const buffer = getBuffer(params.ws);
   const consumeBuffered = (): T | undefined => {
@@ -151,9 +153,10 @@ export async function waitForEvent<T>(params: {
 }
 
 export async function closeWs(ws: WebSocket, timeoutMs = 2000): Promise<void> {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   if (ws.readyState === WebSocket.CLOSED) return;
   if (ws.readyState === WebSocket.CLOSING) {
-    await waitForClose(ws, timeoutMs);
+    await waitForClose(ws, resolvedTimeoutMs);
     return;
   }
 
@@ -162,7 +165,7 @@ export async function closeWs(ws: WebSocket, timeoutMs = 2000): Promise<void> {
   } catch {
     // ignore
   }
-  await waitForClose(ws, timeoutMs);
+  await waitForClose(ws, resolvedTimeoutMs);
   bufferedEventsBySocket.delete(ws);
 }
 
@@ -170,11 +173,12 @@ export function waitForClose(
   ws: WebSocket,
   timeoutMs = 2000,
 ): Promise<{ code: number; reason: string }> {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       ws.removeAllListeners('close');
       reject(new Error('Timed out waiting for WebSocket close'));
-    }, timeoutMs);
+    }, resolvedTimeoutMs);
 
     ws.once('close', (code, rawReason) => {
       clearTimeout(timeout);

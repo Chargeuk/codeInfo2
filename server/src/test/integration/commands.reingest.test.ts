@@ -30,6 +30,7 @@ import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { attachWs } from '../../ws/server.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -267,7 +268,7 @@ const waitForMemoryTurns = async (
   conversationId: string,
   expectedCount: number,
 ): Promise<void> => {
-  const deadline = Date.now() + 4_000;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(4_000);
   while (Date.now() < deadline) {
     const turns = memoryTurns.get(conversationId) ?? [];
     if (turns.length >= expectedCount) return;

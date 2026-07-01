@@ -46,6 +46,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -71,12 +72,16 @@ const withTimeout = async <T>(
   timeoutMs: number,
   message: string,
 ): Promise<T> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   let timeoutHandle: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timeoutHandle = setTimeout(() => reject(new Error(message)), timeoutMs);
+        timeoutHandle = setTimeout(
+          () => reject(new Error(message)),
+          resolvedTimeoutMs,
+        );
       }),
     ]);
   } finally {
@@ -505,8 +510,9 @@ const waitForTurns = async (
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 2000,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     const turns = memoryTurns.get(conversationId) ?? [];
     if (predicate(turns)) return turns;
     await delay(20);
@@ -615,8 +621,9 @@ const waitForRuntimeCleanup = async (
   conversationId: string,
   timeoutMs = 8000,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (
       !getInflight(conversationId) &&
       !getActiveRunOwnership(conversationId)
@@ -637,8 +644,9 @@ const waitForPredicate = async (
   timeoutMs: number,
   message: string,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await delay(25);
   }

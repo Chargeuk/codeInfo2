@@ -38,6 +38,7 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
@@ -76,8 +77,9 @@ const waitFor = async (
   timeoutMs = 10000,
   intervalMs = 50,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }

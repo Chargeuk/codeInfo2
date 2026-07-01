@@ -50,6 +50,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -68,8 +69,9 @@ const waitFor = async (
   timeoutMs = 5000,
   intervalMs = 50,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
@@ -305,7 +307,7 @@ async function waitForTurns(
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 4000,
 ): Promise<Turn[]> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
     if (predicate(turns)) return turns;
@@ -318,7 +320,7 @@ async function waitForConversationUnlocked(
   conversationId: string,
   timeoutMs = 4000,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const acquired = tryAcquireConversationLock(conversationId);
     if (acquired) {

@@ -30,6 +30,7 @@ import {
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -175,7 +176,7 @@ beforeEach(() => {
 });
 
 async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = getMemoryTurns(conversationId);
     if (turns.some((t) => t.role === 'assistant')) {
@@ -187,7 +188,7 @@ async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
 }
 
 async function waitForRuntimeCleanup(conversationId: string, timeoutMs = 4000) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     if (
       getInflight(conversationId) === undefined &&

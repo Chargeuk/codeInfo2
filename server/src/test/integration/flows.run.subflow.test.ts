@@ -17,6 +17,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -95,8 +96,9 @@ const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 10000,
 ): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await delay(20);
   }

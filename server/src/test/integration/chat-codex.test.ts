@@ -36,6 +36,7 @@ import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -226,7 +227,7 @@ const buildRepositoryBackedRuntimeHome = (
   );
 
 async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = getMemoryTurns(conversationId);
     if (turns.some((t) => t.role === 'assistant' && (t.content ?? '').length)) {
@@ -242,7 +243,7 @@ async function waitForAssistantTurnCount(
   assistantCount: number,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = getMemoryTurns(conversationId);
     if (

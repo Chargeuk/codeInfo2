@@ -28,6 +28,7 @@ import { createChatRouter } from '../../routes/chat.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const appWith = (
   overrides: Parameters<typeof createConversationsRouter>[0],
@@ -114,7 +115,7 @@ async function waitForChatPersistence(
   expectedTurnCount: number,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = getMemoryTurns(conversationId);
     if (

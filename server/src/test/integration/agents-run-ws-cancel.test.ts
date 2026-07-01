@@ -25,6 +25,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -60,8 +61,9 @@ async function waitForRuntimeCleanup(
   conversationId: string,
   timeoutMs = 8_000,
 ) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (
       getInflight(conversationId) === undefined &&
       getActiveRunOwnership(conversationId) === null &&

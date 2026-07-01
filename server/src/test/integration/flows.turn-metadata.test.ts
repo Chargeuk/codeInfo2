@@ -197,12 +197,12 @@ test('flow turns include command metadata in snapshots and history', async () =>
   const wsSnapshot = await connectWs({ baseUrl });
 
   try {
-    sendJson(wsSnapshot, { type: 'subscribe_conversation', conversationId });
-
     await supertest(baseUrl)
       .post('/flows/flow-metadata/run')
       .send({ conversationId })
       .expect(202);
+
+    sendJson(wsSnapshot, { type: 'subscribe_conversation', conversationId });
 
     const snapshot = await waitForEvent({
       ws: wsSnapshot,

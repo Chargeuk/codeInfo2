@@ -106,6 +106,23 @@ import {
 } from '../workingFolders/state.js';
 import { publishInflightSnapshot, publishUserTurn } from '../ws/server.js';
 
+const flowRuntimeDiagnosticsEnabled =
+  process.env.CODEINFO_TEST_RUNTIME_DIAGNOSTICS === '1';
+
+const appendFlowRuntimeDiagnostic = (
+  message: string,
+  context: Record<string, unknown>,
+) => {
+  if (!flowRuntimeDiagnosticsEnabled) return;
+  append({
+    level: 'info',
+    message,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
+  });
+};
+
 const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   const pendingCancel = getPendingConversationCancel(conversationId);
   return {
@@ -2382,6 +2399,8 @@ async function persistFlowTurn(params: {
   createdAt: Date;
 }): Promise<{ turnId?: string }> {
   if (shouldUseMemoryPersistence()) {
+    const existingTurnCount =
+      memoryTurns.get(params.conversationId)?.length ?? 0;
     recordMemoryTurn({
       conversationId: params.conversationId,
       role: params.role,
@@ -2401,6 +2420,21 @@ async function persistFlowTurn(params: {
       lastMessageAt: params.createdAt,
       model: params.model,
     });
+    if (
+      flowRuntimeDiagnosticsEnabled &&
+      params.command?.name === 'flow' &&
+      existingTurnCount < 2
+    ) {
+      appendFlowRuntimeDiagnostic('flows.test.first_turn_persisted', {
+        conversationId: params.conversationId,
+        role: params.role,
+        status: params.status,
+        stepIndex: params.command.stepIndex,
+        turnCountAfterPersist:
+          memoryTurns.get(params.conversationId)?.length ?? existingTurnCount + 1,
+        contentPreview: params.content.slice(0, 120),
+      });
+    }
     return {};
   }
 
@@ -6829,6 +6863,17 @@ async function runFlowUnlocked(params: {
     );
     const mergedSubflows = [...retainedSubflows, ...nextSubflows];
     activeSubflows = mergedSubflows.length > 0 ? mergedSubflows : undefined;
+    appendFlowRuntimeDiagnostic('flows.test.active_subflows_updated', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      stepPath,
+      nextCount: nextSubflows.length,
+      mergedCount: mergedSubflows.length,
+      flowNames: nextSubflows.map((subflow) => subflow.flowName),
+      childConversationIds: nextSubflows.map(
+        (subflow) => subflow.conversationId,
+      ),
+    });
   };
 
   const requestActiveSubflowStop = (params: {
@@ -8279,6 +8324,16 @@ export async function startFlowRun(
     throw new Error('Conversation run ownership could not be resolved.');
   }
   const { runToken } = ownership;
+  appendFlowRuntimeDiagnostic('flows.test.start.ownership_acquired', {
+    flowName,
+    conversationId,
+    requestedConversationId,
+    runToken,
+    resumeStepPath: resumeStepPath ?? null,
+    retryOwnershipId: retryOwnershipId ?? null,
+    sourceId: sourceId ?? null,
+    workingFolder: params.working_folder ?? null,
+  });
 
   let flow: FlowFile;
   let modelId = FALLBACK_MODEL_ID;
@@ -8553,10 +8608,22 @@ export async function startFlowRun(
               retryOwnershipId,
               sourceId,
               launchSignature:
-                makeFreshRunRetryOwnershipLaunchSignature(retryOwnershipLaunch),
+        makeFreshRunRetryOwnershipLaunchSignature(retryOwnershipLaunch),
               result: acceptedStartResult,
             }
           : null,
+    });
+    appendFlowRuntimeDiagnostic('flows.test.start.accepted', {
+      flowName,
+      conversationId,
+      executionId,
+      inflightId,
+      providerId,
+      modelId,
+      effectiveResumeStepPath: effectiveResumeStepPath ?? null,
+      startupWarningsCount: startupWarnings.length,
+      childExecutionBackfillCount: childExecutionBackfills.length,
+      workingFolder: effectiveWorkingFolder ?? null,
     });
     if (retryOwnershipId && !resumeStepPath) {
       rememberFreshRunRetryOwnership({
@@ -8588,6 +8655,15 @@ export async function startFlowRun(
   void (async () => {
     let failedTerminally = false;
     try {
+      appendFlowRuntimeDiagnostic('flows.test.start.async_begin', {
+        flowName,
+        conversationId,
+        executionId,
+        inflightId,
+        providerId,
+        modelId,
+        effectiveResumeStepPath: effectiveResumeStepPath ?? null,
+      });
       if (!repositoryContext) {
         throw toFlowRunError(
           'COMMAND_INVALID',
@@ -8600,6 +8676,13 @@ export async function startFlowRun(
           defaultRepositoryRoot: repositoryContext.defaultRepositoryRoot,
         })
       ).workingDirectoryOverride;
+      appendFlowRuntimeDiagnostic('flows.test.start.execution_context_ready', {
+        flowName,
+        conversationId,
+        executionId,
+        inflightId,
+        workingDirectoryOverride: workingDirectoryOverride ?? null,
+      });
       const runOutcome = await runFlowUnlocked({
         flowName,
         flow,

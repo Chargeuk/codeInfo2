@@ -204,6 +204,22 @@ const CODE_INFO_MCP_SERVER_BLOCK = [
   'startup_timeout_sec = 60',
   '',
 ].join('\n');
+const runtimeTestDiagnosticsEnabled =
+  process.env.CODEINFO_TEST_RUNTIME_DIAGNOSTICS === '1';
+
+const appendRuntimeTestDiagnostic = (
+  message: string,
+  context: Record<string, unknown>,
+) => {
+  if (!runtimeTestDiagnosticsEnabled) return;
+  append({
+    level: 'info',
+    message,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
+  });
+};
 const WEB_TOOLS_MCP_SERVER_BLOCK = [
   '[mcp_servers.web_tools]',
   'command = "npx"',
@@ -400,11 +416,21 @@ const CHAT_CONFIG_LOCK_MAX_RETRIES = 20;
 
 async function acquireChatConfigLock(chatConfigPath: string): Promise<() => Promise<void>> {
   const lockPath = `${chatConfigPath}.codeinfo.lock`;
+  const startedAt = Date.now();
 
   for (let attempt = 0; attempt < CHAT_CONFIG_LOCK_MAX_RETRIES; attempt += 1) {
     let handle: FileHandle | undefined;
     try {
       handle = await fs.open(lockPath, 'wx');
+      if (attempt > 0) {
+        appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquired_after_retry', {
+          chatConfigPath,
+          lockPath,
+          attempts: attempt + 1,
+          waitedMs: Date.now() - startedAt,
+          pid: process.pid,
+        });
+      }
       return async () => {
         await handle?.close().catch(() => {});
         await fs.rm(lockPath, { force: true }).catch(() => {});
@@ -417,6 +443,14 @@ async function acquireChatConfigLock(chatConfigPath: string): Promise<() => Prom
       await delay(CHAT_CONFIG_LOCK_RETRY_DELAY_MS);
     }
   }
+
+  appendRuntimeTestDiagnostic('runtime.chat_config_lock_timeout', {
+    chatConfigPath,
+    lockPath,
+    attempts: CHAT_CONFIG_LOCK_MAX_RETRIES,
+    waitedMs: Date.now() - startedAt,
+    pid: process.pid,
+  });
 
   throw Object.assign(
     new Error(`Timed out acquiring chat config lock for ${chatConfigPath}`),

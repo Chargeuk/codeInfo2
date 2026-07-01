@@ -194,6 +194,7 @@ const waitForTurns = async (
   conversationId: string,
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 4000,
+  describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
@@ -216,6 +217,7 @@ const waitForTurns = async (
           content: turn.content,
         })),
       )}`,
+      describe ? `details=${describe()}` : '',
     ].join(' | '),
   );
 };
@@ -457,6 +459,30 @@ const collectAgentConversationIds = (conversationId: string) => {
   return Object.values(flags.flow?.agentConversations ?? {});
 };
 
+const describeConversationRuntime = (conversationId: string): string => {
+  const conversation = memoryConversations.get(conversationId);
+  const flags = (conversation?.flags ?? {}) as {
+    flow?: { agentConversations?: Record<string, string> };
+  };
+  const agentConversationEntries = Object.entries(
+    flags.flow?.agentConversations ?? {},
+  ).map(([agentKey, agentConversationId]) => ({
+    agentKey,
+    agentConversationId,
+    recentTurns: (memoryTurns.get(agentConversationId) ?? [])
+      .slice(-6)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+      })),
+  }));
+  return JSON.stringify({
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    agentConversationEntries,
+  });
+};
+
 const getLatestAssistantTurn = (conversationId: string) =>
   [...(memoryTurns.get(conversationId) ?? [])]
     .reverse()
@@ -566,7 +592,16 @@ const withMarkdownFlowHarness = async (
           listIngestedRepositories: async () => repoResult,
         });
 
-        const turns = await waitForTurns(conversationId, turnsPredicate);
+        const turns = await waitForTurns(
+          conversationId,
+          turnsPredicate,
+          4000,
+          () =>
+            JSON.stringify({
+              messages,
+              runtime: JSON.parse(describeConversationRuntime(conversationId)),
+            }),
+        );
         collectAgentConversationIds(conversationId).forEach((id) =>
           conversations.add(id),
         );
@@ -646,7 +681,18 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-    const userTurnPromise = waitForEvent({
+    const res = await supertest(baseUrl)
+      .post('/flows/llm-basic/run')
+      .send({ conversationId, customTitle })
+      .expect(202);
+
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.flowName, 'llm-basic');
+    assert.equal(res.body.conversationId, conversationId);
+    assert.equal(typeof res.body.inflightId, 'string');
+    assert.equal(typeof res.body.modelId, 'string');
+
+    const userTurn = await waitForEvent({
       ws,
       predicate: (
         event: unknown,
@@ -660,8 +706,7 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
       },
       timeoutMs: 8000,
     });
-
-    const deltaPromise = waitForEvent({
+    const delta = await waitForEvent({
       ws,
       predicate: (
         event: unknown,
@@ -678,8 +723,9 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
       },
       timeoutMs: 8000,
     });
+    assert.equal(userTurn.inflightId, delta.inflightId);
 
-    const finalPromise = waitForEvent({
+    const final = await waitForEvent({
       ws,
       predicate: (
         event: unknown,
@@ -689,23 +735,6 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
       },
       timeoutMs: 8000,
     });
-
-    const res = await supertest(baseUrl)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId, customTitle })
-      .expect(202);
-
-    assert.equal(res.body.status, 'started');
-    assert.equal(res.body.flowName, 'llm-basic');
-    assert.equal(res.body.conversationId, conversationId);
-    assert.equal(typeof res.body.inflightId, 'string');
-    assert.equal(typeof res.body.modelId, 'string');
-
-    const userTurn = await userTurnPromise;
-    const delta = await deltaPromise;
-    assert.equal(userTurn.inflightId, delta.inflightId);
-
-    const final = await finalPromise;
     assert.equal(final.status, 'ok');
 
     const conversation = memoryConversations.get(conversationId);

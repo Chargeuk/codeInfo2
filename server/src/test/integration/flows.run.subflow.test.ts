@@ -721,22 +721,12 @@ test('subflow waits for the full child flow and can fail on a later child step',
       chatFactory: () => new SubflowChat(160),
     });
 
-    const childConversation = await waitFor(() => {
-      const found = findChildFlowConversation({
-        parentConversationId: result.conversationId,
-        childFlowName: 'child-fail-later',
-      });
-      return Boolean(found);
-    }).then(() =>
-      findChildFlowConversation({
-        parentConversationId: result.conversationId,
-        childFlowName: 'child-fail-later',
-      }),
-    );
-
-    assert.ok(childConversation?._id);
+    const activeSubflow = await waitForActiveSubflow(result.conversationId);
+    assert.equal(activeSubflow?.flowName, 'child-fail-later');
+    const childConversationId = String(activeSubflow?.conversationId ?? '');
+    assert.notEqual(childConversationId, '');
     await waitForConversationAssistantStatus(
-      String(childConversation?._id),
+      childConversationId,
       'ok',
     );
     await delay(40);

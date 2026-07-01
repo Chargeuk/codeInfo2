@@ -509,6 +509,7 @@ const waitForTurns = async (
   conversationId: string,
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 2000,
+  describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
@@ -531,6 +532,7 @@ const waitForTurns = async (
           content: turn.content,
         })),
       )}`,
+      describe ? `details=${describe()}` : '',
     ].join(' | '),
   );
 };
@@ -571,6 +573,28 @@ const getLoopContinueAgentConversationIds = (conversationId: string) =>
     'coding_agent:post-continue',
     'coding_agent:outer-break',
   ]);
+
+const describeFlowRuntimeState = (
+  conversationId: string,
+  agentKeys: string[] = [],
+): string =>
+  JSON.stringify({
+    inflightId: getInflight(conversationId)?.inflightId ?? null,
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
+    agentConversations: getAgentConversationIds(conversationId, agentKeys).map(
+      (agentConversationId) => ({
+        agentConversationId,
+        recentTurns: (memoryTurns.get(agentConversationId) ?? [])
+          .slice(-6)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    ),
+  });
 
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   conversationIds.forEach((conversationId) => {
@@ -1264,6 +1288,11 @@ test('github review runtime resumes through repaired wait and review handoff sta
                 ),
             ),
           4000,
+          () =>
+            describeFlowRuntimeState(conversationId, [
+              'planning_agent:main',
+              'planning_agent:untaken-clean',
+            ]),
         );
         assert.equal(
           turns.filter(

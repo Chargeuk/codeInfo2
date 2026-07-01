@@ -110,12 +110,17 @@ const waitForAssistantStatus = async (
   status: 'ok' | 'warning' | 'failed' | 'stopped',
   timeoutMs = 10000,
 ) => {
-  await waitFor(() => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const started = Date.now();
+  while (Date.now() - started < resolvedTimeoutMs) {
     const turns = memoryTurns.get(conversationId) ?? [];
-    return turns.some(
-      (turn) => turn.role === 'assistant' && turn.status === status,
-    );
-  }, timeoutMs);
+    if (
+      turns.some((turn) => turn.role === 'assistant' && turn.status === status)
+    ) {
+      break;
+    }
+    await delay(20);
+  }
   const turns = memoryTurns.get(conversationId) ?? [];
   for (let index = turns.length - 1; index >= 0; index -= 1) {
     const turn = turns[index];
@@ -123,7 +128,21 @@ const waitForAssistantStatus = async (
       return turn;
     }
   }
-  return undefined;
+  throw new Error(
+    [
+      `Timed out waiting for assistant status ${status} for ${conversationId}`,
+      `conversationFlags=${JSON.stringify(
+        memoryConversations.get(conversationId)?.flags ?? null,
+      )}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+    ].join(' | '),
+  );
 };
 
 const waitForActiveSubflows = async (conversationId: string) => {

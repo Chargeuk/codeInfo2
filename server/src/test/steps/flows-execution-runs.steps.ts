@@ -31,6 +31,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -203,15 +204,18 @@ const waitForTurns = async (
   ) => boolean,
   timeoutMs = 4000,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     const turns = await getStoredTurns(conversationId);
     if (predicate(turns)) {
       return turns;
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  assert.fail(`Timed out waiting for turns on conversation ${conversationId}`);
+  assert.fail(
+    `Timed out waiting for turns on conversation ${conversationId} after ${resolvedTimeoutMs}ms`,
+  );
 };
 
 const createGitHubReviewRuntimeRepoFixture = async (params: {

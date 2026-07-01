@@ -48,6 +48,7 @@ import {
   createMockCopilotSdkHarness,
   type MockCopilotSdkHarness,
 } from './mockCopilotSdk.js';
+import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
 
@@ -308,7 +309,7 @@ export async function waitForAssistantTurn(
   conversationId: string,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = getMemoryTurns(conversationId);
     if (turns.some((turn) => turn.role === 'assistant')) {

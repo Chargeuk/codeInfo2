@@ -127,7 +127,14 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
     if (predicate()) return;
     await delay(25);
   }
-  throw new Error('Timed out waiting for condition');
+  throw new Error(
+    [
+      'Timed out waiting for condition',
+      `timeoutMs=${resolvedTimeoutMs}`,
+      `conversationIds=${JSON.stringify([...memoryConversations.keys()].slice(-10))}`,
+      `turnConversationIds=${JSON.stringify([...memoryTurns.keys()].slice(-10))}`,
+    ].join(' | '),
+  );
 };
 
 const toRuntimeConfigSnapshot = (flags: Record<string, unknown>) =>

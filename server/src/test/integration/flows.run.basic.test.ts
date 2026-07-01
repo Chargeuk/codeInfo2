@@ -202,7 +202,22 @@ const waitForTurns = async (
     if (predicate(turns)) return turns;
     await delay(20);
   }
-  throw new Error('Timed out waiting for flow turns');
+  const turns = memoryTurns.get(conversationId) ?? [];
+  const conversation = memoryConversations.get(conversationId);
+  throw new Error(
+    [
+      `Timed out waiting for flow turns for ${conversationId}`,
+      `turnCount=${turns.length}`,
+      `conversationFlags=${JSON.stringify(conversation?.flags ?? null)}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+    ].join(' | '),
+  );
 };
 
 const waitForTurnCountToStay = async (
@@ -241,7 +256,14 @@ const waitForConversationUnlocked = async (
     }
     await delay(20);
   }
-  throw new Error('Timed out waiting for flow unlock');
+  throw new Error(
+    [
+      `Timed out waiting for flow unlock for ${conversationId}`,
+      `conversationFlags=${JSON.stringify(
+        memoryConversations.get(conversationId)?.flags ?? null,
+      )}`,
+    ].join(' | '),
+  );
 };
 
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {

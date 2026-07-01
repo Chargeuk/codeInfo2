@@ -33,6 +33,7 @@ import {
 import { query, resetStore } from '../../logStore.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -233,7 +234,7 @@ async function waitForInflightCleared(
   conversationId: string,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     if (getInflight(conversationId) === undefined) return;
     await delay(25);

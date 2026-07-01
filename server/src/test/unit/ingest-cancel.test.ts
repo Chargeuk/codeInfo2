@@ -27,6 +27,7 @@ import { release } from '../../ingest/lock.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 function buildApp(options?: {
   cancelRun?: (
@@ -107,28 +108,36 @@ async function createTempRepo(files: Record<string, string>) {
 
 async function waitForTerminal(runId: string) {
   const terminal = new Set(['completed', 'skipped', 'cancelled', 'error']);
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(2_000);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     const status = getStatus(runId);
     if (status && terminal.has(status.state)) {
       return status;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for terminal status for ${runId}`);
+  throw new Error(
+    `Timed out waiting for terminal status for ${runId} after ${resolvedTimeoutMs}ms`,
+  );
 }
 
 async function waitForStatus(
   runId: string,
   predicate: (status: ReturnType<typeof getStatus>) => boolean,
 ) {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(2_000);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     const status = getStatus(runId);
     if (predicate(status)) {
       return status;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for matching status for ${runId}`);
+  throw new Error(
+    `Timed out waiting for matching status for ${runId} after ${resolvedTimeoutMs}ms`,
+  );
 }
 
 async function waitForCondition(
@@ -136,14 +145,15 @@ async function waitForCondition(
   predicate: () => boolean,
   timeoutMs = 2_000,
 ) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) {
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for ${label}`);
+  throw new Error(`Timed out waiting for ${label} after ${resolvedTimeoutMs}ms`);
 }
 
 function setupChromaMocks() {

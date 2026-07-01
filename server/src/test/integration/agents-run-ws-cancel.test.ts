@@ -73,7 +73,15 @@ async function waitForRuntimeCleanup(
     }
     await delay(25);
   }
-  throw new Error(`runtime cleanup did not finish for ${conversationId}`);
+  throw new Error(
+    [
+      `runtime cleanup did not finish for ${conversationId}`,
+      `inflight=${JSON.stringify(getInflight(conversationId) ?? null)}`,
+      `ownership=${JSON.stringify(getActiveRunOwnership(conversationId))}`,
+      `pendingCancel=${JSON.stringify(getPendingConversationCancel(conversationId))}`,
+      `conversationPresent=${memoryConversations.has(conversationId)}`,
+    ].join(' | '),
+  );
 }
 
 class SlowStreamingChat extends ChatInterface {

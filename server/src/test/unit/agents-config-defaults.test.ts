@@ -25,6 +25,7 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { normalizeRuntimeConfig } from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 class ImmediateChat extends ChatInterface {
   async execute(
@@ -64,12 +65,13 @@ class CapturingImmediateChat extends ChatInterface {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await delay(25);
   }
-  throw new Error('Timed out waiting for condition');
+  throw new Error(`Timed out waiting for condition after ${resolvedTimeoutMs}ms`);
 };
 
 function restoreOptionalEnvVar(key: string, value: string | undefined) {

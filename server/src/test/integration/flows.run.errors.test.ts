@@ -313,7 +313,22 @@ async function waitForTurns(
     if (predicate(turns)) return turns;
     await delay(25);
   }
-  throw new Error(`Timed out waiting for turns for ${conversationId}`);
+  const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
+  const conversation = memoryConversations.get(conversationId);
+  throw new Error(
+    [
+      `Timed out waiting for turns for ${conversationId}`,
+      `turnCount=${turns.length}`,
+      `conversationFlags=${JSON.stringify(conversation?.flags ?? null)}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+    ].join(' | '),
+  );
 }
 
 async function waitForConversationUnlocked(
@@ -329,7 +344,14 @@ async function waitForConversationUnlocked(
     }
     await delay(25);
   }
-  throw new Error(`Timed out waiting for flow unlock for ${conversationId}`);
+  throw new Error(
+    [
+      `Timed out waiting for flow unlock for ${conversationId}`,
+      `conversationFlags=${JSON.stringify(
+        memoryConversations.get(conversationId)?.flags ?? null,
+      )}`,
+    ].join(' | '),
+  );
 }
 
 async function withFlowHarness(

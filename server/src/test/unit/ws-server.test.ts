@@ -39,6 +39,7 @@ import {
 } from '../../mongo/events.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { attachWs, publishTurnFinal } from '../../ws/server.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
@@ -92,10 +93,11 @@ async function stopServer(params: {
 
 function waitForMessage(ws: WebSocket) {
   return new Promise<string>((resolve, reject) => {
+    const timeoutMs = resolveConfiguredTestTimeoutMs(2000);
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error('Timed out waiting for WS message'));
-    }, 2000);
+    }, timeoutMs);
 
     const onMessage = (data: RawData) => {
       cleanup();
@@ -116,7 +118,7 @@ function waitForMessage(ws: WebSocket) {
 }
 
 async function waitForSidebarSubscriptionReady(timeoutMs = 1000) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     if (query({ text: 'chat.ws.subscribe_sidebar' }).length > 0) {
       return;
@@ -144,10 +146,11 @@ function rawDataToString(data: RawData): string {
 
 function waitForClose(ws: WebSocket) {
   return new Promise<{ code: number; reason: string }>((resolve, reject) => {
+    const timeoutMs = resolveConfiguredTestTimeoutMs(1000);
     const timeout = setTimeout(() => {
       ws.removeAllListeners('close');
       reject(new Error('Timed out waiting for WS close'));
-    }, 1000);
+    }, timeoutMs);
 
     ws.once('close', (code, rawReason) => {
       clearTimeout(timeout);

@@ -435,7 +435,22 @@ const waitForTurns = async (
     if (predicate(turns)) return turns;
     await delay(20);
   }
-  throw new Error('Timed out waiting for flow turns');
+  const turns = memoryTurns.get(conversationId) ?? [];
+  const conversation = memoryConversations.get(conversationId);
+  throw new Error(
+    [
+      `Timed out waiting for flow turns for ${conversationId}`,
+      `turnCount=${turns.length}`,
+      `conversationFlags=${JSON.stringify(conversation?.flags ?? null)}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+    ].join(' | '),
+  );
 };
 
 const waitForFlowFinal = async (params: {
@@ -486,7 +501,16 @@ const waitForRuntimeCleanup = async (
     }
     await delay(25);
   }
-  throw new Error('Timed out waiting for flow runtime cleanup');
+  throw new Error(
+    [
+      `Timed out waiting for flow runtime cleanup for ${conversationId}`,
+      `inflight=${JSON.stringify(getInflight(conversationId) ?? null)}`,
+      `ownership=${JSON.stringify(getActiveRunOwnership(conversationId))}`,
+      `conversationFlags=${JSON.stringify(
+        memoryConversations.get(conversationId)?.flags ?? null,
+      )}`,
+    ].join(' | '),
+  );
 };
 
 const cleanupConversationRuntime = async (

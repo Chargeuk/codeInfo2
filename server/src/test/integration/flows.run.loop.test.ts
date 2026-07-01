@@ -517,7 +517,22 @@ const waitForTurns = async (
     if (predicate(turns)) return turns;
     await delay(20);
   }
-  throw new Error('Timed out waiting for flow turns');
+  const turns = memoryTurns.get(conversationId) ?? [];
+  const conversation = memoryConversations.get(conversationId);
+  throw new Error(
+    [
+      `Timed out waiting for flow turns for ${conversationId}`,
+      `turnCount=${turns.length}`,
+      `conversationFlags=${JSON.stringify(conversation?.flags ?? null)}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+    ].join(' | '),
+  );
 };
 
 const getAgentConversationId = (
@@ -3169,7 +3184,8 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         (items) =>
           items.filter(
             (turn) =>
-              turn.role === 'user' && turn.content.includes('Outer loop step.'),
+              turn.role === 'user' &&
+              turn.content.includes('Outer loop step.'),
           ).length ===
             outerCountAfterStop + 1 &&
           items.filter(
@@ -3184,7 +3200,8 @@ test('continue resume keeps its boundary marker until the next iteration makes p
           ).length === 1 &&
           items.filter(
             (turn) =>
-              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+              turn.role === 'user' &&
+              turn.content.includes('Exit outer loop?'),
           ).length === 1,
         15000,
       );

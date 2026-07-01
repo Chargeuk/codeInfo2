@@ -36,6 +36,7 @@ import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
 } from '../support/mockCopilotSdk.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
@@ -121,6 +122,26 @@ const restoreEnvVar = (key: string, value: string | undefined) => {
   }
   delete process.env[key];
 };
+
+async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs = 4000,
+  describe?: () => string,
+): Promise<void> {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const deadline = Date.now() + resolvedTimeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(
+    describe
+      ? `Timed out waiting for test condition after ${resolvedTimeoutMs}ms | ${describe()}`
+      : `Timed out waiting for test condition after ${resolvedTimeoutMs}ms`,
+  );
+}
 
 test('POST /flows/:flowName/run validates working_folder', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -588,10 +609,7 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      if (calls.length >= 1) break;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await waitForCondition(() => calls.length >= 1);
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.flags.workingDirectoryOverride, expectedMounted);
@@ -664,10 +682,7 @@ test('flow-owned llm steps default to the shared execution root when working_fol
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      if (calls.length >= 1) break;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await waitForCondition(() => calls.length >= 1);
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.message, 'Say hello from a flow step.');
@@ -821,11 +836,27 @@ test('validated working_folder also drives dedicated flow reingest target workin
       .expect(202);
 
     assert.equal(res.body.status, 'started');
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      const turns = memoryTurns.get('flow-working-folder-reingest') ?? [];
-      if (turns.length >= 2) break;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await waitForCondition(
+      () => {
+        const turns = memoryTurns.get('flow-working-folder-reingest') ?? [];
+        return turns.length >= 2;
+      },
+      4000,
+      () =>
+        JSON.stringify({
+          calls,
+          conversationFlags:
+            memoryConversations.get('flow-working-folder-reingest')?.flags ?? null,
+          recentTurns: (memoryTurns.get('flow-working-folder-reingest') ?? [])
+            .slice(-8)
+            .map((turn) => ({
+              role: turn.role,
+              status: turn.status,
+              content: turn.content,
+              toolCalls: turn.toolCalls,
+            })),
+        }),
+    );
 
     const turns = memoryTurns.get('flow-working-folder-reingest') ?? [];
     assert.deepEqual(calls, [workingFolder]);
@@ -913,10 +944,7 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 200; attempt += 1) {
-      if (calls.length >= 1) break;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await waitForCondition(() => calls.length >= 1);
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.message, 'Say hello from a flow step.');
@@ -1042,10 +1070,7 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      if (capturedOptions.length >= 1) break;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await waitForCondition(() => capturedOptions.length >= 1);
 
     assert.equal(capturedOptions.length, 1);
     assert.equal(capturedOptions[0]?.env?.CODEINFO_ROOT, tempRoot);
@@ -1109,13 +1134,28 @@ test('break steps inherit CODEINFO_ROOT and the selected working_folder', async 
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      const breakCalls = calls.filter((call) =>
-        call.message.includes('Answer with JSON only:'),
-      );
-      if (breakCalls.length >= 2) break;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await waitForCondition(
+      () => {
+        const breakCalls = calls.filter((call) =>
+          call.message.includes('Answer with JSON only:'),
+        );
+        return breakCalls.length >= 2;
+      },
+      4000,
+      () =>
+        JSON.stringify({
+          calls,
+          conversationFlags:
+            memoryConversations.get('flow-break-working-folder')?.flags ?? null,
+          recentTurns: (memoryTurns.get('flow-break-working-folder') ?? [])
+            .slice(-8)
+            .map((turn) => ({
+              role: turn.role,
+              status: turn.status,
+              content: turn.content,
+            })),
+        }),
+    );
 
     const breakCalls = calls.filter((call) =>
       call.message.includes('Answer with JSON only:'),

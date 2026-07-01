@@ -95,6 +95,7 @@ const repoRoot = path.resolve(
 const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 10000,
+  describe?: () => string,
 ): Promise<void> => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
@@ -102,7 +103,11 @@ const waitFor = async (
     if (predicate()) return;
     await delay(20);
   }
-  throw new Error('Timed out waiting for condition');
+  throw new Error(
+    describe
+      ? `Timed out waiting for condition | ${describe()}`
+      : 'Timed out waiting for condition',
+  );
 };
 
 const waitForAssistantStatus = async (
@@ -145,6 +150,16 @@ const waitForAssistantStatus = async (
   );
 };
 
+const describeConversationState = (conversationId: string): string =>
+  JSON.stringify({
+    flags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+    })),
+  });
+
 const waitForActiveSubflows = async (conversationId: string) => {
   await waitFor(() => {
     const conversation = memoryConversations.get(conversationId);
@@ -155,7 +170,7 @@ const waitForActiveSubflows = async (conversationId: string) => {
           | undefined
       )?.flow?.activeSubflows,
     );
-  });
+  }, 10000, () => `conversationId=${conversationId} | ${describeConversationState(conversationId)}`);
   const conversation = memoryConversations.get(conversationId);
   return ((
     conversation?.flags as {
@@ -182,7 +197,7 @@ const waitForActiveSubflowCount = async (
           | undefined
       )?.flow?.activeSubflows ?? [];
     return Array.isArray(activeSubflows) && activeSubflows.length === expectedCount;
-  });
+  }, 10000, () => `conversationId=${conversationId} expectedCount=${expectedCount} | ${describeConversationState(conversationId)}`);
   return waitForActiveSubflows(conversationId);
 };
 
@@ -196,7 +211,7 @@ const waitForConversationAssistantStatus = async (
     return turns.some(
       (turn) => turn.role === 'assistant' && turn.status === status,
     );
-  }, timeoutMs);
+  }, timeoutMs, () => `conversationId=${conversationId} status=${status} | ${describeConversationState(conversationId)}`);
 };
 
 const writeFlowFile = async (params: {

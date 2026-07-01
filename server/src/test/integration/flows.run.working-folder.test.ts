@@ -517,15 +517,29 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
     assert.equal(res.body.status, 'started');
 
     let childConversationId: string | undefined;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      childConversationId = (
-        memoryConversations.get('flow-child-working-folder')?.flags?.flow as
-          | { agentConversations?: Record<string, string> }
-          | undefined
-      )?.agentConversations?.['coding_agent:basic'];
-      if (childConversationId) break;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await waitForCondition(
+      () => {
+        childConversationId = (
+          memoryConversations.get('flow-child-working-folder')?.flags?.flow as
+            | { agentConversations?: Record<string, string> }
+            | undefined
+        )?.agentConversations?.['coding_agent:basic'];
+        return Boolean(childConversationId);
+      },
+      4000,
+      () =>
+        JSON.stringify({
+          conversationFlags:
+            memoryConversations.get('flow-child-working-folder')?.flags ?? null,
+          recentTurns: (memoryTurns.get('flow-child-working-folder') ?? [])
+            .slice(-8)
+            .map((turn) => ({
+              role: turn.role,
+              status: turn.status,
+              content: turn.content,
+            })),
+        }),
+    );
 
     assert.ok(childConversationId);
     assert.equal(

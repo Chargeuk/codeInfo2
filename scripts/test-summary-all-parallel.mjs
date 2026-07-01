@@ -24,14 +24,8 @@ const sharedParallelBudget = allocateWeightedParallelBudget({
     'server:cucumber': 1,
   },
 });
-const serverUnitConcurrency = Math.min(
-  sharedParallelBudget.workerCounts['server:unit'],
-  4,
-);
-const serverUnitConcurrencySource =
-  serverUnitConcurrency === sharedParallelBudget.workerCounts['server:unit']
-    ? sharedParallelBudget.source
-    : `${sharedParallelBudget.source}-server-unit-cap-4`;
+const serverUnitConcurrency = sharedParallelBudget.workerCounts['server:unit'];
+const serverUnitConcurrencySource = sharedParallelBudget.source;
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -57,9 +51,9 @@ Shared worker budget:
   - server:unit weight 12
   - client weight 3
   - e2e weight 3
-  - server:unit is capped at 4 workers in this shared-build wrapper and runs
-    with CODEINFO_TEST_TIMEOUT_MS=60000 so the concurrent server-unit leg gets
-    a larger absolute wait budget beside client, cucumber, and e2e
+  - server:unit uses the computed shared budget directly and runs with
+    CODEINFO_TEST_TIMEOUT_MS=60000 so the concurrent server-unit leg gets a
+    larger absolute wait budget beside client, cucumber, and e2e
 `);
   process.exit(0);
 }

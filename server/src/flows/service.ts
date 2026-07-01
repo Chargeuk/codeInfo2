@@ -8290,6 +8290,7 @@ export async function startFlowRun(
   let childExecutionBackfills: string[] = [];
   let completedSuccessfully = false;
   let acceptedStartResult: FlowRunStartResult | null = null;
+  let effectiveResumeStepPath = resumeStepPath;
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -8374,14 +8375,18 @@ export async function startFlowRun(
         await validateResumeAgentConversations(resumeState);
     }
     executionId = resumeState?.executionId ?? executionId;
+    effectiveResumeStepPath =
+      resumeStepPath && !resumeState?.wait && resumeState?.stepPath
+        ? [...resumeState.stepPath]
+        : resumeStepPath;
 
     const runtimeIdentityStep = findRuntimeIdentityStep(
       flow.steps,
-      resumeStepPath,
+      effectiveResumeStepPath,
     );
     const immediateResumeBoundaryStep = findImmediateResumeBoundaryStep(
       flow.steps,
-      resumeStepPath,
+      effectiveResumeStepPath,
     );
     const shouldBootstrapRuntimeIdentity =
       !resumeStepPath || stepRequiresProviderBootstrap(immediateResumeBoundaryStep);
@@ -8609,7 +8614,7 @@ export async function startFlowRun(
         source: params.source,
         chatFactory: params.chatFactory,
         resumeState,
-        resumeStepPath,
+        resumeStepPath: effectiveResumeStepPath,
         customTitle: params.customTitle,
         runToken,
         onStopUnwindCheckpoint: params.onStopUnwindCheckpoint,

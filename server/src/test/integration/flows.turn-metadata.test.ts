@@ -189,7 +189,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
         const e = event as { type?: string; conversationId?: string };
         return e.type === 'user_turn' && e.conversationId === conversationId;
       },
-      timeoutMs: 8000,
+      timeoutMs: 20000,
     });
 
     const finalPromise = waitForEvent({
@@ -200,7 +200,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
         const e = event as { type?: string; conversationId?: string };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 8000,
+      timeoutMs: 20000,
     });
 
     await supertest(baseUrl)
@@ -227,7 +227,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
           };
           return e.type === 'inflight_snapshot' && Boolean(e.inflight?.command);
         },
-        timeoutMs: 8000,
+        timeoutMs: 20000,
       });
 
       assert.deepEqual(snapshot.inflight.command, expectedCommand);

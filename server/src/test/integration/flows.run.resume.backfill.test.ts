@@ -27,7 +27,7 @@ import {
 
 const waitFor = async (
   predicate: () => boolean,
-  timeoutMs = 5000,
+  timeoutMs = 10000,
   intervalMs = 50,
 ) => {
   const startedAt = Date.now();

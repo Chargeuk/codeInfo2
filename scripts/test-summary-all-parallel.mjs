@@ -24,6 +24,14 @@ const sharedParallelBudget = allocateWeightedParallelBudget({
     'server:cucumber': 1,
   },
 });
+const serverUnitConcurrency = Math.min(
+  sharedParallelBudget.workerCounts['server:unit'],
+  1,
+);
+const serverUnitConcurrencySource =
+  serverUnitConcurrency === sharedParallelBudget.workerCounts['server:unit']
+    ? sharedParallelBudget.source
+    : `${sharedParallelBudget.source}-server-unit-cap-1`;
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -49,6 +57,8 @@ Shared worker budget:
   - server:unit weight 12
   - client weight 3
   - e2e weight 3
+  - server:unit is capped at 1 worker in this shared-build wrapper so the
+    concurrent server-unit leg stays stable beside client, cucumber, and e2e
 `);
   process.exit(0);
 }
@@ -71,8 +81,8 @@ console.log(
   `[all:parallel] ${formatWorkerSummaryLine({
     label: 'server_unit_concurrency',
     availableCores: sharedParallelBudget.availableCores,
-    workerCount: sharedParallelBudget.workerCounts['server:unit'],
-    source: sharedParallelBudget.source,
+    workerCount: serverUnitConcurrency,
+    source: serverUnitConcurrencySource,
   })}`,
 );
 console.log(
@@ -148,9 +158,7 @@ const results = await runCommandsInParallel([
     cwd: rootDir,
     env: {
       ...process.env,
-      CODEINFO_SERVER_UNIT_CONCURRENCY: String(
-        sharedParallelBudget.workerCounts['server:unit'],
-      ),
+      CODEINFO_SERVER_UNIT_CONCURRENCY: String(serverUnitConcurrency),
     },
   },
   {

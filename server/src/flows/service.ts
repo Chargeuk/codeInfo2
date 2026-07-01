@@ -4896,7 +4896,7 @@ async function runFlowUnlocked(params: {
   }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
-}): Promise<'ok' | 'paused' | 'failed'> {
+}): Promise<'ok' | 'paused' | 'stopped' | 'failed'> {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
   const runtimeState = hydrateFlowAgentState(params.resumeState ?? null);
@@ -8179,6 +8179,13 @@ async function runFlowUnlocked(params: {
       });
       return 'paused';
     }
+    if (outcome === 'stopped') {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.return.stopped',
+        conversationId: params.conversationId,
+      });
+      return 'stopped';
+    }
     if (outcome !== 'ok') {
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'runFlowUnlocked.return.non_ok',
@@ -8610,7 +8617,10 @@ export async function startFlowRun(
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
       completedSuccessfully = runOutcome === 'ok';
-      failedTerminally = runOutcome !== 'ok' && runOutcome !== 'paused';
+      failedTerminally =
+        runOutcome !== 'ok' &&
+        runOutcome !== 'paused' &&
+        runOutcome !== 'stopped';
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
         conversationId,

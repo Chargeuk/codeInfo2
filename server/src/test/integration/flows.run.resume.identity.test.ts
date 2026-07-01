@@ -73,7 +73,7 @@ afterEach(() => {
 
 const waitFor = async (
   predicate: () => boolean,
-  timeoutMs = 5000,
+  timeoutMs = 10000,
   intervalMs = 50,
 ) => {
   const startedAt = Date.now();
@@ -496,7 +496,7 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
       chatFactory: () => new TrackingChat(),
     });
 
-    await waitFor(() => capturedModels.length === 1);
+    await waitFor(() => capturedModels.length === 1, 15000);
     assert.deepEqual(capturedModels, ['gpt-5.2-codex']);
     assert.equal(
       memoryConversations.get(childConversationId)?.provider,

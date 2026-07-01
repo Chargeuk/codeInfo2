@@ -1226,6 +1226,11 @@ async function executeCodebaseQuestion(
       providerStates: runtimeProviderStates,
       loadRuntimeConfig: loadProviderRuntimeConfig,
       selectedEndpointId: getSavedEndpointId(existingConversation),
+      respectConfiguredEndpoint: !(
+        pinSavedConversationExecutionIdentity &&
+        savedConversationProvider !== 'codex' &&
+        !getSavedEndpointId(existingConversation)
+      ),
       allowCrossProviderFallback: !explicitProviderSelected,
       failInPlaceOnEndpointUnavailable: Boolean(
         pinSavedConversationExecutionIdentity &&

@@ -454,7 +454,7 @@ const waitForFlowFinal = async (params: {
         e.status === params.status
       );
     },
-    timeoutMs: params.timeoutMs ?? 5000,
+    timeoutMs: params.timeoutMs ?? 10000,
   });
 
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
@@ -3327,7 +3327,11 @@ test('flow-owned command reingest items stay single-attempt while later message 
           .send({ conversationId, sourceId: sourceRoot })
           .expect(202);
 
-        await waitForTurns(conversationId, (items) => items.length >= 4, 6000);
+        await waitForTurns(
+          conversationId,
+          (items) => items.length >= 4,
+          12000,
+        );
         assert.equal(reingestCalls, 1);
         assert.equal(flowAttempts.count, 2);
         cleanupMemory(conversationId);

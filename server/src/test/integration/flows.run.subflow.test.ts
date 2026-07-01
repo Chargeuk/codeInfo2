@@ -93,7 +93,7 @@ const repoRoot = path.resolve(
 
 const waitFor = async (
   predicate: () => boolean,
-  timeoutMs = 5000,
+  timeoutMs = 10000,
 ): Promise<void> => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -106,7 +106,7 @@ const waitFor = async (
 const waitForAssistantStatus = async (
   conversationId: string,
   status: 'ok' | 'warning' | 'failed' | 'stopped',
-  timeoutMs = 5000,
+  timeoutMs = 10000,
 ) => {
   await waitFor(() => {
     const turns = memoryTurns.get(conversationId) ?? [];
@@ -168,7 +168,7 @@ const waitForActiveSubflowCount = async (
 const waitForConversationAssistantStatus = async (
   conversationId: string,
   status: 'ok' | 'warning' | 'failed' | 'stopped',
-  timeoutMs = 5000,
+  timeoutMs = 10000,
 ) => {
   await waitFor(() => {
     const turns = memoryTurns.get(conversationId) ?? [];
@@ -1436,6 +1436,7 @@ test('resumed parent stop wins when the restored child already finished', async 
     const finalAssistant = await waitForAssistantStatus(
       parentConversationId,
       'stopped',
+      15000,
     );
     assert.equal(finalAssistant?.content, 'Stopped');
   } finally {

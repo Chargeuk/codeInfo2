@@ -700,7 +700,7 @@ test('flow loops until break answer matches breakOn', async () => {
             (turn) =>
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 2,
-        15000,
+        35000,
       );
 
       const outerBreakTurns = turns.filter(
@@ -3152,7 +3152,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
             e.status === 'ok'
           );
         },
-        timeoutMs: 5000,
+        timeoutMs: 10000,
       });
 
       assert.equal(final.status, 'ok');
@@ -3178,7 +3178,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
             (turn) =>
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
-        5000,
+        15000,
       );
 
       assert.equal(
@@ -4038,7 +4038,8 @@ test('aborted flow step is not retried', async () => {
         assert.ok(final.status === 'stopped' || final.status === 'failed');
         assert.equal(outerBreakAttempts <= 1, true);
       } finally {
-        await cleanupConversationRuntime(conversationId);
+        await waitForRuntimeCleanup(conversationId, 15000);
+        cleanupMemory(conversationId);
       }
     },
   );

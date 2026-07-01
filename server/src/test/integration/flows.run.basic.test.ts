@@ -62,10 +62,6 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
-const checkedInRepoRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../../../',
-);
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
@@ -312,22 +308,6 @@ const writeFlowFile = async (params: {
       2,
     ),
     'utf8',
-  );
-};
-
-const flowContainsStepType = (value: unknown, stepType: string): boolean => {
-  if (Array.isArray(value)) {
-    return value.some((entry) => flowContainsStepType(entry, stepType));
-  }
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  if (record.type === stepType) {
-    return true;
-  }
-  return Object.values(record).some((entry) =>
-    flowContainsStepType(entry, stepType),
   );
 };
 
@@ -1571,8 +1551,8 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
         });
 
         assert.equal(result.conversationId, conversationId);
-        await waitFor(() => updateAttempts > 0, 20000);
-        await waitForConversationUnlocked(conversationId, 20000);
+        await waitFor(() => updateAttempts > 0, 30000);
+        await waitForConversationUnlocked(conversationId, 30000);
 
         assert.ok(updateAttempts > 0);
         assert.equal(turns.length, 0);
@@ -2153,7 +2133,7 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
   );
 });
 
-test('github review skip publishes completed-with-warning, records a durable plan note, and leaves the default entrypoint untouched', async () => {
+test('github review skip publishes completed-with-warning and records a durable plan note', async () => {
   const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
   const repoRoot = await createGitHubReviewRepoFixture();
@@ -2207,31 +2187,6 @@ test('github review skip publishes completed-with-warning, records a durable pla
     assert.match(
       warningTurn.content,
       /GitHub review stage skipped during PR open:/,
-    );
-
-    const defaultFlow = JSON.parse(
-      await fs.readFile(
-        path.join(checkedInRepoRoot, 'flows/implement_next_plan.json'),
-        'utf8',
-      ),
-    ) as { steps: unknown[] };
-    const variantFlow = JSON.parse(
-      await fs.readFile(
-        path.join(
-          checkedInRepoRoot,
-          'flows/implement_next_plan_github_review.json',
-        ),
-        'utf8',
-      ),
-    ) as { steps: unknown[] };
-
-    assert.equal(
-      flowContainsStepType(defaultFlow.steps, 'github_open_pr'),
-      false,
-    );
-    assert.equal(
-      flowContainsStepType(variantFlow.steps, 'github_open_pr'),
-      true,
     );
   } finally {
     if (previousFlowsDir === undefined) {

@@ -2863,3 +2863,69 @@ Adopting newer pull request #212 because it is later than the persisted expected
    The hardest part was keeping long-running GitHub review executions deterministic after waits, restarts, and retries. The runtime now treats execution-scoped scratch and handoff files as the authority, rebuilds or validates those paths before reading them again, re-enters same-branch PR reconciliation when resumed state drifts, and keeps the review loop honest by separating inline stale-state cleanup from the final broad revalidation pass.
 4. What a reviewer should take particular interest in.
    Reviewers should focus on `server/src/flows/service.ts`, `server/src/flows/githubReview.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, and the `/flows` proof owners to confirm the resumed GitHub review authority, PR-selection bounds, and branch-exclusion proof surfaces still match the intended Story 60 contract. The durable closeout evidence now also includes the curated manual-proof bundle under `codeInfoStatus/manual-proof/0000060/`, which is the tracked repository-owned snapshot of the retained final manual-proof artifacts.
+
+### Task 31. Restore Authoritative Loop-Continue Resume Position Under High-Concurrency Validation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 30`
+- Task Status: `__done__`
+- Git Commits:
+  - `524dfc2b DEV-[60] - fix flow continue resume state`
+
+#### Overview
+
+Post-merge validation showed that the previously suspected “timing” failure in the flow loop resume suite was actually a real runtime state bug. Under high-concurrency `server:unit` runs, the resumed `continue` path could trust the originally requested `resumeStepPath` even after persisted flow state had already advanced, which let the runtime skip the next outer-loop iteration and duplicate later post-continue and break work.
+
+This task repairs that state-authority defect in the flow runtime rather than masking it with lower concurrency or larger waits. The repair must keep Story 60's existing resume and persisted-wait behavior intact while restoring one authoritative resume position for same-execution resumes, and it must prove that the canonical `npm run test:summary:all:parallel` wrapper can safely return to computed machine-based parallelism.
+
+- Highest-risk invariant: resumed loop-control execution must honor the latest persisted flow state for the current execution and must not replay later loop-body steps while skipping the next required outer-loop iteration boundary.
+- Likely blocker family: `product or story seam`, because the defect crosses persisted resume state, loop-control sequencing, runtime bootstrap, and high-concurrency proof behavior.
+
+#### Task Exit Criteria
+
+- Same-execution resumed flow runs use the latest persisted resume position when deciding where execution should continue, instead of blindly trusting the originally requested `resumeStepPath`.
+- The `continue resume keeps its boundary marker until the next iteration makes progress` proof stays green under repeated targeted reruns and under broad high-concurrency `server:unit` execution.
+- The canonical `npm run test:summary:all:parallel` wrapper no longer needs the emergency `server:unit` cap at `4` workers and can use the computed machine-based concurrency again.
+- Final proof shows the runtime fix, not just wider timeouts, is what restored reliable uncapped parallel validation.
+
+#### Subtasks
+
+1. [x] In `server/src/flows/service.ts`, patch `startFlowRun(...)` so resumed same-execution flow runs derive one authoritative effective resume path from the latest persisted flow state before runtime identity selection, immediate resume-boundary selection, and the unlocked flow run begin; preserve existing fresh-run, wait-state, and provider-bootstrap behavior while removing stale requested-path authority.
+2. [x] In `server/src/test/integration/flows.run.loop.test.ts`, keep the focused behavioral proof for `continue resume keeps its boundary marker until the next iteration makes progress` as the primary regression owner for this runtime seam, and confirm the repaired assertion still proves the real visible loop contract rather than reverting to brittle checked-in flow-file structure checks or weaker internal-only snapshots.
+3. [x] In `scripts/test-summary-all-parallel.mjs`, restore the canonical all-tests wrapper to the computed `server:unit` concurrency path once the runtime seam is repaired, and keep the explicit `CODEINFO_TEST_TIMEOUT_MS=60000` override for the shared full-suite path so the all-suite proof continues using the approved absolute wait budget without retaining the emergency worker cap.
+4. [x] In `server/src/flows/service.ts` and `scripts/test-summary-all-parallel.mjs`, make the smallest code edits needed so the runtime repair and restored all-suite concurrency remain lint-clean without broadening into unrelated cleanup.
+5. [x] In the same Task 31 repair files, make the smallest formatting-only edits needed so the repaired runtime seam and restored wrapper behavior satisfy the repository format check without changing behavior.
+
+#### Proof Matrix
+
+1. Requirement: resumed loop-continue execution must use the latest persisted flow position for the current execution before choosing the next runtime boundary.
+   Implementation owners: `server/src/flows/service.ts`.
+   Proof owners: `server/src/test/integration/flows.run.loop.test.ts` with the focused `continue resume keeps its boundary marker until the next iteration makes progress` case.
+
+2. Requirement: the loop-resume repair must hold under broader loop-runtime coverage, not only one isolated test.
+   Implementation owners: `server/src/flows/service.ts`.
+   Proof owners: `server/src/test/integration/flows.run.loop.test.ts` run as a full file.
+
+3. Requirement: the repaired runtime seam must be strong enough to support high-concurrency server-unit validation and the uncapped canonical all-suite wrapper.
+   Implementation owners: `server/src/flows/service.ts`; `scripts/test-summary-all-parallel.mjs`.
+   Proof owners: high-concurrency `test:summary:server:unit` and `npm run test:summary:all:parallel`.
+
+#### Testing
+
+1. [x] Run `CODEINFO_TEST_TIMEOUT_MS=60000 npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "continue resume keeps its boundary marker until the next iteration makes progress" --skip-build` from the repository root, then repeat that focused proof multiple times so the repaired runtime seam is proven beyond one green run.
+2. [x] Run `CODEINFO_TEST_TIMEOUT_MS=60000 npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --skip-build` from the repository root so the repaired loop-runtime seam passes on its broader focused proof home.
+3. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=12 CODEINFO_TEST_TIMEOUT_MS=60000 npm run test:summary:server:unit -- --skip-build` from the repository root so the repaired runtime seam proves stable under the higher-concurrency server-unit setting that previously exposed the defect.
+4. [x] Run `npm run test:summary:all:parallel` from the repository root with the restored computed `server:unit` concurrency so the canonical full automated suite proves the uncapped shared-build path end to end.
+5. [x] Run `npm run lint` from the repository root for the Task 31 repair surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+6. [x] Run `npm run format:check` from the repository root for the Task 31 repair surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Patched `server/src/flows/service.ts` so resumed same-execution runs now derive `effectiveResumeStepPath` from the latest persisted flow state when appropriate; this removed stale requested-path authority that was letting resumed loop-control execution skip the next required outer iteration and duplicate later post-continue and break work.
+- Kept the focused behavioral regression proof in `server/src/test/integration/flows.run.loop.test.ts` as the authoritative owner for this seam, because the failure turned out to be a real runtime state bug rather than a pure timeout flake.
+- Restored `scripts/test-summary-all-parallel.mjs` to the computed machine-based `server:unit` concurrency path after proving the runtime bug was fixed, while preserving the all-suite-only absolute wait override `CODEINFO_TEST_TIMEOUT_MS=60000`.
+- The focused failing loop-resume test passed once after the repair and then passed `10` repeated reruns, which showed the repaired seam was no longer dependent on one lucky run.
+- `CODEINFO_TEST_TIMEOUT_MS=60000 npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --skip-build` passed with `38/38`, confirming the fix did not regress neighboring loop-runtime behaviors.
+- `CODEINFO_SERVER_UNIT_CONCURRENCY=12 CODEINFO_TEST_TIMEOUT_MS=60000 npm run test:summary:server:unit -- --skip-build` passed with `2535/2535`, proving the repaired runtime seam held under the higher-concurrency setting that had previously exposed the defect.
+- `npm run test:summary:all:parallel` passed uncapped with `client 900/900`, `server unit 2535/2535`, `server cucumber 133/133`, and `e2e 77/77`, which proved the canonical full-suite wrapper could safely return to computed machine-based parallelism.
+- `npm run lint` and `npm run format:check` both completed cleanly for the final Task 31 repair surface.

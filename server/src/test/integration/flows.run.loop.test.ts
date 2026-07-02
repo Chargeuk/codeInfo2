@@ -3233,6 +3233,37 @@ test('continue resume keeps its boundary marker until the next iteration makes p
               turn.content.includes('Exit outer loop?'),
           ).length === 1,
         15000,
+        () =>
+          JSON.stringify({
+            afterStop: {
+              outerCountAfterStop,
+              continueCountAfterStop,
+              postContinueCountAfterStop,
+              breakCountAfterStop,
+            },
+            current: {
+              outerCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Outer loop step.'),
+              ).length,
+              continueCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Skip remaining loop steps?'),
+              ).length,
+              postContinueCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Reached post-continue step.'),
+              ).length,
+              breakCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Exit outer loop?'),
+              ).length,
+            },
+          }),
       );
 
       assert.equal(

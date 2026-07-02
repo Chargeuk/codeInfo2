@@ -5049,6 +5049,23 @@ async function runFlowUnlocked(params: {
     pendingLoopControl = null;
     continueBoundaryLoopKey = null;
   };
+  const stopAfterSuccessfulStepIfPendingCancel = async (stepParams: {
+    checkpoint: string;
+    detail: string;
+  }): Promise<boolean> => {
+    const pendingCancel = consumePendingConversationCancel({
+      conversationId: params.conversationId,
+      runToken: params.runToken,
+    });
+    if (!pendingCancel) return false;
+    await params.onStopUnwindCheckpoint?.({
+      checkpoint: stepParams.checkpoint,
+      conversationId: params.conversationId,
+      detail: stepParams.detail,
+    });
+    await persistRuntimeResumeState(lastCompletedStepPath);
+    return true;
+  };
 
   if (resumeStepPath && activeWait) {
     if (activeWait.executionId !== params.executionId) {
@@ -7886,7 +7903,6 @@ async function runFlowUnlocked(params: {
       }
 
       const nextPath = [...stepPath, index];
-
       if (resumePathRemaining && resumeIndex === index) {
         if (resumePathRemaining.length === 1) {
           resumePathRemaining = null;
@@ -7939,6 +7955,14 @@ async function runFlowUnlocked(params: {
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
+        if (
+          await stopAfterSuccessfulStepIfPendingCancel({
+            checkpoint: 'runSteps.return.stop.pending_cancel.after_llm',
+            detail: `step=${command.stepIndex} loopDepth=${loopStack.length}`,
+          })
+        ) {
+          return 'stopped';
+        }
         await persistRuntimeResumeState(lastCompletedStepPath);
         continue;
       }
@@ -8019,6 +8043,17 @@ async function runFlowUnlocked(params: {
           );
         }
         lastCompletedStepPath = nextPath;
+        if (!shouldContinue) {
+          clearContinueBoundaryForActiveLoop();
+        }
+        if (
+          await stopAfterSuccessfulStepIfPendingCancel({
+            checkpoint: 'runSteps.return.stop.pending_cancel.after_continue',
+            detail: `step=${command.stepIndex} shouldContinue=${String(shouldContinue)} loopDepth=${loopStack.length}`,
+          })
+        ) {
+          return 'stopped';
+        }
         await persistRuntimeResumeState(lastCompletedStepPath);
         if (shouldContinue) return 'continue';
         continue;

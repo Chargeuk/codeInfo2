@@ -659,6 +659,7 @@ const cleanupConversationRuntime = async (
 const waitForRuntimeCleanup = async (
   conversationId: string,
   timeoutMs = 8000,
+  describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
@@ -674,7 +675,12 @@ const waitForRuntimeCleanup = async (
   const inflight = getInflight(conversationId);
   const ownership = getActiveRunOwnership(conversationId);
   throw new Error(
-    `Timed out waiting for flow runtime cleanup (inflight=${String(Boolean(inflight))}, ownership=${String(Boolean(ownership))}, inflightId=${inflight?.inflightId ?? 'none'}, runToken=${ownership?.runToken ?? 'none'})`,
+    [
+      `Timed out waiting for flow runtime cleanup (inflight=${String(Boolean(inflight))}, ownership=${String(Boolean(ownership))}, inflightId=${inflight?.inflightId ?? 'none'}, runToken=${ownership?.runToken ?? 'none'})`,
+      describe ? `details=${describe()}` : '',
+    ]
+      .filter(Boolean)
+      .join(' | '),
   );
 };
 
@@ -748,6 +754,18 @@ test('flow loops until break answer matches breakOn', async () => {
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 2,
         35000,
+        () =>
+          JSON.stringify({
+            outerBreakCount,
+            state: JSON.parse(
+              describeFlowRuntimeState(conversationId, [
+                'coding_agent:outer',
+                'coding_agent:inner',
+                'coding_agent:inner-break',
+                'coding_agent:outer-break',
+              ]),
+            ),
+          }),
       );
 
       const outerBreakTurns = turns.filter(
@@ -4088,6 +4106,57 @@ test('aborted flow step is not retried', async () => {
   const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
   process.env.FLOW_AND_COMMAND_RETRIES = '3';
   let outerBreakAttempts = 0;
+  const cleanupEvents: Array<{
+    label: string;
+    conversationId: string;
+    detail?: string;
+    state: RuntimeCleanupSnapshot;
+  }> = [];
+  const ownershipReleaseCalls: OwnershipReleaseCall[] = [];
+  const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
+  const recordCleanupEvent = (
+    label: string,
+    conversationId: string,
+    detail?: string,
+  ) => {
+    cleanupEvents.push({
+      label,
+      conversationId,
+      detail,
+      state: snapshotRuntimeCleanupState(conversationId),
+    });
+    if (cleanupEvents.length > 20) {
+      cleanupEvents.splice(0, cleanupEvents.length - 20);
+    }
+  };
+  const recordStopUnwindCheckpoint = (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => {
+    stopUnwindCheckpoints.push({
+      checkpoint: params.checkpoint,
+      conversationId: params.conversationId,
+      detail: params.detail,
+      state: snapshotRuntimeCleanupState(params.conversationId),
+    });
+    if (stopUnwindCheckpoints.length > 20) {
+      stopUnwindCheckpoints.splice(0, stopUnwindCheckpoints.length - 20);
+    }
+  };
+  const describeAbortedRetryState = (conversationId: string) =>
+    JSON.stringify({
+      outerBreakAttempts,
+      flowState: JSON.parse(describeFlowRuntimeState(conversationId)),
+      recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+      })),
+      cleanupEvents,
+      ownershipReleaseCalls,
+      stopUnwindCheckpoints,
+    });
   await withFlowServer(
     (message) => {
       if (message.includes('Say hello from a flow step.')) {
@@ -4132,9 +4201,46 @@ test('aborted flow step is not retried', async () => {
         assert.ok(final.status === 'stopped' || final.status === 'failed');
         assert.equal(outerBreakAttempts <= 1, true);
       } finally {
-        await waitForRuntimeCleanup(conversationId, 15000);
+        await waitForRuntimeCleanup(
+          conversationId,
+          15000,
+          () => describeAbortedRetryState(conversationId),
+        );
         cleanupMemory(conversationId);
       }
+    },
+    {
+      cleanupInflightFn: (params) => {
+        recordCleanupEvent(
+          'before cleanupInflightFn',
+          params.conversationId,
+          `inflightId=${params.inflightId ?? 'none'}`,
+        );
+        cleanupInflight(params);
+        recordCleanupEvent(
+          'after cleanupInflightFn',
+          params.conversationId,
+          `inflightId=${params.inflightId ?? 'none'}`,
+        );
+      },
+      releaseConversationLockFn: (conversationId, expectedRunToken) => {
+        const beforeState = snapshotRuntimeCleanupState(conversationId);
+        const released = releaseConversationLock(conversationId, expectedRunToken);
+        const afterState = snapshotRuntimeCleanupState(conversationId);
+        ownershipReleaseCalls.push({
+          expectedRunToken,
+          released,
+          beforeState,
+          afterState,
+        });
+        if (ownershipReleaseCalls.length > 12) {
+          ownershipReleaseCalls.splice(0, ownershipReleaseCalls.length - 12);
+        }
+        return released;
+      },
+      onStopUnwindCheckpoint: (params) => {
+        recordStopUnwindCheckpoint(params);
+      },
     },
   );
   if (previousRetries === undefined) {

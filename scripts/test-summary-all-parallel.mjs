@@ -24,8 +24,14 @@ const sharedParallelBudget = allocateWeightedParallelBudget({
     'server:cucumber': 1,
   },
 });
-const serverUnitConcurrency = sharedParallelBudget.workerCounts['server:unit'];
-const serverUnitConcurrencySource = sharedParallelBudget.source;
+const serverUnitConcurrency = Math.min(
+  sharedParallelBudget.workerCounts['server:unit'],
+  2,
+);
+const serverUnitConcurrencySource =
+  serverUnitConcurrency === sharedParallelBudget.workerCounts['server:unit']
+    ? sharedParallelBudget.source
+    : 'max-two-cap';
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {

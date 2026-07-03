@@ -136,15 +136,8 @@ const waitForAssistantStatus = async (
   throw new Error(
     [
       `Timed out waiting for assistant status ${status} for ${conversationId}`,
-      `conversationFlags=${JSON.stringify(
-        memoryConversations.get(conversationId)?.flags ?? null,
-      )}`,
-      `recentTurns=${JSON.stringify(
-        turns.slice(-8).map((turn) => ({
-          role: turn.role,
-          status: turn.status,
-          content: turn.content,
-        })),
+      `conversationState=${describeConversationStateWithActiveSubflows(
+        conversationId,
       )}`,
     ].join(' | '),
   );
@@ -159,6 +152,30 @@ const describeConversationState = (conversationId: string): string =>
       content: turn.content,
     })),
   });
+
+const describeConversationStateWithActiveSubflows = (
+  conversationId: string,
+): string => {
+  const base = JSON.parse(describeConversationState(conversationId)) as {
+    flags?: { flow?: { activeSubflows?: Array<{ conversationId?: string }> } };
+  };
+  const activeSubflows = base.flags?.flow?.activeSubflows ?? [];
+  return JSON.stringify({
+    ...base,
+    activeSubflows: activeSubflows.map((subflow) => {
+      const childConversationId =
+        typeof subflow?.conversationId === 'string'
+          ? subflow.conversationId
+          : null;
+      return {
+        ...subflow,
+        childState: childConversationId
+          ? JSON.parse(describeConversationState(childConversationId))
+          : null,
+      };
+    }),
+  });
+};
 
 const waitForActiveSubflows = async (conversationId: string) => {
   await waitFor(() => {
@@ -212,6 +229,39 @@ const waitForConversationAssistantStatus = async (
       (turn) => turn.role === 'assistant' && turn.status === status,
     );
   }, timeoutMs, () => `conversationId=${conversationId} status=${status} | ${describeConversationState(conversationId)}`);
+};
+
+const getChildConversationsFromActiveSubflows = (conversationId: string) => {
+  const activeSubflows =
+    (
+      memoryConversations.get(conversationId)?.flags as
+        | {
+            flow?: {
+              activeSubflows?: Array<{
+                conversationId?: string;
+                flowName?: string;
+                title?: string;
+              }>;
+            };
+          }
+        | undefined
+    )?.flow?.activeSubflows ?? [];
+  return activeSubflows
+    .filter(
+      (subflow): subflow is {
+        conversationId: string;
+        flowName?: string;
+        title?: string;
+      } => typeof subflow?.conversationId === 'string',
+    )
+    .map((subflow) => {
+      const childConversation = memoryConversations.get(subflow.conversationId);
+      return {
+        conversationId: subflow.conversationId,
+        flowName: childConversation?.flowName ?? subflow.flowName,
+        title: childConversation?.title ?? subflow.title,
+      };
+    });
 };
 
 const writeFlowFile = async (params: {
@@ -277,16 +327,6 @@ const findChildFlowConversation = (params: {
     (conversation) =>
       conversation._id !== params.parentConversationId &&
       conversation.flowName === params.childFlowName,
-  );
-
-const findChildFlowConversations = (params: {
-  parentConversationId: string;
-  childFlowNames: string[];
-}) =>
-  Array.from(memoryConversations.values()).filter(
-    (conversation) =>
-      conversation._id !== params.parentConversationId &&
-      params.childFlowNames.includes(String(conversation.flowName ?? '')),
   );
 
 let previousAgentsHome: string | undefined;
@@ -416,10 +456,9 @@ test('subflow step launches multiple child flows in parallel and waits for all o
     );
     assert.equal(activeSubflows.length, 2);
 
-    const childConversations = findChildFlowConversations({
-      parentConversationId: result.conversationId,
-      childFlowNames: ['child-fast', 'child-slow'],
-    });
+    const childConversations = getChildConversationsFromActiveSubflows(
+      result.conversationId,
+    );
     assert.equal(childConversations.length, 2);
     assert.equal(
       childConversations.some(
@@ -442,10 +481,10 @@ test('subflow step launches multiple child flows in parallel and waits for all o
     const slowChild = childConversations.find(
       (conversation) => conversation.flowName === 'child-slow',
     );
-    assert.ok(fastChild?._id);
-    assert.ok(slowChild?._id);
+    assert.ok(fastChild?.conversationId);
+    assert.ok(slowChild?.conversationId);
 
-    await waitForConversationAssistantStatus(String(fastChild?._id), 'ok');
+    await waitForConversationAssistantStatus(fastChild!.conversationId, 'ok');
     await delay(40);
     const parentTurnsBeforeSlowChildCompletes =
       memoryTurns.get(result.conversationId) ?? [];
@@ -519,20 +558,19 @@ test('parallel subflow waits for every child and fails when any child fails', as
       chatFactory: () => new SubflowChat(140),
     });
 
-    await waitFor(() =>
-      Boolean(
-        findChildFlowConversation({
-          parentConversationId: result.conversationId,
-          childFlowName: 'child-slow-success',
-        }),
-      ),
+    const activeSubflows = await waitForActiveSubflowCount(
+      result.conversationId,
+      2,
     );
-    const slowChild = findChildFlowConversation({
-      parentConversationId: result.conversationId,
-      childFlowName: 'child-slow-success',
-    });
-    assert.ok(slowChild?._id);
-    await waitForConversationAssistantStatus(String(slowChild?._id), 'ok');
+    assert.equal(activeSubflows.length, 2);
+    const childConversations = getChildConversationsFromActiveSubflows(
+      result.conversationId,
+    );
+    const slowChild = childConversations.find(
+      (conversation) => conversation.flowName === 'child-slow-success',
+    );
+    assert.ok(slowChild?.conversationId);
+    await waitForConversationAssistantStatus(slowChild!.conversationId, 'ok');
 
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
@@ -884,11 +922,28 @@ test('stopping the parent flow stops the running child subflow', async () => {
     });
 
     let parentRunToken: string | undefined;
+    const parentConversationId = 'parent-stop-conversation';
+    let stopRegisteredAtSlowChildStart = false;
     const result = await startFlowRun({
       flowName: 'parent-stop',
+      conversationId: parentConversationId,
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(250),
+      chatFactory: () =>
+        new SubflowChat(250, ({ message, conversationId }) => {
+          if (
+            message === 'slow child' &&
+            conversationId !== parentConversationId &&
+            parentRunToken &&
+            !stopRegisteredAtSlowChildStart
+          ) {
+            stopRegisteredAtSlowChildStart = true;
+            registerPendingConversationCancel({
+              conversationId: parentConversationId,
+              runToken: parentRunToken,
+            });
+          }
+        }),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -898,21 +953,16 @@ test('stopping the parent flow stops the running child subflow', async () => {
     assert.ok(activeSubflow);
     assert.ok(parentRunToken);
 
-    await waitForConversationAssistantStatus(
-      String(activeSubflow?.conversationId),
-      'ok',
+    const activeChildConversationId = String(activeSubflow?.conversationId);
+    await waitForConversationAssistantStatus(activeChildConversationId, 'ok');
+    await waitFor(() => stopRegisteredAtSlowChildStart, 10000, () =>
+      `parentConversationId=${parentConversationId} | ${describeConversationStateWithActiveSubflows(
+        parentConversationId,
+      )}`,
     );
 
-    registerPendingConversationCancel({
-      conversationId: result.conversationId,
-      runToken: parentRunToken as string,
-    });
-
-    await waitForAssistantStatus(result.conversationId, 'stopped');
-    await waitForAssistantStatus(
-      String(activeSubflow?.conversationId),
-      'stopped',
-    );
+    await waitForAssistantStatus(parentConversationId, 'stopped');
+    await waitForAssistantStatus(activeChildConversationId, 'stopped');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1365,6 +1415,16 @@ test('resume reattaches to already running parallel child subflows instead of la
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
+    const resumedActiveSubflows = await waitForActiveSubflowCount(
+      parentConversationId,
+      2,
+    );
+    assert.deepEqual(
+      resumedActiveSubflows
+        .map((subflow) => String(subflow.conversationId))
+        .sort(),
+      [childStartA.conversationId, childStartB.conversationId].sort(),
+    );
     await waitForAssistantStatus(parentConversationId, 'ok');
 
     const childAConversations = Array.from(memoryConversations.values()).filter(

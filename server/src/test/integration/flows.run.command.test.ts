@@ -427,6 +427,7 @@ const waitForTurns = async (
   conversationId: string,
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 2000,
+  describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
@@ -449,7 +450,10 @@ const waitForTurns = async (
           content: turn.content,
         })),
       )}`,
-    ].join(' | '),
+      describe ? `details=${describe()}` : null,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(' | '),
   );
 };
 
@@ -458,6 +462,7 @@ const waitForFlowFinal = async (params: {
   conversationId: string;
   status: 'ok' | 'failed' | 'stopped';
   timeoutMs?: number;
+  describe?: () => string;
 }) =>
   waitForEvent({
     ws: params.ws,
@@ -476,6 +481,21 @@ const waitForFlowFinal = async (params: {
       );
     },
     timeoutMs: params.timeoutMs ?? 10000,
+    describe: params.describe,
+  });
+
+const describeFlowRuntimeState = (conversationId: string) =>
+  JSON.stringify({
+    inflightId: getInflight(conversationId)?.inflightId ?? null,
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+      command: turn.command,
+      runtime: turn.runtime,
+    })),
   });
 
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
@@ -4080,6 +4100,10 @@ test('command-load failures are retried and then fail deterministically', async 
         );
       },
       timeoutMs: 5000,
+      describe: () =>
+        JSON.stringify({
+          state: JSON.parse(describeFlowRuntimeState(conversationId)),
+        }),
     });
 
     assert.equal(final.status, 'failed');
@@ -4346,29 +4370,23 @@ test('stop-near-complete flow aligns final status with persisted turns and emits
         }),
     });
 
-    const inflightSnapshot = await waitForEvent({
-      ws: wsUrl,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'inflight_snapshot';
-        conversationId: string;
-        inflight: { inflightId?: string };
-      } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflight?: { inflightId?: string };
-        };
-        return (
-          e.type === 'inflight_snapshot' &&
-          e.conversationId === conversationId &&
-          typeof e.inflight?.inflightId === 'string'
-        );
-      },
-      timeoutMs: 5000,
-    });
-    flowInflightId = inflightSnapshot.inflight.inflightId ?? null;
+    await withTimeout(
+      (async () => {
+        while (!flowInflightId) {
+          flowInflightId = getInflight(conversationId)?.inflightId ?? null;
+          if (flowInflightId) {
+            return;
+          }
+          await delay(10);
+        }
+      })(),
+      5000,
+      JSON.stringify({
+        cancelSent,
+        flowInflightId,
+        state: JSON.parse(describeFlowRuntimeState(conversationId)),
+      }),
+    );
     assert.ok(flowInflightId);
 
     await startedPromise;
@@ -4377,6 +4395,12 @@ test('stop-near-complete flow aligns final status with persisted turns and emits
       conversationId,
       status: 'stopped',
       timeoutMs: 5000,
+      describe: () =>
+        JSON.stringify({
+          cancelSent,
+          flowInflightId,
+          state: JSON.parse(describeFlowRuntimeState(conversationId)),
+        }),
     });
     assert.equal(final.status, 'stopped');
 
@@ -4387,6 +4411,13 @@ test('stop-near-complete flow aligns final status with persisted turns and emits
           (turn) => turn.role === 'assistant' && turn.status === 'stopped',
         ),
       4000,
+      () =>
+        JSON.stringify({
+          final,
+          cancelSent,
+          flowInflightId,
+          state: JSON.parse(describeFlowRuntimeState(conversationId)),
+        }),
     );
     assert.equal(
       turns.some(

@@ -76,6 +76,7 @@ const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 10000,
   intervalMs = 50,
+  describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
@@ -83,7 +84,11 @@ const waitFor = async (
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new Error('Timed out waiting for predicate');
+  throw new Error(
+    describe
+      ? `Timed out waiting for predicate | ${describe()}`
+      : 'Timed out waiting for predicate',
+  );
 };
 
 const flushWakeBoundary = async () =>
@@ -93,6 +98,18 @@ const getAssistantTurnCount = (conversationId: string) =>
   (memoryTurns.get(conversationId) ?? []).filter(
     (turn) => turn?.role === 'assistant',
   ).length;
+
+const describeConversationState = (conversationId: string) =>
+  JSON.stringify({
+    flags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+      provider: turn.provider,
+      model: turn.model,
+    })),
+  });
 
 const writeResumeFlow = async (dir: string) => {
   const flow = {
@@ -660,6 +677,14 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
               line.includes('PROVIDER_UNAVAILABLE'),
             ),
           5000,
+          50,
+          () =>
+            JSON.stringify({
+              infoLogs,
+              errorLogs,
+              parent: JSON.parse(describeConversationState(conversationId)),
+              child: JSON.parse(describeConversationState(childConversationId)),
+            }),
         );
 
         assert.equal(

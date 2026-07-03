@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import { getInflight } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -56,6 +57,18 @@ async function waitForCondition(
       : `Timed out waiting for test condition after ${resolvedTimeoutMs}ms`,
   );
 }
+
+const describeConversationState = (conversationId: string): string =>
+  JSON.stringify({
+    flags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+      command: turn.command,
+      runtime: turn.runtime,
+    })),
+  });
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -202,6 +215,17 @@ test('flow turns include command metadata in snapshots and history', async () =>
       .send({ conversationId })
       .expect(202);
 
+    await waitForCondition(
+      () => typeof getInflight(conversationId)?.inflightId === 'string',
+      20000,
+      () =>
+        JSON.stringify({
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          expectedCommand,
+          inflight: getInflight(conversationId) ?? null,
+        }),
+    );
+
     sendJson(wsSnapshot, { type: 'subscribe_conversation', conversationId });
 
     const snapshot = await waitForEvent({
@@ -219,14 +243,29 @@ test('flow turns include command metadata in snapshots and history', async () =>
         return e.type === 'inflight_snapshot' && Boolean(e.inflight?.command);
       },
       timeoutMs: 20000,
+      describe: () =>
+        JSON.stringify({
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          expectedCommand,
+          inflight: getInflight(conversationId) ?? null,
+        }),
     });
 
     assert.deepEqual(snapshot.inflight.command, expectedCommand);
 
-    await waitForCondition(() => {
-      const items = listTurnsFromMemory(conversationId);
-      return items.length >= 2;
-    }, 20000);
+    await waitForCondition(
+      () => {
+        const items = listTurnsFromMemory(conversationId);
+        return items.length >= 2;
+      },
+      20000,
+      () =>
+        JSON.stringify({
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          expectedCommand,
+          inflight: getInflight(conversationId) ?? null,
+        }),
+    );
 
     const turnsRes = await supertest(baseUrl)
       .get(`/conversations/${conversationId}/turns`)
@@ -357,15 +396,12 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
       8000,
       () =>
         JSON.stringify({
-          conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
-          recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map(
-            (turn) => ({
-              role: turn.role,
-              status: turn.status,
-              content: turn.content,
-              command: turn.command,
-              runtime: turn.runtime,
-            }),
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          workingRepo,
+          markdownPath: path.join(
+            workingRepo,
+            'codeinfo_markdown',
+            'top-level.md',
           ),
         }),
     );

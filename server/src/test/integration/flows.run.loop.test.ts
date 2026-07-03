@@ -3352,6 +3352,8 @@ test('continue step fails on invalid JSON response', async () => {
           );
         },
         timeoutMs: 4000,
+        describe: () =>
+          describeFlowRuntimeState(conversationId, ['coding_agent:outer-break']),
       });
 
       assert.equal(final.status, 'failed');
@@ -4005,6 +4007,13 @@ test('flow step retries transient failures and eventually succeeds', async () =>
               turn.content.includes('{"answer":"yes"}'),
           ),
         5000,
+        () =>
+          JSON.stringify({
+            outerBreakAttempts,
+            state: JSON.parse(
+              describeFlowRuntimeState(conversationId, ['coding_agent:outer-break']),
+            ),
+          }),
       );
       assert.equal(outerBreakAttempts, 2);
       await cleanupConversationRuntime(conversationId);

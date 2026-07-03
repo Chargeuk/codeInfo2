@@ -143,6 +143,18 @@ async function waitForCondition(
   );
 }
 
+const describeConversationState = (conversationId: string): string =>
+  JSON.stringify({
+    flags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+      provider: turn.provider,
+      model: turn.model,
+    })),
+  });
+
 test('POST /flows/:flowName/run validates working_folder', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -529,15 +541,21 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
       4000,
       () =>
         JSON.stringify({
-          conversationFlags:
-            memoryConversations.get('flow-child-working-folder')?.flags ?? null,
-          recentTurns: (memoryTurns.get('flow-child-working-folder') ?? [])
-            .slice(-8)
-            .map((turn) => ({
-              role: turn.role,
-              status: turn.status,
-              content: turn.content,
-            })),
+          parent: JSON.parse(
+            describeConversationState('flow-child-working-folder'),
+          ),
+          childConversationId:
+            (
+              memoryConversations.get('flow-child-working-folder')?.flags
+                ?.flow as
+                | { agentConversations?: Record<string, string> }
+                | undefined
+            )?.agentConversations?.['coding_agent:basic'] ?? null,
+          child:
+            childConversationId &&
+            memoryConversations.has(childConversationId)
+              ? JSON.parse(describeConversationState(childConversationId))
+              : null,
         }),
     );
 

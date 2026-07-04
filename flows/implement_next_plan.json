@@ -10,6 +10,13 @@
     },
     {
       "type": "llm",
+      "label": "Lite Planner Use Next Plan",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "markdownFile": "use_current_plan_handoff.md"
+    },
+    {
+      "type": "llm",
       "label": "Heavy Coder Use Next Plan",
       "agentType": "coding_agent",
       "identifier": "coder",

@@ -1,0 +1,12 @@
+{
+  "description": "Run the read-only visual review addendum for the active story review.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Review Visual Design Conformance",
+      "agentType": "review_agent",
+      "identifier": "reviewer_visual",
+      "markdownFile": "review_visual_design_conformance.md"
+    }
+  ]
+}

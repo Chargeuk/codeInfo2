@@ -1,0 +1,12 @@
+{
+  "description": "Run the read-only findings saturation addendum for the active story review.",
+  "steps": [
+    {
+      "type": "command",
+      "label": "Run Findings Saturation",
+      "agentType": "review_agent",
+      "identifier": "reviewer_saturation",
+      "commandName": "review_findings_saturation"
+    }
+  ]
+}

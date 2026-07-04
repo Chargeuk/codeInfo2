@@ -18,6 +18,7 @@ describe('flow schema (v1)', () => {
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
+    flowNames?: string[];
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -144,6 +145,8 @@ describe('flow schema (v1)', () => {
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/review_plan.json',
+      'flows/review_visual_addendum.json',
+      'flows/review_findings_saturation_addendum.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -161,82 +164,93 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('review flows run findings saturation before blind-spot challenge', async () => {
+  test('internal review flows run parallel review addenda merge before blind-spot challenge', async () => {
     const flowFiles = [
-      {
-        relativePath: 'flows/review_plan.json',
-        findingsCommand: 'code_review_findings',
-        saturationCommand: 'review_findings_saturation',
-        challengeCommand: 'review_blind_spot_challenge',
-      },
-      {
-        relativePath: 'flows/implement_next_plan.json',
-        findingsCommand: 'code_review_findings',
-        saturationCommand: 'review_findings_saturation',
-        challengeCommand: 'review_blind_spot_challenge',
-      },
-      {
-        relativePath: 'flows/task_and_implement_plan.json',
-        findingsCommand: 'code_review_findings',
-        saturationCommand: 'review_findings_saturation',
-        challengeCommand: 'review_blind_spot_challenge',
-      },
-      {
-        relativePath: 'flows/improve_task_implement_plan.json',
-        findingsCommand: 'code_review_findings',
-        saturationCommand: 'review_findings_saturation',
-        challengeCommand: 'review_blind_spot_challenge',
-      },
-      {
-        relativePath: 'flows/ingest_external_review_plan.json',
-        findingsCommand: 'external_review_findings',
-        saturationCommand: 'external_review_findings_saturation',
-        challengeCommand: 'external_review_blind_spot_challenge',
-      },
+      'flows/review_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
     ] as const;
 
-    for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(
-        path.join(repoRoot, flowFile.relativePath),
-        'utf8',
-      );
+    for (const relativePath of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(
-        Array.isArray(parsed.steps),
-        `${flowFile.relativePath} should define steps`,
+      assert.ok(Array.isArray(parsed.steps), `${relativePath} should define steps`);
+
+      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+        if (step.type === 'command') {
+          return step.commandName;
+        }
+        if (step.type === 'llm') {
+          return step.markdownFile;
+        }
+        if (step.type === 'subflow') {
+          return step.flowNames?.join(',');
+        }
+        return undefined;
+      });
+
+      const findingsIndex = markers.indexOf('code_review_findings');
+      const addendaIndex = markers.indexOf(
+        'review_visual_addendum,review_findings_saturation_addendum',
       );
+      const mergeIndex = markers.indexOf('merge_parallel_review_addenda.md');
+      const challengeIndex = markers.indexOf('review_blind_spot_challenge');
 
-      const commands = flattenSteps(parsed.steps ?? [])
-        .map((step) => (step.type === 'command' ? step.commandName : undefined))
-        .filter(
-          (commandName): commandName is string =>
-            typeof commandName === 'string',
-        );
-
-      const findingsIndex = commands.indexOf(flowFile.findingsCommand);
-      const saturationIndex = commands.indexOf(flowFile.saturationCommand);
-      const challengeIndex = commands.indexOf(flowFile.challengeCommand);
-
+      assert.notEqual(findingsIndex, -1, `${relativePath} should include findings step`);
       assert.notEqual(
-        findingsIndex,
+        addendaIndex,
         -1,
-        `${flowFile.relativePath} should include findings step`,
+        `${relativePath} should include parallel review addenda subflow`,
       );
       assert.notEqual(
-        saturationIndex,
+        mergeIndex,
         -1,
-        `${flowFile.relativePath} should include findings saturation step`,
+        `${relativePath} should include parallel review addenda merge step`,
       );
       assert.notEqual(
         challengeIndex,
         -1,
-        `${flowFile.relativePath} should include blind-spot challenge step`,
+        `${relativePath} should include blind-spot challenge step`,
       );
       assert.ok(
-        findingsIndex < saturationIndex && saturationIndex < challengeIndex,
-        `${flowFile.relativePath} should run findings, then saturation, then challenge`,
+        findingsIndex < addendaIndex &&
+          addendaIndex < mergeIndex &&
+          mergeIndex < challengeIndex,
+        `${relativePath} should run findings, then parallel addenda, then merge, then challenge`,
       );
     }
+  });
+
+  test('external review flow keeps saturation before blind-spot challenge', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/ingest_external_review_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    assert.ok(
+      Array.isArray(parsed.steps),
+      'flows/ingest_external_review_plan.json should define steps',
+    );
+
+    const commands = flattenSteps(parsed.steps ?? [])
+      .map((step) => (step.type === 'command' ? step.commandName : undefined))
+      .filter(
+        (commandName): commandName is string =>
+          typeof commandName === 'string',
+      );
+
+    const findingsIndex = commands.indexOf('external_review_findings');
+    const saturationIndex = commands.indexOf('external_review_findings_saturation');
+    const challengeIndex = commands.indexOf('external_review_blind_spot_challenge');
+
+    assert.notEqual(findingsIndex, -1);
+    assert.notEqual(saturationIndex, -1);
+    assert.notEqual(challengeIndex, -1);
+    assert.ok(
+      findingsIndex < saturationIndex && saturationIndex < challengeIndex,
+      'flows/ingest_external_review_plan.json should run findings, then saturation, then challenge',
+    );
   });
 
   test('review flows use reset and classifier disposition before findings repair and scoped task-up', async () => {

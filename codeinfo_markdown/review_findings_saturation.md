@@ -1,6 +1,6 @@
 # Goal
 
-Run a bounded same-class sibling scan after the findings pass and before the blind-spot challenge so the review is less likely to miss nearby defects that later passes would rediscover.
+Run a bounded same-class sibling scan after the findings pass and before the blind-spot challenge so the review is less likely to miss nearby defects that later passes would rediscover, while emitting additive outputs that a later merge step can apply safely.
 
 <critical_rules>
 
@@ -14,6 +14,9 @@ Run a bounded same-class sibling scan after the findings pass and before the bli
 - This step does not replace the findings pass. It expands the same findings outcome across bounded sibling surfaces before blind-spot challenge and disposition continue.
 - Keep the sibling scan bounded to the same repository unless a finding is already cross-repository.
 - Do not broaden into unrelated archaeology. Check only the same changed seam, obvious mirrored producers or consumers, lifecycle-adjacent surfaces, retained proof-owner chains, and directly comparable support-file families.
+- This step must not update the canonical findings artifact in place.
+- This step must not update `codeInfoTmp/reviews/<story-number>-current-review.json` directly.
+- This step may write only its own additive artifact files for a later merge step.
 
 </critical_rules>
 
@@ -47,6 +50,7 @@ For each actionable finding, inspect only bounded same-class sibling surfaces su
 <output_contract>
 
 Write the saturation result to `codeInfoTmp/reviews/<review_pass_id>-findings-saturation.md`.
+Write a machine-readable sidecar to `codeInfoTmp/reviews/<review_pass_id>-findings-saturation.json`.
 
 The saturation artifact MUST include:
 
@@ -61,26 +65,22 @@ The saturation artifact MUST include:
 - when no actionable findings existed, the defect families checked and whether the no-findings conclusion remained intact;
 - exact file references for the sibling-scan evidence used.
 
-If the bounded sibling scan produces additional actionable findings:
+- The JSON sidecar must include:
+  - `review_pass_id`
+  - `status: "complete" | "no_op" | "incomplete"`
+  - `generated_findings: true|false`
+  - `proposed_findings`
+  - `sibling_surfaces_checked`
+  - `evidence_refs`
+  - `source_artifact`
 
-- update the findings artifact in place so it now includes those added findings in findings-first severity order while preserving any existing rejected-risk or adjudication sections;
-- update the same review handoff so its finding counts and disposition hints match the revised findings artifact;
-- and write these additive fields into the handoff:
-  - `saturation_file`
-  - `saturation_outcome`
-  - `saturation_generated_findings: true`
+Do not update the findings artifact in place in this step.
 
-If the bounded sibling scan produces no new actionable findings, update the same handoff so it includes:
-
-- `saturation_file`
-- `saturation_outcome`
-- `saturation_generated_findings: false`
-
-When updating the handoff for saturation results, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed. Only update findings counts, disposition hints, and the saturation-owned fields listed above.
+Do not update the current review handoff in this step.
 
 This artifact is additive context for later blind-spot challenge and disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
 
-- Report the saturation artifact path and whether the saturation pass generated any new actionable findings.
+- Report the saturation artifact path, the saturation sidecar path, and whether the saturation pass generated any new actionable findings.
 
 </output_contract>
 
@@ -88,11 +88,11 @@ This artifact is additive context for later blind-spot challenge and disposition
 
 - Confirm the current-plan handoff still matches the canonical plan and story branch.
 - Confirm the review handoff still matches the current scope and referenced artifacts.
-- Confirm the review handoff still preserves existing repository comparison metadata after this step's update, and that any safely inferred comparison context is documented in the saturation artifact when it affects confidence.
+- Confirm that any safely inferred comparison context is documented in the saturation artifact when it affects confidence.
 - Confirm the bounded sibling scan inspected same-class surfaces instead of restarting the whole review.
-- Confirm the saturation artifact path matches the `saturation_file` value written into the handoff.
+- Confirm the saturation artifact and sidecar paths match each other and share the same `review_pass_id`.
 - Confirm the artifact explicitly says whether any new actionable finding was generated.
-- If new findings were generated, confirm the findings artifact on disk was updated in place and the handoff counts now match that revised findings artifact.
-- If no new findings were generated, confirm the findings artifact still remains the canonical endorsed-findings source and the saturation artifact only adds checked-sibling evidence.
+- Confirm the findings artifact still remains the canonical endorsed-findings source until a later merge step runs.
+- Confirm the saturation artifact and sidecar only add checked-sibling evidence and proposed findings for the later merge step.
 
 </verification_loop>

@@ -1,8 +1,8 @@
 # Goal
 
-Run a bounded visual-conformance review using retained manual-testing screenshots and named design assets, then add any visual findings to the current findings artifact.
+Run a bounded visual-conformance review using retained manual-testing screenshots and named design assets, then emit additive review outputs that a later merge step can apply to the canonical findings artifact.
 
-This step is additive to the normal findings pass. It must not replace the code or contract review.
+This step is additive to the normal findings pass. It must not replace the code or contract review, and it must not directly mutate shared review outputs when parallel review addenda are enabled.
 
 ## Activation
 
@@ -14,12 +14,7 @@ Run this step only when all of the following are true:
    - `codeInfoTmp/manual-testing/<story-number>/`
    - or `codeInfoStatus/manual-proof/<story-number>/`
 
-If either the design assets or the screenshots cannot be found honestly from disk, do nothing:
-
-- do not modify the findings artifact;
-- do not create a visual-review artifact;
-- do not update the review handoff;
-- return a concise no-op result explaining which prerequisite was missing.
+If either the design assets or the screenshots cannot be found honestly from disk, do not modify shared review outputs. If you can identify the active `review_pass_id`, still write a concise no-op additive result so the later merge step can treat this pass deterministically as `no_op`.
 
 ## Success Criteria
 
@@ -28,7 +23,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - Any material mismatch against mandatory visual invariants becomes a normal actionable finding.
 - Any missing screenshot-to-design comparison proof becomes a finding only when both the design assets and the retained screenshots are present but the claimed comparison proof is still absent or weak.
 - Missing screenshots by themselves do not create a visual-review finding in this step.
-- If no actionable visual findings are discovered, the normal findings artifact remains the canonical source of truth and the visual review is recorded only as additive evidence.
+- If no actionable visual findings are discovered, the normal findings artifact remains the canonical source of truth and the visual review is recorded only as additive evidence for the later merge step.
 
 <critical_rules>
 
@@ -37,11 +32,14 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - Re-open the exact canonical plan from disk before judging whether `Design Contract Present` is true.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and infer the current findings artifact from it.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
-- If the review handoff cannot identify a usable findings artifact, stop with a concise no-op result and do not mutate review artifacts.
+- If the review handoff cannot identify a usable findings artifact, stop with a concise no-op result and do not mutate shared review artifacts.
 - This step must not edit the canonical plan directly.
 - This step must not invent screenshot paths, design assets, or comparison evidence.
 - Keep the review bounded. Compare only the surfaces that the active plan clearly treats as design-owned and that the retained screenshots can actually show.
 - Review only the screenshots that manual testing actually retained. Do not invent or require screenshot evidence that does not exist on disk.
+- This step must not update the canonical findings artifact in place.
+- This step must not update `codeInfoTmp/reviews/<story-number>-current-review.json` directly.
+- This step may write only its own additive artifact files for a later merge step.
 
 </critical_rules>
 
@@ -74,8 +72,8 @@ If either the design assets or the screenshots cannot be found honestly from dis
 
 <finding_rules>
 
-- If a material visual mismatch is found, update the existing findings artifact in place and add a normal actionable finding using the repository's current findings format.
-- Before adding a new visual finding, check whether the current findings artifact already contains the same visual defect in materially equivalent form. If it does, do not add a duplicate finding; update the additive visual-review artifact only.
+- If a material visual mismatch is found, record it as a proposed actionable finding in this step's additive outputs using the repository's current findings format.
+- Before proposing a new visual finding, check whether the current findings artifact already contains the same visual defect in materially equivalent form. If it does, do not propose a duplicate finding; record that duplicate check result in the additive visual-review artifact only.
 - Classify the visual finding as:
   - `must_fix` when the mismatch breaks a mandatory visual invariant or clearly undermines the story's stated design contract;
   - `should_fix` when the mismatch is material but somewhat narrower in user impact;
@@ -91,30 +89,36 @@ If either the design assets or the screenshots cannot be found honestly from dis
 <artifact_rules>
 
 - If this step activates, write an additive artifact at `codeInfoTmp/reviews/<review_pass_id>-visual-design-review.md`.
+- If this step activates, also write a machine-readable sidecar at `codeInfoTmp/reviews/<review_pass_id>-visual-design-review.json`.
 - That artifact must include:
   - the canonical `plan_path`;
-  - the findings artifact path it inspected and may have updated;
+  - the findings artifact path it inspected;
   - the design assets reviewed;
   - the screenshot paths reviewed;
   - the screenshot/design pairs compared;
   - the comparison outcome for each pair: `matches`, `minor mismatch`, or `material mismatch`;
-  - whether any actionable visual findings were added.
-- If this step adds actionable findings, update the findings artifact in place so those new findings become part of the canonical findings source for later saturation, challenge, and disposition steps.
-- If this step activates, update the current review handoff with:
-  - `visual_review_file`
-  - `visual_review_outcome`
-  - `visual_review_generated_findings: true|false`, where the value is `true` only if this step added one or more actionable visual findings to the canonical findings artifact, otherwise `false`
-- Preserve all existing top-level fields and every existing `repos[]` entry in the review handoff exactly unless this step explicitly owns the field being changed.
-- If this step does not activate because screenshots or design assets are missing, do not write any artifact or handoff update.
+  - whether any actionable visual findings were proposed.
+- The JSON sidecar must include:
+  - `review_pass_id`
+  - `status: "complete" | "no_op" | "incomplete"`
+  - `generated_findings: true|false`
+  - `proposed_findings`
+  - `evidence_refs`
+  - `source_artifact`
+- Do not update the findings artifact in place in this step.
+- Do not update the current review handoff in this step.
+- Preserve the existing findings artifact and review handoff exactly; the later merge step is the only shared-output writer for this parallel addendum path.
+- If this step does not activate because screenshots or design assets are missing, write the additive artifact and sidecar only when `review_pass_id` can be determined safely; otherwise write nothing.
 
 </artifact_rules>
 
 <output_contract>
 
 - When the step activates, report:
-  - whether actionable visual findings were added;
+  - whether actionable visual findings were proposed;
   - the visual-review artifact path;
-  - and the findings artifact path that was inspected or updated.
+  - the visual-review sidecar path;
+  - and the findings artifact path that was inspected.
 - When the step does not activate, report a concise no-op result stating whether screenshots were missing, design assets were missing, or both.
 
 </output_contract>
@@ -125,9 +129,10 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - Confirm the review handoff still identifies a usable findings artifact before any mutation.
 - Confirm `Design Contract Present` was decided from the active plan on disk, not from memory.
 - Confirm retained screenshots actually existed on disk before attempting visual comparison.
-- Confirm no artifact or handoff update was written when screenshots or design assets were missing.
+- Confirm no shared findings-artifact or review-handoff update was written when screenshots or design assets were missing.
 - Confirm no finding was added solely because screenshots were absent.
-- Confirm any new actionable visual finding was added to the canonical findings artifact rather than being left only in the additive visual-review artifact.
+- Confirm any new actionable visual finding was proposed only through the additive visual-review outputs rather than being written directly into the canonical findings artifact.
 - Confirm the additive visual-review artifact, when written, states exactly which screenshots and design assets were compared.
+- Confirm the additive visual-review sidecar, when written, matches the markdown artifact and records the correct `status` and `generated_findings` values.
 
 </verification_loop>

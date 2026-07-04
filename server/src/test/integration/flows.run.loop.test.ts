@@ -2866,6 +2866,13 @@ test('continue step skips remaining iteration steps and starts the next iteratio
           );
         },
         timeoutMs: 4000,
+        describe: () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer',
+            'coding_agent:outer-continue',
+            'coding_agent:post-continue',
+            'coding_agent:outer-break',
+          ]),
       });
 
       assert.equal(final.status, 'ok');
@@ -3053,6 +3060,13 @@ test('continue resume starts the next iteration instead of replaying skipped ste
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
         4000,
+        () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer',
+            'coding_agent:outer-continue',
+            'coding_agent:post-continue',
+            'coding_agent:outer-break',
+          ]),
       );
 
       assert.equal(
@@ -3619,6 +3633,13 @@ test('continue step fails with INVALID_CONTINUE_RESPONSE when wrappers contain n
           );
         },
         timeoutMs: 4000,
+        describe: () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer',
+            'coding_agent:inner',
+            'coding_agent:inner-break',
+            'coding_agent:outer-break',
+          ]),
       });
 
       assert.equal(final.status, 'failed');

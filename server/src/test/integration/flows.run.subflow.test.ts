@@ -538,6 +538,13 @@ test('subflow step launches multiple child flows in parallel and waits for all o
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
       'ok',
+      10000,
+      () =>
+        JSON.stringify({
+          activeSubflows,
+          childConversations,
+          graph: JSON.parse(describeConversationGraph(result.conversationId, 2)),
+        }),
     );
     assert.equal(
       finalAssistant?.content,

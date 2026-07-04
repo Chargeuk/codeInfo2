@@ -12,6 +12,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import { query } from '../../logStore.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
@@ -141,6 +142,7 @@ const waitForAssistantStatus = async (
         conversationId,
       )}`,
       `conversationGraph=${describeConversationGraph(conversationId, 3)}`,
+      `runtimeLogs=${describeRelevantSubflowRuntimeLogs(conversationId)}`,
       ...(describe ? [`details=${describe()}`] : []),
     ].join(' | '),
   );
@@ -218,6 +220,24 @@ const describeConversationGraph = (
   return JSON.stringify(buildNode(conversationId, 0));
 };
 
+const describeRelevantSubflowRuntimeLogs = (conversationId: string): string =>
+  JSON.stringify(
+    query({ text: 'flows.test.' }, 80)
+      .filter((entry) => {
+        const entryConversationId = entry.context?.conversationId;
+        return (
+          entryConversationId === conversationId &&
+          (entry.message.startsWith('flows.test.start.') ||
+            entry.message === 'flows.test.step_dispatch' ||
+            entry.message.startsWith('flows.test.subflow_'))
+        );
+      })
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  );
+
 const waitForActiveSubflows = async (conversationId: string) => {
   await waitFor(() => {
     const conversation = memoryConversations.get(conversationId);
@@ -229,10 +249,10 @@ const waitForActiveSubflows = async (conversationId: string) => {
       )?.flow?.activeSubflows,
     );
   }, 10000, () =>
-    `conversationId=${conversationId} | ${describeConversationGraph(
+    `conversationId=${conversationId} | graph=${describeConversationGraph(
       conversationId,
       3,
-    )}`);
+    )} | runtimeLogs=${describeRelevantSubflowRuntimeLogs(conversationId)}`);
   const conversation = memoryConversations.get(conversationId);
   return ((
     conversation?.flags as {
@@ -260,10 +280,10 @@ const waitForActiveSubflowCount = async (
       )?.flow?.activeSubflows ?? [];
     return Array.isArray(activeSubflows) && activeSubflows.length === expectedCount;
   }, 10000, () =>
-    `conversationId=${conversationId} expectedCount=${expectedCount} | ${describeConversationGraph(
+    `conversationId=${conversationId} expectedCount=${expectedCount} | graph=${describeConversationGraph(
       conversationId,
       3,
-    )}`);
+    )} | runtimeLogs=${describeRelevantSubflowRuntimeLogs(conversationId)}`);
   return waitForActiveSubflows(conversationId);
 };
 
@@ -278,10 +298,10 @@ const waitForConversationAssistantStatus = async (
       (turn) => turn.role === 'assistant' && turn.status === status,
     );
   }, timeoutMs, () =>
-    `conversationId=${conversationId} status=${status} | ${describeConversationGraph(
+    `conversationId=${conversationId} status=${status} | graph=${describeConversationGraph(
       conversationId,
       3,
-    )}`);
+    )} | runtimeLogs=${describeRelevantSubflowRuntimeLogs(conversationId)}`);
 };
 
 const getChildConversationsFromActiveSubflows = (conversationId: string) => {

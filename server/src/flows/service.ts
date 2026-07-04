@@ -8167,6 +8167,15 @@ async function runFlowUnlocked(params: {
       }
 
       const nextPath = [...stepPath, index];
+      appendFlowRuntimeDiagnostic('flows.test.step_dispatch', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        stepPath: nextPath,
+        stepType: step.type,
+        stepIndex: index + 1,
+        totalSteps: steps.length,
+        loopDepth: loopStack.length,
+      });
       if (resumePathRemaining && resumeIndex === index) {
         if (resumePathRemaining.length === 1) {
           resumePathRemaining = null;
@@ -8703,6 +8712,13 @@ export async function startFlowRun(
       flowsRoot = path.resolve(sourceRepo.containerPath, 'flows');
     }
     flow = await loadFlowFile({ flowName, flowsRoot, sourceId });
+    appendFlowRuntimeDiagnostic('flows.test.start.flow_loaded', {
+      flowName,
+      conversationId,
+      sourceId: sourceId ?? null,
+      flowsRoot,
+      stepCount: flow.steps.length,
+    });
     if (!flow.steps.length) {
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
     }
@@ -8722,6 +8738,13 @@ export async function startFlowRun(
         knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
       },
     );
+    appendFlowRuntimeDiagnostic('flows.test.start.working_folder_resolved', {
+      flowName,
+      conversationId,
+      workingFolder: effectiveWorkingFolder ?? null,
+      requestedWorkingFolder: params.working_folder ?? null,
+      sourceId: sourceId ?? null,
+    });
 
     if (resumeStepPath && params.customTitle && existingConversation) {
       baseLogger.info(
@@ -8813,9 +8836,24 @@ export async function startFlowRun(
       modelId = prepared.modelId;
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
+      appendFlowRuntimeDiagnostic('flows.test.start.runtime_identity_resolved', {
+        flowName,
+        conversationId,
+        firstAgentType,
+        providerId,
+        modelId,
+        startupWarningsCount: startupWarnings.length,
+      });
     } else if (resumeStepPath && existingConversation) {
       providerId = existingConversation.provider;
       modelId = existingConversation.model;
+      appendFlowRuntimeDiagnostic('flows.test.start.runtime_identity_reused', {
+        flowName,
+        conversationId,
+        providerId,
+        modelId,
+        resumeStepPath,
+      });
     }
 
     const codeInfo2Root = codeInfo2RootForRun();
@@ -8846,8 +8884,26 @@ export async function startFlowRun(
         }),
       })),
     };
+    appendFlowRuntimeDiagnostic('flows.test.start.repository_context_ready', {
+      flowName,
+      conversationId,
+      workingRepositoryPath: repositoryContext.workingRepositoryPath ?? null,
+      defaultRepositoryRoot: repositoryContext.defaultRepositoryRoot ?? null,
+      flowSourceId: repositoryContext.flowSourceId ?? null,
+      repoCount: repositoryContext.repos.length,
+    });
 
+    appendFlowRuntimeDiagnostic('flows.test.start.validate_command_steps_begin', {
+      flowName,
+      conversationId,
+      stepCount: flow.steps.length,
+    });
     await validateCommandSteps(flow.steps, agentByName, repositoryContext);
+    appendFlowRuntimeDiagnostic('flows.test.start.validate_command_steps_complete', {
+      flowName,
+      conversationId,
+      stepCount: flow.steps.length,
+    });
 
     await ensureFlowConversation({
       conversationId,
@@ -8857,6 +8913,14 @@ export async function startFlowRun(
       customTitle: params.customTitle,
       source: params.source,
       workingFolder: effectiveWorkingFolder,
+    });
+    appendFlowRuntimeDiagnostic('flows.test.start.conversation_ensured', {
+      flowName,
+      conversationId,
+      providerId,
+      modelId,
+      workingFolder: effectiveWorkingFolder ?? null,
+      resumeStepPath: effectiveResumeStepPath ?? null,
     });
     if (!existingConversation && effectiveWorkingFolder) {
       appendWorkingFolderDecisionLog({
@@ -8935,6 +8999,13 @@ export async function startFlowRun(
             }
           : null,
     });
+    appendFlowRuntimeDiagnostic('flows.test.start.resume_state_persisted', {
+      flowName,
+      conversationId,
+      executionId,
+      stepPath: resumeState?.stepPath ?? [],
+      effectiveResumeStepPath: effectiveResumeStepPath ?? null,
+    });
     appendFlowRuntimeDiagnostic('flows.test.start.accepted', {
       flowName,
       conversationId,
@@ -9004,6 +9075,13 @@ export async function startFlowRun(
         executionId,
         inflightId,
         workingDirectoryOverride: workingDirectoryOverride ?? null,
+      });
+      appendFlowRuntimeDiagnostic('flows.test.start.run_dispatch_begin', {
+        flowName,
+        conversationId,
+        executionId,
+        inflightId,
+        effectiveResumeStepPath: effectiveResumeStepPath ?? null,
       });
       const runOutcome = await runFlowUnlocked({
         flowName,

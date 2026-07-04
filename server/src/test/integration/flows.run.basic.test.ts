@@ -39,6 +39,7 @@ import {
   startFlowRun,
 } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { query } from '../../logStore.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
@@ -477,9 +478,17 @@ const describeConversationRuntime = (conversationId: string): string => {
         content: turn.content,
       })),
   }));
+  const runtimeLogs = query({ text: 'flows.test.' }, 80)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .concat(query({ text: 'runtime.chat_config_lock_' }, 20))
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
   return JSON.stringify({
     ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
     agentConversationEntries,
+    runtimeLogs,
   });
 };
 

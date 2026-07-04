@@ -5497,6 +5497,29 @@ async function runFlowUnlocked(params: {
       );
     }
 
+    const agentKey = getAgentKey(
+      instructionParams.agentType,
+      instructionParams.identifier,
+    );
+    const existingAgentState = runtimeState.get(agentKey);
+    appendFlowRuntimeDiagnostic('flows.test.llm_instruction_begin', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      flowName: params.flowName,
+      stepIndex:
+        instructionParams.command?.name === 'flow'
+          ? instructionParams.command.stepIndex
+          : null,
+      agentType: instructionParams.agentType,
+      identifier: instructionParams.identifier,
+      agentKey,
+      hadAgentState: Boolean(existingAgentState),
+      existingAgentConversationId: existingAgentState?.conversationId ?? null,
+      existingThreadId: existingAgentState?.threadId ?? null,
+      instructionLength: instructionParams.instruction.length,
+      instructionPreview: instructionParams.instruction.slice(0, 120),
+    });
+
     const runtime = await resolveFlowInstructionPrerequisites({
       agentType: instructionParams.agentType,
       identifier: instructionParams.identifier,
@@ -5506,6 +5529,22 @@ async function runFlowUnlocked(params: {
       source: params.source,
     });
     const modelId = runtime.modelId;
+    appendFlowRuntimeDiagnostic('flows.test.llm_instruction_prerequisites_ready', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      flowName: params.flowName,
+      stepIndex:
+        instructionParams.command?.name === 'flow'
+          ? instructionParams.command.stepIndex
+          : null,
+      agentType: instructionParams.agentType,
+      identifier: instructionParams.identifier,
+      providerId: runtime.providerId,
+      modelId,
+      requestedProviderId: runtime.requestedProviderId ?? null,
+      endpointId: runtime.endpointId ?? null,
+      workingDirectoryOverride: runtime.workingDirectoryOverride ?? null,
+    });
 
     const { state: agentState, isNew } = await ensureAgentState({
       runtimeState,
@@ -5520,6 +5559,25 @@ async function runFlowUnlocked(params: {
       workingFolder: params.repositoryContext.workingRepositoryPath,
       customTitle: params.customTitle,
       source: params.source,
+    });
+    appendFlowRuntimeDiagnostic('flows.test.llm_instruction_agent_state_ready', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      flowName: params.flowName,
+      stepIndex:
+        instructionParams.command?.name === 'flow'
+          ? instructionParams.command.stepIndex
+          : null,
+      agentType: instructionParams.agentType,
+      identifier: instructionParams.identifier,
+      isNew,
+      agentConversationId: agentState.conversationId,
+      threadId: agentState.threadId ?? null,
+      providerId: agentState.providerId,
+      modelId: agentState.modelId,
+      requestedProviderId: agentState.requestedProviderId ?? null,
+      endpointId: agentState.endpointId ?? null,
+      workingFolder: agentState.workingFolder ?? null,
     });
     if (isNew) {
       await persistRuntimeResumeState(lastCompletedStepPath);
@@ -5550,6 +5608,21 @@ async function runFlowUnlocked(params: {
       }
 
       let shouldRetry = false;
+      appendFlowRuntimeDiagnostic('flows.test.llm_instruction_dispatch_begin', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        stepIndex:
+          instructionParams.command?.name === 'flow'
+            ? instructionParams.command.stepIndex
+            : null,
+        agentType: instructionParams.agentType,
+        identifier: instructionParams.identifier,
+        attempt,
+        inflightId: stepInflightId,
+        agentConversationId: agentState.conversationId,
+        threadId: agentState.threadId ?? null,
+      });
       const result = await runFlowInstruction({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5600,6 +5673,25 @@ async function runFlowUnlocked(params: {
           void persistRuntimeResumeState(lastCompletedStepPath);
         },
       });
+      appendFlowRuntimeDiagnostic(
+        'flows.test.llm_instruction_dispatch_complete',
+        {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          flowName: params.flowName,
+          stepIndex:
+            instructionParams.command?.name === 'flow'
+              ? instructionParams.command.stepIndex
+              : null,
+          agentType: instructionParams.agentType,
+          identifier: instructionParams.identifier,
+          attempt,
+          inflightId: stepInflightId,
+          status: result.status,
+          contentLength: result.content.length,
+          threadId: agentState.threadId ?? null,
+        },
+      );
 
       if (shouldRetry) {
         previousError = result.content;
@@ -5683,6 +5775,15 @@ async function runFlowUnlocked(params: {
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
     if ('messages' in step) {
+      appendFlowRuntimeDiagnostic('flows.test.llm_step_messages_begin', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        agentType: step.agentType,
+        identifier: step.identifier,
+        messageCount: step.messages.length,
+      });
       for (const message of step.messages) {
         const instruction = joinMessageContent(message.content);
         let result: FlowInstructionResult;
@@ -5729,10 +5830,28 @@ async function runFlowUnlocked(params: {
         }
         if (shouldStopAfter(result.status)) return result.status;
       }
+      appendFlowRuntimeDiagnostic('flows.test.llm_step_messages_complete', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        agentType: step.agentType,
+        identifier: step.identifier,
+        messageCount: step.messages.length,
+      });
       return 'ok';
     }
 
     let preparedMarkdownInstruction;
+    appendFlowRuntimeDiagnostic('flows.test.llm_markdown_prepare_begin', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      flowName: params.flowName,
+      stepIndex: command.stepIndex,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      markdownFile: step.markdownFile,
+    });
     try {
       await resolveFlowInstructionPrerequisites({
         agentType: step.agentType,
@@ -5747,6 +5866,18 @@ async function runFlowUnlocked(params: {
         surface: 'flow',
         flowName: params.flowName,
         stepIndex: command.stepIndex,
+      });
+      appendFlowRuntimeDiagnostic('flows.test.llm_markdown_prepare_ready', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        agentType: step.agentType,
+        identifier: step.identifier,
+        markdownFile: step.markdownFile,
+        preparedKind: preparedMarkdownInstruction.kind,
+        resolvedSourceId: preparedMarkdownInstruction.resolvedSourceId,
+        resolvedPath: preparedMarkdownInstruction.resolvedPath,
       });
     } catch (error) {
       const agent = agentByName.get(step.agentType);
@@ -5796,6 +5927,18 @@ async function runFlowUnlocked(params: {
       },
     });
 
+    appendFlowRuntimeDiagnostic('flows.test.llm_markdown_dispatch_begin', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      flowName: params.flowName,
+      stepIndex: command.stepIndex,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      markdownFile: step.markdownFile,
+      resolvedSourceId: preparedMarkdownInstruction.resolvedSourceId,
+      resolvedPath: preparedMarkdownInstruction.resolvedPath,
+      instructionLength: preparedMarkdownInstruction.instruction.length,
+    });
     const result = await runInstruction({
       agentType: step.agentType,
       identifier: step.identifier,
@@ -5807,6 +5950,16 @@ async function runFlowUnlocked(params: {
           : {}),
         lookupSummary: preparedMarkdownInstruction.lookupSummary,
       },
+    });
+    appendFlowRuntimeDiagnostic('flows.test.llm_markdown_dispatch_complete', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      flowName: params.flowName,
+      stepIndex: command.stepIndex,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      markdownFile: step.markdownFile,
+      status: result.status,
     });
     return result.status;
   };

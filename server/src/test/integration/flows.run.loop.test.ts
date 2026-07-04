@@ -40,6 +40,7 @@ import {
   startFlowRun,
 } from '../../flows/service.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
+import { query } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -621,9 +622,16 @@ const describeFlowRuntimeState = (
             role: turn.role,
             status: turn.status,
             content: turn.content,
-          })),
+        })),
       }),
     ),
+    runtimeLogs: query({ text: 'flows.test.' }, 80)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .concat(query({ text: 'runtime.chat_config_lock_' }, 20))
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
   });
 
 const describeLoopContinueResumeState = (conversationId: string): string =>
@@ -3972,6 +3980,12 @@ test('flow agent transcripts stay isolated by agent', async () => {
         conversationId,
         (items) =>
           items.filter((turn) => turn.role === 'assistant').length === 2,
+        2000,
+        () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:alpha',
+            'planning_agent:beta',
+          ]),
       );
 
       const alphaConversationId = getAgentConversationId(

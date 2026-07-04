@@ -3937,25 +3937,16 @@ test('other-repo ordering preserves caller order when sourceLabel falls back to 
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
-        timeoutMs: 5000,
-      });
-      const turns = memoryTurns.get(conversationId) ?? [];
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.filter((turn) => turn.role === 'assistant').length >= 1,
+        5000,
+        () =>
+          JSON.stringify({
+            state: JSON.parse(describeFlowRuntimeState(conversationId)),
+          }),
+      );
       assert.ok(
         turns.some(
           (turn) => turn.role === 'user' && turn.content.includes('basename-b'),

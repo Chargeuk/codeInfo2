@@ -148,6 +148,40 @@ const waitForAssistantStatus = async (
   );
 };
 
+const waitForTerminalAssistantTurn = async (
+  conversationId: string,
+  timeoutMs = 10000,
+  describe?: () => string,
+) => {
+  const terminalStatuses = new Set(['ok', 'warning', 'failed', 'stopped']);
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const started = Date.now();
+  while (Date.now() - started < resolvedTimeoutMs) {
+    const turns = memoryTurns.get(conversationId) ?? [];
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+      const turn = turns[index];
+      if (
+        turn?.role === 'assistant' &&
+        terminalStatuses.has(String(turn.status))
+      ) {
+        return turn;
+      }
+    }
+    await delay(20);
+  }
+  throw new Error(
+    [
+      `Timed out waiting for terminal assistant turn for ${conversationId}`,
+      `conversationState=${describeConversationStateWithActiveSubflows(
+        conversationId,
+      )}`,
+      `conversationGraph=${describeConversationGraph(conversationId, 3)}`,
+      `runtimeLogs=${describeRelevantSubflowRuntimeLogs(conversationId)}`,
+      ...(describe ? [`details=${describe()}`] : []),
+    ].join(' | '),
+  );
+};
+
 const describeConversationState = (conversationId: string): string =>
   JSON.stringify({
     flags: memoryConversations.get(conversationId)?.flags ?? null,
@@ -1145,9 +1179,8 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       }),
     );
 
-    const finalAssistant = await waitForAssistantStatus(
+    const terminalAssistant = await waitForTerminalAssistantTurn(
       parentConversationId,
-      'stopped',
       10000,
       () =>
         JSON.stringify({
@@ -1159,7 +1192,23 @@ test('stopping the parent flow stops every running child in a parallel subflow s
         }),
     );
     assert.equal(
-      finalAssistant?.content,
+      terminalAssistant?.status,
+      'stopped',
+      JSON.stringify({
+        observedStatus: terminalAssistant?.status ?? null,
+        observedContent: terminalAssistant?.content ?? null,
+        parentConversationId,
+        stopRegisteredAtSlowChildrenStart,
+        slowChildConversationIds: [...slowChildConversationIds],
+        activeSubflows,
+        graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
+        runtimeLogs: JSON.parse(
+          describeRelevantSubflowRuntimeLogs(parentConversationId),
+        ),
+      }),
+    );
+    assert.equal(
+      terminalAssistant?.content,
       'Stopped subflows Parent Review-Run Slow Batch-child-slow-a, Parent Review-Run Slow Batch-child-slow-b',
     );
     await Promise.all(

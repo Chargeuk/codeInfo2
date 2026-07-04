@@ -1,0 +1,12 @@
+{
+  "description": "Run the read-only blind-spot challenge addendum for the active story review.",
+  "steps": [
+    {
+      "type": "command",
+      "label": "Run Blind-Spot Challenge",
+      "agentType": "review_agent",
+      "identifier": "reviewer_blindspot",
+      "commandName": "review_blind_spot_challenge"
+    }
+  ]
+}

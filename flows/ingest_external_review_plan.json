@@ -41,25 +41,20 @@
           "commandName": "external_review_findings"
         },
         {
+          "type": "subflow",
+          "label": "Run Parallel Review Addenda",
+          "flowNames": [
+            "review_visual_addendum",
+            "external_review_findings_saturation_addendum",
+            "external_review_blind_spot_addendum"
+          ]
+        },
+        {
           "type": "llm",
-          "label": "Review Visual Design Conformance",
-          "agentType": "review_agent",
-          "identifier": "reviewer_visual",
-          "markdownFile": "review_visual_design_conformance.md"
-        },
-        {
-          "type": "command",
-          "label": "Run External Findings Saturation",
-          "agentType": "review_agent",
-          "identifier": "reviewer_saturation",
-          "commandName": "external_review_findings_saturation"
-        },
-        {
-          "type": "command",
-          "label": "Run External Blind-Spot Challenge",
-          "agentType": "review_agent",
-          "identifier": "reviewer_blindspot",
-          "commandName": "external_review_blind_spot_challenge"
+          "label": "Merge Parallel Review Addenda",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "merge_parallel_review_addenda.md"
         },
         {
           "type": "llm",

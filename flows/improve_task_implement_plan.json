@@ -564,25 +564,20 @@
               "commandName": "code_review_findings"
             },
             {
+              "type": "subflow",
+              "label": "Run Parallel Review Addenda",
+              "flowNames": [
+                "review_visual_addendum",
+                "review_findings_saturation_addendum",
+                "review_blind_spot_addendum"
+              ]
+            },
+            {
               "type": "llm",
-              "label": "Review Visual Design Conformance",
-              "agentType": "review_agent",
-              "identifier": "reviewer_visual",
-              "markdownFile": "review_visual_design_conformance.md"
-            },
-            {
-              "type": "command",
-              "label": "Run Findings Saturation",
-              "agentType": "review_agent",
-              "identifier": "reviewer_saturation",
-              "commandName": "review_findings_saturation"
-            },
-            {
-              "type": "command",
-              "label": "Run Blind-Spot Challenge",
-              "agentType": "review_agent",
-              "identifier": "reviewer_blindspot",
-              "commandName": "review_blind_spot_challenge"
+              "label": "Merge Parallel Review Addenda",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "merge_parallel_review_addenda.md"
             },
             {
               "type": "llm",

@@ -8747,6 +8747,8 @@ export async function startFlowRun(
   appendFlowRuntimeDiagnostic('flows.test.start.ownership_acquired', {
     flowName,
     conversationId,
+    flowPath,
+    flowPathDepth: flowPath.length,
     requestedConversationId,
     runToken,
     resumeStepPath: resumeStepPath ?? null,
@@ -8804,6 +8806,8 @@ export async function startFlowRun(
     appendFlowRuntimeDiagnostic('flows.test.start.flow_loaded', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       sourceId: sourceId ?? null,
       flowsRoot,
       stepCount: flow.steps.length,
@@ -8830,6 +8834,8 @@ export async function startFlowRun(
     appendFlowRuntimeDiagnostic('flows.test.start.working_folder_resolved', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       workingFolder: effectiveWorkingFolder ?? null,
       requestedWorkingFolder: params.working_folder ?? null,
       sourceId: sourceId ?? null,
@@ -8918,6 +8924,8 @@ export async function startFlowRun(
       appendFlowRuntimeDiagnostic('flows.test.start.runtime_identity_begin', {
         flowName,
         conversationId,
+        flowPath,
+        flowPathDepth: flowPath.length,
         firstAgentType,
         effectiveWorkingFolder: effectiveWorkingFolder ?? null,
       });
@@ -8934,6 +8942,8 @@ export async function startFlowRun(
       appendFlowRuntimeDiagnostic('flows.test.start.runtime_identity_resolved', {
         flowName,
         conversationId,
+        flowPath,
+        flowPathDepth: flowPath.length,
         firstAgentType,
         providerId,
         modelId,
@@ -8945,6 +8955,8 @@ export async function startFlowRun(
       appendFlowRuntimeDiagnostic('flows.test.start.runtime_identity_reused', {
         flowName,
         conversationId,
+        flowPath,
+        flowPathDepth: flowPath.length,
         providerId,
         modelId,
         resumeStepPath,
@@ -8982,6 +8994,8 @@ export async function startFlowRun(
     appendFlowRuntimeDiagnostic('flows.test.start.repository_context_ready', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       workingRepositoryPath: repositoryContext.workingRepositoryPath ?? null,
       defaultRepositoryRoot: repositoryContext.defaultRepositoryRoot ?? null,
       flowSourceId: repositoryContext.flowSourceId ?? null,
@@ -8991,18 +9005,24 @@ export async function startFlowRun(
     appendFlowRuntimeDiagnostic('flows.test.start.validate_command_steps_begin', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       stepCount: flow.steps.length,
     });
     await validateCommandSteps(flow.steps, agentByName, repositoryContext);
     appendFlowRuntimeDiagnostic('flows.test.start.validate_command_steps_complete', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       stepCount: flow.steps.length,
     });
 
     appendFlowRuntimeDiagnostic('flows.test.start.conversation_ensure_begin', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       providerId,
       modelId,
       workingFolder: effectiveWorkingFolder ?? null,
@@ -9020,6 +9040,8 @@ export async function startFlowRun(
     appendFlowRuntimeDiagnostic('flows.test.start.conversation_ensured', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       providerId,
       modelId,
       workingFolder: effectiveWorkingFolder ?? null,
@@ -9105,6 +9127,8 @@ export async function startFlowRun(
     appendFlowRuntimeDiagnostic('flows.test.start.resume_state_persisted', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       executionId,
       stepPath: resumeState?.stepPath ?? [],
       effectiveResumeStepPath: effectiveResumeStepPath ?? null,
@@ -9112,6 +9136,8 @@ export async function startFlowRun(
     appendFlowRuntimeDiagnostic('flows.test.start.accepted', {
       flowName,
       conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
       executionId,
       inflightId,
       providerId,
@@ -9154,6 +9180,8 @@ export async function startFlowRun(
       appendFlowRuntimeDiagnostic('flows.test.start.async_begin', {
         flowName,
         conversationId,
+        flowPath,
+        flowPathDepth: flowPath.length,
         executionId,
         inflightId,
         providerId,
@@ -9163,6 +9191,8 @@ export async function startFlowRun(
       appendFlowRuntimeDiagnostic('flows.test.start.execution_context_begin', {
         flowName,
         conversationId,
+        flowPath,
+        flowPathDepth: flowPath.length,
         executionId,
         inflightId,
         requestedWorkingFolder: params.working_folder ?? null,
@@ -9184,6 +9214,8 @@ export async function startFlowRun(
       appendFlowRuntimeDiagnostic('flows.test.start.execution_context_ready', {
         flowName,
         conversationId,
+        flowPath,
+        flowPathDepth: flowPath.length,
         executionId,
         inflightId,
         workingDirectoryOverride: workingDirectoryOverride ?? null,
@@ -9191,6 +9223,8 @@ export async function startFlowRun(
       appendFlowRuntimeDiagnostic('flows.test.start.run_dispatch_begin', {
         flowName,
         conversationId,
+        flowPath,
+        flowPathDepth: flowPath.length,
         executionId,
         inflightId,
         effectiveResumeStepPath: effectiveResumeStepPath ?? null,

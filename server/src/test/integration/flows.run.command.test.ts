@@ -513,7 +513,12 @@ const describeCommandRetryDiagnosticState = (conversationId: string) => {
     .concat(query({ text: 'flows.test.step_dispatch' }, 50))
     .concat(query({ text: 'flows.test.first_' }, 50))
     .concat(query({ text: 'flows.test.chat_factory_' }, 50))
-    .filter((entry) => entry.context?.conversationId === conversationId)
+    .concat(query({ text: 'runtime.chat_config_lock_' }, 20))
+    .filter(
+      (entry) =>
+        entry.context?.conversationId === conversationId ||
+        entry.message.startsWith('runtime.chat_config_lock_'),
+    )
     .map((entry) => ({
       message: entry.message,
       context: entry.context,

@@ -20,6 +20,7 @@ import {
   resumePendingFlowWaitsForStartup,
   startFlowRun,
 } from '../../flows/service.js';
+import { query } from '../../logStore.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
@@ -30,6 +31,7 @@ const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 10000,
   intervalMs = 50,
+  describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
@@ -37,8 +39,30 @@ const waitFor = async (
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new Error('Timed out waiting for predicate');
+  throw new Error(
+    describe ? `Timed out waiting for predicate | ${describe()}` : 'Timed out waiting for predicate',
+  );
 };
+
+const describeResumeBackfillState = (conversationId: string): string =>
+  JSON.stringify({
+    conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+    })),
+    runtimeLogs: query({ text: 'flows.test.' }, 80)
+      .filter(
+        (entry) =>
+          entry.context?.conversationId === conversationId ||
+          entry.message.startsWith('runtime.chat_config_lock_'),
+      )
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  });
 
 const getAssistantTurnCount = (conversationId: string) =>
   (memoryTurns.get(conversationId) ?? []).filter(
@@ -256,6 +280,8 @@ test('startFlowRun backfills legacy executionId on resume', async () => {
     await waitFor(
       () => (memoryTurns.get(conversationId) ?? []).length >= 2,
       5000,
+      50,
+      () => describeResumeBackfillState(conversationId),
     );
 
     const conversation = memoryConversations.get(conversationId);

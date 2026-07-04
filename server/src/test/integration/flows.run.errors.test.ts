@@ -78,6 +78,20 @@ const waitFor = async (
   throw new Error('Timed out waiting for predicate');
 };
 
+const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
+  JSON.stringify(
+    query({ text: 'flows.test.' }, 80)
+      .filter(
+        (entry) =>
+          entry.context?.conversationId === conversationId ||
+          entry.message.startsWith('runtime.chat_config_lock_'),
+      )
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  );
+
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   memoryConversations.clear();
@@ -350,6 +364,14 @@ async function waitForConversationUnlocked(
       `conversationFlags=${JSON.stringify(
         memoryConversations.get(conversationId)?.flags ?? null,
       )}`,
+      `recentTurns=${JSON.stringify(
+        (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+      `runtimeLogs=${describeRelevantFlowRuntimeLogs(conversationId)}`,
     ].join(' | '),
   );
 }

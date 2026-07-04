@@ -234,6 +234,12 @@ const describeRelevantSubflowRuntimeLogs = (conversationId: string): string =>
             entry.message.startsWith('flows.test.subflow_'))
         );
       })
+      .concat(
+        query({ text: 'runtime.chat_config_lock_' }, 20).map((entry) => ({
+          message: entry.message,
+          context: entry.context,
+        })),
+      )
       .map((entry) => ({
         message: entry.message,
         context: entry.context,

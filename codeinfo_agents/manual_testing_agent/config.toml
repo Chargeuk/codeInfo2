@@ -11,7 +11,7 @@ view_image_tool = true
 
 [mcp_servers]
 [mcp_servers.context7]
-args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY', "--allow-http"]
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
 command = 'npx'
 startup_timeout_sec = 20.0
 
@@ -21,7 +21,7 @@ startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
 

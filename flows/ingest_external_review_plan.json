@@ -18,8 +18,8 @@
     {
       "type": "llm",
       "label": "Reset Review Cycle State",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
       "markdownFile": "reset_review_cycle_state.md"
     },
     {
@@ -30,35 +30,35 @@
           "type": "command",
           "label": "Run External Review Evidence Gate",
           "agentType": "review_agent",
-          "identifier": "reviewer",
+          "identifier": "reviewer_evidence",
           "commandName": "external_review_evidence_gate"
         },
         {
           "type": "command",
           "label": "Run External Review Findings",
           "agentType": "review_agent",
-          "identifier": "reviewer",
+          "identifier": "reviewer_findings",
           "commandName": "external_review_findings"
         },
         {
           "type": "llm",
           "label": "Review Visual Design Conformance",
           "agentType": "review_agent",
-          "identifier": "reviewer",
+          "identifier": "reviewer_visual",
           "markdownFile": "review_visual_design_conformance.md"
         },
         {
           "type": "command",
           "label": "Run External Findings Saturation",
           "agentType": "review_agent",
-          "identifier": "reviewer",
+          "identifier": "reviewer_saturation",
           "commandName": "external_review_findings_saturation"
         },
         {
           "type": "command",
           "label": "Run External Blind-Spot Challenge",
           "agentType": "review_agent",
-          "identifier": "reviewer",
+          "identifier": "reviewer_blindspot",
           "commandName": "external_review_blind_spot_challenge"
         },
         {
@@ -140,8 +140,8 @@
             {
               "type": "llm",
               "label": "Refresh Current Plan Handoff After Review Task-Up",
-              "agentType": "planning_agent",
-              "identifier": "planner",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
               "markdownFile": "refresh_current_plan_handoff.md"
             },
             {
@@ -210,8 +210,8 @@
     {
       "type": "llm",
       "label": "Push",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
       "markdownFile": "final_push.md"
     }
   ]

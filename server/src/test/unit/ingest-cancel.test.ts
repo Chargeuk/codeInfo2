@@ -6,6 +6,7 @@ import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { ChromaClient } from 'chromadb';
 import express from 'express';
+import mongoose from 'mongoose';
 import request from 'supertest';
 import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import { createEmbeddingDispatcher } from '../../ingest/embeddingDispatcher.js';
@@ -771,6 +772,75 @@ test('late cancel on delta no-op reembed does not overwrite terminal state back 
       'late cancel should prevent delta no-op fast path from publishing completed',
     );
   } finally {
+    await cleanup();
+  }
+});
+
+test('cancelled delta no-op reembed does not regress back to embedding after the worker resumes', async () => {
+  setupChromaMocks();
+  const previousIndexGate = createDeferred<void>();
+  const { root, cleanup } = await createTempRepo({
+    'docs/notes.txt': 'alpha beta gamma\n',
+  });
+  const previousReadyState = (
+    mongoose.connection as unknown as { readyState: number }
+  ).readyState;
+
+  try {
+    (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+    const fileHash = await hashFile(path.join(root, 'docs/notes.txt'));
+    test.mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => {
+            await previousIndexGate.promise;
+            return [{ root, relPath: 'docs/notes.txt', fileHash }];
+          },
+        }),
+      }),
+    }));
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-delta-noop-status-monotonic',
+        model: 'embed-1',
+        operation: 'reembed',
+      },
+      buildDeps({
+        embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+      }),
+    );
+
+    await waitForStatus(runId, (status) => status?.state === 'scanning');
+    await cancelRun(runId);
+    assert.equal(getStatus(runId)?.state, 'cancelled');
+
+    previousIndexGate.resolve();
+    await waitForCondition('delta no-op worker resume', () => {
+      return query(
+        { text: 'REEMBED_NO_CHANGE_EARLY_RETURN' },
+        20,
+      ).some((entry) => entry.context?.runId === runId);
+    });
+
+    const observedStates = new Set<string>();
+    const startedAt = Date.now();
+    const timeoutMs = resolveConfiguredTestTimeoutMs(300);
+    while (Date.now() - startedAt < timeoutMs) {
+      observedStates.add(String(getStatus(runId)?.state ?? 'missing'));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    assert.deepEqual(
+      [...observedStates],
+      ['cancelled'],
+      `expected cancelled to remain monotonic after worker resume, observed ${[...observedStates].join(' -> ')}`,
+    );
+  } finally {
+    (mongoose.connection as unknown as { readyState: number }).readyState =
+      previousReadyState;
+    previousIndexGate.resolve();
     await cleanup();
   }
 });

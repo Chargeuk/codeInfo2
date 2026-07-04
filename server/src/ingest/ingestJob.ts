@@ -342,6 +342,14 @@ function setStatusAndPublish(
   nextStatus: IngestJobStatus,
   options: { publishQueueTerminal?: boolean } = {},
 ) {
+  const currentStatus = jobs.get(runId) ?? null;
+  if (
+    currentStatus &&
+    terminalStates.has(currentStatus.state) &&
+    !terminalStates.has(nextStatus.state)
+  ) {
+    return;
+  }
   jobs.set(runId, nextStatus);
   broadcastIngestUpdate(nextStatus);
   const requestId = queueRequestIdsByRunId.get(runId) ?? null;

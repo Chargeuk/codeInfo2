@@ -1,3 +1,4 @@
+codeinfo_provider = "codex"
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 approval_policy = "never"
@@ -9,7 +10,7 @@ view_image_tool = true
 
 [mcp_servers]
 [mcp_servers.context7]
-args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY', "--allow-http"]
 command = 'npx'
 startup_timeout_sec = 20.0
 

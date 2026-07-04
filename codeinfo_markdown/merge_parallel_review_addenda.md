@@ -2,7 +2,7 @@
 
 Merge the additive outputs from the parallel visual-review, findings-saturation, and blind-spot-challenge subflows into the canonical findings artifact and shared review handoff.
 
-This step is the single shared-output writer for the parallel internal review addenda path.
+This step is the single shared-output writer for the parallel review addenda flows that feed either the internal or external review path.
 
 <critical_rules>
 
@@ -43,7 +43,7 @@ If a sidecar is missing, do not guess at an alternate file path. Use only the ex
 - If a proposed finding duplicates an existing canonical finding, do not add it again. Record that duplicate handling in this step's response and preserve the existing canonical wording unless the new proposal is materially clearer without widening scope.
 - Merge new findings into the canonical findings artifact in findings-first severity order while preserving existing sections such as `Rejected Risk Notes`, `Finding Saturation Seeds`, `Checked Defect Families`, and residual-risk notes.
 - Preserve the base findings artifact as the canonical source for later disposition. The visual, saturation, and blind-spot artifacts remain additive evidence only.
-- Update the shared review handoff exactly once after the merge decision is complete.
+- When one or more additive sidecars exist, update the shared review handoff exactly once after the merge decision is complete.
 - When updating the handoff, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed.
 - This step owns only:
   - `findings_file`
@@ -63,9 +63,9 @@ If a sidecar is missing, do not guess at an alternate file path. Use only the ex
 <output_contract>
 
 - If one or more additive sidecars exist, inspect them and apply their non-duplicate findings to the canonical findings artifact when appropriate.
-- If no additive sidecar exists, leave the findings artifact unchanged and update nothing except a concise no-op response.
-- If the findings artifact changes, write the merged result back to the same `findings_file` path.
-- If at least one additive sidecar exists, update the shared review handoff so it points to the additive artifact files and records whether each addendum generated findings.
+- If no additive sidecar exists, leave the findings artifact unchanged, leave the shared review handoff unchanged, and return only a concise no-op response.
+- When the findings artifact changes, write the merged result back to the same `findings_file` path.
+- When at least one additive sidecar exists, update the shared review handoff so it points to the additive artifact files and records whether each addendum generated findings.
 - Report:
   - whether the canonical findings artifact changed;
   - which additive sidecars were consumed;
@@ -82,7 +82,7 @@ If a sidecar is missing, do not guess at an alternate file path. Use only the ex
 - Confirm only the expected `<review_pass_id>`-derived additive paths were considered.
 - Confirm duplicate findings were not added twice.
 - Confirm the canonical findings artifact remained the only findings source rewritten by this step.
-- Confirm the shared review handoff was updated at most once after all merge decisions were complete.
+- Confirm the shared review handoff was updated at most once after all merge decisions were complete, and not at all when no additive sidecar existed.
 - Confirm no `repos[]` comparison metadata changed.
 - Confirm the final findings artifact and review handoff are valid and mutually consistent.
 

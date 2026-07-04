@@ -19,6 +19,7 @@ import {
   cleanupInflight,
   getInflight,
   getPendingConversationCancel,
+  registerPendingConversationCancel,
 } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
@@ -91,6 +92,24 @@ const withTimeout = async <T>(
   }
 };
 
+const waitFor = async (
+  predicate: () => boolean,
+  timeoutMs = 10000,
+  describe?: () => string,
+): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const started = Date.now();
+  while (Date.now() - started < resolvedTimeoutMs) {
+    if (predicate()) return;
+    await delay(20);
+  }
+  throw new Error(
+    describe
+      ? `Timed out waiting for condition | ${describe()}`
+      : 'Timed out waiting for condition',
+  );
+};
+
 const closeHttpServer = async (
   httpServer: http.Server,
   timeoutMs = 2000,
@@ -156,7 +175,16 @@ const closeFlowHarness = async (params: {
 };
 
 class ScriptedChat extends ChatInterface {
-  constructor(private readonly responder: (message: string) => string) {
+  constructor(
+    private readonly responder: (message: string) => string,
+    private readonly options: {
+      onExecute?: (params: {
+        message: string;
+        flags: Record<string, unknown>;
+        conversationId: string;
+      }) => void;
+    } = {},
+  ) {
     super();
   }
 
@@ -172,6 +200,7 @@ class ScriptedChat extends ChatInterface {
       this.emit('error', { type: 'error', message: 'aborted' });
       return;
     }
+    this.options.onExecute?.({ message, flags, conversationId });
     this.emit('thread', { type: 'thread', threadId: conversationId });
     const rawResponse = this.responder(message);
     const delayedMatch = rawResponse.match(/^__delay:(\d+)::([\s\S]*)$/);
@@ -439,6 +468,7 @@ const withFlowServer = async (
     tmpDir: string;
   }) => Promise<void>,
   options?: {
+    chatFactory?: () => ChatInterface;
     cleanupInflightFn?: (params: {
       conversationId: string;
       inflightId?: string;
@@ -470,7 +500,7 @@ const withFlowServer = async (
       startFlowRun: (params) =>
         startFlowRun({
           ...params,
-          chatFactory: () => new ScriptedChat(responder),
+          chatFactory: options?.chatFactory ?? (() => new ScriptedChat(responder)),
           listIngestedRepositories:
             options?.listIngestedRepositoriesFn ??
             (options?.registerTmpDirAsRepo
@@ -3073,6 +3103,10 @@ test('continue resume starts the next iteration instead of replaying skipped ste
 
 test('continue resume keeps its boundary marker until the next iteration makes progress', async () => {
   let runPhase: 'stop' | 'finish' = 'stop';
+  let stopRegisteredAtOuterStepStart = false;
+  const conversationId = 'flow-loop-continue-resume-stop-conv';
+  const outerConversationId = 'flow-loop-continue-resume-stop-outer';
+  const continueConversationId = 'flow-loop-continue-resume-stop-continue';
   await withFlowServer(
     (message) => {
       if (message.includes('Outer loop step.')) {
@@ -3087,10 +3121,6 @@ test('continue resume keeps its boundary marker until the next iteration makes p
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-continue-resume-stop-conv';
-      const outerConversationId = 'flow-loop-continue-resume-stop-outer';
-      const continueConversationId = 'flow-loop-continue-resume-stop-continue';
-
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
@@ -3161,13 +3191,16 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
 
-      await delay(100);
-
-      sendJson(wsUrl, {
-        type: 'cancel_inflight',
-        conversationId,
-        inflightId: firstRun.body.inflightId as string,
-      });
+      await waitFor(
+        () => stopRegisteredAtOuterStepStart,
+        8000,
+        () =>
+          JSON.stringify({
+            firstRunInflightId: firstRun.body.inflightId as string,
+            stopRegisteredAtOuterStepStart,
+            state: JSON.parse(describeLoopContinueResumeState(conversationId)),
+          }),
+      );
 
       const stopped = await waitForEvent({
         ws: wsUrl,
@@ -3358,6 +3391,44 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         conversationId,
         ...getLoopContinueAgentConversationIds(conversationId),
       );
+    },
+    {
+      chatFactory: () =>
+        new ScriptedChat(
+          (message) => {
+            if (message.includes('Outer loop step.')) {
+              return runPhase === 'stop' ? '__delay:1000::ok' : 'ok';
+            }
+            if (message.includes('Skip remaining loop steps?')) {
+              return JSON.stringify({ answer: 'no' });
+            }
+            if (message.includes('Exit outer loop?')) {
+              return JSON.stringify({ answer: 'yes' });
+            }
+            return 'ok';
+          },
+          {
+            onExecute: ({ message, conversationId: activeConversationId }) => {
+              if (
+                runPhase === 'stop' &&
+                message.includes('Outer loop step.') &&
+                activeConversationId === outerConversationId &&
+                !stopRegisteredAtOuterStepStart
+              ) {
+                const parentRunToken =
+                  getActiveRunOwnership(conversationId)?.runToken;
+                if (!parentRunToken) {
+                  return;
+                }
+                stopRegisteredAtOuterStepStart = true;
+                registerPendingConversationCancel({
+                  conversationId,
+                  runToken: parentRunToken,
+                });
+              }
+            },
+          },
+        ),
     },
   );
 });
@@ -4137,6 +4208,8 @@ test('aborted flow step is not retried', async () => {
   const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
   process.env.FLOW_AND_COMMAND_RETRIES = '3';
   let outerBreakAttempts = 0;
+  let stopRegisteredAtStepStart = false;
+  const conversationId = 'flow-loop-retry-aborted';
   const cleanupEvents: Array<{
     label: string;
     conversationId: string;
@@ -4197,7 +4270,6 @@ test('aborted flow step is not retried', async () => {
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-retry-aborted';
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       try {
         const response = await supertest(baseUrl)
@@ -4205,12 +4277,16 @@ test('aborted flow step is not retried', async () => {
           .send({ conversationId })
           .expect(202);
 
-        const inflightId = response.body.inflightId as string;
-        sendJson(wsUrl, {
-          type: 'cancel_inflight',
-          conversationId,
-          inflightId,
-        });
+        await waitFor(
+          () => stopRegisteredAtStepStart,
+          5000,
+          () =>
+            JSON.stringify({
+              responseInflightId: response.body.inflightId as string,
+              stopRegisteredAtStepStart,
+              state: JSON.parse(describeAbortedRetryState(conversationId)),
+            }),
+        );
 
         const final = await waitForEvent({
           ws: wsUrl,
@@ -4241,6 +4317,35 @@ test('aborted flow step is not retried', async () => {
       }
     },
     {
+      chatFactory: () =>
+        new ScriptedChat(
+          (message) => {
+            if (message.includes('Say hello from a flow step.')) {
+              outerBreakAttempts += 1;
+              return '__delay:1000::Flow agent response';
+            }
+            return 'ok';
+          },
+          {
+            onExecute: ({ message }) => {
+              if (
+                !stopRegisteredAtStepStart &&
+                message.includes('Say hello from a flow step.')
+              ) {
+                const runToken =
+                  getActiveRunOwnership(conversationId)?.runToken;
+                if (!runToken) {
+                  return;
+                }
+                stopRegisteredAtStepStart = true;
+                registerPendingConversationCancel({
+                  conversationId,
+                  runToken,
+                });
+              }
+            },
+          },
+        ),
       cleanupInflightFn: (params) => {
         recordCleanupEvent(
           'before cleanupInflightFn',

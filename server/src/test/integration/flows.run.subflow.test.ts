@@ -1054,11 +1054,32 @@ test('stopping the parent flow stops every running child in a parallel subflow s
     });
 
     let parentRunToken: string | undefined;
+    const parentConversationId = 'parent-stop-parallel-conversation';
+    const slowChildConversationIds = new Set<string>();
+    let stopRegisteredAtSlowChildrenStart = false;
     const result = await startFlowRun({
       flowName: 'parent-stop-parallel',
+      conversationId: parentConversationId,
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(250),
+      chatFactory: () =>
+        new SubflowChat(250, ({ message, conversationId }) => {
+          if (
+            message === 'slow child' &&
+            conversationId !== parentConversationId &&
+            parentRunToken &&
+            !stopRegisteredAtSlowChildrenStart
+          ) {
+            slowChildConversationIds.add(conversationId);
+            if (slowChildConversationIds.size === 2) {
+              stopRegisteredAtSlowChildrenStart = true;
+              registerPendingConversationCancel({
+                conversationId: parentConversationId,
+                runToken: parentRunToken,
+              });
+            }
+          }
+        }),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -1071,29 +1092,27 @@ test('stopping the parent flow stops every running child in a parallel subflow s
     assert.equal(activeSubflows.length, 2);
     assert.ok(parentRunToken);
 
-    await Promise.all(
-      activeSubflows.map((activeSubflow) =>
-        waitForConversationAssistantStatus(
-          String(activeSubflow.conversationId),
-          'ok',
-        ),
-      ),
+    await waitFor(() => stopRegisteredAtSlowChildrenStart, 10000, () =>
+      JSON.stringify({
+        parentConversationId,
+        stopRegisteredAtSlowChildrenStart,
+        slowChildConversationIds: [...slowChildConversationIds],
+        activeSubflows,
+        graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
+      }),
     );
 
-    registerPendingConversationCancel({
-      conversationId: result.conversationId,
-      runToken: parentRunToken as string,
-    });
-
     const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
+      parentConversationId,
       'stopped',
       10000,
       () =>
         JSON.stringify({
-          parentConversationId: result.conversationId,
+          parentConversationId,
+          stopRegisteredAtSlowChildrenStart,
+          slowChildConversationIds: [...slowChildConversationIds],
           activeSubflows,
-          graph: JSON.parse(describeConversationGraph(result.conversationId, 2)),
+          graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
         }),
     );
     assert.equal(
@@ -1108,11 +1127,11 @@ test('stopping the parent flow stops every running child in a parallel subflow s
           10000,
           () =>
             JSON.stringify({
-              parentConversationId: result.conversationId,
+              parentConversationId,
+              stopRegisteredAtSlowChildrenStart,
+              slowChildConversationIds: [...slowChildConversationIds],
               activeSubflow,
-              graph: JSON.parse(
-                describeConversationGraph(result.conversationId, 2),
-              ),
+              graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
             }),
         ),
       ),

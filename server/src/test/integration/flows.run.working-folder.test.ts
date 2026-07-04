@@ -641,7 +641,19 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
       })
       .expect(202);
 
-    await waitForCondition(() => calls.length >= 1);
+    await waitForCondition(
+      () => calls.length >= 1,
+      4000,
+      () =>
+        JSON.stringify({
+          conversation: JSON.parse(
+            describeConversationState('flow-host-working-folder-map'),
+          ),
+          calls,
+          hostWorkingFolder,
+          expectedMounted,
+        }),
+    );
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.flags.workingDirectoryOverride, expectedMounted);

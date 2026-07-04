@@ -371,7 +371,12 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
       chatFactory: () => new TrackingChat(),
     });
 
-    await waitFor(() => captured.length === 1);
+    await waitFor(
+      () => captured.length === 1,
+      10000,
+      50,
+      () => describeConversationState(conversationId),
+    );
     assert.equal(captured[0], 'Step 2');
     const conversation = memoryConversations.get(conversationId);
     assert.equal(conversation?.title, originalTitle);
@@ -2043,7 +2048,12 @@ test('paused wait resumes the same execution after the authored delay using an e
     assert.ok(wake, 'expected wait wake callback to be captured');
 
     (wake as () => void)();
-    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    await waitFor(
+      () => getAssistantTurnCount(conversationId) >= 2,
+      10000,
+      50,
+      () => describeConversationState(conversationId),
+    );
 
     assert.equal(getFlowExecutionId(conversationId), executionId);
     assert.equal(

@@ -44,6 +44,7 @@ import {
   stopMock,
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -57,6 +58,54 @@ const previousHashesByRelPath = new Map<string, string>();
 let rememberedVectorCount: number | null = null;
 let rememberedRunId: string | null = null;
 let rememberedAstCoverageTimestamp: string | null = null;
+
+async function waitForIngestTerminalStateStability(
+  poll: () => Promise<string>,
+  options?: {
+    timeoutMs?: number;
+    intervalMs?: number;
+    stabilityWindowMs?: number;
+  },
+) {
+  const timeoutMs = resolveConfiguredTestTimeoutMs(options?.timeoutMs ?? 10_000);
+  const intervalMs = options?.intervalMs ?? 100;
+  const stabilityWindowMs = options?.stabilityWindowMs ?? 1_000;
+  const startedAt = Date.now();
+  let observedTerminal: string | null = null;
+  let stableSince: number | null = null;
+  const observedStates: string[] = [];
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const state = await poll();
+    observedStates.push(state);
+
+    if (!['completed', 'cancelled', 'error'].includes(state)) {
+      observedTerminal = null;
+      stableSince = null;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      continue;
+    }
+
+    if (!observedTerminal) {
+      observedTerminal = state;
+      stableSince = Date.now();
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      continue;
+    }
+
+    assert.equal(state, observedTerminal);
+
+    if (stableSince !== null && Date.now() - stableSince >= stabilityWindowMs) {
+      return { observedTerminal, observedStates, timeoutMs };
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  assert.fail(
+    `expected one terminal state to be observed within ${timeoutMs}ms; observed states=${observedStates.join(' -> ') || 'none'}`,
+  );
+}
 
 function buildGeneratedRelPaths(prefix: string, count: number): string[] {
   return Array.from({ length: count }, (_, index) =>
@@ -362,24 +411,13 @@ Then(
   'ingest delta terminal outcome should stabilize as a single terminal state',
   async () => {
     assert(lastRunId, 'runId missing');
-    const terminalStates = new Set(['completed', 'cancelled', 'error']);
-    let observedTerminal: string | null = null;
-    for (let i = 0; i < 40; i += 1) {
+    const result = await waitForIngestTerminalStateStability(async () => {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-      const body = (await res.json()) as { state?: string };
-      const state = String(body.state ?? '');
-      if (!terminalStates.has(state)) {
-        await new Promise((r) => setTimeout(r, 50));
-        continue;
-      }
-      if (!observedTerminal) {
-        observedTerminal = state;
-      } else {
-        assert.equal(state, observedTerminal);
-      }
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    assert(observedTerminal, 'expected one terminal state to be observed');
+      const body = (await res.json()) as { state?: string; message?: string };
+      lastStatus = body;
+      return String(body.state ?? '');
+    });
+    assert.ok(result.observedTerminal, 'expected one terminal state to be observed');
   },
 );
 

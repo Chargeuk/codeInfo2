@@ -144,6 +144,8 @@ describe('flow schema (v1)', () => {
 
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
+      'flows/external_review_findings_saturation_addendum.json',
+      'flows/external_review_blind_spot_addendum.json',
       'flows/review_plan.json',
       'flows/review_visual_addendum.json',
       'flows/review_findings_saturation_addendum.json',
@@ -176,7 +178,10 @@ describe('flow schema (v1)', () => {
     for (const relativePath of flowFiles) {
       const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${relativePath} should define steps`);
+      assert.ok(
+        Array.isArray(parsed.steps),
+        `${relativePath} should define steps`,
+      );
 
       const markers = flattenSteps(parsed.steps ?? []).map((step) => {
         if (step.type === 'command') {
@@ -185,20 +190,29 @@ describe('flow schema (v1)', () => {
         if (step.type === 'llm') {
           return step.markdownFile;
         }
-        if (step.type === 'subflow') {
-          return step.flowNames?.join(',');
-        }
         return undefined;
       });
 
       const findingsIndex = markers.indexOf('code_review_findings');
-      const addendaIndex = markers.indexOf(
-        'review_visual_addendum,review_findings_saturation_addendum,review_blind_spot_addendum',
+      const expectedAddenda = [
+        'review_blind_spot_addendum',
+        'review_findings_saturation_addendum',
+        'review_visual_addendum',
+      ];
+      const addendaIndex = flattenSteps(parsed.steps ?? []).findIndex(
+        (step) =>
+          step.type === 'subflow' &&
+          JSON.stringify([...(step.flowNames ?? [])].sort()) ===
+            JSON.stringify(expectedAddenda),
       );
       const mergeIndex = markers.indexOf('merge_parallel_review_addenda.md');
       const classifyIndex = markers.indexOf('classify_review_disposition.md');
 
-      assert.notEqual(findingsIndex, -1, `${relativePath} should include findings step`);
+      assert.notEqual(
+        findingsIndex,
+        -1,
+        `${relativePath} should include findings step`,
+      );
       assert.notEqual(
         addendaIndex,
         -1,
@@ -223,7 +237,7 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('external review flow keeps saturation before blind-spot challenge', async () => {
+  test('external review flow uses parallel review addenda merge before classifier disposition', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/ingest_external_review_plan.json'),
       'utf8',
@@ -234,23 +248,40 @@ describe('flow schema (v1)', () => {
       'flows/ingest_external_review_plan.json should define steps',
     );
 
-    const commands = flattenSteps(parsed.steps ?? [])
-      .map((step) => (step.type === 'command' ? step.commandName : undefined))
-      .filter(
-        (commandName): commandName is string =>
-          typeof commandName === 'string',
-      );
+    const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      if (step.type === 'command') {
+        return step.commandName;
+      }
+      if (step.type === 'llm') {
+        return step.markdownFile;
+      }
+      return undefined;
+    });
 
-    const findingsIndex = commands.indexOf('external_review_findings');
-    const saturationIndex = commands.indexOf('external_review_findings_saturation');
-    const challengeIndex = commands.indexOf('external_review_blind_spot_challenge');
+    const findingsIndex = markers.indexOf('external_review_findings');
+    const expectedAddenda = [
+      'external_review_blind_spot_addendum',
+      'external_review_findings_saturation_addendum',
+      'review_visual_addendum',
+    ];
+    const addendaIndex = flattenSteps(parsed.steps ?? []).findIndex(
+      (step) =>
+        step.type === 'subflow' &&
+        JSON.stringify([...(step.flowNames ?? [])].sort()) ===
+          JSON.stringify(expectedAddenda),
+    );
+    const mergeIndex = markers.indexOf('merge_parallel_review_addenda.md');
+    const classifyIndex = markers.indexOf('classify_review_disposition.md');
 
     assert.notEqual(findingsIndex, -1);
-    assert.notEqual(saturationIndex, -1);
-    assert.notEqual(challengeIndex, -1);
+    assert.notEqual(addendaIndex, -1);
+    assert.notEqual(mergeIndex, -1);
+    assert.notEqual(classifyIndex, -1);
     assert.ok(
-      findingsIndex < saturationIndex && saturationIndex < challengeIndex,
-      'flows/ingest_external_review_plan.json should run findings, then saturation, then challenge',
+      findingsIndex < addendaIndex &&
+        addendaIndex < mergeIndex &&
+        mergeIndex < classifyIndex,
+      'flows/ingest_external_review_plan.json should run findings, then parallel addenda, then merge, then classifier disposition',
     );
   });
 

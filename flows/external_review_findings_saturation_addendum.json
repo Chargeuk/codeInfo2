@@ -1,0 +1,12 @@
+{
+  "description": "Run the read-only external findings saturation addendum for the active story review.",
+  "steps": [
+    {
+      "type": "command",
+      "label": "Run External Findings Saturation",
+      "agentType": "review_agent",
+      "identifier": "reviewer_saturation",
+      "commandName": "external_review_findings_saturation"
+    }
+  ]
+}

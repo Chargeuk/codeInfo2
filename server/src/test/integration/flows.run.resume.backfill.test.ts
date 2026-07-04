@@ -380,6 +380,8 @@ test('startFlowRun backfills legacy child executionId on resume', async () => {
     await waitFor(
       () => (memoryTurns.get(conversationId) ?? []).length >= 2,
       5000,
+      50,
+      () => describeResumeBackfillState(conversationId),
     );
     assert.equal(
       getFlowChildExecutionId(childConversationId),
@@ -524,6 +526,8 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
     await waitFor(
       () => (memoryTurns.get(conversationId) ?? []).length >= 2,
       5000,
+      50,
+      () => describeResumeBackfillState(conversationId),
     );
     const backfilledExecutionId = getFlowExecutionId(conversationId);
     assert.equal(
@@ -653,6 +657,8 @@ test('startFlowRun validates each resumed child once and only backfills missing 
     await waitFor(
       () => (memoryTurns.get(conversationId) ?? []).length >= 2,
       5000,
+      50,
+      () => describeResumeBackfillState(conversationId),
     );
 
     assert.deepEqual(ensureCalls, [
@@ -764,6 +770,8 @@ test('startFlowRun leaves a fresher child execution id intact when it appears af
     await waitFor(
       () => (memoryTurns.get(conversationId) ?? []).length >= 2,
       5000,
+      50,
+      () => describeResumeBackfillState(conversationId),
     );
 
     assert.equal(persistCalls, 1);
@@ -840,7 +848,12 @@ test('startup recovery re-registers persisted waits through the normal startup p
       chatFactory: () => new TrackingChat(),
     });
 
-    await waitFor(() => captured.length === 1);
+    await waitFor(
+      () => captured.length === 1,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
     await waitFor(() => {
       const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
         flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
@@ -851,8 +864,13 @@ test('startup recovery re-registers persisted waits through the normal startup p
         flags.flow?.wait?.stepPath?.[0] === 1 &&
         typeof flags.flow?.wait?.resumeAt === 'number'
       );
-    });
-    await waitFor(() => getActiveRunOwnership(conversationId) === null);
+    }, 10000, 50, () => describeResumeBackfillState(conversationId));
+    await waitFor(
+      () => getActiveRunOwnership(conversationId) === null,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
     const executionId = getFlowExecutionId(conversationId);
     __resetFlowWaitResumeDepsForTests();
     wakes.length = 0;
@@ -871,7 +889,12 @@ test('startup recovery re-registers persisted waits through the normal startup p
     );
 
     wakes.forEach((registeredWake) => registeredWake());
-    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    await waitFor(
+      () => getAssistantTurnCount(conversationId) >= 2,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
     const assistantTurns = (memoryTurns.get(conversationId) ?? []).filter(
       (turn) => turn?.role === 'assistant',
     );
@@ -953,7 +976,12 @@ test('wake-time preflight failure rearms persisted wait ownership instead of dro
       chatFactory: () => new TrackingChat(),
     });
 
-    await waitFor(() => captured.length === 1);
+    await waitFor(
+      () => captured.length === 1,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
     const initialWait = getPersistedWaitState(conversationId);
     assert.ok(initialWait);
     assert.equal(typeof initialWait.resumeAt, 'number');
@@ -976,8 +1004,18 @@ test('wake-time preflight failure rearms persisted wait ownership instead of dro
     assert.ok(initialWake, 'expected captured wake callback');
     initialWake();
 
-    await waitFor(() => (getPersistedWaitState(conversationId)?.resumeAt ?? 0) > initialResumeAt);
-    await waitFor(() => wakes.length > 0);
+    await waitFor(
+      () => (getPersistedWaitState(conversationId)?.resumeAt ?? 0) > initialResumeAt,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
+    await waitFor(
+      () => wakes.length > 0,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
     const rearmedWait = getPersistedWaitState(conversationId);
     assert.ok(rearmedWait);
     assert.equal(rearmedWait.executionId, initialWait.executionId);
@@ -1051,9 +1089,24 @@ test('startup recovery retires a persisted wait after a durable invalid-state co
       chatFactory: () => new TrackingChat(),
     });
 
-    await waitFor(() => captured.length === 1);
-    await waitFor(() => Boolean(getPersistedWaitState(conversationId)));
-    await waitFor(() => getActiveRunOwnership(conversationId) === null);
+    await waitFor(
+      () => captured.length === 1,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
+    await waitFor(
+      () => Boolean(getPersistedWaitState(conversationId)),
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
+    await waitFor(
+      () => getActiveRunOwnership(conversationId) === null,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
 
     await fs.writeFile(
       path.join(tmpDir, 'wait-resume.json'),
@@ -1083,8 +1136,18 @@ test('startup recovery retires a persisted wait after a durable invalid-state co
     assert.ok(wake, 'expected captured wake callback');
     wake();
 
-    await waitFor(() => getPersistedWaitState(conversationId) === undefined);
-    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    await waitFor(
+      () => getPersistedWaitState(conversationId) === undefined,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
+    await waitFor(
+      () => getAssistantTurnCount(conversationId) >= 2,
+      10000,
+      50,
+      () => describeResumeBackfillState(conversationId),
+    );
     assert.equal(
       wakes.length,
       0,

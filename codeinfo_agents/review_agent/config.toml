@@ -1,13 +1,15 @@
-model = "gpt-5.4"
-model_reasoning_effort = "high"
+codeinfo_provider = "codex"
+model = "gpt-5.4-mini"
+model_reasoning_effort = "medium"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 web_search_mode = "disabled"
+personality = "pragmatic"
 
 [mcp_servers]
 [mcp_servers.code_info]
 command = "npx"
-args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
+args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
 

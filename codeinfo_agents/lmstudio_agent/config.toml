@@ -30,7 +30,7 @@ startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp", "--allow-http"]
 startup_timeout_sec = 60
 
 [mcp_servers.MCP_DOCKER]

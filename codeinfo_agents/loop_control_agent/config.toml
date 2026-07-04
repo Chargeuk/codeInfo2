@@ -1,8 +1,9 @@
+codeinfo_provider = "codex"
 model = "gpt-5.3-codex-spark"
 model_reasoning_effort = "low"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-personality = "friendly"
+personality = "pragmatic"
 model_auto_compact_token_limit=180000
 web_search_mode = "disabled" 
 hide_agent_reasoning = true

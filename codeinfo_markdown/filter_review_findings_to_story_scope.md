@@ -60,6 +60,10 @@ Reject a finding if any of the following are true.
    - the story's new code;
    - a regression the story caused in existing code;
    - a missing feature, requirement, proof item, or testing item that the story explicitly needs.
+   - Being in the same changed file is not enough by itself.
+   - Being in the same subsystem is not enough by itself.
+   - Being nearby, adjacent, or generally related behavior is not enough by itself.
+   - A finding in pre-existing code is only in scope if the story changed that exact behavior seam, or the canonical plan explicitly requires preserving or restoring that seam.
 7. The finding would change user-facing behavior that was not explicitly requested by the story or later explicitly approved by the user.
 8. The finding is really asking for a cleaner design, broader compatibility, refactor, hardening, portability improvement, polish improvement, or general product improvement that the story did not request.
 9. The reviewer's suggested fix is out of scope, even if the underlying observation is generally reasonable, and there is no narrower in-scope version of the finding to preserve.
@@ -78,6 +82,18 @@ Reject a finding if any of the following are true.
 
 </required_non_rejection_rule>
 
+<authoritative_findings_rule>
+
+- Only findings with stable IDs in the canonical actionable review state may create immediate implementation scope in the current story.
+- Challenge notes, saturation notes, evidence notes, or other review prose may surface potentially real issues, but they are advisory only until they are materialized into the canonical findings state with a stable ID and final disposition basis.
+- Being mentioned in the same review cycle is not enough by itself.
+- Being present in a challenge, saturation, or evidence artifact is not enough by itself.
+- If a secondary review artifact appears to promote an extra issue that is not yet canonicalized, implementation must not start from that prose alone.
+- Instead, preserve or create a single artifact-reconciliation blocker or explicit follow-up capture note, and stop scope expansion there until the canonical findings state is reconciled.
+- This rule must prevent silent scope expansion, but must not require the issue to be ignored forever merely because it first appeared in a secondary review artifact.
+
+</authoritative_findings_rule>
+
 <ambiguity_rules>
 
 - If scope is ambiguous, prefer rejection over scope expansion.
@@ -86,6 +102,14 @@ Reject a finding if any of the following are true.
 - If evidence is incomplete even though the core routing inputs are present and usable, and the remaining authoritative evidence still does not prove in-scope status, move the finding to `rejected_or_non_actionable_findings` and explain that in-scope status was not proven.
 
 </ambiguity_rules>
+
+<follow_up_capture_rule>
+
+- When rejecting a finding as pre-existing, broader than story scope, or otherwise non-actionable for the current story, state whether it should be ignored for this story only or captured as separate follow-up work outside the current story.
+- Rejected issues must not remain alive as review-loop blockers, task-up candidates, or actionable findings just because they might still deserve later follow-up.
+- If the issue may still deserve later follow-up, that follow-up must be recorded separately from the current story's actionable findings and must not silently preserve implementation scope in the current story.
+
+</follow_up_capture_rule>
 
 <full_state_coherence_rules>
 

@@ -1,6 +1,6 @@
 # Goal
 
-Run a bounded same-class sibling scan after the findings pass and before the blind-spot challenge so the review is less likely to miss nearby defects that later passes would rediscover, while emitting additive outputs that a later merge step can apply safely.
+Run a bounded same-class sibling scan after the findings pass and before disposition so the review is less likely to miss nearby defects that later passes would rediscover, while emitting additive outputs that a later merge step can apply safely.
 
 <critical_rules>
 
@@ -11,7 +11,7 @@ Run a bounded same-class sibling scan after the findings pass and before the bli
 - Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the evidence and findings artifacts, current-plan handoff, and direct git state to infer the safest usable meaning.
 - If the review handoff cannot provide the minimum usable findings and repository scope even after safe inference, write a visible incomplete saturation outcome when enough path information exists and do not ask for repeated regeneration.
 - This step does not edit the canonical plan.
-- This step does not replace the findings pass. It expands the same findings outcome across bounded sibling surfaces before blind-spot challenge and disposition continue.
+- This step does not replace the findings pass. It expands the same findings outcome across bounded sibling surfaces before later merge and disposition continue.
 - Keep the sibling scan bounded to the same repository unless a finding is already cross-repository.
 - Do not broaden into unrelated archaeology. Check only the same changed seam, obvious mirrored producers or consumers, lifecycle-adjacent surfaces, retained proof-owner chains, and directly comparable support-file families.
 - This step must not update the canonical findings artifact in place.
@@ -78,7 +78,7 @@ Do not update the findings artifact in place in this step.
 
 Do not update the current review handoff in this step.
 
-This artifact is additive context for later blind-spot challenge and disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
+This artifact is additive context for later merge and disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
 
 - Report the saturation artifact path, the saturation sidecar path, and whether the saturation pass generated any new actionable findings.
 

@@ -1,6 +1,6 @@
 # Goal
 
-Run a focused blind-spot challenge after the findings pass and before disposition so a tentative no-findings conclusion gets one more adversarial check.
+Run a focused blind-spot challenge after the findings pass and before disposition so a tentative no-findings conclusion gets one more adversarial check, while emitting additive outputs that a later merge step can apply safely.
 
 <critical_rules>
 
@@ -12,6 +12,9 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 - If the review handoff cannot provide the minimum usable findings/rejected-risk context and repository scope even after safe inference, write a visible incomplete challenge outcome when enough path information exists and do not ask for repeated regeneration.
 - This step does not edit the canonical plan.
 - This step does not replace the findings pass. It either strengthens confidence in a no-findings conclusion or produces late findings that the disposition step must honor.
+- This step must not update the canonical findings artifact in place.
+- This step must not update `codeInfoTmp/reviews/<story-number>-current-review.json` directly.
+- This step may write only its own additive artifact files for a later merge step.
 
 </critical_rules>
 
@@ -29,7 +32,7 @@ Prefer the review handoff's stored local-HEAD-vs-resolved-base comparison metada
 
 Do not repeatedly rerun or ask to regenerate review artifacts solely to satisfy handoff formatting. Make one best-effort interpretation from the existing handoff, referenced artifacts, and git state.
 
-Treat the evidence artifact's `Risk-Invariant Matrix`, the findings artifact's `Rejected Risk Notes`, and any saturation artifact's sibling-scan outcome as the primary input set for this challenge.
+Treat the evidence artifact's `Risk-Invariant Matrix`, the findings artifact's `Rejected Risk Notes`, and any saturation artifact's sibling-scan outcome as the primary input set for this challenge when those artifacts are already present. This step must still remain correct when the saturation artifact is absent because parallel review addenda may still be running.
 
 For every changed runtime file outside the allowed support-file set, run at least one changed-hunk contradiction pass that asks whether the exact edit can:
 
@@ -44,6 +47,7 @@ For every changed runtime file outside the allowed support-file set, run at leas
 <output_contract>
 
 Write the challenge result to `codeInfoTmp/reviews/<review_pass_id>-blind-spot-challenge.md`.
+Write a machine-readable sidecar to `codeInfoTmp/reviews/<review_pass_id>-blind-spot-challenge.json`.
 
 The challenge artifact MUST include:
 
@@ -55,23 +59,22 @@ The challenge artifact MUST include:
 - whether the challenge produced a new finding, strengthened a rejected-risk note, or left residual weak proof;
 - exact file references for the evidence used.
 
-If the challenge produces any new finding, update the same review handoff so it includes:
+- The JSON sidecar must include:
+  - `review_pass_id`
+  - `status: "complete" | "no_op" | "incomplete"`
+  - `generated_findings: true|false`
+  - `proposed_findings`
+  - `rejected_risk_note_updates`
+  - `evidence_refs`
+  - `source_artifact`
 
-- `challenge_file`
-- `challenge_outcome`
-- `challenge_generated_findings: true`
+Do not update the findings artifact in place in this step.
 
-If the challenge produces no new finding, update the same review handoff so it includes:
+Do not update the current review handoff in this step.
 
-- `challenge_file`
-- `challenge_outcome`
-- `challenge_generated_findings: false`
+This artifact is additive context for later merge and disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
 
-When updating the handoff for challenge results, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed. Only add or update the challenge-owned fields listed above.
-
-This artifact is additive context for disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
-
-- Report the challenge artifact path and whether the challenge generated any new findings.
+- Report the challenge artifact path, the challenge sidecar path, and whether the challenge generated any new findings.
 
 </output_contract>
 
@@ -79,11 +82,13 @@ This artifact is additive context for disposition. Downstream steps must still w
 
 - Confirm the current-plan handoff still matches the canonical plan and story branch.
 - Confirm the review handoff still matches the current scope and referenced artifacts.
-- Confirm the review handoff still preserves existing repository comparison metadata after this step's update, and that any safely inferred comparison context is documented in the challenge artifact when it affects confidence.
+- Confirm that any safely inferred comparison context is documented in the challenge artifact when it affects confidence.
 - Confirm the challenge consumed the saturation artifact when it was present, and still remained backward-compatible when it was absent.
 - Confirm the challenge inspected the top-risk helpers/functions rather than restarting the entire review.
 - Confirm every changed runtime file outside the allowed support-file set received at least one changed-hunk contradiction pass covering state loss, malformed config, portability, diagnostics labeling, or eager optional-dependency work.
-- Confirm the challenge artifact path matches the `challenge_file` value written into the handoff.
+- Confirm the challenge artifact and sidecar paths match each other and share the same `review_pass_id`.
 - Confirm the artifact explicitly says whether any new finding was generated.
+- Confirm the findings artifact still remains the canonical endorsed-findings source until a later merge step runs.
+- Confirm the challenge artifact and sidecar only add proposed findings or rejected-risk-note updates for the later merge step.
 
 </verification_loop>

@@ -147,6 +147,7 @@ describe('flow schema (v1)', () => {
       'flows/review_plan.json',
       'flows/review_visual_addendum.json',
       'flows/review_findings_saturation_addendum.json',
+      'flows/review_blind_spot_addendum.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -164,7 +165,7 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('internal review flows run parallel review addenda merge before blind-spot challenge', async () => {
+  test('internal review flows run parallel review addenda merge before classifier disposition', async () => {
     const flowFiles = [
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
@@ -192,10 +193,10 @@ describe('flow schema (v1)', () => {
 
       const findingsIndex = markers.indexOf('code_review_findings');
       const addendaIndex = markers.indexOf(
-        'review_visual_addendum,review_findings_saturation_addendum',
+        'review_visual_addendum,review_findings_saturation_addendum,review_blind_spot_addendum',
       );
       const mergeIndex = markers.indexOf('merge_parallel_review_addenda.md');
-      const challengeIndex = markers.indexOf('review_blind_spot_challenge');
+      const classifyIndex = markers.indexOf('classify_review_disposition.md');
 
       assert.notEqual(findingsIndex, -1, `${relativePath} should include findings step`);
       assert.notEqual(
@@ -209,15 +210,15 @@ describe('flow schema (v1)', () => {
         `${relativePath} should include parallel review addenda merge step`,
       );
       assert.notEqual(
-        challengeIndex,
+        classifyIndex,
         -1,
-        `${relativePath} should include blind-spot challenge step`,
+        `${relativePath} should include classifier disposition step`,
       );
       assert.ok(
         findingsIndex < addendaIndex &&
           addendaIndex < mergeIndex &&
-          mergeIndex < challengeIndex,
-        `${relativePath} should run findings, then parallel addenda, then merge, then challenge`,
+          mergeIndex < classifyIndex,
+        `${relativePath} should run findings, then parallel addenda, then merge, then classifier disposition`,
       );
     }
   });

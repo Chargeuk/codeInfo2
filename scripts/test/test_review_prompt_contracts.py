@@ -78,6 +78,7 @@ class ReviewPromptContractTests(unittest.TestCase):
     def test_parallel_review_addenda_prompts_are_read_only_until_merge(self) -> None:
         visual_text = read_text("codeinfo_markdown/review_visual_design_conformance.md")
         saturation_text = read_text("codeinfo_markdown/review_findings_saturation.md")
+        blind_spot_text = read_text("codeinfo_markdown/review_blind_spot_challenge/01-core.md")
         merge_text = read_text("codeinfo_markdown/merge_parallel_review_addenda.md")
 
         self.assertIn("must not update the canonical findings artifact in place", visual_text)
@@ -89,6 +90,10 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("must not update the canonical findings artifact in place", saturation_text)
         self.assertIn("must not update `codeInfoTmp/reviews/<story-number>-current-review.json` directly", saturation_text)
         self.assertIn("findings-saturation.json", saturation_text)
+        self.assertIn("must not update the canonical findings artifact in place", blind_spot_text)
+        self.assertIn("must not update `codeInfoTmp/reviews/<story-number>-current-review.json` directly", blind_spot_text)
+        self.assertIn("blind-spot-challenge.json", blind_spot_text)
+        self.assertIn("challenge_generated_findings", merge_text)
 
     def test_disposition_and_tasking_prompts_gate_cleanup_only_runtime_rewrites(self) -> None:
         classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")

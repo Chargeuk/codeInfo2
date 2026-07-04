@@ -1,6 +1,6 @@
 # Goal
 
-Merge the additive outputs from the parallel visual-review and findings-saturation subflows into the canonical findings artifact and shared review handoff.
+Merge the additive outputs from the parallel visual-review, findings-saturation, and blind-spot-challenge subflows into the canonical findings artifact and shared review handoff.
 
 This step is the single shared-output writer for the parallel internal review addenda path.
 
@@ -28,6 +28,7 @@ Read all of the following from disk:
 - the canonical findings artifact referenced by `findings_file`;
 - `codeInfoTmp/reviews/<review_pass_id>-visual-design-review.json` when present;
 - `codeInfoTmp/reviews/<review_pass_id>-findings-saturation.json` when present;
+- `codeInfoTmp/reviews/<review_pass_id>-blind-spot-challenge.json` when present;
 - the matching markdown artifacts for those sidecars when present.
 
 If a sidecar is missing, do not guess at an alternate file path. Use only the expected `<review_pass_id>`-derived path and treat the missing sidecar as `no_op` unless the surrounding evidence proves the subflow was incomplete.
@@ -41,7 +42,7 @@ If a sidecar is missing, do not guess at an alternate file path. Use only the ex
 - Deduplicate proposed findings conservatively. Treat two findings as duplicates when they describe the same core defect, same owner surface, and same corrective obligation in materially equivalent form.
 - If a proposed finding duplicates an existing canonical finding, do not add it again. Record that duplicate handling in this step's response and preserve the existing canonical wording unless the new proposal is materially clearer without widening scope.
 - Merge new findings into the canonical findings artifact in findings-first severity order while preserving existing sections such as `Rejected Risk Notes`, `Finding Saturation Seeds`, `Checked Defect Families`, and residual-risk notes.
-- Preserve the base findings artifact as the canonical source for later blind-spot challenge and disposition. The visual and saturation artifacts remain additive evidence only.
+- Preserve the base findings artifact as the canonical source for later disposition. The visual, saturation, and blind-spot artifacts remain additive evidence only.
 - Update the shared review handoff exactly once after the merge decision is complete.
 - When updating the handoff, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed.
 - This step owns only:
@@ -53,14 +54,16 @@ If a sidecar is missing, do not guess at an alternate file path. Use only the ex
   - `saturation_file`
   - `saturation_outcome`
   - `saturation_generated_findings`
-- Do not add challenge-owned fields in this step.
+  - `challenge_file`
+  - `challenge_outcome`
+  - `challenge_generated_findings`
 
 </merge_rules>
 
 <output_contract>
 
-- If one or both additive sidecars exist, inspect them and apply their non-duplicate findings to the canonical findings artifact when appropriate.
-- If neither additive sidecar exists, leave the findings artifact unchanged and update nothing except a concise no-op response.
+- If one or more additive sidecars exist, inspect them and apply their non-duplicate findings to the canonical findings artifact when appropriate.
+- If no additive sidecar exists, leave the findings artifact unchanged and update nothing except a concise no-op response.
 - If the findings artifact changes, write the merged result back to the same `findings_file` path.
 - If at least one additive sidecar exists, update the shared review handoff so it points to the additive artifact files and records whether each addendum generated findings.
 - Report:

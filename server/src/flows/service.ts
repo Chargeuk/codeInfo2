@@ -2398,9 +2398,21 @@ async function persistFlowTurn(params: {
   timing?: TurnTimingMetadata;
   createdAt: Date;
 }): Promise<{ turnId?: string }> {
+  const existingTurnCount = memoryTurns.get(params.conversationId)?.length ?? 0;
+  if (
+    flowRuntimeDiagnosticsEnabled &&
+    params.command?.name === 'flow' &&
+    existingTurnCount < 2
+  ) {
+    appendFlowRuntimeDiagnostic('flows.test.first_turn_persist_begin', {
+      conversationId: params.conversationId,
+      role: params.role,
+      status: params.status,
+      stepIndex: params.command.stepIndex,
+      contentPreview: params.content.slice(0, 120),
+    });
+  }
   if (shouldUseMemoryPersistence()) {
-    const existingTurnCount =
-      memoryTurns.get(params.conversationId)?.length ?? 0;
     recordMemoryTurn({
       conversationId: params.conversationId,
       role: params.role,
@@ -2470,6 +2482,21 @@ async function persistFlowTurn(params: {
     turn && typeof turn === 'object' && '_id' in (turn as object)
       ? String((turn as { _id?: unknown })._id ?? '')
       : undefined;
+
+  if (
+    flowRuntimeDiagnosticsEnabled &&
+    params.command?.name === 'flow' &&
+    existingTurnCount < 2
+  ) {
+    appendFlowRuntimeDiagnostic('flows.test.first_turn_persist_complete', {
+      conversationId: params.conversationId,
+      role: params.role,
+      status: params.status,
+      stepIndex: params.command.stepIndex,
+      turnId: turnId ?? null,
+      contentPreview: params.content.slice(0, 120),
+    });
+  }
 
   return turnId?.length ? { turnId } : {};
 }
@@ -2636,22 +2663,50 @@ const runFlowInstruction = async (params: {
     userTurn: { content: params.instruction, createdAt: createdAtIso },
   });
 
+  appendFlowRuntimeDiagnostic('flows.test.first_turn_publish_begin', {
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    stepIndex:
+      params.command?.name === 'flow' ? params.command.stepIndex : null,
+    instructionPreview: params.instruction.slice(0, 120),
+    phase: 'runFlowInstructionUnlocked',
+  });
   publishUserTurn({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
     content: params.instruction,
     createdAt: createdAtIso,
   });
+  appendFlowRuntimeDiagnostic('flows.test.first_turn_publish_complete', {
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    stepIndex:
+      params.command?.name === 'flow' ? params.command.stepIndex : null,
+    instructionPreview: params.instruction.slice(0, 120),
+    phase: 'runFlowInstructionUnlocked',
+  });
 
   const resolvedChatFactory = params.chatFactory ?? getChatInterface;
   let chat;
   try {
+    appendFlowRuntimeDiagnostic('flows.test.chat_factory_begin', {
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      providerId: params.providerId,
+      phase: 'runFlowInstructionUnlocked',
+    });
     chat = resolvedChatFactory(
       params.providerId,
       params.providerId === 'copilot'
         ? { copilotEnv: { ...process.env, ...params.envOverrides } }
         : undefined,
     );
+    appendFlowRuntimeDiagnostic('flows.test.chat_factory_complete', {
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      providerId: params.providerId,
+      phase: 'runFlowInstructionUnlocked',
+    });
   } catch (err) {
     if (err instanceof UnsupportedProviderError) {
       throw new Error(err.message);
@@ -7135,11 +7190,29 @@ async function runFlowUnlocked(params: {
       inflightId: stepInflightId,
       text: runningText,
     });
+    appendFlowRuntimeDiagnostic('flows.test.first_turn_publish_begin', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      inflightId: stepInflightId,
+      stepPath: nextPath,
+      stepType: 'subflow',
+      instructionPreview: instruction.slice(0, 120),
+      phase: 'runSubflowStep',
+    });
     publishUserTurn({
       conversationId: params.conversationId,
       inflightId: stepInflightId,
       content: instruction,
       createdAt: parentTurnCreatedAtIso,
+    });
+    appendFlowRuntimeDiagnostic('flows.test.first_turn_publish_complete', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      inflightId: stepInflightId,
+      stepPath: nextPath,
+      stepType: 'subflow',
+      instructionPreview: instruction.slice(0, 120),
+      phase: 'runSubflowStep',
     });
 
     const bridge = attachChatStreamBridge({
@@ -7419,7 +7492,23 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         text: finalMessage,
       });
+      appendFlowRuntimeDiagnostic('flows.test.first_snapshot_publish_begin', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        inflightId: stepInflightId,
+        stepPath: nextPath,
+        stepType: 'subflow',
+        terminalStatus,
+      });
       publishInflightSnapshot(params.conversationId);
+      appendFlowRuntimeDiagnostic('flows.test.first_snapshot_publish_complete', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        inflightId: stepInflightId,
+        stepPath: nextPath,
+        stepType: 'subflow',
+        terminalStatus,
+      });
 
       const userPersisted = await persistFlowTurn({
         conversationId: params.conversationId,
@@ -8826,6 +8915,12 @@ export async function startFlowRun(
           `Agent ${firstAgentType} not found`,
         );
       }
+      appendFlowRuntimeDiagnostic('flows.test.start.runtime_identity_begin', {
+        flowName,
+        conversationId,
+        firstAgentType,
+        effectiveWorkingFolder: effectiveWorkingFolder ?? null,
+      });
       const prepared = await resolveFlowAgentRuntimeExecution({
         agentName: firstAgentType,
         configPath: agent.configPath,
@@ -8905,6 +9000,14 @@ export async function startFlowRun(
       stepCount: flow.steps.length,
     });
 
+    appendFlowRuntimeDiagnostic('flows.test.start.conversation_ensure_begin', {
+      flowName,
+      conversationId,
+      providerId,
+      modelId,
+      workingFolder: effectiveWorkingFolder ?? null,
+      resumeStepPath: effectiveResumeStepPath ?? null,
+    });
     await ensureFlowConversation({
       conversationId,
       flowName,
@@ -9056,6 +9159,15 @@ export async function startFlowRun(
         providerId,
         modelId,
         effectiveResumeStepPath: effectiveResumeStepPath ?? null,
+      });
+      appendFlowRuntimeDiagnostic('flows.test.start.execution_context_begin', {
+        flowName,
+        conversationId,
+        executionId,
+        inflightId,
+        requestedWorkingFolder: params.working_folder ?? null,
+        defaultRepositoryRoot:
+          repositoryContext?.defaultRepositoryRoot ?? null,
       });
       if (!repositoryContext) {
         throw toFlowRunError(

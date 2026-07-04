@@ -417,11 +417,25 @@ const CHAT_CONFIG_LOCK_MAX_RETRIES = 20;
 async function acquireChatConfigLock(chatConfigPath: string): Promise<() => Promise<void>> {
   const lockPath = `${chatConfigPath}.codeinfo.lock`;
   const startedAt = Date.now();
+  appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquire_begin', {
+    chatConfigPath,
+    lockPath,
+    maxRetries: CHAT_CONFIG_LOCK_MAX_RETRIES,
+    retryDelayMs: CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+    pid: process.pid,
+  });
 
   for (let attempt = 0; attempt < CHAT_CONFIG_LOCK_MAX_RETRIES; attempt += 1) {
     let handle: FileHandle | undefined;
     try {
       handle = await fs.open(lockPath, 'wx');
+      appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquire_success', {
+        chatConfigPath,
+        lockPath,
+        attempts: attempt + 1,
+        waitedMs: Date.now() - startedAt,
+        pid: process.pid,
+      });
       if (attempt > 0) {
         appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquired_after_retry', {
           chatConfigPath,
@@ -440,6 +454,14 @@ async function acquireChatConfigLock(chatConfigPath: string): Promise<() => Prom
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw error;
       }
+      appendRuntimeTestDiagnostic('runtime.chat_config_lock_retry', {
+        chatConfigPath,
+        lockPath,
+        attempt: attempt + 1,
+        waitedMs: Date.now() - startedAt,
+        retryDelayMs: CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+        pid: process.pid,
+      });
       await delay(CHAT_CONFIG_LOCK_RETRY_DELAY_MS);
     }
   }

@@ -509,6 +509,10 @@ const describeCommandRetryDiagnosticState = (conversationId: string) => {
       'planning_agent:prep'
     ] ?? null;
   const runtimeLogs = query({ text: 'flows.test.command_' }, 50)
+    .concat(query({ text: 'flows.test.start.' }, 50))
+    .concat(query({ text: 'flows.test.step_dispatch' }, 50))
+    .concat(query({ text: 'flows.test.first_' }, 50))
+    .concat(query({ text: 'flows.test.chat_factory_' }, 50))
     .filter((entry) => entry.context?.conversationId === conversationId)
     .map((entry) => ({
       message: entry.message,

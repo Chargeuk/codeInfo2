@@ -229,6 +229,8 @@ const describeRelevantSubflowRuntimeLogs = (conversationId: string): string =>
           entryConversationId === conversationId &&
           (entry.message.startsWith('flows.test.start.') ||
             entry.message === 'flows.test.step_dispatch' ||
+            entry.message.startsWith('flows.test.first_') ||
+            entry.message.startsWith('flows.test.chat_factory_') ||
             entry.message.startsWith('flows.test.subflow_'))
         );
       })

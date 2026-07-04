@@ -405,35 +405,35 @@
               "type": "command",
               "label": "Run Review Evidence Gate",
               "agentType": "review_agent",
-              "identifier": "reviewer",
+              "identifier": "reviewer_evidence",
               "commandName": "review_evidence_gate"
             },
             {
               "type": "command",
               "label": "Run Code Review Findings",
               "agentType": "review_agent",
-              "identifier": "reviewer",
+              "identifier": "reviewer_findings",
               "commandName": "code_review_findings"
             },
             {
               "type": "llm",
               "label": "Review Visual Design Conformance",
               "agentType": "review_agent",
-              "identifier": "reviewer",
+              "identifier": "reviewer_visual",
               "markdownFile": "review_visual_design_conformance.md"
             },
             {
               "type": "command",
               "label": "Run Findings Saturation",
               "agentType": "review_agent",
-              "identifier": "reviewer",
+              "identifier": "reviewer_saturation",
               "commandName": "review_findings_saturation"
             },
             {
               "type": "command",
               "label": "Run Blind-Spot Challenge",
               "agentType": "review_agent",
-              "identifier": "reviewer",
+              "identifier": "reviewer_blindspot",
               "commandName": "review_blind_spot_challenge"
             },
             {

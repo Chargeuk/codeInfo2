@@ -3689,6 +3689,17 @@ const persistFlowResumeState = async (params: {
       stepPath: params.stepPath,
     },
   });
+  appendFlowRuntimeDiagnostic('flows.test.resume_state_saved', {
+    conversationId: params.conversationId,
+    executionId: params.executionId,
+    stepPath: params.stepPath,
+    loopDepth: params.loopStack.length,
+    hasPendingLoopControl: Boolean(params.pendingLoopControl),
+    hasWait: Boolean(params.wait),
+    activeSubflowCount: params.activeSubflows?.length ?? 0,
+    agentConversationCount: params.runtimeState.size,
+    workingFolder: params.workingFolder ?? null,
+  });
 };
 
 type BreakParseStrategy = 'strict' | 'fenced_json' | 'balanced_object';
@@ -8292,6 +8303,16 @@ async function runFlowUnlocked(params: {
     nextPath: number[],
     resumePath: number[] | null,
   ): Promise<FlowStepOutcome> => {
+    appendFlowRuntimeDiagnostic('flows.test.loop_step_enter', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      stepPath: nextPath,
+      resumePath,
+      loopDepth: loopStack.length,
+      pendingLoopControlKind: pendingLoopControl?.kind ?? null,
+      savedIteration:
+        resumeLoopIterations.get(getStepPathKey(nextPath)) ?? null,
+    });
     const loopFrame: LoopFrame = {
       loopStepPath: nextPath,
       iteration: 0,
@@ -8459,6 +8480,15 @@ async function runFlowUnlocked(params: {
           },
         });
         const status = await runLlmStep(step, command);
+        appendFlowRuntimeDiagnostic('flows.test.llm_step_completed', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          agentType: command.agentType,
+          status,
+          loopDepth: loopStack.length,
+        });
         appendLoopContinueRuntimeDiagnostic('llm_step_completed', {
           stepPath: nextPath,
           stepIndex: command.stepIndex,
@@ -8474,6 +8504,13 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        appendFlowRuntimeDiagnostic('flows.test.llm_step_state_advanced', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          loopDepth: loopStack.length,
+        });
         clearContinueBoundaryForActiveLoop();
         if (
           await stopAfterSuccessfulStepIfPendingCancel({
@@ -8483,7 +8520,36 @@ async function runFlowUnlocked(params: {
         ) {
           return 'stopped';
         }
+        appendFlowRuntimeDiagnostic(
+          'flows.test.llm_step_resume_state_persist_begin',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
         await persistRuntimeResumeState(lastCompletedStepPath);
+        appendFlowRuntimeDiagnostic(
+          'flows.test.llm_step_resume_state_persist_complete',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
+        appendFlowRuntimeDiagnostic('flows.test.llm_step_continue', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          nextSiblingStepIndex:
+            index + 1 < steps.length ? index + 2 : null,
+          loopDepth: loopStack.length,
+        });
         continue;
       }
 

@@ -478,9 +478,20 @@ const describeConversationRuntime = (conversationId: string): string => {
         content: turn.content,
       })),
   }));
-  const runtimeLogs = query({ text: 'flows.test.' }, 80)
+  const seen = new Set<string>();
+  const runtimeLogs = query({ text: 'flows.test.' }, 400)
     .filter((entry) => entry.context?.conversationId === conversationId)
-    .concat(query({ text: 'runtime.chat_config_lock_' }, 20))
+    .concat(query({ text: 'runtime.chat_config_lock_' }, 40))
+    .filter((entry) => {
+      const dedupeKey = `${entry.timestamp}|${entry.message}|${JSON.stringify(entry.context ?? null)}`;
+      if (seen.has(dedupeKey)) {
+        return false;
+      }
+      seen.add(dedupeKey);
+      return true;
+    })
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+    .slice(-120)
     .map((entry) => ({
       message: entry.message,
       context: entry.context,

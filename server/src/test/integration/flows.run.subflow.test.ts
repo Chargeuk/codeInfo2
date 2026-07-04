@@ -255,8 +255,9 @@ const describeConversationGraph = (
 };
 
 const describeRelevantSubflowRuntimeLogs = (conversationId: string): string =>
-  JSON.stringify(
-    query({ text: 'flows.test.' }, 80)
+  JSON.stringify((() => {
+    const seen = new Set<string>();
+    return query({ text: 'flows.test.' }, 400)
       .filter((entry) => {
         const entryConversationId = entry.context?.conversationId;
         return (
@@ -265,15 +266,26 @@ const describeRelevantSubflowRuntimeLogs = (conversationId: string): string =>
             entry.message === 'flows.test.step_dispatch' ||
             entry.message.startsWith('flows.test.first_') ||
             entry.message.startsWith('flows.test.chat_factory_') ||
-            entry.message.startsWith('flows.test.subflow_'))
+            entry.message.startsWith('flows.test.subflow_') ||
+            entry.message.startsWith('flows.test.resume_state_'))
         );
       })
-      .concat(query({ text: 'runtime.chat_config_lock_' }, 20))
+      .concat(query({ text: 'runtime.chat_config_lock_' }, 40))
+      .filter((entry) => {
+        const dedupeKey = `${entry.timestamp}|${entry.message}|${JSON.stringify(entry.context ?? null)}`;
+        if (seen.has(dedupeKey)) {
+          return false;
+        }
+        seen.add(dedupeKey);
+        return true;
+      })
+      .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+      .slice(-120)
       .map((entry) => ({
         message: entry.message,
         context: entry.context,
-      })),
-  );
+      }));
+  })());
 
 const waitForActiveSubflows = async (conversationId: string) => {
   await waitFor(() => {

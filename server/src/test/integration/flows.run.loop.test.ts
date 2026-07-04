@@ -605,14 +605,52 @@ const getLoopContinueAgentConversationIds = (conversationId: string) =>
     'coding_agent:outer-break',
   ]);
 
+const getConversationScopedRuntimeLogs = (
+  conversationId: string,
+  options?: {
+    flowLogLimit?: number;
+    runtimeLockLogLimit?: number;
+    tailSize?: number;
+  },
+) => {
+  const flowLogLimit = options?.flowLogLimit ?? 400;
+  const runtimeLockLogLimit = options?.runtimeLockLogLimit ?? 40;
+  const tailSize = options?.tailSize ?? 120;
+  const seen = new Set<string>();
+  const combined = query({ text: 'flows.test.' }, flowLogLimit)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .concat(query({ text: 'runtime.chat_config_lock_' }, runtimeLockLogLimit))
+    .filter((entry) => {
+      const dedupeKey = `${entry.timestamp}|${entry.message}|${JSON.stringify(entry.context ?? null)}`;
+      if (seen.has(dedupeKey)) {
+        return false;
+      }
+      seen.add(dedupeKey);
+      return true;
+    })
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+
+  return combined.slice(-tailSize).map((entry) => ({
+    message: entry.message,
+    context: entry.context,
+  }));
+};
+
 const describeFlowRuntimeState = (
   conversationId: string,
   agentKeys: string[] = [],
+  options?: {
+    expectedNextStepPath?: number[];
+    scriptedMessages?: string[];
+    stopUnwindCheckpoints?: StopUnwindCheckpoint[];
+  },
 ): string =>
   JSON.stringify({
     inflightId: getInflight(conversationId)?.inflightId ?? null,
     ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    pendingCancelState: snapshotRuntimeCleanupState(conversationId),
     conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
+    expectedNextStepPath: options?.expectedNextStepPath ?? null,
     agentConversations: getAgentConversationIds(conversationId, agentKeys).map(
       (agentConversationId) => ({
         agentConversationId,
@@ -625,13 +663,19 @@ const describeFlowRuntimeState = (
         })),
       }),
     ),
-    runtimeLogs: query({ text: 'flows.test.' }, 80)
-      .filter((entry) => entry.context?.conversationId === conversationId)
-      .concat(query({ text: 'runtime.chat_config_lock_' }, 20))
-      .map((entry) => ({
-        message: entry.message,
-        context: entry.context,
-      })),
+    scriptedMessages: options?.scriptedMessages
+      ? {
+          totalMessages: options.scriptedMessages.length,
+          recentMessages: options.scriptedMessages.slice(-12),
+        }
+      : undefined,
+    stopUnwind: options?.stopUnwindCheckpoints
+      ? {
+          totalCheckpoints: options.stopUnwindCheckpoints.length,
+          recentCheckpoints: options.stopUnwindCheckpoints.slice(-12),
+        }
+      : undefined,
+    runtimeLogs: getConversationScopedRuntimeLogs(conversationId),
   });
 
 const describeLoopContinueResumeState = (conversationId: string): string =>
@@ -696,6 +740,24 @@ const snapshotRuntimeCleanupState = (
     pendingCancelRunToken: pendingCancel?.runToken ?? null,
     pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
   };
+};
+
+const pushStopUnwindCheckpoint = (
+  checkpoints: StopUnwindCheckpoint[],
+  params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  },
+  limit = 20,
+) => {
+  checkpoints.push({
+    ...params,
+    state: snapshotRuntimeCleanupState(params.conversationId),
+  });
+  if (checkpoints.length > limit) {
+    checkpoints.splice(0, checkpoints.length - limit);
+  }
 };
 
 const cleanupConversationRuntime = async (
@@ -780,8 +842,11 @@ const expectNoTerminalFinal = async (
 
 test('flow loops until break answer matches breakOn', async () => {
   let outerBreakCount = 0;
+  const scriptedMessages: string[] = [];
+  const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
   await withFlowServer(
     (message) => {
+      scriptedMessages.push(message);
       if (message.includes('Exit inner loop?')) {
         return JSON.stringify({ answer: 'yes' });
       }
@@ -818,7 +883,11 @@ test('flow loops until break answer matches breakOn', async () => {
                 'coding_agent:inner',
                 'coding_agent:inner-break',
                 'coding_agent:outer-break',
-              ]),
+              ], {
+                expectedNextStepPath: [0, 1],
+                scriptedMessages,
+                stopUnwindCheckpoints,
+              }),
             ),
           }),
       );
@@ -847,6 +916,11 @@ test('flow loops until break answer matches breakOn', async () => {
       const agentConversation = memoryConversations.get(agentConversationId);
       assert.equal(agentConversation?.title, `${customTitle} (outer)`);
       await cleanupConversationRuntime(conversationId, agentConversationId);
+    },
+    {
+      onStopUnwindCheckpoint: (params) => {
+        pushStopUnwindCheckpoint(stopUnwindCheckpoints, params);
+      },
     },
   );
 });

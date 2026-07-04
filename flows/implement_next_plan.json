@@ -285,8 +285,8 @@
                 {
                   "type": "llm",
                   "label": "Repair Workflow State If Needed",
-                  "agentType": "planning_agent",
-                  "identifier": "planner",
+                  "agentType": "planning_agent_lite",
+                  "identifier": "planner_lite",
                   "markdownFile": "repair_story_workflow_state.md"
                 },
                 {
@@ -302,8 +302,8 @@
             {
               "type": "llm",
               "label": "Repair Workflow State If Needed",
-              "agentType": "planning_agent",
-              "identifier": "planner",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
               "markdownFile": "repair_story_workflow_state.md"
             },
             {
@@ -329,8 +329,8 @@
             {
               "type": "llm",
               "label": "Refresh current plan handoff after normalization",
-              "agentType": "planning_agent",
-              "identifier": "planner",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
               "markdownFile": "refresh_current_plan_handoff.md"
             },
             {
@@ -350,22 +350,22 @@
             {
               "type": "llm",
               "label": "Refresh current plan handoff after planner edits",
-              "agentType": "planning_agent",
-              "identifier": "planner",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
               "markdownFile": "refresh_current_plan_handoff.md"
             },
             {
               "type": "llm",
               "label": "Repair Workflow State If Needed",
-              "agentType": "planning_agent",
-              "identifier": "planner",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
               "markdownFile": "repair_story_workflow_state.md"
             },
             {
               "type": "llm",
               "label": "Verify plan status",
-              "agentType": "planning_agent",
-              "identifier": "planner",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
               "messages": [
                 {
                   "role": "user",
@@ -388,15 +388,15 @@
         {
           "type": "llm",
           "label": "Reset Review Cycle State",
-          "agentType": "planning_agent",
-          "identifier": "planner",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
           "markdownFile": "reset_review_cycle_state.md"
         },
         {
           "type": "llm",
           "label": "Checkpoint Push Before Review Loop",
-          "agentType": "planning_agent",
-          "identifier": "planner",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
           "markdownFile": "final_push.md"
         },
         {
@@ -539,8 +539,8 @@
                 {
                   "type": "llm",
                   "label": "Refresh Current Plan Handoff After Review Task-Up",
-                  "agentType": "planning_agent",
-                  "identifier": "planner",
+                  "agentType": "planning_agent_lite",
+                  "identifier": "planner_lite",
                   "markdownFile": "refresh_current_plan_handoff.md"
                 },
                 {
@@ -599,8 +599,8 @@
             {
               "type": "llm",
               "label": "Repair Workflow State If Needed",
-              "agentType": "planning_agent",
-              "identifier": "planner",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
               "markdownFile": "repair_review_workflow_state.md"
             },
             {
@@ -638,8 +638,8 @@
         {
           "type": "llm",
           "label": "Checkpoint Push Before Story Completion Check",
-          "agentType": "planning_agent",
-          "identifier": "planner",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
           "markdownFile": "final_push.md"
         },
         {
@@ -667,8 +667,8 @@
     {
       "type": "llm",
       "label": "Create Final Summary",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
       "markdownFile": "create_final_summary.md"
     },
     {
@@ -681,8 +681,8 @@
     {
       "type": "llm",
       "label": "Push",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
       "markdownFile": "final_push.md"
     },
     {

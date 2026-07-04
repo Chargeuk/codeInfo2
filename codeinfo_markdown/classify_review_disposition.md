@@ -25,7 +25,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Prefer structured output over prose when recording decisions.
 - Use verification loops: after writing the state file, re-open it and confirm it is valid JSON and matches the review outcome you just classified.
 - Do not rely on memory from previous turns. Use fresh disk reads and current git state. Do not answer from conversational memory or an earlier snapshot when the files can be re-read from disk now.
-- When uncertain whether a finding is safe to fix inline as minor, classify it as task-required.
+- Prefer the inline-fix path when a finding is current-story actionable, has one clear owner repository, and can be honestly attempted in one bounded coding pass. Classify it as task-required only when it clearly needs planning, broader coordination, a larger redesign, or another condition that makes an inline attempt dishonest or unsafe.
 
 </prompt_quality_rules>
 
@@ -52,7 +52,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
   - `rejected_or_non_actionable_findings`
   - `incomplete_review_blockers`
 - Do not classify a finding as task-required solely because the finding description uses words such as `contract`, `route`, `user-visible`, `restart`, or `metadata ordering`.
-- Prefer the minor path for bounded same-repository findings unless a hard no-inline rule is clearly triggered.
+- Prefer the minor path for current-story actionable findings that have one clear owner repository and one honest bounded inline attempt, unless a hard no-inline rule is clearly triggered.
 - Do not classify a finding as task-required solely because the finding description says the code is contract-sensitive, queue-sensitive, concurrency-sensitive, lifecycle-sensitive, or shared-caller-sensitive.
 - Treat `must_fix` findings as findings that must be resolved in this story, not as automatically task-required. A `must_fix` finding may still be classified as minor-batchable when it satisfies every minor-batchable rule below.
 - Treat `should_fix` findings as minor-batchable when every minor-batchable rule below is satisfied. Otherwise classify them as task-required.
@@ -88,7 +88,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 A finding is minor-batchable only when all of these are true:
 
 - It has one clear implementation owner repository, even if broader later validation may span other affected repositories.
-- It is low-risk and small enough to attempt directly without splitting or planning a multi-step implementation sequence.
+- It is bounded enough to attempt directly in one coding pass without first planning a multi-step implementation sequence, even when the finding is not merely a tiny cleanup.
 - It has a clear, bounded code/config/docs/test edit path, or a small combination of those, within the owning repository.
 - It does not change, redefine, or reinterpret a public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, user-visible workflow contract, or destructive public authority boundary. Restoring parity with an already intended same-repository contract may still be minor-batchable when the rest of these rules are satisfied.
 - It does not require broad refactoring, migration, state-machine redesign, lifecycle reordering, or new architecture.
@@ -113,7 +113,7 @@ Useful examples:
 - Tightening or redefining a destructive route's public selector semantics before delete authority is exercised is not minor-batchable.
 - Reinterpreting a shared error taxonomy across multiple callers or surfaces is not minor-batchable.
 
-If any rule is not clearly satisfied, classify the finding as task-required.
+If a rule clearly fails, or fresh source inspection already shows the finding needs broader coordination, a larger contract choice, or a wider redesign than one bounded coding pass, classify the finding as task-required. Otherwise prefer one honest inline attempt first and let the coding step explicitly reclassify the finding when that attempt proves insufficient.
 
 </minor_batchable_rules>
 

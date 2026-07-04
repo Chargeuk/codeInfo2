@@ -1,8 +1,8 @@
 # Goal
 
-Fix exactly one unresolved minor-batchable review finding from the current review disposition state.
+Fix exactly one unresolved review finding that the current review disposition state routed into the inline-fix queue.
 
-This step performs the code/config/docs/test edit for one minor finding only. It does not task up findings, generate final revalidation tasks, or document the fix in the plan.
+This step performs the code/config/docs/test edit for one routed inline-fix finding only. It does not task up findings, generate final revalidation tasks, or document the fix in the plan.
 
 <critical_rules>
 
@@ -15,7 +15,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Do not rediscover review artifacts by timestamp.
 - If `needs_minor_fix_path` is not true, do not change repository files. Write a skipped result and stop.
 - Select exactly one finding from `unresolved_minor_batchable_findings`, preferably the first listed item unless the state names a selected finding.
-- Re-inspect the selected finding and the relevant source files before editing. If the finding is no longer clearly minor-batchable, do not fix it. Write a `reclassify_task_required` result and stop.
+- Treat this queue as the review loop's inline-fix queue, not merely as tiny-cleanup work. Re-inspect the selected finding and the relevant source files before editing. If the finding no longer looks honest to attempt in one bounded coding pass, do not fix it. Write a `reclassify_task_required` result and stop.
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.
 - Do not run broad final validation in this step. Run only bounded local automated proof that is directly needed for the selected minor fix. This may include a small test update or one or two new focused tests in the owning repository.
 - If the step is going to exit with `status = fixed` and tracked files were changed, commit them before finishing this step.
@@ -41,6 +41,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 
 - Keep the edit minimal and directly tied to the selected finding.
 - Do not combine unrelated findings in one fix.
+- Findings routed into this path should be treated as inline-fix candidates first, even when they are more substantial than a trivial cleanup, as long as the work still fits one bounded same-repository coding pass.
 - A minor fix may include one or two small focused automated test updates or additions in the owning repository when that keeps the change bounded and honest.
 - A minor fix may still restore an already intended same-repository contract, validation parity, or route-check ordering when that work remains bounded to one clear seam and does not broaden into a larger contract redesign.
 - A bounded producer-consumer alignment fix may remain minor when it restores an already-settled returned-result contract in one same-repository service or helper seam.
@@ -59,7 +60,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.
 - This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.
 - If the fix starts to require a broader design change, stop and write a `reclassify_task_required` result.
-- Escalate only when the change stops being one bounded seam and starts requiring broader contract choice, broader lifecycle redesign, or wider multi-surface coordination.
+- Escalate only when the change stops being one bounded seam and starts requiring broader contract choice, broader lifecycle redesign, wider multi-surface coordination, or another form of planning that the coding agent cannot honestly complete on its own in this pass.
 - If the implementation or proof needed for the selected finding starts to require broader proof-authoring, multi-repository change coordination, contract reinterpretation, or a larger refactor, stop and write a `reclassify_task_required` or `blocked` result.
 - If a targeted proof fails for an ordinary in-scope reason, inspect the failure once and repair the selected minor fix if the repair remains minor.
 - If the failure points to broader behavior or missing capability for only the selected finding, stop and write either a `reclassify_task_required` result or a `blocked` result with `blocker_scope: "finding_only"`.

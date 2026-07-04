@@ -1,0 +1,37 @@
+codeinfo_provider = "codex"
+model = "gpt-5.4-mini"
+model_reasoning_effort = "medium"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
+web_search_mode = "live"
+personality = "pragmatic"
+
+[features]
+view_image_tool = true
+
+[mcp_servers]
+[mcp_servers.context7]
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY', "--allow-http"]
+command = 'npx'
+startup_timeout_sec = 20.0
+
+[mcp_servers.mui]
+args = ['-y', '@mui/mcp@latest']
+command = 'npx'
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+startup_timeout_sec = 20.0
+
+[mcp_servers.code_info]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
+startup_timeout_sec = 60
+tool_timeout_sec = 1800
+
+[projects]
+[projects."/data"]
+trust_level = "trusted"
+
+[projects."/app/server"]
+trust_level = "trusted"

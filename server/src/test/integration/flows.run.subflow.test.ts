@@ -114,6 +114,7 @@ const waitForAssistantStatus = async (
   conversationId: string,
   status: 'ok' | 'warning' | 'failed' | 'stopped',
   timeoutMs = 10000,
+  describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
@@ -139,6 +140,7 @@ const waitForAssistantStatus = async (
       `conversationState=${describeConversationStateWithActiveSubflows(
         conversationId,
       )}`,
+      ...(describe ? [`details=${describe()}`] : []),
     ].join(' | '),
   );
 };
@@ -175,6 +177,44 @@ const describeConversationStateWithActiveSubflows = (
       };
     }),
   });
+};
+
+const describeConversationGraph = (
+  conversationId: string,
+  maxDepth = 2,
+): string => {
+  const buildNode = (
+    currentConversationId: string,
+    depth: number,
+  ): Record<string, unknown> => {
+    const base = JSON.parse(
+      describeConversationState(currentConversationId),
+    ) as {
+      flags?: { flow?: { activeSubflows?: Array<{ conversationId?: string }> } };
+    };
+    const activeSubflows = base.flags?.flow?.activeSubflows ?? [];
+    return {
+      conversationId: currentConversationId,
+      ...base,
+      activeSubflows:
+        depth >= maxDepth
+          ? activeSubflows
+          : activeSubflows.map((subflow) => {
+              const childConversationId =
+                typeof subflow?.conversationId === 'string'
+                  ? subflow.conversationId
+                  : null;
+              return {
+                ...subflow,
+                childState: childConversationId
+                  ? buildNode(childConversationId, depth + 1)
+                  : null,
+              };
+            }),
+    };
+  };
+
+  return JSON.stringify(buildNode(conversationId, 0));
 };
 
 const waitForActiveSubflows = async (conversationId: string) => {
@@ -575,6 +615,8 @@ test('parallel subflow waits for every child and fails when any child fails', as
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
       'failed',
+      10000,
+      () => describeConversationGraph(result.conversationId, 2),
     );
     assert.equal(
       finalAssistant?.content,
@@ -620,7 +662,9 @@ test('nested subflows track only direct children per conversation and still comp
       chatFactory: () => new SubflowChat(140),
     });
 
-    await waitForAssistantStatus(result.conversationId, 'ok');
+    await waitForAssistantStatus(result.conversationId, 'ok', 10000, () =>
+      describeConversationGraph(result.conversationId, 3),
+    );
 
     const nestedChild = findChildFlowConversation({
       parentConversationId: result.conversationId,
@@ -961,8 +1005,26 @@ test('stopping the parent flow stops the running child subflow', async () => {
       )}`,
     );
 
-    await waitForAssistantStatus(parentConversationId, 'stopped');
-    await waitForAssistantStatus(activeChildConversationId, 'stopped');
+    await waitForAssistantStatus(parentConversationId, 'stopped', 10000, () =>
+      JSON.stringify({
+        stopRegisteredAtSlowChildStart,
+        parentConversationId,
+        activeChildConversationId,
+        graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
+      }),
+    );
+    await waitForAssistantStatus(
+      activeChildConversationId,
+      'stopped',
+      10000,
+      () =>
+        JSON.stringify({
+          stopRegisteredAtSlowChildStart,
+          parentConversationId,
+          activeChildConversationId,
+          graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
+        }),
+    );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1026,6 +1088,13 @@ test('stopping the parent flow stops every running child in a parallel subflow s
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
       'stopped',
+      10000,
+      () =>
+        JSON.stringify({
+          parentConversationId: result.conversationId,
+          activeSubflows,
+          graph: JSON.parse(describeConversationGraph(result.conversationId, 2)),
+        }),
     );
     assert.equal(
       finalAssistant?.content,
@@ -1033,7 +1102,19 @@ test('stopping the parent flow stops every running child in a parallel subflow s
     );
     await Promise.all(
       activeSubflows.map((activeSubflow) =>
-        waitForAssistantStatus(String(activeSubflow.conversationId), 'stopped'),
+        waitForAssistantStatus(
+          String(activeSubflow.conversationId),
+          'stopped',
+          10000,
+          () =>
+            JSON.stringify({
+              parentConversationId: result.conversationId,
+              activeSubflow,
+              graph: JSON.parse(
+                describeConversationGraph(result.conversationId, 2),
+              ),
+            }),
+        ),
       ),
     );
   } finally {
@@ -1228,7 +1309,9 @@ test('resume reattaches to an already running child subflow instead of launching
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    await waitForAssistantStatus(parentConversationId, 'ok');
+    await waitForAssistantStatus(parentConversationId, 'ok', 10000, () =>
+      describeConversationGraph(parentConversationId, 2),
+    );
 
     const childFlowConversations = Array.from(
       memoryConversations.values(),
@@ -1309,7 +1392,9 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    await waitForAssistantStatus(parentConversationId, 'ok');
+    await waitForAssistantStatus(parentConversationId, 'ok', 10000, () =>
+      describeConversationGraph(parentConversationId, 2),
+    );
 
     const childFlowConversations = Array.from(
       memoryConversations.values(),
@@ -1425,7 +1510,12 @@ test('resume reattaches to already running parallel child subflows instead of la
         .sort(),
       [childStartA.conversationId, childStartB.conversationId].sort(),
     );
-    await waitForAssistantStatus(parentConversationId, 'ok');
+    await waitForAssistantStatus(parentConversationId, 'ok', 10000, () =>
+      JSON.stringify({
+        resumedActiveSubflows,
+        graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
+      }),
+    );
 
     const childAConversations = Array.from(memoryConversations.values()).filter(
       (conversation) => conversation.flowName === 'child-resume-a',

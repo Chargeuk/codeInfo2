@@ -5010,6 +5010,25 @@ async function runFlowUnlocked(params: {
   };
   normalizeActiveGitHubReviewScratchAuthority();
   let continueBoundaryLoopKey: string | null = null;
+  const appendLoopContinueRuntimeDiagnostic = (
+    event: string,
+    context: Record<string, unknown> = {},
+  ) => {
+    appendFlowRuntimeDiagnostic('flows.test.loop_continue_runtime', {
+      event,
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      runToken: params.runToken,
+      lastCompletedStepPath,
+      pendingLoopControl,
+      continueBoundaryLoopKey,
+      loopStack: loopStack.map((frame) => ({
+        loopStepPath: [...frame.loopStepPath],
+        iteration: frame.iteration,
+      })),
+      ...context,
+    });
+  };
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
     params.resumeState.loopStack.forEach((frame) => {
@@ -5046,6 +5065,15 @@ async function runFlowUnlocked(params: {
     ) {
       return;
     }
+    appendLoopContinueRuntimeDiagnostic(
+      'clear_continue_boundary_for_active_loop',
+      {
+        activeLoopFrame: {
+          loopStepPath: [...activeLoopFrame.loopStepPath],
+          iteration: activeLoopFrame.iteration,
+        },
+      },
+    );
     pendingLoopControl = null;
     continueBoundaryLoopKey = null;
   };
@@ -5058,6 +5086,11 @@ async function runFlowUnlocked(params: {
       runToken: params.runToken,
     });
     if (!pendingCancel) return false;
+    appendLoopContinueRuntimeDiagnostic('pending_cancel_consumed_after_step', {
+      checkpoint: stepParams.checkpoint,
+      detail: stepParams.detail,
+      pendingCancel,
+    });
     await params.onStopUnwindCheckpoint?.({
       checkpoint: stepParams.checkpoint,
       conversationId: params.conversationId,
@@ -6934,6 +6967,18 @@ async function runFlowUnlocked(params: {
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
       );
+    appendFlowRuntimeDiagnostic('flows.test.subflow_step_begin', {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      stepPath: nextPath,
+      childFlowNames,
+      rememberedChildConversationIds: childRuns.map(
+        (activeSubflow) => activeSubflow.conversationId,
+      ),
+      rememberedChildRunTokens: childRuns.map(
+        (activeSubflow) => activeSubflow.runToken,
+      ),
+    });
     const buildTrackedSubflowTitle = (flowName: string) =>
       rememberedSubflowsByName.get(flowName)?.title ??
       buildSubflowConversationTitle({
@@ -6973,6 +7018,12 @@ async function runFlowUnlocked(params: {
         runToken: params.runToken,
       });
       if (!consumedPendingCancel) return false;
+      appendFlowRuntimeDiagnostic('flows.test.subflow_stop_before_launch', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        stepPath: nextPath,
+        childConversationIds: childRuns.map((childRun) => childRun.conversationId),
+      });
 
       setActiveSubflowsForStep(nextPath, []);
       await emitStoppedFlowStep({
@@ -7024,6 +7075,14 @@ async function runFlowUnlocked(params: {
     try {
       await Promise.all(
         childRuns.map(async (childRun) => {
+          appendFlowRuntimeDiagnostic('flows.test.subflow_child_reuse_check', {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            childFlowName: childRun.flowName,
+            childConversationId: childRun.conversationId,
+            childRunToken: childRun.runToken,
+          });
           const status = await getFlowConversationTerminalStatus({
             conversationId: childRun.conversationId,
             runToken: childRun.runToken,
@@ -7040,6 +7099,14 @@ async function runFlowUnlocked(params: {
 
       for (const flowName of childFlowNames) {
         if (rememberedSubflowsByName.has(flowName)) {
+          appendFlowRuntimeDiagnostic('flows.test.subflow_child_reused', {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            childFlowName: flowName,
+            childConversationId:
+              rememberedSubflowsByName.get(flowName)?.conversationId ?? null,
+          });
           continue;
         }
         if (
@@ -7051,6 +7118,12 @@ async function runFlowUnlocked(params: {
 
         let childConversationId: string | undefined;
         let childRunToken: string | undefined;
+        appendFlowRuntimeDiagnostic('flows.test.subflow_child_launch_begin', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          childFlowName: flowName,
+        });
         const started = await startFlowRun({
           flowName,
           sourceId: params.repositoryContext.flowSourceId,
@@ -7074,6 +7147,14 @@ async function runFlowUnlocked(params: {
             `Subflow ${flowName} did not start correctly.`,
           );
         }
+        appendFlowRuntimeDiagnostic('flows.test.subflow_child_launch_complete', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          childFlowName: flowName,
+          childConversationId,
+          childRunToken,
+        });
 
         const trackedSubflow = {
           stepPath: [...nextPath],
@@ -7103,6 +7184,14 @@ async function runFlowUnlocked(params: {
           runToken: params.runToken,
         });
         if (parentPendingCancel) {
+          appendFlowRuntimeDiagnostic('flows.test.subflow_parent_stop_requested', {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            childConversationIds: childRuns.map(
+              (childRun) => childRun.conversationId,
+            ),
+          });
           parentStopRequested = true;
           childRuns.forEach((childRun) => {
             void requestActiveSubflowStop({
@@ -7171,6 +7260,19 @@ async function runFlowUnlocked(params: {
           } else {
             terminalStatus = 'ok';
           }
+          appendFlowRuntimeDiagnostic('flows.test.subflow_step_terminal', {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            terminalStatus,
+            parentStopRequested,
+            childStatuses: childStatuses.map(({ childRun, status }) => ({
+              flowName: childRun.flowName,
+              conversationId: childRun.conversationId,
+              runToken: childRun.runToken,
+              status,
+            })),
+          });
           break;
         }
         allChildrenOkObservedAt = null;
@@ -7180,6 +7282,14 @@ async function runFlowUnlocked(params: {
             !status && !getActiveRunOwnership(childRun.conversationId),
         );
         if (staleChild) {
+          appendFlowRuntimeDiagnostic('flows.test.subflow_stale_child_detected', {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            childConversationId: staleChild.childRun.conversationId,
+            childFlowName: staleChild.childRun.flowName,
+            childRunToken: staleChild.childRun.runToken,
+          });
           throw toFlowRunError(
             'INVALID_REQUEST',
             `Subflow ${staleChild.childRun.flowName} could not be resumed because child conversation ${staleChild.childRun.conversationId} has no active run and no terminal result.`,
@@ -7824,6 +7934,10 @@ async function runFlowUnlocked(params: {
     let resumeForLoop = shouldResumeAfterContinue ? null : resumePath;
     if (shouldResumeAfterContinue) {
       continueBoundaryLoopKey = getStepPathKey(nextPath);
+      appendLoopContinueRuntimeDiagnostic('resume_after_continue_iteration', {
+        loopStepPath: [...nextPath],
+        savedIteration,
+      });
     }
     while (true) {
       const pendingCancelBeforeIteration = consumePendingConversationCancel({
@@ -7841,8 +7955,18 @@ async function runFlowUnlocked(params: {
         return 'stopped';
       }
       loopFrame.iteration += 1;
+      appendLoopContinueRuntimeDiagnostic('loop_iteration_start', {
+        loopStepPath: [...nextPath],
+        iteration: loopFrame.iteration,
+        resumeForLoop,
+      });
       const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
       if (resumeForLoop) resumeForLoop = null;
+      appendLoopContinueRuntimeDiagnostic('loop_iteration_outcome', {
+        loopStepPath: [...nextPath],
+        iteration: loopFrame.iteration,
+        outcome,
+      });
       if (outcome === 'continue') {
         continue;
       }
@@ -7944,6 +8068,11 @@ async function runFlowUnlocked(params: {
           },
         });
         const status = await runLlmStep(step, command);
+        appendLoopContinueRuntimeDiagnostic('llm_step_completed', {
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          status,
+        });
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.llm',
@@ -7985,6 +8114,12 @@ async function runFlowUnlocked(params: {
           },
         });
         const { status, shouldBreak } = await runBreakStep(step, command);
+        appendLoopContinueRuntimeDiagnostic('break_step_completed', {
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          status,
+          shouldBreak,
+        });
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.break',
@@ -8019,6 +8154,12 @@ async function runFlowUnlocked(params: {
           },
         });
         const { status, shouldContinue } = await runContinueStep(step, command);
+        appendLoopContinueRuntimeDiagnostic('continue_step_completed', {
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          status,
+          shouldContinue,
+        });
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
@@ -8041,6 +8182,12 @@ async function runFlowUnlocked(params: {
           continueBoundaryLoopKey = getStepPathKey(
             activeLoopFrame.loopStepPath,
           );
+          appendLoopContinueRuntimeDiagnostic('continue_boundary_marked', {
+            activeLoopFrame: {
+              loopStepPath: [...activeLoopFrame.loopStepPath],
+              iteration: activeLoopFrame.iteration,
+            },
+          });
         }
         lastCompletedStepPath = nextPath;
         if (!shouldContinue) {

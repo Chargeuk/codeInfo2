@@ -13,6 +13,10 @@ const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
+const requestedServerUnitConcurrency = Number.parseInt(
+  process.env.CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY ?? '',
+  10,
+);
 const sharedParallelBudget = allocateWeightedParallelBudget({
   budgetFraction: 0.6,
   weights: {
@@ -24,14 +28,18 @@ const sharedParallelBudget = allocateWeightedParallelBudget({
     'server:cucumber': 1,
   },
 });
-const serverUnitConcurrency = Math.min(
-  sharedParallelBudget.workerCounts['server:unit'],
-  2,
-);
+const serverUnitConcurrency =
+  Number.isFinite(requestedServerUnitConcurrency) &&
+  requestedServerUnitConcurrency > 0
+    ? requestedServerUnitConcurrency
+    : Math.min(sharedParallelBudget.workerCounts['server:unit'], 1);
 const serverUnitConcurrencySource =
-  serverUnitConcurrency === sharedParallelBudget.workerCounts['server:unit']
-    ? sharedParallelBudget.source
-    : 'max-two-cap';
+  Number.isFinite(requestedServerUnitConcurrency) &&
+  requestedServerUnitConcurrency > 0
+    ? 'env-override'
+    : serverUnitConcurrency === sharedParallelBudget.workerCounts['server:unit']
+      ? sharedParallelBudget.source
+      : 'max-one-cap';
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -60,6 +68,8 @@ Shared worker budget:
   - server:unit uses the computed shared budget directly and runs with
     CODEINFO_TEST_TIMEOUT_MS=60000 so the concurrent server-unit leg gets a
     larger absolute wait budget beside client, cucumber, and e2e
+  - set CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY to override the
+    server:unit concurrency for stress or diagnosis runs
 `);
   process.exit(0);
 }

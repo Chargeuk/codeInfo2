@@ -596,6 +596,23 @@ const describeFlowRuntimeState = (
     ),
   });
 
+const describeLoopContinueResumeState = (conversationId: string): string =>
+  JSON.stringify({
+    flowState: JSON.parse(
+      describeFlowRuntimeState(conversationId, [
+        'coding_agent:outer',
+        'coding_agent:outer-continue',
+        'coding_agent:post-continue',
+        'coding_agent:outer-break',
+      ]),
+    ),
+    turns: (memoryTurns.get(conversationId) ?? []).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+    })),
+  });
+
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   conversationIds.forEach((conversationId) => {
     if (!conversationId) return;
@@ -3165,6 +3182,8 @@ test('continue resume keeps its boundary marker until the next iteration makes p
           return e.type === 'turn_final' && e.conversationId === conversationId;
         },
         timeoutMs: 8000,
+        describe: () =>
+          describeLoopContinueResumeState(conversationId),
       });
 
       assert.ok(stopped.status === 'stopped' || stopped.status === 'failed');
@@ -3194,6 +3213,9 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         (turn) =>
           turn.role === 'user' && turn.content.includes('Exit outer loop?'),
       ).length;
+      const stopSnapshot = JSON.parse(
+        describeLoopContinueResumeState(conversationId),
+      ) as Record<string, unknown>;
 
       assert.ok(continueCountAfterStop <= 1);
       assert.ok(postContinueCountAfterStop <= 1);
@@ -3223,6 +3245,11 @@ test('continue resume keeps its boundary marker until the next iteration makes p
           );
         },
         timeoutMs: 10000,
+        describe: () =>
+          JSON.stringify({
+            stopSnapshot,
+            current: JSON.parse(describeLoopContinueResumeState(conversationId)),
+          }),
       });
 
       assert.equal(final.status, 'ok');
@@ -3253,6 +3280,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         15000,
         () =>
           JSON.stringify({
+            stopSnapshot,
             afterStop: {
               outerCountAfterStop,
               continueCountAfterStop,
@@ -3260,6 +3288,9 @@ test('continue resume keeps its boundary marker until the next iteration makes p
               breakCountAfterStop,
             },
             current: {
+              snapshot: JSON.parse(
+                describeLoopContinueResumeState(conversationId),
+              ),
               outerCount: (memoryTurns.get(conversationId) ?? []).filter(
                 (turn) =>
                   turn.role === 'user' &&

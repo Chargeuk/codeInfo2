@@ -228,6 +228,9 @@ describe('Chat page working folder', () => {
     });
 
     await waitFor(() =>
+      expect(screen.getByTestId('chat-working-folder')).toBeDisabled(),
+    );
+    await waitFor(() =>
       expect(
         screen.queryByRole('dialog', { name: /choose folder…/i }),
       ).not.toBeInTheDocument(),

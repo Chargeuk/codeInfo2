@@ -140,6 +140,7 @@ const waitForAssistantStatus = async (
       `conversationState=${describeConversationStateWithActiveSubflows(
         conversationId,
       )}`,
+      `conversationGraph=${describeConversationGraph(conversationId, 3)}`,
       ...(describe ? [`details=${describe()}`] : []),
     ].join(' | '),
   );
@@ -227,7 +228,11 @@ const waitForActiveSubflows = async (conversationId: string) => {
           | undefined
       )?.flow?.activeSubflows,
     );
-  }, 10000, () => `conversationId=${conversationId} | ${describeConversationState(conversationId)}`);
+  }, 10000, () =>
+    `conversationId=${conversationId} | ${describeConversationGraph(
+      conversationId,
+      3,
+    )}`);
   const conversation = memoryConversations.get(conversationId);
   return ((
     conversation?.flags as {
@@ -254,7 +259,11 @@ const waitForActiveSubflowCount = async (
           | undefined
       )?.flow?.activeSubflows ?? [];
     return Array.isArray(activeSubflows) && activeSubflows.length === expectedCount;
-  }, 10000, () => `conversationId=${conversationId} expectedCount=${expectedCount} | ${describeConversationState(conversationId)}`);
+  }, 10000, () =>
+    `conversationId=${conversationId} expectedCount=${expectedCount} | ${describeConversationGraph(
+      conversationId,
+      3,
+    )}`);
   return waitForActiveSubflows(conversationId);
 };
 
@@ -268,7 +277,11 @@ const waitForConversationAssistantStatus = async (
     return turns.some(
       (turn) => turn.role === 'assistant' && turn.status === status,
     );
-  }, timeoutMs, () => `conversationId=${conversationId} status=${status} | ${describeConversationState(conversationId)}`);
+  }, timeoutMs, () =>
+    `conversationId=${conversationId} status=${status} | ${describeConversationGraph(
+      conversationId,
+      3,
+    )}`);
 };
 
 const getChildConversationsFromActiveSubflows = (conversationId: string) => {

@@ -498,6 +498,33 @@ const describeFlowRuntimeState = (conversationId: string) =>
     })),
   });
 
+const describeCommandRetryDiagnosticState = (conversationId: string) => {
+  const flowState = JSON.parse(describeFlowRuntimeState(conversationId)) as {
+    conversationFlags?: {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+  };
+  const prepConversationId =
+    flowState.conversationFlags?.flow?.agentConversations?.[
+      'planning_agent:prep'
+    ] ?? null;
+  const runtimeLogs = query({ text: 'flows.test.command_' }, 50)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+
+  return JSON.stringify({
+    state: flowState,
+    prepConversationId,
+    prepState: prepConversationId
+      ? JSON.parse(describeFlowRuntimeState(prepConversationId))
+      : null,
+    runtimeLogs,
+  });
+};
+
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   conversationIds.forEach((conversationId) => {
     if (!conversationId) return;
@@ -4100,10 +4127,7 @@ test('command-load failures are retried and then fail deterministically', async 
         );
       },
       timeoutMs: 5000,
-      describe: () =>
-        JSON.stringify({
-          state: JSON.parse(describeFlowRuntimeState(conversationId)),
-        }),
+      describe: () => describeCommandRetryDiagnosticState(conversationId),
     });
 
     assert.equal(final.status, 'failed');
@@ -4111,6 +4135,7 @@ test('command-load failures are retried and then fail deterministically', async 
       conversationId,
       (items) => items.filter((turn) => turn.role === 'assistant').length >= 1,
       3000,
+      () => describeCommandRetryDiagnosticState(conversationId),
     );
     const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
     assert.equal(assistantTurns.length, 2);

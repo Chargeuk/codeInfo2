@@ -4610,6 +4610,8 @@ type LoadCommandResult =
       ok: false;
       message: string;
       reason: 'NOT_FOUND' | 'INVALID' | 'READ_FAILED' | 'INVALID_NAME';
+      commandFilePath?: string;
+      candidateAgentHomes?: string[];
     };
 
 type FlowCommandRepositoryContext = {
@@ -4764,6 +4766,7 @@ const loadCommandForAgent = async (params: {
       ok: false,
       reason: 'INVALID_NAME',
       message: 'commandName must be a valid file name',
+      candidateAgentHomes: [params.agentHome],
     };
   }
 
@@ -4779,6 +4782,8 @@ const loadCommandForAgent = async (params: {
       ok: false,
       reason: 'READ_FAILED',
       message: `Command ${commandName} read failed`,
+      commandFilePath: filePath,
+      candidateAgentHomes: [params.agentHome],
     };
   }
   if (!commandStat?.isFile()) {
@@ -4786,6 +4791,8 @@ const loadCommandForAgent = async (params: {
       ok: false,
       reason: 'NOT_FOUND',
       message: `Command ${commandName} not found for agent`,
+      commandFilePath: filePath,
+      candidateAgentHomes: [params.agentHome],
     };
   }
 
@@ -4795,6 +4802,8 @@ const loadCommandForAgent = async (params: {
       ok: false,
       reason: 'READ_FAILED',
       message: `Command ${commandName} read failed`,
+      commandFilePath: filePath,
+      candidateAgentHomes: [params.agentHome],
     };
   }
   if (!parsed.ok) {
@@ -4802,6 +4811,8 @@ const loadCommandForAgent = async (params: {
       ok: false,
       reason: 'INVALID',
       message: `Command ${commandName} failed schema validation`,
+      commandFilePath: filePath,
+      candidateAgentHomes: [params.agentHome],
     };
   }
 
@@ -4840,6 +4851,7 @@ const resolveFlowCommandForAgent = async (params: {
     context: params.context,
     agentType: validatedAgentType.agentType,
   });
+  const candidateAgentHomes = candidates.map((candidate) => candidate.agentHome);
 
   for (const candidate of candidates) {
     const loaded = await loadCommandForAgent({
@@ -4903,6 +4915,7 @@ const resolveFlowCommandForAgent = async (params: {
     ok: false,
     reason: 'NOT_FOUND',
     message: `Command ${params.step.commandName.trim()} not found for agent`,
+    candidateAgentHomes,
   };
 };
 
@@ -5010,6 +5023,13 @@ async function runFlowUnlocked(params: {
   };
   normalizeActiveGitHubReviewScratchAuthority();
   let continueBoundaryLoopKey: string | null = null;
+  let activeCommandDiagnosticState:
+    | {
+        commandName: string;
+        attempt: number;
+        stepPath: number[];
+      }
+    | undefined;
   const appendLoopContinueRuntimeDiagnostic = (
     event: string,
     context: Record<string, unknown> = {},
@@ -5026,6 +5046,25 @@ async function runFlowUnlocked(params: {
         loopStepPath: [...frame.loopStepPath],
         iteration: frame.iteration,
       })),
+      ...context,
+    });
+  };
+  const appendCommandRuntimeDiagnostic = (
+    event: string,
+    context: Record<string, unknown> = {},
+  ) => {
+    appendFlowRuntimeDiagnostic(`flows.test.command_${event}`, {
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      runToken: params.runToken,
+      lastCompletedStepPath,
+      activeCommand: activeCommandDiagnosticState
+        ? {
+            commandName: activeCommandDiagnosticState.commandName,
+            attempt: activeCommandDiagnosticState.attempt,
+            stepPath: [...activeCommandDiagnosticState.stepPath],
+          }
+        : null,
       ...context,
     });
   };
@@ -5198,11 +5237,27 @@ async function runFlowUnlocked(params: {
     );
 
     try {
+      if (activeCommandDiagnosticState) {
+        appendCommandRuntimeDiagnostic('cleanup_inflight_begin', {
+          inflightId: stepInflightId,
+          hadInflightBefore: Boolean(activeInflight),
+          ownershipPresentBefore: Boolean(
+            getActiveRunOwnership(params.conversationId),
+          ),
+        });
+      }
       if (activeInflight) {
         cleanupInflightFn({
           conversationId: params.conversationId,
           inflightId: stepInflightId,
         });
+        if (activeCommandDiagnosticState) {
+          appendCommandRuntimeDiagnostic('cleanup_inflight_complete', {
+            inflightId: stepInflightId,
+            hadInflightBefore: true,
+            hasInflightAfter: Boolean(getInflight(params.conversationId)),
+          });
+        }
         baseLogger.info(
           {
             flowName: params.flowName,
@@ -5216,6 +5271,13 @@ async function runFlowUnlocked(params: {
           'flows runtime cleanupInflight completed',
         );
       } else {
+        if (activeCommandDiagnosticState) {
+          appendCommandRuntimeDiagnostic('cleanup_inflight_complete', {
+            inflightId: stepInflightId,
+            hadInflightBefore: false,
+            hasInflightAfter: Boolean(getInflight(params.conversationId)),
+          });
+        }
         baseLogger.info(
           {
             flowName: params.flowName,
@@ -5247,10 +5309,27 @@ async function runFlowUnlocked(params: {
         runToken: params.runToken,
         inflightId: stepInflightId,
       });
+      if (activeCommandDiagnosticState) {
+        appendCommandRuntimeDiagnostic('release_lock_begin', {
+          inflightId: stepInflightId,
+          ownershipPresentBefore: Boolean(
+            getActiveRunOwnership(params.conversationId),
+          ),
+        });
+      }
       const lockReleased = releaseConversationLockFn(
         params.conversationId,
         params.runToken,
       );
+      if (activeCommandDiagnosticState) {
+        appendCommandRuntimeDiagnostic('release_lock_complete', {
+          inflightId: stepInflightId,
+          ownershipPresentAfter: Boolean(
+            getActiveRunOwnership(params.conversationId),
+          ),
+          releaseResult: lockReleased,
+        });
+      }
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'runFlowUnlocked.finalize.exit',
         conversationId: params.conversationId,
@@ -7475,6 +7554,7 @@ async function runFlowUnlocked(params: {
   const runCommandStep = async (
     step: FlowCommandStep,
     command: TurnCommandMetadata,
+    nextPath: number[],
   ): Promise<TurnStatus> => {
     const agent = agentByName.get(step.agentType);
     if (!agent) {
@@ -7493,6 +7573,13 @@ async function runFlowUnlocked(params: {
         commandName: step.commandName,
         agentType: step.agentType,
       },
+    });
+    appendCommandRuntimeDiagnostic('step_begin', {
+      commandName: step.commandName,
+      agentType: step.agentType,
+      identifier: step.identifier,
+      stepPath: nextPath,
+      retryBudget: maxStepAttempts,
     });
 
     let commandRuntimeIdentity:
@@ -7531,15 +7618,50 @@ async function runFlowUnlocked(params: {
     };
 
     for (let attempt = 1; attempt <= maxStepAttempts; attempt += 1) {
+      activeCommandDiagnosticState = {
+        commandName: step.commandName,
+        attempt,
+        stepPath: [...nextPath],
+      };
       if (await stopCommandBeforeHandoff()) {
         return 'stopped';
       }
+      appendCommandRuntimeDiagnostic('load_attempt', {
+        commandName: step.commandName,
+        agentType: step.agentType,
+        identifier: step.identifier,
+        attempt,
+        retryBudget: maxStepAttempts,
+        stepPath: nextPath,
+      });
       const commandLoad = await resolveFlowCommandForAgent({
         step,
         context: params.repositoryContext,
         phase: 'execution',
       });
       if (!commandLoad.ok) {
+        appendCommandRuntimeDiagnostic('load_failure', {
+          commandName: step.commandName,
+          agentType: step.agentType,
+          identifier: step.identifier,
+          attempt,
+          stepPath: nextPath,
+          errorCode: commandLoad.reason,
+          errorMessage: commandLoad.message,
+          commandFilePath: commandLoad.commandFilePath ?? null,
+          candidateAgentHomes: commandLoad.candidateAgentHomes ?? [],
+        });
+        appendCommandRuntimeDiagnostic('retry_decision', {
+          commandName: step.commandName,
+          attempt,
+          maxRetries: maxStepAttempts - 1,
+          willRetry: attempt < maxStepAttempts,
+          terminalStatus: attempt < maxStepAttempts ? null : 'failed',
+          nextAttemptDelayMs:
+            attempt < maxStepAttempts
+              ? FLOW_STEP_BASE_DELAY_MS * 2 ** (attempt - 1)
+              : null,
+        });
         if (attempt < maxStepAttempts) {
           append({
             level: 'warn',
@@ -7561,6 +7683,15 @@ async function runFlowUnlocked(params: {
           continue;
         }
         const runtimeIdentity = await resolveCommandRuntimeIdentity();
+        appendCommandRuntimeDiagnostic('terminal_failure_publish_begin', {
+          commandName: step.commandName,
+          attempt,
+          finalErrorCode: 'COMMAND_INVALID',
+          finalErrorMessage: commandLoad.message,
+          inflightId: stepInflightId,
+          ownershipRunToken:
+            getActiveRunOwnership(params.conversationId)?.runToken ?? null,
+        });
         await emitFailedFlowStep({
           flowConversationId: params.conversationId,
           inflightId: stepInflightId,
@@ -7571,6 +7702,15 @@ async function runFlowUnlocked(params: {
           message: commandLoad.message,
           errorCode: 'COMMAND_INVALID',
           command,
+        });
+        appendCommandRuntimeDiagnostic('terminal_failure_publish_complete', {
+          commandName: step.commandName,
+          attempt,
+          finalStatus: 'failed',
+          assistantTurnPersisted: true,
+          inflightId: stepInflightId,
+          ownershipRunToken:
+            getActiveRunOwnership(params.conversationId)?.runToken ?? null,
         });
         append({
           level: 'error',
@@ -8305,7 +8445,7 @@ async function runFlowUnlocked(params: {
             agentType: command.agentType,
           },
         });
-        const status = await runCommandStep(step, command);
+        const status = await runCommandStep(step, command, nextPath);
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.command',

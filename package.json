@@ -15,7 +15,7 @@
     "test:summary:e2e": "node ./scripts/test-summary-e2e.mjs",
     "test:summary:server:parallel": "node ./scripts/test-summary-server-parallel.mjs",
     "test:summary:all:parallel": "node ./scripts/test-summary-all-parallel.mjs",
-    "test:summary:all:stress": "cross-env CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY=24 node ./scripts/test-summary-all-parallel.mjs",
+    "test:summary:all:stress": "cross-env CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY=24 CODEINFO_TEST_RUNTIME_DIAGNOSTICS=1 node ./scripts/test-summary-all-parallel.mjs",
     "typecheck:summary:client": "node ./scripts/typecheck-summary-client.mjs",
     "build:summary:server": "node ./scripts/build-summary-server.mjs",
     "build:summary:client": "node ./scripts/build-summary-client.mjs",

@@ -7587,6 +7587,23 @@ async function runFlowUnlocked(params: {
               },
             );
           },
+          onAsyncBegin: ({
+            conversationId,
+            runToken,
+            executionId,
+            inflightId,
+          }) => {
+            appendFlowRuntimeDiagnostic('flows.test.subflow_child_async_begin', {
+              conversationId: params.conversationId,
+              executionId: params.executionId,
+              stepPath: nextPath,
+              childFlowName: flowName,
+              childConversationId: conversationId,
+              childRunToken: runToken,
+              childExecutionId: executionId,
+              childInflightId: inflightId,
+            });
+          },
         });
         appendFlowRuntimeDiagnostic('flows.test.subflow_child_launch_returned', {
           conversationId: params.conversationId,
@@ -9669,6 +9686,12 @@ export async function startFlowRun(
         providerId,
         modelId,
         effectiveResumeStepPath: effectiveResumeStepPath ?? null,
+      });
+      await params.onAsyncBegin?.({
+        conversationId,
+        runToken,
+        executionId,
+        inflightId,
       });
       appendFlowRuntimeDiagnostic('flows.test.start.execution_context_begin', {
         flowName,

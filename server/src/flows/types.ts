@@ -47,6 +47,12 @@ export type FlowRunStartParams = {
     conversationId: string;
     runToken: string;
   }) => Promise<void> | void;
+  onAsyncBegin?: (params: {
+    conversationId: string;
+    runToken: string;
+    executionId: string;
+    inflightId: string;
+  }) => Promise<void> | void;
   onStopUnwindCheckpoint?: (params: {
     checkpoint: string;
     conversationId: string;

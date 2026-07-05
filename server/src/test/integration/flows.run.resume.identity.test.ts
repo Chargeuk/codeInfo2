@@ -1749,7 +1749,28 @@ test('startFlowRun ignores stale fresh-run retry ownership while resuming a flow
           chatFactory: () => new MinimalChat(),
         });
 
-        await waitFor(() => turns.length >= 2, 5000);
+        await waitFor(
+          () => turns.length >= 2,
+          5000,
+          50,
+          () =>
+            JSON.stringify({
+              phase: 'waiting_for_resumed_turns',
+              turns: turns.map((turn) => ({
+                role: turn.role,
+                status: turn.status,
+                content: turn.content,
+                conversationId: turn.conversationId,
+              })),
+              parentState: JSON.parse(describeConversationState(conversationId)),
+              childState: JSON.parse(
+                describeConversationState(childConversationId),
+              ),
+              runtimeLogs: JSON.parse(
+                describeRelevantResumeRuntimeLogs(conversationId),
+              ),
+            }),
+        );
         assert.equal(resumedResult.conversationId, conversationId);
         assert.notEqual(
           resumedResult.conversationId,

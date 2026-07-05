@@ -3223,23 +3223,12 @@ test('continue resume starts the next iteration instead of replaying skipped ste
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
+        describe: () => describeLoopContinueResumeState(conversationId),
       });
 
       assert.equal(final.status, 'ok');

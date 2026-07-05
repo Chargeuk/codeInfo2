@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -150,6 +151,7 @@ describe('Chat page resolved defaults from combined payload', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -185,6 +187,7 @@ describe('Chat page resolved defaults from combined payload', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -203,11 +206,13 @@ describe('Chat page resolved defaults from combined payload', () => {
       expect(sandboxSelect).toHaveTextContent(/danger full access/i),
     );
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /^LM Studio$/i }),
     );
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -229,6 +234,7 @@ describe('Chat page resolved defaults from combined payload', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -272,6 +278,7 @@ describe('Chat page resolved defaults from combined payload', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),

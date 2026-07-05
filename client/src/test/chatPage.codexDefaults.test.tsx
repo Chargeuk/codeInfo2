@@ -4,6 +4,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -195,6 +196,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -224,6 +226,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -269,6 +272,7 @@ describe('Codex compatibility defaults behavior', () => {
       const providerSelect = await screen.findByRole('combobox', {
         name: /provider/i,
       });
+      await waitForInteractiveCombobox(providerSelect);
       await userEvent.click(providerSelect);
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
@@ -281,6 +285,7 @@ describe('Codex compatibility defaults behavior', () => {
       await waitFor(() =>
         expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
       );
+      await waitForInteractiveCombobox(modelSelect);
       await userEvent.click(modelSelect);
       await userEvent.click(
         await screen.findByRole('option', { name: /model b/i }),
@@ -330,6 +335,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -359,6 +365,7 @@ describe('Codex compatibility defaults behavior', () => {
     await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
     await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
 
+    await waitForInteractiveCombobox(modelSelect);
     await userEvent.click(modelSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /model b/i }),
@@ -479,16 +486,19 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
     );
     await ensureAgentFlagsPanelExpanded();
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /^LM Studio$/i }),
     );
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -523,6 +533,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -562,6 +573,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),

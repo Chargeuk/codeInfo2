@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -263,6 +264,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -284,6 +286,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
+    await waitForInteractiveCombobox(modelSelect);
     await userEvent.click(modelSelect);
     const gpt52Option = await screen.findByRole('option', { name: /gpt-5.2/i });
     await userEvent.click(gpt52Option);
@@ -309,6 +312,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       name: /provider/i,
     });
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /^LM Studio$/i }),
@@ -334,6 +338,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       await userEvent.click(newConversationButton);
     });
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -392,6 +397,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -457,6 +463,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -681,6 +688,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -764,6 +772,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -820,6 +829,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       const providerSelect = await screen.findByRole('combobox', {
         name: /provider/i,
       });
+      await waitForInteractiveCombobox(providerSelect);
       await userEvent.click(providerSelect);
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),

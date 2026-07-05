@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -120,6 +121,7 @@ async function selectProvider(optionName: RegExp) {
   const providerSelect = await screen.findByRole('combobox', {
     name: /provider/i,
   });
+  await waitForInteractiveCombobox(providerSelect);
   await userEvent.click(providerSelect);
   const option = await screen.findByRole('option', {
     name: optionName,

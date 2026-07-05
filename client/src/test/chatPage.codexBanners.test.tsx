@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -128,6 +129,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -339,6 +341,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -348,6 +351,7 @@ describe('Chat Codex banners', () => {
     const warningBanner = await screen.findByTestId('codex-warnings-banner');
     expect(warningBanner).toHaveTextContent(/invalid codex_reasoning_effort/i);
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const lmOption = await screen.findByRole('option', {
       name: /^LM Studio$/i,
@@ -453,6 +457,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -560,6 +565,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,

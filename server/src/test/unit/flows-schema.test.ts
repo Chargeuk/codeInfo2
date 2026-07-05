@@ -104,6 +104,24 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('valid codexReview step parses as ok: true', () => {
+    const json = JSON.stringify({
+      description: 'Codex review flow',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+  });
+
   test('subflow step requires non-empty flowNames entries', () => {
     const json = JSON.stringify({
       description: 'Subflow parent',
@@ -143,6 +161,7 @@ describe('flow schema (v1)', () => {
 
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
+      'flows/codex_review.json',
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
@@ -449,6 +468,64 @@ describe('flow schema (v1)', () => {
         `${flowFile} should run classifier disposition, then scope-filter findings, then repair tasked findings`,
       );
     }
+  });
+
+  test('implement_next_plan runs Codex review merge before classifier disposition and scope filtering', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    assert.ok(
+      Array.isArray(parsed.steps),
+      'flows/implement_next_plan.json should define steps',
+    );
+
+    const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      if (step.type === 'llm') {
+        return step.markdownFile;
+      }
+      if (step.type === 'command') {
+        return step.commandName;
+      }
+      return step.type;
+    });
+
+    const codexReviewIndex = markers.indexOf('codexReview');
+    const mergeIndex = markers.indexOf(
+      'merge_codex_review_findings_into_canonical_review.md',
+    );
+    const classifyIndex = markers.indexOf('classify_review_disposition.md');
+    const filterIndex = markers.indexOf(
+      'filter_review_findings_to_story_scope.md',
+    );
+
+    assert.notEqual(
+      codexReviewIndex,
+      -1,
+      'flows/implement_next_plan.json should include Codex review',
+    );
+    assert.notEqual(
+      mergeIndex,
+      -1,
+      'flows/implement_next_plan.json should merge Codex review findings',
+    );
+    assert.notEqual(
+      classifyIndex,
+      -1,
+      'flows/implement_next_plan.json should include classifier disposition',
+    );
+    assert.notEqual(
+      filterIndex,
+      -1,
+      'flows/implement_next_plan.json should include findings scope filter',
+    );
+    assert.ok(
+      codexReviewIndex < mergeIndex &&
+        mergeIndex < classifyIndex &&
+        classifyIndex < filterIndex,
+      'flows/implement_next_plan.json should run Codex review, then merge it, then classify, then scope-filter findings',
+    );
   });
 
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {

@@ -203,6 +203,54 @@ test('POST /flows/:flowName/run rejects resumeStepPath without conversationId be
   assert.equal(startCalls, 0);
 });
 
+test('POST /flows/:flowName/run rejects non-string codexReviewModelId before startFlowRun begins', async () => {
+  let startCalls = 0;
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: async () => {
+        startCalls += 1;
+        throw new Error('startFlowRun should not be reached');
+      },
+    }),
+  );
+
+  const res = await supertest(app)
+    .post('/flows/codex_review/run')
+    .send({ codexReviewModelId: 123 });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'invalid_request');
+  assert.equal(res.body.message, 'codexReviewModelId must be a string');
+  assert.equal(startCalls, 0);
+});
+
+test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRun', async () => {
+  let capturedModelId: string | undefined;
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: async (params) => {
+        capturedModelId = params.codexReviewModelId;
+        return {
+          flowName: params.flowName,
+          conversationId: 'flow-codex-review',
+          inflightId: 'flow-codex-review-inflight',
+          providerId: 'codex',
+          modelId: 'gpt-5.4',
+        };
+      },
+    }),
+  );
+
+  const res = await supertest(app)
+    .post('/flows/codex_review/run')
+    .send({ codexReviewModelId: 'gpt-5.4' });
+
+  assert.equal(res.status, 202);
+  assert.equal(capturedModelId, 'gpt-5.4');
+});
+
 test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {
   const app = express();
   app.use(

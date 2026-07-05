@@ -387,7 +387,16 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
       () => captured.length === 1,
       10000,
       50,
-      () => describeConversationState(conversationId),
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_first_execute',
+          captured,
+          state: JSON.parse(describeConversationState(conversationId)),
+          childState: JSON.parse(describeConversationState(childConversationId)),
+          runtimeLogs: JSON.parse(
+            describeRelevantResumeRuntimeLogs(conversationId),
+          ),
+        }),
     );
     assert.equal(captured[0], 'Step 2');
     const conversation = memoryConversations.get(conversationId);
@@ -2070,7 +2079,20 @@ test('paused wait resumes the same execution after the authored delay using an e
     });
 
     assert.equal(result.conversationId, conversationId);
-    await waitFor(() => captured.length === 1);
+    await waitFor(
+      () => captured.length === 1,
+      10000,
+      50,
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_first_execute',
+          captured,
+          state: JSON.parse(describeConversationState(conversationId)),
+          runtimeLogs: JSON.parse(
+            describeRelevantResumeRuntimeLogs(conversationId),
+          ),
+        }),
+    );
 
     const executionId = getFlowExecutionId(conversationId);
     const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
@@ -2085,7 +2107,15 @@ test('paused wait resumes the same execution after the authored delay using an e
       () => getAssistantTurnCount(conversationId) >= 2,
       10000,
       50,
-      () => describeConversationState(conversationId),
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_resumed_assistant_turns',
+          captured,
+          state: JSON.parse(describeConversationState(conversationId)),
+          runtimeLogs: JSON.parse(
+            describeRelevantResumeRuntimeLogs(conversationId),
+          ),
+        }),
     );
 
     assert.equal(getFlowExecutionId(conversationId), executionId);
@@ -2166,7 +2196,20 @@ test('cancelled wait does not emit a later resume side effect when the persisted
       chatFactory: () => new TrackingChat(),
     });
 
-    await waitFor(() => captured.length === 1);
+    await waitFor(
+      () => captured.length === 1,
+      10000,
+      50,
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_first_execute',
+          captured,
+          state: JSON.parse(describeConversationState(conversationId)),
+          runtimeLogs: JSON.parse(
+            describeRelevantResumeRuntimeLogs(conversationId),
+          ),
+        }),
+    );
     const conversation = memoryConversations.get(conversationId);
     assert.ok(conversation);
     memoryConversations.set(conversationId, {

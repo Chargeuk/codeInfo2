@@ -743,10 +743,13 @@ const getPersistedLoopTerminalOutcome = (
 const waitForLoopTerminalOutcome = async (params: {
   ws: WebSocket;
   conversationId: string;
-  expectedStatus: string;
+  expectedStatus: string | string[];
   timeoutMs?: number;
   describe?: () => string;
 }): Promise<ObservedLoopTerminalOutcome> => {
+  const expectedStatuses = Array.isArray(params.expectedStatus)
+    ? params.expectedStatus
+    : [params.expectedStatus];
   try {
     const final = await waitForEvent({
       ws: params.ws,
@@ -766,7 +769,7 @@ const waitForLoopTerminalOutcome = async (params: {
         return (
           candidate.type === 'turn_final' &&
           candidate.conversationId === params.conversationId &&
-          candidate.status === params.expectedStatus
+          expectedStatuses.includes(candidate.status ?? '')
         );
       },
       timeoutMs: params.timeoutMs,
@@ -790,8 +793,9 @@ const waitForLoopTerminalOutcome = async (params: {
   } catch (error) {
     await waitFor(
       () =>
-        getPersistedLoopTerminalOutcome(params.conversationId)?.status ===
-        params.expectedStatus,
+        expectedStatuses.includes(
+          getPersistedLoopTerminalOutcome(params.conversationId)?.status ?? '',
+        ),
       1000,
       () =>
         [
@@ -2081,34 +2085,17 @@ test('github review runtime preserves producer-side token loader failures instea
           .send({ conversationId, working_folder: repoRoot })
           .expect(202);
 
-        const final = await waitForEvent({
+        const final = await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is {
-            type: 'turn_final';
-            status: string;
-            error?: { code?: string; message?: string };
-          } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-              error?: { code?: string; message?: string };
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'failed'
-            );
-          },
+          conversationId,
+          expectedStatus: 'failed',
           timeoutMs: 4000,
         });
 
         assert.equal(final.status, 'failed');
-        assert.equal(final.error?.code, 'ENV_LOCAL_READ_FAILED');
+        assert.equal(final.errorCode, 'ENV_LOCAL_READ_FAILED');
         assert.match(
-          final.error?.message ?? '',
+          final.errorMessage ?? '',
           /(?:\.env\.local|EISDIR|permission denied)/u,
         );
 
@@ -3054,22 +3041,10 @@ test('continue step skips remaining iteration steps and starts the next iteratio
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
         describe: () =>
           describeFlowRuntimeState(conversationId, [
@@ -3411,18 +3386,10 @@ test('continue resume keeps its boundary marker until the next iteration makes p
           }),
       );
 
-      const stopped = await waitForEvent({
+      const stopped = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return e.type === 'turn_final' && e.conversationId === conversationId;
-        },
+        conversationId,
+        expectedStatus: ['stopped', 'failed'],
         timeoutMs: 8000,
         describe: () =>
           JSON.stringify({
@@ -3473,22 +3440,10 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 10000,
         describe: () =>
           JSON.stringify({
@@ -4154,22 +4109,10 @@ test('failed flow step persists to agent conversation', async () => {
         .send({ conversationId })
         .expect(202);
 
-      await waitForEvent({
+      await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 
@@ -4273,27 +4216,10 @@ test('flow step retries to exhaustion and emits one terminal failure', async () 
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 5000,
       });
 
@@ -4394,20 +4320,10 @@ test('aborted flow step is not retried', async () => {
             }),
         );
 
-        const final = await waitForEvent({
+        const final = await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' && e.conversationId === conversationId
-            );
-          },
+          conversationId,
+          expectedStatus: ['stopped', 'failed'],
           timeoutMs: 5000,
         });
 
@@ -4511,22 +4427,10 @@ test('startup-race conversation-only stop still terminalizes a flow as stopped',
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        const final = await waitForEvent({
+        const final = await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
+          conversationId,
+          expectedStatus: 'stopped',
           timeoutMs: 5000,
         });
 
@@ -4569,22 +4473,10 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        await waitForEvent({
+        await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
+          conversationId,
+          expectedStatus: 'stopped',
           timeoutMs: 5000,
         });
 
@@ -4624,22 +4516,10 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        await waitForEvent({
+        await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
+          conversationId,
+          expectedStatus: 'stopped',
           timeoutMs: 5000,
         });
 
@@ -4656,22 +4536,10 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
           conversationId: secondConversationId,
         });
 
-        await waitForEvent({
+        await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === secondConversationId &&
-              e.status === 'ok'
-            );
-          },
+          conversationId: secondConversationId,
+          expectedStatus: 'ok',
           timeoutMs: 5000,
         });
       } finally {
@@ -5113,22 +4981,10 @@ test('parallel subflow batch stop reports mixed child outcomes instead of a clea
 
       sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const candidate = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            candidate.type === 'turn_final' &&
-            candidate.conversationId === conversationId &&
-            (candidate.status === 'warning' || candidate.status === 'failed')
-          );
-        },
+        conversationId,
+        expectedStatus: ['warning', 'failed'],
         timeoutMs: 4000,
       });
       assert.equal(final.status, 'warning');
@@ -5223,22 +5079,10 @@ test('shared decision seam follows valid script-driven if branch through happy p
 
       const conversationId = result.body.conversationId;
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await waitForEvent({
+      await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const candidate = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            candidate.type === 'turn_final' &&
-            candidate.conversationId === conversationId &&
-            candidate.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
       });
 
@@ -5340,22 +5184,10 @@ test('shared decision seam follows valid script-driven break branch through happ
 
       const conversationId = result.body.conversationId;
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await waitForEvent({
+      await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const candidate = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            candidate.type === 'turn_final' &&
-            candidate.conversationId === conversationId &&
-            candidate.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
       });
 
@@ -5466,22 +5298,10 @@ test('shared decision seam follows valid script-driven continue branch through h
 
       const conversationId = result.body.conversationId;
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await waitForEvent({
+      await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const candidate = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            candidate.type === 'turn_final' &&
-            candidate.conversationId === conversationId &&
-            candidate.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
       });
 

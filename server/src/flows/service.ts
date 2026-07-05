@@ -2796,6 +2796,14 @@ const runFlowInstruction = async (params: {
       status = 'stopped';
       lastErrorMessage = 'aborted';
     } else {
+      appendFlowRuntimeDiagnostic('flows.test.chat_run_begin', {
+        conversationId: params.flowConversationId,
+        inflightId: params.inflightId,
+        agentConversationId: params.agentConversationId,
+        threadId: params.threadId ?? null,
+        providerId: params.providerId,
+        modelId: params.modelId,
+      });
       await chat.run(
         params.instruction,
         {
@@ -2819,6 +2827,14 @@ const runFlowInstruction = async (params: {
         params.agentConversationId,
         params.modelId,
       );
+      appendFlowRuntimeDiagnostic('flows.test.chat_run_complete', {
+        conversationId: params.flowConversationId,
+        inflightId: params.inflightId,
+        agentConversationId: params.agentConversationId,
+        threadId: params.threadId ?? null,
+        providerId: params.providerId,
+        modelId: params.modelId,
+      });
     }
   } catch (err) {
     const errorMessage =
@@ -5441,12 +5457,71 @@ async function runFlowUnlocked(params: {
       );
     }
 
+    appendFlowRuntimeDiagnostic(
+      'flows.test.llm_instruction_prerequisites_begin',
+      {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        agentType: params.agentType,
+        identifier: params.identifier,
+        configPath: params.configPath ?? agent.configPath,
+        workingFolder: params.workingFolder ?? null,
+        defaultRepositoryRoot: params.defaultRepositoryRoot ?? null,
+        source: params.source,
+      },
+    );
+
     const agentState = runtimeState.get(
       getAgentKey(params.agentType, params.identifier),
     );
+    appendFlowRuntimeDiagnostic(
+      'flows.test.llm_instruction_prerequisites_agent_state_snapshot',
+      {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        agentType: params.agentType,
+        identifier: params.identifier,
+        hasAgentState: Boolean(agentState),
+        agentConversationId: agentState?.conversationId ?? null,
+        providerId: agentState?.providerId ?? null,
+        modelId: agentState?.modelId ?? null,
+        endpointId: agentState?.endpointId ?? null,
+      },
+    );
     if (agentState?.conversationId) {
+      appendFlowRuntimeDiagnostic(
+        'flows.test.llm_instruction_prerequisites_conversation_lookup_begin',
+        {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          flowName: params.flowName,
+          agentType: params.agentType,
+          identifier: params.identifier,
+          agentConversationId: agentState.conversationId,
+        },
+      );
       const persistedConversation = await getConversation(
         agentState.conversationId,
+      );
+      appendFlowRuntimeDiagnostic(
+        'flows.test.llm_instruction_prerequisites_conversation_lookup_complete',
+        {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          flowName: params.flowName,
+          agentType: params.agentType,
+          identifier: params.identifier,
+          agentConversationId: agentState.conversationId,
+          persistedConversationFound: Boolean(persistedConversation),
+          persistedProviderId: persistedConversation?.provider ?? null,
+          persistedModelId: persistedConversation?.model ?? null,
+          persistedEndpointId:
+            typeof persistedConversation?.flags?.endpointId === 'string'
+              ? persistedConversation.flags.endpointId
+              : null,
+        },
       );
       if (persistedConversation?.agentName === params.agentType) {
         const savedEndpointId =
@@ -5472,8 +5547,25 @@ async function runFlowUnlocked(params: {
             agentState.providerId as ConversationProvider,
           ).healthy
         : true;
+    appendFlowRuntimeDiagnostic(
+      'flows.test.llm_instruction_prerequisites_runtime_resolution_begin',
+      {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        agentType: params.agentType,
+        identifier: params.identifier,
+        pinnedProviderId: agentState?.providerId ?? null,
+        pinnedModelId: agentState?.modelId ?? null,
+        pinnedRequestedProviderId: agentState?.requestedProviderId ?? null,
+        pinnedEndpointId: providerBootstrapReady
+          ? agentState?.endpointId ?? null
+          : null,
+        providerBootstrapReady,
+      },
+    );
 
-    return resolveFlowAgentRuntimeExecution({
+    const resolvedRuntime = await resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
       configPath: params.configPath ?? agent.configPath,
       workingFolder: params.workingFolder,
@@ -5489,6 +5581,23 @@ async function runFlowUnlocked(params: {
         : undefined,
       allowFallback: !agentState?.providerId,
     });
+    appendFlowRuntimeDiagnostic(
+      'flows.test.llm_instruction_prerequisites_runtime_resolution_complete',
+      {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        agentType: params.agentType,
+        identifier: params.identifier,
+        providerId: resolvedRuntime.providerId,
+        modelId: resolvedRuntime.modelId,
+        requestedProviderId: resolvedRuntime.requestedProviderId ?? null,
+        endpointId: resolvedRuntime.endpointId ?? null,
+        workingDirectoryOverride:
+          resolvedRuntime.workingDirectoryOverride ?? null,
+      },
+    );
+    return resolvedRuntime;
   };
 
   const runInstruction = async (instructionParams: {
@@ -5676,6 +5785,19 @@ async function runFlowUnlocked(params: {
           };
         },
         onThreadId: (threadId) => {
+          appendFlowRuntimeDiagnostic('flows.test.llm_instruction_thread_observed', {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            flowName: params.flowName,
+            stepIndex:
+              instructionParams.command?.name === 'flow'
+                ? instructionParams.command.stepIndex
+                : null,
+            agentType: instructionParams.agentType,
+            identifier: instructionParams.identifier,
+            agentConversationId: agentState.conversationId,
+            threadId,
+          });
           agentState.threadId = threadId;
           void persistAgentThreadId({
             conversationId: agentState.conversationId,
@@ -7453,7 +7575,27 @@ async function runFlowUnlocked(params: {
           onOwnershipReady: ({ conversationId, runToken }) => {
             childConversationId = conversationId;
             childRunToken = runToken;
+            appendFlowRuntimeDiagnostic(
+              'flows.test.subflow_child_ownership_ready',
+              {
+                conversationId: params.conversationId,
+                executionId: params.executionId,
+                stepPath: nextPath,
+                childFlowName: flowName,
+                childConversationId: conversationId,
+                childRunToken: runToken,
+              },
+            );
           },
+        });
+        appendFlowRuntimeDiagnostic('flows.test.subflow_child_launch_returned', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          childFlowName: flowName,
+          returnedConversationId: started.conversationId,
+          ownershipConversationId: childConversationId ?? null,
+          ownershipRunToken: childRunToken ?? null,
         });
         childConversationId = started.conversationId;
 

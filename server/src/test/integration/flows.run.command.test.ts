@@ -472,26 +472,106 @@ const waitForFlowFinal = async (params: {
   status: 'ok' | 'failed' | 'stopped';
   timeoutMs?: number;
   describe?: () => string;
-}) =>
-  waitForEvent({
-    ws: params.ws,
-    predicate: (
-      event: unknown,
-    ): event is { type: 'turn_final'; status: string } => {
-      const e = event as {
-        type?: string;
-        conversationId?: string;
-        status?: string;
-      };
-      return (
-        e.type === 'turn_final' &&
-        e.conversationId === params.conversationId &&
-        e.status === params.status
-      );
-    },
-    timeoutMs: params.timeoutMs ?? 10000,
-    describe: params.describe,
-  });
+}) => {
+  const getLatestAssistantTurn = () =>
+    [...(memoryTurns.get(params.conversationId) ?? [])]
+      .reverse()
+      .find((turn) => turn.role === 'assistant');
+  const getLatestTurnFinalLog = () =>
+    query({ text: 'chat.ws.server_publish_turn_final' }, 120)
+      .filter((entry) => entry.context?.conversationId === params.conversationId)
+      .at(-1);
+
+  try {
+    return await waitForEvent({
+      ws: params.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        error?: { code?: string; message?: string } | null;
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === params.conversationId &&
+          e.status === params.status
+        );
+      },
+      timeoutMs: params.timeoutMs ?? 10000,
+      describe: params.describe,
+      inspectCurrent: () =>
+        JSON.stringify({
+          conversationFlags:
+            memoryConversations.get(params.conversationId)?.flags ?? null,
+          recentTurns: (memoryTurns.get(params.conversationId) ?? [])
+            .slice(-8)
+            .map((turn) => ({
+              role: turn.role,
+              status: turn.status,
+              content: turn.content,
+            })),
+          runtimeLogs: query({ text: 'flows.test.' }, 300)
+            .filter(
+              (entry) => entry.context?.conversationId === params.conversationId,
+            )
+            .slice(-25)
+            .map((entry) => ({
+              message: entry.message,
+              context: entry.context,
+            })),
+        }),
+      describeEvent: (event) => JSON.stringify(event),
+    });
+  } catch (error) {
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
+    while (Date.now() < deadline) {
+      const latestAssistantTurn = getLatestAssistantTurn();
+      if (latestAssistantTurn?.status === params.status) {
+        const latestTurnFinalLog = getLatestTurnFinalLog();
+        return {
+          type: 'turn_final' as const,
+          status: latestAssistantTurn.status,
+          error:
+            latestAssistantTurn.status === 'failed'
+              ? {
+                  code:
+                    typeof latestTurnFinalLog?.context?.errorCode === 'string'
+                      ? latestTurnFinalLog.context.errorCode
+                      : undefined,
+                  message: latestAssistantTurn.content,
+                }
+              : undefined,
+        };
+      }
+      await delay(20);
+    }
+
+    throw new Error(
+      [
+        error instanceof Error
+          ? error.message
+          : 'Timed out waiting for WebSocket event',
+        `latestAssistantTurn=${JSON.stringify(
+          (() => {
+            const turn = getLatestAssistantTurn();
+            return turn
+              ? { status: turn.status, content: turn.content }
+              : null;
+          })(),
+        )}`,
+        `latestTurnFinalLog=${JSON.stringify(
+          getLatestTurnFinalLog()?.context ?? null,
+        )}`,
+      ].join(' | '),
+    );
+  }
+};
 
 const describeFlowRuntimeState = (conversationId: string) =>
   JSON.stringify({

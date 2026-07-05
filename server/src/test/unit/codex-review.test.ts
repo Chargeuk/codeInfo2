@@ -203,6 +203,121 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
   }
 });
 
+test('runCodexReviewStep consumes the prepared current-review-base artifact when present', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-prepared-base-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review-base.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        repo_alias: 'current_repository',
+        repo_root: repoRoot,
+        branch: 'feature/0000027-codex-review',
+        head_commit: HEAD_SHA,
+        logical_base_branch: 'main',
+        resolved_base_branch: 'main',
+        resolved_base_source: 'remote',
+        remote_name: 'origin',
+        remote_fetch_status: 'success',
+        local_fallback_reason: null,
+        comparison_base_ref: 'origin/main',
+        comparison_base_commit: BASE_SHA,
+        comparison_head_ref: 'HEAD',
+        comparison_rule: 'local_head_vs_resolved_base',
+        status: 'completed',
+        started_at: '2026-07-05T16:20:00.000Z',
+        completed_at: '2026-07-05T16:20:01.000Z',
+      }),
+    );
+
+    const gitCalls: string[] = [];
+    const codexCalls: Array<readonly string[]> = [];
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        gitCalls.push(key);
+        switch (key) {
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      if (file === 'codex') {
+        codexCalls.push(args);
+        const outputIndex = args.indexOf('-o');
+        const outputPath = String(args[outputIndex + 1]);
+        await fs.writeFile(outputPath, '# Codex Review\n\nNo issues.\n');
+        return { stdout: '', stderr: '' };
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    const result = await runCodexReviewStep(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:21:00.000Z'),
+        randomHex: () => '01020304',
+      },
+    );
+
+    assert.deepEqual(gitCalls, [
+      'branch --show-current',
+      'rev-parse HEAD^{commit}',
+      'rev-parse --short HEAD^{commit}',
+    ]);
+    assert.equal(codexCalls.length, 1);
+    assert.deepEqual(codexCalls[0]?.slice(0, 6), [
+      'exec',
+      'review',
+      '-C',
+      repoRoot,
+      '--base',
+      'origin/main',
+    ]);
+    assert.equal(result.pointer.comparison_base_ref, 'origin/main');
+    assert.equal(result.pointer.resolved_base_source, 'remote');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('runCodexReviewStep falls back to a local branched-from ref when origin is unavailable', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codex-review-helper-local-'),

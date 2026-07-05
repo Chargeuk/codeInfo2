@@ -124,6 +124,23 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('valid prepareReviewBase step parses as ok: true', () => {
+    const json = JSON.stringify({
+      description: 'Prepare shared review base',
+      steps: [
+        {
+          type: 'prepareReviewBase',
+          label: 'Prepare Shared Review Base',
+          outputKey: 'current-review-base',
+          basePolicy: 'branched_from_or_default_if_merged',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+  });
+
   test('subflow step requires non-empty flowNames entries', () => {
     const json = JSON.stringify({
       description: 'Subflow parent',
@@ -250,8 +267,7 @@ describe('flow schema (v1)', () => {
           )
           .filter((marker): marker is string => typeof marker === 'string');
         assert.ok(
-          subflowMarkers.includes('review_artifacts_main') &&
-            subflowMarkers.includes('codex_review'),
+          subflowMarkers.includes('review_artifacts_main,codex_review'),
           'flows/implement_next_plan.json should launch the main review and Codex review child flows',
         );
         continue;
@@ -519,8 +535,10 @@ describe('flow schema (v1)', () => {
       return step.type;
     });
 
-    const mainReviewSubflowIndex = markers.indexOf('review_artifacts_main');
-    const codexReviewSubflowIndex = markers.indexOf('codex_review');
+    const prepareIndex = markers.indexOf('prepareReviewBase');
+    const parallelReviewSubflowIndex = markers.indexOf(
+      'review_artifacts_main,codex_review',
+    );
     const mergeIndex = markers.indexOf(
       'merge_codex_review_findings_into_canonical_review.md',
     );
@@ -530,14 +548,14 @@ describe('flow schema (v1)', () => {
     );
 
     assert.notEqual(
-      mainReviewSubflowIndex,
+      prepareIndex,
       -1,
-      'flows/implement_next_plan.json should include the main review artifact child flow',
+      'flows/implement_next_plan.json should prepare a shared review base',
     );
     assert.notEqual(
-      codexReviewSubflowIndex,
+      parallelReviewSubflowIndex,
       -1,
-      'flows/implement_next_plan.json should include the Codex review child flow',
+      'flows/implement_next_plan.json should include the main review artifact child flow',
     );
     assert.notEqual(
       mergeIndex,
@@ -555,11 +573,11 @@ describe('flow schema (v1)', () => {
       'flows/implement_next_plan.json should include findings scope filter',
     );
     assert.ok(
-      mainReviewSubflowIndex < codexReviewSubflowIndex &&
-        codexReviewSubflowIndex < mergeIndex &&
+      prepareIndex < parallelReviewSubflowIndex &&
+        parallelReviewSubflowIndex < mergeIndex &&
         mergeIndex < classifyIndex &&
         classifyIndex < filterIndex,
-      'flows/implement_next_plan.json should run the main review child flow, then the Codex review child flow, then merge, classify, and scope-filter findings',
+      'flows/implement_next_plan.json should prepare the shared review base, then run the parallel review child flows, then merge, classify, and scope-filter findings',
     );
   });
 

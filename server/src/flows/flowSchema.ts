@@ -59,6 +59,13 @@ export type FlowCommandStep = {
   commandName: string;
 };
 
+export type FlowPrepareReviewBaseStep = {
+  type: 'prepareReviewBase';
+  label?: string;
+  outputKey: string;
+  basePolicy?: 'branched_from_or_default_if_merged';
+};
+
 export type FlowCodexReviewStep = {
   type: 'codexReview';
   label?: string;
@@ -86,6 +93,7 @@ export type FlowStep =
   | FlowBreakStep
   | FlowContinueStep
   | FlowCommandStep
+  | FlowPrepareReviewBaseStep
   | FlowCodexReviewStep
   | FlowSubflowStep
   | FlowReingestStep;
@@ -152,6 +160,15 @@ const FlowCommandStepSchema = z
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
     commandName: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowPrepareReviewBaseStepSchema = z
+  .object({
+    type: z.literal('prepareReviewBase'),
+    label: trimmedNonEmptyString.optional(),
+    outputKey: trimmedNonEmptyString,
+    basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
   })
   .strict();
 
@@ -222,6 +239,7 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowContinueStepSchema,
     FlowCommandStepSchema,
+    FlowPrepareReviewBaseStepSchema,
     FlowCodexReviewStepSchema,
     FlowSubflowStepSchema,
     FlowReingestSourceIdStepSchema,

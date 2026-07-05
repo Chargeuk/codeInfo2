@@ -4,10 +4,17 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import {
+  prepareReviewBase,
+  readPreparedReviewBase,
+  REVIEW_BASE_DEFAULT_OUTPUT_KEY,
+  type FlowReviewBasePolicy,
+  type PreparedReviewBase,
+} from './reviewBase.js';
+
 const execFile = promisify(execFileCb);
 
-export type FlowCodexReviewBasePolicy =
-  'branched_from_or_default_if_merged';
+export type FlowCodexReviewBasePolicy = FlowReviewBasePolicy;
 
 export type FlowCodexReviewModelSource = 'flow_request_or_step';
 
@@ -20,7 +27,11 @@ export type FlowCodexReviewStepConfig = {
 };
 
 export type CodexReviewReasoningEffort =
-  'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh';
 
 export type CodexReviewPointer = {
   story_id: string;
@@ -45,7 +56,11 @@ export type CodexReviewPointer = {
     | 'missing_remote_ref';
   remote_fetch_error?: string;
   remote_fetch_exit_code?: number;
-  local_fallback_reason: null | 'missing_remote' | 'fetch_failed' | 'missing_remote_ref';
+  local_fallback_reason:
+    | null
+    | 'missing_remote'
+    | 'fetch_failed'
+    | 'missing_remote_ref';
   comparison_base_ref: string;
   comparison_base_commit: string;
   comparison_head_ref: 'HEAD';
@@ -69,7 +84,6 @@ export type CodexReviewStepResult = {
 
 type CurrentPlanPayload = {
   plan_path?: unknown;
-  branched_from?: unknown;
 };
 
 type CurrentReviewPayload = {
@@ -113,27 +127,6 @@ const defaultDeps: CodexReviewDeps = {
   randomHex: (bytes: number) => crypto.randomBytes(bytes).toString('hex'),
 };
 
-type GitCommandResult =
-  | { ok: true; stdout: string; stderr: string }
-  | { ok: false; stdout: string; stderr: string; code?: number };
-
-type BaseResolution = {
-  logicalBaseBranch: string;
-  resolvedBaseBranch: string;
-  resolvedBaseSource: 'remote' | 'local_fallback';
-  remoteName: 'origin';
-  remoteFetchStatus:
-    | 'success'
-    | 'missing_remote'
-    | 'fetch_failed'
-    | 'missing_remote_ref';
-  remoteFetchError?: string;
-  remoteFetchExitCode?: number;
-  localFallbackReason: null | 'missing_remote' | 'fetch_failed' | 'missing_remote_ref';
-  comparisonBaseRef: string;
-  comparisonBaseCommit: string;
-};
-
 const GIT_PROCESS_TIMEOUT_MS = 120_000;
 const CODEX_REVIEW_TIMEOUT_MS = 1_800_000;
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM';
@@ -175,12 +168,6 @@ const ensureSafeOutputKey = (outputKey: string) => {
   return trimmed;
 };
 
-const sanitizeGitError = (value: string) =>
-  value
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 300);
-
 const readJsonIfExists = async <T>(
   filePath: string,
   deps: Pick<CodexReviewDeps, 'readFile'>,
@@ -197,259 +184,55 @@ const readJsonIfExists = async <T>(
   }
 };
 
-const normalizeBranchedFrom = (value: string | undefined): string | undefined =>
-  value
-    ?.replace(/^refs\/heads\//, '')
-    .replace(/^origin\//, '')
-    .trim() || undefined;
-
-async function runGit(
-  repoRoot: string,
-  args: readonly string[],
-  deps: Pick<CodexReviewDeps, 'execFile'>,
-  signal?: AbortSignal,
-): Promise<GitCommandResult> {
-  try {
-    const result = await deps.execFile('git', ['-C', repoRoot, ...args], {
-      signal,
-      timeout: GIT_PROCESS_TIMEOUT_MS,
-      killSignal: PROCESS_KILL_SIGNAL,
-    });
-    return { ok: true, stdout: result.stdout, stderr: result.stderr };
-  } catch (error) {
-    const execError = error as
-      | (NodeJS.ErrnoException & {
-          name?: string;
-          stdout?: string;
-          stderr?: string;
-          code?: number | string;
-          signal?: NodeJS.Signals | null;
-          killed?: boolean;
-        })
-      | undefined;
-    if (signal?.aborted || execError?.name === 'AbortError') {
-      throw error;
-    }
-    if (execError?.killed && execError.signal === PROCESS_KILL_SIGNAL) {
-      throw new Error(
-        `git ${args.join(' ')} timed out after ${GIT_PROCESS_TIMEOUT_MS}ms.`,
-      );
-    }
-    return {
-      ok: false,
-      stdout: execError?.stdout ?? '',
-      stderr: execError?.stderr ?? '',
-      code:
-        typeof execError?.code === 'number' ? execError.code : undefined,
-    };
-  }
-}
-
-async function gitStdoutOrThrow(
+const gitStdoutOrThrow = async (
   repoRoot: string,
   args: readonly string[],
   deps: Pick<CodexReviewDeps, 'execFile'>,
   failureMessage: string,
   signal?: AbortSignal,
-): Promise<string> {
-  const result = await runGit(repoRoot, args, deps, signal);
-  if (!result.ok) {
+): Promise<string> => {
+  try {
+    const result = await deps.execFile('git', ['-C', repoRoot, ...args], {
+      signal,
+      encoding: 'utf8',
+      timeout: GIT_PROCESS_TIMEOUT_MS,
+      killSignal: PROCESS_KILL_SIGNAL,
+    });
+    return result.stdout.trim();
+  } catch {
     throw new Error(failureMessage);
   }
-  return result.stdout.trim();
-}
+};
 
-async function refExists(
+const loadOrPrepareReviewBase = async (
   repoRoot: string,
-  ref: string,
-  deps: Pick<CodexReviewDeps, 'execFile'>,
+  storyNumber: string,
+  basePolicy: FlowCodexReviewBasePolicy,
+  deps: CodexReviewDeps,
   signal?: AbortSignal,
-): Promise<boolean> {
-  const result = await runGit(
-    repoRoot,
-    ['rev-parse', '--verify', ref],
+) => {
+  const prepared = await readPreparedReviewBase(
+    {
+      workingRepositoryPath: repoRoot,
+      storyNumber,
+      outputKey: REVIEW_BASE_DEFAULT_OUTPUT_KEY,
+    },
     deps,
-    signal,
   );
-  return result.ok;
-}
+  if (prepared) {
+    return prepared;
+  }
 
-async function resolveDefaultBranch(
-  repoRoot: string,
-  remoteFetchStatus: 'success' | 'missing_remote' | 'fetch_failed',
-  deps: Pick<CodexReviewDeps, 'execFile'>,
-  signal?: AbortSignal,
-): Promise<string> {
-  if (remoteFetchStatus === 'success') {
-    const symbolic = await runGit(
-      repoRoot,
-      ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
-      deps,
+  return prepareReviewBase(
+    {
+      workingRepositoryPath: repoRoot,
+      outputKey: REVIEW_BASE_DEFAULT_OUTPUT_KEY,
+      basePolicy,
       signal,
-    );
-    if (symbolic.ok) {
-      const normalized = symbolic.stdout.trim().replace(/^origin\//, '');
-      if (normalized) return normalized;
-    }
-  }
-
-  for (const candidate of ['main', 'master', 'develop']) {
-    if (
-      (await refExists(repoRoot, candidate, deps, signal)) ||
-      (await refExists(repoRoot, `origin/${candidate}`, deps, signal))
-    ) {
-      return candidate;
-    }
-  }
-
-  return 'main';
-}
-
-async function resolveBaseComparison(params: {
-  repoRoot: string;
-  currentBranch: string;
-  branchedFrom?: string;
-  deps: Pick<CodexReviewDeps, 'execFile'>;
-  signal?: AbortSignal;
-}): Promise<BaseResolution> {
-  const { repoRoot, currentBranch, deps, signal } = params;
-  const branchedFrom = normalizeBranchedFrom(params.branchedFrom);
-
-  const remoteExists = await runGit(
-    repoRoot,
-    ['remote', 'get-url', 'origin'],
+    },
     deps,
-    signal,
   );
-  let remoteFetchStatus: 'success' | 'missing_remote' | 'fetch_failed' =
-    remoteExists.ok ? 'success' : 'missing_remote';
-  let remoteFetchError: string | undefined;
-  let remoteFetchExitCode: number | undefined;
-
-  if (remoteExists.ok) {
-    const fetched = await runGit(
-      repoRoot,
-      ['fetch', '--prune', 'origin'],
-      deps,
-      signal,
-    );
-    if (!fetched.ok) {
-      remoteFetchStatus = 'fetch_failed';
-      remoteFetchExitCode = fetched.code;
-      const combined = `${fetched.stderr}\n${fetched.stdout}`.trim();
-      if (combined) {
-        remoteFetchError = sanitizeGitError(combined);
-      }
-    }
-  }
-
-  const defaultBranch = await resolveDefaultBranch(
-    repoRoot,
-    remoteFetchStatus,
-    deps,
-    signal,
-  );
-
-  let logicalBaseBranch = defaultBranch;
-  if (
-    branchedFrom &&
-    branchedFrom !== currentBranch &&
-    branchedFrom !== defaultBranch
-  ) {
-    const remoteBranchRef = `origin/${branchedFrom}`;
-    const remoteDefaultRef = `origin/${defaultBranch}`;
-    const localBranchRef = branchedFrom;
-    const localDefaultRef = defaultBranch;
-
-    let mergedResult: GitCommandResult | null = null;
-    const canCompareRemote =
-      remoteFetchStatus === 'success' &&
-      (await refExists(repoRoot, remoteBranchRef, deps, signal)) &&
-      (await refExists(repoRoot, remoteDefaultRef, deps, signal));
-    const canCompareLocal =
-      (await refExists(repoRoot, localBranchRef, deps, signal)) &&
-      (await refExists(repoRoot, localDefaultRef, deps, signal));
-    if (
-      canCompareRemote
-    ) {
-      mergedResult = await runGit(
-        repoRoot,
-        ['merge-base', '--is-ancestor', remoteBranchRef, remoteDefaultRef],
-        deps,
-        signal,
-      );
-    } else if (canCompareLocal) {
-      mergedResult = await runGit(
-        repoRoot,
-        ['merge-base', '--is-ancestor', localBranchRef, localDefaultRef],
-        deps,
-        signal,
-      );
-    }
-
-    if (mergedResult?.ok) {
-      logicalBaseBranch = defaultBranch;
-    } else if (mergedResult && mergedResult.code === 1) {
-      logicalBaseBranch = branchedFrom;
-    }
-  }
-
-  const preferredRemoteRef = `origin/${logicalBaseBranch}`;
-  if (
-    remoteFetchStatus === 'success' &&
-    (await refExists(repoRoot, preferredRemoteRef, deps, signal))
-  ) {
-    const comparisonBaseCommit = await gitStdoutOrThrow(
-      repoRoot,
-      ['rev-parse', `${preferredRemoteRef}^{commit}`],
-      deps,
-      `Unable to resolve comparison base commit for ${preferredRemoteRef}.`,
-      signal,
-    );
-    return {
-      logicalBaseBranch,
-      resolvedBaseBranch: logicalBaseBranch,
-      resolvedBaseSource: 'remote',
-      remoteName: 'origin',
-      remoteFetchStatus: 'success',
-      ...(remoteFetchError ? { remoteFetchError } : {}),
-      ...(remoteFetchExitCode !== undefined ? { remoteFetchExitCode } : {}),
-      localFallbackReason: null,
-      comparisonBaseRef: preferredRemoteRef,
-      comparisonBaseCommit,
-    };
-  }
-
-  const localFallbackReason: 'missing_remote' | 'fetch_failed' | 'missing_remote_ref' =
-    remoteFetchStatus === 'success' ? 'missing_remote_ref' : remoteFetchStatus;
-
-  if (!(await refExists(repoRoot, logicalBaseBranch, deps, signal))) {
-    throw new Error(
-      `Unable to resolve a local fallback base ref for "${logicalBaseBranch}".`,
-    );
-  }
-
-  const comparisonBaseCommit = await gitStdoutOrThrow(
-    repoRoot,
-    ['rev-parse', `${logicalBaseBranch}^{commit}`],
-    deps,
-    `Unable to resolve comparison base commit for ${logicalBaseBranch}.`,
-    signal,
-  );
-
-  return {
-    logicalBaseBranch,
-    resolvedBaseBranch: logicalBaseBranch,
-    resolvedBaseSource: 'local_fallback',
-    remoteName: 'origin',
-    remoteFetchStatus: localFallbackReason,
-    ...(remoteFetchError ? { remoteFetchError } : {}),
-    ...(remoteFetchExitCode !== undefined ? { remoteFetchExitCode } : {}),
-    localFallbackReason,
-    comparisonBaseRef: logicalBaseBranch,
-    comparisonBaseCommit,
-  };
-}
+};
 
 export function resolveCodexReviewModel(params: {
   requestedModelId?: string;
@@ -484,6 +267,7 @@ export async function runCodexReviewStep(
   const startedAt = resolvedDeps.now();
   const startedAtIso = startedAt.toISOString();
   params.signal?.throwIfAborted();
+
   const currentPlanPath = path.join(
     repoRoot,
     'codeInfoStatus',
@@ -512,13 +296,18 @@ export async function runCodexReviewStep(
     );
   }
 
-  const baseResolution = await resolveBaseComparison({
+  const preparedBase = await loadOrPrepareReviewBase(
     repoRoot,
-    currentBranch,
-    branchedFrom: normalizeOptionalString(currentPlan.branched_from),
-    deps: resolvedDeps,
-    signal: params.signal,
-  });
+    storyNumber,
+    basePolicy,
+    resolvedDeps,
+    params.signal,
+  );
+  if (preparedBase.artifact.branch !== currentBranch) {
+    throw new Error(
+      `Prepared review base branch "${preparedBase.artifact.branch}" no longer matches current branch "${currentBranch}".`,
+    );
+  }
 
   const currentReviewPath = path.join(
     repoRoot,
@@ -540,7 +329,8 @@ export async function runCodexReviewStep(
   const canonicalReviewPassId = normalizeOptionalString(
     currentReview?.review_pass_id,
   );
-  const reviewCycleId = normalizeOptionalString(reviewState?.review_cycle_id) ?? null;
+  const reviewCycleId =
+    normalizeOptionalString(reviewState?.review_cycle_id) ?? null;
   const headCommit = await gitStdoutOrThrow(
     repoRoot,
     ['rev-parse', 'HEAD^{commit}'],
@@ -583,7 +373,7 @@ export async function runCodexReviewStep(
     '-C',
     repoRoot,
     '--base',
-    baseResolution.comparisonBaseRef,
+    preparedBase.artifact.comparison_base_ref,
     '-m',
     params.modelId,
     '-o',
@@ -599,42 +389,20 @@ export async function runCodexReviewStep(
   });
 
   const completedAtIso = resolvedDeps.now().toISOString();
-  const pointer: CodexReviewPointer = {
-    story_id: storyNumber,
-    plan_path: planPath,
-    review_cycle_id: reviewCycleId,
-    canonical_review_pass_id: canonicalReviewPassId ?? null,
-    codex_review_pass_id: codexReviewPassId,
-    repo_alias: 'current_repository',
-    repo_root: repoRoot,
-    branch: currentBranch,
-    head_commit: headCommit,
-    model: params.modelId,
-    reasoning_effort: params.reasoningEffort ?? null,
-    logical_base_branch: baseResolution.logicalBaseBranch,
-    resolved_base_branch: baseResolution.resolvedBaseBranch,
-    resolved_base_source: baseResolution.resolvedBaseSource,
-    remote_name: baseResolution.remoteName,
-    remote_fetch_status: baseResolution.remoteFetchStatus,
-    ...(baseResolution.remoteFetchError
-      ? { remote_fetch_error: baseResolution.remoteFetchError }
-      : {}),
-    ...(baseResolution.remoteFetchExitCode !== undefined
-      ? { remote_fetch_exit_code: baseResolution.remoteFetchExitCode }
-      : {}),
-    local_fallback_reason: baseResolution.localFallbackReason,
-    comparison_base_ref: baseResolution.comparisonBaseRef,
-    comparison_base_commit: baseResolution.comparisonBaseCommit,
-    comparison_head_ref: 'HEAD',
-    comparison_rule: 'local_head_vs_resolved_base',
-    review_output_file: toPosixRelative(repoRoot, reviewOutputPath),
-    merge_output_file: null,
-    merged_into_canonical_findings: false,
-    merged_findings_file: null,
-    status: 'completed',
-    started_at: startedAtIso,
-    completed_at: completedAtIso,
-  };
+  const pointer = buildPointer({
+    preparedBase: preparedBase.artifact,
+    currentBranch,
+    headCommit,
+    modelId: params.modelId,
+    reasoningEffort: params.reasoningEffort ?? null,
+    reviewCycleId,
+    canonicalReviewPassId: canonicalReviewPassId ?? null,
+    codexReviewPassId,
+    reviewOutputPath,
+    repoRoot,
+    startedAtIso,
+    completedAtIso,
+  });
 
   await resolvedDeps.writeFile(pointerPath, `${JSON.stringify(pointer, null, 2)}\n`);
 
@@ -646,3 +414,53 @@ export async function runCodexReviewStep(
     pointer,
   };
 }
+
+const buildPointer = (params: {
+  preparedBase: PreparedReviewBase;
+  currentBranch: string;
+  headCommit: string;
+  modelId: string;
+  reasoningEffort: CodexReviewReasoningEffort | null;
+  reviewCycleId: string | null;
+  canonicalReviewPassId: string | null;
+  codexReviewPassId: string;
+  reviewOutputPath: string;
+  repoRoot: string;
+  startedAtIso: string;
+  completedAtIso: string;
+}): CodexReviewPointer => ({
+  story_id: params.preparedBase.story_id,
+  plan_path: params.preparedBase.plan_path,
+  review_cycle_id: params.reviewCycleId,
+  canonical_review_pass_id: params.canonicalReviewPassId,
+  codex_review_pass_id: params.codexReviewPassId,
+  repo_alias: 'current_repository',
+  repo_root: params.repoRoot,
+  branch: params.currentBranch,
+  head_commit: params.headCommit,
+  model: params.modelId,
+  reasoning_effort: params.reasoningEffort,
+  logical_base_branch: params.preparedBase.logical_base_branch,
+  resolved_base_branch: params.preparedBase.resolved_base_branch,
+  resolved_base_source: params.preparedBase.resolved_base_source,
+  remote_name: params.preparedBase.remote_name,
+  remote_fetch_status: params.preparedBase.remote_fetch_status,
+  ...(params.preparedBase.remote_fetch_error
+    ? { remote_fetch_error: params.preparedBase.remote_fetch_error }
+    : {}),
+  ...(params.preparedBase.remote_fetch_exit_code !== undefined
+    ? { remote_fetch_exit_code: params.preparedBase.remote_fetch_exit_code }
+    : {}),
+  local_fallback_reason: params.preparedBase.local_fallback_reason,
+  comparison_base_ref: params.preparedBase.comparison_base_ref,
+  comparison_base_commit: params.preparedBase.comparison_base_commit,
+  comparison_head_ref: 'HEAD',
+  comparison_rule: 'local_head_vs_resolved_base',
+  review_output_file: toPosixRelative(params.repoRoot, params.reviewOutputPath),
+  merge_output_file: null,
+  merged_into_canonical_findings: false,
+  merged_findings_file: null,
+  status: 'completed',
+  started_at: params.startedAtIso,
+  completed_at: params.completedAtIso,
+});

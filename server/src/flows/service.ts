@@ -127,6 +127,7 @@ import {
   type FlowCommandStep,
   type FlowCodexReviewStep,
   type FlowLlmStep,
+  type FlowPrepareReviewBaseStep,
   type FlowReingestStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
@@ -151,6 +152,7 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
+import { prepareReviewBase } from './reviewBase.js';
 import type {
   FlowAgentState,
   FlowChatFactory,
@@ -1694,6 +1696,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowBreakStep
     | FlowContinueStep
     | FlowCommandStep
+    | FlowPrepareReviewBaseStep
     | FlowCodexReviewStep
     | FlowSubflowStep
     | FlowReingestStep;
@@ -5194,6 +5197,66 @@ async function runFlowUnlocked(params: {
     return 'failed';
   };
 
+  const runPrepareReviewBaseStep = async (
+    step: FlowPrepareReviewBaseStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    if (!params.repositoryContext.workingRepositoryPath) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Prepare review base: ${step.outputKey}`,
+        modelId: params.modelId,
+        source: params.source,
+        message:
+          'prepareReviewBase requires a resolved working repository path.',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+
+    const instruction = `Prepare review base: ${step.outputKey}`;
+    try {
+      const result = await prepareReviewBase({
+        workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
+        outputKey: step.outputKey,
+        basePolicy: step.basePolicy,
+      });
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: [
+          'Prepared shared review base.',
+          `Artifact: ${path.relative(params.repositoryContext.workingRepositoryPath, result.artifactPath)}`,
+          `Comparison base: ${result.artifact.comparison_base_ref}`,
+        ].join('\n'),
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'ok';
+    } catch (error) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'prepareReviewBase failed unexpectedly',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+  };
+
   const runCodexReviewFlowStep = async (
     step: FlowCodexReviewStep,
     command: TurnCommandMetadata,
@@ -5752,6 +5815,40 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.command',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (step.type === 'prepareReviewBase') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            reviewBaseOutputKey: step.outputKey,
+          },
+        });
+        const status = await runPrepareReviewBaseStep(step, command);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.prepareReviewBase',
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });

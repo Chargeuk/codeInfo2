@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -600,6 +601,154 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
     assert.equal(pointer.model, 'gpt-5.4');
     assert.equal(pointer.reasoning_effort, 'medium');
     assert.equal(pointer.merged_into_canonical_findings, false);
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('prepareReviewBase can precede a parallel review subflow batch on the shared checkout', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-review-base-parallel-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(path.join(repoDir, '.gitignore'), 'codeInfoTmp/\n', 'utf8');
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-slow-review',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-child-review',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          reasoningEffort: 'medium',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-shared-review-base',
+      steps: [
+        {
+          type: 'prepareReviewBase',
+          label: 'Prepare Shared Review Base',
+          outputKey: 'current-review-base',
+          basePolicy: 'branched_from_or_default_if_merged',
+        },
+        subflowStep(
+          'Run Review Batch',
+          'child-slow-review',
+          'codex-child-review',
+        ),
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-shared-review-base',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      working_folder: repoDir,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(140),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForActiveSubflowCount(result.conversationId, 2);
+
+    const basePath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-review-base.json',
+    );
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    await waitFor(() => existsSync(pointerPath));
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const preparedBase = JSON.parse(await fs.readFile(basePath, 'utf8')) as {
+      comparison_base_ref?: string;
+    };
+    const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
+      comparison_base_ref?: string;
+      model?: string;
+      reasoning_effort?: string | null;
+    };
+
+    assert.equal(preparedBase.comparison_base_ref, 'main');
+    assert.equal(pointer.comparison_base_ref, 'main');
+    assert.equal(pointer.model, 'gpt-5.4');
+    assert.equal(pointer.reasoning_effort, 'medium');
   } finally {
     process.env.PATH = previousPath;
     await fs.rm(tmpDir, { recursive: true, force: true });

@@ -30,6 +30,7 @@ import {
   __setFlowWaitResumeDepsForTests,
 } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { query } from '../../logStore.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {
@@ -110,6 +111,17 @@ const describeConversationState = (conversationId: string) =>
       model: turn.model,
     })),
   });
+
+const describeRelevantResumeRuntimeLogs = (conversationId: string) =>
+  JSON.stringify(
+    query({ text: 'flows.test.' }, 300)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  );
 
 const writeResumeFlow = async (dir: string) => {
   const flow = {
@@ -2227,19 +2239,52 @@ test('paused repository-backed waits keep the original sourceId and retryOwnersh
       }),
     });
 
-    await waitFor(() => captured.length === 1);
+    await waitFor(() => captured.length === 1, 10000, 50, () =>
+      JSON.stringify({
+        phase: 'waiting_for_first_execute',
+        captured,
+        state: JSON.parse(describeConversationState(conversationId)),
+        runtimeLogs: JSON.parse(describeRelevantResumeRuntimeLogs(conversationId)),
+      }),
+    );
     const executionId = getFlowExecutionId(conversationId);
-    await waitFor(() => {
-      const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
-        flow?: { wait?: { sourceId?: string; stepPath?: number[] } };
-      };
-      return (
-        flags.flow?.wait?.sourceId === sourceRepo &&
-        Array.isArray(flags.flow?.wait?.stepPath) &&
-        flags.flow?.wait?.stepPath?.[0] === 1
-      );
-    });
-    await waitFor(() => getActiveRunOwnership(conversationId) === null);
+    await waitFor(
+      () => {
+        const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: { wait?: { sourceId?: string; stepPath?: number[] } };
+        };
+        return (
+          flags.flow?.wait?.sourceId === sourceRepo &&
+          Array.isArray(flags.flow?.wait?.stepPath) &&
+          flags.flow?.wait?.stepPath?.[0] === 1
+        );
+      },
+      10000,
+      50,
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_wait_state',
+          captured,
+          state: JSON.parse(describeConversationState(conversationId)),
+          runtimeLogs: JSON.parse(
+            describeRelevantResumeRuntimeLogs(conversationId),
+          ),
+        }),
+    );
+    await waitFor(
+      () => getActiveRunOwnership(conversationId) === null,
+      10000,
+      50,
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_unlock',
+          captured,
+          state: JSON.parse(describeConversationState(conversationId)),
+          runtimeLogs: JSON.parse(
+            describeRelevantResumeRuntimeLogs(conversationId),
+          ),
+        }),
+    );
 
     const replayedStart = await startFlowRun({
       flowName: 'wait-resume',
@@ -2272,7 +2317,20 @@ test('paused repository-backed waits keep the original sourceId and retryOwnersh
       }),
     });
 
-    await waitFor(() => getAssistantTurnCount(conversationId) >= 2);
+    await waitFor(
+      () => getAssistantTurnCount(conversationId) >= 2,
+      10000,
+      50,
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_resume_terminal',
+          captured,
+          state: JSON.parse(describeConversationState(conversationId)),
+          runtimeLogs: JSON.parse(
+            describeRelevantResumeRuntimeLogs(conversationId),
+          ),
+        }),
+    );
     assert.equal(getFlowExecutionId(conversationId), executionId);
     assert.equal(
       (

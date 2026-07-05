@@ -95,6 +95,8 @@ export async function waitForEvent<T>(params: {
   predicate: (event: unknown) => event is T;
   timeoutMs?: number;
   describe?: () => string;
+  inspectCurrent?: () => string;
+  describeEvent?: (event: unknown) => string;
 }): Promise<T> {
   const timeoutMs = resolveConfiguredTestTimeoutMs(params.timeoutMs ?? 2000);
 
@@ -113,11 +115,21 @@ export async function waitForEvent<T>(params: {
   return await new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => {
       cleanup();
+      const recentEvents = peekBufferedEvents(params.ws)
+        .slice(-12)
+        .map((event) =>
+          params.describeEvent ? params.describeEvent(event) : JSON.stringify(event),
+        );
       reject(
         new Error(
-          params.describe
-            ? `Timed out waiting for WebSocket event | ${params.describe()}`
-            : 'Timed out waiting for WebSocket event',
+          [
+            'Timed out waiting for WebSocket event',
+            params.describe ? params.describe() : null,
+            params.inspectCurrent ? `current=${params.inspectCurrent()}` : null,
+            `recentEvents=${JSON.stringify(recentEvents)}`,
+          ]
+            .filter((part): part is string => Boolean(part))
+            .join(' | '),
         ),
       );
     }, timeoutMs);

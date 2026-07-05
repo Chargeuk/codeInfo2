@@ -120,7 +120,11 @@ class DeferredChat extends ChatInterface {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
+const waitFor = async (
+  predicate: () => boolean,
+  timeoutMs = 2000,
+  describe?: () => string,
+) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
   while (Date.now() - started < resolvedTimeoutMs) {
@@ -133,7 +137,10 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
       `timeoutMs=${resolvedTimeoutMs}`,
       `conversationIds=${JSON.stringify([...memoryConversations.keys()].slice(-10))}`,
       `turnConversationIds=${JSON.stringify([...memoryTurns.keys()].slice(-10))}`,
-    ].join(' | '),
+      describe ? `details=${describe()}` : null,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(' | '),
   );
 };
 
@@ -872,15 +879,44 @@ test('startAgentCommand omission path defaults startStep to 1 and executes from 
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
   const conversationId = 't03-start-command-omitted-start-step';
+  const executeSignal = createExecuteSignal();
   try {
     await startAgentCommand({
       agentName: 'coding_agent',
       commandName: 'start-default',
       conversationId,
       source: 'REST',
-      chatFactory: () => new MinimalChat(),
+      chatFactory: () =>
+        new (class extends ChatInterface {
+          async execute(
+            _message: string,
+            flags: Record<string, unknown>,
+            childConversationId: string,
+            _model: string,
+          ) {
+            void _message;
+            void _model;
+            executeSignal.onExecute(flags);
+            this.emit('thread', {
+              type: 'thread',
+              threadId: childConversationId,
+            });
+            this.emit('final', { type: 'final', content: 'ok' });
+            this.emit('complete', {
+              type: 'complete',
+              threadId: childConversationId,
+            });
+          }
+        })(),
     });
 
+    await waitFor(() => executeSignal.wasTriggered(), 5000, () =>
+      JSON.stringify({
+        conversation: summarizeConversation(memoryConversations.get(conversationId)),
+        recentTurns: summarizeTurns(conversationId),
+        recentLogs: summarizeConversationLogs(conversationId),
+      }),
+    );
     await waitFor(
       () =>
         (memoryTurns.get(conversationId) ?? []).some(
@@ -888,6 +924,15 @@ test('startAgentCommand omission path defaults startStep to 1 and executes from 
             turn.command?.stepIndex === 1 && turn.command.totalSteps === 2,
         ),
       5000,
+      () =>
+        JSON.stringify({
+          executeTriggered: executeSignal.wasTriggered(),
+          conversation: summarizeConversation(
+            memoryConversations.get(conversationId),
+          ),
+          recentTurns: summarizeTurns(conversationId),
+          recentLogs: summarizeConversationLogs(conversationId),
+        }),
     );
   } finally {
     memoryConversations.delete(conversationId);

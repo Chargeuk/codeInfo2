@@ -191,6 +191,40 @@ const waitFor = async (
   throw new Error('Timed out waiting for flow condition');
 };
 
+const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
+  JSON.stringify(
+    query({ text: 'flows.test.' }, 300)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  );
+
+const summarizeFlowChildAgentConversations = (conversationId: string): string => {
+  const conversation = memoryConversations.get(conversationId);
+  const flowFlags = (conversation?.flags ?? {}) as {
+    flow?: { agentConversations?: Record<string, string> };
+  };
+  return JSON.stringify(
+    Object.entries(flowFlags.flow?.agentConversations ?? {}).map(
+      ([agentKey, childConversationId]) => ({
+        agentKey,
+        childConversationId,
+        childFlags: memoryConversations.get(childConversationId)?.flags ?? null,
+        recentTurns: (memoryTurns.get(childConversationId) ?? [])
+          .slice(-6)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    ),
+  );
+};
+
 const waitForTurns = async (
   conversationId: string,
   predicate: (turns: Turn[]) => boolean,
@@ -218,6 +252,10 @@ const waitForTurns = async (
           content: turn.content,
         })),
       )}`,
+      `childAgentConversations=${summarizeFlowChildAgentConversations(
+        conversationId,
+      )}`,
+      `runtimeLogs=${describeRelevantFlowRuntimeLogs(conversationId)}`,
       describe ? `details=${describe()}` : '',
     ].join(' | '),
   );
@@ -2083,6 +2121,7 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
   await fs.mkdir(workingFolder, { recursive: true });
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  let executeStarted = false;
 
   memoryConversations.set(conversationId, {
     _id: conversationId,
@@ -2104,7 +2143,23 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
       conversationId,
       working_folder: workingFolder,
       source: 'REST',
-      chatFactory: () => new InstantChat(),
+      chatFactory: () =>
+        new (class extends ChatInterface {
+          async execute(
+            _message: string,
+            _flags: Record<string, unknown>,
+            childConversationId: string,
+            _model: string,
+          ) {
+            void _message;
+            void _flags;
+            void _model;
+            executeStarted = true;
+            this.emit('thread', { type: 'thread', threadId: childConversationId });
+            this.emit('final', { type: 'final', content: 'ok' });
+            this.emit('complete', { type: 'complete', threadId: childConversationId });
+          }
+        })(),
       listIngestedRepositories: async () => ({
         repos: [buildRepoEntry(workingFolder)],
         lockedModelId: null,
@@ -2112,10 +2167,20 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
     });
 
     assert.notEqual(result.conversationId, conversationId);
+    await waitFor(
+      () => executeStarted,
+      4000,
+    );
 
     await waitForTurns(
       result.conversationId,
       (turns) => turns.filter((turn) => turn.role === 'assistant').length > 0,
+      4000,
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_first_assistant_turn',
+          executeStarted,
+        }),
     );
 
     const conversation = memoryConversations.get(result.conversationId);

@@ -3292,6 +3292,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         8000,
         () =>
           JSON.stringify({
+            phase: 'waiting_for_stop_registration',
             firstRunInflightId: firstRun.body.inflightId as string,
             stopRegisteredAtOuterStepStart,
             state: JSON.parse(describeLoopContinueResumeState(conversationId)),
@@ -3312,7 +3313,10 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         },
         timeoutMs: 8000,
         describe: () =>
-          describeLoopContinueResumeState(conversationId),
+          JSON.stringify({
+            phase: 'waiting_for_stopped_terminal_event',
+            current: JSON.parse(describeLoopContinueResumeState(conversationId)),
+          }),
       });
 
       assert.ok(stopped.status === 'stopped' || stopped.status === 'failed');
@@ -3376,6 +3380,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         timeoutMs: 10000,
         describe: () =>
           JSON.stringify({
+            phase: 'waiting_for_ok_terminal_event',
             stopSnapshot,
             current: JSON.parse(describeLoopContinueResumeState(conversationId)),
           }),
@@ -3409,6 +3414,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         15000,
         () =>
           JSON.stringify({
+            phase: 'waiting_for_next_iteration_progress',
             stopSnapshot,
             afterStop: {
               outerCountAfterStop,

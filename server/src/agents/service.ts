@@ -142,6 +142,23 @@ import {
 } from './runLock.js';
 import type { AgentDetails, AgentSummary } from './types.js';
 
+const agentRuntimeDiagnosticsEnabled =
+  process.env.CODEINFO_TEST_RUNTIME_DIAGNOSTICS === '1';
+
+const appendAgentRuntimeDiagnostic = (
+  message: string,
+  context: Record<string, unknown>,
+) => {
+  if (!agentRuntimeDiagnosticsEnabled) return;
+  append({
+    level: 'info',
+    message,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
+  });
+};
+
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
   const discovered = await discoverAgents();
   const availabilityContext = await createAgentAvailabilityContext();
@@ -1882,6 +1899,15 @@ export async function startAgentInstruction(
 
   void (async () => {
     try {
+      appendAgentRuntimeDiagnostic('agents.test.start_instruction.background_entered', {
+        agentName: params.agentName,
+        conversationId,
+        inflightId,
+        source: params.source,
+        runToken,
+        startPathWasNewConversation,
+        workingFolder: params.working_folder ?? null,
+      });
       await runAgentInstructionUnlocked({
         ...params,
         conversationId,
@@ -1895,7 +1921,23 @@ export async function startAgentInstruction(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
+      appendAgentRuntimeDiagnostic('agents.test.start_instruction.background_complete', {
+        agentName: params.agentName,
+        conversationId,
+        inflightId,
+        source: params.source,
+        runToken,
+      });
     } catch (err) {
+      appendAgentRuntimeDiagnostic('agents.test.start_instruction.background_failed', {
+        agentName: params.agentName,
+        conversationId,
+        inflightId,
+        source: params.source,
+        runToken,
+        error:
+          err instanceof Error ? err.message : String(err ?? 'unknown error'),
+      });
       baseLogger.error(
         { agentName: params.agentName, conversationId, inflightId, err },
         'agents run failed (background)',
@@ -1903,6 +1945,17 @@ export async function startAgentInstruction(
     }
   })();
 
+  appendAgentRuntimeDiagnostic('agents.test.start_instruction.accepted', {
+    agentName: params.agentName,
+    conversationId,
+    inflightId,
+    providerId,
+    modelId,
+    source: params.source,
+    runToken,
+    warningCount: warnings.length,
+    workingFolder: params.working_folder ?? null,
+  });
   return {
     conversationId,
     inflightId,
@@ -2332,9 +2385,52 @@ export async function startAgentCommand(params: {
     }
 
     backgroundScheduled = true;
+    appendAgentRuntimeDiagnostic('agents.test.start_command.accepted', {
+      agentName: params.agentName,
+      commandName,
+      conversationId,
+      providerId,
+      modelId,
+      source: params.source,
+      runToken,
+      startStep,
+      warningCount: warnings.length,
+      selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+      workingFolder: effectiveWorkingFolder ?? null,
+    });
+    appendAgentRuntimeDiagnostic('agents.test.start_command.background_scheduled', {
+      agentName: params.agentName,
+      commandName,
+      conversationId,
+      source: params.source,
+      runToken,
+      startStep,
+      selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+      workingFolder: effectiveWorkingFolder ?? null,
+    });
 
     void (async () => {
       try {
+        appendAgentRuntimeDiagnostic('agents.test.start_command.background_entered', {
+          agentName: params.agentName,
+          commandName,
+          conversationId,
+          source: params.source,
+          runToken,
+          startStep,
+          selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+          workingFolder: effectiveWorkingFolder ?? null,
+        });
+        appendAgentRuntimeDiagnostic('agents.test.start_command.runner_begin', {
+          agentName: params.agentName,
+          commandName,
+          conversationId,
+          source: params.source,
+          runToken,
+          startStep,
+          selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+          workingFolder: effectiveWorkingFolder ?? null,
+        });
         await runAgentCommandRunner({
           agentName: params.agentName,
           agentHome: agent.home,
@@ -2352,6 +2448,18 @@ export async function startAgentCommand(params: {
           lookupSummary: resolution.lookupSummary,
           runtimeLookupSummary: resolution.runtimeLookupSummary,
           onPrestartFailure: async (failure) => {
+            appendAgentRuntimeDiagnostic('agents.test.start_command.prestart_failure', {
+              agentName: params.agentName,
+              commandName,
+              conversationId,
+              source: params.source,
+              runToken,
+              startStep,
+              stepIndex: failure.command.stepIndex,
+              totalSteps: failure.command.totalSteps,
+              errorCode: failure.errorCode ?? null,
+              message: failure.message,
+            });
             await emitFailedAgentCommandStep({
               conversationId,
               inflightId: crypto.randomUUID(),
@@ -2368,11 +2476,29 @@ export async function startAgentCommand(params: {
             runAgentInstructionUnlocked({
               ...runParams,
               chatFactory: params.chatFactory,
-            }),
+          }),
           lockAlreadyHeld: true,
           runToken,
         });
+        appendAgentRuntimeDiagnostic('agents.test.start_command.runner_complete', {
+          agentName: params.agentName,
+          commandName,
+          conversationId,
+          source: params.source,
+          runToken,
+          startStep,
+        });
       } catch (err) {
+        appendAgentRuntimeDiagnostic('agents.test.start_command.runner_failed', {
+          agentName: params.agentName,
+          commandName,
+          conversationId,
+          source: params.source,
+          runToken,
+          startStep,
+          error:
+            err instanceof Error ? err.message : String(err ?? 'unknown error'),
+        });
         baseLogger.error(
           { agentName: params.agentName, commandName, conversationId, err },
           'agents command run failed (background)',

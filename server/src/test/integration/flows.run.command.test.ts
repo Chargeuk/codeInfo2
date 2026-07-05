@@ -450,6 +450,15 @@ const waitForTurns = async (
           content: turn.content,
         })),
       )}`,
+      `runtimeLogs=${JSON.stringify(
+        query({ text: 'flows.test.' }, 300)
+          .filter((entry) => entry.context?.conversationId === conversationId)
+          .slice(-25)
+          .map((entry) => ({
+            message: entry.message,
+            context: entry.context,
+          })),
+      )}`,
       describe ? `details=${describe()}` : null,
     ]
       .filter((part): part is string => Boolean(part))

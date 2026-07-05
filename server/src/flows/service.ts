@@ -7656,6 +7656,14 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         text: finalMessage,
       });
+      appendFlowRuntimeDiagnostic('flows.test.subflow_terminal_publish_begin', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        inflightId: stepInflightId,
+        stepPath: nextPath,
+        terminalStatus,
+        finalMessage,
+      });
       appendFlowRuntimeDiagnostic('flows.test.first_snapshot_publish_begin', {
         conversationId: params.conversationId,
         executionId: params.executionId,
@@ -7712,6 +7720,16 @@ async function runFlowUnlocked(params: {
         turnId: assistantPersisted.turnId,
       });
 
+      appendFlowRuntimeDiagnostic(
+        'flows.test.subflow_terminal_bridge_finalize_begin',
+        {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          inflightId: stepInflightId,
+          stepPath: nextPath,
+          terminalStatus,
+        },
+      );
       bridge.finalize({
         fallback:
           terminalStatus === 'failed'
@@ -7725,6 +7743,23 @@ async function runFlowUnlocked(params: {
             : {
                 status: terminalStatus,
               },
+      });
+      appendFlowRuntimeDiagnostic(
+        'flows.test.subflow_terminal_bridge_finalize_complete',
+        {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          inflightId: stepInflightId,
+          stepPath: nextPath,
+          terminalStatus,
+        },
+      );
+      appendFlowRuntimeDiagnostic('flows.test.subflow_terminal_publish_complete', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        inflightId: stepInflightId,
+        stepPath: nextPath,
+        terminalStatus,
       });
       return terminalStatus;
     } catch (error) {
@@ -7746,6 +7781,14 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         inflightId: stepInflightId,
         text: message,
+      });
+      appendFlowRuntimeDiagnostic('flows.test.subflow_terminal_publish_begin', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        inflightId: stepInflightId,
+        stepPath: nextPath,
+        terminalStatus: 'failed',
+        finalMessage: message,
       });
       publishInflightSnapshot(params.conversationId);
 
@@ -7785,6 +7828,16 @@ async function runFlowUnlocked(params: {
         role: 'assistant',
         turnId: assistantPersisted.turnId,
       });
+      appendFlowRuntimeDiagnostic(
+        'flows.test.subflow_terminal_bridge_finalize_begin',
+        {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          inflightId: stepInflightId,
+          stepPath: nextPath,
+          terminalStatus: 'failed',
+        },
+      );
       bridge.finalize({
         fallback: {
           status: 'failed',
@@ -7793,6 +7846,23 @@ async function runFlowUnlocked(params: {
             message,
           },
         },
+      });
+      appendFlowRuntimeDiagnostic(
+        'flows.test.subflow_terminal_bridge_finalize_complete',
+        {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          inflightId: stepInflightId,
+          stepPath: nextPath,
+          terminalStatus: 'failed',
+        },
+      );
+      appendFlowRuntimeDiagnostic('flows.test.subflow_terminal_publish_complete', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        inflightId: stepInflightId,
+        stepPath: nextPath,
+        terminalStatus: 'failed',
       });
       return 'failed';
     } finally {
@@ -7999,6 +8069,13 @@ async function runFlowUnlocked(params: {
           | { itemType: 'skip' }
           | { itemType: 'reingest'; result: ExecuteCommandItemReingestResult };
         try {
+          appendCommandRuntimeDiagnostic('item_dispatch_begin', {
+            commandName: step.commandName,
+            itemIndex,
+            itemType: item.type,
+            stepPath: nextPath,
+            attempt,
+          });
           executedItem = (await executeCommandItem({
             item,
             itemIndex,
@@ -8134,7 +8211,34 @@ async function runFlowUnlocked(params: {
                 itemType: 'reingest';
                 result: ExecuteCommandItemReingestResult;
               };
+          appendCommandRuntimeDiagnostic('item_dispatch_complete', {
+            commandName: step.commandName,
+            itemIndex,
+            itemType: item.type,
+            stepPath: nextPath,
+            attempt,
+            resultType: executedItem.itemType,
+            resultStatus:
+              executedItem.itemType === 'message'
+                ? executedItem.result.status
+                : executedItem.itemType === 'reingest'
+                  ? executedItem.result.stopAfter
+                    ? 'stopped'
+                    : 'ok'
+                  : 'skip',
+          });
         } catch (error) {
+          appendCommandRuntimeDiagnostic('item_dispatch_failed', {
+            commandName: step.commandName,
+            itemIndex,
+            itemType: item.type,
+            stepPath: nextPath,
+            attempt,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to execute flow command message item',
+          });
           const runtimeIdentity = await resolveCommandRuntimeIdentity();
           await emitFailedFlowStep({
             flowConversationId: params.conversationId,
@@ -8168,6 +8272,11 @@ async function runFlowUnlocked(params: {
           return 'stopped';
         }
       }
+      appendCommandRuntimeDiagnostic('step_complete', {
+        commandName: step.commandName,
+        stepPath: nextPath,
+        attempt,
+      });
       return 'ok';
     }
 
@@ -9364,6 +9473,18 @@ export async function startFlowRun(
       effectiveResumeStepPath: effectiveResumeStepPath ?? null,
       startupWarningsCount: startupWarnings.length,
       childExecutionBackfillCount: childExecutionBackfills.length,
+      workingFolder: effectiveWorkingFolder ?? null,
+    });
+    appendFlowRuntimeDiagnostic('flows.test.start.async_scheduled', {
+      flowName,
+      conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
+      executionId,
+      inflightId,
+      providerId,
+      modelId,
+      effectiveResumeStepPath: effectiveResumeStepPath ?? null,
       workingFolder: effectiveWorkingFolder ?? null,
     });
     if (retryOwnershipId && !resumeStepPath) {

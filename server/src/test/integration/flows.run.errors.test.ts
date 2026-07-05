@@ -487,29 +487,63 @@ const waitForFlowFinal = async (params: {
   conversationId: string;
   status: 'ok' | 'failed' | 'stopped';
   timeoutMs?: number;
-}) =>
-  waitForEvent({
-    ws: params.ws,
-    predicate: (
-      event: unknown,
-    ): event is {
-      type: 'turn_final';
-      status: string;
-      error?: { code?: string; message?: string } | null;
-    } => {
-      const candidate = event as {
-        type?: string;
-        conversationId?: string;
-        status?: string;
-      };
-      return (
-        candidate.type === 'turn_final' &&
-        candidate.conversationId === params.conversationId &&
-        candidate.status === params.status
-      );
-    },
-    timeoutMs: params.timeoutMs ?? 5000,
-  });
+}) => {
+  try {
+    return await waitForEvent({
+      ws: params.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        error?: { code?: string; message?: string } | null;
+      } => {
+        const candidate = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return (
+          candidate.type === 'turn_final' &&
+          candidate.conversationId === params.conversationId &&
+          candidate.status === params.status
+        );
+      },
+      timeoutMs: params.timeoutMs ?? 5000,
+      inspectCurrent: () =>
+        JSON.stringify({
+          conversationFlags:
+            memoryConversations.get(params.conversationId)?.flags ?? null,
+          recentTurns: (memoryTurns.get(params.conversationId) ?? [])
+            .slice(-8)
+            .map((turn) => ({
+              role: turn.role,
+              status: turn.status,
+              content: turn.content,
+            })),
+          runtimeLogs: JSON.parse(
+            describeRelevantFlowRuntimeLogs(params.conversationId),
+          ),
+        }),
+      describeEvent: (event) => JSON.stringify(event),
+    });
+  } catch (error) {
+    const latestAssistantTurn = getLatestAssistantTurn(params.conversationId);
+    throw new Error(
+      [
+        error instanceof Error ? error.message : 'Timed out waiting for flow final',
+        `latestAssistantTurn=${JSON.stringify(
+          latestAssistantTurn
+            ? {
+                status: latestAssistantTurn.status,
+                content: latestAssistantTurn.content,
+              }
+            : null,
+        )}`,
+      ].join(' | '),
+    );
+  }
+};
 
 const subscribeConversation = (ws: WebSocket, conversationId: string) => {
   sendJson(ws, { type: 'subscribe_conversation', conversationId });
@@ -2434,14 +2468,17 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
       steps: [makeLlmStep()],
     });
 
+    const firstConversationId = 'retry-ownership-new-request-first';
+    const secondConversationId = 'retry-ownership-new-request-second';
+    subscribeConversation(ws, firstConversationId);
     const firstResult = await startFlowRun({
       flowName: 'retry-ownership-new-request',
+      conversationId: firstConversationId,
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       customTitle: 'First Fresh Request',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, firstResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: firstResult.conversationId,
@@ -2449,14 +2486,15 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
     });
     await waitForConversationUnlocked(firstResult.conversationId);
 
+    subscribeConversation(ws, secondConversationId);
     const secondResult = await startFlowRun({
       flowName: 'retry-ownership-new-request',
+      conversationId: secondConversationId,
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-2',
       customTitle: 'Second Fresh Request',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, secondResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: secondResult.conversationId,

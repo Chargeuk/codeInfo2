@@ -804,22 +804,10 @@ test('command steps execute agent command items', async () => {
       .send({ conversationId })
       .expect(202);
 
-    const final = await waitForEvent({
+    const final = await waitForFlowFinal({
       ws: wsUrl,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; status: string } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.status === 'ok'
-        );
-      },
+      conversationId,
+      status: 'ok',
       timeoutMs: 4000,
     });
 
@@ -3595,22 +3583,10 @@ test('RED: repository flow should resolve same-source command before fallback or
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForFlowFinal({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        status: 'ok',
         timeoutMs: 5000,
       });
       assert.equal(final.status, 'ok');
@@ -3665,22 +3641,10 @@ test('same-source missing command falls back to codeInfo2 repository', async () 
           .send({ conversationId, sourceId: sourceRoot })
           .expect(202);
 
-        await waitForEvent({
+        await waitForFlowFinal({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'ok'
-            );
-          },
+          conversationId,
+          status: 'ok',
           timeoutMs: 5000,
         });
 
@@ -3752,22 +3716,10 @@ test('other repositories preserve caller-supplied order instead of sorting by la
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      await waitForEvent({
+      await waitForFlowFinal({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        status: 'ok',
         timeoutMs: 5000,
       });
 
@@ -3956,22 +3908,10 @@ test('other-repo ordering preserves caller order even when sourceLabel has white
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      await waitForEvent({
+      await waitForFlowFinal({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        status: 'ok',
         timeoutMs: 5000,
       });
       const turns = memoryTurns.get(conversationId) ?? [];
@@ -4087,22 +4027,10 @@ test('other-repo ordering preserves caller order when labels only differ by case
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      await waitForEvent({
+      await waitForFlowFinal({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        status: 'ok',
         timeoutMs: 5000,
       });
       const turns = memoryTurns.get(conversationId) ?? [];
@@ -4199,22 +4127,10 @@ test('command-load failures are retried and then fail deterministically', async 
     await delay(50);
     await fs.rm(commandPath, { force: true });
 
-    const final = await waitForEvent({
+    const final = await waitForFlowFinal({
       ws: wsUrl,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; status: string } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.status === 'failed'
-        );
-      },
+      conversationId,
+      status: 'failed',
       timeoutMs: 5000,
       describe: () => describeCommandRetryDiagnosticState(conversationId),
     });
@@ -4347,22 +4263,10 @@ test('conversation-only stop prevents nested command handoff from starting', asy
     });
     await startedPromise;
 
-    const final = await waitForEvent({
+    const final = await waitForFlowFinal({
       ws: wsUrl,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; status: string } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.status === 'stopped'
-        );
-      },
+      conversationId,
+      status: 'stopped',
       timeoutMs: 5000,
     });
 

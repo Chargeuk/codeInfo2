@@ -168,6 +168,14 @@ const ensureSafeOutputKey = (outputKey: string) => {
   return trimmed;
 };
 
+const sanitizePassSeed = (value: string): string => {
+  const sanitized = value
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-._]+|[-._]+$/g, '');
+  return sanitized || 'codex-review';
+};
+
 const readJsonIfExists = async <T>(
   filePath: string,
   deps: Pick<CodexReviewDeps, 'readFile'>,
@@ -346,8 +354,9 @@ export async function runCodexReviewStep(
     params.signal,
   );
   const passTimestamp = formatUtcTimestamp(startedAt);
-  const passSeed =
-    canonicalReviewPassId ?? reviewCycleId ?? `${storyNumber}-codex-review`;
+  const passSeed = sanitizePassSeed(
+    canonicalReviewPassId ?? reviewCycleId ?? `${storyNumber}-codex-review`,
+  );
   const codexReviewPassId = `${passSeed}-codex-${passTimestamp}-${shortHead}-${resolvedDeps.randomHex(
     4,
   )}`;

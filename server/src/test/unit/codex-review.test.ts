@@ -318,6 +318,96 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
   }
 });
 
+test('runCodexReviewStep sanitizes review pass ids before using them in artifact filenames', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-sanitized-pass-id-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp', 'reviews', '0000027-current-review.json'),
+      JSON.stringify({
+        review_pass_id: '../odd pass/id',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        switch (key) {
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'remote get-url origin':
+            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          case 'fetch --prune origin':
+            return { stdout: '', stderr: '' };
+          case 'symbolic-ref --short refs/remotes/origin/HEAD':
+            return { stdout: 'origin/main\n', stderr: '' };
+          case 'rev-parse --verify origin/main':
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      if (file === 'codex') {
+        const outputIndex = args.indexOf('-o');
+        const outputPath = String(args[outputIndex + 1]);
+        assert.ok(
+          path.basename(outputPath).startsWith('odd-pass-id-codex-'),
+          'sanitized pass seed should be used for the output filename',
+        );
+        assert.ok(!outputPath.includes('..'));
+        await fs.writeFile(outputPath, '# Codex Review\n\nNo issues.\n');
+        return { stdout: '', stderr: '' };
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    const result = await runCodexReviewStep(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:22:00.000Z'),
+        randomHex: () => 'abcdef01',
+      },
+    );
+
+    assert.ok(
+      result.pointer.codex_review_pass_id.startsWith('odd-pass-id-codex-'),
+    );
+    assert.equal(result.pointer.canonical_review_pass_id, '../odd pass/id');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('runCodexReviewStep falls back to a local branched-from ref when origin is unavailable', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codex-review-helper-local-'),

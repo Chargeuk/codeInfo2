@@ -8818,6 +8818,17 @@ async function runFlowUnlocked(params: {
             index + 1 < steps.length ? index + 2 : null,
           loopDepth: loopStack.length,
         });
+        appendFlowRuntimeDiagnostic('flows.test.next_step_dispatch_expected', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          nextSiblingStepPath:
+            index + 1 < steps.length ? [...stepPath, index + 1] : null,
+          nextSiblingStepType:
+            index + 1 < steps.length ? steps[index + 1]?.type ?? null : null,
+          loopDepth: loopStack.length,
+        });
         continue;
       }
 

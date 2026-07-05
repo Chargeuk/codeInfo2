@@ -254,20 +254,25 @@ const describeConversationGraph = (
   return JSON.stringify(buildNode(conversationId, 0));
 };
 
-const describeRelevantSubflowRuntimeLogs = (conversationId: string): string =>
+const describeRelevantSubflowRuntimeLogs = (...conversationIds: string[]): string =>
   JSON.stringify((() => {
+    const conversationIdSet = new Set(conversationIds);
     const seen = new Set<string>();
     return query({ text: 'flows.test.' }, 400)
       .filter((entry) => {
         const entryConversationId = entry.context?.conversationId;
         return (
-          entryConversationId === conversationId &&
+          conversationIdSet.has(String(entryConversationId)) &&
           (entry.message.startsWith('flows.test.start.') ||
             entry.message === 'flows.test.step_dispatch' ||
             entry.message.startsWith('flows.test.first_') ||
             entry.message.startsWith('flows.test.chat_factory_') ||
             entry.message.startsWith('flows.test.subflow_') ||
-            entry.message.startsWith('flows.test.resume_state_'))
+            entry.message.startsWith('flows.test.resume_state_') ||
+            entry.message === 'flows.test.llm_step_completed' ||
+            entry.message === 'flows.test.llm_step_state_advanced' ||
+            entry.message === 'flows.test.llm_step_continue' ||
+            entry.message === 'flows.test.next_step_dispatch_expected')
         );
       })
       .concat(query({ text: 'runtime.chat_config_lock_' }, 40))
@@ -1263,6 +1268,18 @@ test('stopping the parent flow stops every running child in a parallel subflow s
         slowChildConversationIds: [...slowChildConversationIds],
         activeSubflows,
         graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
+        runtimeLogs: JSON.parse(
+          describeRelevantSubflowRuntimeLogs(
+            parentConversationId,
+            ...activeSubflows
+              .map((subflow) =>
+                typeof subflow?.conversationId === 'string'
+                  ? subflow.conversationId
+                  : null,
+              )
+              .filter((value): value is string => Boolean(value)),
+          ),
+        ),
       }),
     );
 
@@ -1284,15 +1301,24 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       JSON.stringify({
         observedStatus: terminalAssistant?.status ?? null,
         observedContent: terminalAssistant?.content ?? null,
-        parentConversationId,
-        stopRegisteredAtSlowChildrenStart,
-        slowChildConversationIds: [...slowChildConversationIds],
-        activeSubflows,
-        graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
-        runtimeLogs: JSON.parse(
-          describeRelevantSubflowRuntimeLogs(parentConversationId),
-        ),
-      }),
+          parentConversationId,
+          stopRegisteredAtSlowChildrenStart,
+          slowChildConversationIds: [...slowChildConversationIds],
+          activeSubflows,
+          graph: JSON.parse(describeConversationGraph(parentConversationId, 2)),
+          runtimeLogs: JSON.parse(
+            describeRelevantSubflowRuntimeLogs(
+              parentConversationId,
+              ...activeSubflows
+                .map((subflow) =>
+                  typeof subflow?.conversationId === 'string'
+                    ? subflow.conversationId
+                    : null,
+                )
+                .filter((value): value is string => Boolean(value)),
+            ),
+          ),
+        }),
     );
     assert.equal(
       terminalAssistant?.content,

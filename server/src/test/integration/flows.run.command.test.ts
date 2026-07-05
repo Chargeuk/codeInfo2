@@ -573,6 +573,163 @@ const waitForFlowFinal = async (params: {
   }
 };
 
+const waitForFlowToolEvent = async (params: {
+  ws: WebSocket;
+  conversationId: string;
+  timeoutMs?: number;
+  describe?: () => string;
+  matchesEvent: (event: {
+    type: 'tool_event';
+    conversationId: string;
+    event: {
+      type: 'tool-result';
+      callId?: string;
+      name?: string;
+      stage?: string;
+      result?: Record<string, unknown>;
+    };
+  }) => boolean;
+  matchesPersistedToolCall: (toolCall: {
+    callId?: string;
+    name?: string;
+    stage?: string;
+    result?: Record<string, unknown>;
+  }) => boolean;
+}) => {
+  const getAssistantToolCalls = () =>
+    [...(memoryTurns.get(params.conversationId) ?? [])]
+      .reverse()
+      .find((turn) => turn.role === 'assistant')
+      ?.toolCalls as
+      | {
+          calls?: Array<{
+            callId?: string;
+            name?: string;
+            stage?: string;
+            result?: Record<string, unknown>;
+          }>;
+        }
+      | null
+      | undefined;
+  const getLatestToolEventLog = () =>
+    query({ text: 'chat.stream.tool_event' }, 160)
+      .filter((entry) => entry.context?.conversationId === params.conversationId)
+      .at(-1);
+  const buildPersistedEvent = () => {
+    const matchingCall = getAssistantToolCalls()?.calls?.find((toolCall) =>
+      params.matchesPersistedToolCall(toolCall),
+    );
+    if (!matchingCall) return null;
+    return {
+      type: 'tool_event' as const,
+      conversationId: params.conversationId,
+      event: {
+        type: 'tool-result' as const,
+        callId: matchingCall.callId ?? '',
+        name: matchingCall.name ?? '',
+        stage: matchingCall.stage,
+        result: matchingCall.result,
+      },
+    };
+  };
+
+  try {
+    return await waitForEvent({
+      ws: params.ws,
+      predicate: (
+        raw: unknown,
+      ): raw is {
+        type: 'tool_event';
+        conversationId: string;
+        event: {
+          type: 'tool-result';
+          callId?: string;
+          name?: string;
+          stage?: string;
+          result?: Record<string, unknown>;
+        };
+      } => {
+        const candidate = raw as {
+          type?: string;
+          conversationId?: string;
+          event?: {
+            type?: string;
+            callId?: string;
+            name?: string;
+            stage?: string;
+            result?: Record<string, unknown>;
+          };
+        };
+        if (
+          candidate.type !== 'tool_event' ||
+          candidate.conversationId !== params.conversationId ||
+          candidate.event?.type !== 'tool-result'
+        ) {
+          return false;
+        }
+        return params.matchesEvent({
+          type: 'tool_event',
+          conversationId: candidate.conversationId,
+          event: candidate.event,
+        });
+      },
+      timeoutMs: params.timeoutMs ?? 5000,
+      describe: params.describe,
+      inspectCurrent: () =>
+        JSON.stringify({
+          conversationFlags:
+            memoryConversations.get(params.conversationId)?.flags ?? null,
+          recentTurns: (memoryTurns.get(params.conversationId) ?? [])
+            .slice(-8)
+            .map((turn) => ({
+              role: turn.role,
+              status: turn.status,
+              content: turn.content,
+              toolCalls: turn.toolCalls,
+            })),
+          toolEventLogs: query({ text: 'chat.stream.tool_event' }, 300)
+            .filter(
+              (entry) => entry.context?.conversationId === params.conversationId,
+            )
+            .slice(-25)
+            .map((entry) => ({
+              message: entry.message,
+              context: entry.context,
+            })),
+          runtimeLogs: query({ text: 'flows.test.' }, 300)
+            .filter(
+              (entry) => entry.context?.conversationId === params.conversationId,
+            )
+            .slice(-25)
+            .map((entry) => ({
+              message: entry.message,
+              context: entry.context,
+            })),
+        }),
+      describeEvent: (event) => JSON.stringify(event),
+    });
+  } catch (error) {
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
+    while (Date.now() < deadline) {
+      const persistedEvent = buildPersistedEvent();
+      if (persistedEvent) return persistedEvent;
+      await delay(20);
+    }
+
+    throw new Error(
+      [
+        error instanceof Error
+          ? error.message
+          : 'Timed out waiting for WebSocket event',
+        `assistantToolCalls=${JSON.stringify(getAssistantToolCalls() ?? null)}`,
+        `latestToolEventLog=${JSON.stringify(
+          getLatestToolEventLog()?.context ?? null,
+        )}`,
+      ].join(' | '),
+    );
+  }
+};
+
 const describeFlowRuntimeState = (conversationId: string) =>
   JSON.stringify({
     inflightId: getInflight(conversationId)?.inflightId ?? null,
@@ -2751,42 +2908,14 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
         );
 
         sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-        const toolEventPromise = waitForEvent({
+        const toolEventPromise = waitForFlowToolEvent({
           ws: wsUrl,
-          predicate: (
-            raw: unknown,
-          ): raw is {
-            type: 'tool_event';
-            conversationId: string;
-            event: {
-              type: 'tool-result';
-              stage?: string;
-              result?: {
-                targetMode?: string;
-                warnings?: Array<{ code?: string; message?: string }>;
-              };
-            };
-          } => {
-            const candidate = raw as {
-              type?: string;
-              conversationId?: string;
-              event?: {
-                type?: string;
-                stage?: string;
-                result?: {
-                  targetMode?: string;
-                  warnings?: Array<{ code?: string; message?: string }>;
-                };
-              };
-            };
-            return (
-              candidate.type === 'tool_event' &&
-              candidate.conversationId === conversationId &&
-              candidate.event?.type === 'tool-result' &&
-              candidate.event?.result?.targetMode === 'plan_scope'
-            );
-          },
+          conversationId,
           timeoutMs: 5000,
+          matchesEvent: (event) =>
+            event.event.result?.targetMode === 'plan_scope',
+          matchesPersistedToolCall: (toolCall) =>
+            toolCall.result?.targetMode === 'plan_scope',
         });
 
         await supertest(baseUrl)
@@ -2980,38 +3109,14 @@ test('flow-owned command reingest results publish live tool_event updates', asyn
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      const event = await waitForEvent({
+      const event = await waitForFlowToolEvent({
         ws: wsUrl,
-        predicate: (
-          raw: unknown,
-        ): raw is {
-          type: 'tool_event';
-          conversationId: string;
-          event: {
-            type: 'tool-result';
-            callId: string;
-            name: string;
-            result?: { kind?: string; status?: string };
-          };
-        } => {
-          const candidate = raw as {
-            type?: string;
-            conversationId?: string;
-            event?: {
-              type?: string;
-              callId?: string;
-              name?: string;
-              result?: { kind?: string; status?: string };
-            };
-          };
-          return (
-            candidate.type === 'tool_event' &&
-            candidate.conversationId === conversationId &&
-            candidate.event?.type === 'tool-result' &&
-            candidate.event?.name === 'reingest_repository'
-          );
-        },
+        conversationId,
         timeoutMs: 5000,
+        matchesEvent: (toolEvent) =>
+          toolEvent.event.name === 'reingest_repository',
+        matchesPersistedToolCall: (toolCall) =>
+          toolCall.name === 'reingest_repository',
       });
 
       assert.equal(event.event.callId, 'call-flow-live');

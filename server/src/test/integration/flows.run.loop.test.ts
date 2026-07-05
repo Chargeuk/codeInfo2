@@ -695,6 +695,129 @@ const describeLoopContinueResumeState = (conversationId: string): string =>
     })),
   });
 
+type ObservedLoopTerminalOutcome = {
+  status: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  source: 'ws' | 'persisted';
+};
+
+const getLatestLoopTerminalTurn = (
+  conversationId: string,
+): Turn | undefined => {
+  const turns = memoryTurns.get(conversationId) ?? [];
+  return [...turns]
+    .reverse()
+    .find((turn) => turn.role === 'assistant');
+};
+
+const getLatestPublishedTurnFinalLog = (conversationId: string) =>
+  query({ text: 'chat.ws.server_publish_turn_final' }, 120)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .at(-1);
+
+const getPersistedLoopTerminalOutcome = (
+  conversationId: string,
+): ObservedLoopTerminalOutcome | null => {
+  const terminalTurn = getLatestLoopTerminalTurn(conversationId);
+  const publishedTurnFinal = getLatestPublishedTurnFinalLog(conversationId);
+  const statusFromLog = publishedTurnFinal?.context?.status;
+  const errorCodeFromLog = publishedTurnFinal?.context?.errorCode;
+  const status =
+    typeof statusFromLog === 'string'
+      ? statusFromLog
+      : terminalTurn?.status ?? null;
+
+  if (!status) {
+    return null;
+  }
+
+  return {
+    status,
+    errorCode: typeof errorCodeFromLog === 'string' ? errorCodeFromLog : null,
+    errorMessage: terminalTurn?.content ?? null,
+    source: 'persisted',
+  };
+};
+
+const waitForLoopTerminalOutcome = async (params: {
+  ws: WebSocket;
+  conversationId: string;
+  expectedStatus: string;
+  timeoutMs?: number;
+  describe?: () => string;
+}): Promise<ObservedLoopTerminalOutcome> => {
+  try {
+    const final = await waitForEvent({
+      ws: params.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        error?: { code?: string; message?: string };
+      } => {
+        const candidate = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+          error?: { code?: string; message?: string };
+        };
+        return (
+          candidate.type === 'turn_final' &&
+          candidate.conversationId === params.conversationId &&
+          candidate.status === params.expectedStatus
+        );
+      },
+      timeoutMs: params.timeoutMs,
+      describe: params.describe,
+      inspectCurrent: () =>
+        describeFlowRuntimeState(params.conversationId, [
+          'coding_agent:outer',
+          'coding_agent:inner',
+          'coding_agent:inner-break',
+          'coding_agent:outer-break',
+        ]),
+      describeEvent: (event) => JSON.stringify(event),
+    });
+
+    return {
+      status: final.status,
+      errorCode: final.error?.code ?? null,
+      errorMessage: final.error?.message ?? null,
+      source: 'ws',
+    };
+  } catch (error) {
+    await waitFor(
+      () =>
+        getPersistedLoopTerminalOutcome(params.conversationId)?.status ===
+        params.expectedStatus,
+      1000,
+      () =>
+        [
+          params.describe?.(),
+          `runtimeState=${describeFlowRuntimeState(params.conversationId, [
+            'coding_agent:outer',
+            'coding_agent:inner',
+            'coding_agent:inner-break',
+            'coding_agent:outer-break',
+          ])}`,
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join(' | '),
+    ).catch(() => {
+      throw error;
+    });
+
+    const persisted = getPersistedLoopTerminalOutcome(params.conversationId);
+    assert.ok(
+      persisted,
+      `Missing persisted loop terminal outcome for ${params.conversationId}`,
+    );
+    return persisted;
+  }
+};
+
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   conversationIds.forEach((conversationId) => {
     if (!conversationId) return;
@@ -3552,36 +3675,19 @@ test('continue step fails on invalid JSON response', async () => {
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
         describe: () =>
           describeFlowRuntimeState(conversationId, ['coding_agent:outer-break']),
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_CONTINUE_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_CONTINUE_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Continue response must be valid JSON with {"answer":"yes"|"no"}.',
       );
       await cleanupConversationRuntime(
@@ -3612,22 +3718,10 @@ test('continue step recovers from wrapper output containing json fence', async (
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
       });
 
@@ -3699,27 +3793,10 @@ test('continue step fails with INVALID_CONTINUE_RESPONSE when wrappers contain n
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
         describe: () =>
           describeFlowRuntimeState(conversationId, [
@@ -3731,9 +3808,9 @@ test('continue step fails with INVALID_CONTINUE_RESPONSE when wrappers contain n
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_CONTINUE_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_CONTINUE_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Continue response must include answer "yes" or "no".',
       );
       await cleanupConversationRuntime(
@@ -3761,34 +3838,17 @@ test('continue step fails on invalid answer value', async () => {
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_CONTINUE_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_CONTINUE_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Continue response must include answer "yes" or "no".',
       );
       await cleanupConversationRuntime(
@@ -3819,34 +3879,17 @@ test('break step fails on invalid JSON response', async () => {
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_BREAK_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Break response must be valid JSON with {"answer":"yes"|"no"}.',
       );
       await cleanupConversationRuntime(conversationId);
@@ -3874,22 +3917,10 @@ test('break step recovers from wrapper output containing json fence', async () =
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
       });
 
@@ -3919,34 +3950,17 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_BREAK_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Break response must include answer "yes" or "no".',
       );
       await cleanupConversationRuntime(conversationId);
@@ -3974,22 +3988,10 @@ test('break step fails on invalid answer value', async () => {
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 

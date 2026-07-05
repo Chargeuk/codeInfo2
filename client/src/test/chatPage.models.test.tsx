@@ -1099,6 +1099,9 @@ describe('Chat page models list', () => {
     render(<RouterProvider router={router} />);
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
 
     expect(await screen.findByTestId('chat-model-search')).toBeVisible();

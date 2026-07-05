@@ -411,8 +411,8 @@ function buildChatConfigTempPath(chatConfigPath: string): string {
     .slice(2)}.tmp`;
 }
 
-const CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 25;
-const CHAT_CONFIG_LOCK_MAX_RETRIES = 20;
+const CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 35;
+const CHAT_CONFIG_LOCK_MAX_RETRIES = 200;
 
 async function acquireChatConfigLock(chatConfigPath: string): Promise<() => Promise<void>> {
   const lockPath = `${chatConfigPath}.codeinfo.lock`;

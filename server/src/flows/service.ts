@@ -5434,7 +5434,7 @@ async function runFlowUnlocked(params: {
     }
   };
 
-  const resolveFlowInstructionPrerequisites = async (params: {
+  const resolveFlowInstructionPrerequisites = async (resolutionParams: {
     agentType: string;
     identifier: string;
     configPath?: string;
@@ -5449,11 +5449,11 @@ async function runFlowUnlocked(params: {
     runtimeConfig: CodexOptions['config'];
     workingDirectoryOverride?: string;
   }> => {
-    const agent = agentByName.get(params.agentType);
+    const agent = agentByName.get(resolutionParams.agentType);
     if (!agent) {
       throw toFlowRunError(
         'AGENT_NOT_FOUND',
-        `Agent ${params.agentType} not found`,
+        `Agent ${resolutionParams.agentType} not found`,
       );
     }
 
@@ -5463,17 +5463,17 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         executionId: params.executionId,
         flowName: params.flowName,
-        agentType: params.agentType,
-        identifier: params.identifier,
-        configPath: params.configPath ?? agent.configPath,
-        workingFolder: params.workingFolder ?? null,
-        defaultRepositoryRoot: params.defaultRepositoryRoot ?? null,
-        source: params.source,
+        agentType: resolutionParams.agentType,
+        identifier: resolutionParams.identifier,
+        configPath: resolutionParams.configPath ?? agent.configPath,
+        workingFolder: resolutionParams.workingFolder ?? null,
+        defaultRepositoryRoot: resolutionParams.defaultRepositoryRoot ?? null,
+        source: resolutionParams.source,
       },
     );
 
     const agentState = runtimeState.get(
-      getAgentKey(params.agentType, params.identifier),
+      getAgentKey(resolutionParams.agentType, resolutionParams.identifier),
     );
     appendFlowRuntimeDiagnostic(
       'flows.test.llm_instruction_prerequisites_agent_state_snapshot',
@@ -5481,8 +5481,8 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         executionId: params.executionId,
         flowName: params.flowName,
-        agentType: params.agentType,
-        identifier: params.identifier,
+        agentType: resolutionParams.agentType,
+        identifier: resolutionParams.identifier,
         hasAgentState: Boolean(agentState),
         agentConversationId: agentState?.conversationId ?? null,
         providerId: agentState?.providerId ?? null,
@@ -5497,8 +5497,8 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           executionId: params.executionId,
           flowName: params.flowName,
-          agentType: params.agentType,
-          identifier: params.identifier,
+          agentType: resolutionParams.agentType,
+          identifier: resolutionParams.identifier,
           agentConversationId: agentState.conversationId,
         },
       );
@@ -5511,8 +5511,8 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           executionId: params.executionId,
           flowName: params.flowName,
-          agentType: params.agentType,
-          identifier: params.identifier,
+          agentType: resolutionParams.agentType,
+          identifier: resolutionParams.identifier,
           agentConversationId: agentState.conversationId,
           persistedConversationFound: Boolean(persistedConversation),
           persistedProviderId: persistedConversation?.provider ?? null,
@@ -5523,7 +5523,7 @@ async function runFlowUnlocked(params: {
               : null,
         },
       );
-      if (persistedConversation?.agentName === params.agentType) {
+      if (persistedConversation?.agentName === resolutionParams.agentType) {
         const savedEndpointId =
           typeof persistedConversation.flags?.endpointId === 'string' &&
           persistedConversation.flags.endpointId.trim().length > 0
@@ -5553,8 +5553,8 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         executionId: params.executionId,
         flowName: params.flowName,
-        agentType: params.agentType,
-        identifier: params.identifier,
+        agentType: resolutionParams.agentType,
+        identifier: resolutionParams.identifier,
         pinnedProviderId: agentState?.providerId ?? null,
         pinnedModelId: agentState?.modelId ?? null,
         pinnedRequestedProviderId: agentState?.requestedProviderId ?? null,
@@ -5566,11 +5566,11 @@ async function runFlowUnlocked(params: {
     );
 
     const resolvedRuntime = await resolveFlowAgentRuntimeExecution({
-      agentName: params.agentType,
-      configPath: params.configPath ?? agent.configPath,
-      workingFolder: params.workingFolder,
-      defaultRepositoryRoot: params.defaultRepositoryRoot,
-      source: params.source,
+      agentName: resolutionParams.agentType,
+      configPath: resolutionParams.configPath ?? agent.configPath,
+      workingFolder: resolutionParams.workingFolder,
+      defaultRepositoryRoot: resolutionParams.defaultRepositoryRoot,
+      source: resolutionParams.source,
       pinnedProviderId: agentState?.providerId as
         | ConversationProvider
         | undefined,
@@ -5587,8 +5587,8 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         executionId: params.executionId,
         flowName: params.flowName,
-        agentType: params.agentType,
-        identifier: params.identifier,
+        agentType: resolutionParams.agentType,
+        identifier: resolutionParams.identifier,
         providerId: resolvedRuntime.providerId,
         modelId: resolvedRuntime.modelId,
         requestedProviderId: resolvedRuntime.requestedProviderId ?? null,

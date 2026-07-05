@@ -8684,11 +8684,33 @@ async function runFlowUnlocked(params: {
     stepPath: number[],
     resumePath?: number[] | null,
   ): Promise<FlowStepOutcome> => {
+    const appendNextStepDispatchExpected = (
+      currentPath: number[],
+      stepIndex: number,
+      nextSiblingIndex: number,
+    ) => {
+      appendFlowRuntimeDiagnostic('flows.test.next_step_dispatch_expected', {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        stepPath: currentPath,
+        stepIndex,
+        nextSiblingStepPath:
+          nextSiblingIndex < steps.length
+            ? [...stepPath, nextSiblingIndex]
+            : null,
+        nextSiblingStepType:
+          nextSiblingIndex < steps.length
+            ? steps[nextSiblingIndex]?.type ?? null
+            : null,
+        loopDepth: loopStack.length,
+      });
+    };
     let resumePathRemaining =
       resumePath && resumePath.length > 0 ? [...resumePath] : null;
     let resumeIndex = resumePathRemaining?.[0];
 
     for (const [index, step] of steps.entries()) {
+      const indexForExpectedNextStep = index + 1;
       if (
         resumePathRemaining &&
         resumeIndex !== undefined &&
@@ -8818,17 +8840,11 @@ async function runFlowUnlocked(params: {
             index + 1 < steps.length ? index + 2 : null,
           loopDepth: loopStack.length,
         });
-        appendFlowRuntimeDiagnostic('flows.test.next_step_dispatch_expected', {
-          conversationId: params.conversationId,
-          executionId: params.executionId,
-          stepPath: nextPath,
-          stepIndex: command.stepIndex,
-          nextSiblingStepPath:
-            index + 1 < steps.length ? [...stepPath, index + 1] : null,
-          nextSiblingStepType:
-            index + 1 < steps.length ? steps[index + 1]?.type ?? null : null,
-          loopDepth: loopStack.length,
-        });
+        appendNextStepDispatchExpected(
+          nextPath,
+          command.stepIndex,
+          indexForExpectedNextStep,
+        );
         continue;
       }
 
@@ -9042,6 +9058,14 @@ async function runFlowUnlocked(params: {
           },
         });
         const status = await runCommandStep(step, command, nextPath);
+        appendFlowRuntimeDiagnostic('flows.test.command_step_completed', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          status,
+          loopDepth: loopStack.length,
+        });
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.command',
@@ -9052,8 +9076,51 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        appendFlowRuntimeDiagnostic('flows.test.command_step_state_advanced', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          loopDepth: loopStack.length,
+        });
         clearContinueBoundaryForActiveLoop();
+        appendFlowRuntimeDiagnostic(
+          'flows.test.command_step_resume_state_persist_begin',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
         await persistRuntimeResumeState(lastCompletedStepPath);
+        appendFlowRuntimeDiagnostic(
+          'flows.test.command_step_resume_state_persist_complete',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
+        appendFlowRuntimeDiagnostic('flows.test.command_step_continue', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          nextSiblingStepIndex:
+            indexForExpectedNextStep < steps.length
+              ? indexForExpectedNextStep + 1
+              : null,
+          loopDepth: loopStack.length,
+        });
+        appendNextStepDispatchExpected(
+          nextPath,
+          command.stepIndex,
+          indexForExpectedNextStep,
+        );
         continue;
       }
 
@@ -9075,6 +9142,14 @@ async function runFlowUnlocked(params: {
           },
         });
         const status = await runSubflowStep(step, command, nextPath);
+        appendFlowRuntimeDiagnostic('flows.test.subflow_step_completed', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          status,
+          loopDepth: loopStack.length,
+        });
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.subflow',
@@ -9085,9 +9160,52 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        appendFlowRuntimeDiagnostic('flows.test.subflow_step_state_advanced', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          loopDepth: loopStack.length,
+        });
         clearContinueBoundaryForActiveLoop();
+        appendFlowRuntimeDiagnostic(
+          'flows.test.subflow_step_resume_state_persist_begin',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
         await persistRuntimeResumeState(lastCompletedStepPath);
+        appendFlowRuntimeDiagnostic(
+          'flows.test.subflow_step_resume_state_persist_complete',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
         stepInflightId = crypto.randomUUID();
+        appendFlowRuntimeDiagnostic('flows.test.subflow_step_continue', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          nextSiblingStepIndex:
+            indexForExpectedNextStep < steps.length
+              ? indexForExpectedNextStep + 1
+              : null,
+          loopDepth: loopStack.length,
+        });
+        appendNextStepDispatchExpected(
+          nextPath,
+          command.stepIndex,
+          indexForExpectedNextStep,
+        );
         continue;
       }
 
@@ -9109,6 +9227,14 @@ async function runFlowUnlocked(params: {
           },
         });
         const status = await runReingestStep(step, command);
+        appendFlowRuntimeDiagnostic('flows.test.reingest_step_completed', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          status,
+          loopDepth: loopStack.length,
+        });
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.reingest',
@@ -9119,8 +9245,51 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        appendFlowRuntimeDiagnostic('flows.test.reingest_step_state_advanced', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          loopDepth: loopStack.length,
+        });
         clearContinueBoundaryForActiveLoop();
+        appendFlowRuntimeDiagnostic(
+          'flows.test.reingest_step_resume_state_persist_begin',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
         await persistRuntimeResumeState(lastCompletedStepPath);
+        appendFlowRuntimeDiagnostic(
+          'flows.test.reingest_step_resume_state_persist_complete',
+          {
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            loopDepth: loopStack.length,
+          },
+        );
+        appendFlowRuntimeDiagnostic('flows.test.reingest_step_continue', {
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          stepPath: nextPath,
+          stepIndex: command.stepIndex,
+          nextSiblingStepIndex:
+            indexForExpectedNextStep < steps.length
+              ? indexForExpectedNextStep + 1
+              : null,
+          loopDepth: loopStack.length,
+        });
+        appendNextStepDispatchExpected(
+          nextPath,
+          command.stepIndex,
+          indexForExpectedNextStep,
+        );
         continue;
       }
 

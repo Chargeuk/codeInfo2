@@ -261,7 +261,11 @@ describe('Chat provider selection (WS transport)', () => {
       ),
     );
 
-    await userEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const modelSelect = screen.getByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
+    await userEvent.click(modelSelect);
     expect(
       screen.getAllByRole('option', {
         name: /gpt-5\.2 \(alpha\.example \/ (base|alt)\)/i,

@@ -722,6 +722,9 @@ describe('Chat page models list', () => {
     );
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
 
     const baseOption = screen.getByRole('option', {
@@ -741,7 +744,13 @@ describe('Chat page models list', () => {
       ),
     );
 
-    await user.click(screen.getByRole('combobox', { name: /model/i }));
+    const refreshedModelSelect = screen.getByRole('combobox', {
+      name: /model/i,
+    });
+    await waitFor(() =>
+      expect(refreshedModelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
+    await user.click(refreshedModelSelect);
     const refreshedBaseOption = screen.getByRole('option', {
       name: /gpt-5\.2 \(alpha\.example \/ base\)/i,
     });
@@ -910,6 +919,9 @@ describe('Chat page models list', () => {
     });
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(modelSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /gpt-5.2-codex/i }),
@@ -1251,6 +1263,9 @@ describe('Chat page models list', () => {
 
     await waitFor(() => expect(chatBodies).toHaveLength(1));
 
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 
@@ -1289,6 +1304,9 @@ describe('Chat page models list', () => {
     await waitFor(() => expect(chatBodies).toHaveLength(1));
     expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
 
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 
@@ -1334,6 +1352,9 @@ describe('Chat page models list', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 
@@ -1383,6 +1404,9 @@ describe('Chat page models list', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 

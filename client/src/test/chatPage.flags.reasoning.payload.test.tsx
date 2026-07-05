@@ -409,6 +409,9 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     );
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(modelSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /gpt-5.2/i }),
@@ -695,6 +698,9 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/xhigh/i));
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(modelSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /gpt-5.2/i }),

@@ -609,7 +609,9 @@ describe('Chat page new conversation control', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
-    expect(modelSelect).toBeEnabled();
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 

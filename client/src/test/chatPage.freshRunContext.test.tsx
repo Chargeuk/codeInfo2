@@ -222,6 +222,9 @@ describe('Chat page fresh-run context', () => {
     );
 
     const modelSelect = screen.getByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 

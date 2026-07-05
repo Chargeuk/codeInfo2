@@ -278,6 +278,9 @@ describe('Codex compatibility defaults behavior', () => {
       const modelSelect = await screen.findByRole('combobox', {
         name: /model/i,
       });
+      await waitFor(() =>
+        expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
       await userEvent.click(modelSelect);
       await userEvent.click(
         await screen.findByRole('option', { name: /model b/i }),
@@ -349,6 +352,9 @@ describe('Codex compatibility defaults behavior', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
 
     await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
     await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));

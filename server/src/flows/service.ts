@@ -5233,6 +5233,52 @@ async function runFlowUnlocked(params: {
     }
 
     const instruction = `Codex review: ${step.outputKey}`;
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: 'codex',
+      model: resolvedModelId,
+      source: params.source,
+      command,
+    });
+    const inflightSignal = inflightState.abortController.signal;
+    const consumePendingCodexStop = () => {
+      if (!params.runToken) return false;
+      const boundPending = bindPendingConversationCancelToInflight({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      if (!boundPending.ok) {
+        return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
+      }
+
+      const aborted = abortInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+      if (!aborted.ok) return false;
+
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      return true;
+    };
+    if (consumePendingCodexStop()) {
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: resolvedModelId,
+        providerId: 'codex',
+        source: params.source,
+        command,
+      });
+      return 'stopped';
+    }
+
     try {
       const result = await runCodexReviewStep(
         {
@@ -5241,8 +5287,21 @@ async function runFlowUnlocked(params: {
           modelId: resolvedModelId,
           reasoningEffort: step.reasoningEffort,
           basePolicy: step.basePolicy,
+          signal: inflightSignal,
         },
       );
+      if (inflightSignal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: resolvedModelId,
+          providerId: 'codex',
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5262,6 +5321,21 @@ async function runFlowUnlocked(params: {
       });
       return 'ok';
     } catch (error) {
+      if (
+        inflightSignal.aborted ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: resolvedModelId,
+          providerId: 'codex',
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5566,6 +5640,7 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         continue;
       }
 
@@ -5686,6 +5761,7 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         continue;
       }
 
@@ -5719,6 +5795,7 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         continue;
       }
 

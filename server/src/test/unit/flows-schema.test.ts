@@ -250,8 +250,9 @@ describe('flow schema (v1)', () => {
           )
           .filter((marker): marker is string => typeof marker === 'string');
         assert.ok(
-          subflowMarkers.includes('review_artifacts_main,codex_review'),
-          'flows/implement_next_plan.json should launch parallel review artifact subflows',
+          subflowMarkers.includes('review_artifacts_main') &&
+            subflowMarkers.includes('codex_review'),
+          'flows/implement_next_plan.json should launch the main review and Codex review child flows',
         );
         continue;
       }
@@ -518,9 +519,8 @@ describe('flow schema (v1)', () => {
       return step.type;
     });
 
-    const codexReviewIndex = markers.indexOf(
-      'review_artifacts_main,codex_review',
-    );
+    const mainReviewSubflowIndex = markers.indexOf('review_artifacts_main');
+    const codexReviewSubflowIndex = markers.indexOf('codex_review');
     const mergeIndex = markers.indexOf(
       'merge_codex_review_findings_into_canonical_review.md',
     );
@@ -530,9 +530,14 @@ describe('flow schema (v1)', () => {
     );
 
     assert.notEqual(
-      codexReviewIndex,
+      mainReviewSubflowIndex,
       -1,
-      'flows/implement_next_plan.json should include the parallel review artifact subflow step',
+      'flows/implement_next_plan.json should include the main review artifact child flow',
+    );
+    assert.notEqual(
+      codexReviewSubflowIndex,
+      -1,
+      'flows/implement_next_plan.json should include the Codex review child flow',
     );
     assert.notEqual(
       mergeIndex,
@@ -550,10 +555,11 @@ describe('flow schema (v1)', () => {
       'flows/implement_next_plan.json should include findings scope filter',
     );
     assert.ok(
-      codexReviewIndex < mergeIndex &&
+      mainReviewSubflowIndex < codexReviewSubflowIndex &&
+        codexReviewSubflowIndex < mergeIndex &&
         mergeIndex < classifyIndex &&
         classifyIndex < filterIndex,
-      'flows/implement_next_plan.json should run the parallel review artifact subflow, then merge it, then classify, then scope-filter findings',
+      'flows/implement_next_plan.json should run the main review child flow, then the Codex review child flow, then merge, classify, and scope-filter findings',
     );
   });
 

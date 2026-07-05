@@ -606,6 +606,124 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
+test('parent step after a successful codexReview gets a fresh inflight id', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-inflight-rotation-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(path.join(repoDir, '.gitignore'), 'codeInfoTmp/\n', 'utf8');
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-then-llm',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          model: 'gpt-5.4',
+          reasoningEffort: 'medium',
+        },
+        llmStep('parent after codex review'),
+      ],
+    });
+
+    const executions: Array<{
+      message: string;
+      conversationId: string;
+      inflightId: string | null;
+    }> = [];
+    const result = await startFlowRun({
+      flowName: 'codex-then-llm',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message, flags, conversationId }) => {
+          executions.push({
+            message,
+            conversationId,
+            inflightId:
+              typeof flags.inflightId === 'string' ? flags.inflightId : null,
+          });
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() => executions.length === 1);
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const followUpExecution = executions[0];
+    assert.ok(followUpExecution);
+    assert.equal(followUpExecution?.message, 'parent after codex review');
+    assert.equal(typeof followUpExecution?.inflightId, 'string');
+    assert.notEqual(followUpExecution?.inflightId, result.inflightId);
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('parallel subflow waits for every child and fails when any child fails', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-fail-'),

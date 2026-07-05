@@ -80,10 +80,18 @@ type ReviewDispositionStatePayload = {
   review_cycle_id?: unknown;
 };
 
+type ExecFileOptions = {
+  cwd?: string;
+  signal?: AbortSignal;
+  timeout?: number;
+  killSignal?: NodeJS.Signals | number;
+  encoding?: BufferEncoding;
+};
+
 type ExecFileLike = (
   file: string,
   args: readonly string[],
-  options?: { cwd?: string },
+  options?: ExecFileOptions,
 ) => Promise<{ stdout: string; stderr: string }>;
 
 type CodexReviewDeps = {
@@ -96,7 +104,8 @@ type CodexReviewDeps = {
 };
 
 const defaultDeps: CodexReviewDeps = {
-  execFile: (file, args, options) => execFile(file, args, options),
+  execFile: (file, args, options) =>
+    execFile(file, args, { encoding: 'utf8', ...options }),
   readFile: fs.readFile,
   writeFile: fs.writeFile,
   mkdir: fs.mkdir,
@@ -125,6 +134,9 @@ type BaseResolution = {
   comparisonBaseCommit: string;
 };
 
+const GIT_PROCESS_TIMEOUT_MS = 120_000;
+const CODEX_REVIEW_TIMEOUT_MS = 1_800_000;
+const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM';
 const SAFE_OUTPUT_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
 const STORY_NUMBER_PATTERN = /^(\d{7})-/;
 const BRANCH_STORY_PATTERN = /(\d{7})/;
@@ -195,18 +207,34 @@ async function runGit(
   repoRoot: string,
   args: readonly string[],
   deps: Pick<CodexReviewDeps, 'execFile'>,
+  signal?: AbortSignal,
 ): Promise<GitCommandResult> {
   try {
-    const result = await deps.execFile('git', ['-C', repoRoot, ...args]);
+    const result = await deps.execFile('git', ['-C', repoRoot, ...args], {
+      signal,
+      timeout: GIT_PROCESS_TIMEOUT_MS,
+      killSignal: PROCESS_KILL_SIGNAL,
+    });
     return { ok: true, stdout: result.stdout, stderr: result.stderr };
   } catch (error) {
     const execError = error as
       | (NodeJS.ErrnoException & {
+          name?: string;
           stdout?: string;
           stderr?: string;
           code?: number | string;
+          signal?: NodeJS.Signals | null;
+          killed?: boolean;
         })
       | undefined;
+    if (signal?.aborted || execError?.name === 'AbortError') {
+      throw error;
+    }
+    if (execError?.killed && execError.signal === PROCESS_KILL_SIGNAL) {
+      throw new Error(
+        `git ${args.join(' ')} timed out after ${GIT_PROCESS_TIMEOUT_MS}ms.`,
+      );
+    }
     return {
       ok: false,
       stdout: execError?.stdout ?? '',
@@ -222,8 +250,9 @@ async function gitStdoutOrThrow(
   args: readonly string[],
   deps: Pick<CodexReviewDeps, 'execFile'>,
   failureMessage: string,
+  signal?: AbortSignal,
 ): Promise<string> {
-  const result = await runGit(repoRoot, args, deps);
+  const result = await runGit(repoRoot, args, deps, signal);
   if (!result.ok) {
     throw new Error(failureMessage);
   }
@@ -234,8 +263,14 @@ async function refExists(
   repoRoot: string,
   ref: string,
   deps: Pick<CodexReviewDeps, 'execFile'>,
+  signal?: AbortSignal,
 ): Promise<boolean> {
-  const result = await runGit(repoRoot, ['rev-parse', '--verify', ref], deps);
+  const result = await runGit(
+    repoRoot,
+    ['rev-parse', '--verify', ref],
+    deps,
+    signal,
+  );
   return result.ok;
 }
 
@@ -243,12 +278,14 @@ async function resolveDefaultBranch(
   repoRoot: string,
   remoteFetchStatus: 'success' | 'missing_remote' | 'fetch_failed',
   deps: Pick<CodexReviewDeps, 'execFile'>,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (remoteFetchStatus === 'success') {
     const symbolic = await runGit(
       repoRoot,
       ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
       deps,
+      signal,
     );
     if (symbolic.ok) {
       const normalized = symbolic.stdout.trim().replace(/^origin\//, '');
@@ -258,8 +295,8 @@ async function resolveDefaultBranch(
 
   for (const candidate of ['main', 'master', 'develop']) {
     if (
-      (await refExists(repoRoot, candidate, deps)) ||
-      (await refExists(repoRoot, `origin/${candidate}`, deps))
+      (await refExists(repoRoot, candidate, deps, signal)) ||
+      (await refExists(repoRoot, `origin/${candidate}`, deps, signal))
     ) {
       return candidate;
     }
@@ -273,14 +310,16 @@ async function resolveBaseComparison(params: {
   currentBranch: string;
   branchedFrom?: string;
   deps: Pick<CodexReviewDeps, 'execFile'>;
+  signal?: AbortSignal;
 }): Promise<BaseResolution> {
-  const { repoRoot, currentBranch, deps } = params;
+  const { repoRoot, currentBranch, deps, signal } = params;
   const branchedFrom = normalizeBranchedFrom(params.branchedFrom);
 
   const remoteExists = await runGit(
     repoRoot,
     ['remote', 'get-url', 'origin'],
     deps,
+    signal,
   );
   let remoteFetchStatus: 'success' | 'missing_remote' | 'fetch_failed' =
     remoteExists.ok ? 'success' : 'missing_remote';
@@ -288,7 +327,12 @@ async function resolveBaseComparison(params: {
   let remoteFetchExitCode: number | undefined;
 
   if (remoteExists.ok) {
-    const fetched = await runGit(repoRoot, ['fetch', '--prune', 'origin'], deps);
+    const fetched = await runGit(
+      repoRoot,
+      ['fetch', '--prune', 'origin'],
+      deps,
+      signal,
+    );
     if (!fetched.ok) {
       remoteFetchStatus = 'fetch_failed';
       remoteFetchExitCode = fetched.code;
@@ -303,6 +347,7 @@ async function resolveBaseComparison(params: {
     repoRoot,
     remoteFetchStatus,
     deps,
+    signal,
   );
 
   let logicalBaseBranch = defaultBranch;
@@ -317,25 +362,28 @@ async function resolveBaseComparison(params: {
     const localDefaultRef = defaultBranch;
 
     let mergedResult: GitCommandResult | null = null;
-    if (
+    const canCompareRemote =
       remoteFetchStatus === 'success' &&
-      (await refExists(repoRoot, remoteBranchRef, deps)) &&
-      (await refExists(repoRoot, remoteDefaultRef, deps))
+      (await refExists(repoRoot, remoteBranchRef, deps, signal)) &&
+      (await refExists(repoRoot, remoteDefaultRef, deps, signal));
+    const canCompareLocal =
+      (await refExists(repoRoot, localBranchRef, deps, signal)) &&
+      (await refExists(repoRoot, localDefaultRef, deps, signal));
+    if (
+      canCompareRemote
     ) {
       mergedResult = await runGit(
         repoRoot,
         ['merge-base', '--is-ancestor', remoteBranchRef, remoteDefaultRef],
         deps,
+        signal,
       );
-    } else if (
-      remoteFetchStatus !== 'success' &&
-      (await refExists(repoRoot, localBranchRef, deps)) &&
-      (await refExists(repoRoot, localDefaultRef, deps))
-    ) {
+    } else if (canCompareLocal) {
       mergedResult = await runGit(
         repoRoot,
         ['merge-base', '--is-ancestor', localBranchRef, localDefaultRef],
         deps,
+        signal,
       );
     }
 
@@ -349,13 +397,14 @@ async function resolveBaseComparison(params: {
   const preferredRemoteRef = `origin/${logicalBaseBranch}`;
   if (
     remoteFetchStatus === 'success' &&
-    (await refExists(repoRoot, preferredRemoteRef, deps))
+    (await refExists(repoRoot, preferredRemoteRef, deps, signal))
   ) {
     const comparisonBaseCommit = await gitStdoutOrThrow(
       repoRoot,
       ['rev-parse', `${preferredRemoteRef}^{commit}`],
       deps,
       `Unable to resolve comparison base commit for ${preferredRemoteRef}.`,
+      signal,
     );
     return {
       logicalBaseBranch,
@@ -374,7 +423,7 @@ async function resolveBaseComparison(params: {
   const localFallbackReason: 'missing_remote' | 'fetch_failed' | 'missing_remote_ref' =
     remoteFetchStatus === 'success' ? 'missing_remote_ref' : remoteFetchStatus;
 
-  if (!(await refExists(repoRoot, logicalBaseBranch, deps))) {
+  if (!(await refExists(repoRoot, logicalBaseBranch, deps, signal))) {
     throw new Error(
       `Unable to resolve a local fallback base ref for "${logicalBaseBranch}".`,
     );
@@ -385,6 +434,7 @@ async function resolveBaseComparison(params: {
     ['rev-parse', `${logicalBaseBranch}^{commit}`],
     deps,
     `Unable to resolve comparison base commit for ${logicalBaseBranch}.`,
+    signal,
   );
 
   return {
@@ -418,6 +468,7 @@ export async function runCodexReviewStep(
     modelId: string;
     reasoningEffort?: CodexReviewReasoningEffort;
     basePolicy?: FlowCodexReviewBasePolicy;
+    signal?: AbortSignal;
   },
   deps?: Partial<CodexReviewDeps>,
 ): Promise<CodexReviewStepResult> {
@@ -432,6 +483,7 @@ export async function runCodexReviewStep(
 
   const startedAt = resolvedDeps.now();
   const startedAtIso = startedAt.toISOString();
+  params.signal?.throwIfAborted();
   const currentPlanPath = path.join(
     repoRoot,
     'codeInfoStatus',
@@ -451,6 +503,7 @@ export async function runCodexReviewStep(
     ['branch', '--show-current'],
     resolvedDeps,
     'Unable to determine the current branch for codexReview.',
+    params.signal,
   );
   const branchStoryNumber = deriveBranchStoryNumber(currentBranch);
   if (branchStoryNumber && branchStoryNumber !== storyNumber) {
@@ -464,6 +517,7 @@ export async function runCodexReviewStep(
     currentBranch,
     branchedFrom: normalizeOptionalString(currentPlan.branched_from),
     deps: resolvedDeps,
+    signal: params.signal,
   });
 
   const currentReviewPath = path.join(
@@ -492,12 +546,14 @@ export async function runCodexReviewStep(
     ['rev-parse', 'HEAD^{commit}'],
     resolvedDeps,
     'Unable to resolve HEAD for codexReview.',
+    params.signal,
   );
   const shortHead = await gitStdoutOrThrow(
     repoRoot,
     ['rev-parse', '--short', 'HEAD^{commit}'],
     resolvedDeps,
     'Unable to resolve short HEAD for codexReview.',
+    params.signal,
   );
   const passTimestamp = formatUtcTimestamp(startedAt);
   const passSeed =
@@ -527,7 +583,7 @@ export async function runCodexReviewStep(
     '-C',
     repoRoot,
     '--base',
-    baseResolution.resolvedBaseBranch,
+    baseResolution.comparisonBaseRef,
     '-m',
     params.modelId,
     '-o',
@@ -536,7 +592,11 @@ export async function runCodexReviewStep(
   for (const configOverride of configOverrides) {
     codexArgs.push('-c', configOverride);
   }
-  await resolvedDeps.execFile('codex', codexArgs);
+  await resolvedDeps.execFile('codex', codexArgs, {
+    signal: params.signal,
+    timeout: CODEX_REVIEW_TIMEOUT_MS,
+    killSignal: PROCESS_KILL_SIGNAL,
+  });
 
   const completedAtIso = resolvedDeps.now().toISOString();
   const pointer: CodexReviewPointer = {

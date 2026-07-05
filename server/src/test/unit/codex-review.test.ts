@@ -61,9 +61,38 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
       }),
     );
 
-    const codexCalls: Array<readonly string[]> = [];
-    const execFile = async (file: string, args: readonly string[]) => {
+    const controller = new AbortController();
+    const gitCalls: Array<{
+      args: readonly string[];
+      options:
+        | {
+            signal?: AbortSignal;
+            timeout?: number;
+            killSignal?: NodeJS.Signals | number;
+          }
+        | undefined;
+    }> = [];
+    const codexCalls: Array<{
+      args: readonly string[];
+      options:
+        | {
+            signal?: AbortSignal;
+            timeout?: number;
+            killSignal?: NodeJS.Signals | number;
+          }
+        | undefined;
+    }> = [];
+    const execFile = async (
+      file: string,
+      args: readonly string[],
+      options?: {
+        signal?: AbortSignal;
+        timeout?: number;
+        killSignal?: NodeJS.Signals | number;
+      },
+    ) => {
       if (file === 'git') {
+        gitCalls.push({ args, options });
         const key = args.slice(2).join(' ');
         switch (key) {
           case 'branch --show-current':
@@ -91,7 +120,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
       }
 
       if (file === 'codex') {
-        codexCalls.push(args);
+        codexCalls.push({ args, options });
         const outputIndex = args.indexOf('-o');
         assert.notEqual(outputIndex, -1);
         const outputPath = String(args[outputIndex + 1]);
@@ -108,6 +137,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
         outputKey: 'current-codex-review',
         modelId: 'gpt-5.4',
         reasoningEffort: 'high',
+        signal: controller.signal,
       },
       {
         execFile,
@@ -117,23 +147,30 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
     );
 
     assert.equal(codexCalls.length, 1);
-    assert.deepEqual(codexCalls[0]?.slice(0, 6), [
+    assert.deepEqual(codexCalls[0]?.args.slice(0, 6), [
       'exec',
       'review',
       '-C',
       repoRoot,
       '--base',
-      'main',
+      'origin/main',
     ]);
-    assert.ok(codexCalls[0]?.includes('gpt-5.4'));
+    assert.ok(codexCalls[0]?.args.includes('gpt-5.4'));
     assert.ok(
-      codexCalls[0]?.includes('review_model="gpt-5.4"'),
+      codexCalls[0]?.args.includes('review_model="gpt-5.4"'),
       'codex exec review should force review_model to the selected model',
     );
     assert.ok(
-      codexCalls[0]?.includes('model_reasoning_effort="high"'),
+      codexCalls[0]?.args.includes('model_reasoning_effort="high"'),
       'codex exec review should forward the configured reasoning effort',
     );
+    assert.equal(codexCalls[0]?.options?.signal, controller.signal);
+    assert.equal(codexCalls[0]?.options?.timeout, 1_800_000);
+    assert.equal(codexCalls[0]?.options?.killSignal, 'SIGTERM');
+    assert.ok(gitCalls.length > 0);
+    assert.equal(gitCalls[0]?.options?.signal, controller.signal);
+    assert.equal(gitCalls[0]?.options?.timeout, 120_000);
+    assert.equal(gitCalls[0]?.options?.killSignal, 'SIGTERM');
 
     const pointerRaw = await fs.readFile(result.pointerPath, 'utf8');
     const pointer = JSON.parse(pointerRaw) as {
@@ -248,6 +285,153 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin is 
     assert.equal(result.pointer.remote_fetch_status, 'missing_remote');
     assert.equal(result.pointer.local_fallback_reason, 'missing_remote');
     assert.equal(result.pointer.comparison_base_ref, 'feature/shared-base');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('runCodexReviewStep falls back to a local branched-from ref when origin fetch succeeds but the remote parent ref is absent', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-missing-remote-parent-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'feature/shared-base',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        switch (key) {
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'remote get-url origin':
+            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          case 'fetch --prune origin':
+            return { stdout: '', stderr: '' };
+          case 'symbolic-ref --short refs/remotes/origin/HEAD':
+            return { stdout: 'origin/main\n', stderr: '' };
+          case 'rev-parse --verify origin/feature/shared-base':
+            throw Object.assign(new Error('missing remote parent'), {
+              code: 128,
+              stdout: '',
+              stderr: 'missing remote parent',
+            });
+          case 'rev-parse --verify origin/main':
+          case 'rev-parse --verify main':
+          case 'rev-parse --verify feature/shared-base':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'merge-base --is-ancestor feature/shared-base main':
+            throw Object.assign(new Error('not merged'), {
+              code: 1,
+              stdout: '',
+              stderr: '',
+            });
+          case 'rev-parse feature/shared-base^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+          }
+      }
+
+      if (file === 'codex') {
+        const outputIndex = args.indexOf('-o');
+        const outputPath = String(args[outputIndex + 1]);
+        await fs.mkdir(path.dirname(outputPath), { recursive: true });
+        await fs.writeFile(outputPath, '# Codex Review\n\nOne issue.\n');
+        return { stdout: '', stderr: '' };
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    const result = await runCodexReviewStep(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4-mini',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:12:00.000Z'),
+        randomHex: () => '4d3c2b1a',
+      },
+    );
+
+    assert.equal(result.pointer.logical_base_branch, 'feature/shared-base');
+    assert.equal(result.pointer.resolved_base_branch, 'feature/shared-base');
+    assert.equal(result.pointer.resolved_base_source, 'local_fallback');
+    assert.equal(result.pointer.remote_fetch_status, 'missing_remote_ref');
+    assert.equal(result.pointer.local_fallback_reason, 'missing_remote_ref');
+    assert.equal(result.pointer.comparison_base_ref, 'feature/shared-base');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('runCodexReviewStep rejects unsupported basePolicy values', async () => {
+  await assert.rejects(
+    runCodexReviewStep({
+      workingRepositoryPath: '/tmp/unused-codex-review',
+      outputKey: 'current-codex-review',
+      modelId: 'gpt-5.4',
+      basePolicy: 'unsupported' as 'branched_from_or_default_if_merged',
+    }),
+    /Unsupported codexReview basePolicy/u,
+  );
+});
+
+test('runCodexReviewStep rejects when the current branch story does not match the active plan story', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-story-mismatch-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git' && args.slice(2).join(' ') === 'branch --show-current') {
+        return { stdout: 'feature/0000028-other-story\n', stderr: '' };
+      }
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    await assert.rejects(
+      runCodexReviewStep(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-codex-review',
+          modelId: 'gpt-5.4',
+        },
+        {
+          execFile,
+        },
+      ),
+      /does not match plan story 0000027/u,
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

@@ -405,11 +405,13 @@
           "steps": [
             {
               "type": "subflow",
-              "label": "Run Parallel Review Artifact Flows",
-              "flowNames": [
-                "review_artifacts_main",
-                "codex_review"
-              ]
+              "label": "Run Main Review Artifact Flow",
+              "flowNames": ["review_artifacts_main"]
+            },
+            {
+              "type": "subflow",
+              "label": "Run Codex Review Flow",
+              "flowNames": ["codex_review"]
             },
             {
               "type": "llm",

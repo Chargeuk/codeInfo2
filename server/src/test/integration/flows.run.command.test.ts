@@ -670,7 +670,13 @@ const waitForFlowToolEvent = async (params: {
         return params.matchesEvent({
           type: 'tool_event',
           conversationId: candidate.conversationId,
-          event: candidate.event,
+          event: {
+            type: 'tool-result',
+            callId: candidate.event.callId,
+            name: candidate.event.name,
+            stage: candidate.event.stage,
+            result: candidate.event.result,
+          },
         });
       },
       timeoutMs: params.timeoutMs ?? 5000,
@@ -2957,13 +2963,21 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
           } | null
         )?.calls?.[0];
 
+        const warnings =
+          (
+            toolEvent.event.result as
+              | {
+                  warnings?: Array<{ code?: string; message?: string }>;
+                }
+              | undefined
+          )?.warnings ?? [];
         assert.equal(toolEvent.event.stage, 'success');
         assert.deepEqual(
-          toolEvent.event.result?.warnings?.map((warning) => warning.code),
+          warnings.map((warning) => warning.code),
           ['repository_skipped', 'repository_skipped', 'repository_failed'],
         );
         assert.equal(
-          toolEvent.event.result?.warnings?.[2]?.message?.includes(
+          warnings[2]?.message?.includes(
             'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
           ),
           true,

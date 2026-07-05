@@ -137,6 +137,9 @@ describe('Codex approval policy flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
 
     await user.click(providerSelect);
     await user.click(
@@ -163,6 +166,9 @@ describe('Codex approval policy flag payloads', () => {
       await user.click(newConversationButton);
     });
 
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -183,6 +189,9 @@ describe('Codex approval policy flag payloads', () => {
     });
     await waitFor(() =>
       expect(approvalSelect).toHaveTextContent(/on request/i),
+    );
+    await waitFor(() =>
+      expect(approvalSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(approvalSelect);
     const neverOption = await screen.findByRole('option', { name: /never/i });

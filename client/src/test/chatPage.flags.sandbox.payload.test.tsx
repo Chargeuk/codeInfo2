@@ -165,6 +165,9 @@ describe('Codex sandbox flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -208,6 +211,9 @@ describe('Codex sandbox flag payloads', () => {
       name: /provider/i,
     });
 
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /^LM Studio$/i }),
@@ -244,6 +250,9 @@ describe('Codex sandbox flag payloads', () => {
     const sandboxSelect = await screen.findByRole('combobox', {
       name: /sandbox mode/i,
     });
+    await waitFor(() =>
+      expect(sandboxSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(sandboxSelect);
     const dangerOption = await screen.findByRole('option', {
       name: /danger full access/i,

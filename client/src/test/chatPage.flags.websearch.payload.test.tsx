@@ -142,6 +142,9 @@ describe('Codex web search flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
 
     await user.click(providerSelect);
     await user.click(
@@ -168,6 +171,9 @@ describe('Codex web search flag payloads', () => {
       await user.click(newConversationButton);
     });
 
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,

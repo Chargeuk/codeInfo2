@@ -1041,6 +1041,7 @@ test('subflow fails fast when flows reference each other recursively', async () 
 test('stopping the parent flow stops the running child subflow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
   process.env.FLOWS_DIR = tmpDir;
+  let releaseBlockedChild = false;
 
   try {
     await writeFlowFile({
@@ -1057,26 +1058,61 @@ test('stopping the parent flow stops the running child subflow', async () => {
     let parentRunToken: string | undefined;
     const parentConversationId = 'parent-stop-conversation';
     let stopRegisteredAtSlowChildStart = false;
+    const waitForBlockedChildRelease = async (signal?: AbortSignal) => {
+      while (!releaseBlockedChild) {
+        if (signal?.aborted) {
+          return 'aborted';
+        }
+        await delay(10);
+      }
+      return 'released';
+    };
     const result = await startFlowRun({
       flowName: 'parent-stop',
       conversationId: parentConversationId,
       customTitle: 'Parent Review',
       source: 'REST',
       chatFactory: () =>
-        new SubflowChat(250, ({ message, conversationId }) => {
-          if (
-            message === 'slow child' &&
-            conversationId !== parentConversationId &&
-            parentRunToken &&
-            !stopRegisteredAtSlowChildStart
+        new (class extends ChatInterface {
+          async execute(
+            message: string,
+            flags: Record<string, unknown>,
+            conversationId: string,
+            _model: string,
           ) {
-            stopRegisteredAtSlowChildStart = true;
-            registerPendingConversationCancel({
-              conversationId: parentConversationId,
-              runToken: parentRunToken,
-            });
+            void _model;
+            const signal = (flags as { signal?: AbortSignal }).signal;
+            const abortIfNeeded = () => {
+              if (!signal?.aborted) return false;
+              this.emit('error', { type: 'error', message: 'aborted' });
+              return true;
+            };
+
+            if (abortIfNeeded()) return;
+            this.emit('thread', { type: 'thread', threadId: conversationId });
+
+            if (
+              message === 'slow child' &&
+              conversationId !== parentConversationId
+            ) {
+              if (parentRunToken && !stopRegisteredAtSlowChildStart) {
+                stopRegisteredAtSlowChildStart = true;
+                registerPendingConversationCancel({
+                  conversationId: parentConversationId,
+                  runToken: parentRunToken,
+                });
+              }
+              const waitResult = await waitForBlockedChildRelease(signal);
+              if (waitResult === 'aborted' || abortIfNeeded()) {
+                return;
+              }
+            }
+
+            if (abortIfNeeded()) return;
+            this.emit('final', { type: 'final', content: 'child ok' });
+            this.emit('complete', { type: 'complete', threadId: conversationId });
           }
-        }),
+        })(),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -1115,6 +1151,7 @@ test('stopping the parent flow stops the running child subflow', async () => {
         }),
     );
   } finally {
+    releaseBlockedChild = true;
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1124,6 +1161,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
     path.join(os.tmpdir(), 'flow-subflow-stop-parallel-'),
   );
   process.env.FLOWS_DIR = tmpDir;
+  let releaseBlockedChildren = false;
 
   try {
     await writeFlowFile({
@@ -1146,29 +1184,66 @@ test('stopping the parent flow stops every running child in a parallel subflow s
     const parentConversationId = 'parent-stop-parallel-conversation';
     const slowChildConversationIds = new Set<string>();
     let stopRegisteredAtSlowChildrenStart = false;
+    const waitForBlockedChildrenRelease = async (signal?: AbortSignal) => {
+      while (!releaseBlockedChildren) {
+        if (signal?.aborted) {
+          return 'aborted';
+        }
+        await delay(10);
+      }
+      return 'released';
+    };
     const result = await startFlowRun({
       flowName: 'parent-stop-parallel',
       conversationId: parentConversationId,
       customTitle: 'Parent Review',
       source: 'REST',
       chatFactory: () =>
-        new SubflowChat(250, ({ message, conversationId }) => {
-          if (
-            message === 'slow child' &&
-            conversationId !== parentConversationId &&
-            parentRunToken &&
-            !stopRegisteredAtSlowChildrenStart
+        new (class extends ChatInterface {
+          async execute(
+            message: string,
+            flags: Record<string, unknown>,
+            conversationId: string,
+            _model: string,
           ) {
-            slowChildConversationIds.add(conversationId);
-            if (slowChildConversationIds.size === 2) {
-              stopRegisteredAtSlowChildrenStart = true;
-              registerPendingConversationCancel({
-                conversationId: parentConversationId,
-                runToken: parentRunToken,
-              });
+            void _model;
+            const signal = (flags as { signal?: AbortSignal }).signal;
+            const abortIfNeeded = () => {
+              if (!signal?.aborted) return false;
+              this.emit('error', { type: 'error', message: 'aborted' });
+              return true;
+            };
+
+            if (abortIfNeeded()) return;
+            this.emit('thread', { type: 'thread', threadId: conversationId });
+
+            if (
+              message === 'slow child' &&
+              conversationId !== parentConversationId
+            ) {
+              slowChildConversationIds.add(conversationId);
+              if (
+                parentRunToken &&
+                !stopRegisteredAtSlowChildrenStart &&
+                slowChildConversationIds.size === 2
+              ) {
+                stopRegisteredAtSlowChildrenStart = true;
+                registerPendingConversationCancel({
+                  conversationId: parentConversationId,
+                  runToken: parentRunToken,
+                });
+              }
+              const waitResult = await waitForBlockedChildrenRelease(signal);
+              if (waitResult === 'aborted' || abortIfNeeded()) {
+                return;
+              }
             }
+
+            if (abortIfNeeded()) return;
+            this.emit('final', { type: 'final', content: 'child ok' });
+            this.emit('complete', { type: 'complete', threadId: conversationId });
           }
-        }),
+        })(),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -1241,6 +1316,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       ),
     );
   } finally {
+    releaseBlockedChildren = true;
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

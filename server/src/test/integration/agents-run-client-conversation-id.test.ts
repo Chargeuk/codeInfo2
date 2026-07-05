@@ -26,7 +26,7 @@ import {
   __setProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
 import { startFlowRun } from '../../flows/service.js';
-import { resetStore } from '../../logStore.js';
+import { query, resetStore } from '../../logStore.js';
 import { callTool } from '../../mcpAgents/tools.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
@@ -133,6 +133,204 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
       `timeoutMs=${resolvedTimeoutMs}`,
       `conversationIds=${JSON.stringify([...memoryConversations.keys()].slice(-10))}`,
       `turnConversationIds=${JSON.stringify([...memoryTurns.keys()].slice(-10))}`,
+    ].join(' | '),
+  );
+};
+
+const createExecuteSignal = () => {
+  let triggered = false;
+  let latestFlags: Record<string, unknown> | null = null;
+  let resolvePromise: ((flags: Record<string, unknown>) => void) | null = null;
+
+  const promise = new Promise<Record<string, unknown>>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  return {
+    promise,
+    wasTriggered: () => triggered,
+    latestFlags: () => latestFlags,
+    onExecute: (flags: Record<string, unknown>) => {
+      latestFlags = { ...flags };
+      if (triggered) return;
+      triggered = true;
+      resolvePromise?.(latestFlags);
+    },
+  };
+};
+
+const summarizeConversation = (
+  conversation: Conversation | undefined,
+): Record<string, unknown> | null => {
+  if (!conversation) return null;
+  const flowFlags = conversation.flags?.flow as
+    | {
+        executionId?: string;
+        stepPath?: unknown;
+        loopStack?: unknown;
+        wait?: unknown;
+      }
+    | undefined;
+  const flowChildFlags = conversation.flags?.flowChild as
+    | {
+        executionId?: string;
+      }
+    | undefined;
+
+  return {
+    conversationId: conversation._id,
+    title: conversation.title,
+    agentName: conversation.agentName ?? null,
+    flowName: conversation.flowName ?? null,
+    provider: conversation.provider,
+    model: conversation.model,
+    workingFolder:
+      typeof conversation.flags?.workingFolder === 'string'
+        ? conversation.flags.workingFolder
+        : null,
+    requestedProviderId:
+      typeof conversation.flags?.requestedProviderId === 'string'
+        ? conversation.flags.requestedProviderId
+        : null,
+    endpointId:
+      typeof conversation.flags?.endpointId === 'string'
+        ? conversation.flags.endpointId
+        : null,
+    flowExecutionId:
+      typeof flowFlags?.executionId === 'string' ? flowFlags.executionId : null,
+    flowStepPath: Array.isArray(flowFlags?.stepPath) ? flowFlags.stepPath : null,
+    flowLoopDepth: Array.isArray(flowFlags?.loopStack)
+      ? flowFlags.loopStack.length
+      : null,
+    flowWait: flowFlags?.wait ?? null,
+    flowChildExecutionId:
+      typeof flowChildFlags?.executionId === 'string'
+        ? flowChildFlags.executionId
+        : null,
+    updatedAt:
+      conversation.updatedAt instanceof Date
+        ? conversation.updatedAt.toISOString()
+        : String(conversation.updatedAt ?? ''),
+  };
+};
+
+const summarizeTurns = (conversationId: string, limit = 6) =>
+  (memoryTurns.get(conversationId) ?? []).slice(-limit).map((turn) => ({
+    role: turn.role,
+    status: turn.status,
+    content: turn.content,
+    command: turn.command ?? null,
+  }));
+
+const findTerminalAssistantTurn = (conversationId: string) => {
+  const turns = memoryTurns.get(conversationId) ?? [];
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const turn = turns[index];
+    if (turn?.role === 'assistant') return turn;
+  }
+  return null;
+};
+
+const summarizeConversationLogs = (conversationId: string, limit = 25) =>
+  query({}, 500)
+    .filter((entry) => {
+      if (entry.message.includes(conversationId)) return true;
+      const context = entry.context as Record<string, unknown> | undefined;
+      return context?.conversationId === conversationId;
+    })
+    .slice(-limit)
+    .map((entry) => ({
+      sequence: entry.sequence ?? null,
+      level: entry.level,
+      message: entry.message,
+      context: entry.context ?? null,
+    }));
+
+const listFlowChildConversations = (params: {
+  agentName: string;
+  executionId?: string | null;
+}) =>
+  [...memoryConversations.values()]
+    .filter((conversation) => {
+      if (conversation.agentName !== params.agentName) return false;
+      const flowChildFlags = conversation.flags?.flowChild as
+        | { executionId?: string }
+        | undefined;
+      if (
+        params.executionId &&
+        flowChildFlags?.executionId === params.executionId
+      ) {
+        return true;
+      }
+      return conversation.title?.includes(`(${params.agentName}-step)`) ?? false;
+    })
+    .map((conversation) => summarizeConversation(conversation));
+
+const waitForFlowExecuteOrTerminal = async (params: {
+  agentName: string;
+  flowConversationId: string;
+  executeSignal: ReturnType<typeof createExecuteSignal>;
+  timeoutMs?: number;
+}) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(
+    params.timeoutMs ?? 5000,
+  );
+  const started = Date.now();
+
+  while (Date.now() - started < resolvedTimeoutMs) {
+    if (params.executeSignal.wasTriggered()) {
+      return params.executeSignal.latestFlags();
+    }
+
+    const terminalTurn = findTerminalAssistantTurn(params.flowConversationId);
+    if (terminalTurn) {
+      const parentConversation = memoryConversations.get(params.flowConversationId);
+      const executionId = (() => {
+        const flowFlags = parentConversation?.flags?.flow as
+          | { executionId?: string }
+          | undefined;
+        return typeof flowFlags?.executionId === 'string'
+          ? flowFlags.executionId
+          : null;
+      })();
+      throw new Error(
+        [
+          'Flow reached a terminal assistant turn before first execute signal',
+          `agentName=${params.agentName}`,
+          `conversationId=${params.flowConversationId}`,
+          `terminalStatus=${terminalTurn.status}`,
+          `terminalContent=${JSON.stringify(terminalTurn.content)}`,
+          `parentConversation=${JSON.stringify(summarizeConversation(parentConversation))}`,
+          `parentTurns=${JSON.stringify(summarizeTurns(params.flowConversationId))}`,
+          `childConversations=${JSON.stringify(listFlowChildConversations({ agentName: params.agentName, executionId }))}`,
+          `recentLogs=${JSON.stringify(summarizeConversationLogs(params.flowConversationId))}`,
+        ].join(' | '),
+      );
+    }
+
+    await delay(25);
+  }
+
+  const parentConversation = memoryConversations.get(params.flowConversationId);
+  const executionId = (() => {
+    const flowFlags = parentConversation?.flags?.flow as
+      | { executionId?: string }
+      | undefined;
+    return typeof flowFlags?.executionId === 'string'
+      ? flowFlags.executionId
+      : null;
+  })();
+
+  throw new Error(
+    [
+      'Timed out waiting for flow execute signal',
+      `timeoutMs=${resolvedTimeoutMs}`,
+      `agentName=${params.agentName}`,
+      `conversationId=${params.flowConversationId}`,
+      `parentConversation=${JSON.stringify(summarizeConversation(parentConversation))}`,
+      `parentTurns=${JSON.stringify(summarizeTurns(params.flowConversationId))}`,
+      `childConversations=${JSON.stringify(listFlowChildConversations({ agentName: params.agentName, executionId }))}`,
+      `recentLogs=${JSON.stringify(summarizeConversationLogs(params.flowConversationId))}`,
     ].join(' | '),
   );
 };
@@ -4824,6 +5022,7 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
       const restFlags: Array<Record<string, unknown>> = [];
       const flowFlags: Array<Record<string, unknown>> = [];
       const mcpFlags: Array<Record<string, unknown>> = [];
+      const flowExecuteSignal = createExecuteSignal();
       const restConversationId = `t19-rest-${agentName}`;
       const flowConversationId = `t19-flow-${agentName}`;
       const mcpConversationId = `t19-mcp-${agentName}`;
@@ -4850,9 +5049,15 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
         chatFactory: () =>
           new CapturingChat((flags) => {
             flowFlags.push(flags);
+            flowExecuteSignal.onExecute(flags);
           }),
       });
-      await waitFor(() => flowFlags.length > 0, 5000);
+      await waitForFlowExecuteOrTerminal({
+        agentName,
+        flowConversationId,
+        executeSignal: flowExecuteSignal,
+        timeoutMs: 5000,
+      });
       await callTool(
         'run_agent_instruction',
         {

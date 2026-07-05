@@ -425,21 +425,21 @@
             {
               "type": "llm",
               "label": "Review Visual Design Conformance",
-              "agentType": "review_agent",
+              "agentType": "review_agent_lite",
               "identifier": "reviewer_visual",
               "markdownFile": "review_visual_design_conformance.md"
             },
             {
               "type": "command",
               "label": "Run Findings Saturation",
-              "agentType": "review_agent",
+              "agentType": "review_agent_lite",
               "identifier": "reviewer_saturation",
               "commandName": "review_findings_saturation"
             },
             {
               "type": "command",
               "label": "Run Blind-Spot Challenge",
-              "agentType": "review_agent",
+              "agentType": "review_agent_lite",
               "identifier": "reviewer_blindspot",
               "commandName": "review_blind_spot_challenge"
             },

@@ -107,6 +107,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
         workingRepositoryPath: repoRoot,
         outputKey: 'current-codex-review',
         modelId: 'gpt-5.4',
+        reasoningEffort: 'high',
       },
       {
         execFile,
@@ -129,11 +130,16 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
       codexCalls[0]?.includes('review_model="gpt-5.4"'),
       'codex exec review should force review_model to the selected model',
     );
+    assert.ok(
+      codexCalls[0]?.includes('model_reasoning_effort="high"'),
+      'codex exec review should forward the configured reasoning effort',
+    );
 
     const pointerRaw = await fs.readFile(result.pointerPath, 'utf8');
     const pointer = JSON.parse(pointerRaw) as {
       codex_review_pass_id: string;
       review_output_file: string;
+      reasoning_effort: string | null;
       remote_fetch_status: string;
       resolved_base_source: string;
       local_fallback_reason: string | null;
@@ -150,6 +156,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
       ),
     );
     assert.equal(pointer.canonical_review_pass_id, '0000027-rp-20260705T150000Z-abcd1234');
+    assert.equal(pointer.reasoning_effort, 'high');
     assert.equal(pointer.remote_fetch_status, 'success');
     assert.equal(pointer.resolved_base_source, 'remote');
     assert.equal(pointer.local_fallback_reason, null);

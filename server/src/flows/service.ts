@@ -4620,6 +4620,7 @@ async function runFlowUnlocked(params: {
           flowName,
           sourceId: params.repositoryContext.flowSourceId,
           flowPath: params.flowPath,
+          codexReviewModelId: params.codexReviewModelId,
           working_folder: params.repositoryContext.workingRepositoryPath,
           customTitle: buildTrackedSubflowTitle(flowName),
           source: params.source,
@@ -5238,6 +5239,7 @@ async function runFlowUnlocked(params: {
           workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
           outputKey: step.outputKey,
           modelId: resolvedModelId,
+          reasoningEffort: step.reasoningEffort,
           basePolicy: step.basePolicy,
         },
       );
@@ -5248,6 +5250,9 @@ async function runFlowUnlocked(params: {
         response: [
           'Codex review completed.',
           `Model: ${result.modelId}`,
+          ...(result.reasoningEffort
+            ? [`Reasoning effort: ${result.reasoningEffort}`]
+            : []),
           `Pointer: ${path.relative(params.repositoryContext.workingRepositoryPath, result.pointerPath)}`,
         ].join('\n'),
         modelId: resolvedModelId,

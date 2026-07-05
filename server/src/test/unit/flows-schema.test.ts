@@ -18,6 +18,7 @@ describe('flow schema (v1)', () => {
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
+    flowNames?: string[];
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -114,6 +115,7 @@ describe('flow schema (v1)', () => {
           outputKey: 'current-codex-review',
           basePolicy: 'branched_from_or_default_if_merged',
           modelSource: 'flow_request_or_step',
+          reasoningEffort: 'high',
         },
       ],
     });
@@ -162,6 +164,7 @@ describe('flow schema (v1)', () => {
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/codex_review.json',
+      'flows/review_artifacts_main.json',
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
@@ -184,6 +187,12 @@ describe('flow schema (v1)', () => {
     const flowFiles = [
       {
         relativePath: 'flows/review_plan.json',
+        findingsCommand: 'code_review_findings',
+        saturationCommand: 'review_findings_saturation',
+        challengeCommand: 'review_blind_spot_challenge',
+      },
+      {
+        relativePath: 'flows/review_artifacts_main.json',
         findingsCommand: 'code_review_findings',
         saturationCommand: 'review_findings_saturation',
         challengeCommand: 'review_blind_spot_challenge',
@@ -231,6 +240,21 @@ describe('flow schema (v1)', () => {
           (commandName): commandName is string =>
             typeof commandName === 'string',
         );
+
+      if (flowFile.relativePath === 'flows/implement_next_plan.json') {
+        const subflowMarkers = flattenSteps(parsed.steps ?? [])
+          .map((step) =>
+            step.type === 'subflow' && Array.isArray((step as { flowNames?: string[] }).flowNames)
+              ? (step as { flowNames: string[] }).flowNames.join(',')
+              : undefined,
+          )
+          .filter((marker): marker is string => typeof marker === 'string');
+        assert.ok(
+          subflowMarkers.includes('review_artifacts_main,codex_review'),
+          'flows/implement_next_plan.json should launch parallel review artifact subflows',
+        );
+        continue;
+      }
 
       const findingsIndex = commands.indexOf(flowFile.findingsCommand);
       const saturationIndex = commands.indexOf(flowFile.saturationCommand);
@@ -488,10 +512,15 @@ describe('flow schema (v1)', () => {
       if (step.type === 'command') {
         return step.commandName;
       }
+      if (step.type === 'subflow') {
+        return (step as { flowNames?: string[] }).flowNames?.join(',');
+      }
       return step.type;
     });
 
-    const codexReviewIndex = markers.indexOf('codexReview');
+    const codexReviewIndex = markers.indexOf(
+      'review_artifacts_main,codex_review',
+    );
     const mergeIndex = markers.indexOf(
       'merge_codex_review_findings_into_canonical_review.md',
     );
@@ -503,7 +532,7 @@ describe('flow schema (v1)', () => {
     assert.notEqual(
       codexReviewIndex,
       -1,
-      'flows/implement_next_plan.json should include Codex review',
+      'flows/implement_next_plan.json should include the parallel review artifact subflow step',
     );
     assert.notEqual(
       mergeIndex,
@@ -524,7 +553,7 @@ describe('flow schema (v1)', () => {
       codexReviewIndex < mergeIndex &&
         mergeIndex < classifyIndex &&
         classifyIndex < filterIndex,
-      'flows/implement_next_plan.json should run Codex review, then merge it, then classify, then scope-filter findings',
+      'flows/implement_next_plan.json should run the parallel review artifact subflow, then merge it, then classify, then scope-filter findings',
     );
   });
 

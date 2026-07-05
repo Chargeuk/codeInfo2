@@ -66,6 +66,7 @@ export type FlowCodexReviewStep = {
   basePolicy?: 'branched_from_or_default_if_merged';
   modelSource?: 'flow_request_or_step';
   model?: string;
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 };
 
 export type FlowSubflowStep = {
@@ -162,6 +163,9 @@ const FlowCodexReviewStepSchema = z
     basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
     modelSource: z.literal('flow_request_or_step').optional(),
     model: trimmedNonEmptyString.optional(),
+    reasoningEffort: z
+      .enum(['minimal', 'low', 'medium', 'high', 'xhigh'])
+      .optional(),
   })
   .strict();
 

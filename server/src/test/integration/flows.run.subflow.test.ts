@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -12,6 +14,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
@@ -19,6 +22,29 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const execFile = promisify(execFileCb);
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: '2026-01-01T00:00:00.000Z',
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 class SubflowChat extends ChatInterface {
   constructor(
@@ -218,6 +244,11 @@ const subflowStep = (label: string, ...flowNames: string[]) => ({
   label,
   flowNames,
 });
+
+const writeExecutable = async (filePath: string, content: string) => {
+  await fs.writeFile(filePath, content, 'utf8');
+  await fs.chmod(filePath, 0o755);
+};
 
 const activeSubflowState = (params: {
   stepPath: number[];
@@ -447,6 +478,130 @@ test('subflow step launches multiple child flows in parallel and waits for all o
       undefined,
     );
   } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('subflow forwards codexReviewModelId into child flows so codex_review can run with a parent-supplied model override', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-codex-model-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-child',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          reasoningEffort: 'medium',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-codex-subflow',
+      steps: [subflowStep('Run Codex Review Child', 'codex-child')],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-codex-subflow',
+      source: 'REST',
+      working_folder: repoDir,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    const pointer = JSON.parse(
+      await fs.readFile(pointerPath, 'utf8'),
+    ) as {
+      model?: string;
+      reasoning_effort?: string | null;
+      merged_into_canonical_findings?: boolean;
+    };
+
+    assert.equal(pointer.model, 'gpt-5.4');
+    assert.equal(pointer.reasoning_effort, 'medium');
+    assert.equal(pointer.merged_into_canonical_findings, false);
+  } finally {
+    process.env.PATH = previousPath;
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

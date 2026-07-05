@@ -16,7 +16,11 @@ export type FlowCodexReviewStepConfig = {
   basePolicy?: FlowCodexReviewBasePolicy;
   modelSource?: FlowCodexReviewModelSource;
   model?: string;
+  reasoningEffort?: CodexReviewReasoningEffort;
 };
+
+export type CodexReviewReasoningEffort =
+  'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 
 export type CodexReviewPointer = {
   story_id: string;
@@ -29,6 +33,7 @@ export type CodexReviewPointer = {
   branch: string;
   head_commit: string;
   model: string;
+  reasoning_effort: CodexReviewReasoningEffort | null;
   logical_base_branch: string;
   resolved_base_branch: string;
   resolved_base_source: 'remote' | 'local_fallback';
@@ -56,6 +61,7 @@ export type CodexReviewPointer = {
 
 export type CodexReviewStepResult = {
   modelId: string;
+  reasoningEffort: CodexReviewReasoningEffort | null;
   pointerPath: string;
   reviewOutputPath: string;
   pointer: CodexReviewPointer;
@@ -410,6 +416,7 @@ export async function runCodexReviewStep(
     workingRepositoryPath: string;
     outputKey: string;
     modelId: string;
+    reasoningEffort?: CodexReviewReasoningEffort;
     basePolicy?: FlowCodexReviewBasePolicy;
   },
   deps?: Partial<CodexReviewDeps>,
@@ -508,8 +515,13 @@ export async function runCodexReviewStep(
   );
   const pointerPath = path.join(reviewDir, `${storyNumber}-${outputKey}.json`);
 
-  const configOverride = `review_model=${JSON.stringify(params.modelId)}`;
-  await resolvedDeps.execFile('codex', [
+  const configOverrides = [`review_model=${JSON.stringify(params.modelId)}`];
+  if (params.reasoningEffort) {
+    configOverrides.push(
+      `model_reasoning_effort=${JSON.stringify(params.reasoningEffort)}`,
+    );
+  }
+  const codexArgs = [
     'exec',
     'review',
     '-C',
@@ -518,11 +530,13 @@ export async function runCodexReviewStep(
     baseResolution.resolvedBaseBranch,
     '-m',
     params.modelId,
-    '-c',
-    configOverride,
     '-o',
     reviewOutputPath,
-  ]);
+  ];
+  for (const configOverride of configOverrides) {
+    codexArgs.push('-c', configOverride);
+  }
+  await resolvedDeps.execFile('codex', codexArgs);
 
   const completedAtIso = resolvedDeps.now().toISOString();
   const pointer: CodexReviewPointer = {
@@ -536,6 +550,7 @@ export async function runCodexReviewStep(
     branch: currentBranch,
     head_commit: headCommit,
     model: params.modelId,
+    reasoning_effort: params.reasoningEffort ?? null,
     logical_base_branch: baseResolution.logicalBaseBranch,
     resolved_base_branch: baseResolution.resolvedBaseBranch,
     resolved_base_source: baseResolution.resolvedBaseSource,
@@ -565,6 +580,7 @@ export async function runCodexReviewStep(
 
   return {
     modelId: params.modelId,
+    reasoningEffort: params.reasoningEffort ?? null,
     pointerPath,
     reviewOutputPath,
     pointer,

@@ -891,6 +891,10 @@ const parseFlowResumeState = (
         }
       : {}),
     ...(activeSubflows.length > 0 ? { activeSubflows } : {}),
+    ...(typeof flow.codexReviewModelId === 'string' &&
+    flow.codexReviewModelId.trim()
+      ? { codexReviewModelId: flow.codexReviewModelId.trim() }
+      : {}),
     ...(typeof flow.workingFolder === 'string' && flow.workingFolder.trim()
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
@@ -2766,6 +2770,7 @@ const buildFlowResumeState = (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
+  codexReviewModelId?: string;
   workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
@@ -2823,6 +2828,9 @@ const buildFlowResumeState = (params: {
           })),
         }
       : {}),
+    ...(params.codexReviewModelId
+      ? { codexReviewModelId: params.codexReviewModelId }
+      : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
@@ -2846,6 +2854,7 @@ const persistFlowResumeState = async (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
+  codexReviewModelId?: string;
   workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
@@ -2855,6 +2864,7 @@ const persistFlowResumeState = async (params: {
     loopStack: params.loopStack,
     pendingLoopControl: params.pendingLoopControl,
     activeSubflows: params.activeSubflows,
+    codexReviewModelId: params.codexReviewModelId,
     workingFolder: params.workingFolder,
   });
   const existingConversation = await getConversation(params.conversationId);
@@ -6508,6 +6518,8 @@ export async function startFlowRun(
         await validateResumeAgentConversations(resumeState);
     }
     executionId = resumeState?.executionId ?? executionId;
+    const effectiveCodexReviewModelId =
+      params.codexReviewModelId ?? resumeState?.codexReviewModelId;
 
     const runtimeIdentityStep = findRuntimeIdentityStep(
       flow.steps,
@@ -6578,7 +6590,7 @@ export async function startFlowRun(
       startupWarnings = prepared.warnings ?? [];
     } else if (firstCodexReviewStep) {
       const resolvedModelId = resolveCodexReviewModel({
-        requestedModelId: params.codexReviewModelId,
+        requestedModelId: effectiveCodexReviewModelId,
         stepModelId: firstCodexReviewStep.model,
       });
       if (!resolvedModelId) {
@@ -6641,7 +6653,7 @@ export async function startFlowRun(
       steps: flow.steps,
       flowsRoot,
       sourceId,
-      codexReviewModelId: params.codexReviewModelId,
+      codexReviewModelId: effectiveCodexReviewModelId,
       resumeStepPath,
     });
 
@@ -6714,6 +6726,8 @@ export async function startFlowRun(
         runToken: activeSubflow.runToken,
         ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
       })),
+      codexReviewModelId:
+        effectiveCodexReviewModelId ?? resumeState?.codexReviewModelId,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
     });
     if (retryOwnershipId && !resumeStepPath) {
@@ -6775,7 +6789,8 @@ export async function startFlowRun(
         modelId,
         providerId,
         workingDirectoryOverride,
-        codexReviewModelId: params.codexReviewModelId,
+        codexReviewModelId:
+          params.codexReviewModelId ?? resumeState?.codexReviewModelId,
         source: params.source,
         chatFactory: params.chatFactory,
         resumeState,

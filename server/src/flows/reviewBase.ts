@@ -255,13 +255,14 @@ async function resolveDefaultBranch(
     }
   }
 
-  const fallbackCandidates = ['main', 'master', 'develop'];
-  if (
-    preferredFallbackBranch &&
-    !fallbackCandidates.includes(preferredFallbackBranch)
-  ) {
-    fallbackCandidates.push(preferredFallbackBranch);
-  }
+  const fallbackCandidates = preferredFallbackBranch
+    ? [
+        preferredFallbackBranch,
+        ...['main', 'master', 'develop'].filter(
+          (candidate) => candidate !== preferredFallbackBranch,
+        ),
+      ]
+    : ['main', 'master', 'develop'];
 
   for (const candidate of fallbackCandidates) {
     if (

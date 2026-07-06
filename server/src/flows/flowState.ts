@@ -27,6 +27,7 @@ export type FlowResumeState = {
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
   pendingLoopControl?: FlowPendingLoopControl;
   activeSubflows?: FlowActiveSubflow[];
+  codexReviewModelId?: string;
   workingFolder?: string;
   agentConversations: Record<string, string>;
   agentWorkingFolders?: Record<string, string>;

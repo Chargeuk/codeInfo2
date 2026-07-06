@@ -392,6 +392,11 @@ type DirectAgentPreparedExecution = {
   copilotModels: ModelInfo[];
 };
 
+type RuntimePreparationDiagnostics = {
+  emit: (message: string, context: Record<string, unknown>) => void;
+  baseContext?: Record<string, unknown>;
+};
+
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
 
 const isChatProviderId = (value: string): value is ChatProviderId =>
@@ -823,12 +828,37 @@ async function prepareDirectAgentExecution(params: {
   pinnedRequestedProviderId?: string;
   pinnedEndpointId?: string | null;
   allowFallback: boolean;
+  diagnostics?: RuntimePreparationDiagnostics;
 }): Promise<DirectAgentPreparedExecution> {
+  const emitPreparationDiagnostic = (
+    message: string,
+    context: Record<string, unknown> = {},
+  ) => {
+    params.diagnostics?.emit(message, {
+      agentName: params.agentName,
+      configPath: params.configPath,
+      source: params.source,
+      surface: params.surface,
+      ...(params.diagnostics?.baseContext ?? {}),
+      ...context,
+    });
+  };
+
   let requestedMetadata;
   try {
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_requested_metadata_begin',
+    );
     requestedMetadata = await readAgentRequestedProviderMetadata({
       configPath: params.configPath,
     });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_requested_metadata_complete',
+      {
+        requestedProviderId: requestedMetadata.requestedProviderId ?? null,
+        warningCount: requestedMetadata.warnings.length,
+      },
+    );
   } catch (error) {
     const code =
       error instanceof RuntimeConfigResolutionError
@@ -843,8 +873,16 @@ async function prepareDirectAgentExecution(params: {
         `${T07_ERROR_LOG} surface=${params.surface} source=${params.source} code=${code}`,
       );
     }
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_requested_metadata_failed',
+      {
+        code,
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    );
     throw error;
   }
+  emitPreparationDiagnostic('flows.test.runtime_resolution_prepare_availability_begin');
   const availabilityContext =
     await getEffectiveAgentServiceDeps().createAgentAvailabilityContext();
   const availability = await getEffectiveAgentServiceDeps().evaluateAgentAvailability({
@@ -853,7 +891,27 @@ async function prepareDirectAgentExecution(params: {
     entrypoint: 'agents.service',
     context: availabilityContext,
   });
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_availability_complete',
+    {
+      requestedProviderId: availability.requestedProviderId ?? null,
+      executionProviderId: availability.executionProviderId ?? null,
+      disabledReason: availability.disabledReason?.message ?? null,
+    },
+  );
+  emitPreparationDiagnostic('flows.test.runtime_resolution_prepare_provider_states_begin');
   const providerStates = await collectDirectAgentProviderStates();
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_provider_states_complete',
+    {
+      codexAvailable: providerStates.codex.available,
+      codexModels: providerStates.codex.models.length,
+      copilotAvailable: providerStates.copilot.available,
+      copilotModels: providerStates.copilot.models.length,
+      lmstudioAvailable: providerStates.lmstudio.available,
+      lmstudioModels: providerStates.lmstudio.models.length,
+    },
+  );
   const runtimeProviderStates = {
     codex: applyBootstrapStatusToDirectAgentProviderState(
       'codex',
@@ -868,17 +926,57 @@ async function prepareDirectAgentExecution(params: {
       providerStates.lmstudio,
     ),
   };
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_runtime_provider_states_complete',
+    {
+      codexAvailable: runtimeProviderStates.codex.available,
+      codexReason: runtimeProviderStates.codex.reason ?? null,
+      copilotAvailable: runtimeProviderStates.copilot.available,
+      copilotReason: runtimeProviderStates.copilot.reason ?? null,
+      lmstudioAvailable: runtimeProviderStates.lmstudio.available,
+      lmstudioReason: runtimeProviderStates.lmstudio.reason ?? null,
+    },
+  );
+  emitPreparationDiagnostic('flows.test.runtime_resolution_prepare_execution_context_begin');
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
   });
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_execution_context_complete',
+    {
+      workingDirectoryOverride: executionContext.workingDirectoryOverride ?? null,
+      selectedRepositoryPath:
+        executionContext.repositoryMetadata.selectedRepositoryPath ?? null,
+      defaultExecutionRoot:
+        executionContext.repositoryMetadata.defaultExecutionRoot ?? null,
+      workingRepositoryAvailable:
+        executionContext.repositoryMetadata.workingRepositoryAvailable,
+    },
+  );
   if (params.pinnedProviderId) {
     const providerState = runtimeProviderStates[params.pinnedProviderId];
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_provider_runtime_config_begin',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+      },
+    );
     const providerRuntimeResolution = await resolveProviderRuntimeConfigForExecution({
       configPath: params.configPath,
       providerId: params.pinnedProviderId,
       source: params.source,
       surface: params.surface,
     });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_provider_runtime_config_complete',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+        warningCount: providerRuntimeResolution.warnings.length,
+        hasEndpoint: providerRuntimeResolution.endpoint !== undefined,
+      },
+    );
     const configuredEndpointId =
       providerRuntimeResolution.endpoint?.endpointId?.trim() || undefined;
     if (
@@ -910,6 +1008,17 @@ async function prepareDirectAgentExecution(params: {
               reason: `Endpoint "${params.pinnedEndpointId}" is unavailable.`,
             }
           : undefined;
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_endpoint_state_complete',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+        endpointId: endpointState?.endpointId ?? null,
+        endpointAvailable: endpointState?.available ?? null,
+        endpointModels: endpointState?.models.length ?? 0,
+        endpointReason: endpointState?.reason ?? null,
+      },
+    );
     const requestedModel =
       params.pinnedModelId ??
       normalizeModel(
@@ -942,6 +1051,19 @@ async function prepareDirectAgentExecution(params: {
       copilot: runtimeProviderStates.copilot,
       lmstudio: runtimeProviderStates.lmstudio,
     });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_selection_complete',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+        unavailable: runtimeSelection.unavailable,
+        executionProvider: runtimeSelection.executionProvider,
+        executionModel: runtimeSelection.executionModel,
+        executionPath: runtimeSelection.executionPath ?? null,
+        fallbackApplied: runtimeSelection.fallbackApplied ?? false,
+        requestedReason: runtimeSelection.requestedReason ?? null,
+      },
+    );
     if (runtimeSelection.unavailable) {
       throw toRunAgentError(
         'PROVIDER_UNAVAILABLE',
@@ -1057,6 +1179,13 @@ async function prepareDirectAgentExecution(params: {
         }
       | undefined;
     try {
+      emitPreparationDiagnostic(
+        'flows.test.runtime_resolution_prepare_provider_runtime_config_begin',
+        {
+          providerId,
+          pinned: false,
+        },
+      );
       providerRuntimeResolution =
         await resolveProviderRuntimeConfigForExecution({
           configPath: params.configPath,
@@ -1064,11 +1193,28 @@ async function prepareDirectAgentExecution(params: {
           source: params.source,
           surface: params.surface,
         });
+      emitPreparationDiagnostic(
+        'flows.test.runtime_resolution_prepare_provider_runtime_config_complete',
+        {
+          providerId,
+          pinned: false,
+          warningCount: providerRuntimeResolution.warnings.length,
+          hasEndpoint: providerRuntimeResolution.endpoint !== undefined,
+        },
+      );
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : String(error ?? 'unknown error');
+      emitPreparationDiagnostic(
+        'flows.test.runtime_resolution_prepare_provider_runtime_config_failed',
+        {
+          providerId,
+          pinned: false,
+          reason: message,
+        },
+      );
       runtimeWarnings.push(
         providerId === configuredRequestedProvider
           ? `Agent could not execute on requested provider "${providerId}" because its runtime config could not load: ${message}`
@@ -1093,6 +1239,17 @@ async function prepareDirectAgentExecution(params: {
             reason: `Endpoint "${params.pinnedEndpointId}" is unavailable.`,
           }
         : undefined;
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_endpoint_state_complete',
+      {
+        providerId,
+        pinned: false,
+        endpointId: endpointState?.endpointId ?? null,
+        endpointAvailable: endpointState?.available ?? null,
+        endpointModels: endpointState?.models.length ?? 0,
+        endpointReason: endpointState?.reason ?? null,
+      },
+    );
     const configuredModel = normalizeModel(
       (providerRuntimeResolution.config as Record<string, unknown>)?.model,
     );
@@ -1118,6 +1275,19 @@ async function prepareDirectAgentExecution(params: {
       copilot: runtimeProviderStates.copilot,
       lmstudio: runtimeProviderStates.lmstudio,
     });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_selection_complete',
+      {
+        providerId,
+        pinned: false,
+        unavailable: runtimeSelection.unavailable,
+        executionProvider: runtimeSelection.executionProvider,
+        executionModel: runtimeSelection.executionModel,
+        executionPath: runtimeSelection.executionPath ?? null,
+        fallbackApplied: runtimeSelection.fallbackApplied ?? false,
+        requestedReason: runtimeSelection.requestedReason ?? null,
+      },
+    );
     if (runtimeSelection.unavailable) {
       if (
         params.pinnedEndpointId &&
@@ -1213,6 +1383,17 @@ async function prepareDirectAgentExecution(params: {
     };
   }
 
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_selection_failed',
+    {
+      requestedProviderId: requestedProviderId ?? null,
+      configuredRequestedProvider,
+      invalidProviderReason: invalidProviderReason ?? null,
+      lastRuntimeConfigFailure:
+        lastRuntimeConfigFailure === undefined ? null : lastRuntimeConfigFailure,
+      requestedProviderReason: providerStates[configuredRequestedProvider]?.reason ?? null,
+    },
+  );
   if (invalidProviderReason) {
     throw toRunAgentError('INVALID_PROVIDER', invalidProviderReason);
   }
@@ -1239,6 +1420,7 @@ export async function prepareFlowOwnedAgentExecution(params: {
   pinnedRequestedProviderId?: string;
   pinnedEndpointId?: string | null;
   allowFallback: boolean;
+  diagnostics?: RuntimePreparationDiagnostics;
 }): Promise<DirectAgentPreparedExecution> {
   return prepareDirectAgentExecution({
     ...params,

@@ -2931,3 +2931,48 @@ This task repairs that state-authority defect in the flow runtime rather than ma
 - `npm run lint` and `npm run format:check` both completed cleanly for the final Task 31 repair surface.
 - Added async-scoped test override support in the Codex/provider bootstrap seams (`server/src/providers/codexRegistry.ts`, `server/src/agents/service.ts`, `server/src/agents/availability.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/test/support/testOverrideScope.ts`) so deterministic availability and provider overrides can be isolated per test while legacy `beforeEach` bootstrap files still keep their global compatibility path.
 - Hardened the main Story 60 flow and agent integration harnesses to carry scoped overrides through router callbacks, then revalidated the repaired leak class with targeted reruns, one clean broad `npm run test:summary:server:unit` pass (`2537/2537`), and two clean `npm run test:summary:all:stress` reruns whose `server:unit` leg also stayed green at `2537/2537` under mixed client, cucumber, and e2e load.
+
+### Task 32. Add Flow Runtime-Resolution Stress Diagnostics For Intermittent Startup Stalls
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 31`
+- Task Status: `__done__`
+- Git Commits:
+
+#### Overview
+
+Stress reruns after Task 31 exposed a different intermittent failure family: under `npm run test:summary:all:stress`, some flow and command tests can fail with `Flow runtime resolution timed out after 40000ms` before the first visible agent execute signal. The current flow diagnostics show the run reaching runtime-resolution begin, but they do not yet identify whether the stall is in agent metadata loading, provider availability collection, runtime-config merging, chat-config bootstrap, or endpoint-state resolution.
+
+This task is diagnostics-only unless the new evidence exposes one clearly understood runtime defect. It adds conversation-scoped checkpoints through the flow-to-agent runtime-resolution seam plus richer timeout snapshots in the stress-sensitive proof homes so the next recurrence points to the exact substage that stalled instead of collapsing into a generic timeout.
+
+#### Task Exit Criteria
+
+- [ ] Flow runtime-resolution diagnostics identify the specific stalled substage between flow dispatch and prepared agent execution, including conversation or execution identifiers plus provider, config, and selection context.
+- [ ] Runtime-config bootstrap and merge logs expose whether chat-config lock contention, bootstrap branch changes, or config-resolution failures coincide with the stalled flow-resolution window.
+- [ ] The stress-sensitive proof homes that currently fail with generic timeout text now capture richer runtime-resolution and runtime-config snapshots that make the next recurrence faster to root-cause.
+
+#### Subtasks
+
+1. [x] In `server/src/flows/service.ts` and `server/src/agents/service.ts`, thread conversation-scoped diagnostics through the flow-owned runtime-resolution path so stress failures can see which substage stalled after `...runtime_resolution_begin` and before the final timeout.
+2. [x] In `server/src/config/runtimeConfig.ts`, add runtime-test diagnostics around chat-config bootstrap and merged runtime-config resolution so lock or bootstrap contention becomes visible during stress investigation.
+3. [x] In `server/src/test/integration/agents-run-client-conversation-id.test.ts` and `server/src/test/integration/flows.run.command.test.ts`, enrich the timeout snapshots with runtime-resolution and runtime-config diagnostic slices so the failing tests retain the new seam evidence automatically.
+4. [x] Run the focused validation for the affected flow and command proof homes, then the required build, lint, and format wrappers for this diagnostics change.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --test-name "T19 fixture-sweep parity keeps runtime config consistent across REST, flow, and MCP surfaces" --skip-build` from the repository root.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --test-name "conversation-only stop prevents nested command handoff from starting" --skip-build` from the repository root.
+3. [x] Run `npm run build:summary:server` from the repository root because this task changes server TypeScript in the flow, agent, and runtime-config seams.
+4. [x] Run `npm run lint` from the repository root for the Task 32 diagnostics surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` from the repository root for the Task 32 diagnostics surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Added conversation-scoped flow runtime-resolution checkpoints around requested-provider metadata, availability, provider-state collection, execution-context resolution, per-provider runtime-config loading, endpoint-state resolution, and runtime-selection completion so the next stress timeout shows the exact last completed substage instead of only the outer `40000ms` timeout.
+- Added runtime-test diagnostics for runtime-config resolution begin or complete or failed and chat-config bootstrap begin or complete so shared config or lock behavior can be correlated with future stalled flow-resolution windows.
+- Hardened the two currently affected proof homes so their failure text now includes both conversation-scoped runtime-resolution logs and recent global runtime-config diagnostics, which should make the next intermittent recurrence much faster to root-cause.
+- Focused validation note: `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --test-name "T19 fixture-sweep parity keeps runtime config consistent across REST, flow, and MCP surfaces" --skip-build` passed cleanly on Jul 6, 2026, confirming the new diagnostics surface does not break the fixture-sweep parity proof while we wait for the next stress recurrence to use the richer logs.
+- Focused validation note: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --test-name "conversation-only stop prevents nested command handoff from starting" --skip-build` also passed cleanly on Jul 6, 2026, so the richer WebSocket-timeout snapshots and runtime-resolution diagnostics did not regress the conversation-stop contract while we continue the broader stress hunt.
+- Build validation note: the first `npm run build:summary:server` pass surfaced a type mismatch where the new execution-context diagnostic referenced non-existent repository metadata keys; renaming that checkpoint to the real `selectedRepositoryPath`, `defaultExecutionRoot`, and `workingRepositoryAvailable` fields restored a clean wrapper pass without changing runtime behavior.
+- Repo validation note: `npm run lint` passed cleanly for the Task 32 diagnostics surface after the execution-context field-name correction, so the added runtime checkpoints and failure snapshots did not introduce any new lint drift.
+- Repo validation note: `npm run format:check` passed cleanly for the Task 32 diagnostics surface, so the new flow, agent, runtime-config, and proof-harness logging changes are now ready to commit before the next stress-loop rerun.

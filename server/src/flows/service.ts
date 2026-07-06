@@ -2272,8 +2272,10 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   pinnedRequestedProviderId?: string;
   pinnedEndpointId?: string | null;
   allowFallback?: boolean;
+  diagnosticsContext?: Record<string, unknown>;
 }) => {
   appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_entry', {
+    ...(params.diagnosticsContext ?? {}),
     agentName: params.agentName,
     configPath: params.configPath,
     workingFolder: params.workingFolder ?? null,
@@ -2288,6 +2290,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   });
   try {
     appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_prepare_begin', {
+      ...(params.diagnosticsContext ?? {}),
       agentName: params.agentName,
       source: params.source ?? null,
       pinnedProviderId: params.pinnedProviderId ?? null,
@@ -2306,10 +2309,15 @@ const resolveFlowAgentRuntimeExecution = async (params: {
         pinnedRequestedProviderId: params.pinnedRequestedProviderId,
         pinnedEndpointId: params.pinnedEndpointId ?? undefined,
         allowFallback: params.allowFallback ?? true,
+        diagnostics: {
+          emit: appendFlowRuntimeDiagnostic,
+          baseContext: params.diagnosticsContext,
+        },
       }),
       timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
       onTimeout: () => {
         appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_timeout', {
+          ...(params.diagnosticsContext ?? {}),
           agentName: params.agentName,
           configPath: params.configPath,
           workingFolder: params.workingFolder ?? null,
@@ -2330,6 +2338,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
         ),
     });
     appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_prepare_complete', {
+      ...(params.diagnosticsContext ?? {}),
       agentName: params.agentName,
       source: params.source ?? null,
       executionProviderId: resolved.executionProviderId,
@@ -2357,6 +2366,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
     };
   } catch (error) {
     appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_failed', {
+      ...(params.diagnosticsContext ?? {}),
       agentName: params.agentName,
       source: params.source ?? null,
       code:
@@ -5722,6 +5732,12 @@ async function runFlowUnlocked(params: {
         ? agentState?.endpointId
         : undefined,
       allowFallback: !agentState?.providerId,
+      diagnosticsContext: {
+        conversationId: params.conversationId,
+        executionId: params.executionId,
+        flowName: params.flowName,
+        identifier: resolutionParams.identifier,
+      },
     });
     appendFlowRuntimeDiagnostic(
       'flows.test.llm_instruction_prerequisites_runtime_resolution_complete',

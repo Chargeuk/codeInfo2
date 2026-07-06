@@ -1751,6 +1751,16 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       copilotHome: params.copilotHome,
       lmstudioHome: params.lmstudioHome,
     });
+  const startedAt = Date.now();
+  appendRuntimeTestDiagnostic('runtime.runtime_config_resolution_begin', {
+    surface: params.surface,
+    provider,
+    providerHome,
+    runtimeConfigPath: params.runtimeConfigPath,
+    repoLocalConfigPath,
+    baseConfigPath,
+    runtimeConfigRequired: params.runtimeConfigRequired ?? true,
+  });
   try {
     const [repoLocalConfig, baseConfig, runtimeConfig] = await Promise.all([
       readAndNormalizeRuntimeTomlConfig(repoLocalConfigPath),
@@ -1824,6 +1834,14 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       runtimeConfigPath: params.runtimeConfigPath,
       warningCount: validated.warnings.length,
     });
+    appendRuntimeTestDiagnostic('runtime.runtime_config_resolution_complete', {
+      surface: params.surface,
+      provider,
+      providerHome,
+      runtimeConfigPath: params.runtimeConfigPath,
+      warningCount: validated.warnings.length,
+      durationMs: Date.now() - startedAt,
+    });
     return validated;
   } catch (error) {
     const mapped = mapResolutionError(error, {
@@ -1833,6 +1851,15 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
     console.error(
       `${T04_ERROR_LOG} surface=${mapped.surface} code=${mapped.code}`,
     );
+    appendRuntimeTestDiagnostic('runtime.runtime_config_resolution_failed', {
+      surface: mapped.surface,
+      provider,
+      providerHome,
+      runtimeConfigPath: params.runtimeConfigPath,
+      code: mapped.code,
+      reason: mapped.message,
+      durationMs: Date.now() - startedAt,
+    });
     throw mapped;
   }
 }
@@ -1927,6 +1954,29 @@ export async function ensureProviderChatConfigBootstrapped(params: {
     params.provider === 'codex'
       ? getCodexConfigPathForHome(providerHome)
       : chatConfigPath;
+  appendRuntimeTestDiagnostic('runtime.chat_config_bootstrap_begin', {
+    provider: params.provider,
+    providerHome,
+    baseConfigPath,
+    chatConfigPath,
+  });
+  const emitBootstrapComplete = (paramsForLog: {
+    branch: ChatBootstrapBranch;
+    generatedTemplate: boolean;
+    warning?: string;
+    warningCode?: string;
+  }) => {
+    appendRuntimeTestDiagnostic('runtime.chat_config_bootstrap_complete', {
+      provider: params.provider,
+      providerHome,
+      baseConfigPath,
+      chatConfigPath,
+      branch: paramsForLog.branch,
+      generatedTemplate: paramsForLog.generatedTemplate,
+      warning: paramsForLog.warning ?? null,
+      warningCode: paramsForLog.warningCode ?? null,
+    });
+  };
 
   const chatExists = await fs.stat(chatConfigPath).then(
     () => true,
@@ -1974,6 +2024,12 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       chatConfigPath,
       outcome: 'existing',
       success: augmentResult.outcome !== 'failed',
+      warning: augmentResult.warning,
+      warningCode: augmentResult.warningCode,
+    });
+    emitBootstrapComplete({
+      branch,
+      generatedTemplate: false,
       warning: augmentResult.warning,
       warningCode: augmentResult.warningCode,
     });
@@ -2031,6 +2087,10 @@ export async function ensureProviderChatConfigBootstrapped(params: {
         outcome: 'existing',
         success: true,
       });
+      emitBootstrapComplete({
+        branch: 'existing_noop',
+        generatedTemplate: false,
+      });
       return {
         provider: params.provider,
         providerHome,
@@ -2051,6 +2111,10 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       chatConfigPath,
       outcome: 'seeded',
       success: true,
+    });
+    emitBootstrapComplete({
+      branch: 'generated_template',
+      generatedTemplate: true,
     });
     return {
       provider: params.provider,
@@ -2073,6 +2137,10 @@ export async function ensureProviderChatConfigBootstrapped(params: {
         chatConfigPath,
         outcome: 'existing',
         success: true,
+      });
+      emitBootstrapComplete({
+        branch: 'existing_noop',
+        generatedTemplate: false,
       });
       return {
         provider: params.provider,
@@ -2100,6 +2168,12 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       outcome: 'seeded',
       source: 'chat_template',
       success: false,
+      warning,
+      warningCode: code,
+    });
+    emitBootstrapComplete({
+      branch: 'template_write_failed',
+      generatedTemplate: false,
       warning,
       warningCode: code,
     });

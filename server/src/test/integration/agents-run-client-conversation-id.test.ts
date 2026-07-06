@@ -254,6 +254,35 @@ const summarizeConversationLogs = (conversationId: string, limit = 25) =>
       context: entry.context ?? null,
     }));
 
+const summarizeRuntimeResolutionLogs = (
+  conversationId: string,
+  limit = 25,
+) =>
+  query({ text: 'flows.test.runtime_resolution_' }, 300)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .slice(-limit)
+    .map((entry) => ({
+      sequence: entry.sequence ?? null,
+      level: entry.level,
+      message: entry.message,
+      context: entry.context ?? null,
+    }));
+
+const summarizeGlobalRuntimeConfigLogs = (limit = 20) =>
+  query({ text: 'runtime.' }, 300)
+    .filter(
+      (entry) =>
+        entry.message.startsWith('runtime.chat_config_') ||
+        entry.message.startsWith('runtime.runtime_config_resolution_'),
+    )
+    .slice(-limit)
+    .map((entry) => ({
+      sequence: entry.sequence ?? null,
+      level: entry.level,
+      message: entry.message,
+      context: entry.context ?? null,
+    }));
+
 const listFlowChildConversations = (params: {
   agentName: string;
   executionId?: string | null;
@@ -312,6 +341,8 @@ const waitForFlowExecuteOrTerminal = async (params: {
           `parentTurns=${JSON.stringify(summarizeTurns(params.flowConversationId))}`,
           `childConversations=${JSON.stringify(listFlowChildConversations({ agentName: params.agentName, executionId }))}`,
           `recentLogs=${JSON.stringify(summarizeConversationLogs(params.flowConversationId))}`,
+          `runtimeResolutionLogs=${JSON.stringify(summarizeRuntimeResolutionLogs(params.flowConversationId))}`,
+          `runtimeConfigLogs=${JSON.stringify(summarizeGlobalRuntimeConfigLogs())}`,
         ].join(' | '),
       );
     }
@@ -339,6 +370,8 @@ const waitForFlowExecuteOrTerminal = async (params: {
       `parentTurns=${JSON.stringify(summarizeTurns(params.flowConversationId))}`,
       `childConversations=${JSON.stringify(listFlowChildConversations({ agentName: params.agentName, executionId }))}`,
       `recentLogs=${JSON.stringify(summarizeConversationLogs(params.flowConversationId))}`,
+      `runtimeResolutionLogs=${JSON.stringify(summarizeRuntimeResolutionLogs(params.flowConversationId))}`,
+      `runtimeConfigLogs=${JSON.stringify(summarizeGlobalRuntimeConfigLogs())}`,
     ].join(' | '),
   );
 };

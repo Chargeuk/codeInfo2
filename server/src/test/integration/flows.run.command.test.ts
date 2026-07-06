@@ -510,6 +510,26 @@ const waitForFlowFinal = async (params: {
     query({ text: 'chat.ws.server_publish_turn_final' }, 120)
       .filter((entry) => entry.context?.conversationId === params.conversationId)
       .at(-1);
+  const getRuntimeResolutionLogs = () =>
+    query({ text: 'flows.test.runtime_resolution_' }, 200)
+      .filter((entry) => entry.context?.conversationId === params.conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      }));
+  const getGlobalRuntimeConfigLogs = () =>
+    query({ text: 'runtime.' }, 200)
+      .filter(
+        (entry) =>
+          entry.message.startsWith('runtime.chat_config_') ||
+          entry.message.startsWith('runtime.runtime_config_resolution_'),
+      )
+      .slice(-20)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      }));
 
   try {
     return await waitForEvent({
@@ -554,6 +574,8 @@ const waitForFlowFinal = async (params: {
               message: entry.message,
               context: entry.context,
             })),
+          runtimeResolutionLogs: getRuntimeResolutionLogs(),
+          runtimeConfigLogs: getGlobalRuntimeConfigLogs(),
         }),
       describeEvent: (event) => JSON.stringify(event),
     });
@@ -597,6 +619,8 @@ const waitForFlowFinal = async (params: {
         `latestTurnFinalLog=${JSON.stringify(
           getLatestTurnFinalLog()?.context ?? null,
         )}`,
+        `runtimeResolutionLogs=${JSON.stringify(getRuntimeResolutionLogs())}`,
+        `runtimeConfigLogs=${JSON.stringify(getGlobalRuntimeConfigLogs())}`,
       ].join(' | '),
     );
   }

@@ -94,6 +94,7 @@ import type {
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from '../mongo/turn.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 import {
@@ -2031,7 +2032,8 @@ const ensureFlowAgentConversation = async (params: {
 };
 
 const flowsDirForRun = () => {
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
+  const configuredFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  if (configuredFlowsDir) return path.resolve(configuredFlowsDir);
   const { codeInfoRoot } = resolveAgentHomeEnv();
   if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
   return path.resolve('flows');

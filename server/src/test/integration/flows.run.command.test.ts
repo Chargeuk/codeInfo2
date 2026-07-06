@@ -46,8 +46,10 @@ import { attachWs } from '../../ws/server.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
@@ -345,81 +347,79 @@ const withFlowServer = async (
     flowServiceDeps?: Parameters<typeof __setFlowServiceDepsForTests>[0];
   },
 ) => {
-  const prevPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-cmd-'));
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codeinfo_agents');
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  resetStore();
-
-  if (options?.listIngestedRepositories) {
-    __setAgentServiceDepsForTests({
-      listIngestedRepositories: () => options.listIngestedRepositories!(tmpDir),
-    });
-    __setMarkdownFileResolverDepsForTests({
-      listIngestedRepositories: () => options.listIngestedRepositories!(tmpDir),
-      ...(options.markdownReadFile
-        ? { readFile: options.markdownReadFile }
-        : {}),
-    });
-  }
-  if (options?.flowServiceDeps) {
-    __setFlowServiceDepsForTests(options.flowServiceDeps);
-  }
-
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: bindCurrentTestOverrides((params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: options?.chatFactory ?? (() => new ScriptedChat()),
-          ...(options?.listIngestedRepositories
-            ? {
-                listIngestedRepositories: () =>
-                  options.listIngestedRepositories!(tmpDir),
-              }
-            : {}),
-        })),
-    }),
-  );
-
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const ws = await connectWs({ baseUrl });
-
   try {
-    await task({ baseUrl, wsUrl: ws, tmpDir });
+    await withDeterministicCodexAvailabilityBootstrap(async () =>
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_AGENT_HOME: path.join(repoRoot, 'codeinfo_agents'),
+          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
+          FLOWS_DIR: tmpDir,
+        },
+        async () => {
+          resetStore();
+
+          if (options?.listIngestedRepositories) {
+            __setAgentServiceDepsForTests({
+              listIngestedRepositories: () =>
+                options.listIngestedRepositories!(tmpDir),
+            });
+            __setMarkdownFileResolverDepsForTests({
+              listIngestedRepositories: () =>
+                options.listIngestedRepositories!(tmpDir),
+              ...(options.markdownReadFile
+                ? { readFile: options.markdownReadFile }
+                : {}),
+            });
+          }
+          if (options?.flowServiceDeps) {
+            __setFlowServiceDepsForTests(options.flowServiceDeps);
+          }
+
+          const app = express();
+          app.use(
+            createFlowsRunRouter({
+              startFlowRun: bindCurrentTestOverrides((params) =>
+                startFlowRun({
+                  ...params,
+                  chatFactory:
+                    options?.chatFactory ?? (() => new ScriptedChat()),
+                  ...(options?.listIngestedRepositories
+                    ? {
+                        listIngestedRepositories: () =>
+                          options.listIngestedRepositories!(tmpDir),
+                      }
+                    : {}),
+                })),
+            }),
+          );
+
+          const httpServer = http.createServer(app);
+          const wsHandle = attachWs({ httpServer });
+          await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+          const address = httpServer.address();
+          assert(address && typeof address === 'object');
+          const baseUrl = `http://127.0.0.1:${address.port}`;
+          const ws = await connectWs({ baseUrl });
+
+          try {
+            await task({ baseUrl, wsUrl: ws, tmpDir });
+          } finally {
+            __resetAgentServiceDepsForTests();
+            __resetMarkdownFileResolverDepsForTests();
+            __resetFlowServiceDepsForTests();
+            await closeWs(ws);
+            await wsHandle.close();
+            await new Promise<void>((resolve) =>
+              httpServer.close(() => resolve()),
+            );
+          }
+        },
+      ),
+    );
   } finally {
-    __resetAgentServiceDepsForTests();
-    __resetMarkdownFileResolverDepsForTests();
-    __resetFlowServiceDepsForTests();
-    await closeWs(ws);
-    await wsHandle.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    if (prevPreferredAgentsHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = prevPreferredAgentsHome;
-    }
-    if (prevAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 };
@@ -2129,7 +2129,7 @@ test('flow-owned command message execution matches the direct-command path for t
         status: 'ok',
       });
 
-      await runAgentCommand({
+      await bindCurrentTestOverrides(runAgentCommand)({
         agentName: 'planning_agent',
         commandName,
         conversationId: directConversationId,
@@ -2216,7 +2216,7 @@ test('flow command-step retries and direct-command retries remain unchanged afte
         });
         assert.equal(flowAttempts.count, 2);
 
-        await runAgentCommand({
+        await bindCurrentTestOverrides(runAgentCommand)({
           agentName: 'planning_agent',
           commandName,
           conversationId: directConversationId,

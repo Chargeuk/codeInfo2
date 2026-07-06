@@ -21,6 +21,7 @@ import {
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { parseFlowFile, type FlowFile, type FlowStep } from './flowSchema.js';
 import {
   buildRepositoryCandidateOrder,
@@ -54,7 +55,8 @@ const isSafeCommandName = (raw: string): boolean => {
 
 const resolveFlowsDir = (baseDir?: string): string => {
   if (baseDir) return path.resolve(baseDir);
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
+  const configuredFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  if (configuredFlowsDir) return path.resolve(configuredFlowsDir);
   const { codeInfoRoot } = resolveAgentHomeEnv();
   if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
   return path.resolve('flows');

@@ -51,6 +51,8 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -491,52 +493,53 @@ const withFlowServer = async (
   },
 ) => {
   await withDeterministicCodexAvailabilityBootstrap(async () => {
-    const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-    const prevFlowsDir = process.env.FLOWS_DIR;
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-loop-'));
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
-    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-    process.env.FLOWS_DIR = tmpDir;
-
-    const app = express();
-    app.use(
-      createFlowsRunRouter({
-        startFlowRun: (params) =>
-          startFlowRun({
-            ...params,
-            chatFactory:
-              options?.chatFactory ?? (() => new ScriptedChat(responder)),
-            listIngestedRepositories:
-              options?.listIngestedRepositoriesFn ??
-              (options?.registerTmpDirAsRepo
-                ? () => listHarnessRepo(tmpDir)
-                : undefined),
-            onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
-            cleanupInflightFn: options?.cleanupInflightFn,
-            releaseConversationLockFn: options?.releaseConversationLockFn,
-          }),
-      }),
-    );
-
-    const httpServer = http.createServer(app);
-    const wsHandle = attachWs({ httpServer });
-    await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-    const address = httpServer.address();
-    assert(address && typeof address === 'object');
-    const baseUrl = `http://127.0.0.1:${address.port}`;
-    const ws = await connectWs({ baseUrl });
-
     try {
-      await task({ baseUrl, wsUrl: ws, tmpDir });
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
+          FLOWS_DIR: tmpDir,
+        },
+        async () => {
+          const app = express();
+          app.use(
+            createFlowsRunRouter({
+              startFlowRun: bindCurrentTestOverrides((params) =>
+                startFlowRun({
+                  ...params,
+                  chatFactory:
+                    options?.chatFactory ?? (() => new ScriptedChat(responder)),
+                  listIngestedRepositories:
+                    options?.listIngestedRepositoriesFn ??
+                    (options?.registerTmpDirAsRepo
+                      ? () => listHarnessRepo(tmpDir)
+                      : undefined),
+                  onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
+                  cleanupInflightFn: options?.cleanupInflightFn,
+                  releaseConversationLockFn: options?.releaseConversationLockFn,
+                })),
+            }),
+          );
+
+          const httpServer = http.createServer(app);
+          const wsHandle = attachWs({ httpServer });
+          await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+          const address = httpServer.address();
+          assert(address && typeof address === 'object');
+          const baseUrl = `http://127.0.0.1:${address.port}`;
+          const ws = await connectWs({ baseUrl });
+
+          try {
+            await task({ baseUrl, wsUrl: ws, tmpDir });
+          } finally {
+            await closeFlowHarness({ ws, wsHandle, httpServer });
+          }
+        },
+      );
     } finally {
-      await closeFlowHarness({ ws, wsHandle, httpServer });
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-      if (prevFlowsDir) {
-        process.env.FLOWS_DIR = prevFlowsDir;
-      } else {
-        delete process.env.FLOWS_DIR;
-      }
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
   });

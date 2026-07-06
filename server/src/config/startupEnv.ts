@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChatProviderId } from '@codeinfo2/common';
 import { parse } from 'dotenv';
+import { getScopedProcessEnv } from '../test/support/testEnvOverrideScope.js';
 import {
   attachOpenAiCompatEndpointKeys,
   resolveOpenAiCompatEndpointConfigsFromList,
@@ -151,7 +152,7 @@ export const ensureStartupEnvLoaded = (): StartupEnvLoadResult => {
 export const resolveOpenAiEmbeddingCapabilityState = (
   env: Record<string, string | undefined> = process.env,
 ): { enabled: boolean } => {
-  const key = env.CODEINFO_OPENAI_EMBEDDING_KEY;
+  const key = getScopedProcessEnv(env).CODEINFO_OPENAI_EMBEDDING_KEY;
   return { enabled: typeof key === 'string' && key.trim().length > 0 };
 };
 
@@ -163,7 +164,7 @@ export const resolveCodeinfoEnvResolutions = ({
   loadResult?: StartupEnvLoadResult;
 } = {}): CodeinfoEnvResolution[] =>
   SERVER_CODEINFO_ENV_NAMES.map((name) => {
-    const rawValue = env[name];
+    const rawValue = getScopedProcessEnv(env)[name];
     return {
       name,
       source: loadResult.valueSources[name] ?? 'absent',
@@ -177,12 +178,13 @@ export const resolveExternalOpenAiCompatEndpoints = ({
 }: {
   env?: Record<string, string | undefined>;
 } = {}): ExternalOpenAiCompatEndpointResolution => {
+  const effectiveEnv = getScopedProcessEnv(env);
   const endpoints = resolveOpenAiCompatEndpointConfigsFromList({
-    value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+    value: effectiveEnv.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
     pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
   });
   const keys = resolveOpenAiCompatEndpointKeysFromList({
-    value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
+    value: effectiveEnv.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
     pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
   });
   return attachOpenAiCompatEndpointKeys({
@@ -198,7 +200,8 @@ const isChatProviderId = (value: string): value is ChatProviderId =>
 export const resolveAgentProviderFallbackOrder = (
   env: Record<string, string | undefined> = process.env,
 ): AgentProviderFallbackOrderResolution => {
-  const rawValue = env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+  const rawValue =
+    getScopedProcessEnv(env).CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
   const warnings: string[] = [];
   const normalizedProviders: ChatProviderId[] = [];
   const seen = new Set<ChatProviderId>();

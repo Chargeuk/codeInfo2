@@ -1,9 +1,4 @@
 import {
-  getCodexDetection,
-  setCodexDetection,
-  type CodexDetection,
-} from '../../providers/codexRegistry.js';
-import {
   __resetAgentAvailabilityDepsForTests,
   __setAgentAvailabilityDepsForTests,
 } from '../../agents/availability.js';
@@ -11,6 +6,11 @@ import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
 } from '../../agents/service.js';
+import {
+  getCodexDetection,
+  setCodexDetection,
+  type CodexDetection,
+} from '../../providers/codexRegistry.js';
 import {
   enterTestOverrideScope,
   hasActiveTestOverrideScope,

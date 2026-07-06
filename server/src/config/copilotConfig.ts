@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { ChatProviderId } from '@codeinfo2/common';
 import type { CopilotClientOptions } from '@github/copilot-sdk';
 import { parse as parseJsonc, type ParseError } from 'jsonc-parser';
+import { getScopedProcessEnv } from '../test/support/testEnvOverrideScope.js';
 
 export const DEFAULT_CODEINFO_COPILOT_HOME = './copilot';
 export const DEFAULT_CODEINFO_LMSTUDIO_HOME = './lmstudio';
@@ -103,7 +104,7 @@ function isJsonObjectRecord(
 function hasExplicitConfiguredCopilotHome(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const configuredHome = env.CODEINFO_COPILOT_HOME;
+  const configuredHome = getScopedProcessEnv(env).CODEINFO_COPILOT_HOME;
   return typeof configuredHome === 'string' && configuredHome.trim().length > 0;
 }
 
@@ -111,8 +112,11 @@ export function resolveCopilotHome(
   overrideHome?: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
+  const effectiveEnv = getScopedProcessEnv(env);
   return path.resolve(
-    overrideHome ?? env.CODEINFO_COPILOT_HOME ?? DEFAULT_CODEINFO_COPILOT_HOME,
+    overrideHome ??
+      effectiveEnv.CODEINFO_COPILOT_HOME ??
+      DEFAULT_CODEINFO_COPILOT_HOME,
   );
 }
 
@@ -155,9 +159,10 @@ export function resolveLmStudioHome(
   overrideHome?: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
+  const effectiveEnv = getScopedProcessEnv(env);
   return path.resolve(
     overrideHome ??
-      env.CODEINFO_LMSTUDIO_HOME ??
+      effectiveEnv.CODEINFO_LMSTUDIO_HOME ??
       DEFAULT_CODEINFO_LMSTUDIO_HOME,
   );
 }

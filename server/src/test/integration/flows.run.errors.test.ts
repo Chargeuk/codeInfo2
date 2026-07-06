@@ -51,6 +51,8 @@ import {
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -388,62 +390,61 @@ async function withFlowHarness(
   },
 ): Promise<void> {
   await withDeterministicCodexAvailabilityBootstrap(async () => {
-    const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-    const prevFlowsDir = process.env.FLOWS_DIR;
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-reingest-'));
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
-    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-    process.env.FLOWS_DIR = tmpDir;
-
-    const app = express();
-    app.use(
-      createFlowsRunRouter({
-        startFlowRun: (params) =>
-          startFlowRun({
-            ...params,
-            chatFactory: () => new MinimalChat(),
-            listIngestedRepositories: options?.registerTmpDirAsRepo
-              ? async () => ({
-                  repos: [
-                    buildRepoEntry({
-                      id: 'flow-test-repo',
-                      containerPath: tmpDir,
-                    }),
-                  ],
-                  lockedModelId: null,
-                })
-              : undefined,
-          }),
-      }),
-    );
-    const httpServer = http.createServer(app);
-    const wsHandle = attachWs({ httpServer });
-    await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-    const address = httpServer.address();
-    assert(address && typeof address === 'object');
-    const baseUrl = `http://127.0.0.1:${address.port}`;
-    const ws = await connectWs({ baseUrl });
-
     try {
-      await task({ tmpDir, baseUrl, ws });
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
+          FLOWS_DIR: tmpDir,
+        },
+        async () => {
+          const app = express();
+          app.use(
+            createFlowsRunRouter({
+              startFlowRun: bindCurrentTestOverrides((params) =>
+                startFlowRun({
+                  ...params,
+                  chatFactory: () => new MinimalChat(),
+                  listIngestedRepositories: options?.registerTmpDirAsRepo
+                    ? async () => ({
+                        repos: [
+                          buildRepoEntry({
+                            id: 'flow-test-repo',
+                            containerPath: tmpDir,
+                          }),
+                        ],
+                        lockedModelId: null,
+                      })
+                    : undefined,
+                })),
+            }),
+          );
+          const httpServer = http.createServer(app);
+          const wsHandle = attachWs({ httpServer });
+          await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+          const address = httpServer.address();
+          assert(address && typeof address === 'object');
+          const baseUrl = `http://127.0.0.1:${address.port}`;
+          const ws = await connectWs({ baseUrl });
+
+          try {
+            await task({ tmpDir, baseUrl, ws });
+          } finally {
+            __resetFlowServiceDepsForTests();
+            __resetMarkdownFileResolverDepsForTests();
+            resetStore();
+            await closeWs(ws);
+            await wsHandle.close();
+            await new Promise<void>((resolve) =>
+              httpServer.close(() => resolve()),
+            );
+          }
+        },
+      );
     } finally {
-      __resetFlowServiceDepsForTests();
-      __resetMarkdownFileResolverDepsForTests();
-      resetStore();
-      await closeWs(ws);
-      await wsHandle.close();
-      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-      if (prevAgentsHome) {
-        process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-      } else {
-        delete process.env.CODEINFO_CODEX_AGENT_HOME;
-      }
-      if (prevFlowsDir) {
-        process.env.FLOWS_DIR = prevFlowsDir;
-      } else {
-        delete process.env.FLOWS_DIR;
-      }
       await fs.rm(tmpDir, { recursive: true, force: true });
       memoryConversations.clear();
       memoryTurns.clear();

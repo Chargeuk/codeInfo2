@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { buildOpenAiCompatProxyBaseUrl } from '../chat/openaiCompatAdapter.js';
 import { baseLogger } from '../logger.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import {
   resolveCodeinfoMcpEndpointContract,
   resolveRequiredCodeinfoPlaceholderValue,
@@ -55,7 +56,9 @@ trust_level = "trusted"
 
 export function resolveCodexHome(overrideHome?: string): string {
   const defaultHome =
-    process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME ?? './codex';
+    getScopedEnvValue('CODEINFO_CODEX_HOME') ??
+    getScopedEnvValue('CODEX_HOME') ??
+    './codex';
   return path.resolve(overrideHome ?? defaultHome);
 }
 

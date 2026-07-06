@@ -52,6 +52,7 @@ import {
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -589,9 +590,6 @@ const withMarkdownFlowHarness = async (
   }) => Promise<void>,
 ) => {
   await withDeterministicCodexAvailabilityBootstrap(async () => {
-    const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-    const previousFlowsDir = process.env.FLOWS_DIR;
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'flows-markdown-file-'),
     );
@@ -606,91 +604,83 @@ const withMarkdownFlowHarness = async (
       codexHome,
     });
 
-    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_HOME = codexHome;
-    process.env.FLOWS_DIR = localFlowsDir;
-
     const conversations = new Set<string>();
 
     try {
-      await task({
-        tempRoot,
-        codeInfo2Root,
-        localFlowsDir,
-        buildRepoEntry,
-        writeFlowFile,
-        writeMarkdownFile,
-        runFlow: async ({
-          flowName,
-          conversationId,
-          listedRepos = [],
-          sourceId,
-          finalContent,
-          resolverListRepos,
-          resolverReadFile,
-          turnsPredicate,
-        }) => {
-          conversations.add(conversationId);
-          const messages: string[] = [];
-          const repoResult = {
-            repos: listedRepos,
-            lockedModelId: null,
-          };
-          __setMarkdownFileResolverDepsForTests({
-            listIngestedRepositories:
-              resolverListRepos ??
-              (async () => ({ repos: listedRepos, lockedModelId: null })),
-            ...(resolverReadFile ? { readFile: resolverReadFile } : {}),
-          });
-
-          await startFlowRun({
-            flowName,
-            conversationId,
-            source: 'REST',
-            sourceId,
-            chatFactory: () => new CapturingChat(messages, finalContent),
-            listIngestedRepositories: async () => repoResult,
-          });
-
-          const turns = await waitForTurns(
-            conversationId,
-            turnsPredicate,
-            4000,
-            () =>
-              JSON.stringify({
-                messages,
-                runtime: JSON.parse(describeConversationRuntime(conversationId)),
-              }),
-          );
-          collectAgentConversationIds(conversationId).forEach((id) =>
-            conversations.add(id),
-          );
-          await waitFor(
-            () =>
-              messages.length > 0 ||
-              turns.some((turn) => turn.role === 'assistant'),
-          );
-          return { messages, turns };
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_CODEX_AGENT_HOME: agentsHome,
+          CODEINFO_CODEX_HOME: codexHome,
+          FLOWS_DIR: localFlowsDir,
         },
-      });
+        async () => {
+          await task({
+            tempRoot,
+            codeInfo2Root,
+            localFlowsDir,
+            buildRepoEntry,
+            writeFlowFile,
+            writeMarkdownFile,
+            runFlow: async ({
+              flowName,
+              conversationId,
+              listedRepos = [],
+              sourceId,
+              finalContent,
+              resolverListRepos,
+              resolverReadFile,
+              turnsPredicate,
+            }) => {
+              conversations.add(conversationId);
+              const messages: string[] = [];
+              const repoResult = {
+                repos: listedRepos,
+                lockedModelId: null,
+              };
+              __setMarkdownFileResolverDepsForTests({
+                listIngestedRepositories:
+                  resolverListRepos ??
+                  (async () => ({ repos: listedRepos, lockedModelId: null })),
+                ...(resolverReadFile ? { readFile: resolverReadFile } : {}),
+              });
+
+              await startFlowRun({
+                flowName,
+                conversationId,
+                source: 'REST',
+                sourceId,
+                chatFactory: () => new CapturingChat(messages, finalContent),
+                listIngestedRepositories: async () => repoResult,
+              });
+
+              const turns = await waitForTurns(
+                conversationId,
+                turnsPredicate,
+                4000,
+                () =>
+                  JSON.stringify({
+                    messages,
+                    runtime: JSON.parse(
+                      describeConversationRuntime(conversationId),
+                    ),
+                  }),
+              );
+              collectAgentConversationIds(conversationId).forEach((id) =>
+                conversations.add(id),
+              );
+              await waitFor(
+                () =>
+                  messages.length > 0 ||
+                  turns.some((turn) => turn.role === 'assistant'),
+              );
+              return { messages, turns };
+            },
+          });
+        },
+      );
     } finally {
       __resetMarkdownFileResolverDepsForTests();
       cleanupMemory(...conversations);
-      if (previousAgentsHome === undefined) {
-        delete process.env.CODEINFO_CODEX_AGENT_HOME;
-      } else {
-        process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-      }
-      if (previousCodexHome === undefined) {
-        delete process.env.CODEINFO_CODEX_HOME;
-      } else {
-        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-      }
-      if (previousFlowsDir) {
-        process.env.FLOWS_DIR = previousFlowsDir;
-      } else {
-        delete process.env.FLOWS_DIR;
-      }
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });

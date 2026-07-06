@@ -31,11 +31,14 @@ import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
 } from '../support/mockCopilotSdk.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
@@ -487,8 +490,6 @@ test('a fresh run still starts a replacement conversation when the older selecte
 
 test('a flow-created child agent conversation inherits the exact flow-step folder', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -499,71 +500,81 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
   const workingFolder = path.join(tmpDir, 'working-root');
   await fs.mkdir(workingFolder, { recursive: true });
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new MinimalChat(),
-          listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(workingFolder)],
-            lockedModelId: null,
-          }),
-        }),
-    }),
-  );
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({
-        conversationId: 'flow-child-working-folder',
-        working_folder: workingFolder,
-      })
-      .expect(202);
+    await withDeterministicCodexAvailabilityBootstrap(async () => {
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
+          FLOWS_DIR: tmpDir,
+        },
+        async () => {
+          const app = express();
+          app.use(
+            createFlowsRunRouter({
+              startFlowRun: bindCurrentTestOverrides((params) =>
+                startFlowRun({
+                  ...params,
+                  chatFactory: () => new MinimalChat(),
+                  listIngestedRepositories: async () => ({
+                    repos: [buildRepoEntry(workingFolder)],
+                    lockedModelId: null,
+                  }),
+                })),
+            }),
+          );
 
-    assert.equal(res.body.status, 'started');
+          const res = await supertest(app)
+            .post('/flows/llm-basic/run')
+            .send({
+              conversationId: 'flow-child-working-folder',
+              working_folder: workingFolder,
+            })
+            .expect(202);
 
-    let childConversationId: string | undefined;
-    await waitForCondition(
-      () => {
-        childConversationId = (
-          memoryConversations.get('flow-child-working-folder')?.flags?.flow as
-            | { agentConversations?: Record<string, string> }
-            | undefined
-        )?.agentConversations?.['coding_agent:basic'];
-        return Boolean(childConversationId);
-      },
-      4000,
-      () =>
-        JSON.stringify({
-          parent: JSON.parse(
-            describeConversationState('flow-child-working-folder'),
-          ),
-          childConversationId:
-            (
-              memoryConversations.get('flow-child-working-folder')?.flags
-                ?.flow as
-                | { agentConversations?: Record<string, string> }
-                | undefined
-            )?.agentConversations?.['coding_agent:basic'] ?? null,
-          child:
-            childConversationId &&
-            memoryConversations.has(childConversationId)
-              ? JSON.parse(describeConversationState(childConversationId))
-              : null,
-        }),
-    );
+          assert.equal(res.body.status, 'started');
 
-    assert.ok(childConversationId);
-    assert.equal(
-      memoryConversations.get(childConversationId!)?.flags?.workingFolder,
-      workingFolder,
-    );
+          let childConversationId: string | undefined;
+          await waitForCondition(
+            () => {
+              childConversationId = (
+                memoryConversations.get('flow-child-working-folder')?.flags
+                  ?.flow as
+                  | { agentConversations?: Record<string, string> }
+                  | undefined
+              )?.agentConversations?.['coding_agent:basic'];
+              return Boolean(childConversationId);
+            },
+            4000,
+            () =>
+              JSON.stringify({
+                parent: JSON.parse(
+                  describeConversationState('flow-child-working-folder'),
+                ),
+                childConversationId:
+                  (
+                    memoryConversations.get('flow-child-working-folder')?.flags
+                      ?.flow as
+                      | { agentConversations?: Record<string, string> }
+                      | undefined
+                  )?.agentConversations?.['coding_agent:basic'] ?? null,
+                child:
+                  childConversationId &&
+                  memoryConversations.has(childConversationId)
+                    ? JSON.parse(describeConversationState(childConversationId))
+                    : null,
+              }),
+          );
+
+          assert.ok(childConversationId);
+          assert.equal(
+            memoryConversations.get(childConversationId!)?.flags?.workingFolder,
+            workingFolder,
+          );
+        },
+      );
+    });
   } finally {
     const childConversationId = (
       memoryConversations.get('flow-child-working-folder')?.flags?.flow as
@@ -576,12 +587,6 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
     }
     memoryConversations.delete('flow-child-working-folder');
     memoryTurns.delete('flow-child-working-folder');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

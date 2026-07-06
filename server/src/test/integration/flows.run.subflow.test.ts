@@ -17,7 +17,9 @@ import type { Conversation } from '../../mongo/conversation.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -486,7 +488,7 @@ afterEach(async () => {
 
 test('subflow step launches a child flow, waits for completion, and uses the generated child title', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-ok-'));
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -551,7 +553,7 @@ test('subflow step launches multiple child flows in parallel and waits for all o
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-ok-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -664,7 +666,7 @@ test('parallel subflow waits for every child and fails when any child fails', as
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-fail-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -725,7 +727,7 @@ test('nested subflows track only direct children per conversation and still comp
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-nested-parallel-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -790,7 +792,7 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-inflight-rotation-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -838,7 +840,7 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
 
 test('subflow step mirrors child failure onto the parent flow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-fail-'));
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -876,7 +878,7 @@ test('subflow waits for the full child flow and can fail on a later child step',
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-fail-later-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -930,7 +932,7 @@ test('subflow fails when the child crashes after a prior successful step', async
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stale-ok-crash-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -988,7 +990,7 @@ test('subflow fails fast when flows reference each other recursively', async () 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-recursive-cycle-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1045,7 +1047,7 @@ test('subflow fails fast when flows reference each other recursively', async () 
 
 test('stopping the parent flow stops the running child subflow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
   let releaseBlockedChild = false;
 
   try {
@@ -1165,10 +1167,11 @@ test('stopping the parent flow stops every running child in a parallel subflow s
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-parallel-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
   let releaseBlockedChildren = false;
 
   try {
+    await withDeterministicCodexAvailabilityBootstrap(async () => {
     await writeFlowFile({
       tmpDir,
       flowName: 'child-slow-a',
@@ -1341,6 +1344,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
         ),
       ),
     );
+    });
   } finally {
     releaseBlockedChildren = true;
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -1351,7 +1355,7 @@ test('parent stop becomes warning when cancel arrives after child completion', a
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-sticky-parent-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1420,7 +1424,7 @@ test('pending parent stop prevents launching a new child subflow', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-before-launch-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1466,7 +1470,7 @@ test('resume reattaches to an already running child subflow instead of launching
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1551,7 +1555,7 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-legacy-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1634,9 +1638,10 @@ test('resume reattaches to already running parallel child subflows instead of la
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-parallel-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
+    await withDeterministicCodexAvailabilityBootstrap(async () => {
     await writeFlowFile({
       tmpDir,
       flowName: 'child-resume-a',
@@ -1750,6 +1755,7 @@ test('resume reattaches to already running parallel child subflows instead of la
     );
     assert.equal(childAConversations.length, 1);
     assert.equal(childBConversations.length, 1);
+    });
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1759,7 +1765,7 @@ test('resumed parent stop wins when the restored child already finished', async 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-terminal-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1849,7 +1855,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-terminal-parallel-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1981,7 +1987,7 @@ test('resume fails stale subflows that have no active child run or terminal resu
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2078,7 +2084,7 @@ test('resume fails stale legacy activeSubflow state that has no active child run
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-legacy-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2173,7 +2179,7 @@ test('resume fails stale remembered subflows before launching missing parallel c
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-before-launch-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2280,7 +2286,7 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-persisted-title-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'), FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({

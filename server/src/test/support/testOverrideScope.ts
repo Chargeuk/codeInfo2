@@ -22,6 +22,7 @@ type TestOverrideStore = {
   codexDetection?: CodexDetectionOverride;
   agentServiceDeps?: OverrideRecord;
   agentAvailabilityDeps?: OverrideRecord;
+  envOverrides?: Record<string, string | undefined>;
   providerBootstrapStatuses?: Partial<
     Record<ChatProviderId, ProviderBootstrapStatusOverride>
   >;
@@ -31,6 +32,7 @@ type TestOverridePatch = {
   codexDetection?: CodexDetectionOverride | null;
   agentServiceDeps?: OverrideRecord | null;
   agentAvailabilityDeps?: OverrideRecord | null;
+  envOverrides?: Record<string, string | undefined> | null;
   providerBootstrapStatuses?: Partial<
     Record<ChatProviderId, ProviderBootstrapStatusOverride | null>
   > | null;
@@ -103,6 +105,15 @@ const mergeStore = (
     current?.agentAvailabilityDeps,
     patch.agentAvailabilityDeps,
   ),
+  envOverrides:
+    patch.envOverrides === undefined
+      ? current?.envOverrides
+      : patch.envOverrides === null
+        ? undefined
+        : {
+            ...(current?.envOverrides ?? {}),
+            ...patch.envOverrides,
+          },
   providerBootstrapStatuses: mergeProviderBootstrapStatuses(
     current?.providerBootstrapStatuses,
     patch.providerBootstrapStatuses,
@@ -150,6 +161,36 @@ export function getScopedAgentAvailabilityDepsOverride():
   | OverrideRecord
   | undefined {
   return storage.getStore()?.agentAvailabilityDeps;
+}
+
+export function getScopedEnvOverrides():
+  | Record<string, string | undefined>
+  | undefined {
+  return storage.getStore()?.envOverrides;
+}
+
+export function getScopedEnvValue(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const scoped = storage.getStore()?.envOverrides;
+  if (scoped && Object.prototype.hasOwnProperty.call(scoped, name)) {
+    return scoped[name];
+  }
+  return env[name];
+}
+
+export function getScopedProcessEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const scoped = storage.getStore()?.envOverrides;
+  if (!scoped) {
+    return env;
+  }
+  return {
+    ...env,
+    ...scoped,
+  };
 }
 
 export function getScopedProviderBootstrapStatusOverride(

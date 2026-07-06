@@ -108,6 +108,7 @@ import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
   enterTestOverrideScope,
   getScopedAgentServiceDepsOverride,
+  getScopedEnvValue,
   hasActiveTestOverrideScope,
 } from '../test/support/testOverrideScope.js';
 import {
@@ -316,7 +317,7 @@ const agentServiceDeps: AgentServiceDeps = {
     new LMStudioClient({
       baseUrl,
     } as LMStudioClientConstructorOpts),
-  getLmStudioBaseUrl: () => process.env.CODEINFO_LMSTUDIO_BASE_URL,
+  getLmStudioBaseUrl: () => getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL'),
 };
 
 const getEffectiveAgentServiceDeps = (): AgentServiceDeps => {
@@ -365,7 +366,7 @@ export function __resetAgentServiceDepsForTests() {
       baseUrl,
     } as LMStudioClientConstructorOpts);
   agentServiceDeps.getLmStudioBaseUrl = () =>
-    process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL');
 }
 
 type DirectAgentProviderState = {
@@ -2057,7 +2058,7 @@ function isSafeAgentCommandName(raw: string): boolean {
 const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.1-codex-max';
 
 const loadKnownRepositoryPathsStateForAgentRuns = async () =>
-  await agentServiceDeps
+  await getEffectiveAgentServiceDeps()
     .listIngestedRepositories()
     .then((result) => ({
       repos: result.repos,

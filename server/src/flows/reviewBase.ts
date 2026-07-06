@@ -326,7 +326,6 @@ async function resolveBaseComparison(params: {
 
     let mergedResult: GitCommandResult | null = null;
     const canCompareRemote =
-      remoteFetchStatus === 'success' &&
       (await refExists(repoRoot, remoteBranchRef, deps, signal)) &&
       (await refExists(repoRoot, remoteDefaultRef, deps, signal));
     const canCompareLocal =
@@ -375,7 +374,7 @@ async function resolveBaseComparison(params: {
       resolvedBaseBranch: logicalBaseBranch,
       resolvedBaseSource: 'remote',
       remoteName: 'origin',
-      remoteFetchStatus: 'success',
+      remoteFetchStatus,
       localFallbackReason: null,
       comparisonBaseRef: preferredRemoteRef,
       comparisonBaseCommit,

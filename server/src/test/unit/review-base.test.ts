@@ -30,6 +30,8 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       assert.equal(file, 'git');
       const key = args.slice(2).join(' ');
       switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
         case 'branch --show-current':
           return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
         case 'rev-parse HEAD^{commit}':
@@ -76,6 +78,8 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       workingRepositoryPath: repoRoot,
       storyNumber: '0000027',
       outputKey: 'current-review-base',
+    }, {
+      execFile,
     });
     assert.ok(loaded);
     assert.equal(loaded?.artifact.comparison_base_ref, 'origin/main');
@@ -169,6 +173,8 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
       assert.equal(file, 'git');
       const key = args.slice(2).join(' ');
       switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
         case 'branch --show-current':
           return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
         case 'rev-parse HEAD^{commit}':
@@ -206,9 +212,94 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
     );
 
     assert.equal(result.artifact.resolved_base_source, 'remote');
-    assert.equal(result.artifact.remote_fetch_status, 'success');
+    assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
     assert.equal(result.artifact.local_fallback_reason, null);
     assert.equal(result.artifact.comparison_base_ref, 'origin/main');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('prepareReviewBase still uses cached remote parent refs after fetch failure', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-base-cached-parent-'),
+  );
+  const parentBranch = 'feature/shared-parent';
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: parentBranch,
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      assert.equal(file, 'git');
+      const key = args.slice(2).join(' ');
+      switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
+        case 'branch --show-current':
+          return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+        case 'rev-parse HEAD^{commit}':
+          return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+        case 'remote get-url origin':
+          return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+        case 'fetch --prune origin':
+          throw Object.assign(new Error('network down'), {
+            code: 1,
+            stdout: '',
+            stderr: 'fatal: network down',
+          });
+        case 'rev-parse --verify origin/main':
+        case `rev-parse --verify origin/${parentBranch}`:
+          return { stdout: `${BASE_SHA}\n`, stderr: '' };
+        case `merge-base --is-ancestor origin/${parentBranch} origin/main`:
+          throw Object.assign(new Error('not merged'), {
+            code: 1,
+            stdout: '',
+            stderr: '',
+          });
+        case `rev-parse origin/${parentBranch}^{commit}`:
+          return { stdout: `${BASE_SHA}\n`, stderr: '' };
+        case 'rev-parse --verify main':
+        case `rev-parse --verify ${parentBranch}`:
+          throw Object.assign(new Error(`missing local ref: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `fatal: Needed a single revision: ${key}`,
+          });
+        default:
+          throw Object.assign(new Error(`unexpected git command: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `unexpected git command: ${key}`,
+          });
+      }
+    };
+
+    const result = await prepareReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-review-base',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:31:30.000Z'),
+      },
+    );
+
+    assert.equal(result.artifact.logical_base_branch, parentBranch);
+    assert.equal(result.artifact.resolved_base_source, 'remote');
+    assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
+    assert.equal(
+      result.artifact.comparison_base_ref,
+      `origin/${parentBranch}`,
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -240,6 +331,8 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
       assert.equal(file, 'git');
       const key = args.slice(2).join(' ');
       switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
         case 'branch --show-current':
           return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
         case 'rev-parse HEAD^{commit}':

@@ -97,6 +97,8 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
         gitCalls.push({ args, options });
         const key = args.slice(2).join(' ');
         switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
@@ -276,10 +278,14 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
         const key = args.slice(2).join(' ');
         gitCalls.push(key);
         switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'rev-parse HEAD^{commit}':
             return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
           case 'rev-parse --short HEAD^{commit}':
             return { stdout: 'd30c1246\n', stderr: '' };
           default:
@@ -331,8 +337,11 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
     );
 
     assert.deepEqual(gitCalls, [
+      'rev-parse --show-toplevel',
       'branch --show-current',
       'rev-parse HEAD^{commit}',
+      'rev-parse --show-toplevel',
+      'rev-parse origin/main^{commit}',
       'rev-parse --short HEAD^{commit}',
       'update-ref refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304 a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2',
       'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304',
@@ -510,6 +519,8 @@ test('runCodexReviewStep sanitizes review pass ids before using them in artifact
       if (file === 'git') {
         const key = args.slice(2).join(' ');
         switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
@@ -621,6 +632,8 @@ test('runCodexReviewStep ignores stale review cycle ids from a different story w
       if (file === 'git') {
         const key = args.slice(2).join(' ');
         switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
@@ -847,6 +860,8 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin is 
       if (file === 'git') {
         const key = args.slice(2).join(' ');
         switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
@@ -949,6 +964,8 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin fet
       if (file === 'git') {
         const key = args.slice(2).join(' ');
         switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
@@ -1040,12 +1057,22 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin fet
 
 test('runCodexReviewStep rejects unsupported basePolicy values', async () => {
   await assert.rejects(
-    runCodexReviewStep({
-      workingRepositoryPath: '/tmp/unused-codex-review',
-      outputKey: 'current-codex-review',
-      modelId: 'gpt-5.4',
-      basePolicy: 'unsupported' as 'branched_from_or_default_if_merged',
-    }),
+    runCodexReviewStep(
+      {
+        workingRepositoryPath: '/tmp/unused-codex-review',
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4',
+        basePolicy: 'unsupported' as 'branched_from_or_default_if_merged',
+      },
+      {
+        execFile: async (file, args) => {
+          if (file === 'git' && args.slice(2).join(' ') === 'rev-parse --show-toplevel') {
+            return { stdout: '/tmp/unused-codex-review\n', stderr: '' };
+          }
+          throw new Error(`unexpected executable: ${file}`);
+        },
+      },
+    ),
     /Unsupported codexReview basePolicy/u,
   );
 });
@@ -1067,8 +1094,14 @@ test('runCodexReviewStep rejects when the current branch story does not match th
     );
 
     const execFile = async (file: string, args: readonly string[]) => {
-      if (file === 'git' && args.slice(2).join(' ') === 'branch --show-current') {
-        return { stdout: 'feature/0000028-other-story\n', stderr: '' };
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        if (key === 'rev-parse --show-toplevel') {
+          return { stdout: `${repoRoot}\n`, stderr: '' };
+        }
+        if (key === 'branch --show-current') {
+          return { stdout: 'feature/0000028-other-story\n', stderr: '' };
+        }
       }
       throw new Error(`unexpected executable: ${file}`);
     };

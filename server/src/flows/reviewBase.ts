@@ -130,10 +130,7 @@ const deriveBranchStoryNumber = (branchName: string): string | undefined =>
   branchName.match(BRANCH_STORY_PATTERN)?.[1];
 
 const sanitizeGitError = (value: string) =>
-  value
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 300);
+  value.replace(/\s+/g, ' ').trim().slice(0, 300);
 
 const ensureSafeOutputKey = (outputKey: string) => {
   const trimmed = outputKey.trim();
@@ -146,8 +143,10 @@ const ensureSafeOutputKey = (outputKey: string) => {
 };
 
 const normalizeBranchedFrom = (value: string | undefined): string | undefined =>
-  value?.replace(/^refs\/heads\//, '').replace(/^origin\//, '').trim() ||
-  undefined;
+  value
+    ?.replace(/^refs\/heads\//, '')
+    .replace(/^origin\//, '')
+    .trim() || undefined;
 
 export async function resolveReviewRepositoryRoot(
   workingRepositoryPath: string,
@@ -202,8 +201,7 @@ async function runGit(
       ok: false,
       stdout: execError?.stdout ?? '',
       stderr: execError?.stderr ?? '',
-      code:
-        typeof execError?.code === 'number' ? execError.code : undefined,
+      code: typeof execError?.code === 'number' ? execError.code : undefined,
     };
   }
 }
@@ -243,7 +241,7 @@ async function resolveDefaultBranch(
   deps: Pick<ReviewBaseDeps, 'execFile'>,
   signal?: AbortSignal,
 ): Promise<string> {
-  if (remoteFetchStatus === 'success') {
+  if (remoteFetchStatus !== 'missing_remote') {
     const symbolic = await runGit(
       repoRoot,
       ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
@@ -374,7 +372,7 @@ async function resolveBaseComparison(params: {
       resolvedBaseBranch: logicalBaseBranch,
       resolvedBaseSource: 'remote',
       remoteName: 'origin',
-      remoteFetchStatus,
+      remoteFetchStatus: 'success',
       localFallbackReason: null,
       comparisonBaseRef: preferredRemoteRef,
       comparisonBaseCommit,
@@ -476,8 +474,7 @@ export async function prepareReviewBase(
     params.signal,
   );
   const outputKey = ensureSafeOutputKey(params.outputKey);
-  const basePolicy =
-    params.basePolicy ?? 'branched_from_or_default_if_merged';
+  const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
   if (basePolicy !== 'branched_from_or_default_if_merged') {
     throw new Error(
       `Unsupported prepareReviewBase basePolicy "${basePolicy}".`,
@@ -568,7 +565,10 @@ export async function prepareReviewBase(
     completed_at: resolvedDeps.now().toISOString(),
   };
 
-  await resolvedDeps.writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`);
+  await resolvedDeps.writeFile(
+    artifactPath,
+    `${JSON.stringify(artifact, null, 2)}\n`,
+  );
 
   return { artifactPath, artifact };
 }

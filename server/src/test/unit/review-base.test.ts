@@ -37,7 +37,10 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         case 'rev-parse HEAD^{commit}':
           return { stdout: `${HEAD_SHA}\n`, stderr: '' };
         case 'remote get-url origin':
-          return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          return {
+            stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+            stderr: '',
+          };
         case 'fetch --prune origin':
           return { stdout: '', stderr: '' };
         case 'symbolic-ref --short refs/remotes/origin/HEAD':
@@ -74,13 +77,16 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
     assert.equal(result.artifact.comparison_base_commit, BASE_SHA);
     assert.equal(result.artifact.remote_fetch_status, 'success');
 
-    const loaded = await readPreparedReviewBase({
-      workingRepositoryPath: repoRoot,
-      storyNumber: '0000027',
-      outputKey: 'current-review-base',
-    }, {
-      execFile,
-    });
+    const loaded = await readPreparedReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        storyNumber: '0000027',
+        outputKey: 'current-review-base',
+      },
+      {
+        execFile,
+      },
+    );
     assert.ok(loaded);
     assert.equal(loaded?.artifact.comparison_base_ref, 'origin/main');
   } finally {
@@ -89,7 +95,9 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
 });
 
 test('prepareReviewBase resolves the git toplevel before reading flow-state files', async () => {
-  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'review-base-subdir-'));
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-base-subdir-'),
+  );
   const workingSubdir = path.join(repoRoot, 'server');
   try {
     await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
@@ -115,7 +123,10 @@ test('prepareReviewBase resolves the git toplevel before reading flow-state file
         case 'rev-parse HEAD^{commit}':
           return { stdout: `${HEAD_SHA}\n`, stderr: '' };
         case 'remote get-url origin':
-          return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          return {
+            stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+            stderr: '',
+          };
         case 'fetch --prune origin':
           return { stdout: '', stderr: '' };
         case 'symbolic-ref --short refs/remotes/origin/HEAD':
@@ -180,7 +191,10 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
         case 'rev-parse HEAD^{commit}':
           return { stdout: `${HEAD_SHA}\n`, stderr: '' };
         case 'remote get-url origin':
-          return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          return {
+            stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+            stderr: '',
+          };
         case 'fetch --prune origin':
           throw Object.assign(new Error('network down'), {
             code: 1,
@@ -212,9 +226,94 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
     );
 
     assert.equal(result.artifact.resolved_base_source, 'remote');
-    assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
+    assert.equal(result.artifact.remote_fetch_status, 'success');
     assert.equal(result.artifact.local_fallback_reason, null);
     assert.equal(result.artifact.comparison_base_ref, 'origin/main');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('prepareReviewBase uses cached origin HEAD when fetch fails', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-base-cached-origin-head-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'trunk',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      assert.equal(file, 'git');
+      const key = args.slice(2).join(' ');
+      switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
+        case 'branch --show-current':
+          return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+        case 'rev-parse HEAD^{commit}':
+          return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+        case 'remote get-url origin':
+          return {
+            stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+            stderr: '',
+          };
+        case 'fetch --prune origin':
+          throw Object.assign(new Error('network down'), {
+            code: 1,
+            stdout: '',
+            stderr: 'fatal: network down',
+          });
+        case 'symbolic-ref --short refs/remotes/origin/HEAD':
+          return { stdout: 'origin/trunk\n', stderr: '' };
+        case 'rev-parse --verify origin/trunk':
+        case 'rev-parse origin/trunk^{commit}':
+          return { stdout: `${BASE_SHA}\n`, stderr: '' };
+        case 'rev-parse --verify trunk':
+        case 'rev-parse --verify main':
+        case 'rev-parse --verify origin/main':
+        case 'rev-parse --verify master':
+        case 'rev-parse --verify origin/master':
+        case 'rev-parse --verify develop':
+        case 'rev-parse --verify origin/develop':
+          throw Object.assign(new Error(`missing ref: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `fatal: Needed a single revision: ${key}`,
+          });
+        default:
+          throw Object.assign(new Error(`unexpected git command: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `unexpected git command: ${key}`,
+          });
+      }
+    };
+
+    const result = await prepareReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-review-base',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:31:15.000Z'),
+      },
+    );
+
+    assert.equal(result.artifact.logical_base_branch, 'trunk');
+    assert.equal(result.artifact.resolved_base_branch, 'trunk');
+    assert.equal(result.artifact.resolved_base_source, 'remote');
+    assert.equal(result.artifact.remote_fetch_status, 'success');
+    assert.equal(result.artifact.local_fallback_reason, null);
+    assert.equal(result.artifact.comparison_base_ref, 'origin/trunk');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -248,7 +347,10 @@ test('prepareReviewBase still uses cached remote parent refs after fetch failure
         case 'rev-parse HEAD^{commit}':
           return { stdout: `${HEAD_SHA}\n`, stderr: '' };
         case 'remote get-url origin':
-          return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          return {
+            stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+            stderr: '',
+          };
         case 'fetch --prune origin':
           throw Object.assign(new Error('network down'), {
             code: 1,
@@ -295,11 +397,8 @@ test('prepareReviewBase still uses cached remote parent refs after fetch failure
 
     assert.equal(result.artifact.logical_base_branch, parentBranch);
     assert.equal(result.artifact.resolved_base_source, 'remote');
-    assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
-    assert.equal(
-      result.artifact.comparison_base_ref,
-      `origin/${parentBranch}`,
-    );
+    assert.equal(result.artifact.remote_fetch_status, 'success');
+    assert.equal(result.artifact.comparison_base_ref, `origin/${parentBranch}`);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -338,7 +437,10 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
         case 'rev-parse HEAD^{commit}':
           return { stdout: `${HEAD_SHA}\n`, stderr: '' };
         case 'remote get-url origin':
-          return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          return {
+            stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+            stderr: '',
+          };
         case 'fetch --prune origin':
           fetchSignal = options?.signal;
           return await new Promise<{ stdout: string; stderr: string }>(

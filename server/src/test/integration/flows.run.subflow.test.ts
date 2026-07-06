@@ -879,6 +879,141 @@ test('prepareReviewBase consumes a pending cancel before starting review-base gi
   }
 });
 
+test('sourceId-only launches support prepareReviewBase and codexReview without working_folder', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-sourceid-review-steps-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const repoFlowsDir = path.join(repoDir, 'flows');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  process.env.FLOWS_DIR = path.join(tmpDir, 'local-flows-unused');
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(repoFlowsDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await fs.writeFile(
+      path.join(repoFlowsDir, 'sourceid-review.json'),
+      JSON.stringify({
+        steps: [
+          {
+            type: 'prepareReviewBase',
+            label: 'Prepare Shared Review Base',
+            outputKey: 'current-review-base',
+            basePolicy: 'branched_from_or_default_if_merged',
+          },
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            reasoningEffort: 'medium',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const result = await startFlowRun({
+      flowName: 'sourceid-review',
+      source: 'REST',
+      sourceId: repoDir,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'gpt-5.4');
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const preparedBasePath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-review-base.json',
+    );
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    await waitFor(() => existsSync(preparedBasePath));
+    await waitFor(() => existsSync(pointerPath));
+    assert.equal(existsSync(preparedBasePath), true);
+    assert.equal(existsSync(pointerPath), true);
+  } finally {
+    process.env.PATH = previousPath;
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewBase can precede a parallel review subflow batch on the shared checkout', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-review-base-parallel-'),

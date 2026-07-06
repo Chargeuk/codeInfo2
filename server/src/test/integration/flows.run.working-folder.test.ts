@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import express from 'express';
 import supertest from 'supertest';
@@ -18,6 +20,10 @@ import {
   memoryTurns,
   updateMemoryConversationWorkingFolder,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import {
   __resetFlowServiceDepsForTests,
   __setFlowServiceDepsForTests,
@@ -50,6 +56,8 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
+
+const execFile = promisify(execFileCb);
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -101,6 +109,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetProviderBootstrapStatusForTests();
 });
 
 const fixturesDir = path.resolve(
@@ -249,6 +258,106 @@ test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRu
 
   assert.equal(res.status, 202);
   assert.equal(capturedModelId, 'gpt-5.4');
+});
+
+test('POST /flows/:flowName/run fails fast for codexReview-only flows when codex is unavailable', async () => {
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const tmpFlowsDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-codex-review-preflight-'),
+  );
+  const tmpRepoRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-codex-review-preflight-repo-'),
+  );
+
+  process.env.FLOWS_DIR = tmpFlowsDir;
+
+  try {
+    await fs.mkdir(path.join(tmpRepoRoot, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(tmpRepoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(tmpRepoRoot, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(
+        tmpRepoRoot,
+        'codeInfoStatus',
+        'flow-state',
+        'current-plan.json',
+      ),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['init', '-b', 'main'], { cwd: tmpRepoRoot });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: tmpRepoRoot,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: tmpRepoRoot,
+    });
+    await execFile('git', ['add', '.'], { cwd: tmpRepoRoot });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: tmpRepoRoot });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: tmpRepoRoot,
+    });
+    await fs.writeFile(
+      path.join(tmpFlowsDir, 'codex-review-only.json'),
+      JSON.stringify({
+        steps: [
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            model: 'gpt-5.4',
+            reasoningEffort: 'medium',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    __setProviderBootstrapStatusForTests('codex', {
+      healthy: false,
+      reason: 'codex unavailable for test',
+      warnings: [],
+    });
+
+    const app = express();
+    app.use(
+      createFlowsRunRouter({
+        startFlowRun: (params) =>
+          startFlowRun({
+            ...params,
+            chatFactory: () => new MinimalChat(),
+            listIngestedRepositories: async () => ({
+              repos: [buildRepoEntry(tmpRepoRoot)],
+              lockedModelId: null,
+            }),
+          }),
+      }),
+    );
+
+    const res = await supertest(app)
+      .post('/flows/codex-review-only/run')
+      .send({ working_folder: tmpRepoRoot })
+      .expect(503);
+
+    assert.equal(res.body.error, 'provider_unavailable');
+    assert.equal(res.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(String(res.body.reason), /codex unavailable for test/i);
+  } finally {
+    restoreEnvVar('FLOWS_DIR', prevFlowsDir);
+    await fs.rm(tmpFlowsDir, { recursive: true, force: true });
+    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
+  }
 });
 
 test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {

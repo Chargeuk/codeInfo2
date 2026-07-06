@@ -3158,6 +3158,21 @@ const findFirstAgentStep = (
   return undefined;
 };
 
+const findFirstCodexReviewStep = (
+  steps: FlowStep[],
+): FlowCodexReviewStep | undefined => {
+  for (const step of steps) {
+    if (step.type === 'codexReview') {
+      return step;
+    }
+    if (step.type === 'startLoop') {
+      const nested = findFirstCodexReviewStep(step.steps);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+};
+
 const findRuntimeIdentityStep = (
   steps: FlowStep[],
   resumeStepPath?: number[] | null,
@@ -3211,6 +3226,56 @@ const findRuntimeIdentityStep = (
     }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);
+      if (nested) return nested;
+    }
+  }
+
+  return undefined;
+};
+
+const findRuntimeCodexReviewStep = (
+  steps: FlowStep[],
+  resumeStepPath?: number[] | null,
+): FlowCodexReviewStep | undefined => {
+  let resumePathRemaining =
+    resumeStepPath && resumeStepPath.length > 0 ? [...resumeStepPath] : null;
+  let resumeIndex = resumePathRemaining?.[0];
+
+  for (const [index, step] of steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        return undefined;
+      }
+      const nested = findRuntimeCodexReviewStep(
+        step.steps,
+        resumePathRemaining.slice(1),
+      );
+      if (nested) {
+        return nested;
+      }
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
+    }
+
+    if (step.type === 'codexReview') {
+      return step;
+    }
+    if (step.type === 'startLoop') {
+      const nested = findRuntimeCodexReviewStep(step.steps, null);
       if (nested) return nested;
     }
   }
@@ -3400,6 +3465,10 @@ type FlowCommandRepositoryContext = {
   }>;
   repos: Array<{ sourceId: string; sourceLabel: string }>;
 };
+
+const resolveFlowGitBackedRepositoryPath = (
+  context: FlowCommandRepositoryContext,
+) => context.workingRepositoryPath ?? context.flowSourceId;
 
 type FlowCommandCandidate = {
   sourceId: string;
@@ -5229,7 +5298,10 @@ async function runFlowUnlocked(params: {
     step: FlowPrepareReviewBaseStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
-    if (!params.repositoryContext.workingRepositoryPath) {
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    if (!reviewRepositoryPath) {
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5292,7 +5364,7 @@ async function runFlowUnlocked(params: {
     }
     try {
       const result = await prepareReviewBase({
-        workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
+        workingRepositoryPath: reviewRepositoryPath,
         outputKey: step.outputKey,
         basePolicy: step.basePolicy,
         signal: inflightSignal,
@@ -5315,7 +5387,7 @@ async function runFlowUnlocked(params: {
         instruction,
         response: [
           'Prepared shared review base.',
-          `Artifact: ${path.relative(params.repositoryContext.workingRepositoryPath, result.artifactPath)}`,
+          `Artifact: ${path.relative(reviewRepositoryPath, result.artifactPath)}`,
           `Comparison base: ${result.artifact.comparison_base_ref}`,
         ].join('\n'),
         modelId: params.modelId,
@@ -5381,7 +5453,10 @@ async function runFlowUnlocked(params: {
       return 'failed';
     }
 
-    if (!params.repositoryContext.workingRepositoryPath) {
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    if (!reviewRepositoryPath) {
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5445,7 +5520,7 @@ async function runFlowUnlocked(params: {
 
     try {
       const result = await runCodexReviewStep({
-        workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
+        workingRepositoryPath: reviewRepositoryPath,
         outputKey: step.outputKey,
         modelId: resolvedModelId,
         reasoningEffort: step.reasoningEffort,
@@ -5474,7 +5549,7 @@ async function runFlowUnlocked(params: {
           ...(result.reasoningEffort
             ? [`Reasoning effort: ${result.reasoningEffort}`]
             : []),
-          `Pointer: ${path.relative(params.repositoryContext.workingRepositoryPath, result.pointerPath)}`,
+          `Pointer: ${path.relative(reviewRepositoryPath, result.pointerPath)}`,
         ].join('\n'),
         modelId: resolvedModelId,
         providerId: 'codex',
@@ -6255,6 +6330,12 @@ export async function startFlowRun(
     );
     const firstAgentStep =
       runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
+    const runtimeCodexReviewStep = !firstAgentStep
+      ? findRuntimeCodexReviewStep(flow.steps, resumeStepPath)
+      : undefined;
+    const firstCodexReviewStep =
+      runtimeCodexReviewStep ??
+      (!firstAgentStep ? findFirstCodexReviewStep(flow.steps) : undefined);
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -6292,6 +6373,27 @@ export async function startFlowRun(
       modelId = prepared.modelId;
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
+    } else if (firstCodexReviewStep) {
+      const resolvedModelId = resolveCodexReviewModel({
+        requestedModelId: params.codexReviewModelId,
+        stepModelId: firstCodexReviewStep.model,
+      });
+      if (!resolvedModelId) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          `Flow codexReview step "${firstCodexReviewStep.label ?? firstCodexReviewStep.outputKey}" requires codexReviewModelId or a step model.`,
+        );
+      }
+      const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+      if (!codexBootstrapStatus.healthy) {
+        throw toFlowRunError(
+          'PROVIDER_UNAVAILABLE',
+          codexBootstrapStatus.reason ?? 'codex unavailable',
+        );
+      }
+      modelId = resolvedModelId;
+      providerId = 'codex';
+      startupWarnings = codexBootstrapStatus.warnings;
     }
 
     const codeInfo2Root = codeInfo2RootForRun();

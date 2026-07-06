@@ -149,6 +149,23 @@ const normalizeBranchedFrom = (value: string | undefined): string | undefined =>
   value?.replace(/^refs\/heads\//, '').replace(/^origin\//, '').trim() ||
   undefined;
 
+export async function resolveReviewRepositoryRoot(
+  workingRepositoryPath: string,
+  deps?: Pick<ReviewBaseDeps, 'execFile'>,
+  signal?: AbortSignal,
+): Promise<string> {
+  const resolvedWorkingPath = path.resolve(workingRepositoryPath);
+  const resolvedDeps = { ...defaultDeps, ...deps };
+  const repoRoot = await gitStdoutOrThrow(
+    resolvedWorkingPath,
+    ['rev-parse', '--show-toplevel'],
+    resolvedDeps,
+    `Unable to resolve git repository root for "${resolvedWorkingPath}".`,
+    signal,
+  );
+  return path.resolve(repoRoot);
+}
+
 async function runGit(
   repoRoot: string,
   args: readonly string[],
@@ -420,8 +437,12 @@ export async function readPreparedReviewBase(
   deps?: Partial<ReviewBaseDeps>,
 ): Promise<{ artifactPath: string; artifact: PreparedReviewBase } | null> {
   const resolvedDeps: ReviewBaseDeps = { ...defaultDeps, ...deps };
-  const artifactPath = resolvePreparedReviewBasePath(
+  const repoRoot = await resolveReviewRepositoryRoot(
     params.workingRepositoryPath,
+    resolvedDeps,
+  );
+  const artifactPath = resolvePreparedReviewBasePath(
+    repoRoot,
     params.storyNumber,
     params.outputKey,
   );
@@ -450,7 +471,11 @@ export async function prepareReviewBase(
   deps?: Partial<ReviewBaseDeps>,
 ): Promise<PrepareReviewBaseResult> {
   const resolvedDeps: ReviewBaseDeps = { ...defaultDeps, ...deps };
-  const repoRoot = path.resolve(params.workingRepositoryPath);
+  const repoRoot = await resolveReviewRepositoryRoot(
+    params.workingRepositoryPath,
+    resolvedDeps,
+    params.signal,
+  );
   const outputKey = ensureSafeOutputKey(params.outputKey);
   const basePolicy =
     params.basePolicy ?? 'branched_from_or_default_if_merged';

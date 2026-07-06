@@ -8,6 +8,7 @@ import {
   prepareReviewBase,
   readPreparedReviewBase,
   REVIEW_BASE_DEFAULT_OUTPUT_KEY,
+  resolveReviewRepositoryRoot,
   type FlowReviewBasePolicy,
   type PreparedReviewBase,
 } from './reviewBase.js';
@@ -254,6 +255,8 @@ const gitStdoutOrThrow = async (
 const loadOrPrepareReviewBase = async (
   repoRoot: string,
   storyNumber: string,
+  currentBranch: string,
+  headCommit: string,
   basePolicy: FlowCodexReviewBasePolicy,
   deps: CodexReviewDeps,
   signal?: AbortSignal,
@@ -266,7 +269,18 @@ const loadOrPrepareReviewBase = async (
     },
     deps,
   );
-  if (prepared) {
+  if (
+    prepared &&
+    prepared.artifact.branch === currentBranch &&
+    prepared.artifact.head_commit === headCommit &&
+    prepared.artifact.story_id === storyNumber &&
+    (await isPreparedBaseStillFresh({
+      repoRoot,
+      artifact: prepared.artifact,
+      deps,
+      signal,
+    }))
+  ) {
     return prepared;
   }
 
@@ -279,6 +293,26 @@ const loadOrPrepareReviewBase = async (
     },
     deps,
   );
+};
+
+const isPreparedBaseStillFresh = async (params: {
+  repoRoot: string;
+  artifact: PreparedReviewBase;
+  deps: Pick<CodexReviewDeps, 'execFile'>;
+  signal?: AbortSignal;
+}): Promise<boolean> => {
+  try {
+    const currentComparisonBaseCommit = await gitStdoutOrThrow(
+      params.repoRoot,
+      ['rev-parse', `${params.artifact.comparison_base_ref}^{commit}`],
+      params.deps,
+      `Unable to resolve comparison base commit for ${params.artifact.comparison_base_ref}.`,
+      params.signal,
+    );
+    return currentComparisonBaseCommit === params.artifact.comparison_base_commit;
+  } catch {
+    return false;
+  }
 };
 
 const createPinnedReviewBaseRef = async (params: {
@@ -334,7 +368,11 @@ export async function runCodexReviewStep(
   deps?: Partial<CodexReviewDeps>,
 ): Promise<CodexReviewStepResult> {
   const resolvedDeps: CodexReviewDeps = { ...defaultDeps, ...deps };
-  const repoRoot = path.resolve(params.workingRepositoryPath);
+  const repoRoot = await resolveReviewRepositoryRoot(
+    params.workingRepositoryPath,
+    resolvedDeps,
+    params.signal,
+  );
   const outputKey = ensureSafeOutputKey(params.outputKey);
   const basePolicy =
     params.basePolicy ?? 'branched_from_or_default_if_merged';
@@ -373,10 +411,19 @@ export async function runCodexReviewStep(
       `Current branch "${currentBranch}" does not match plan story ${storyNumber}.`,
     );
   }
+  const headCommit = await gitStdoutOrThrow(
+    repoRoot,
+    ['rev-parse', 'HEAD^{commit}'],
+    resolvedDeps,
+    'Unable to resolve HEAD for codexReview.',
+    params.signal,
+  );
 
   const preparedBase = await loadOrPrepareReviewBase(
     repoRoot,
     storyNumber,
+    currentBranch,
+    headCommit,
     basePolicy,
     resolvedDeps,
     params.signal,
@@ -411,13 +458,6 @@ export async function runCodexReviewStep(
     storyNumber,
     reviewState,
   });
-  const headCommit = await gitStdoutOrThrow(
-    repoRoot,
-    ['rev-parse', 'HEAD^{commit}'],
-    resolvedDeps,
-    'Unable to resolve HEAD for codexReview.',
-    params.signal,
-  );
   const shortHead = await gitStdoutOrThrow(
     repoRoot,
     ['rev-parse', '--short', 'HEAD^{commit}'],

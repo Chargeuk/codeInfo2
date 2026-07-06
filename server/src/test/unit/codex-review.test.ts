@@ -353,6 +353,134 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
   }
 });
 
+test('runCodexReviewStep resolves the git toplevel before reading current-plan and review artifacts', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-subdir-root-'),
+  );
+  const workingSubdir = path.join(repoRoot, 'server');
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.mkdir(workingSubdir, { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review-base.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        repo_alias: 'current_repository',
+        repo_root: repoRoot,
+        branch: 'feature/0000027-codex-review',
+        head_commit: HEAD_SHA,
+        logical_base_branch: 'main',
+        resolved_base_branch: 'main',
+        resolved_base_source: 'remote',
+        remote_name: 'origin',
+        remote_fetch_status: 'success',
+        local_fallback_reason: null,
+        comparison_base_ref: 'origin/main',
+        comparison_base_commit: BASE_SHA,
+        comparison_head_ref: 'HEAD',
+        comparison_rule: 'local_head_vs_resolved_base',
+        status: 'completed',
+        started_at: '2026-07-05T16:23:00.000Z',
+        completed_at: '2026-07-05T16:23:01.000Z',
+      }),
+    );
+
+    const gitCalls: string[] = [];
+    const codexCalls: Array<readonly string[]> = [];
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        gitCalls.push(key);
+        switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T162300Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162300Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      if (file === 'codex') {
+        codexCalls.push(args);
+        const outputIndex = args.indexOf('-o');
+        const outputPath = String(args[outputIndex + 1]);
+        await fs.writeFile(outputPath, '# Codex Review\n\nNo issues.\n');
+        return { stdout: '', stderr: '' };
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    const result = await runCodexReviewStep(
+      {
+        workingRepositoryPath: workingSubdir,
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:23:00.000Z'),
+        randomHex: () => '11223344',
+      },
+    );
+
+    assert.equal(result.pointer.repo_root, repoRoot);
+    assert.deepEqual(codexCalls[0]?.slice(0, 4), [
+      'exec',
+      '-C',
+      repoRoot,
+      'review',
+    ]);
+    assert.ok(gitCalls.includes('rev-parse --show-toplevel'));
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('runCodexReviewStep sanitizes review pass ids before using them in artifact filenames', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codex-review-helper-sanitized-pass-id-'),
@@ -566,6 +694,134 @@ test('runCodexReviewStep ignores stale review cycle ids from a different story w
         '0000027-codex-review-codex-20260706T091129Z-d30c1246-08185125-codex-review.md',
       ),
     );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('runCodexReviewStep refreshes a stale prepared review base artifact when the cached base commit no longer matches the current ref', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-stale-prepared-base-'),
+  );
+  const staleBaseSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review-base.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        repo_alias: 'current_repository',
+        repo_root: repoRoot,
+        branch: 'feature/0000027-codex-review',
+        head_commit: HEAD_SHA,
+        logical_base_branch: 'main',
+        resolved_base_branch: 'main',
+        resolved_base_source: 'remote',
+        remote_name: 'origin',
+        remote_fetch_status: 'success',
+        local_fallback_reason: null,
+        comparison_base_ref: 'origin/main',
+        comparison_base_commit: staleBaseSha,
+        comparison_head_ref: 'HEAD',
+        comparison_rule: 'local_head_vs_resolved_base',
+        status: 'completed',
+        started_at: '2026-07-05T16:24:00.000Z',
+        completed_at: '2026-07-05T16:24:01.000Z',
+      }),
+    );
+
+    const gitCalls: string[] = [];
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        gitCalls.push(key);
+        switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'remote get-url origin':
+            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          case 'fetch --prune origin':
+            return { stdout: '', stderr: '' };
+          case 'symbolic-ref --short refs/remotes/origin/HEAD':
+            return { stdout: 'origin/main\n', stderr: '' };
+          case 'rev-parse --verify origin/main':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T162500Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162500Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      if (file === 'codex') {
+        const outputIndex = args.indexOf('-o');
+        const outputPath = String(args[outputIndex + 1]);
+        await fs.writeFile(outputPath, '# Codex Review\n\nNo issues.\n');
+        return { stdout: '', stderr: '' };
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    const result = await runCodexReviewStep(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:25:00.000Z'),
+        randomHex: () => '55667788',
+      },
+    );
+
+    assert.equal(result.pointer.comparison_base_commit, BASE_SHA);
+    assert.ok(gitCalls.includes('remote get-url origin'));
+    assert.ok(gitCalls.includes('fetch --prune origin'));
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

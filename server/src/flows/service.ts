@@ -123,6 +123,40 @@ const appendFlowRuntimeDiagnostic = (
   });
 };
 
+const FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS = 40_000;
+
+const createDeferred = <T>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
+
+const withTimeout = async <T>(params: {
+  promise: Promise<T>;
+  timeoutMs: number;
+  onTimeout?: () => void;
+  timeoutErrorFactory: () => Error | FlowRunError;
+}): Promise<T> => {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      params.promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+          params.onTimeout?.();
+          reject(params.timeoutErrorFactory());
+        }, params.timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   const pendingCancel = getPendingConversationCancel(conversationId);
   return {
@@ -2208,18 +2242,71 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   pinnedEndpointId?: string | null;
   allowFallback?: boolean;
 }) => {
+  appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_entry', {
+    agentName: params.agentName,
+    configPath: params.configPath,
+    workingFolder: params.workingFolder ?? null,
+    defaultRepositoryRoot: params.defaultRepositoryRoot ?? null,
+    source: params.source ?? null,
+    pinnedProviderId: params.pinnedProviderId ?? null,
+    pinnedModelId: params.pinnedModelId ?? null,
+    pinnedRequestedProviderId: params.pinnedRequestedProviderId ?? null,
+    pinnedEndpointId: params.pinnedEndpointId ?? null,
+    allowFallback: params.allowFallback ?? true,
+    timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
+  });
   try {
-    const resolved = await prepareFlowOwnedAgentExecution({
+    appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_prepare_begin', {
       agentName: params.agentName,
-      configPath: params.configPath,
-      workingFolder: params.workingFolder,
-      defaultRepositoryRoot: params.defaultRepositoryRoot,
-      source: params.source ?? 'REST',
-      pinnedProviderId: params.pinnedProviderId,
-      pinnedModelId: params.pinnedModelId,
-      pinnedRequestedProviderId: params.pinnedRequestedProviderId,
-      pinnedEndpointId: params.pinnedEndpointId ?? undefined,
-      allowFallback: params.allowFallback ?? true,
+      source: params.source ?? null,
+      pinnedProviderId: params.pinnedProviderId ?? null,
+      pinnedModelId: params.pinnedModelId ?? null,
+      timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
+    });
+    const resolved = await withTimeout({
+      promise: prepareFlowOwnedAgentExecution({
+        agentName: params.agentName,
+        configPath: params.configPath,
+        workingFolder: params.workingFolder,
+        defaultRepositoryRoot: params.defaultRepositoryRoot,
+        source: params.source ?? 'REST',
+        pinnedProviderId: params.pinnedProviderId,
+        pinnedModelId: params.pinnedModelId,
+        pinnedRequestedProviderId: params.pinnedRequestedProviderId,
+        pinnedEndpointId: params.pinnedEndpointId ?? undefined,
+        allowFallback: params.allowFallback ?? true,
+      }),
+      timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
+      onTimeout: () => {
+        appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_timeout', {
+          agentName: params.agentName,
+          configPath: params.configPath,
+          workingFolder: params.workingFolder ?? null,
+          defaultRepositoryRoot: params.defaultRepositoryRoot ?? null,
+          source: params.source ?? null,
+          pinnedProviderId: params.pinnedProviderId ?? null,
+          pinnedModelId: params.pinnedModelId ?? null,
+          pinnedRequestedProviderId: params.pinnedRequestedProviderId ?? null,
+          pinnedEndpointId: params.pinnedEndpointId ?? null,
+          timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
+        });
+      },
+      timeoutErrorFactory: () =>
+        toFlowRunError(
+          'PROVIDER_UNAVAILABLE',
+          `Flow runtime resolution timed out after ${FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS}ms for agent ${params.agentName}.`,
+          'RUNTIME_RESOLUTION_TIMEOUT',
+        ),
+    });
+    appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_prepare_complete', {
+      agentName: params.agentName,
+      source: params.source ?? null,
+      executionProviderId: resolved.executionProviderId,
+      requestedProviderId: resolved.requestedProviderId ?? null,
+      modelId: resolved.modelId ?? null,
+      endpointId: resolved.endpointId ?? null,
+      warningCount: resolved.warnings?.length ?? 0,
+      workingDirectoryOverride: resolved.workingDirectoryOverride ?? null,
     });
     if (params.source) {
       console.info(T07_SUCCESS_LOG, {
@@ -2238,6 +2325,30 @@ const resolveFlowAgentRuntimeExecution = async (params: {
       warnings: resolved.warnings,
     };
   } catch (error) {
+    appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_failed', {
+      agentName: params.agentName,
+      source: params.source ?? null,
+      code:
+        error &&
+        typeof error === 'object' &&
+        typeof (error as { code?: unknown }).code === 'string'
+          ? String((error as { code?: string }).code)
+          : null,
+      reason:
+        error &&
+        typeof error === 'object' &&
+        typeof (error as { reason?: unknown }).reason === 'string'
+          ? String((error as { reason?: string }).reason)
+          : error instanceof Error
+            ? error.message
+            : String(error ?? 'unknown error'),
+      causeCode:
+        error &&
+        typeof error === 'object' &&
+        typeof (error as { causeCode?: unknown }).causeCode === 'string'
+          ? String((error as { causeCode?: string }).causeCode)
+          : null,
+    });
     if (params.source) {
       const code =
         error &&
@@ -9084,6 +9195,14 @@ async function runFlowUnlocked(params: {
           loopDepth: loopStack.length,
         });
         clearContinueBoundaryForActiveLoop();
+        if (
+          await stopAfterSuccessfulStepIfPendingCancel({
+            checkpoint: 'runSteps.return.stop.pending_cancel.after_command',
+            detail: `step=${command.stepIndex} loopDepth=${loopStack.length}`,
+          })
+        ) {
+          return 'stopped';
+        }
         appendFlowRuntimeDiagnostic(
           'flows.test.command_step_resume_state_persist_begin',
           {
@@ -9168,6 +9287,14 @@ async function runFlowUnlocked(params: {
           loopDepth: loopStack.length,
         });
         clearContinueBoundaryForActiveLoop();
+        if (
+          await stopAfterSuccessfulStepIfPendingCancel({
+            checkpoint: 'runSteps.return.stop.pending_cancel.after_subflow',
+            detail: `step=${command.stepIndex} loopDepth=${loopStack.length}`,
+          })
+        ) {
+          return 'stopped';
+        }
         appendFlowRuntimeDiagnostic(
           'flows.test.subflow_step_resume_state_persist_begin',
           {
@@ -9253,6 +9380,14 @@ async function runFlowUnlocked(params: {
           loopDepth: loopStack.length,
         });
         clearContinueBoundaryForActiveLoop();
+        if (
+          await stopAfterSuccessfulStepIfPendingCancel({
+            checkpoint: 'runSteps.return.stop.pending_cancel.after_reingest',
+            detail: `step=${command.stepIndex} loopDepth=${loopStack.length}`,
+          })
+        ) {
+          return 'stopped';
+        }
         appendFlowRuntimeDiagnostic(
           'flows.test.reingest_step_resume_state_persist_begin',
           {
@@ -9435,6 +9570,7 @@ export async function startFlowRun(
   let completedSuccessfully = false;
   let acceptedStartResult: FlowRunStartResult | null = null;
   let effectiveResumeStepPath = resumeStepPath;
+  const asyncBeginSignal = createDeferred<void>();
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -9867,6 +10003,7 @@ export async function startFlowRun(
         modelId,
         effectiveResumeStepPath: effectiveResumeStepPath ?? null,
       });
+      asyncBeginSignal.resolve();
       await params.onAsyncBegin?.({
         conversationId,
         runToken,
@@ -10050,6 +10187,18 @@ export async function startFlowRun(
       });
     }
   })();
+  await asyncBeginSignal.promise;
+  appendFlowRuntimeDiagnostic('flows.test.start.async_begin_confirmed', {
+    flowName,
+    conversationId,
+    flowPath,
+    flowPathDepth: flowPath.length,
+    executionId,
+    inflightId,
+    providerId,
+    modelId,
+    effectiveResumeStepPath: effectiveResumeStepPath ?? null,
+  });
 
   append({
     level: 'info',

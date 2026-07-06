@@ -238,6 +238,7 @@ async function refExists(
 async function resolveDefaultBranch(
   repoRoot: string,
   remoteFetchStatus: 'success' | 'missing_remote' | 'fetch_failed',
+  preferredFallbackBranch: string | undefined,
   deps: Pick<ReviewBaseDeps, 'execFile'>,
   signal?: AbortSignal,
 ): Promise<string> {
@@ -254,7 +255,15 @@ async function resolveDefaultBranch(
     }
   }
 
-  for (const candidate of ['main', 'master', 'develop']) {
+  const fallbackCandidates = ['main', 'master', 'develop'];
+  if (
+    preferredFallbackBranch &&
+    !fallbackCandidates.includes(preferredFallbackBranch)
+  ) {
+    fallbackCandidates.push(preferredFallbackBranch);
+  }
+
+  for (const candidate of fallbackCandidates) {
     if (
       (await refExists(repoRoot, candidate, deps, signal)) ||
       (await refExists(repoRoot, `origin/${candidate}`, deps, signal))
@@ -263,7 +272,7 @@ async function resolveDefaultBranch(
     }
   }
 
-  return 'main';
+  return preferredFallbackBranch ?? 'main';
 }
 
 async function resolveBaseComparison(params: {
@@ -307,6 +316,7 @@ async function resolveBaseComparison(params: {
   const defaultBranch = await resolveDefaultBranch(
     repoRoot,
     remoteFetchStatus,
+    branchedFrom,
     deps,
     signal,
   );

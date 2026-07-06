@@ -114,10 +114,7 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   };
 };
 
-import {
-  resolveCodexReviewModel,
-  runCodexReviewStep,
-} from './codexReview.js';
+import { resolveCodexReviewModel, runCodexReviewStep } from './codexReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
   parseFlowFile,
@@ -324,9 +321,7 @@ const rememberFreshRunRetryOwnershipCompletion = (params: {
       retryOwnershipId: params.retryOwnershipId,
       sourceId: params.sourceId?.trim() || undefined,
       result: cloneFlowRunStartResult(params.result),
-      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
-        params.launch,
-      ),
+      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(params.launch),
       completedAt: Date.now(),
     },
   );
@@ -342,7 +337,8 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? completion.retryOwnershipId.trim()
       : undefined;
   const sourceId =
-    typeof completion.sourceId === 'string' && completion.sourceId.trim().length > 0
+    typeof completion.sourceId === 'string' &&
+    completion.sourceId.trim().length > 0
       ? completion.sourceId.trim()
       : undefined;
   const launchSignature =
@@ -386,18 +382,13 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? result.modelId.trim()
       : undefined;
   const warnings =
-    Array.isArray(result.warnings) && result.warnings.every((item) =>
-      typeof item === 'string',
-    )
-      ? result.warnings.filter((item): item is string => typeof item === 'string')
+    Array.isArray(result.warnings) &&
+    result.warnings.every((item) => typeof item === 'string')
+      ? result.warnings.filter(
+          (item): item is string => typeof item === 'string',
+        )
       : undefined;
-  if (
-    !flowName ||
-    !conversationId ||
-    !inflightId ||
-    !providerId ||
-    !modelId
-  ) {
+  if (!flowName || !conversationId || !inflightId || !providerId || !modelId) {
     return null;
   }
   return {
@@ -691,14 +682,12 @@ export function __resetFreshRunRetryOwnershipCompletionForTests() {
   freshRunRetryOwnershipCompletedByKey.clear();
 }
 
-export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(
-  params: {
-    flowName: string;
-    sourceId?: string;
-    retryOwnershipId: string;
-    launch: FreshRunRetryOwnershipLaunch;
-  },
-) {
+export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}) {
   return getPersistedFreshRunRetryOwnershipCompletion(params);
 }
 
@@ -916,9 +905,7 @@ const parseFlowResumeState = (
       ? { agentRequestedProviders }
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
-    ...(retryOwnershipCompletion
-      ? { retryOwnershipCompletion }
-      : {}),
+    ...(retryOwnershipCompletion ? { retryOwnershipCompletion } : {}),
   };
 };
 
@@ -1267,7 +1254,9 @@ const ensureFlowAgentConversation = async (params: {
         ...(params.requestedProviderId?.trim()
           ? { requestedProviderId: params.requestedProviderId.trim() }
           : {}),
-        ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+        ...(params.endpointId?.trim()
+          ? { endpointId: params.endpointId.trim() }
+          : {}),
         flowChild: { executionId: params.executionId },
       },
       lastMessageAt: now,
@@ -1340,7 +1329,9 @@ const ensureFlowAgentConversation = async (params: {
       ...(params.requestedProviderId?.trim()
         ? { requestedProviderId: params.requestedProviderId.trim() }
         : {}),
-      ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+      ...(params.endpointId?.trim()
+        ? { endpointId: params.endpointId.trim() }
+        : {}),
       flowChild: { executionId: params.executionId },
     },
     lastMessageAt: now,
@@ -1441,7 +1432,7 @@ const ensureAgentState = async (params: {
     const existingConversation = await getConversation(existing.conversationId);
     const requestedProviderIdToUse =
       typeof params.requestedProviderId === 'string' &&
-        params.requestedProviderId.trim()
+      params.requestedProviderId.trim()
         ? params.requestedProviderId.trim()
         : getSavedRequestedProviderId(existingConversation);
     const savedEndpointId =
@@ -3314,10 +3305,12 @@ const validateCodexReviewSteps = (
       continue;
     }
 
-    if (!resolveCodexReviewModel({
-      requestedModelId: codexReviewModelId,
-      stepModelId: step.model,
-    })) {
+    if (
+      !resolveCodexReviewModel({
+        requestedModelId: codexReviewModelId,
+        stepModelId: step.model,
+      })
+    ) {
       throw toFlowRunError(
         'INVALID_REQUEST',
         `Flow codexReview step "${step.label ?? step.outputKey}" requires codexReviewModelId or a step model.`,
@@ -3905,37 +3898,37 @@ async function runFlowUnlocked(params: {
       );
     }
 
-  const agentState = runtimeState.get(
-    getAgentKey(params.agentType, params.identifier),
-  );
-  if (agentState?.conversationId) {
-    const persistedConversation = await getConversation(
-      agentState.conversationId,
+    const agentState = runtimeState.get(
+      getAgentKey(params.agentType, params.identifier),
     );
-    if (persistedConversation?.agentName === params.agentType) {
-      const savedEndpointId =
-        typeof persistedConversation.flags?.endpointId === 'string' &&
-        persistedConversation.flags.endpointId.trim().length > 0
-          ? persistedConversation.flags.endpointId.trim()
-          : undefined;
-      if (!agentState.providerId || !agentState.modelId) {
-        agentState.providerId = persistedConversation.provider;
-        agentState.modelId = persistedConversation.model;
-        agentState.requestedProviderId = getSavedRequestedProviderId(
-          persistedConversation,
-        );
-      }
-      if (savedEndpointId) {
-        agentState.endpointId = savedEndpointId;
+    if (agentState?.conversationId) {
+      const persistedConversation = await getConversation(
+        agentState.conversationId,
+      );
+      if (persistedConversation?.agentName === params.agentType) {
+        const savedEndpointId =
+          typeof persistedConversation.flags?.endpointId === 'string' &&
+          persistedConversation.flags.endpointId.trim().length > 0
+            ? persistedConversation.flags.endpointId.trim()
+            : undefined;
+        if (!agentState.providerId || !agentState.modelId) {
+          agentState.providerId = persistedConversation.provider;
+          agentState.modelId = persistedConversation.model;
+          agentState.requestedProviderId = getSavedRequestedProviderId(
+            persistedConversation,
+          );
+        }
+        if (savedEndpointId) {
+          agentState.endpointId = savedEndpointId;
+        }
       }
     }
-  }
-  const providerBootstrapReady =
-    agentState?.providerId !== undefined
-      ? getProviderBootstrapStatus(
-          agentState.providerId as ConversationProvider,
-        ).healthy
-      : true;
+    const providerBootstrapReady =
+      agentState?.providerId !== undefined
+        ? getProviderBootstrapStatus(
+            agentState.providerId as ConversationProvider,
+          ).healthy
+        : true;
 
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
@@ -4478,8 +4471,7 @@ async function runFlowUnlocked(params: {
   const getActiveSubflowsForStep = (stepPath: number[]) => {
     const stepPathKey = getStepPathKey(stepPath);
     return (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) === stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) === stepPathKey,
     );
   };
 
@@ -4489,8 +4481,7 @@ async function runFlowUnlocked(params: {
   ) => {
     const stepPathKey = getStepPathKey(stepPath);
     const retainedSubflows = (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
     );
     const mergedSubflows = [...retainedSubflows, ...nextSubflows];
     activeSubflows = mergedSubflows.length > 0 ? mergedSubflows : undefined;
@@ -4781,7 +4772,9 @@ async function runFlowUnlocked(params: {
             )
           : terminalStatus === 'stopped'
             ? buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',
+                launchesMultipleChildren
+                  ? 'Stopped subflows'
+                  : 'Stopped subflow',
               )
             : buildSubflowSummaryText(
                 launchesMultipleChildren ? 'Subflows' : 'Subflow',
@@ -5261,6 +5254,42 @@ async function runFlowUnlocked(params: {
       command,
     });
     const inflightSignal = inflightState.abortController.signal;
+    const consumePendingPrepareStop = () => {
+      if (!params.runToken) return false;
+      const boundPending = bindPendingConversationCancelToInflight({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      if (!boundPending.ok) {
+        return false;
+      }
+
+      const aborted = abortInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+      if (!aborted.ok) return false;
+
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      return true;
+    };
+    if (consumePendingPrepareStop()) {
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'stopped';
+    }
     try {
       const result = await prepareReviewBase({
         workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
@@ -5415,16 +5444,14 @@ async function runFlowUnlocked(params: {
     }
 
     try {
-      const result = await runCodexReviewStep(
-        {
-          workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
-          outputKey: step.outputKey,
-          modelId: resolvedModelId,
-          reasoningEffort: step.reasoningEffort,
-          basePolicy: step.basePolicy,
-          signal: inflightSignal,
-        },
-      );
+      const result = await runCodexReviewStep({
+        workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
+        outputKey: step.outputKey,
+        modelId: resolvedModelId,
+        reasoningEffort: step.reasoningEffort,
+        basePolicy: step.basePolicy,
+        signal: inflightSignal,
+      });
       if (inflightSignal.aborted) {
         await emitStoppedFlowStep({
           flowConversationId: params.conversationId,

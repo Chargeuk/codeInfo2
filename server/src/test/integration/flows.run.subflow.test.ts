@@ -187,7 +187,9 @@ const waitForActiveSubflowCount = async (
           | { flow?: { activeSubflows?: unknown[] } }
           | undefined
       )?.flow?.activeSubflows ?? [];
-    return Array.isArray(activeSubflows) && activeSubflows.length === expectedCount;
+    return (
+      Array.isArray(activeSubflows) && activeSubflows.length === expectedCount
+    );
   });
   return waitForActiveSubflows(conversationId);
 };
@@ -590,9 +592,7 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       'reviews',
       '0000027-current-codex-review.json',
     );
-    const pointer = JSON.parse(
-      await fs.readFile(pointerPath, 'utf8'),
-    ) as {
+    const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
       model?: string;
       reasoning_effort?: string | null;
       merged_into_canonical_findings?: boolean;
@@ -698,7 +698,11 @@ test('codexReview ignores a stale pending cancel that belongs to a different run
     await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
       recursive: true,
     });
-    await fs.writeFile(path.join(repoDir, '.gitignore'), 'codeInfoTmp/\n', 'utf8');
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
       '# Story 27\n',
@@ -783,6 +787,98 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
+test('prepareReviewBase consumes a pending cancel before starting review-base git work', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-prepare-review-base-pending-cancel-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'prepare-review-base-stop',
+      steps: [
+        {
+          type: 'prepareReviewBase',
+          label: 'Prepare Shared Review Base',
+          outputKey: 'current-review-base',
+          basePolicy: 'branched_from_or_default_if_merged',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'prepare-review-base-stop',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
+      },
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'stopped');
+    assert.equal(
+      existsSync(
+        path.join(
+          repoDir,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-review-base.json',
+        ),
+      ),
+      false,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewBase can precede a parallel review subflow batch on the shared checkout', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-review-base-parallel-'),
@@ -808,7 +904,11 @@ test('prepareReviewBase can precede a parallel review subflow batch on the share
     await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
       recursive: true,
     });
-    await fs.writeFile(path.join(repoDir, '.gitignore'), 'codeInfoTmp/\n', 'utf8');
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
       '# Story 27\n',
@@ -956,7 +1056,11 @@ test('parent step after a successful codexReview gets a fresh inflight id', asyn
     await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
       recursive: true,
     });
-    await fs.writeFile(path.join(repoDir, '.gitignore'), 'codeInfoTmp/\n', 'utf8');
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
       '# Story 27\n',
@@ -1070,7 +1174,11 @@ test('parallel subflow waits for every child and fails when any child fails', as
       tmpDir,
       flowName: 'parent-parallel-fail',
       steps: [
-        subflowStep('Run Failure Batch', 'child-fast-fail', 'child-slow-success'),
+        subflowStep(
+          'Run Failure Batch',
+          'child-fast-fail',
+          'child-slow-success',
+        ),
       ],
     });
 
@@ -1187,7 +1295,10 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-two-step',
-      steps: [subflowStep('Run Child', 'child-ok'), llmStep('parent after subflow')],
+      steps: [
+        subflowStep('Run Child', 'child-ok'),
+        llmStep('parent after subflow'),
+      ],
     });
 
     const executions: Array<{
@@ -1578,7 +1689,10 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-sticky-stop',
-      steps: [subflowStep('Run Fast Child', 'child-fast-ok'), llmStep('should not run')],
+      steps: [
+        subflowStep('Run Fast Child', 'child-fast-ok'),
+        llmStep('should not run'),
+      ],
     });
 
     let parentRunToken: string | undefined;
@@ -1862,7 +1976,9 @@ test('resume reattaches to already running parallel child subflows instead of la
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-resume-parallel',
-      steps: [subflowStep('Run Slow Batch', 'child-resume-a', 'child-resume-b')],
+      steps: [
+        subflowStep('Run Slow Batch', 'child-resume-a', 'child-resume-b'),
+      ],
     });
 
     let childRunTokenA: string | undefined;
@@ -2115,16 +2231,14 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
               flowName: 'child-resume-terminal-a',
               conversationId: childStartA.conversationId,
               runToken: childRunTokenA as string,
-              title:
-                'Resume Parent-Run Finished Batch-child-resume-terminal-a',
+              title: 'Resume Parent-Run Finished Batch-child-resume-terminal-a',
             }),
             activeSubflowState({
               stepPath: [0],
               flowName: 'child-resume-terminal-b',
               conversationId: childStartB.conversationId,
               runToken: childRunTokenB as string,
-              title:
-                'Resume Parent-Run Finished Batch-child-resume-terminal-b',
+              title: 'Resume Parent-Run Finished Batch-child-resume-terminal-b',
             }),
           ],
           agentConversations: {},

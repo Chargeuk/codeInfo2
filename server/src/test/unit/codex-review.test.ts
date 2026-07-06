@@ -55,7 +55,12 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
       }),
     );
     await fs.writeFile(
-      path.join(repoRoot, 'codeInfoTmp', 'reviews', '0000027-current-review.json'),
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review.json',
+      ),
       JSON.stringify({
         review_pass_id: '0000027-rp-20260705T150000Z-abcd1234',
       }),
@@ -102,7 +107,10 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
-            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
           case 'fetch --prune origin':
             return { stdout: '', stderr: '' };
           case 'symbolic-ref --short refs/remotes/origin/HEAD':
@@ -212,12 +220,134 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
         '0000027-rp-20260705T150000Z-abcd1234-codex-',
       ),
     );
-    assert.equal(pointer.canonical_review_pass_id, '0000027-rp-20260705T150000Z-abcd1234');
+    assert.equal(
+      pointer.canonical_review_pass_id,
+      '0000027-rp-20260705T150000Z-abcd1234',
+    );
     assert.equal(pointer.reasoning_effort, 'high');
     assert.equal(pointer.remote_fetch_status, 'success');
     assert.equal(pointer.resolved_base_source, 'remote');
     assert.equal(pointer.local_fallback_reason, null);
     assert.ok(pointer.review_output_file.endsWith('-codex-review.md'));
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('runCodexReviewStep deletes the pinned review-base ref even when codex aborts', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-abort-cleanup-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+
+    const controller = new AbortController();
+    let cleanupSignal: AbortSignal | undefined;
+    const gitCalls: string[] = [];
+    const execFile = async (
+      file: string,
+      args: readonly string[],
+      options?: {
+        signal?: AbortSignal;
+        timeout?: number;
+        killSignal?: NodeJS.Signals | number;
+        maxBuffer?: number;
+      },
+    ) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        gitCalls.push(key);
+        switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'remote get-url origin':
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
+          case 'fetch --prune origin':
+            return { stdout: '', stderr: '' };
+          case 'symbolic-ref --short refs/remotes/origin/HEAD':
+            return { stdout: 'origin/main\n', stderr: '' };
+          case 'rev-parse --verify origin/main':
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T160500Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              assert.equal(options?.signal, controller.signal);
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T160500Z-',
+              )
+            ) {
+              cleanupSignal = options?.signal;
+              return { stdout: '', stderr: '' };
+            }
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      if (file === 'codex') {
+        controller.abort();
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    await assert.rejects(
+      runCodexReviewStep(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-codex-review',
+          modelId: 'gpt-5.4',
+          signal: controller.signal,
+        },
+        {
+          execFile,
+          now: () => new Date('2026-07-05T16:05:00.000Z'),
+          randomHex: () => '9abc1234',
+        },
+      ),
+      (error) => (error as Error).name === 'AbortError',
+    );
+
+    assert.equal(cleanupSignal, undefined);
+    assert.ok(
+      gitCalls.some((key) =>
+        key.startsWith(
+          'update-ref -d refs/codeinfo/review-bases/0000027-20260705T160500Z-',
+        ),
+      ),
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -509,7 +639,12 @@ test('runCodexReviewStep sanitizes review pass ids before using them in artifact
       }),
     );
     await fs.writeFile(
-      path.join(repoRoot, 'codeInfoTmp', 'reviews', '0000027-current-review.json'),
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review.json',
+      ),
       JSON.stringify({
         review_pass_id: '../odd pass/id',
       }),
@@ -524,7 +659,10 @@ test('runCodexReviewStep sanitizes review pass ids before using them in artifact
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
-            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
           case 'fetch --prune origin':
             return { stdout: '', stderr: '' };
           case 'symbolic-ref --short refs/remotes/origin/HEAD':
@@ -637,7 +775,10 @@ test('runCodexReviewStep ignores stale review cycle ids from a different story w
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
-            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
           case 'fetch --prune origin':
             return { stdout: '', stderr: '' };
           case 'symbolic-ref --short refs/remotes/origin/HEAD':
@@ -776,7 +917,10 @@ test('runCodexReviewStep refreshes a stale prepared review base artifact when th
           case 'rev-parse origin/main^{commit}':
             return { stdout: `${BASE_SHA}\n`, stderr: '' };
           case 'remote get-url origin':
-            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
           case 'fetch --prune origin':
             return { stdout: '', stderr: '' };
           case 'symbolic-ref --short refs/remotes/origin/HEAD':
@@ -969,7 +1113,10 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin fet
           case 'branch --show-current':
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'remote get-url origin':
-            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
           case 'fetch --prune origin':
             return { stdout: '', stderr: '' };
           case 'symbolic-ref --short refs/remotes/origin/HEAD':
@@ -1017,7 +1164,7 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin fet
               stdout: '',
               stderr: `unexpected git command: ${key}`,
             });
-          }
+        }
       }
 
       if (file === 'codex') {
@@ -1066,7 +1213,10 @@ test('runCodexReviewStep rejects unsupported basePolicy values', async () => {
       },
       {
         execFile: async (file, args) => {
-          if (file === 'git' && args.slice(2).join(' ') === 'rev-parse --show-toplevel') {
+          if (
+            file === 'git' &&
+            args.slice(2).join(' ') === 'rev-parse --show-toplevel'
+          ) {
             return { stdout: '/tmp/unused-codex-review\n', stderr: '' };
           }
           throw new Error(`unexpected executable: ${file}`);

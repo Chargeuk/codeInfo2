@@ -147,7 +147,10 @@ const toPosixRelative = (repoRoot: string, absolutePath: string) =>
   path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 
 const formatUtcTimestamp = (value: Date) =>
-  value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  value
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z');
 
 const deriveStoryNumberFromPlanPath = (planPath: string): string => {
   const match = path.basename(planPath).match(STORY_NUMBER_PATTERN);
@@ -184,7 +187,9 @@ const resolveApplicableReviewCycleId = (params: {
   storyNumber: string;
   reviewState: ReviewDispositionStatePayload | null;
 }): string | null => {
-  const reviewCycleId = normalizeOptionalString(params.reviewState?.review_cycle_id);
+  const reviewCycleId = normalizeOptionalString(
+    params.reviewState?.review_cycle_id,
+  );
   if (!reviewCycleId) return null;
 
   const reviewStateStoryNumber = normalizeOptionalString(
@@ -194,7 +199,9 @@ const resolveApplicableReviewCycleId = (params: {
     return reviewStateStoryNumber === params.storyNumber ? reviewCycleId : null;
   }
 
-  return reviewCycleId.startsWith(`${params.storyNumber}-`) ? reviewCycleId : null;
+  return reviewCycleId.startsWith(`${params.storyNumber}-`)
+    ? reviewCycleId
+    : null;
 };
 
 const readJsonIfExists = async <T>(
@@ -309,7 +316,9 @@ const isPreparedBaseStillFresh = async (params: {
       `Unable to resolve comparison base commit for ${params.artifact.comparison_base_ref}.`,
       params.signal,
     );
-    return currentComparisonBaseCommit === params.artifact.comparison_base_commit;
+    return (
+      currentComparisonBaseCommit === params.artifact.comparison_base_commit
+    );
   } catch {
     return false;
   }
@@ -340,7 +349,6 @@ const createPinnedReviewBaseRef = async (params: {
         ['update-ref', '-d', refName],
         params.deps,
         `Unable to delete pinned review base ref ${refName}.`,
-        params.signal,
       );
     },
   };
@@ -374,8 +382,7 @@ export async function runCodexReviewStep(
     params.signal,
   );
   const outputKey = ensureSafeOutputKey(params.outputKey);
-  const basePolicy =
-    params.basePolicy ?? 'branched_from_or_default_if_merged';
+  const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
   if (basePolicy !== 'branched_from_or_default_if_merged') {
     throw new Error(`Unsupported codexReview basePolicy "${basePolicy}".`);
   }
@@ -448,7 +455,10 @@ export async function runCodexReviewStep(
   );
   const [currentReview, reviewState] = await Promise.all([
     readJsonIfExists<CurrentReviewPayload>(currentReviewPath, resolvedDeps),
-    readJsonIfExists<ReviewDispositionStatePayload>(reviewStatePath, resolvedDeps),
+    readJsonIfExists<ReviewDispositionStatePayload>(
+      reviewStatePath,
+      resolvedDeps,
+    ),
   ]);
 
   const canonicalReviewPassId = normalizeOptionalString(
@@ -548,7 +558,10 @@ export async function runCodexReviewStep(
     completedAtIso,
   });
 
-  await resolvedDeps.writeFile(pointerPath, `${JSON.stringify(pointer, null, 2)}\n`);
+  await resolvedDeps.writeFile(
+    pointerPath,
+    `${JSON.stringify(pointer, null, 2)}\n`,
+  );
 
   return {
     modelId: params.modelId,

@@ -147,11 +147,11 @@ const makeApp = () => {
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
-        }),
+        })),
     }),
   );
   return app;
@@ -161,6 +161,42 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../',
 );
+
+const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      FLOWS_DIR: tmpDir,
+    },
+    run,
+  );
+
+const withAgentRuntimeEnv = async (
+  params: {
+    agentsHome: string;
+    codexHome: string;
+    copilotHome: string;
+    flowsDir?: string;
+    compatEndpoints?: string;
+  },
+  run: () => Promise<void>,
+) =>
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_AGENT_HOME: params.agentsHome,
+      CODEINFO_CODEX_AGENT_HOME: params.agentsHome,
+      CODEINFO_CODEX_HOME: params.codexHome,
+      CODEINFO_COPILOT_HOME: params.copilotHome,
+      ...(params.flowsDir === undefined ? {} : { FLOWS_DIR: params.flowsDir }),
+      ...(params.compatEndpoints === undefined
+        ? {}
+        : {
+            CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+              params.compatEndpoints,
+          }),
+    },
+    run,
+  );
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -554,130 +590,71 @@ const subscribeConversation = (ws: WebSocket, conversationId: string) => {
 };
 
 test('POST /flows/:flowName/run returns 404 for missing flow file', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-missing-'),
   );
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
 
   try {
-    const res = await supertest(app).post('/flows/missing/run').send({});
-    assert.equal(res.status, 404);
-    assert.equal(res.body.error, 'not_found');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp()).post('/flows/missing/run').send({});
+      assert.equal(res.status, 404);
+      assert.equal(res.body.error, 'not_found');
+    });
   } finally {
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 400 for invalid flow files', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-invalid-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
 
   try {
-    const invalidJson = await supertest(app)
-      .post('/flows/invalid-json/run')
-      .send({});
-    assert.equal(invalidJson.status, 400);
-    assert.equal(invalidJson.body.error, 'invalid_request');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const app = makeApp();
+      const invalidJson = await supertest(app)
+        .post('/flows/invalid-json/run')
+        .send({});
+      assert.equal(invalidJson.status, 400);
+      assert.equal(invalidJson.body.error, 'invalid_request');
 
-    const invalidSchema = await supertest(app)
-      .post('/flows/invalid-schema/run')
-      .send({});
-    assert.equal(invalidSchema.status, 400);
-    assert.equal(invalidSchema.body.error, 'invalid_request');
+      const invalidSchema = await supertest(app)
+        .post('/flows/invalid-schema/run')
+        .send({});
+      assert.equal(invalidSchema.status, 400);
+      assert.equal(invalidSchema.body.error, 'invalid_request');
+    });
   } finally {
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 400 for non-string customTitle', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-custom-title-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ customTitle: 123 });
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp())
+        .post('/flows/llm-basic/run')
+        .send({ customTitle: 123 });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.error, 'invalid_request');
+    });
   } finally {
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run starts a fresh parent conversation when the selected conversation is archived', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-archived-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
   const conversationId = 'flow-archived-conv-1';
 
   memoryConversations.set(conversationId, {
@@ -695,67 +672,42 @@ test('POST /flows/:flowName/run starts a fresh parent conversation when the sele
   });
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId });
-    assert.equal(res.status, 202);
-    assert.notEqual(res.body.conversationId, conversationId);
-    memoryConversations.delete(res.body.conversationId);
-    memoryTurns.delete(res.body.conversationId);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp())
+        .post('/flows/llm-basic/run')
+        .send({ conversationId });
+      assert.equal(res.status, 202);
+      assert.notEqual(res.body.conversationId, conversationId);
+      memoryConversations.delete(res.body.conversationId);
+      memoryTurns.delete(res.body.conversationId);
+    });
   } finally {
     memoryConversations.delete(conversationId);
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 409 for concurrent runs', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-conflict-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
   const conversationId = 'flow-conflict-conv-1';
 
   const acquired = tryAcquireConversationLock(conversationId);
   assert.equal(acquired, true);
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId });
-    assert.equal(res.status, 409);
-    assert.equal(res.body.error, 'conflict');
-    assert.equal(res.body.code, 'RUN_IN_PROGRESS');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp())
+        .post('/flows/llm-basic/run')
+        .send({ conversationId });
+      assert.equal(res.status, 409);
+      assert.equal(res.body.error, 'conflict');
+      assert.equal(res.body.code, 'RUN_IN_PROGRESS');
+    });
   } finally {
     releaseConversationLock(conversationId);
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -765,20 +717,11 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
     models: [{ model: 'gpt-5.3-codex' }],
   });
 
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-unavailable-'),
   );
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const flowConversationId = 'flow-resume-unavailable-conv';
   const childConversationId = 'flow-resume-unavailable-child';
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   await writeFlowFile({
     tmpDir,
@@ -846,66 +789,58 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
     archivedAt: null,
   });
 
-  const app = makeApp();
-
   try {
-    const response = await supertest(app)
-      .post('/flows/resume-unavailable/run')
-      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
-    assert.equal(response.status, 202);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const response = await supertest(makeApp())
+        .post('/flows/resume-unavailable/run')
+        .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+      assert.equal(response.status, 202);
 
-    await waitForConversationUnlocked(flowConversationId);
-    const turns = await waitForTurns(flowConversationId, (items) =>
-      items.some(
+      await waitForConversationUnlocked(flowConversationId);
+      const turns = await waitForTurns(flowConversationId, (items) =>
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            /Saved model "gpt-5.2-codex" is unavailable/i.test(
+              turn.content ?? '',
+            ),
+        ),
+      );
+      const failureTurn = turns.find(
         (turn) =>
           turn.role === 'assistant' &&
           turn.status === 'failed' &&
           /Saved model "gpt-5.2-codex" is unavailable/i.test(
             turn.content ?? '',
           ),
-      ),
-    );
-    const failureTurn = turns.find(
-      (turn) =>
-        turn.role === 'assistant' &&
-        turn.status === 'failed' &&
-        /Saved model "gpt-5.2-codex" is unavailable/i.test(turn.content ?? ''),
-    );
-    assert.ok(failureTurn);
-    assert.equal(failureTurn.provider, 'codex');
-    assert.equal(failureTurn.model, 'gpt-5.3-codex');
+      );
+      assert.ok(failureTurn);
+      assert.equal(failureTurn.provider, 'codex');
+      assert.equal(failureTurn.model, 'gpt-5.3-codex');
 
-    const flowConversation = memoryConversations.get(flowConversationId);
-    const childConversation = memoryConversations.get(childConversationId);
-    const flowFlags = (flowConversation?.flags ?? {}) as {
-      flow?: { agentConversations?: Record<string, string> };
-    };
+      const flowConversation = memoryConversations.get(flowConversationId);
+      const childConversation = memoryConversations.get(childConversationId);
+      const flowFlags = (flowConversation?.flags ?? {}) as {
+        flow?: { agentConversations?: Record<string, string> };
+      };
 
-    assert.equal(memoryConversations.has(flowConversationId), true);
-    assert.equal(memoryConversations.has(childConversationId), true);
-    assert.equal(
-      flowFlags.flow?.agentConversations?.['coding_agent:resume-test'],
-      childConversationId,
-    );
-    assert.equal(childConversation?.provider, 'codex');
-    assert.equal(childConversation?.model, 'gpt-5.2-codex');
-    assert.deepEqual(memoryTurns.get(childConversationId) ?? [], []);
+      assert.equal(memoryConversations.has(flowConversationId), true);
+      assert.equal(memoryConversations.has(childConversationId), true);
+      assert.equal(
+        flowFlags.flow?.agentConversations?.['coding_agent:resume-test'],
+        childConversationId,
+      );
+      assert.equal(childConversation?.provider, 'codex');
+      assert.equal(childConversation?.model, 'gpt-5.2-codex');
+      assert.deepEqual(memoryTurns.get(childConversationId) ?? [], []);
+    });
   } finally {
     resetDeterministicCodexAvailabilityBootstrap();
     memoryConversations.delete(flowConversationId);
     memoryTurns.delete(flowConversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1364,11 +1299,6 @@ test('shared prestart formatter fallback stays aligned for dedicated flow failur
 });
 
 test('Task 19 preserves fallback runtime warnings on successful flow starts', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1400,11 +1330,6 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
     'model = "copilot-model"\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: true,
@@ -1444,37 +1369,38 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
   });
 
   try {
-    await withFlowHarness(async ({ tmpDir }) => {
-      await writeFlowFile({
-        tmpDir,
-        flowName: 'fallback-warning-flow',
-        steps: [
-          {
-            type: 'llm',
-            agentType: 'coding_agent',
-            identifier: 'fallback-warning',
-            messages: [{ role: 'user', content: ['after'] }],
-          },
-        ],
-      });
+    await withAgentRuntimeEnv(
+      { agentsHome, codexHome, copilotHome },
+      async () => {
+        await withFlowHarness(async ({ tmpDir }) => {
+          await writeFlowFile({
+            tmpDir,
+            flowName: 'fallback-warning-flow',
+            steps: [
+              {
+                type: 'llm',
+                agentType: 'coding_agent',
+                identifier: 'fallback-warning',
+                messages: [{ role: 'user', content: ['after'] }],
+              },
+            ],
+          });
 
-      const result = await startFlowRun({
-        flowName: 'fallback-warning-flow',
-        source: 'REST',
-      });
+          const result = await startFlowRun({
+            flowName: 'fallback-warning-flow',
+            source: 'REST',
+          });
 
-      assert.equal(
-        result.warnings?.some((warning) =>
-          warning.includes('Unknown key agent.top_level_unknown'),
-        ) ?? false,
-        true,
-      );
-    });
+          assert.equal(
+            result.warnings?.some((warning) =>
+              warning.includes('Unknown key agent.top_level_unknown'),
+            ) ?? false,
+            true,
+          );
+        });
+      },
+    );
   } finally {
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1482,11 +1408,6 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
 });
 
 test('flow start does not surface warnings for supported Codex compatibility keys', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1536,11 +1457,6 @@ test('flow start does not surface warnings for supported Codex compatibility key
     'model = "copilot-model"\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: true,
@@ -1580,42 +1496,43 @@ test('flow start does not surface warnings for supported Codex compatibility key
   });
 
   try {
-    await withFlowHarness(async ({ tmpDir }) => {
-      await writeFlowFile({
-        tmpDir,
-        flowName: 'supported-config-flow',
-        steps: [
-          {
-            type: 'llm',
-            agentType: 'coding_agent',
-            identifier: 'supported-config-warning-check',
-            messages: [{ role: 'user', content: ['after'] }],
-          },
-        ],
-      });
+    await withAgentRuntimeEnv(
+      { agentsHome, codexHome, copilotHome },
+      async () => {
+        await withFlowHarness(async ({ tmpDir }) => {
+          await writeFlowFile({
+            tmpDir,
+            flowName: 'supported-config-flow',
+            steps: [
+              {
+                type: 'llm',
+                agentType: 'coding_agent',
+                identifier: 'supported-config-warning-check',
+                messages: [{ role: 'user', content: ['after'] }],
+              },
+            ],
+          });
 
-      const result = await startFlowRun({
-        flowName: 'supported-config-flow',
-        source: 'REST',
-      });
+          const result = await startFlowRun({
+            flowName: 'supported-config-flow',
+            source: 'REST',
+          });
 
-      const warningsText = result.warnings?.join('\n') ?? '';
-      assert.equal(
-        /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
-          warningsText,
-        ),
-        false,
-      );
-      assert.equal(
-        /Unknown key agent\.features\.fast_mode/u.test(warningsText),
-        false,
-      );
-    });
+          const warningsText = result.warnings?.join('\n') ?? '';
+          assert.equal(
+            /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
+              warningsText,
+            ),
+            false,
+          );
+          assert.equal(
+            /Unknown key agent\.features\.fast_mode/u.test(warningsText),
+            false,
+          );
+        });
+      },
+    );
   } finally {
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1623,12 +1540,6 @@ test('flow start does not surface warnings for supported Codex compatibility key
 });
 
 test('flow run start payload keeps providerId, warnings, and machine-readable launch truth on the first response', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1658,12 +1569,6 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
     'model = "copilot-model"\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.FLOWS_DIR = flowsDir;
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: true,
@@ -1703,45 +1608,45 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
   });
 
   try {
-    await writeFlowFile({
-      tmpDir: flowsDir,
-      flowName: 'task26-flow-warning-start',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'warning-start',
-          messages: [{ role: 'user', content: ['after'] }],
-        },
-      ],
-    });
+    await withAgentRuntimeEnv(
+      { agentsHome, codexHome, copilotHome, flowsDir },
+      async () => {
+        await writeFlowFile({
+          tmpDir: flowsDir,
+          flowName: 'task26-flow-warning-start',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'coding_agent',
+              identifier: 'warning-start',
+              messages: [{ role: 'user', content: ['after'] }],
+            },
+          ],
+        });
 
-    const response = await supertest(makeApp())
-      .post('/flows/task26-flow-warning-start/run')
-      .send({})
-      .expect(202);
+        const response = await supertest(makeApp())
+          .post('/flows/task26-flow-warning-start/run')
+          .send({})
+          .expect(202);
 
-    assert.equal(response.body.status, 'started');
-    assert.equal(response.body.providerId, 'codex');
-    assert.equal(response.body.modelId, 'gpt-5.3-codex');
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('unsupported provider "bad-provider"'),
-      ),
-      true,
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('fallback provider "codex"'),
-      ),
-      true,
+        assert.equal(response.body.status, 'started');
+        assert.equal(response.body.providerId, 'codex');
+        assert.equal(response.body.modelId, 'gpt-5.3-codex');
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes('unsupported provider "bad-provider"'),
+          ),
+          true,
+        );
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes('fallback provider "codex"'),
+          ),
+          true,
+        );
+      },
     );
   } finally {
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    process.env.FLOWS_DIR = previousFlowsDir;
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1750,19 +1655,13 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
 });
 
 test('Task 25 flow starts fall back to the same provider native path before cross-provider fallback when the configured endpoint is unavailable', async () => {
-  const previousCompatEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const externalServer = await startExternalOpenAiCompatServer({
     responseMode: 'transport-failure',
   });
   const endpointId = `${externalServer.baseUrl}/v1`;
 
   try {
-    await withFlowHarness(async ({ tmpDir, baseUrl }) => {
-      const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-      const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-      const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-      const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+    await withFlowHarness(async ({ tmpDir }) => {
       const agentsHome = await fs.mkdtemp(
         path.join(os.tmpdir(), 'agents-home-'),
       );
@@ -1799,12 +1698,6 @@ test('Task 25 flow starts fall back to the same provider native path before cros
         'model = "copilot-gpt-5"\n',
         'utf8',
       );
-
-      process.env.CODEINFO_AGENT_HOME = agentsHome;
-      process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-      process.env.CODEINFO_CODEX_HOME = codexHome;
-      process.env.CODEINFO_COPILOT_HOME = copilotHome;
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses,completions`;
       __setAgentServiceDepsForTests({
         getCodexDetection: () => ({
           available: true,
@@ -1853,57 +1746,47 @@ test('Task 25 flow starts fall back to the same provider native path before cros
       });
 
       try {
-        await writeFlowFile({
-          tmpDir,
-          flowName: 'task25-flow-endpoint-native-fallback',
-          steps: [
-            {
-              type: 'llm',
-              agentType: 'coding_agent',
-              identifier: 'endpoint-native-fallback',
-              messages: [{ role: 'user', content: ['after'] }],
-            },
-          ],
-        });
+        await withAgentRuntimeEnv(
+          {
+            agentsHome,
+            codexHome,
+            copilotHome,
+            compatEndpoints: `${endpointId}|responses,completions`,
+          },
+          async () => {
+            await writeFlowFile({
+              tmpDir,
+              flowName: 'task25-flow-endpoint-native-fallback',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'endpoint-native-fallback',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-        const response = await supertest(baseUrl)
-          .post('/flows/task25-flow-endpoint-native-fallback/run')
-          .send({})
-          .expect(202);
+            const response = await supertest(makeApp())
+              .post('/flows/task25-flow-endpoint-native-fallback/run')
+              .send({})
+              .expect(202);
 
-        assert.equal(response.body.status, 'started');
-        assert.equal(response.body.providerId, 'copilot');
-        assert.equal(response.body.modelId, 'copilot-gpt-5');
-        assert.equal(
-          response.body.warnings.some((warning: string) =>
-            warning.includes(
-              `Endpoint "${endpointId}" was unavailable; falling back to native copilot model "copilot-gpt-5".`,
-            ),
-          ),
-          true,
+            assert.equal(response.body.status, 'started');
+            assert.equal(response.body.providerId, 'copilot');
+            assert.equal(response.body.modelId, 'copilot-gpt-5');
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes(
+                  `Endpoint "${endpointId}" was unavailable; falling back to native copilot model "copilot-gpt-5".`,
+                ),
+              ),
+              true,
+            );
+          },
         );
       } finally {
         __resetAgentServiceDepsForTests();
-        if (previousAgentHome === undefined) {
-          delete process.env.CODEINFO_AGENT_HOME;
-        } else {
-          process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-        }
-        if (previousLegacyAgentHome === undefined) {
-          delete process.env.CODEINFO_CODEX_AGENT_HOME;
-        } else {
-          process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-        }
-        if (previousCodexHome === undefined) {
-          delete process.env.CODEINFO_CODEX_HOME;
-        } else {
-          process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-        }
-        if (previousCopilotHome === undefined) {
-          delete process.env.CODEINFO_COPILOT_HOME;
-        } else {
-          process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-        }
         await fs.rm(agentsHome, { recursive: true, force: true });
         await fs.rm(codexHome, { recursive: true, force: true });
         await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1911,22 +1794,10 @@ test('Task 25 flow starts fall back to the same provider native path before cros
     });
   } finally {
     await externalServer.stop();
-    if (previousCompatEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-        previousCompatEndpoints;
-    }
   }
 });
 
 test('flow run survives provider-specific runtime-config failure by falling back before runtime load', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1953,12 +1824,6 @@ test('flow run survives provider-specific runtime-config failure by falling back
     'tool_access = [\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.FLOWS_DIR = flowsDir;
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: true,
@@ -2007,70 +1872,50 @@ test('flow run survives provider-specific runtime-config failure by falling back
   });
 
   try {
-    await writeFlowFile({
-      tmpDir: flowsDir,
-      flowName: 'task30-flow-provider-runtime-fallback',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'provider-runtime-fallback',
-          messages: [{ role: 'user', content: ['after'] }],
-        },
-      ],
-    });
+    await withAgentRuntimeEnv(
+      { agentsHome, codexHome, copilotHome, flowsDir },
+      async () => {
+        await writeFlowFile({
+          tmpDir: flowsDir,
+          flowName: 'task30-flow-provider-runtime-fallback',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'coding_agent',
+              identifier: 'provider-runtime-fallback',
+              messages: [{ role: 'user', content: ['after'] }],
+            },
+          ],
+        });
 
-    const response = await supertest(makeApp())
-      .post('/flows/task30-flow-provider-runtime-fallback/run')
-      .send({})
-      .expect(202);
+        const response = await supertest(makeApp())
+          .post('/flows/task30-flow-provider-runtime-fallback/run')
+          .send({})
+          .expect(202);
 
-    assert.equal(response.body.status, 'started');
-    assert.equal(response.body.providerId, 'codex');
-    assert.equal(
-      memoryConversations.get(response.body.conversationId)?.provider,
-      'codex',
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes(
-          'requested provider "copilot" because its runtime config could not load',
-        ),
-      ),
-      true,
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('fallback provider "codex"'),
-      ),
-      true,
+        assert.equal(response.body.status, 'started');
+        assert.equal(response.body.providerId, 'codex');
+        assert.equal(
+          memoryConversations.get(response.body.conversationId)?.provider,
+          'codex',
+        );
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes(
+              'requested provider "copilot" because its runtime config could not load',
+            ),
+          ),
+          true,
+        );
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes('fallback provider "codex"'),
+          ),
+          true,
+        );
+      },
     );
   } finally {
-    if (previousAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    }
-    if (previousLegacyAgentHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    }
-    if (previousCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    }
-    if (previousCopilotHome === undefined) {
-      delete process.env.CODEINFO_COPILOT_HOME;
-    } else {
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    }
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -2079,12 +1924,6 @@ test('flow run survives provider-specific runtime-config failure by falling back
 });
 
 test('flow run fails clearly when no fallback provider can execute after requested runtime-config failure', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -2111,12 +1950,6 @@ test('flow run fails clearly when no fallback provider can execute after request
     'tool_access = [\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.FLOWS_DIR = flowsDir;
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: false,
@@ -2160,56 +1993,36 @@ test('flow run fails clearly when no fallback provider can execute after request
   });
 
   try {
-    await writeFlowFile({
-      tmpDir: flowsDir,
-      flowName: 'task30-flow-provider-runtime-unavailable',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'provider-runtime-unavailable',
-          messages: [{ role: 'user', content: ['after'] }],
-        },
-      ],
-    });
+    await withAgentRuntimeEnv(
+      { agentsHome, codexHome, copilotHome, flowsDir },
+      async () => {
+        await writeFlowFile({
+          tmpDir: flowsDir,
+          flowName: 'task30-flow-provider-runtime-unavailable',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'coding_agent',
+              identifier: 'provider-runtime-unavailable',
+              messages: [{ role: 'user', content: ['after'] }],
+            },
+          ],
+        });
 
-    const response = await supertest(makeApp())
-      .post('/flows/task30-flow-provider-runtime-unavailable/run')
-      .send({})
-      .expect(503);
+        const response = await supertest(makeApp())
+          .post('/flows/task30-flow-provider-runtime-unavailable/run')
+          .send({})
+          .expect(503);
 
-    assert.equal(response.body.error, 'provider_unavailable');
-    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
-    assert.match(
-      String(response.body.reason),
-      /runtime config could not load/i,
+        assert.equal(response.body.error, 'provider_unavailable');
+        assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+        assert.match(
+          String(response.body.reason),
+          /runtime config could not load/i,
+        );
+      },
     );
   } finally {
-    if (previousAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    }
-    if (previousLegacyAgentHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    }
-    if (previousCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    }
-    if (previousCopilotHome === undefined) {
-      delete process.env.CODEINFO_COPILOT_HOME;
-    } else {
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    }
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });

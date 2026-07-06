@@ -118,6 +118,25 @@ const fixturesDir = path.resolve(
   '../fixtures/flows',
 );
 
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const withFlowFixtureEnv = async (
+  tmpDir: string,
+  run: () => Promise<void>,
+  overrides: Record<string, string | undefined> = {},
+) =>
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      FLOWS_DIR: tmpDir,
+      ...overrides,
+    },
+    run,
+  );
+
 const restoreEnvVar = (key: string, value: string | undefined) => {
   if (typeof value === 'string') {
     process.env[key] = value;
@@ -159,23 +178,15 @@ const describeConversationState = (conversationId: string): string =>
   });
 
 test('POST /flows/:flowName/run validates working_folder', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-workdir-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
@@ -184,38 +195,35 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
   try {
-    const invalid = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ working_folder: 'relative/path' });
-    assert.equal(invalid.status, 400);
-    assert.equal(invalid.body.code, 'WORKING_FOLDER_INVALID');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const invalid = await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({ working_folder: 'relative/path' });
+      assert.equal(invalid.status, 400);
+      assert.equal(invalid.body.code, 'WORKING_FOLDER_INVALID');
 
-    const missingPath = path.resolve(
-      process.cwd(),
-      'missing-workdir-' + Date.now().toString(),
-    );
-    const missing = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ working_folder: missingPath });
-    assert.equal(missing.status, 400);
-    assert.equal(missing.body.code, 'WORKING_FOLDER_NOT_FOUND');
+      const missingPath = path.resolve(
+        process.cwd(),
+        'missing-workdir-' + Date.now().toString(),
+      );
+      const missing = await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({ working_folder: missingPath });
+      assert.equal(missing.status, 400);
+      assert.equal(missing.body.code, 'WORKING_FOLDER_NOT_FOUND');
 
-    const valid = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ working_folder: process.cwd() });
-    assert.equal(valid.status, 202);
-    assert.equal(valid.body.status, 'started');
+      const valid = await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({ working_folder: process.cwd() });
+      assert.equal(valid.status, 202);
+      assert.equal(valid.body.status, 'started');
+    });
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -273,18 +281,10 @@ test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE messa
 
 test('a stale saved path yields to a newer saved working folder before a flow restore completes', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-workdir-restore-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
   const staleWorkingFolder = '/definitely/missing/path';
   const refreshedWorkingFolder = '/repos/newer-flow-working-folder';
   memoryConversations.set('flow-stale-restore', {
@@ -338,41 +338,32 @@ test('a stale saved path yields to a newer saved working folder before a flow re
   );
 
   try {
-    const res = await supertest(app).get('/conversations?flowName=llm-basic');
-    assert.equal(res.status, 200);
-    assert.equal(updateHookUsed, true);
-    assert.equal(res.body.items[0].flags.workingFolder, refreshedWorkingFolder);
-    assert.equal(
-      memoryConversations.get('flow-stale-restore')?.flags?.workingFolder,
-      refreshedWorkingFolder,
-    );
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(app).get('/conversations?flowName=llm-basic');
+      assert.equal(res.status, 200);
+      assert.equal(updateHookUsed, true);
+      assert.equal(
+        res.body.items[0].flags.workingFolder,
+        refreshedWorkingFolder,
+      );
+      assert.equal(
+        memoryConversations.get('flow-stale-restore')?.flags?.workingFolder,
+        refreshedWorkingFolder,
+      );
+    });
   } finally {
     memoryConversations.delete('flow-stale-restore');
     memoryTurns.delete('flow-stale-restore');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('a fresh run from an older flow conversation does not inherit its stale saved working folder', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-workdir-rerun-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
   memoryConversations.set('flow-stale-rerun', {
     _id: 'flow-stale-rerun',
     provider: 'codex',
@@ -390,53 +381,42 @@ test('a fresh run from an older flow conversation does not inherit its stale sav
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
         }),
+      ),
     }),
   );
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId: 'flow-stale-rerun' });
-    assert.equal(res.status, 202);
-    assert.notEqual(res.body.conversationId, 'flow-stale-rerun');
-    assert.equal(
-      memoryConversations.get(res.body.conversationId)?.flags?.workingFolder,
-      undefined,
-    );
-    memoryConversations.delete(res.body.conversationId);
-    memoryTurns.delete(res.body.conversationId);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({ conversationId: 'flow-stale-rerun' });
+      assert.equal(res.status, 202);
+      assert.notEqual(res.body.conversationId, 'flow-stale-rerun');
+      assert.equal(
+        memoryConversations.get(res.body.conversationId)?.flags?.workingFolder,
+        undefined,
+      );
+      memoryConversations.delete(res.body.conversationId);
+      memoryTurns.delete(res.body.conversationId);
+    });
   } finally {
     memoryConversations.delete('flow-stale-rerun');
     memoryTurns.delete('flow-stale-rerun');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('a fresh run still starts a replacement conversation when the older selected flow has a stale saved working folder', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-workdir-log-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
   memoryConversations.set('flow-stale-log', {
     _id: 'flow-stale-log',
     provider: 'codex',
@@ -454,36 +434,33 @@ test('a fresh run still starts a replacement conversation when the older selecte
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
         }),
+      ),
     }),
   );
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId: 'flow-stale-log' })
-      .expect(202);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({ conversationId: 'flow-stale-log' })
+        .expect(202);
 
-    assert.notEqual(res.body.conversationId, 'flow-stale-log');
-    assert.equal(
-      memoryConversations.get(res.body.conversationId)?.flags?.workingFolder,
-      undefined,
-    );
-    memoryConversations.delete(res.body.conversationId);
-    memoryTurns.delete(res.body.conversationId);
+      assert.notEqual(res.body.conversationId, 'flow-stale-log');
+      assert.equal(
+        memoryConversations.get(res.body.conversationId)?.flags?.workingFolder,
+        undefined,
+      );
+      memoryConversations.delete(res.body.conversationId);
+      memoryTurns.delete(res.body.conversationId);
+    });
   } finally {
     memoryConversations.delete('flow-stale-log');
     memoryTurns.delete('flow-stale-log');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -685,10 +662,6 @@ test('flow-owned llm steps default to the shared execution root when working_fol
   const prevFlowsDir = process.env.FLOWS_DIR;
   const prevCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   const prevCodeWorkdir = process.env.CODEX_WORKDIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-source-default-root-'),
   );
@@ -710,7 +683,7 @@ test('flow-owned llm steps default to the shared execution root when working_fol
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new CapturingFlowChat(calls),
@@ -719,6 +692,7 @@ test('flow-owned llm steps default to the shared execution root when working_fol
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -949,12 +923,6 @@ test('validated working_folder also drives dedicated flow reingest target workin
 
 test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-workdir-codeinfo-root-'),
   );
@@ -966,13 +934,11 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
   }> = [];
   await fs.mkdir(workingFolder, { recursive: true });
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new CapturingFlowChat(calls),
@@ -981,35 +947,32 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
   try {
-    await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({
-        conversationId: 'flow-codeinfo-root-markdown',
-        working_folder: workingFolder,
-      })
-      .expect(202);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({
+          conversationId: 'flow-codeinfo-root-markdown',
+          working_folder: workingFolder,
+        })
+        .expect(202);
 
-    await waitForCondition(() => calls.length >= 1);
+      await waitForCondition(() => calls.length >= 1);
 
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0]?.message, 'Say hello from a flow step.');
-    assert.equal(calls[0]?.flags.workingDirectoryOverride, workingFolder);
-    assert.deepEqual(calls[0]?.flags.envOverrides, {
-      CODEINFO_ROOT: repoRoot,
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0]?.message, 'Say hello from a flow step.');
+      assert.equal(calls[0]?.flags.workingDirectoryOverride, workingFolder);
+      assert.deepEqual(calls[0]?.flags.envOverrides, {
+        CODEINFO_ROOT: repoRoot,
+      });
     });
   } finally {
     memoryConversations.delete('flow-codeinfo-root-markdown');
     memoryTurns.delete('flow-codeinfo-root-markdown');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

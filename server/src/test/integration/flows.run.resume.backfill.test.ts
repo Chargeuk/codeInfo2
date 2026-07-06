@@ -25,6 +25,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const waitFor = async (
@@ -96,6 +97,20 @@ afterEach(() => {
   __resetFlowResumeTestDepsForTests();
   __resetFlowWaitResumeDepsForTests();
 });
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      FLOWS_DIR: tmpDir,
+    },
+    run,
+  );
 
 const writeResumeFlow = async (dir: string) => {
   const flow = {
@@ -231,19 +246,10 @@ const updateChildExecution = (conversationId: string, executionId: string) => {
 };
 
 test('startFlowRun backfills legacy executionId on resume', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-backfill-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-legacy';
   memoryConversations.set(conversationId, {
@@ -268,28 +274,30 @@ test('startFlowRun backfills legacy executionId on resume', async () => {
   });
 
   try {
-    const result = await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const result = await startFlowRun({
+        flowName: 'resume-basic',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+
+      assert.equal(result.conversationId, conversationId);
+      await waitFor(
+        () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+        5000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+
+      const conversation = memoryConversations.get(conversationId);
+      const flags = (conversation?.flags ?? {}) as {
+        flow?: { executionId?: string };
+      };
+
+      assert.equal(typeof flags.flow?.executionId, 'string');
     });
-
-    assert.equal(result.conversationId, conversationId);
-    await waitFor(
-      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
-      5000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-
-    const conversation = memoryConversations.get(conversationId);
-    const flags = (conversation?.flags ?? {}) as {
-      flow?: { executionId?: string };
-    };
-
-    assert.equal(typeof flags.flow?.executionId, 'string');
   } finally {
     const conversation = memoryConversations.get(conversationId);
     const flags = (conversation?.flags ?? {}) as {
@@ -304,30 +312,15 @@ test('startFlowRun backfills legacy executionId on resume', async () => {
       memoryConversations.delete(childConversationId);
       memoryTurns.delete(childConversationId);
     });
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun backfills legacy child executionId on resume', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-child-backfill-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-child-legacy';
   const childConversationId = 'agent-resume-conv-child-legacy';
@@ -369,53 +362,40 @@ test('startFlowRun backfills legacy child executionId on resume', async () => {
   });
 
   try {
-    await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
-    });
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'resume-basic',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
 
-    await waitFor(
-      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
-      5000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    assert.equal(
-      getFlowChildExecutionId(childConversationId),
-      'resume-execution-child-legacy',
-    );
+      await waitFor(
+        () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+        5000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      assert.equal(
+        getFlowChildExecutionId(childConversationId),
+        'resume-execution-child-legacy',
+      );
+    });
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun keeps legacy parent and child execution backfills side-effect free until resume validation succeeds', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-parent-backfill-order-'),
   );
   await writeResumeDualAgentFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-parent-backfill-order';
   const firstChildConversationId = 'agent-resume-conv-parent-backfill-first';
@@ -472,72 +452,74 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
   });
 
   try {
-    await assert.rejects(
-      () =>
-        startFlowRun({
-          flowName: 'resume-dual-agent',
-          conversationId,
-          resumeStepPath: [0],
-          source: 'REST',
-          chatFactory: () => new MinimalChat(),
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await assert.rejects(
+        () =>
+          startFlowRun({
+            flowName: 'resume-dual-agent',
+            conversationId,
+            resumeStepPath: [0],
+            source: 'REST',
+            chatFactory: () => new MinimalChat(),
+          }),
+        (error: unknown) => {
+          assert.equal((error as { code?: string })?.code, 'AGENT_MISMATCH');
+          return true;
+        },
+      );
+
+      const rejectedConversation = memoryConversations.get(conversationId);
+      const rejectedFlags = (rejectedConversation?.flags ?? {}) as {
+        flow?: { executionId?: string };
+      };
+      assert.equal(rejectedFlags.flow?.executionId, undefined);
+
+      const rejectedChild = memoryConversations.get(firstChildConversationId);
+      const rejectedChildFlags = (rejectedChild?.flags ?? {}) as {
+        flowChild?: { executionId?: string };
+      };
+      assert.equal(rejectedChildFlags.flowChild?.executionId, undefined);
+
+      memoryConversations.set(secondChildConversationId, {
+        ...(memoryConversations.get(secondChildConversationId) ?? {
+          _id: secondChildConversationId,
         }),
-      (error: unknown) => {
-        assert.equal((error as { code?: string })?.code, 'AGENT_MISMATCH');
-        return true;
-      },
-    );
+        provider: 'codex',
+        model: 'gpt-5.2-codex',
+        title: 'Flow: resume-dual-agent (resume-test-2)',
+        agentName: 'coding_agent',
+        source: 'REST',
+        flags: {},
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-    const rejectedConversation = memoryConversations.get(conversationId);
-    const rejectedFlags = (rejectedConversation?.flags ?? {}) as {
-      flow?: { executionId?: string };
-    };
-    assert.equal(rejectedFlags.flow?.executionId, undefined);
+      await startFlowRun({
+        flowName: 'resume-dual-agent',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
 
-    const rejectedChild = memoryConversations.get(firstChildConversationId);
-    const rejectedChildFlags = (rejectedChild?.flags ?? {}) as {
-      flowChild?: { executionId?: string };
-    };
-    assert.equal(rejectedChildFlags.flowChild?.executionId, undefined);
-
-    memoryConversations.set(secondChildConversationId, {
-      ...(memoryConversations.get(secondChildConversationId) ?? {
-        _id: secondChildConversationId,
-      }),
-      provider: 'codex',
-      model: 'gpt-5.2-codex',
-      title: 'Flow: resume-dual-agent (resume-test-2)',
-      agentName: 'coding_agent',
-      source: 'REST',
-      flags: {},
-      lastMessageAt: new Date(),
-      archivedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      await waitFor(
+        () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+        5000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const backfilledExecutionId = getFlowExecutionId(conversationId);
+      assert.equal(
+        getFlowChildExecutionId(firstChildConversationId),
+        backfilledExecutionId,
+      );
+      assert.equal(
+        getFlowChildExecutionId(secondChildConversationId),
+        backfilledExecutionId,
+      );
     });
-
-    await startFlowRun({
-      flowName: 'resume-dual-agent',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
-    });
-
-    await waitFor(
-      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
-      5000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    const backfilledExecutionId = getFlowExecutionId(conversationId);
-    assert.equal(
-      getFlowChildExecutionId(firstChildConversationId),
-      backfilledExecutionId,
-    );
-    assert.equal(
-      getFlowChildExecutionId(secondChildConversationId),
-      backfilledExecutionId,
-    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
@@ -545,30 +527,15 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
     memoryTurns.delete(firstChildConversationId);
     memoryConversations.delete(secondChildConversationId);
     memoryTurns.delete(secondChildConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun validates each resumed child once and only backfills missing child execution ids', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-child-cardinality-'),
   );
   await writeResumeDualAgentFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-child-cardinality';
   const firstChildConversationId = 'agent-resume-conv-child-cardinality-first';
@@ -646,34 +613,36 @@ test('startFlowRun validates each resumed child once and only backfills missing 
   });
 
   try {
-    await startFlowRun({
-      flowName: 'resume-dual-agent',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'resume-dual-agent',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+
+      await waitFor(
+        () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+        5000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+
+      assert.deepEqual(ensureCalls, [
+        firstChildConversationId,
+        secondChildConversationId,
+      ]);
+      assert.deepEqual(persistCalls, [secondChildConversationId]);
+      assert.equal(
+        getFlowChildExecutionId(firstChildConversationId),
+        executionId,
+      );
+      assert.equal(
+        getFlowChildExecutionId(secondChildConversationId),
+        executionId,
+      );
     });
-
-    await waitFor(
-      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
-      5000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-
-    assert.deepEqual(ensureCalls, [
-      firstChildConversationId,
-      secondChildConversationId,
-    ]);
-    assert.deepEqual(persistCalls, [secondChildConversationId]);
-    assert.equal(
-      getFlowChildExecutionId(firstChildConversationId),
-      executionId,
-    );
-    assert.equal(
-      getFlowChildExecutionId(secondChildConversationId),
-      executionId,
-    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
@@ -681,30 +650,15 @@ test('startFlowRun validates each resumed child once and only backfills missing 
     memoryTurns.delete(firstChildConversationId);
     memoryConversations.delete(secondChildConversationId);
     memoryTurns.delete(secondChildConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun leaves a fresher child execution id intact when it appears after resume validation but before the stale backfill write', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-child-interleaving-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-child-interleaving';
   const childConversationId = 'agent-resume-conv-child-interleaving';
@@ -759,55 +713,42 @@ test('startFlowRun leaves a fresher child execution id intact when it appears af
   });
 
   try {
-    await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'resume-basic',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+
+      await waitFor(
+        () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+        5000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+
+      assert.equal(persistCalls, 1);
+      assert.equal(
+        getFlowChildExecutionId(childConversationId),
+        fresherExecutionId,
+      );
     });
-
-    await waitFor(
-      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
-      5000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-
-    assert.equal(persistCalls, 1);
-    assert.equal(
-      getFlowChildExecutionId(childConversationId),
-      fresherExecutionId,
-    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startup recovery re-registers persisted waits through the normal startup path and resumes the same execution after an explicit wake', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-wait-resume-backfill-'),
   );
   await writeWaitResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-wait-resume-backfill';
   const captured: string[] = [];
@@ -841,100 +782,87 @@ test('startup recovery re-registers persisted waits through the normal startup p
   });
 
   try {
-    await startFlowRun({
-      flowName: 'wait-resume',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new TrackingChat(),
-    });
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'wait-resume',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new TrackingChat(),
+      });
 
-    await waitFor(
-      () => captured.length === 1,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    await waitFor(() => {
-      const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
-        flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
-      };
-      return (
-        Array.isArray(flags.flow?.wait?.stepPath) &&
-        flags.flow?.wait?.stepPath?.length === 1 &&
-        flags.flow?.wait?.stepPath?.[0] === 1 &&
-        typeof flags.flow?.wait?.resumeAt === 'number'
+      await waitFor(
+        () => captured.length === 1,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
       );
-    }, 10000, 50, () => describeResumeBackfillState(conversationId));
-    await waitFor(
-      () => getActiveRunOwnership(conversationId) === null,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    const executionId = getFlowExecutionId(conversationId);
-    __resetFlowWaitResumeDepsForTests();
-    wakes.length = 0;
+      await waitFor(() => {
+        const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
+        };
+        return (
+          Array.isArray(flags.flow?.wait?.stepPath) &&
+          flags.flow?.wait?.stepPath?.length === 1 &&
+          flags.flow?.wait?.stepPath?.[0] === 1 &&
+          typeof flags.flow?.wait?.resumeAt === 'number'
+        );
+      }, 10000, 50, () => describeResumeBackfillState(conversationId));
+      await waitFor(
+        () => getActiveRunOwnership(conversationId) === null,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const executionId = getFlowExecutionId(conversationId);
+      __resetFlowWaitResumeDepsForTests();
+      wakes.length = 0;
 
-    __setFlowWaitResumeDepsForTests({
-      scheduleWake: ({ onWake }) => {
-        wakes.push(onWake);
-        return { cancel: () => {} };
-      },
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: ({ onWake }) => {
+          wakes.push(onWake);
+          return { cancel: () => {} };
+        },
+      });
+
+      await resumePendingFlowWaitsForStartup();
+      assert.ok(
+        wakes.length > 0,
+        'expected startup backfill to register a wake callback',
+      );
+
+      wakes.forEach((registeredWake) => registeredWake());
+      await waitFor(
+        () => getAssistantTurnCount(conversationId) >= 2,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const assistantTurns = (memoryTurns.get(conversationId) ?? []).filter(
+        (turn) => turn?.role === 'assistant',
+      );
+      assert.equal(typeof assistantTurns.at(-1)?.status, 'string');
+      assert.equal(
+        (
+          (memoryConversations.get(conversationId)?.flags ?? {}) as {
+            flow?: { wait?: unknown };
+          }
+        ).flow?.wait,
+        undefined,
+      );
+      assert.equal(getFlowExecutionId(conversationId), executionId);
     });
-
-    await resumePendingFlowWaitsForStartup();
-    assert.ok(
-      wakes.length > 0,
-      'expected startup backfill to register a wake callback',
-    );
-
-    wakes.forEach((registeredWake) => registeredWake());
-    await waitFor(
-      () => getAssistantTurnCount(conversationId) >= 2,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    const assistantTurns = (memoryTurns.get(conversationId) ?? []).filter(
-      (turn) => turn?.role === 'assistant',
-    );
-    assert.equal(typeof assistantTurns.at(-1)?.status, 'string');
-    assert.equal(
-      (
-        (memoryConversations.get(conversationId)?.flags ?? {}) as {
-          flow?: { wait?: unknown };
-        }
-      ).flow?.wait,
-      undefined,
-    );
-    assert.equal(getFlowExecutionId(conversationId), executionId);
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('wake-time preflight failure rearms persisted wait ownership instead of dropping the durable wait state', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-wait-resume-rearm-'),
   );
   await writeWaitResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-wait-resume-rearm';
   const captured: string[] = [];
@@ -969,85 +897,72 @@ test('wake-time preflight failure rearms persisted wait ownership instead of dro
   });
 
   try {
-    await startFlowRun({
-      flowName: 'wait-resume',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new TrackingChat(),
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'wait-resume',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new TrackingChat(),
+      });
+
+      await waitFor(
+        () => captured.length === 1,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const initialWait = getPersistedWaitState(conversationId);
+      assert.ok(initialWait);
+      assert.equal(typeof initialWait.resumeAt, 'number');
+      const initialResumeAt = initialWait.resumeAt as number;
+
+      __setFlowWaitResumeDepsForTests({
+        now: () => 1_700_000_001_000,
+        nowIso: () => '2026-06-27T20:00:01.000Z',
+        scheduleWake: ({ onWake }) => {
+          wakes.push(onWake);
+          return { cancel: () => {} };
+        },
+        resumeFlowRun: async () => {
+          throw new Error('simulated preflight failure');
+        },
+      });
+
+      assert.ok(wakes.length > 0, 'expected initial wake to be scheduled');
+      const initialWake = wakes.shift();
+      assert.ok(initialWake, 'expected captured wake callback');
+      initialWake();
+
+      await waitFor(
+        () => (getPersistedWaitState(conversationId)?.resumeAt ?? 0) > initialResumeAt,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      await waitFor(
+        () => wakes.length > 0,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const rearmedWait = getPersistedWaitState(conversationId);
+      assert.ok(rearmedWait);
+      assert.equal(rearmedWait.executionId, initialWait.executionId);
+      assert.deepEqual(rearmedWait.stepPath, initialWait.stepPath);
+      assert.ok((rearmedWait.resumeAt ?? 0) > initialResumeAt);
     });
-
-    await waitFor(
-      () => captured.length === 1,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    const initialWait = getPersistedWaitState(conversationId);
-    assert.ok(initialWait);
-    assert.equal(typeof initialWait.resumeAt, 'number');
-    const initialResumeAt = initialWait.resumeAt as number;
-
-    __setFlowWaitResumeDepsForTests({
-      now: () => 1_700_000_001_000,
-      nowIso: () => '2026-06-27T20:00:01.000Z',
-      scheduleWake: ({ onWake }) => {
-        wakes.push(onWake);
-        return { cancel: () => {} };
-      },
-      resumeFlowRun: async () => {
-        throw new Error('simulated preflight failure');
-      },
-    });
-
-    assert.ok(wakes.length > 0, 'expected initial wake to be scheduled');
-    const initialWake = wakes.shift();
-    assert.ok(initialWake, 'expected captured wake callback');
-    initialWake();
-
-    await waitFor(
-      () => (getPersistedWaitState(conversationId)?.resumeAt ?? 0) > initialResumeAt,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    await waitFor(
-      () => wakes.length > 0,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    const rearmedWait = getPersistedWaitState(conversationId);
-    assert.ok(rearmedWait);
-    assert.equal(rearmedWait.executionId, initialWait.executionId);
-    assert.deepEqual(rearmedWait.stepPath, initialWait.stepPath);
-    assert.ok((rearmedWait.resumeAt ?? 0) > initialResumeAt);
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startup recovery retires a persisted wait after a durable invalid-state contradiction instead of rearming it', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-wait-resume-invalid-state-'),
   );
   await writeWaitResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-wait-resume-invalid-state';
   const captured: string[] = [];
@@ -1082,111 +997,102 @@ test('startup recovery retires a persisted wait after a durable invalid-state co
   });
 
   try {
-    await startFlowRun({
-      flowName: 'wait-resume',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new TrackingChat(),
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'wait-resume',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new TrackingChat(),
+      });
+
+      await waitFor(
+        () => captured.length === 1,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      await waitFor(
+        () => Boolean(getPersistedWaitState(conversationId)),
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      await waitFor(
+        () => getActiveRunOwnership(conversationId) === null,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+
+      await fs.writeFile(
+        path.join(tmpDir, 'wait-resume.json'),
+        JSON.stringify(
+          {
+            description: 'Wait resume backfill flow with removed wait step',
+            steps: [
+              {
+                type: 'llm',
+                label: 'Step 1',
+                agentType: 'coding_agent',
+                identifier: 'resume-test',
+                messages: [{ role: 'user', content: ['Step 1'] }],
+              },
+            ],
+          },
+          null,
+          2,
+        ),
+      );
+
+      wakes.length = 0;
+      await resumePendingFlowWaitsForStartup();
+      assert.equal(
+        wakes.length,
+        1,
+        'expected startup backfill wake to register',
+      );
+
+      const wake = wakes.shift();
+      assert.ok(wake, 'expected captured wake callback');
+      wake();
+
+      await waitFor(
+        () => getPersistedWaitState(conversationId) === undefined,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      await waitFor(
+        () => getAssistantTurnCount(conversationId) >= 2,
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
+      assert.equal(
+        wakes.length,
+        0,
+        'permanent invalid state should retire the wait instead of rearming it',
+      );
+
+      const latestAssistantTurn = getLatestAssistantTurn(conversationId);
+      assert.equal(latestAssistantTurn?.status, 'failed');
+      assert.match(
+        latestAssistantTurn?.content ?? '',
+        /resumeStepPath out of range/i,
+      );
     });
-
-    await waitFor(
-      () => captured.length === 1,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    await waitFor(
-      () => Boolean(getPersistedWaitState(conversationId)),
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    await waitFor(
-      () => getActiveRunOwnership(conversationId) === null,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-
-    await fs.writeFile(
-      path.join(tmpDir, 'wait-resume.json'),
-      JSON.stringify(
-        {
-          description: 'Wait resume backfill flow with removed wait step',
-          steps: [
-            {
-              type: 'llm',
-              label: 'Step 1',
-              agentType: 'coding_agent',
-              identifier: 'resume-test',
-              messages: [{ role: 'user', content: ['Step 1'] }],
-            },
-          ],
-        },
-        null,
-        2,
-      ),
-    );
-
-    wakes.length = 0;
-    await resumePendingFlowWaitsForStartup();
-    assert.equal(wakes.length, 1, 'expected startup backfill wake to register');
-
-    const wake = wakes.shift();
-    assert.ok(wake, 'expected captured wake callback');
-    wake();
-
-    await waitFor(
-      () => getPersistedWaitState(conversationId) === undefined,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    await waitFor(
-      () => getAssistantTurnCount(conversationId) >= 2,
-      10000,
-      50,
-      () => describeResumeBackfillState(conversationId),
-    );
-    assert.equal(
-      wakes.length,
-      0,
-      'permanent invalid state should retire the wait instead of rearming it',
-    );
-
-    const latestAssistantTurn = getLatestAssistantTurn(conversationId);
-    assert.equal(latestAssistantTurn?.status, 'failed');
-    assert.match(
-      latestAssistantTurn?.content ?? '',
-      /resumeStepPath out of range/i,
-    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startup recovery does not re-register malformed persisted wait state with an empty wait stepPath', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-wait-resume-malformed-'),
   );
   await writeWaitResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-wait-resume-malformed';
   const wakes: Array<() => void> = [];
@@ -1227,40 +1133,27 @@ test('startup recovery does not re-register malformed persisted wait state with 
   });
 
   try {
-    await resumePendingFlowWaitsForStartup();
-    assert.equal(
-      wakes.length,
-      0,
-      'malformed wait state should not be re-registered for wake',
-    );
-    assert.equal(getAssistantTurnCount(conversationId), 0);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await resumePendingFlowWaitsForStartup();
+      assert.equal(
+        wakes.length,
+        0,
+        'malformed wait state should not be re-registered for wake',
+      );
+      assert.equal(getAssistantTurnCount(conversationId), 0);
+    });
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startup recovery returns a degraded result instead of throwing when wait registration fails before listen', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-wait-resume-startup-degraded-'),
   );
   await writeWaitResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-wait-resume-startup-degraded';
   memoryConversations.set(conversationId, {
@@ -1299,25 +1192,21 @@ test('startup recovery returns a degraded result instead of throwing when wait r
   });
 
   try {
-    const result = await resumePendingFlowWaitsForStartup();
-    assert.equal(result.reachable, true);
-    assert.equal(result.degraded, true);
-    assert.equal(
-      result.diagnosticEvent,
-      FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
-    );
-    assert.match(result.causeMessage, /startup registration failure/i);
-    assert.equal(getAssistantTurnCount(conversationId), 0);
-    assert.ok(getPersistedWaitState(conversationId));
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const result = await resumePendingFlowWaitsForStartup();
+      assert.equal(result.reachable, true);
+      assert.equal(result.degraded, true);
+      assert.equal(
+        result.diagnosticEvent,
+        FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
+      );
+      assert.match(result.causeMessage, /startup registration failure/i);
+      assert.equal(getAssistantTurnCount(conversationId), 0);
+      assert.ok(getPersistedWaitState(conversationId));
+    });
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

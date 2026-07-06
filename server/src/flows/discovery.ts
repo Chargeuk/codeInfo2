@@ -212,6 +212,8 @@ const collectFlowAvailability = async (params: {
   availabilityContext: Awaited<
     ReturnType<typeof createAgentAvailabilityContext>
   >;
+  flowName: string;
+  flowsDir: string;
   codeInfo2Root: string;
   repos: Array<{ sourceId: string; sourceLabel: string }>;
   sourceId?: string;
@@ -328,7 +330,13 @@ const collectFlowAvailability = async (params: {
     };
   }
 
-  if (flowUsesCodexReview(params.parsedFlow.steps)) {
+  if (
+    await flowUsesCodexReview({
+      flowName: params.flowName,
+      steps: params.parsedFlow.steps,
+      flowsDir: params.flowsDir,
+    })
+  ) {
     const codexBootstrapStatus = getProviderBootstrapStatus('codex');
     if (!codexBootstrapStatus.healthy) {
       const message = `Flow codexReview step is unavailable: ${codexBootstrapStatus.reason ?? 'codex unavailable'}`;
@@ -370,13 +378,63 @@ const collectCommandSteps = (
   return collected;
 };
 
-const flowUsesCodexReview = (steps: FlowStep[]): boolean => {
-  for (const step of steps) {
+const flowUsesCodexReview = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsDir: string;
+  visited?: Set<string>;
+}): Promise<boolean> => {
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+
+  for (const step of params.steps) {
     if (step.type === 'codexReview') {
       return true;
     }
-    if (step.type === 'startLoop' && flowUsesCodexReview(step.steps)) {
-      return true;
+    if (step.type === 'startLoop') {
+      if (
+        await flowUsesCodexReview({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsDir: params.flowsDir,
+          visited,
+        })
+      ) {
+        return true;
+      }
+      continue;
+    }
+    if (step.type !== 'subflow') {
+      continue;
+    }
+
+    for (const childFlowName of step.flowNames) {
+      if (visited.has(childFlowName)) {
+        continue;
+      }
+      const childFlowPath = path.join(params.flowsDir, `${childFlowName}.json`);
+      const childFlowRaw = await fs
+        .readFile(childFlowPath, 'utf8')
+        .catch(() => null);
+      if (!childFlowRaw) {
+        continue;
+      }
+      const parsedChildFlow = parseFlowFile(childFlowRaw, {
+        flowName: childFlowName,
+      });
+      if (!parsedChildFlow.ok) {
+        continue;
+      }
+      if (
+        await flowUsesCodexReview({
+          flowName: childFlowName,
+          steps: parsedChildFlow.flow.steps,
+          flowsDir: params.flowsDir,
+          visited: new Set(visited).add(childFlowName),
+        })
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -483,6 +541,8 @@ export async function discoverFlows(params?: {
         parsedFlow: parsed.ok ? parsed.flow : undefined,
         discoveredAgentsByName,
         availabilityContext,
+        flowName: name,
+        flowsDir: params.flowsDir,
         codeInfo2Root,
         repos: params.repos,
         sourceId: params.sourceId,

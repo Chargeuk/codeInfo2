@@ -14,6 +14,10 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -301,6 +305,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetProviderBootstrapStatusForTests();
   if (previousAgentsHome === undefined) {
     delete process.env.CODEINFO_CODEX_AGENT_HOME;
   } else {
@@ -374,6 +379,8 @@ test('subflow step launches a child flow, waits for completion, and uses the gen
       undefined,
     );
   } finally {
+    resetDeterministicCodexAvailabilityBootstrap();
+    installDeterministicCodexAvailabilityBootstrap();
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1123,6 +1130,76 @@ test('local flow launches support prepareReviewBase without explicit repo select
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
+
+test(
+  'parent flows fail fast when child subflows require Codex and Codex is unavailable',
+  { concurrency: false },
+  async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'flow-subflow-codex-preflight-'),
+    );
+    process.env.FLOWS_DIR = tmpDir;
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'child-codex-review',
+        steps: [
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            model: 'gpt-5.4',
+            reasoningEffort: 'medium',
+          },
+        ],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'parent-preflight',
+        steps: [
+          llmStep('should not run'),
+          subflowStep('Run Codex Review Child', 'child-codex-review'),
+        ],
+      });
+
+      __setProviderBootstrapStatusForTests('codex', {
+        healthy: false,
+        reason: 'codex unavailable for parent preflight',
+        warnings: [],
+      });
+
+      let executeCalls = 0;
+      await assert.rejects(
+        startFlowRun({
+          flowName: 'parent-preflight',
+          source: 'REST',
+          working_folder: repoRoot,
+          chatFactory: () =>
+            new SubflowChat(25, () => {
+              executeCalls += 1;
+            }),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(repoRoot)],
+            lockedModelId: null,
+          }),
+        }),
+        (error: unknown) => {
+          assert.equal(
+            (error as { code?: string }).code,
+            'PROVIDER_UNAVAILABLE',
+          );
+          return true;
+        },
+      );
+      assert.equal(executeCalls, 0);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  },
+);
 
 test('prepareReviewBase can precede a parallel review subflow batch on the shared checkout', async () => {
   const tmpDir = await fs.mkdtemp(

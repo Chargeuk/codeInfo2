@@ -382,8 +382,11 @@ async function resolveBaseComparison(params: {
       resolvedBaseBranch: logicalBaseBranch,
       resolvedBaseSource: 'remote',
       remoteName: 'origin',
-      remoteFetchStatus: 'success',
-      localFallbackReason: null,
+      remoteFetchStatus,
+      ...(remoteFetchError ? { remoteFetchError } : {}),
+      ...(remoteFetchExitCode !== undefined ? { remoteFetchExitCode } : {}),
+      localFallbackReason:
+        remoteFetchStatus === 'success' ? null : remoteFetchStatus,
       comparisonBaseRef: preferredRemoteRef,
       comparisonBaseCommit,
     };

@@ -3283,6 +3283,101 @@ const findRuntimeCodexReviewStep = (
   return undefined;
 };
 
+const flowContainsReachableCodexReview = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsRoot: string;
+  sourceId?: string;
+  resumeStepPath?: number[] | null;
+  visited?: Set<string>;
+}): Promise<boolean> => {
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+
+  let resumePathRemaining =
+    params.resumeStepPath && params.resumeStepPath.length > 0
+      ? [...params.resumeStepPath]
+      : null;
+  let resumeIndex = resumePathRemaining?.[0];
+
+  for (const [index, step] of params.steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        return false;
+      }
+      return flowContainsReachableCodexReview({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        resumeStepPath: resumePathRemaining.slice(1),
+        visited,
+      });
+    }
+
+    if (step.type === 'codexReview') {
+      return true;
+    }
+    if (step.type === 'startLoop') {
+      if (
+        await flowContainsReachableCodexReview({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsRoot: params.flowsRoot,
+          sourceId: params.sourceId,
+          visited,
+        })
+      ) {
+        return true;
+      }
+      continue;
+    }
+    if (step.type !== 'subflow') {
+      continue;
+    }
+
+    for (const childFlowName of step.flowNames) {
+      if (visited.has(childFlowName)) {
+        continue;
+      }
+      const childFlow = await loadFlowFile({
+        flowName: childFlowName,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+      }).catch(() => null);
+      if (!childFlow) {
+        continue;
+      }
+      if (
+        await flowContainsReachableCodexReview({
+          flowName: childFlowName,
+          steps: childFlow.steps,
+          flowsRoot: params.flowsRoot,
+          sourceId: params.sourceId,
+          visited: new Set(visited).add(childFlowName),
+        })
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
 const validateCommandSteps = async (
   steps: FlowStep[],
   agentByName: Map<string, { home: string }>,
@@ -6340,6 +6435,15 @@ export async function startFlowRun(
     const firstCodexReviewStep =
       runtimeCodexReviewStep ??
       (!firstAgentStep ? findFirstCodexReviewStep(flow.steps) : undefined);
+    const requiresDelayedCodexReview =
+      !firstCodexReviewStep &&
+      (await flowContainsReachableCodexReview({
+        flowName,
+        steps: flow.steps,
+        flowsRoot,
+        sourceId,
+        resumeStepPath,
+      }));
     const flowOwnerRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -6355,6 +6459,15 @@ export async function startFlowRun(
       : undefined;
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
+    if (requiresDelayedCodexReview) {
+      const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+      if (!codexBootstrapStatus.healthy) {
+        throw toFlowRunError(
+          'PROVIDER_UNAVAILABLE',
+          codexBootstrapStatus.reason ?? 'codex unavailable',
+        );
+      }
+    }
     if (firstAgentStep) {
       const validatedAgentType = validateRepositoryBackedAgentType(
         firstAgentStep.agentType,

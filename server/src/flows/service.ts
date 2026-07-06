@@ -3318,14 +3318,21 @@ const flowContainsReachableCodexReview = async (params: {
       if (step.type !== 'startLoop') {
         return false;
       }
-      return flowContainsReachableCodexReview({
-        flowName: params.flowName,
-        steps: step.steps,
-        flowsRoot: params.flowsRoot,
-        sourceId: params.sourceId,
-        resumeStepPath: resumePathRemaining.slice(1),
-        visited,
-      });
+      if (
+        await flowContainsReachableCodexReview({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsRoot: params.flowsRoot,
+          sourceId: params.sourceId,
+          resumeStepPath: resumePathRemaining.slice(1),
+          visited,
+        })
+      ) {
+        return true;
+      }
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
     }
 
     if (step.type === 'codexReview') {
@@ -3417,16 +3424,24 @@ const validateCommandSteps = async (
   }
 };
 
-const validateCodexReviewSteps = (
-  steps: FlowStep[],
-  codexReviewModelId?: string,
-  resumeStepPath?: number[] | null,
-): void => {
+const validateCodexReviewSteps = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsRoot: string;
+  sourceId?: string;
+  codexReviewModelId?: string;
+  resumeStepPath?: number[] | null;
+  visited?: Set<string>;
+}): Promise<void> => {
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
   let resumePathRemaining =
-    resumeStepPath && resumeStepPath.length > 0 ? [...resumeStepPath] : null;
+    params.resumeStepPath && params.resumeStepPath.length > 0
+      ? [...params.resumeStepPath]
+      : null;
   let resumeIndex = resumePathRemaining?.[0];
 
-  for (const [index, step] of steps.entries()) {
+  for (const [index, step] of params.steps.entries()) {
     if (
       resumePathRemaining &&
       resumeIndex !== undefined &&
@@ -3447,18 +3462,53 @@ const validateCodexReviewSteps = (
           'resumeStepPath must reference loop steps for nested indices',
         );
       }
-      validateCodexReviewSteps(
-        step.steps,
-        codexReviewModelId,
-        resumePathRemaining.slice(1),
-      );
+      await validateCodexReviewSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        codexReviewModelId: params.codexReviewModelId,
+        resumeStepPath: resumePathRemaining.slice(1),
+        visited,
+      });
       resumePathRemaining = null;
       resumeIndex = undefined;
       continue;
     }
 
     if (step.type === 'startLoop') {
-      validateCodexReviewSteps(step.steps, codexReviewModelId);
+      await validateCodexReviewSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        codexReviewModelId: params.codexReviewModelId,
+        visited,
+      });
+      continue;
+    }
+    if (step.type === 'subflow') {
+      for (const childFlowName of step.flowNames) {
+        if (visited.has(childFlowName)) {
+          continue;
+        }
+        const childFlow = await loadFlowFile({
+          flowName: childFlowName,
+          flowsRoot: params.flowsRoot,
+          sourceId: params.sourceId,
+        }).catch(() => null);
+        if (!childFlow) {
+          continue;
+        }
+        await validateCodexReviewSteps({
+          flowName: childFlowName,
+          steps: childFlow.steps,
+          flowsRoot: params.flowsRoot,
+          sourceId: params.sourceId,
+          codexReviewModelId: params.codexReviewModelId,
+          visited: new Set(visited).add(childFlowName),
+        });
+      }
       continue;
     }
     if (step.type !== 'codexReview') {
@@ -3467,7 +3517,7 @@ const validateCodexReviewSteps = (
 
     if (
       !resolveCodexReviewModel({
-        requestedModelId: codexReviewModelId,
+        requestedModelId: params.codexReviewModelId,
         stepModelId: step.model,
       })
     ) {
@@ -6549,11 +6599,14 @@ export async function startFlowRun(
     };
 
     await validateCommandSteps(flow.steps, agentByName, repositoryContext);
-    validateCodexReviewSteps(
-      flow.steps,
-      params.codexReviewModelId,
+    await validateCodexReviewSteps({
+      flowName,
+      steps: flow.steps,
+      flowsRoot,
+      sourceId,
+      codexReviewModelId: params.codexReviewModelId,
       resumeStepPath,
-    );
+    });
 
     await ensureFlowConversation({
       conversationId,

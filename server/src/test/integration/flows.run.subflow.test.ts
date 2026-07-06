@@ -1201,6 +1201,167 @@ test(
   },
 );
 
+test('parent flows validate child codexReview model requirements before launching subflows', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-codex-model-validation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-codex-review-missing-model',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-codex-model-validation',
+      steps: [
+        llmStep('should not run'),
+        subflowStep(
+          'Run Codex Review Child',
+          'child-codex-review-missing-model',
+        ),
+      ],
+    });
+
+    let executeCalls = 0;
+    await assert.rejects(
+      startFlowRun({
+        flowName: 'parent-codex-model-validation',
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () =>
+          new SubflowChat(25, () => {
+            executeCalls += 1;
+          }),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      }),
+      (error: unknown) => {
+        assert.equal((error as { code?: string }).code, 'INVALID_REQUEST');
+        assert.match(
+          String((error as { reason?: string }).reason ?? ''),
+          /requires codexReviewModelId or a step model/u,
+        );
+        return true;
+      },
+    );
+    assert.equal(executeCalls, 0);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test(
+  'resumed flows still preflight later Codex work after resuming inside loops',
+  { concurrency: false },
+  async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'flow-resume-loop-codex-preflight-'),
+    );
+    process.env.FLOWS_DIR = tmpDir;
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'child-codex-review',
+        steps: [
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            model: 'gpt-5.4',
+            reasoningEffort: 'medium',
+          },
+        ],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'resume-loop-parent',
+        steps: [
+          {
+            type: 'startLoop',
+            label: 'Outer Loop',
+            steps: [llmStep('loop step')],
+          },
+          subflowStep('Run Codex Review Child', 'child-codex-review'),
+        ],
+      });
+
+      const conversationId = 'resume-loop-parent-conversation';
+      const now = new Date();
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.1-codex-max',
+        title: 'Resume Loop Parent',
+        flowName: 'resume-loop-parent',
+        source: 'REST',
+        flags: {
+          flow: {
+            executionId: 'resume-loop-parent-execution',
+            stepPath: [0, 0],
+            loopStack: [],
+            agentConversations: {},
+            agentThreads: {},
+          },
+        },
+        lastMessageAt: now,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      } as Conversation);
+
+      __setProviderBootstrapStatusForTests('codex', {
+        healthy: false,
+        reason: 'codex unavailable for resume loop preflight',
+        warnings: [],
+      });
+
+      await assert.rejects(
+        startFlowRun({
+          flowName: 'resume-loop-parent',
+          conversationId,
+          resumeStepPath: [0, 0],
+          source: 'REST',
+          working_folder: repoRoot,
+          chatFactory: () => new SubflowChat(25),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(repoRoot)],
+            lockedModelId: null,
+          }),
+        }),
+        (error: unknown) => {
+          assert.equal(
+            (error as { code?: string }).code,
+            'PROVIDER_UNAVAILABLE',
+          );
+          assert.match(
+            String((error as { reason?: string }).reason ?? ''),
+            /codex unavailable for resume loop preflight/u,
+          );
+          return true;
+        },
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  },
+);
+
 test('prepareReviewBase can precede a parallel review subflow batch on the shared checkout', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-review-base-parallel-'),

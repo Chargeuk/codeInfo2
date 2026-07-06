@@ -100,6 +100,7 @@ type ExecFileOptions = {
   timeout?: number;
   killSignal?: NodeJS.Signals | number;
   encoding?: BufferEncoding;
+  maxBuffer?: number;
 };
 
 type ExecFileLike = (
@@ -129,6 +130,7 @@ const defaultDeps: CodexReviewDeps = {
 
 const GIT_PROCESS_TIMEOUT_MS = 120_000;
 const CODEX_REVIEW_TIMEOUT_MS = 1_800_000;
+const CODEX_REVIEW_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM';
 const SAFE_OUTPUT_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
 const STORY_NUMBER_PATTERN = /^(\d{7})-/;
@@ -395,6 +397,7 @@ export async function runCodexReviewStep(
     signal: params.signal,
     timeout: CODEX_REVIEW_TIMEOUT_MS,
     killSignal: PROCESS_KILL_SIGNAL,
+    maxBuffer: CODEX_REVIEW_MAX_BUFFER_BYTES,
   });
 
   const completedAtIso = resolvedDeps.now().toISOString();

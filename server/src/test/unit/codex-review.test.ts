@@ -79,6 +79,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
             signal?: AbortSignal;
             timeout?: number;
             killSignal?: NodeJS.Signals | number;
+            maxBuffer?: number;
           }
         | undefined;
     }> = [];
@@ -89,6 +90,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
         signal?: AbortSignal;
         timeout?: number;
         killSignal?: NodeJS.Signals | number;
+        maxBuffer?: number;
       },
     ) => {
       if (file === 'git') {
@@ -167,6 +169,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
     assert.equal(codexCalls[0]?.options?.signal, controller.signal);
     assert.equal(codexCalls[0]?.options?.timeout, 1_800_000);
     assert.equal(codexCalls[0]?.options?.killSignal, 'SIGTERM');
+    assert.equal(codexCalls[0]?.options?.maxBuffer, 16 * 1024 * 1024);
     assert.ok(gitCalls.length > 0);
     assert.equal(gitCalls[0]?.options?.signal, controller.signal);
     assert.equal(gitCalls[0]?.options?.timeout, 120_000);

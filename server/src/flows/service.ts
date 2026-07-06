@@ -3269,8 +3269,43 @@ const validateCommandSteps = async (
 const validateCodexReviewSteps = (
   steps: FlowStep[],
   codexReviewModelId?: string,
+  resumeStepPath?: number[] | null,
 ): void => {
-  for (const step of steps) {
+  let resumePathRemaining =
+    resumeStepPath && resumeStepPath.length > 0 ? [...resumeStepPath] : null;
+  let resumeIndex = resumePathRemaining?.[0];
+
+  for (const [index, step] of steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'resumeStepPath must reference loop steps for nested indices',
+        );
+      }
+      validateCodexReviewSteps(
+        step.steps,
+        codexReviewModelId,
+        resumePathRemaining.slice(1),
+      );
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
+    }
+
     if (step.type === 'startLoop') {
       validateCodexReviewSteps(step.steps, codexReviewModelId);
       continue;
@@ -5313,7 +5348,7 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
       });
       if (!boundPending.ok) {
-        return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
+        return false;
       }
 
       const aborted = abortInflight({
@@ -6225,7 +6260,11 @@ export async function startFlowRun(
     };
 
     await validateCommandSteps(flow.steps, agentByName, repositoryContext);
-    validateCodexReviewSteps(flow.steps, params.codexReviewModelId);
+    validateCodexReviewSteps(
+      flow.steps,
+      params.codexReviewModelId,
+      resumeStepPath,
+    );
 
     await ensureFlowConversation({
       conversationId,

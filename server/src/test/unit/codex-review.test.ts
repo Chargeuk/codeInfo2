@@ -403,6 +403,7 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
       JSON.stringify({
         story_id: '0000027',
         plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
         repo_alias: 'current_repository',
         repo_root: repoRoot,
         branch: 'feature/0000027-codex-review',
@@ -543,6 +544,7 @@ test('runCodexReviewStep resolves the git toplevel before reading current-plan a
       JSON.stringify({
         story_id: '0000027',
         plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
         repo_alias: 'current_repository',
         repo_root: repoRoot,
         branch: 'feature/0000027-codex-review',
@@ -903,6 +905,7 @@ test('runCodexReviewStep reuses a prepared review base artifact even when the tr
       JSON.stringify({
         story_id: '0000027',
         plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
         repo_alias: 'current_repository',
         repo_root: repoRoot,
         branch: 'feature/0000027-codex-review',
@@ -994,6 +997,136 @@ test('runCodexReviewStep reuses a prepared review base artifact even when the tr
   }
 });
 
+test('runCodexReviewStep refreshes a prepared review base artifact when current-plan branched_from changes', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-branched-from-refresh-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review-base.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'feature/shared-base',
+        repo_alias: 'current_repository',
+        repo_root: repoRoot,
+        branch: 'feature/0000027-codex-review',
+        head_commit: HEAD_SHA,
+        logical_base_branch: 'feature/shared-base',
+        resolved_base_branch: 'feature/shared-base',
+        resolved_base_source: 'local_fallback',
+        remote_name: 'origin',
+        remote_fetch_status: 'missing_remote_ref',
+        local_fallback_reason: 'missing_remote_ref',
+        comparison_base_ref: 'feature/shared-base',
+        comparison_base_commit: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        comparison_head_ref: 'HEAD',
+        comparison_rule: 'local_head_vs_resolved_base',
+        status: 'completed',
+        started_at: '2026-07-05T16:24:00.000Z',
+        completed_at: '2026-07-05T16:24:01.000Z',
+      }),
+    );
+
+    const gitCalls: string[] = [];
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        gitCalls.push(key);
+        switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'remote get-url origin':
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
+          case 'fetch --prune origin':
+            return { stdout: '', stderr: '' };
+          case 'symbolic-ref --short refs/remotes/origin/HEAD':
+            return { stdout: 'origin/main\n', stderr: '' };
+          case 'rev-parse --verify origin/main':
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T162600Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162600Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      if (file === 'codex') {
+        const outputIndex = args.indexOf('-o');
+        const outputPath = String(args[outputIndex + 1]);
+        await fs.writeFile(outputPath, '# Codex Review\n\nNo issues.\n');
+        return { stdout: '', stderr: '' };
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    const result = await runCodexReviewStep(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:26:00.000Z'),
+        randomHex: () => '99aabbcc',
+      },
+    );
+
+    assert.equal(result.pointer.comparison_base_commit, BASE_SHA);
+    assert.ok(gitCalls.includes('remote get-url origin'));
+    assert.ok(gitCalls.includes('fetch --prune origin'));
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('runCodexReviewStep falls back to a local branched-from ref when origin is unavailable', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codex-review-helper-local-'),
@@ -1033,6 +1166,8 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin is 
               stdout: '',
               stderr: '',
             });
+          case 'merge-base --is-ancestor feature/shared-base HEAD':
+            return { stdout: '', stderr: '' };
           case 'rev-parse feature/shared-base^{commit}':
             return { stdout: `${BASE_SHA}\n`, stderr: '' };
           case 'rev-parse HEAD^{commit}':
@@ -1147,6 +1282,8 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin fet
               stdout: '',
               stderr: '',
             });
+          case 'merge-base --is-ancestor feature/shared-base HEAD':
+            return { stdout: '', stderr: '' };
           case 'rev-parse feature/shared-base^{commit}':
             return { stdout: `${BASE_SHA}\n`, stderr: '' };
           case 'rev-parse HEAD^{commit}':

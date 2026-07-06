@@ -3402,12 +3402,53 @@ const validateCommandSteps = async (params: {
   sourceId?: string;
   agentByName: Map<string, { home: string }>;
   repositoryContext: FlowCommandRepositoryContext;
+  resumeStepPath?: number[] | null;
   visited?: Set<string>;
 }): Promise<void> => {
   const visited = params.visited ?? new Set<string>();
   visited.add(params.flowName);
+  let resumePathRemaining =
+    params.resumeStepPath && params.resumeStepPath.length > 0
+      ? [...params.resumeStepPath]
+      : null;
+  let resumeIndex = resumePathRemaining?.[0];
 
-  for (const step of params.steps) {
+  for (const [index, step] of params.steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'resumeStepPath must reference loop steps for nested indices',
+        );
+      }
+      await validateCommandSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        agentByName: params.agentByName,
+        repositoryContext: params.repositoryContext,
+        resumeStepPath: resumePathRemaining.slice(1),
+        visited,
+      });
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
+    }
+
     if (step.type === 'startLoop') {
       await validateCommandSteps({
         flowName: params.flowName,
@@ -3416,6 +3457,7 @@ const validateCommandSteps = async (params: {
         sourceId: params.sourceId,
         agentByName: params.agentByName,
         repositoryContext: params.repositoryContext,
+        resumeStepPath: null,
         visited,
       });
       continue;
@@ -3440,6 +3482,7 @@ const validateCommandSteps = async (params: {
           sourceId: params.sourceId,
           agentByName: params.agentByName,
           repositoryContext: params.repositoryContext,
+          resumeStepPath: null,
           visited: new Set(visited).add(childFlowName),
         });
       }
@@ -6648,6 +6691,7 @@ export async function startFlowRun(
       sourceId,
       agentByName,
       repositoryContext,
+      resumeStepPath,
     });
     await validateCodexReviewSteps({
       flowName,

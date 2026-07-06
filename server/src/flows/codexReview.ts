@@ -86,6 +86,7 @@ export type CodexReviewStepResult = {
 
 type CurrentPlanPayload = {
   plan_path?: unknown;
+  branched_from?: unknown;
 };
 
 type CurrentReviewPayload = {
@@ -276,6 +277,8 @@ const gitStdoutOrThrow = async (
 const loadOrPrepareReviewBase = async (
   repoRoot: string,
   storyNumber: string,
+  planPath: string,
+  branchedFrom: string | null,
   currentBranch: string,
   headCommit: string,
   basePolicy: FlowCodexReviewBasePolicy,
@@ -294,7 +297,9 @@ const loadOrPrepareReviewBase = async (
     prepared &&
     prepared.artifact.branch === currentBranch &&
     prepared.artifact.head_commit === headCommit &&
-    prepared.artifact.story_id === storyNumber
+    prepared.artifact.story_id === storyNumber &&
+    prepared.artifact.plan_path === planPath &&
+    prepared.artifact.branched_from === branchedFrom
   ) {
     return prepared;
   }
@@ -391,6 +396,8 @@ export async function runCodexReviewStep(
   }
 
   const storyNumber = deriveStoryNumberFromPlanPath(planPath);
+  const currentPlanBranchedFrom =
+    normalizeOptionalString(currentPlan.branched_from) ?? null;
   const currentBranch = await gitStdoutOrThrow(
     repoRoot,
     ['branch', '--show-current'],
@@ -415,6 +422,8 @@ export async function runCodexReviewStep(
   const preparedBase = await loadOrPrepareReviewBase(
     repoRoot,
     storyNumber,
+    planPath,
+    currentPlanBranchedFrom,
     currentBranch,
     headCommit,
     basePolicy,

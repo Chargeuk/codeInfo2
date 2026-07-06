@@ -10,6 +10,7 @@ export type FlowReviewBasePolicy = 'branched_from_or_default_if_merged';
 export type PreparedReviewBase = {
   story_id: string;
   plan_path: string;
+  branched_from: string | null;
   repo_alias: 'current_repository';
   repo_root: string;
   branch: string;
@@ -578,11 +579,13 @@ export async function prepareReviewBase(
     'Unable to resolve HEAD for prepareReviewBase.',
     params.signal,
   );
+  const currentPlanBranchedFrom =
+    normalizeOptionalString(currentPlan.branched_from) ?? null;
 
   const baseResolution = await resolveBaseComparison({
     repoRoot,
     currentBranch,
-    branchedFrom: normalizeOptionalString(currentPlan.branched_from),
+    branchedFrom: currentPlanBranchedFrom ?? undefined,
     deps: resolvedDeps,
     signal: params.signal,
   });
@@ -598,6 +601,7 @@ export async function prepareReviewBase(
   const artifact: PreparedReviewBase = {
     story_id: storyNumber,
     plan_path: planPath,
+    branched_from: currentPlanBranchedFrom,
     repo_alias: 'current_repository',
     repo_root: repoRoot,
     branch: currentBranch,

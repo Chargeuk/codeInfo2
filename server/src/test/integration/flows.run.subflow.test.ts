@@ -1322,6 +1322,87 @@ test('parent flows preflight child command steps before launching subflows', asy
   }
 });
 
+test('resume skips validating child subflow commands that are already behind resumeStepPath', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-command-resume-validation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-command-resume-validation',
+      steps: [
+        {
+          type: 'command',
+          label: 'Removed Child Command',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          commandName: 'missing-child-command',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-command-resume-validation',
+      steps: [
+        subflowStep(
+          'Completed Child Command',
+          'child-command-resume-validation',
+        ),
+        llmStep('after resumed child subflow'),
+      ],
+    });
+
+    const conversationId = 'resume-child-command-validation-conversation';
+    const now = new Date();
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Child Command Validation',
+      flowName: 'parent-command-resume-validation',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-child-command-validation-execution',
+          stepPath: [0],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const executions: string[] = [];
+    const resumed = await startFlowRun({
+      flowName: 'parent-command-resume-validation',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(resumed.conversationId, conversationId);
+    await waitForAssistantStatus(conversationId, 'ok');
+    assert.deepEqual(executions, ['after resumed child subflow']);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resumed flows reuse persisted codexReviewModelId for pending codexReview steps', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-resume-codex-model-id-'),

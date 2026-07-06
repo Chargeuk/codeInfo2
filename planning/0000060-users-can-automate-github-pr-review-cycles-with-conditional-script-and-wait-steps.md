@@ -2976,3 +2976,45 @@ This task is diagnostics-only unless the new evidence exposes one clearly unders
 - Build validation note: the first `npm run build:summary:server` pass surfaced a type mismatch where the new execution-context diagnostic referenced non-existent repository metadata keys; renaming that checkpoint to the real `selectedRepositoryPath`, `defaultExecutionRoot`, and `workingRepositoryAvailable` fields restored a clean wrapper pass without changing runtime behavior.
 - Repo validation note: `npm run lint` passed cleanly for the Task 32 diagnostics surface after the execution-context field-name correction, so the added runtime checkpoints and failure snapshots did not introduce any new lint drift.
 - Repo validation note: `npm run format:check` passed cleanly for the Task 32 diagnostics surface, so the new flow, agent, runtime-config, and proof-harness logging changes are now ready to commit before the next stress-loop rerun.
+
+### Task 33. Propagate Runtime-Resolution Stress Diagnostics To Sibling Flow Timeout Suites
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 32`
+- Task Status: `__done__`
+- Git Commits:
+
+#### Overview
+
+Task 32 added richer runtime-resolution and runtime-config snapshots to the two tests that actually failed during stress. Several sibling flow integration suites already have timeout helpers or runtime-state snapshot functions that cover similar startup, loop, subflow, or observation-race seams, so they should emit the same evidence when the next intermittent stall shows up somewhere adjacent.
+
+This task extends the same diagnostics style to the three most similar proof homes: loop, subflow, and basic flow execution. The intent is still diagnostic-only. We are widening the evidence surface, not claiming a root-cause fix.
+
+#### Task Exit Criteria
+
+- [ ] `flows.run.loop.test.ts` timeout and runtime-state helpers include the same runtime-resolution and runtime-config log slices now used by the original failing tests.
+- [ ] `flows.run.subflow.test.ts` timeout diagnostics include the same runtime-resolution and runtime-config log slices alongside existing subflow runtime logs.
+- [ ] `flows.run.basic.test.ts` timeout or runtime snapshot helpers include the same runtime-resolution and runtime-config log slices so basic startup stalls keep equivalent evidence.
+
+#### Subtasks
+
+1. [x] Extend `server/src/test/integration/flows.run.loop.test.ts` so `describeFlowRuntimeState(...)` includes runtime-resolution and runtime-config log slices in addition to the existing runtime logs.
+2. [x] Extend `server/src/test/integration/flows.run.subflow.test.ts` so `describeRelevantSubflowRuntimeLogs(...)` returns runtime-resolution and runtime-config log slices alongside the existing subflow runtime logs.
+3. [x] Extend `server/src/test/integration/flows.run.basic.test.ts` so its timeout or runtime-state helpers include runtime-resolution and runtime-config log slices alongside the existing runtime logs.
+4. [x] Run focused validation for the three touched server integration files, then lint and format checks, before committing and pushing this diagnostics increment.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --skip-build` from the repository root.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --skip-build` from the repository root.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --skip-build` from the repository root.
+4. [x] Run `npm run lint` from the repository root for the Task 33 diagnostics surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` from the repository root for the Task 33 diagnostics surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Propagated the same `runtimeResolutionLogs` and `runtimeConfigLogs` snapshot style from the original stress failures into the loop, subflow, and basic flow integration helpers so sibling timeout suites preserve the same runtime seam evidence automatically.
+- Focused validation note: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --skip-build` passed cleanly on Jul 6, 2026, so the expanded loop-state snapshots did not regress the main loop-runtime proof file while adding the new diagnostic slices.
+- Focused validation note: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --skip-build` also passed cleanly on Jul 6, 2026, so the expanded subflow timeout snapshots did not disturb the existing subflow launch and terminal-state proofs.
+- Focused validation note: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --skip-build` passed cleanly on Jul 6, 2026, confirming the basic flow timeout helpers still behave normally after picking up the extra runtime-resolution and runtime-config evidence.
+- Repo validation note: `npm run lint` and `npm run format:check` both passed cleanly for the Task 33 diagnostics surface, so the sibling-suite snapshot expansion is ready to commit and push.

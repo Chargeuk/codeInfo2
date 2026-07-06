@@ -260,7 +260,7 @@ const describeRelevantSubflowRuntimeLogs = (...conversationIds: string[]): strin
   JSON.stringify((() => {
     const conversationIdSet = new Set(conversationIds);
     const seen = new Set<string>();
-    return query({ text: 'flows.test.' }, 400)
+    const runtimeLogs = query({ text: 'flows.test.' }, 400)
       .filter((entry) => {
         const entryConversationId = entry.context?.conversationId;
         return (
@@ -292,6 +292,30 @@ const describeRelevantSubflowRuntimeLogs = (...conversationIds: string[]): strin
         message: entry.message,
         context: entry.context,
       }));
+    const runtimeResolutionLogs = query(
+      { text: 'flows.test.runtime_resolution_' },
+      120,
+    )
+      .filter((entry) => conversationIdSet.has(String(entry.context?.conversationId)))
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      }));
+    const runtimeConfigLogs = query({ text: 'runtime.' }, 120)
+      .filter(
+        (entry) =>
+          entry.message.startsWith('runtime.chat_config_') ||
+          entry.message.startsWith('runtime.runtime_config_resolution_'),
+      )
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      }));
+    return {
+      runtimeLogs,
+      runtimeResolutionLogs,
+      runtimeConfigLogs,
+    };
   })());
 
 const waitForActiveSubflows = async (conversationId: string) => {

@@ -195,13 +195,36 @@ const waitFor = async (
 
 const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
   JSON.stringify(
-    query({ text: 'flows.test.' }, 300)
-      .filter((entry) => entry.context?.conversationId === conversationId)
-      .slice(-25)
-      .map((entry) => ({
-        message: entry.message,
-        context: entry.context,
-      })),
+    {
+      runtimeLogs: query({ text: 'flows.test.' }, 300)
+        .filter((entry) => entry.context?.conversationId === conversationId)
+        .slice(-25)
+        .map((entry) => ({
+          message: entry.message,
+          context: entry.context,
+        })),
+      runtimeResolutionLogs: query(
+        { text: 'flows.test.runtime_resolution_' },
+        120,
+      )
+        .filter((entry) => entry.context?.conversationId === conversationId)
+        .slice(-25)
+        .map((entry) => ({
+          message: entry.message,
+          context: entry.context,
+        })),
+      runtimeConfigLogs: query({ text: 'runtime.' }, 120)
+        .filter(
+          (entry) =>
+            entry.message.startsWith('runtime.chat_config_') ||
+            entry.message.startsWith('runtime.runtime_config_resolution_'),
+        )
+        .slice(-25)
+        .map((entry) => ({
+          message: entry.message,
+          context: entry.context,
+        })),
+    },
   );
 
 const summarizeFlowChildAgentConversations = (conversationId: string): string => {
@@ -550,10 +573,31 @@ const describeConversationRuntime = (conversationId: string): string => {
       message: entry.message,
       context: entry.context,
     }));
+  const runtimeResolutionLogs = query(
+    { text: 'flows.test.runtime_resolution_' },
+    120,
+  )
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+  const runtimeConfigLogs = query({ text: 'runtime.' }, 120)
+    .filter(
+      (entry) =>
+        entry.message.startsWith('runtime.chat_config_') ||
+        entry.message.startsWith('runtime.runtime_config_resolution_'),
+    )
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
   return JSON.stringify({
     ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
     agentConversationEntries,
     runtimeLogs,
+    runtimeResolutionLogs,
+    runtimeConfigLogs,
   });
 };
 

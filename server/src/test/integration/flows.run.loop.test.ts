@@ -645,6 +645,29 @@ const getConversationScopedRuntimeLogs = (
   }));
 };
 
+const getConversationScopedRuntimeResolutionLogs = (
+  conversationId: string,
+  limit = 80,
+) =>
+  query({ text: 'flows.test.runtime_resolution_' }, limit)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+
+const getGlobalRuntimeConfigLogs = (limit = 80) =>
+  query({ text: 'runtime.' }, limit)
+    .filter(
+      (entry) =>
+        entry.message.startsWith('runtime.chat_config_') ||
+        entry.message.startsWith('runtime.runtime_config_resolution_'),
+    )
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+
 const describeFlowRuntimeState = (
   conversationId: string,
   agentKeys: string[] = [],
@@ -685,6 +708,9 @@ const describeFlowRuntimeState = (
         }
       : undefined,
     runtimeLogs: getConversationScopedRuntimeLogs(conversationId),
+    runtimeResolutionLogs:
+      getConversationScopedRuntimeResolutionLogs(conversationId),
+    runtimeConfigLogs: getGlobalRuntimeConfigLogs(),
   });
 
 const describeLoopContinueResumeState = (conversationId: string): string =>

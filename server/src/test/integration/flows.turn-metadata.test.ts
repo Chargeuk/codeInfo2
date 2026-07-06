@@ -28,6 +28,8 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -137,13 +139,12 @@ const buildRepoEntry = (params: {
   lastError: null,
 });
 
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
 test('flow turns include command metadata in snapshots and history', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-meta-'));
 
   const flow = {
@@ -162,10 +163,17 @@ test('flow turns include command metadata in snapshots and history', async () =>
     JSON.stringify(flow, null, 2),
   );
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
+
+  const continueInFlowScope = bindCurrentTestOverrides(
+    (_req: unknown, _res: unknown, next: () => void) => next(),
+  );
 
   const app = express();
+  app.use((req, res, next) => continueInFlowScope(req, res, next));
   app.use(
     createFlowsRunRouter({
       startFlowRun: (params) =>
@@ -281,23 +289,11 @@ test('flow turns include command metadata in snapshots and history', async () =>
     await closeWs(wsSnapshot);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('top-level flow markdown persists runtime lookupSummary metadata', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-markdown-meta-'),
   );
@@ -327,10 +323,17 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
     'utf8',
   );
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
+
+  const continueInFlowScope = bindCurrentTestOverrides(
+    (_req: unknown, _res: unknown, next: () => void) => next(),
+  );
 
   const app = express();
+  app.use((req, res, next) => continueInFlowScope(req, res, next));
   app.use(
     createFlowsRunRouter({
       startFlowRun: (params) =>
@@ -431,12 +434,6 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
     memoryTurns.delete(conversationId);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

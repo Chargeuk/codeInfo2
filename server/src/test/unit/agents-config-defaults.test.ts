@@ -13,8 +13,6 @@ import {
 } from '../../agents/config.js';
 import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
-  __resetAgentServiceDepsForTests,
-  __setAgentServiceDepsForTests,
   startAgentInstruction,
 } from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -25,6 +23,8 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { normalizeRuntimeConfig } from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { runWithTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 class ImmediateChat extends ChatInterface {
@@ -73,14 +73,6 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
   }
   throw new Error(`Timed out waiting for condition after ${resolvedTimeoutMs}ms`);
 };
-
-function restoreOptionalEnvVar(key: string, value: string | undefined) {
-  if (value === undefined) {
-    delete process.env[key];
-    return;
-  }
-  process.env[key] = value;
-}
 
 describe('Agent config defaults', () => {
   it('normalizes features.view_image_tool alias to canonical output only', () => {
@@ -259,22 +251,18 @@ describe('Agent config defaults', () => {
       'utf8',
     );
 
-    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-    const previousLmStudioHome = process.env.CODEINFO_LMSTUDIO_HOME;
-    delete process.env.CODEINFO_CODEX_HOME;
-    delete process.env.CODEINFO_COPILOT_HOME;
-    delete process.env.CODEINFO_LMSTUDIO_HOME;
-
-    try {
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_HOME: undefined,
+        CODEINFO_COPILOT_HOME: undefined,
+        CODEINFO_LMSTUDIO_HOME: undefined,
+      },
+      async () => {
       const metadata = await readAgentRequestedProviderMetadata({ configPath });
       assert.equal(metadata.providerId, 'copilot');
       assert.equal(metadata.requestedProviderId, 'copilot');
-    } finally {
-      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
-      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
-      restoreOptionalEnvVar('CODEINFO_LMSTUDIO_HOME', previousLmStudioHome);
-    }
+      },
+    );
   });
 
   it('normalizes and preserves codeinfo_openai_endpoint on the accepted agent config path', async () => {
@@ -303,14 +291,15 @@ describe('Agent config defaults', () => {
       'utf8',
     );
 
-    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-    process.env.CODEINFO_COPILOT_HOME = copilotHome;
-
     try {
-      const resolved = await resolveAgentRuntimeExecutionConfig({
-        configPath,
-        entrypoint: 'agents.service',
-      });
+      const resolved = await runWithTestEnvOverrides(
+        { CODEINFO_COPILOT_HOME: copilotHome },
+        async () =>
+          await resolveAgentRuntimeExecutionConfig({
+            configPath,
+            entrypoint: 'agents.service',
+          }),
+      );
 
       assert.equal(resolved.providerId, 'copilot');
       assert.equal(resolved.requestedProviderId, 'copilot');
@@ -325,7 +314,6 @@ describe('Agent config defaults', () => {
       assert.equal('codeinfo_openai_endpoint' in resolved.runtimeConfig, false);
       assert.equal(resolved.modelId, 'copilot-model');
     } finally {
-      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
       await fs.rm(tmp, { recursive: true, force: true });
     }
   });
@@ -468,7 +456,6 @@ describe('Agent config defaults', () => {
     const agentHome = path.join(tmp, 'agents', 'coding_agent');
     const configPath = path.join(agentHome, 'config.toml');
     const copilotHome = path.join(tmp, 'copilot-home');
-    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
 
     await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
     await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -484,15 +471,16 @@ describe('Agent config defaults', () => {
       ].join('\n'),
       'utf8',
     );
-    process.env.CODEINFO_COPILOT_HOME = copilotHome;
-
     try {
-      await assert.rejects(
+      await runWithTestEnvOverrides(
+        { CODEINFO_COPILOT_HOME: copilotHome },
         async () =>
-          resolveAgentRuntimeExecutionConfig({
-            configPath,
-            entrypoint: 'agents.service',
-          }),
+          await assert.rejects(
+            async () =>
+              resolveAgentRuntimeExecutionConfig({
+                configPath,
+                entrypoint: 'agents.service',
+              }),
         (error) => {
           const typed = error as Error & { code?: string; surface?: string };
           return (
@@ -502,10 +490,10 @@ describe('Agent config defaults', () => {
               'Copilot requires completions support on codeinfo_openai_endpoint',
             )
           );
-        },
+          },
+        ),
       );
     } finally {
-      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
       await fs.rm(tmp, { recursive: true, force: true });
     }
   });
@@ -612,9 +600,6 @@ describe('Agent config defaults', () => {
       configPresent: true,
     });
 
-    const originalWorkdir = process.env.CODEX_WORKDIR;
-    process.env.CODEX_WORKDIR = '/tmp/codex-workdir';
-
     const captured: {
       start?: CodexThreadOptions;
       resume?: CodexThreadOptions;
@@ -646,26 +631,27 @@ describe('Agent config defaults', () => {
       },
     }));
 
-    try {
-      await chat.run(
-        'Hello',
-        {
-          threadId: null,
-          useConfigDefaults: true,
-          codexFlags: {
-            sandboxMode: 'danger-full-access',
-            approvalPolicy: 'never',
-            modelReasoningEffort: 'high',
-            networkAccessEnabled: false,
-            webSearchEnabled: false,
+    await runWithTestEnvOverrides(
+      { CODEX_WORKDIR: '/tmp/codex-workdir' },
+      async () => {
+        await chat.run(
+          'Hello',
+          {
+            threadId: null,
+            useConfigDefaults: true,
+            codexFlags: {
+              sandboxMode: 'danger-full-access',
+              approvalPolicy: 'never',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: false,
+              webSearchEnabled: false,
+            },
           },
-        },
-        'conv-1',
-        'gpt-5.1-codex-max',
-      );
-    } finally {
-      process.env.CODEX_WORKDIR = originalWorkdir;
-    }
+          'conv-1',
+          'gpt-5.1-codex-max',
+        );
+      },
+    );
 
     assert(captured.start);
     assert.equal(captured.start.workingDirectory, '/tmp/codex-workdir');
@@ -700,71 +686,73 @@ describe('Agent config defaults', () => {
       'utf8',
     );
 
-    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-    const previousFallbackOrder =
-      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
-    process.env.CODEINFO_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_HOME = codexHome;
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
-    setCodexDetection({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    });
-    __setAgentServiceDepsForTests({
-      getCodexDetection: () => ({
-        available: true,
-        authPresent: true,
-        configPresent: true,
-      }),
-      resolveCodexCapabilities: async () => ({
-        defaults: {
-          sandboxMode: 'danger-full-access',
-          approvalPolicy: 'never',
-          modelReasoningEffort: 'high',
-          networkAccessEnabled: true,
-          webSearchEnabled: false,
-          webSearchMode: 'disabled',
-        },
-        models: [
-          {
-            model: 'codex-repaired',
-            supportedReasoningEfforts: ['high'],
-            defaultReasoningEffort: 'high',
-          },
-        ],
-        byModel: new Map(),
-        warnings: [],
-        fallbackUsed: false,
-      }),
-      getMcpStatus: async () => ({ available: true }),
-      resolveCopilotReadiness: async () => ({
-        available: true,
-        toolsAvailable: true,
-        blockingStage: 'ready',
-        models: ['copilot-model'],
-        modelsRaw: [
-          {
-            id: 'copilot-model',
-            name: 'Copilot Model',
-            capabilities: {
-              supports: { vision: false, reasoningEffort: false },
-              limits: { max_context_window_tokens: 128000 },
-            },
-          },
-        ],
-        authSource: 'env-token',
-      }),
-    });
-
     try {
-      const started = await startAgentInstruction({
-        agentName: 'coding_agent',
-        instruction: 'Hello',
-        source: 'REST',
-        chatFactory: () => new ImmediateChat(),
-      });
+      const started = await runWithTestOverrides(
+        {
+          codexDetection: {
+            available: true,
+            authPresent: true,
+            configPresent: true,
+          },
+          envOverrides: {
+            CODEINFO_AGENT_HOME: agentsHome,
+            CODEINFO_CODEX_HOME: codexHome,
+            CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: 'copilot,codex',
+          },
+          agentServiceDeps: {
+            getCodexDetection: () => ({
+              available: true,
+              authPresent: true,
+              configPresent: true,
+            }),
+            resolveCodexCapabilities: async () => ({
+              defaults: {
+                sandboxMode: 'danger-full-access',
+                approvalPolicy: 'never',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: false,
+                webSearchMode: 'disabled',
+              },
+              models: [
+                {
+                  model: 'codex-repaired',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+              byModel: new Map(),
+              warnings: [],
+              fallbackUsed: false,
+            }),
+            getMcpStatus: async () => ({ available: true }),
+            resolveCopilotReadiness: async () => ({
+              available: true,
+              toolsAvailable: true,
+              blockingStage: 'ready',
+              models: ['copilot-model'],
+              modelsRaw: [
+                {
+                  id: 'copilot-model',
+                  name: 'Copilot Model',
+                  capabilities: {
+                    supports: { vision: false, reasoningEffort: false },
+                    limits: { max_context_window_tokens: 128000 },
+                  },
+                },
+              ],
+              authSource: 'env-token',
+            }),
+          },
+        },
+        async () =>
+          await startAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'Hello',
+            source: 'REST',
+            chatFactory: () => new ImmediateChat(),
+          }),
+      );
 
       assert.equal(started.providerId, 'codex');
       assert.equal(started.modelId, 'codex-repaired');
@@ -772,15 +760,8 @@ describe('Agent config defaults', () => {
       assert.equal(conversation?.provider, 'codex');
       assert.equal(conversation?.model, 'codex-repaired');
     } finally {
-      __resetAgentServiceDepsForTests();
       memoryConversations.clear();
       memoryTurns.clear();
-      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
-      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
-      restoreOptionalEnvVar(
-        'CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER',
-        previousFallbackOrder,
-      );
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
@@ -806,75 +787,78 @@ describe('Agent config defaults', () => {
       'utf8',
     );
 
-    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-    process.env.CODEINFO_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_HOME = codexHome;
-
     let closeCalls = 0;
-    __setAgentServiceDepsForTests({
-      getCodexDetection: () => ({
-        available: true,
-        authPresent: true,
-        configPresent: true,
-      }),
-      resolveCodexCapabilities: async () => ({
-        defaults: {
-          sandboxMode: 'danger-full-access',
-          approvalPolicy: 'never',
-          modelReasoningEffort: 'high',
-          networkAccessEnabled: true,
-          webSearchEnabled: false,
-          webSearchMode: 'disabled',
-        },
-        models: [
-          {
-            model: 'codex-model',
-            supportedReasoningEfforts: ['high'],
-            defaultReasoningEffort: 'high',
-          },
-        ],
-        byModel: new Map(),
-        warnings: [],
-        fallbackUsed: false,
-      }),
-      getMcpStatus: async () => ({ available: true }),
-      resolveCopilotReadiness: async () => ({
-        available: true,
-        toolsAvailable: true,
-        blockingStage: 'ready',
-        models: ['copilot-model'],
-        modelsRaw: [],
-        authSource: 'env-token',
-      }),
-      getLmStudioBaseUrl: () => 'http://127.0.0.1:1234',
-      lmstudioClientFactory: () =>
-        ({
-          system: {
-            listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
-          },
-          close: async () => {
-            closeCalls += 1;
-          },
-        }) as never,
-    });
 
     try {
-      const started = await startAgentInstruction({
-        agentName: 'coding_agent',
-        instruction: 'Hello',
-        source: 'REST',
-        chatFactory: () => new ImmediateChat(),
-      });
+      const started = await runWithTestOverrides(
+        {
+          envOverrides: {
+            CODEINFO_AGENT_HOME: agentsHome,
+            CODEINFO_CODEX_HOME: codexHome,
+          },
+          agentServiceDeps: {
+            getCodexDetection: () => ({
+              available: true,
+              authPresent: true,
+              configPresent: true,
+            }),
+            resolveCodexCapabilities: async () => ({
+              defaults: {
+                sandboxMode: 'danger-full-access',
+                approvalPolicy: 'never',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: false,
+                webSearchMode: 'disabled',
+              },
+              models: [
+                {
+                  model: 'codex-model',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+              byModel: new Map(),
+              warnings: [],
+              fallbackUsed: false,
+            }),
+            getMcpStatus: async () => ({ available: true }),
+            resolveCopilotReadiness: async () => ({
+              available: true,
+              toolsAvailable: true,
+              blockingStage: 'ready',
+              models: ['copilot-model'],
+              modelsRaw: [],
+              authSource: 'env-token',
+            }),
+            getLmStudioBaseUrl: () => 'http://127.0.0.1:1234',
+            lmstudioClientFactory: () =>
+              ({
+                system: {
+                  listDownloadedModels: async () => [
+                    { modelKey: 'lmstudio-test' },
+                  ],
+                },
+                close: async () => {
+                  closeCalls += 1;
+                },
+              }) as never,
+          },
+        },
+        async () =>
+          await startAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'Hello',
+            source: 'REST',
+            chatFactory: () => new ImmediateChat(),
+          }),
+      );
 
       assert.equal(started.providerId, 'codex');
       assert.equal(closeCalls, 1);
     } finally {
-      __resetAgentServiceDepsForTests();
       memoryConversations.clear();
       memoryTurns.clear();
-      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
-      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
@@ -908,73 +892,74 @@ describe('Agent config defaults', () => {
       'utf8',
     );
 
-    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-    const previousFallbackOrder =
-      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
-    process.env.CODEINFO_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_HOME = codexHome;
-    process.env.CODEINFO_COPILOT_HOME = copilotHome;
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
-    setCodexDetection({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    });
-    __setAgentServiceDepsForTests({
-      getCodexDetection: () => ({
-        available: true,
-        authPresent: true,
-        configPresent: true,
-      }),
-      resolveCodexCapabilities: async () => ({
-        defaults: {
-          sandboxMode: 'danger-full-access',
-          approvalPolicy: 'never',
-          modelReasoningEffort: 'high',
-          networkAccessEnabled: true,
-          webSearchEnabled: false,
-          webSearchMode: 'disabled',
-        },
-        models: [
-          {
-            model: 'codex-model',
-            supportedReasoningEfforts: ['high'],
-            defaultReasoningEffort: 'high',
-          },
-        ],
-        byModel: new Map(),
-        warnings: [],
-        fallbackUsed: false,
-      }),
-      getMcpStatus: async () => ({ available: true }),
-      resolveCopilotReadiness: async () => ({
-        available: true,
-        toolsAvailable: true,
-        blockingStage: 'ready',
-        models: ['copilot-model'],
-        modelsRaw: [
-          {
-            id: 'copilot-model',
-            name: 'Copilot Model',
-            capabilities: {
-              supports: { vision: false, reasoningEffort: false },
-              limits: { max_context_window_tokens: 128000 },
-            },
-          },
-        ],
-        authSource: 'env-token',
-      }),
-    });
-
     try {
-      const started = await startAgentInstruction({
-        agentName: 'coding_agent',
-        instruction: 'Hello',
-        source: 'REST',
-        chatFactory: () => new ImmediateChat(),
-      });
+      const started = await runWithTestOverrides(
+        {
+          codexDetection: {
+            available: true,
+            authPresent: true,
+            configPresent: true,
+          },
+          envOverrides: {
+            CODEINFO_AGENT_HOME: agentsHome,
+            CODEINFO_CODEX_HOME: codexHome,
+            CODEINFO_COPILOT_HOME: copilotHome,
+            CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: 'copilot,codex',
+          },
+          agentServiceDeps: {
+            getCodexDetection: () => ({
+              available: true,
+              authPresent: true,
+              configPresent: true,
+            }),
+            resolveCodexCapabilities: async () => ({
+              defaults: {
+                sandboxMode: 'danger-full-access',
+                approvalPolicy: 'never',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: false,
+                webSearchMode: 'disabled',
+              },
+              models: [
+                {
+                  model: 'codex-model',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+              byModel: new Map(),
+              warnings: [],
+              fallbackUsed: false,
+            }),
+            getMcpStatus: async () => ({ available: true }),
+            resolveCopilotReadiness: async () => ({
+              available: true,
+              toolsAvailable: true,
+              blockingStage: 'ready',
+              models: ['copilot-model'],
+              modelsRaw: [
+                {
+                  id: 'copilot-model',
+                  name: 'Copilot Model',
+                  capabilities: {
+                    supports: { vision: false, reasoningEffort: false },
+                    limits: { max_context_window_tokens: 128000 },
+                  },
+                },
+              ],
+              authSource: 'env-token',
+            }),
+          },
+        },
+        async () =>
+          await startAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'Hello',
+            source: 'REST',
+            chatFactory: () => new ImmediateChat(),
+          }),
+      );
 
       assert.equal(started.providerId, 'copilot');
       assert.equal(started.modelId, 'copilot-model');
@@ -982,16 +967,8 @@ describe('Agent config defaults', () => {
       assert.equal(conversation?.provider, 'copilot');
       assert.equal(conversation?.model, 'copilot-model');
     } finally {
-      __resetAgentServiceDepsForTests();
       memoryConversations.clear();
       memoryTurns.clear();
-      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
-      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
-      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
-      restoreOptionalEnvVar(
-        'CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER',
-        previousFallbackOrder,
-      );
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
@@ -1027,72 +1004,73 @@ describe('Agent config defaults', () => {
       'utf8',
     );
 
-    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-    process.env.CODEINFO_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_HOME = codexHome;
-    process.env.CODEINFO_COPILOT_HOME = copilotHome;
-
-    __setAgentServiceDepsForTests({
-      getCodexDetection: () => ({
-        available: true,
-        authPresent: true,
-        configPresent: true,
-      }),
-      resolveCodexCapabilities: async () => ({
-        defaults: {
-          sandboxMode: 'danger-full-access',
-          approvalPolicy: 'never',
-          modelReasoningEffort: 'high',
-          networkAccessEnabled: true,
-          webSearchEnabled: false,
-          webSearchMode: 'disabled',
-        },
-        models: [
-          {
-            model: 'codex-model',
-            supportedReasoningEfforts: ['high'],
-            defaultReasoningEffort: 'high',
-          },
-        ],
-        byModel: new Map(),
-        warnings: [],
-        fallbackUsed: false,
-      }),
-      getMcpStatus: async () => ({ available: true }),
-      resolveCopilotReadiness: async () => ({
-        available: true,
-        toolsAvailable: true,
-        blockingStage: 'ready',
-        models: ['copilot-model'],
-        modelsRaw: [
-          {
-            id: 'copilot-model',
-            name: 'Copilot Model',
-            capabilities: {
-              supports: { vision: false, reasoningEffort: false },
-              limits: { max_context_window_tokens: 128000 },
-            },
-          },
-        ],
-        authSource: 'env-token',
-      }),
-    });
-
     try {
       const conversationId = 'copilot-first-run-create-then-resume';
 
-      await startAgentInstruction({
-        agentName: 'coding_agent',
-        instruction: 'Hello once',
-        conversationId,
-        source: 'REST',
-        chatFactory: () =>
-          new CapturingImmediateChat((flags) => {
-            capturedFlags.push(flags);
-          }),
-      });
+      await runWithTestOverrides(
+        {
+          envOverrides: {
+            CODEINFO_AGENT_HOME: agentsHome,
+            CODEINFO_CODEX_HOME: codexHome,
+            CODEINFO_COPILOT_HOME: copilotHome,
+          },
+          agentServiceDeps: {
+            getCodexDetection: () => ({
+              available: true,
+              authPresent: true,
+              configPresent: true,
+            }),
+            resolveCodexCapabilities: async () => ({
+              defaults: {
+                sandboxMode: 'danger-full-access',
+                approvalPolicy: 'never',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: false,
+                webSearchMode: 'disabled',
+              },
+              models: [
+                {
+                  model: 'codex-model',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+              byModel: new Map(),
+              warnings: [],
+              fallbackUsed: false,
+            }),
+            getMcpStatus: async () => ({ available: true }),
+            resolveCopilotReadiness: async () => ({
+              available: true,
+              toolsAvailable: true,
+              blockingStage: 'ready',
+              models: ['copilot-model'],
+              modelsRaw: [
+                {
+                  id: 'copilot-model',
+                  name: 'Copilot Model',
+                  capabilities: {
+                    supports: { vision: false, reasoningEffort: false },
+                    limits: { max_context_window_tokens: 128000 },
+                  },
+                },
+              ],
+              authSource: 'env-token',
+            }),
+          },
+        },
+        async () => {
+          await startAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'Hello once',
+            conversationId,
+            source: 'REST',
+            chatFactory: () =>
+              new CapturingImmediateChat((flags) => {
+                capturedFlags.push(flags);
+              }),
+          });
       await waitFor(
         () =>
           capturedFlags.length === 1 &&
@@ -1100,28 +1078,26 @@ describe('Agent config defaults', () => {
         5000,
       );
 
-      await startAgentInstruction({
-        agentName: 'coding_agent',
-        instruction: 'Hello twice',
-        conversationId,
-        source: 'REST',
-        chatFactory: () =>
-          new CapturingImmediateChat((flags) => {
-            capturedFlags.push(flags);
-          }),
-      });
+          await startAgentInstruction({
+            agentName: 'coding_agent',
+            instruction: 'Hello twice',
+            conversationId,
+            source: 'REST',
+            chatFactory: () =>
+              new CapturingImmediateChat((flags) => {
+                capturedFlags.push(flags);
+              }),
+          });
 
-      await waitFor(() => capturedFlags.length === 2, 5000);
+          await waitFor(() => capturedFlags.length === 2, 5000);
+        },
+      );
       assert.equal(capturedFlags.length, 2);
       assert.equal(capturedFlags[0]?.resumeConversation, false);
       assert.equal(capturedFlags[1]?.resumeConversation, true);
     } finally {
-      __resetAgentServiceDepsForTests();
       memoryConversations.clear();
       memoryTurns.clear();
-      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
-      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
-      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });

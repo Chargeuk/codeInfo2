@@ -995,7 +995,6 @@ test('command steps execute agent command items', async () => {
 });
 
 test('github PR open generates reviewer-facing title and body from active story context', async () => {
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-pr-flow-'),
   );
@@ -1003,7 +1002,6 @@ test('github PR open generates reviewer-facing title and body from active story 
   const conversationId = 'github-open-conversation';
   const seenCommands: string[][] = [];
 
-  process.env.FLOWS_DIR = tempFlowsDir;
   await fs.writeFile(
     path.join(repoRoot, '.env.local'),
     'CODEINFO_PR_TOKEN=secret\n',
@@ -1082,54 +1080,51 @@ test('github PR open generates reviewer-facing title and body from active story 
   });
 
   try {
-    await startFlowRun({
-      flowName: 'github-open',
-      conversationId,
-      source: 'REST',
-      working_folder: repoRoot,
-      chatFactory: () => new ScriptedChat(),
-      listIngestedRepositories: async () => ({
-        repos: [buildRepoEntry({ containerPath: repoRoot })],
-        lockedModelId: null,
-      }),
+    await runWithTestEnvOverrides({ FLOWS_DIR: tempFlowsDir }, async () => {
+      await startFlowRun({
+        flowName: 'github-open',
+        conversationId,
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () => new ScriptedChat(),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry({ containerPath: repoRoot })],
+          lockedModelId: null,
+        }),
+      });
+
+      await withTimeout(
+        (async () => {
+          while (
+            !seenCommands.some((args) => args[0] === 'pr' && args[1] === 'create')
+          ) {
+            await delay(20);
+          }
+        })(),
+        4000,
+        'Timed out waiting for GitHub PR create call',
+      );
+
+      const createArgs = seenCommands.find(
+        (args) => args[0] === 'pr' && args[1] === 'create',
+      );
+      assert.ok(createArgs);
+      const title = createArgs[createArgs.indexOf('--title') + 1];
+      const body = createArgs[createArgs.indexOf('--body') + 1];
+
+      assert.equal(
+        title,
+        'Story 0000060 review: Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      );
+      assert.match(body, /Implemented work summary:/);
+      assert.match(
+        body,
+        /Do not request behavior changes outside the active story scope/,
+      );
+      assert.match(body, /Flow: github-open/);
     });
-
-    await withTimeout(
-      (async () => {
-        while (
-          !seenCommands.some((args) => args[0] === 'pr' && args[1] === 'create')
-        ) {
-          await delay(20);
-        }
-      })(),
-      4000,
-      'Timed out waiting for GitHub PR create call',
-    );
-
-    const createArgs = seenCommands.find(
-      (args) => args[0] === 'pr' && args[1] === 'create',
-    );
-    assert.ok(createArgs);
-    const title = createArgs[createArgs.indexOf('--title') + 1];
-    const body = createArgs[createArgs.indexOf('--body') + 1];
-
-    assert.equal(
-      title,
-      'Story 0000060 review: Users can automate GitHub PR review cycles with conditional, script, and wait steps',
-    );
-    assert.match(body, /Implemented work summary:/);
-    assert.match(
-      body,
-      /Do not request behavior changes outside the active story scope/,
-    );
-    assert.match(body, /Flow: github-open/);
   } finally {
     await cleanupConversationRuntime(conversationId);
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

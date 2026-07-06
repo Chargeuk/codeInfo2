@@ -15,6 +15,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const fixturesDir = path.resolve(
@@ -84,19 +85,25 @@ afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
 });
 
-test('Flow run reloads flow file between runs', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      FLOWS_DIR: tmpDir,
+    },
+    run,
   );
+
+test('Flow run reloads flow file between runs', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-reload-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const observedMessages: string[] = [];
   let nextMessageResolver: (() => void) | null = null;
@@ -119,59 +126,49 @@ test('Flow run reloads flow file between runs', async () => {
   );
 
   try {
-    nextMessageResolver = null;
-    const firstMessagePromise = new Promise<void>((resolve) => {
-      nextMessageResolver = resolve;
+    await withFlowFixtureEnv(tmpDir, async () => {
+      nextMessageResolver = null;
+      const firstMessagePromise = new Promise<void>((resolve) => {
+        nextMessageResolver = resolve;
+      });
+
+      await supertest(app).post('/flows/hot-reload/run').send({});
+      await firstMessagePromise;
+      await waitFor(() => observedMessages.length >= 1);
+      assert.equal(observedMessages[0], 'First run');
+
+      const updatedFlow = {
+        description: 'Hot reload flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'reload',
+            messages: [{ role: 'user', content: ['Updated run'] }],
+          },
+        ],
+      };
+      await fs.writeFile(
+        path.join(tmpDir, 'hot-reload.json'),
+        JSON.stringify(updatedFlow, null, 2),
+        'utf8',
+      );
+
+      nextMessageResolver = null;
+      const secondMessagePromise = new Promise<void>((resolve) => {
+        nextMessageResolver = resolve;
+      });
+      await supertest(app).post('/flows/hot-reload/run').send({});
+      await secondMessagePromise;
+      await waitFor(() => observedMessages.length >= 2);
+      assert.equal(observedMessages[1], 'Updated run');
     });
-
-    await supertest(app).post('/flows/hot-reload/run').send({});
-    await firstMessagePromise;
-    await waitFor(() => observedMessages.length >= 1);
-    assert.equal(observedMessages[0], 'First run');
-
-    const updatedFlow = {
-      description: 'Hot reload flow',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'reload',
-          messages: [{ role: 'user', content: ['Updated run'] }],
-        },
-      ],
-    };
-    await fs.writeFile(
-      path.join(tmpDir, 'hot-reload.json'),
-      JSON.stringify(updatedFlow, null, 2),
-      'utf8',
-    );
-
-    nextMessageResolver = null;
-    const secondMessagePromise = new Promise<void>((resolve) => {
-      nextMessageResolver = resolve;
-    });
-    await supertest(app).post('/flows/hot-reload/run').send({});
-    await secondMessagePromise;
-    await waitFor(() => observedMessages.length >= 2);
-    assert.equal(observedMessages[1], 'Updated run');
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('Flow run returns 404 when ingested flow file is missing', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-ingest-missing-'),
   );
@@ -179,9 +176,6 @@ test('Flow run returns 404 when ingested flow file is missing', async () => {
     path.join(process.cwd(), 'tmp-flows-run-ingest-missing-'),
   );
   await fs.mkdir(path.join(tmpRepoRoot, 'flows'), { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
 
   const app = express();
   app.use(
@@ -199,17 +193,13 @@ test('Flow run returns 404 when ingested flow file is missing', async () => {
   );
 
   try {
-    await supertest(app)
-      .post('/flows/missing-ingested/run')
-      .send({ sourceId: tmpRepoRoot })
-      .expect(404);
+    await withFlowFixtureEnv(tmpLocalDir, async () => {
+      await supertest(app)
+        .post('/flows/missing-ingested/run')
+        .send({ sourceId: tmpRepoRoot })
+        .expect(404);
+    });
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }

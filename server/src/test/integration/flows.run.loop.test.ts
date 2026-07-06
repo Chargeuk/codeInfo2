@@ -759,6 +759,10 @@ const waitForLoopTerminalOutcome = async (params: {
   const expectedStatuses = Array.isArray(params.expectedStatus)
     ? params.expectedStatus
     : [params.expectedStatus];
+  const persistedFallbackTimeoutMs = Math.max(
+    2000,
+    Math.min(5000, params.timeoutMs ?? 4000),
+  );
   try {
     const final = await waitForEvent({
       ws: params.ws,
@@ -805,7 +809,7 @@ const waitForLoopTerminalOutcome = async (params: {
         expectedStatuses.includes(
           getPersistedLoopTerminalOutcome(params.conversationId)?.status ?? '',
         ),
-      1000,
+      persistedFallbackTimeoutMs,
       () =>
         [
           params.describe?.(),

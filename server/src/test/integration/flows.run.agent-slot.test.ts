@@ -14,6 +14,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const waitFor = async (
@@ -56,6 +57,20 @@ const writeResumeFlow = async (dir: string) => {
   );
 };
 
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      FLOWS_DIR: tmpDir,
+    },
+    run,
+  );
+
 class MinimalChat extends ChatInterface {
   async execute(
     _message: string,
@@ -80,51 +95,44 @@ afterEach(() => {
 });
 
 test('startFlowRun reuses the same agent slot inside one fresh execution', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-same-slot-'),
   );
   await writeResumeFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-
   let conversationId: string | undefined;
   try {
-    const result = await startFlowRun({
-      flowName: 'resume-basic',
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
-    });
-    conversationId = result.conversationId;
-    assert.ok(conversationId);
-    const runConversationId = conversationId;
-    await waitFor(
-      () => (memoryTurns.get(runConversationId) ?? []).length >= 4,
-      5000,
-    );
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const result = await startFlowRun({
+        flowName: 'resume-basic',
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+      conversationId = result.conversationId;
+      assert.ok(conversationId);
+      const runConversationId = conversationId;
+      await waitFor(
+        () => (memoryTurns.get(runConversationId) ?? []).length >= 4,
+        5000,
+      );
 
-    const conversation = memoryConversations.get(runConversationId);
-    const flags = (conversation?.flags ?? {}) as {
-      flow?: {
-        executionId?: string;
-        agentConversations?: Record<string, string>;
+      const conversation = memoryConversations.get(runConversationId);
+      const flags = (conversation?.flags ?? {}) as {
+        flow?: {
+          executionId?: string;
+          agentConversations?: Record<string, string>;
+        };
       };
-    };
 
-    assert.equal(typeof flags.flow?.executionId, 'string');
-    assert.deepEqual(Object.keys(flags.flow?.agentConversations ?? {}), [
-      'coding_agent:resume-test',
-    ]);
-    assert.equal(
-      typeof flags.flow?.agentConversations?.['coding_agent:resume-test'],
-      'string',
-    );
+      assert.equal(typeof flags.flow?.executionId, 'string');
+      assert.deepEqual(Object.keys(flags.flow?.agentConversations ?? {}), [
+        'coding_agent:resume-test',
+      ]);
+      assert.equal(
+        typeof flags.flow?.agentConversations?.['coding_agent:resume-test'],
+        'string',
+      );
+    });
   } finally {
     const conversation = conversationId
       ? memoryConversations.get(conversationId)
@@ -143,12 +151,6 @@ test('startFlowRun reuses the same agent slot inside one fresh execution', async
       memoryConversations.delete(childConversationId);
       memoryTurns.delete(childConversationId);
     });
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

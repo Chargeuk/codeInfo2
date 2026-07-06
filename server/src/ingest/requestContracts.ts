@@ -1,4 +1,5 @@
 import path from 'path';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import {
   isOpenAiAllowlistedEmbeddingModel,
   resolveEmbeddingModelSelection,
@@ -180,7 +181,7 @@ export function validateQueueableRepositoryRootPath(
   const configuredAllowedRoot = resolveQueueableAllowedRoot(
     options && Object.prototype.hasOwnProperty.call(options, 'allowedRoot')
       ? options.allowedRoot
-      : process.env.CODEINFO_CODEX_WORKDIR,
+      : getScopedEnvValue('CODEINFO_CODEX_WORKDIR'),
   );
   if (!configuredAllowedRoot) {
     return canonicalPath;

@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import type { TurnRuntimeMetadata } from '../mongo/turn.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 
 type WorkingFolderValidationError = {
   code:
@@ -119,7 +120,7 @@ export async function resolveWorkingFolderWorkingDirectory(
     } as const satisfies WorkingFolderValidationError;
   }
 
-  const hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  const hostIngestDir = getScopedEnvValue('CODEINFO_HOST_INGEST_DIR');
   const defaultExecutionRoot = resolveDefaultExecutionRoot();
 
   if (hostIngestDir && hostIngestDir.length > 0) {

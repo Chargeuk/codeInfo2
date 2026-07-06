@@ -17,6 +17,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -138,41 +139,20 @@ const copyCheckedInAgentHome = async (params: {
 };
 
 const withFlowsDir = async (dir: string, run: () => Promise<void>) => {
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  process.env.FLOWS_DIR = dir;
-  try {
-    await run();
-  } finally {
-    if (prevFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    }
-  }
+  await runWithTestEnvOverrides({ FLOWS_DIR: dir }, run);
 };
 
 const withAgentHomes = async (
   params: { preferred: string; legacy: string },
   run: () => Promise<void>,
 ) => {
-  const previousPreferred = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacy = process.env.CODEINFO_CODEX_AGENT_HOME;
-  process.env.CODEINFO_AGENT_HOME = params.preferred;
-  process.env.CODEINFO_CODEX_AGENT_HOME = params.legacy;
-  try {
-    await run();
-  } finally {
-    if (previousPreferred === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousPreferred;
-    }
-    if (previousLegacy === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacy;
-    }
-  }
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_AGENT_HOME: params.preferred,
+      CODEINFO_CODEX_AGENT_HOME: params.legacy,
+    },
+    run,
+  );
 };
 
 const buildApp = (params?: {

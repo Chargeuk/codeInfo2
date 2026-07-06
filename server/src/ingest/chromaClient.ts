@@ -6,6 +6,7 @@ import {
 import { getClient as getLmClient } from '../lmstudio/clientPool.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import {
   createLmStudioEmbeddingProvider,
   createOpenAiEmbeddingProvider,
@@ -14,7 +15,7 @@ import {
 } from './providers/index.js';
 
 function getChromaUrl(): string {
-  const raw = process.env.CODEINFO_CHROMA_URL;
+  const raw = getScopedEnvValue('CODEINFO_CHROMA_URL');
   if (!raw || raw.trim() === '') return 'http://localhost:8300';
   return raw;
 }
@@ -35,9 +36,9 @@ export type LockedEmbeddingModel = {
 
 type LockClearReason = 'completed' | 'cleanup' | 'remove' | 'reset' | 'unknown';
 const COLLECTION_VECTORS =
-  process.env.CODEINFO_INGEST_COLLECTION ?? 'ingest_vectors';
+  getScopedEnvValue('CODEINFO_INGEST_COLLECTION') ?? 'ingest_vectors';
 const COLLECTION_ROOTS =
-  process.env.CODEINFO_INGEST_ROOTS_COLLECTION ?? 'ingest_roots';
+  getScopedEnvValue('CODEINFO_INGEST_ROOTS_COLLECTION') ?? 'ingest_roots';
 
 let client: ChromaClient | null = null;
 let clientUrl: string | null = null;
@@ -211,11 +212,13 @@ function resolveProviderFromLock(lock: LockedEmbeddingModel) {
   const provider =
     lock.embeddingProvider === 'openai'
       ? createOpenAiEmbeddingProvider({
-          apiKey: process.env.CODEINFO_OPENAI_EMBEDDING_KEY,
+          apiKey: getScopedEnvValue('CODEINFO_OPENAI_EMBEDDING_KEY'),
         })
       : createLmStudioEmbeddingProvider({
           lmClientResolver,
-          baseUrl: toWebSocketUrl(process.env.CODEINFO_LMSTUDIO_BASE_URL ?? ''),
+          baseUrl: toWebSocketUrl(
+            getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '',
+          ),
         });
   return provider;
 }
@@ -230,8 +233,8 @@ async function resolveLockedEmbeddingFunction(): Promise<EmbeddingFunction> {
   try {
     if (
       locked.embeddingProvider === 'lmstudio' &&
-      (!process.env.CODEINFO_LMSTUDIO_BASE_URL ||
-        process.env.CODEINFO_LMSTUDIO_BASE_URL === '')
+      (!getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ||
+        getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') === '')
     ) {
       throw new Error('CODEINFO_LMSTUDIO_BASE_URL is not configured');
     }

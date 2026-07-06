@@ -30,6 +30,7 @@ import {
 import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
 import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import { baseLogger } from '../logger.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { validateRequestedWorkingFolder } from '../workingFolders/state.js';
 
 type Provider = (typeof ORDERED_CHAT_PROVIDER_IDS)[number];
@@ -265,7 +266,8 @@ const resolveCodexAgentFlags = async (params: {
     | undefined;
 }): Promise<Record<string, unknown>> => {
   validateNoUnsupportedAgentFlags('codex', params.rawAgentFlags);
-  const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
+  const codexHome =
+    getScopedEnvValue('CODEINFO_CODEX_HOME') ?? getScopedEnvValue('CODEX_HOME');
   const defaults = await resolveCodexChatDefaults({
     codexHome,
   });
@@ -464,7 +466,9 @@ export async function validateChatRequest(
   const codexRequestedDefaults =
     provider === 'codex' && requestedModel === undefined
       ? await resolveCodexChatDefaults({
-          codexHome: process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME,
+          codexHome:
+            getScopedEnvValue('CODEINFO_CODEX_HOME') ??
+            getScopedEnvValue('CODEX_HOME'),
         })
       : undefined;
   const model =

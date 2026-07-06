@@ -77,6 +77,10 @@ import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  getScopedEnvValue,
+  getScopedProcessEnv,
+} from '../test/support/testEnvOverrideScope.js';
 import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 import {
   appendWorkingFolderDecisionLog,
@@ -538,7 +542,8 @@ export function createChatRouter({
     const explicitProviderSelected =
       resumedExecutionIdentity !== null ||
       defaultsResolution.providerSource === 'request';
-    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+    const env = getScopedProcessEnv();
+    const baseUrl = getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
 
     if (
       typeof requestedInflightId === 'string' &&
@@ -552,7 +557,8 @@ export function createChatRouter({
       }
     }
     const safeBase = scrubBaseUrl(baseUrl);
-    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
+    const codexHome =
+      getScopedEnvValue('CODEINFO_CODEX_HOME') ?? getScopedEnvValue('CODEX_HOME');
 
     const preflightRunLockResponse = await (async () => {
       if (tryAcquireConversationLock(conversationId)) {
@@ -664,7 +670,7 @@ export function createChatRouter({
             );
           const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
             provider: 'lmstudio',
-            lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+            lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
           }).model;
           lmstudioState =
             lmstudioModels.length > 0
@@ -693,7 +699,7 @@ export function createChatRouter({
             createRuntime: copilotLifecycleFactory
               ? () => copilotLifecycleFactory()
               : undefined,
-            env: process.env,
+            env,
             toolsAvailable: mcp.available,
             toolsReason: mcp.reason,
           })
@@ -743,8 +749,8 @@ export function createChatRouter({
       pinnedEndpointSelection = await resolvePinnedOpenAiCompatEndpoint({
         provider: effectiveRequestedProvider,
         codexHome,
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        env: process.env,
+        copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+        env,
       });
     } catch (error) {
       const message =
@@ -782,8 +788,8 @@ export function createChatRouter({
       try {
         const externalDiscovery = await providerDiscoveryResolver({
           provider: 'copilot',
-          copilotHome: process.env.CODEINFO_COPILOT_HOME,
-          env: process.env,
+          copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+          env,
         });
         const requestedModelIdentity = normalizeModelIdentity(
           normalizedRequestedModel,
@@ -840,7 +846,7 @@ export function createChatRouter({
         provider: effectiveRequestedProvider,
         endpointId: selectedEndpointId,
         configuredEndpoint: pinnedSelectedEndpoint,
-        env: process.env,
+        env,
       });
     } catch (error) {
       const message =
@@ -871,7 +877,7 @@ export function createChatRouter({
             const resolved = await resolveChatRuntimeConfig({
               provider,
               ...(provider === 'copilot'
-                ? { copilotHome: process.env.CODEINFO_COPILOT_HOME }
+                ? { copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME') }
                 : {}),
             });
             const { config } = resolved;
@@ -900,7 +906,7 @@ export function createChatRouter({
           resumedExecutionIdentity?.endpointId &&
             resumedExecutionIdentity.endpointId === selectedEndpointId,
         ),
-        env: process.env,
+        env,
       });
     } catch (error) {
       const code =

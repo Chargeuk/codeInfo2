@@ -80,6 +80,10 @@ import {
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../../providers/copilotReadiness.js';
+import {
+  getScopedEnvValue,
+  getScopedProcessEnv,
+} from '../../test/support/testEnvOverrideScope.js';
 import { resolveSharedExecutionContext } from '../../workingFolders/executionContext.js';
 import type { KnownRepositoryPathsState } from '../../workingFolders/state.js';
 import {
@@ -811,7 +815,7 @@ async function executeCodebaseQuestion(
     requestedModelArg === undefined &&
     !pinSavedConversationExecutionIdentity
       ? await resolveCodexChatDefaults({
-          codexHome: process.env.CODEX_HOME,
+          codexHome: getScopedEnvValue('CODEX_HOME'),
         })
       : undefined;
   const requestedModel = pinSavedConversationExecutionIdentity
@@ -841,7 +845,7 @@ async function executeCodebaseQuestion(
         provider === 'copilot'
           ? {
               provider: 'copilot',
-              copilotHome: process.env.CODEINFO_COPILOT_HOME,
+              copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
             }
           : undefined,
       );
@@ -876,7 +880,7 @@ async function executeCodebaseQuestion(
   }
 
   if (
-    process.env.MCP_FORCE_CODEX_AVAILABLE === 'true' &&
+    getScopedEnvValue('MCP_FORCE_CODEX_AVAILABLE') === 'true' &&
     !getCodexDetection().available
   ) {
     setCodexDetection({
@@ -889,7 +893,7 @@ async function executeCodebaseQuestion(
   const codexAvailable = await isCodexAvailable();
   const codexCapabilities = await resolveCodexCapabilities({
     consumer: 'chat_validation',
-    codexHome: process.env.CODEX_HOME,
+    codexHome: getScopedEnvValue('CODEX_HOME'),
   });
   const codexWarnings = [
     ...new Set([...codexCapabilities.warnings, ...resolvedDefaults.warnings]),
@@ -921,7 +925,7 @@ async function executeCodebaseQuestion(
   };
 
   const baseUrl =
-    process.env.CODEINFO_LMSTUDIO_BASE_URL ??
+    getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ??
     'http://host.docker.internal:1234';
   let lmstudioState = buildUnavailableRuntimeProviderState(
     explicitProviderSelected && requestedProvider !== 'lmstudio'
@@ -946,7 +950,7 @@ async function executeCodebaseQuestion(
           .filter((value) => typeof value === 'string' && value.trim().length);
         const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
           provider: 'lmstudio',
-          lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+          lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
         }).model;
         lmstudioState =
           lmstudioModels.length > 0
@@ -970,7 +974,7 @@ async function executeCodebaseQuestion(
     !explicitProviderSelected || requestedProvider === 'copilot'
       ? await (deps.copilotReadinessResolver ?? resolveCopilotReadiness)({
           toolsAvailable: true,
-          env: process.env,
+          env: getScopedProcessEnv(),
         })
       : {
           available: false,
@@ -991,7 +995,7 @@ async function executeCodebaseQuestion(
       : requestedModel;
   const copilotDefaultModel = resolveCopilotDefaultModel({
     models: copilotReadiness.modelsRaw as ModelInfo[],
-    copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
   }).defaultModel;
 
   const runtimeProviderStates = {
@@ -1236,7 +1240,7 @@ async function executeCodebaseQuestion(
         pinSavedConversationExecutionIdentity &&
           getSavedEndpointId(existingConversation),
       ),
-      env: process.env,
+      env: getScopedProcessEnv(),
     });
   } catch (error) {
     if (error instanceof ToolExecutionError) {

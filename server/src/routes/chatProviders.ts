@@ -32,6 +32,10 @@ import {
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  getScopedEnvValue,
+  getScopedProcessEnv,
+} from '../test/support/testEnvOverrideScope.js';
+import {
   buildEndpointOnlyProviderWarning,
   buildCodexAgentFlags,
   buildCodexCompatibilityDefaults,
@@ -79,7 +83,9 @@ export function createChatProvidersRouter({
   const router = Router();
 
   router.get('/providers', async (_req, res) => {
-    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
+    const env = getScopedProcessEnv();
+    const codexHome =
+      getScopedEnvValue('CODEINFO_CODEX_HOME') ?? getScopedEnvValue('CODEX_HOME');
     const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
     const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
     const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
@@ -88,7 +94,7 @@ export function createChatProvidersRouter({
     const capabilities = await codexCapabilityResolver({
       consumer: 'chat_models',
     });
-    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
     let lmstudioReason: string | undefined;
     let lmstudioModels: string[] = [];
@@ -112,15 +118,15 @@ export function createChatProvidersRouter({
 
     const copilot = await resolveCopilotReadiness({
       createRuntime: copilotRuntimeFactory,
-      env: process.env,
+      env,
       toolsAvailable: mcp.available,
       toolsReason: mcp.reason,
     });
 
     const requestedDefaults = resolveChatDefaults({
       codexHome,
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
-      lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+      lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
     });
     const codexRequestedDefaults =
       requestedDefaults.provider === 'codex'
@@ -142,15 +148,15 @@ export function createChatProvidersRouter({
       await resolveOpenAiCompatProviderDiscovery({
         provider: 'codex',
         codexHome,
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        env: process.env,
+        copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+        env,
       });
     const copilotExternalOpenAiCompatDiscovery =
       await resolveOpenAiCompatProviderDiscovery({
         provider: 'copilot',
         codexHome,
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        env: process.env,
+        copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+        env,
       });
     const selectedProviderExternalDiscovery =
       requestedDefaults.provider === 'codex'
@@ -180,15 +186,15 @@ export function createChatProvidersRouter({
         : undefined;
     const copilotModelMetadata = resolveCopilotDefaultModel({
       models: copilot.modelsRaw,
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
     });
     const copilotAgentFlags = buildCopilotAgentFlags({
       models: copilot.modelsRaw,
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
     });
     const lmstudioModelMetadata = resolveProviderRuntimePreferredModel({
       provider: 'lmstudio',
-      lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+      lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
     });
     const prioritizedLmstudioProviderModel =
       prioritizeRuntimeProviderModels(lmstudioModels, requestedModel)[0] ??
@@ -344,7 +350,7 @@ export function createChatProvidersRouter({
             : copilotBootstrapHealthy
               ? copilot.reason
               : (getProviderBootstrapReason('copilot') ?? copilot.reason),
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
         warnings: copilotWarnings,
         liveModels: copilotLiveModels,
         modelMetadata:
@@ -361,7 +367,7 @@ export function createChatProvidersRouter({
         reason: lmstudioBootstrapHealthy
           ? lmstudioReason
           : (getProviderBootstrapReason('lmstudio') ?? lmstudioReason),
-        lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+        lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
         warnings: lmstudioWarnings,
         liveModels: lmstudioModels,
         modelMetadata: lmstudioProviderModelMetadata,

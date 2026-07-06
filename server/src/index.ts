@@ -81,6 +81,7 @@ import {
   recoverIngestQueueForStartup,
   recordIngestQueueStartupMongoUnavailable,
 } from './startup/ingestQueueStartup.js';
+import { getScopedEnvValue } from './test/support/testEnvOverrideScope.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
@@ -274,7 +275,7 @@ const parseSourceBindMountCount = (value: string | undefined): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const runtimeComposeFile = process.env.CODEINFO_RUNTIME_COMPOSE_FILE?.trim();
+const runtimeComposeFile = getScopedEnvValue('CODEINFO_RUNTIME_COMPOSE_FILE')?.trim();
 if (runtimeComposeFile) {
   const hostNetworkRuntimeReadyContext = {
     composeFile: runtimeComposeFile,
@@ -423,8 +424,8 @@ const start = async () => {
     process.exit(1);
   }
   const bootstrapSnapshots = await ensureAllProviderChatConfigsBootstrapped({
-    codexHome: process.env.CODEINFO_CODEX_HOME,
-    copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    codexHome: getScopedEnvValue('CODEINFO_CODEX_HOME'),
+    copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
     lmstudioHome: resolveLmStudioChatDefaultsHome(),
   });
   baseLogger.info(
@@ -442,7 +443,9 @@ const start = async () => {
 
   setIngestDeps({
     lmClientFactory: clientFactory,
-    baseUrl: toWebSocketUrl(process.env.CODEINFO_LMSTUDIO_BASE_URL ?? ''),
+    baseUrl: toWebSocketUrl(
+      getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '',
+    ),
   });
   if (isMongoConnected()) {
     await recoverIngestQueueForStartup();

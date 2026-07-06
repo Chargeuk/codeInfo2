@@ -20,6 +20,7 @@ import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
   enterTestOverrideScope,
   getScopedAgentAvailabilityDepsOverride,
+  getScopedEnvValue,
   hasActiveTestOverrideScope,
 } from '../test/support/testOverrideScope.js';
 
@@ -102,7 +103,7 @@ const availabilityDeps: AvailabilityDeps = {
     new LMStudioClient({
       baseUrl,
     } as LMStudioClientConstructorOpts),
-  getLmStudioBaseUrl: () => process.env.CODEINFO_LMSTUDIO_BASE_URL,
+  getLmStudioBaseUrl: () => getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL'),
 };
 
 const getEffectiveAvailabilityDeps = (): AvailabilityDeps => {
@@ -430,7 +431,7 @@ export function __resetAgentAvailabilityDepsForTests() {
       baseUrl,
     } as LMStudioClientConstructorOpts);
   availabilityDeps.getLmStudioBaseUrl = () =>
-    process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL');
 }
 
 export function toAgentListWarnings(snapshot: AgentAvailabilitySnapshot) {

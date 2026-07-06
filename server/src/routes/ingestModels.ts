@@ -11,6 +11,7 @@ import {
 } from '../ingest/providers/index.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
@@ -216,7 +217,7 @@ export function createIngestModelsRouter({
   const router = Router();
   router.get('/ingest/models', async (_req, res) => {
     const requestId = res.locals.requestId as string | undefined;
-    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
     append({

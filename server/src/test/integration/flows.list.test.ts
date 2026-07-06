@@ -433,7 +433,7 @@ describe('GET /flows', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  test('GET /flows rejects unsafe subflow names before discovery resolves child paths', async () => {
+  test('GET /flows keeps unsafe subflow names listable and surfaces a warning', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
     await writeRawFlowFile(
@@ -452,8 +452,8 @@ describe('GET /flows', () => {
       const listed = response.body.flows.find(
         (flow: { name: string }) => flow.name === 'unsafe-subflow-name',
       );
-      assert.equal(listed.disabled, true);
-      assert.match(String(listed.error ?? ''), /valid flow name/u);
+      assert.equal(listed.disabled, false);
+      assert.match(String((listed.warnings ?? []).join('\n')), /valid flow name/u);
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -538,7 +538,7 @@ describe('GET /flows', () => {
     await fs.rm(ingestedRoot, { recursive: true, force: true });
   });
 
-  test('codexReview-only flows are disabled when Codex bootstrap is unavailable', async () => {
+  test('codexReview-only flows stay enabled and expose warnings when Codex bootstrap is unavailable', async () => {
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
 
     try {
@@ -575,9 +575,9 @@ describe('GET /flows', () => {
           (flow: { name: string }) => flow.name === 'codex-review-only',
         );
         assert.ok(listed);
-        assert.equal(listed.disabled, true);
+        assert.equal(listed.disabled, false);
         assert.match(
-          String(listed.error ?? ''),
+          String((listed.warnings ?? []).join('\n')),
           /codex unavailable for list test/u,
         );
       });
@@ -586,7 +586,7 @@ describe('GET /flows', () => {
     }
   });
 
-  test('parent flows are disabled when child subflows require Codex and Codex is unavailable', async () => {
+  test('parent flows stay enabled when child subflows require Codex and Codex is unavailable', async () => {
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
 
     try {
@@ -631,9 +631,9 @@ describe('GET /flows', () => {
           (flow: { name: string }) => flow.name === 'parent-subflow',
         );
         assert.ok(listed);
-        assert.equal(listed.disabled, true);
+        assert.equal(listed.disabled, false);
         assert.match(
-          String(listed.error ?? ''),
+          String((listed.warnings ?? []).join('\n')),
           /codex unavailable for subflow list test/u,
         );
       });
@@ -642,7 +642,7 @@ describe('GET /flows', () => {
     }
   });
 
-  test('parent flows inherit disabled agent availability from child subflows', async () => {
+  test('parent flows stay enabled when child subflows reference unavailable agents', async () => {
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
 
     try {
@@ -678,15 +678,14 @@ describe('GET /flows', () => {
           (flow: { name: string }) => flow.name === 'parent-agent-subflow',
         );
         assert.ok(listed);
-        assert.equal(listed.disabled, true);
-        assert.match(String(listed.error ?? ''), /missing_agent/u);
+        assert.equal(listed.disabled, false);
       });
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
   });
 
-  test('parent flows are disabled when child subflows reference missing command steps', async () => {
+  test('parent flows stay enabled when child subflows reference missing command steps', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
     const runtimeRoot = await fs.mkdtemp(
@@ -730,17 +729,65 @@ describe('GET /flows', () => {
               (flow: { name: string }) => flow.name === 'parent-command-subflow',
             );
             assert.ok(listed);
-            assert.equal(listed.disabled, true);
-            assert.match(
-              String(listed.error ?? ''),
-              /Flow command "missing-command" was not found for agent "planning_agent"/u,
-            );
+            assert.equal(listed.disabled, false);
           });
         },
       );
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
       await fs.rm(runtimeRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('parent flows stay enabled and warn when child subflow files are missing or invalid', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+
+    try {
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-missing-child',
+        JSON.stringify({
+          description: 'Parent missing child',
+          steps: [{ type: 'subflow', flowNames: ['child-missing'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-invalid-child',
+        JSON.stringify({
+          description: 'Parent invalid child',
+          steps: [{ type: 'subflow', flowNames: ['child-invalid'] }],
+        }),
+      );
+      await writeRawFlowFile(tmpDir, 'child-invalid', '{"description":"Broken"');
+
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows');
+
+        assert.equal(response.status, 200);
+        const missingChild = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-missing-child',
+        );
+        assert.ok(missingChild);
+        assert.equal(missingChild.disabled, false);
+        assert.match(
+          String((missingChild.warnings ?? []).join('\n')),
+          /Subflow "child-missing" could not be read/u,
+        );
+
+        const invalidChild = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-invalid-child',
+        );
+        assert.ok(invalidChild);
+        assert.equal(invalidChild.disabled, false);
+        assert.match(
+          String((invalidChild.warnings ?? []).join('\n')),
+          /Subflow "child-invalid" is invalid/u,
+        );
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
     }
   });
 

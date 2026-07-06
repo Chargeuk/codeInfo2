@@ -530,15 +530,18 @@ export async function runCodexReviewStep(
     });
   } catch (error) {
     codexFailure = error;
-    throw error;
-  } finally {
-    try {
-      await pinnedBaseRef.cleanup();
-    } catch (cleanupError) {
-      if (!codexFailure) {
-        throw cleanupError;
-      }
-    }
+  }
+  let cleanupFailure: unknown = null;
+  try {
+    await pinnedBaseRef.cleanup();
+  } catch (error) {
+    cleanupFailure = error;
+  }
+  if (codexFailure) {
+    throw codexFailure;
+  }
+  if (cleanupFailure) {
+    throw cleanupFailure;
   }
 
   const completedAtIso = resolvedDeps.now().toISOString();

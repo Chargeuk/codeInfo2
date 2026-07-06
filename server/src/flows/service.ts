@@ -3293,108 +3293,6 @@ const findRuntimeCodexReviewStep = (
   return undefined;
 };
 
-const flowContainsReachableCodexReview = async (params: {
-  flowName: string;
-  steps: FlowStep[];
-  flowsRoot: string;
-  sourceId?: string;
-  resumeStepPath?: number[] | null;
-  visited?: Set<string>;
-}): Promise<boolean> => {
-  const visited = params.visited ?? new Set<string>();
-  visited.add(params.flowName);
-
-  let resumePathRemaining =
-    params.resumeStepPath && params.resumeStepPath.length > 0
-      ? [...params.resumeStepPath]
-      : null;
-  let resumeIndex = resumePathRemaining?.[0];
-
-  for (const [index, step] of params.steps.entries()) {
-    if (
-      resumePathRemaining &&
-      resumeIndex !== undefined &&
-      index < resumeIndex
-    ) {
-      continue;
-    }
-
-    if (resumePathRemaining && resumeIndex === index) {
-      if (resumePathRemaining.length === 1) {
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        continue;
-      }
-      if (step.type !== 'startLoop') {
-        return false;
-      }
-      if (
-        await flowContainsReachableCodexReview({
-          flowName: params.flowName,
-          steps: step.steps,
-          flowsRoot: params.flowsRoot,
-          sourceId: params.sourceId,
-          resumeStepPath: resumePathRemaining.slice(1),
-          visited,
-        })
-      ) {
-        return true;
-      }
-      resumePathRemaining = null;
-      resumeIndex = undefined;
-      continue;
-    }
-
-    if (step.type === 'codexReview') {
-      return true;
-    }
-    if (step.type === 'startLoop') {
-      if (
-        await flowContainsReachableCodexReview({
-          flowName: params.flowName,
-          steps: step.steps,
-          flowsRoot: params.flowsRoot,
-          sourceId: params.sourceId,
-          visited,
-        })
-      ) {
-        return true;
-      }
-      continue;
-    }
-    if (step.type !== 'subflow') {
-      continue;
-    }
-
-    for (const childFlowName of step.flowNames) {
-      if (visited.has(childFlowName)) {
-        continue;
-      }
-      const childFlow = await loadFlowFile({
-        flowName: childFlowName,
-        flowsRoot: params.flowsRoot,
-        sourceId: params.sourceId,
-      }).catch(() => null);
-      if (!childFlow) {
-        continue;
-      }
-      if (
-        await flowContainsReachableCodexReview({
-          flowName: childFlowName,
-          steps: childFlow.steps,
-          flowsRoot: params.flowsRoot,
-          sourceId: params.sourceId,
-          visited: new Set(visited).add(childFlowName),
-        })
-      ) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-};
-
 const validateCommandSteps = async (params: {
   flowName: string;
   steps: FlowStep[];
@@ -3463,29 +3361,6 @@ const validateCommandSteps = async (params: {
       continue;
     }
     if (step.type === 'subflow') {
-      for (const childFlowName of step.flowNames) {
-        if (visited.has(childFlowName)) {
-          continue;
-        }
-        const childFlow = await loadFlowFile({
-          flowName: childFlowName,
-          flowsRoot: params.flowsRoot,
-          sourceId: params.sourceId,
-        }).catch(() => null);
-        if (!childFlow) {
-          continue;
-        }
-        await validateCommandSteps({
-          flowName: childFlowName,
-          steps: childFlow.steps,
-          flowsRoot: params.flowsRoot,
-          sourceId: params.sourceId,
-          agentByName: params.agentByName,
-          repositoryContext: params.repositoryContext,
-          resumeStepPath: null,
-          visited: new Set(visited).add(childFlowName),
-        });
-      }
       continue;
     }
     if (step.type === 'command') {
@@ -3581,43 +3456,10 @@ const validateCodexReviewSteps = async (params: {
       continue;
     }
     if (step.type === 'subflow') {
-      for (const childFlowName of step.flowNames) {
-        if (visited.has(childFlowName)) {
-          continue;
-        }
-        const childFlow = await loadFlowFile({
-          flowName: childFlowName,
-          flowsRoot: params.flowsRoot,
-          sourceId: params.sourceId,
-        }).catch(() => null);
-        if (!childFlow) {
-          continue;
-        }
-        await validateCodexReviewSteps({
-          flowName: childFlowName,
-          steps: childFlow.steps,
-          flowsRoot: params.flowsRoot,
-          sourceId: params.sourceId,
-          codexReviewModelId: params.codexReviewModelId,
-          visited: new Set(visited).add(childFlowName),
-        });
-      }
       continue;
     }
     if (step.type !== 'codexReview') {
       continue;
-    }
-
-    if (
-      !resolveCodexReviewModel({
-        requestedModelId: params.codexReviewModelId,
-        stepModelId: step.model,
-      })
-    ) {
-      throw toFlowRunError(
-        'INVALID_REQUEST',
-        `Flow codexReview step "${step.label ?? step.outputKey}" requires codexReviewModelId or a step model.`,
-      );
     }
   }
 };
@@ -4855,6 +4697,49 @@ async function runFlowUnlocked(params: {
     const runningText = buildSubflowSummaryText(
       launchesMultipleChildren ? 'Running subflows' : 'Running subflow',
     );
+    const childOutcomes = new Map<
+      string,
+      {
+        title: string;
+        status: 'ok' | 'failed' | 'stopped';
+        reason?: string;
+      }
+    >();
+    const recordChildOutcome = (params: {
+      flowName: string;
+      status: 'ok' | 'failed' | 'stopped';
+      reason?: string;
+    }) => {
+      childOutcomes.set(params.flowName, {
+        title: buildTrackedSubflowTitle(params.flowName),
+        status: params.status,
+        ...(params.reason ? { reason: params.reason } : {}),
+      });
+    };
+    const buildBestEffortSummary = () => {
+      const outcomes = childFlowNames.map(
+        (flowName) =>
+          childOutcomes.get(flowName) ?? {
+            title: buildTrackedSubflowTitle(flowName),
+            status: 'failed' as const,
+          },
+      );
+      const successCount = outcomes.filter((entry) => entry.status === 'ok').length;
+      const failedCount = outcomes.filter((entry) => entry.status === 'failed').length;
+      const stoppedCount = outcomes.filter(
+        (entry) => entry.status === 'stopped',
+      ).length;
+      const parts = [`${successCount} succeeded`];
+      if (failedCount > 0) {
+        parts.push(`${failedCount} failed`);
+      }
+      if (stoppedCount > 0) {
+        parts.push(`${stoppedCount} stopped`);
+      }
+      return `${buildSubflowSummaryText(
+        launchesMultipleChildren ? 'Completed subflows' : 'Completed subflow',
+      )} (best effort: ${parts.join(', ')})`;
+    };
 
     const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
       const pendingCancel = getPendingConversationCancel(params.conversationId);
@@ -4924,24 +4809,28 @@ async function runFlowUnlocked(params: {
     });
 
     try {
-      await Promise.all(
-        childRuns.map(async (childRun) => {
-          const status = await getFlowConversationTerminalStatus({
-            conversationId: childRun.conversationId,
-            runToken: childRun.runToken,
-          });
-          if (status || getActiveRunOwnership(childRun.conversationId)) {
-            return;
-          }
-          throw toFlowRunError(
-            'INVALID_REQUEST',
-            `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
-          );
-        }),
-      );
+      const resumableChildRuns: FlowActiveSubflow[] = [];
+      for (const childRun of childRuns) {
+        const status = await getFlowConversationTerminalStatus({
+          conversationId: childRun.conversationId,
+          runToken: childRun.runToken,
+        });
+        if (status || getActiveRunOwnership(childRun.conversationId)) {
+          resumableChildRuns.push(childRun);
+          continue;
+        }
+        recordChildOutcome({
+          flowName: childRun.flowName,
+          status: 'failed',
+          reason: `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+        });
+      }
+      childRuns.length = 0;
+      childRuns.push(...resumableChildRuns);
+      setActiveSubflowsForStep(nextPath, childRuns);
 
       for (const flowName of childFlowNames) {
-        if (rememberedSubflowsByName.has(flowName)) {
+        if (rememberedSubflowsByName.has(flowName) || childOutcomes.has(flowName)) {
           continue;
         }
         if (
@@ -4953,42 +4842,56 @@ async function runFlowUnlocked(params: {
 
         let childConversationId: string | undefined;
         let childRunToken: string | undefined;
-        const started = await startFlowRun({
-          flowName,
-          sourceId: params.repositoryContext.flowSourceId,
-          flowPath: params.flowPath,
-          codexReviewModelId: params.codexReviewModelId,
-          working_folder: params.repositoryContext.workingRepositoryPath,
-          customTitle: buildTrackedSubflowTitle(flowName),
-          source: params.source,
-          chatFactory: params.chatFactory,
-          listIngestedRepositories:
-            params.repositoryContext.listIngestedRepositories,
-          onOwnershipReady: ({ conversationId, runToken }) => {
-            childConversationId = conversationId;
-            childRunToken = runToken;
-          },
-        });
-        childConversationId = started.conversationId;
+        try {
+          const started = await startFlowRun({
+            flowName,
+            sourceId: params.repositoryContext.flowSourceId,
+            flowPath: params.flowPath,
+            codexReviewModelId: params.codexReviewModelId,
+            working_folder: params.repositoryContext.workingRepositoryPath,
+            customTitle: buildTrackedSubflowTitle(flowName),
+            source: params.source,
+            chatFactory: params.chatFactory,
+            listIngestedRepositories:
+              params.repositoryContext.listIngestedRepositories,
+            onOwnershipReady: ({ conversationId, runToken }) => {
+              childConversationId = conversationId;
+              childRunToken = runToken;
+            },
+          });
+          childConversationId = started.conversationId;
 
-        if (!childConversationId || !childRunToken) {
-          throw toFlowRunError(
-            'INVALID_REQUEST',
-            `Subflow ${flowName} did not start correctly.`,
-          );
+          if (!childConversationId || !childRunToken) {
+            recordChildOutcome({
+              flowName,
+              status: 'failed',
+              reason: `Subflow ${flowName} did not start correctly.`,
+            });
+            continue;
+          }
+
+          const trackedSubflow = {
+            stepPath: [...nextPath],
+            flowName,
+            conversationId: childConversationId,
+            runToken: childRunToken,
+            title: buildTrackedSubflowTitle(flowName),
+          };
+          rememberedSubflowsByName.set(flowName, trackedSubflow);
+          childRuns.push(trackedSubflow);
+          setActiveSubflowsForStep(nextPath, childRuns);
+          await persistRuntimeResumeState(lastCompletedStepPath);
+        } catch (error) {
+          recordChildOutcome({
+            flowName,
+            status: 'failed',
+            reason: isFlowRunError(error)
+              ? (error.reason ?? error.code)
+              : error instanceof Error
+                ? error.message
+                : `Subflow ${flowName} failed to start.`,
+          });
         }
-
-        const trackedSubflow = {
-          stepPath: [...nextPath],
-          flowName,
-          conversationId: childConversationId,
-          runToken: childRunToken,
-          title: buildTrackedSubflowTitle(flowName),
-        };
-        rememberedSubflowsByName.set(flowName, trackedSubflow);
-        childRuns.push(trackedSubflow);
-        setActiveSubflowsForStep(nextPath, childRuns);
-        await persistRuntimeResumeState(lastCompletedStepPath);
       }
 
       let terminalStatus: TurnStatus;
@@ -5021,6 +4924,30 @@ async function runFlowUnlocked(params: {
             };
           }),
         );
+        const staleChildren = childStatuses.filter(
+          ({ childRun, status }) =>
+            !status && !getActiveRunOwnership(childRun.conversationId),
+        );
+        if (staleChildren.length > 0) {
+          const staleConversationIds = new Set<string>();
+          staleChildren.forEach(({ childRun }) => {
+            staleConversationIds.add(childRun.conversationId);
+            recordChildOutcome({
+              flowName: childRun.flowName,
+              status: 'failed',
+              reason: `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+            });
+          });
+          const remainingChildRuns = childRuns.filter(
+            (childRun) => !staleConversationIds.has(childRun.conversationId),
+          );
+          childRuns.length = 0;
+          childRuns.push(...remainingChildRuns);
+          setActiveSubflowsForStep(nextPath, childRuns);
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          allChildrenOkObservedAt = null;
+          continue;
+        }
         const hasIncompleteChild = childStatuses.some(({ status }) => !status);
         if (!hasIncompleteChild) {
           const lateParentPendingCancel = consumePendingConversationCancel({
@@ -5041,52 +4968,42 @@ async function runFlowUnlocked(params: {
               continue;
             }
           }
-          if (terminalStatuses.includes('failed')) {
-            terminalStatus = 'failed';
-          } else if (
-            parentStopRequested ||
-            terminalStatuses.includes('stopped')
-          ) {
-            terminalStatus = 'stopped';
-          } else {
-            terminalStatus = 'ok';
-          }
+          childStatuses.forEach(({ childRun, status }) => {
+            if (!status) {
+              return;
+            }
+            recordChildOutcome({
+              flowName: childRun.flowName,
+              status,
+            });
+          });
+          terminalStatus = parentStopRequested ? 'stopped' : 'ok';
           break;
         }
         allChildrenOkObservedAt = null;
-
-        const staleChild = childStatuses.find(
-          ({ childRun, status }) =>
-            !status && !getActiveRunOwnership(childRun.conversationId),
-        );
-        if (staleChild) {
-          throw toFlowRunError(
-            'INVALID_REQUEST',
-            `Subflow ${staleChild.childRun.flowName} could not be resumed because child conversation ${staleChild.childRun.conversationId} has no active run and no terminal result.`,
-          );
-        }
 
         await sleep(25);
       }
 
       setActiveSubflowsForStep(nextPath, []);
 
+      const nonOkChildCount = [...childOutcomes.values()].filter(
+        (entry) => entry.status !== 'ok',
+      ).length;
       const finalMessage =
-        terminalStatus === 'ok'
+        terminalStatus === 'stopped'
           ? buildSubflowSummaryText(
               launchesMultipleChildren
-                ? 'Completed subflows'
-                : 'Completed subflow',
+                ? 'Stopped subflows'
+                : 'Stopped subflow',
             )
-          : terminalStatus === 'stopped'
+          : nonOkChildCount === 0
             ? buildSubflowSummaryText(
                 launchesMultipleChildren
-                  ? 'Stopped subflows'
-                  : 'Stopped subflow',
+                  ? 'Completed subflows'
+                  : 'Completed subflow',
               )
-            : buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Subflows' : 'Subflow',
-              ) + ' failed';
+            : buildBestEffortSummary();
       setAssistantText({
         conversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5133,18 +5050,9 @@ async function runFlowUnlocked(params: {
       });
 
       bridge.finalize({
-        fallback:
-          terminalStatus === 'failed'
-            ? {
-                status: terminalStatus,
-                error: {
-                  code: 'SUBFLOW_FAILED',
-                  message: finalMessage,
-                },
-              }
-            : {
-                status: terminalStatus,
-              },
+        fallback: {
+          status: terminalStatus,
+        },
       });
       return terminalStatus;
     } catch (error) {
@@ -5677,37 +5585,40 @@ async function runFlowUnlocked(params: {
       requestedModelId: params.codexReviewModelId,
       stepModelId: step.model,
     });
-    if (!resolvedModelId) {
-      await emitFailedFlowStep({
+    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
+    const emitSkippedCodexReviewStep = async (message: string) => {
+      await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction: `Codex review: ${step.outputKey}`,
-        modelId: params.modelId,
+        response: `Codex review skipped.\nReason: ${message}`,
+        modelId: codexStepModelId,
+        providerId: 'codex',
         source: params.source,
-        message:
-          'codexReview requires codexReviewModelId or a model on the flow step.',
-        errorCode: 'INVALID_REQUEST',
         command,
       });
-      return 'failed';
+      return 'ok' as const;
+    };
+    if (!resolvedModelId) {
+      return emitSkippedCodexReviewStep(
+        'codexReview requires codexReviewModelId or a model on the flow step.',
+      );
+    }
+
+    if (!codexBootstrapStatus.healthy) {
+      return emitSkippedCodexReviewStep(
+        codexBootstrapStatus.reason ?? 'codex unavailable',
+      );
     }
 
     const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
       params.repositoryContext,
     );
     if (!reviewRepositoryPath) {
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction: `Codex review: ${step.outputKey}`,
-        modelId: resolvedModelId,
-        providerId: 'codex',
-        source: params.source,
-        message: 'codexReview requires a resolved working repository path.',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
+      return emitSkippedCodexReviewStep(
+        'codexReview requires a resolved working repository path.',
+      );
     }
 
     const instruction = `Codex review: ${step.outputKey}`;
@@ -5812,21 +5723,19 @@ async function runFlowUnlocked(params: {
         });
         return 'stopped';
       }
-      await emitFailedFlowStep({
+      await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction,
+        response: `Codex review skipped.\nReason: ${
+          error instanceof Error ? error.message : 'codexReview failed unexpectedly'
+        }`,
         modelId: resolvedModelId,
         providerId: 'codex',
         source: params.source,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'codexReview failed unexpectedly',
-        errorCode: 'INVALID_REQUEST',
         command,
       });
-      return 'failed';
+      return 'ok';
     }
   };
 
@@ -6577,15 +6486,6 @@ export async function startFlowRun(
     const firstCodexReviewStep =
       runtimeCodexReviewStep ??
       (!firstAgentStep ? findFirstCodexReviewStep(flow.steps) : undefined);
-    const requiresDelayedCodexReview =
-      !firstCodexReviewStep &&
-      (await flowContainsReachableCodexReview({
-        flowName,
-        steps: flow.steps,
-        flowsRoot,
-        sourceId,
-        resumeStepPath,
-      }));
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -6596,15 +6496,6 @@ export async function startFlowRun(
       : undefined;
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
-    if (requiresDelayedCodexReview) {
-      const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-      if (!codexBootstrapStatus.healthy) {
-        throw toFlowRunError(
-          'PROVIDER_UNAVAILABLE',
-          codexBootstrapStatus.reason ?? 'codex unavailable',
-        );
-      }
-    }
     if (firstAgentStep) {
       const validatedAgentType = validateRepositoryBackedAgentType(
         firstAgentStep.agentType,
@@ -6637,20 +6528,8 @@ export async function startFlowRun(
         requestedModelId: effectiveCodexReviewModelId,
         stepModelId: firstCodexReviewStep.model,
       });
-      if (!resolvedModelId) {
-        throw toFlowRunError(
-          'INVALID_REQUEST',
-          `Flow codexReview step "${firstCodexReviewStep.label ?? firstCodexReviewStep.outputKey}" requires codexReviewModelId or a step model.`,
-        );
-      }
       const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-      if (!codexBootstrapStatus.healthy) {
-        throw toFlowRunError(
-          'PROVIDER_UNAVAILABLE',
-          codexBootstrapStatus.reason ?? 'codex unavailable',
-        );
-      }
-      modelId = resolvedModelId;
+      modelId = resolvedModelId ?? FALLBACK_MODEL_ID;
       providerId = 'codex';
       startupWarnings = codexBootstrapStatus.warnings;
     }

@@ -1132,7 +1132,7 @@ test('local review-git flows fail instead of silently targeting the harness repo
 });
 
 test(
-  'parent flows fail fast when child subflows require Codex and Codex is unavailable',
+  'parent flows continue best-effort when child codexReview work is unavailable',
   { concurrency: false },
   async () => {
     const tmpDir = await fs.mkdtemp(
@@ -1160,8 +1160,8 @@ test(
         tmpDir,
         flowName: 'parent-preflight',
         steps: [
-          llmStep('should not run'),
           subflowStep('Run Codex Review Child', 'child-codex-review'),
+          llmStep('parent after unavailable child codex review'),
         ],
       });
 
@@ -1171,37 +1171,31 @@ test(
         warnings: [],
       });
 
-      let executeCalls = 0;
-      await assert.rejects(
-        startFlowRun({
-          flowName: 'parent-preflight',
-          source: 'REST',
-          working_folder: repoRoot,
-          chatFactory: () =>
-            new SubflowChat(25, () => {
-              executeCalls += 1;
-            }),
-          listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(repoRoot)],
-            lockedModelId: null,
+      const executions: string[] = [];
+      const result = await startFlowRun({
+        flowName: 'parent-preflight',
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () =>
+          new SubflowChat(25, ({ message }) => {
+            executions.push(message);
           }),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
         }),
-        (error: unknown) => {
-          assert.equal(
-            (error as { code?: string }).code,
-            'PROVIDER_UNAVAILABLE',
-          );
-          return true;
-        },
+      });
+      await waitFor(() =>
+        executions.includes('parent after unavailable child codex review'),
       );
-      assert.equal(executeCalls, 0);
+      await waitForAssistantStatus(result.conversationId, 'ok');
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
   },
 );
 
-test('parent flows validate child codexReview model requirements before launching subflows', async () => {
+test('parent flows continue best-effort when child codexReview model requirements are missing', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-codex-model-validation-'),
   );
@@ -1225,45 +1219,36 @@ test('parent flows validate child codexReview model requirements before launchin
       tmpDir,
       flowName: 'parent-codex-model-validation',
       steps: [
-        llmStep('should not run'),
         subflowStep(
           'Run Codex Review Child',
           'child-codex-review-missing-model',
         ),
+        llmStep('parent after child codex model skip'),
       ],
     });
 
-    let executeCalls = 0;
-    await assert.rejects(
-      startFlowRun({
-        flowName: 'parent-codex-model-validation',
-        source: 'REST',
-        working_folder: repoRoot,
-        chatFactory: () =>
-          new SubflowChat(25, () => {
-            executeCalls += 1;
-          }),
-        listIngestedRepositories: async () => ({
-          repos: [buildRepoEntry(repoRoot)],
-          lockedModelId: null,
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-codex-model-validation',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
         }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
       }),
-      (error: unknown) => {
-        assert.equal((error as { code?: string }).code, 'INVALID_REQUEST');
-        assert.match(
-          String((error as { reason?: string }).reason ?? ''),
-          /requires codexReviewModelId or a step model/u,
-        );
-        return true;
-      },
-    );
-    assert.equal(executeCalls, 0);
+    });
+    await waitFor(() => executions.includes('parent after child codex model skip'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('parent flows preflight child command steps before launching subflows', async () => {
+test('parent flows continue best-effort when child command steps are invalid', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-command-validation-'),
   );
@@ -1287,36 +1272,37 @@ test('parent flows preflight child command steps before launching subflows', asy
       tmpDir,
       flowName: 'parent-command-validation',
       steps: [
-        llmStep('should not run'),
         subflowStep('Run Child Command', 'child-command-validation'),
+        llmStep('parent after child command failure'),
       ],
     });
 
-    let executeCalls = 0;
-    await assert.rejects(
-      startFlowRun({
-        flowName: 'parent-command-validation',
-        source: 'REST',
-        working_folder: repoRoot,
-        chatFactory: () =>
-          new SubflowChat(25, () => {
-            executeCalls += 1;
-          }),
-        listIngestedRepositories: async () => ({
-          repos: [buildRepoEntry(repoRoot)],
-          lockedModelId: null,
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-command-validation',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
         }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
       }),
-      (error: unknown) => {
-        assert.equal((error as { code?: string }).code, 'COMMAND_INVALID');
-        assert.match(
-          String((error as { reason?: string }).reason ?? ''),
-          /missing-child-command/u,
-        );
-        return true;
-      },
+    });
+    await waitFor(() => executions.includes('parent after child command failure'));
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 0 succeeded, 1 failed'),
+      ),
+      true,
     );
-    assert.equal(executeCalls, 0);
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1581,7 +1567,7 @@ test('flow step-boundary persistence keeps request-scoped codexReviewModelId', a
 });
 
 test(
-  'resumed flows still preflight later Codex work after resuming inside loops',
+  'resumed flows continue best-effort for later Codex work after resuming inside loops',
   { concurrency: false },
   async () => {
     const tmpDir = await fs.mkdtemp(
@@ -1648,31 +1634,20 @@ test(
         warnings: [],
       });
 
-      await assert.rejects(
-        startFlowRun({
-          flowName: 'resume-loop-parent',
-          conversationId,
-          resumeStepPath: [0, 0],
-          source: 'REST',
-          working_folder: repoRoot,
-          chatFactory: () => new SubflowChat(25),
-          listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(repoRoot)],
-            lockedModelId: null,
-          }),
+      const result = await startFlowRun({
+        flowName: 'resume-loop-parent',
+        conversationId,
+        resumeStepPath: [0, 0],
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () => new SubflowChat(25),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
         }),
-        (error: unknown) => {
-          assert.equal(
-            (error as { code?: string }).code,
-            'PROVIDER_UNAVAILABLE',
-          );
-          assert.match(
-            String((error as { reason?: string }).reason ?? ''),
-            /codex unavailable for resume loop preflight/u,
-          );
-          return true;
-        },
-      );
+      });
+      assert.equal(result.conversationId, conversationId);
+      await waitForAssistantStatus(conversationId, 'ok');
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
@@ -1953,7 +1928,129 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
-test('parallel subflow waits for every child and fails when any child fails', async () => {
+test('codexReview steps skip cleanly when Codex is unavailable and later parent steps still run', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-skip-unavailable-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-skip-then-llm',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          model: 'gpt-5.4',
+          reasoningEffort: 'medium',
+        },
+        llmStep('parent after skipped codex review'),
+      ],
+    });
+
+    __setProviderBootstrapStatusForTests('codex', {
+      healthy: false,
+      reason: 'codex unavailable for direct skip',
+      warnings: [],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'codex-skip-then-llm',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() => executions.includes('parent after skipped codex review'));
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('Codex review skipped.') &&
+          String(turn.content).includes('codex unavailable for direct skip'),
+      ),
+      true,
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('codexReview steps skip cleanly when no review model can be resolved and later parent steps still run', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-skip-missing-model-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-missing-model-then-llm',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+        },
+        llmStep('parent after skipped missing-model codex review'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'codex-missing-model-then-llm',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() =>
+      executions.includes('parent after skipped missing-model codex review'),
+    );
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('Codex review skipped.') &&
+          String(turn.content).includes(
+            'codexReview requires codexReviewModelId or a model on the flow step.',
+          ),
+      ),
+      true,
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('parallel subflow waits for every child and continues best-effort when one child fails', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-fail-'),
   );
@@ -1979,14 +2076,19 @@ test('parallel subflow waits for every child and fails when any child fails', as
           'child-fast-fail',
           'child-slow-success',
         ),
+        llmStep('parent after best-effort subflow batch'),
       ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-parallel-fail',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(140),
+      chatFactory: () =>
+        new SubflowChat(140, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
     await waitFor(() =>
@@ -2004,14 +2106,20 @@ test('parallel subflow waits for every child and fails when any child fails', as
     assert.ok(slowChild?._id);
     await waitForConversationAssistantStatus(String(slowChild?._id), 'ok');
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
+    await waitFor(() =>
+      executions.includes('parent after best-effort subflow batch'),
     );
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
-      finalAssistant?.content,
-      'Subflows Parent Review-Run Failure Batch-child-fast-fail, Parent Review-Run Failure Batch-child-slow-success failed',
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 1 succeeded, 1 failed'),
+      ),
+      true,
     );
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -2133,7 +2241,7 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
   }
 });
 
-test('subflow step mirrors child failure onto the parent flow', async () => {
+test('subflow step keeps the parent flow running when a single child fails', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-fail-'));
   process.env.FLOWS_DIR = tmpDir;
 
@@ -2146,30 +2254,41 @@ test('subflow step mirrors child failure onto the parent flow', async () => {
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-fail',
-      steps: [subflowStep('Run Broken Child', 'child-fail')],
+      steps: [
+        subflowStep('Run Broken Child', 'child-fail'),
+        llmStep('parent after failed child'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-fail',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(150),
+      chatFactory: () =>
+        new SubflowChat(150, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
+    await waitFor(() => executions.includes('parent after failed child'));
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Broken Child failed',
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 0 succeeded, 1 failed'),
+      ),
+      true,
     );
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('subflow waits for the full child flow and can fail on a later child step', async () => {
+test('subflow waits for the full child flow and still continues best-effort after a later child failure', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-fail-later-'),
   );
@@ -2184,14 +2303,21 @@ test('subflow waits for the full child flow and can fail on a later child step',
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-fail-later',
-      steps: [subflowStep('Run Later Failure', 'child-fail-later')],
+      steps: [
+        subflowStep('Run Later Failure', 'child-fail-later'),
+        llmStep('parent after later child failure'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-fail-later',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(160),
+      chatFactory: () =>
+        new SubflowChat(160, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
     const childConversation = await waitFor(() => {
@@ -2220,20 +2346,24 @@ test('subflow waits for the full child flow and can fail on a later child step',
       false,
     );
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
+    await waitFor(() => executions.includes('parent after later child failure'));
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Later Failure failed',
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 0 succeeded, 1 failed'),
+      ),
+      true,
     );
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('subflow fails when the child crashes after a prior successful step', async () => {
+test('subflow continues best-effort when the child crashes after a prior successful step', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stale-ok-crash-'),
   );
@@ -2248,24 +2378,25 @@ test('subflow fails when the child crashes after a prior successful step', async
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-crash-after-ok',
-      steps: [subflowStep('Run Crashing Child', 'child-crash-after-ok')],
+      steps: [
+        subflowStep('Run Crashing Child', 'child-crash-after-ok'),
+        llmStep('parent after crashing child'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-crash-after-ok',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(100),
+      chatFactory: () =>
+        new SubflowChat(100, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Crashing Child failed',
-    );
+    await waitFor(() => executions.includes('parent after crashing child'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
 
     const childConversation = findChildFlowConversation({
       parentConversationId: result.conversationId,
@@ -2291,7 +2422,7 @@ test('subflow fails when the child crashes after a prior successful step', async
   }
 });
 
-test('subflow fails fast when flows reference each other recursively', async () => {
+test('subflow keeps the parent running when child flows reference each other recursively', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-recursive-cycle-'),
   );
@@ -2306,24 +2437,25 @@ test('subflow fails fast when flows reference each other recursively', async () 
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-cycle-a',
-      steps: [subflowStep('Run Child', 'child-cycle-b')],
+      steps: [
+        subflowStep('Run Child', 'child-cycle-b'),
+        llmStep('parent after recursive child failure'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-cycle-a',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(100),
+      chatFactory: () =>
+        new SubflowChat(100, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Child failed',
-    );
+    await waitFor(() => executions.includes('parent after recursive child failure'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
 
     const childConversation = findChildFlowConversation({
       parentConversationId: result.conversationId,
@@ -2335,11 +2467,7 @@ test('subflow fails fast when flows reference each other recursively', async () 
     const latestChildAssistant = [...childTurns]
       .reverse()
       .find((turn) => turn.role === 'assistant');
-    assert.equal(latestChildAssistant?.status, 'failed');
-    assert.equal(
-      latestChildAssistant?.content,
-      'Subflow cycle detected: parent-cycle-a -> child-cycle-b -> parent-cycle-a.',
-    );
+    assert.equal(latestChildAssistant?.status, 'ok');
 
     const childCycleConversations = Array.from(memoryConversations.values())
       .filter((conversation) => conversation.flowName === 'parent-cycle-a')
@@ -3087,7 +3215,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
   }
 });
 
-test('resume fails stale subflows that have no active child run or terminal result', async () => {
+test('resume tolerates stale subflows that have no active child run or terminal result', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-'),
   );
@@ -3171,20 +3299,17 @@ test('resume fails stale subflows that have no active child run or terminal resu
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(
-      parentConversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      `Subflow child-stale could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    assert.match(
+      String(finalAssistant?.content ?? ''),
+      /best effort: 0 succeeded, 1 failed/u,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('resume fails stale legacy activeSubflow state that has no active child run or terminal result', async () => {
+test('resume tolerates stale legacy activeSubflow state that has no active child run or terminal result', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-legacy-'),
   );
@@ -3266,20 +3391,17 @@ test('resume fails stale legacy activeSubflow state that has no active child run
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(
-      parentConversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      `Subflow child-stale-legacy could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    assert.match(
+      String(finalAssistant?.content ?? ''),
+      /best effort: 0 succeeded, 1 failed/u,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('resume fails stale remembered subflows before launching missing parallel children', async () => {
+test('resume tolerates stale remembered subflows before launching missing parallel children', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-before-launch-'),
   );
@@ -3368,19 +3490,16 @@ test('resume fails stale remembered subflows before launching missing parallel c
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(
-      parentConversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      `Subflow child-stale could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    assert.match(
+      String(finalAssistant?.content ?? ''),
+      /best effort: 1 succeeded, 1 failed/u,
     );
 
     const missingChildConversations = Array.from(
       memoryConversations.values(),
     ).filter((conversation) => conversation.flowName === 'child-missing');
-    assert.equal(missingChildConversations.length, 0);
+    assert.equal(missingChildConversations.length, 1);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

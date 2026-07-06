@@ -1273,3 +1273,48 @@ test('runCodexReviewStep rejects when the current branch story does not match th
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test('runCodexReviewStep rejects non-story branches before writing review artifacts', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-non-story-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        if (key === 'rev-parse --show-toplevel') {
+          return { stdout: `${repoRoot}\n`, stderr: '' };
+        }
+        if (key === 'branch --show-current') {
+          return { stdout: 'main\n', stderr: '' };
+        }
+      }
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    await assert.rejects(
+      runCodexReviewStep(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-codex-review',
+          modelId: 'gpt-5.4',
+        },
+        { execFile },
+      ),
+      /does not match plan story 0000027/u,
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});

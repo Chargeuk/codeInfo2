@@ -577,3 +577,51 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test('prepareReviewBase rejects non-story branches before writing artifacts', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-base-non-story-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      assert.equal(file, 'git');
+      const key = args.slice(2).join(' ');
+      switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
+        case 'branch --show-current':
+          return { stdout: 'main\n', stderr: '' };
+        default:
+          throw Object.assign(new Error(`unexpected git command: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `unexpected git command: ${key}`,
+          });
+      }
+    };
+
+    await assert.rejects(
+      prepareReviewBase(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-review-base',
+        },
+        { execFile },
+      ),
+      /does not match plan story 0000027/u,
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});

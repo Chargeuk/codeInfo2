@@ -1014,6 +1014,116 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
+test('local flow launches support prepareReviewBase without explicit repo selectors', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-local-review-base-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const previousPreferredAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  try {
+    await fs.mkdir(path.join(repoDir, 'flows'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoDir, 'codeinfo_agents'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codex_agents'), { recursive: true });
+    process.env.CODEINFO_AGENT_HOME = path.join(repoDir, 'codeinfo_agents');
+    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoDir, 'codex_agents');
+    process.env.FLOWS_DIR = path.join(repoDir, 'flows');
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'flows', 'local-review-base.json'),
+      JSON.stringify({
+        description: 'Local review base',
+        steps: [
+          {
+            type: 'prepareReviewBase',
+            label: 'Prepare Shared Review Base',
+            outputKey: 'current-review-base',
+            basePolicy: 'branched_from_or_default_if_merged',
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    const result = await startFlowRun({
+      flowName: 'local-review-base',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.ok(result.conversationId);
+    await waitFor(
+      () =>
+        existsSync(
+          path.join(
+            repoDir,
+            'codeInfoTmp',
+            'reviews',
+            '0000027-current-review-base.json',
+          ),
+        ),
+      15_000,
+    );
+  } finally {
+    if (previousPreferredAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousPreferredAgentHome;
+    }
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentHome;
+    }
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewBase can precede a parallel review subflow batch on the shared checkout', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-review-base-parallel-'),

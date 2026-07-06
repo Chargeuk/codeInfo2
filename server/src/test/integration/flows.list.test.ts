@@ -8,6 +8,7 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { __setAgentAvailabilityDepsForTests } from '../../agents/availability.js';
+import { __setProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
 import {
@@ -505,6 +506,54 @@ describe('GET /flows', () => {
     await fs.rm(flowsRoot, { recursive: true, force: true });
     await fs.rm(runtimeRoot, { recursive: true, force: true });
     await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
+  test('codexReview-only flows are disabled when Codex bootstrap is unavailable', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+
+    try {
+      await writeRawFlowFile(
+        tmpDir,
+        'codex-review-only',
+        JSON.stringify({
+          description: 'Codex review only',
+          steps: [
+            {
+              type: 'codexReview',
+              label: 'Run Codex Review',
+              outputKey: 'current-codex-review',
+              basePolicy: 'branched_from_or_default_if_merged',
+              modelSource: 'flow_request_or_step',
+              model: 'gpt-5.4',
+              reasoningEffort: 'medium',
+            },
+          ],
+        }),
+      );
+
+      __setProviderBootstrapStatusForTests('codex', {
+        healthy: false,
+        reason: 'codex unavailable for list test',
+        warnings: [],
+      });
+
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows');
+
+        assert.equal(response.status, 200);
+        const listed = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'codex-review-only',
+        );
+        assert.ok(listed);
+        assert.equal(listed.disabled, true);
+        assert.match(
+          String(listed.error ?? ''),
+          /codex unavailable for list test/u,
+        );
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('local flows omit source metadata', async () => {

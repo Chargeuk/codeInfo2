@@ -15,6 +15,7 @@ import {
   resolveAgentHomeEnv,
   validateRepositoryBackedAgentType,
 } from '../agents/roots.js';
+import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -327,6 +328,25 @@ const collectFlowAvailability = async (params: {
     };
   }
 
+  if (flowUsesCodexReview(params.parsedFlow.steps)) {
+    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+    if (!codexBootstrapStatus.healthy) {
+      const message = `Flow codexReview step is unavailable: ${codexBootstrapStatus.reason ?? 'codex unavailable'}`;
+      warningDetails.push({
+        code: 'provider_unavailable',
+        message,
+        visibility: 'details',
+        providerId: 'codex',
+      });
+      warnings.add(codexBootstrapStatus.reason ?? 'codex unavailable');
+      disabledReason ??= {
+        code: 'provider_unavailable',
+        providerId: 'codex',
+        message,
+      };
+    }
+  }
+
   return {
     warnings: warnings.size > 0 ? [...warnings] : undefined,
     warningDetails: warningDetails.length > 0 ? warningDetails : undefined,
@@ -348,6 +368,18 @@ const collectCommandSteps = (
     }
   }
   return collected;
+};
+
+const flowUsesCodexReview = (steps: FlowStep[]): boolean => {
+  for (const step of steps) {
+    if (step.type === 'codexReview') {
+      return true;
+    }
+    if (step.type === 'startLoop' && flowUsesCodexReview(step.steps)) {
+      return true;
+    }
+  }
+  return false;
 };
 
 const buildSummary = (params: {

@@ -3456,6 +3456,7 @@ type FlowCommandRepositoryContext = {
   flowName: string;
   workingRepositoryPath?: string;
   defaultRepositoryRoot?: string;
+  flowOwnerRepositoryRoot: string;
   flowSourceId?: string;
   flowSourceLabel?: string;
   codeInfo2Root: string;
@@ -3468,7 +3469,10 @@ type FlowCommandRepositoryContext = {
 
 const resolveFlowGitBackedRepositoryPath = (
   context: FlowCommandRepositoryContext,
-) => context.workingRepositoryPath ?? context.flowSourceId;
+) =>
+  context.workingRepositoryPath ??
+  context.flowSourceId ??
+  context.flowOwnerRepositoryRoot;
 
 type FlowCommandCandidate = {
   sourceId: string;
@@ -6336,6 +6340,11 @@ export async function startFlowRun(
     const firstCodexReviewStep =
       runtimeCodexReviewStep ??
       (!firstAgentStep ? findFirstCodexReviewStep(flow.steps) : undefined);
+    const flowOwnerRepositoryRoot = sourceRepo?.containerPath
+      ? path.resolve(sourceRepo.containerPath)
+      : sourceId
+        ? path.resolve(sourceId)
+        : codeInfo2RootForRun();
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -6401,6 +6410,7 @@ export async function startFlowRun(
       flowName,
       workingRepositoryPath: effectiveWorkingFolder,
       defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
+      flowOwnerRepositoryRoot,
       flowSourceId: sourceRepo?.containerPath
         ? path.resolve(sourceRepo.containerPath)
         : sourceId

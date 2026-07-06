@@ -413,7 +413,7 @@ export async function runCodexReviewStep(
     params.signal,
   );
   const branchStoryNumber = deriveBranchStoryNumber(currentBranch);
-  if (branchStoryNumber && branchStoryNumber !== storyNumber) {
+  if (branchStoryNumber !== storyNumber) {
     throw new Error(
       `Current branch "${currentBranch}" does not match plan story ${storyNumber}.`,
     );

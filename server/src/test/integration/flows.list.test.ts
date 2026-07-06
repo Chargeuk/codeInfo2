@@ -686,6 +686,64 @@ describe('GET /flows', () => {
     }
   });
 
+  test('parent flows are disabled when child subflows reference missing command steps', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+
+    try {
+      await writeAgentConfig({
+        repoRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName: 'planning_agent',
+      });
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-command-subflow',
+        JSON.stringify({
+          description: 'Parent flow',
+          steps: [{ type: 'subflow', flowNames: ['child-missing-command'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'child-missing-command',
+        commandFlowTemplate({
+          description: 'Child flow',
+          commandName: 'missing-command',
+        }),
+      );
+
+      await withAgentHomes(
+        {
+          preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+          legacy: path.join(runtimeRoot, 'codex_agents'),
+        },
+        async () => {
+          await withFlowsDir(tmpDir, async () => {
+            const response = await supertest(buildApp()).get('/flows');
+
+            assert.equal(response.status, 200);
+            const listed = response.body.flows.find(
+              (flow: { name: string }) => flow.name === 'parent-command-subflow',
+            );
+            assert.ok(listed);
+            assert.equal(listed.disabled, true);
+            assert.match(
+              String(listed.error ?? ''),
+              /Flow command "missing-command" was not found for agent "planning_agent"/u,
+            );
+          });
+        },
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      await fs.rm(runtimeRoot, { recursive: true, force: true });
+    }
+  });
+
   test('local flows omit source metadata', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(

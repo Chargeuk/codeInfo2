@@ -395,7 +395,11 @@ const collectFlowAvailability = async (params: {
     }
   }
 
-  const commandSteps = collectCommandSteps(params.parsedFlow.steps);
+  const commandSteps = await collectCommandSteps({
+    flowName: params.flowName,
+    steps: params.parsedFlow.steps,
+    flowsDir: params.flowsDir,
+  });
   for (const step of commandSteps) {
     const resolved = await resolveFlowCommandForDiscovery({
       flowName: '(flow)',
@@ -449,19 +453,65 @@ const collectFlowAvailability = async (params: {
   };
 };
 
-const collectCommandSteps = (
-  steps: FlowStep[],
-  collected: Array<Extract<FlowStep, { type: 'command' }>> = [],
-) => {
-  for (const step of steps) {
+const collectCommandSteps = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsDir: string;
+  visited?: Set<string>;
+}): Promise<Array<Extract<FlowStep, { type: 'command' }>>> => {
+  const collected: Array<Extract<FlowStep, { type: 'command' }>> = [];
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+
+  for (const step of params.steps) {
     if (step.type === 'command') {
       collected.push(step);
       continue;
     }
     if (step.type === 'startLoop') {
-      collectCommandSteps(step.steps, collected);
+      collected.push(
+        ...(await collectCommandSteps({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsDir: params.flowsDir,
+          visited,
+        })),
+      );
+      continue;
+    }
+    if (step.type !== 'subflow') {
+      continue;
+    }
+
+    for (const childFlowName of step.flowNames) {
+      if (visited.has(childFlowName)) {
+        continue;
+      }
+      const childFlowPath = resolveSafeChildFlowPath(
+        params.flowsDir,
+        childFlowName,
+      );
+      const childFlowRaw = await fs.readFile(childFlowPath, 'utf8').catch(() => null);
+      if (!childFlowRaw) {
+        continue;
+      }
+      const parsedChildFlow = parseFlowFile(childFlowRaw, {
+        flowName: childFlowName,
+      });
+      if (!parsedChildFlow.ok) {
+        continue;
+      }
+      collected.push(
+        ...(await collectCommandSteps({
+          flowName: childFlowName,
+          steps: parsedChildFlow.flow.steps,
+          flowsDir: params.flowsDir,
+          visited: new Set(visited).add(childFlowName),
+        })),
+      );
     }
   }
+
   return collected;
 };
 

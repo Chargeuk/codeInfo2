@@ -153,6 +153,12 @@ const normalizeBranchedFrom = (value: string | undefined): string | undefined =>
     .replace(/^origin\//, '')
     .trim() || undefined;
 
+const TOPIC_BRANCH_PREFIX_PATTERN =
+  /^(feature|feat|bugfix|hotfix|chore|task|story|manual_work|review|wip)\//u;
+
+const isLikelyTopicBranch = (branch: string) =>
+  branch.includes('/') || TOPIC_BRANCH_PREFIX_PATTERN.test(branch);
+
 export async function resolveReviewRepositoryRoot(
   workingRepositoryPath: string,
   deps?: Pick<ReviewBaseDeps, 'execFile'>,
@@ -261,12 +267,19 @@ async function resolveDefaultBranch(
   }
 
   const fallbackCandidates = preferredFallbackBranch
-    ? [
-        preferredFallbackBranch,
-        ...['main', 'master', 'develop'].filter(
-          (candidate) => candidate !== preferredFallbackBranch,
-        ),
-      ]
+    ? isLikelyTopicBranch(preferredFallbackBranch)
+      ? [
+          ...['main', 'master', 'develop'].filter(
+            (candidate) => candidate !== preferredFallbackBranch,
+          ),
+          preferredFallbackBranch,
+        ]
+      : [
+          preferredFallbackBranch,
+          ...['main', 'master', 'develop'].filter(
+            (candidate) => candidate !== preferredFallbackBranch,
+          ),
+        ]
     : ['main', 'master', 'develop'];
 
   for (const candidate of fallbackCandidates) {

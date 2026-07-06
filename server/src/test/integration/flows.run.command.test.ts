@@ -225,6 +225,32 @@ const buildRepoEntry = (params: {
   lastError: null,
 });
 
+const pathExists = async (targetPath: string): Promise<boolean> => {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const createIsolatedCodeInfo2CommandRoot = async (): Promise<{
+  codeInfo2Root: string;
+  agentHome: string;
+}> => {
+  const codeInfo2Root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-command-codeinfo2-root-'),
+  );
+  const agentHome = path.join(codeInfo2Root, 'codeinfo_agents');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.cp(
+    path.join(repoRoot, 'codeinfo_agents', 'planning_agent'),
+    path.join(agentHome, 'planning_agent'),
+    { recursive: true },
+  );
+  return { codeInfo2Root, agentHome };
+};
+
 const buildReingestSuccess = (
   overrides: Partial<{
     status: 'completed' | 'cancelled' | 'error';
@@ -345,6 +371,7 @@ const withFlowServer = async (
     markdownReadFile?: (filePath: string) => Promise<Buffer>;
     chatFactory?: () => ChatInterface;
     flowServiceDeps?: Parameters<typeof __setFlowServiceDepsForTests>[0];
+    envOverrides?: Record<string, string | undefined>;
   },
 ) => {
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-cmd-'));
@@ -357,6 +384,7 @@ const withFlowServer = async (
           CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
           CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
           FLOWS_DIR: tmpDir,
+          ...options?.envOverrides,
         },
         async () => {
           resetStore();
@@ -1489,20 +1517,24 @@ test('flow-owned commands fall back through markdown repositories after a same-s
 test('local codeinfo2 flows resolve commands from the selected working repository before codeinfo2', async () => {
   const repos: RepoEntry[] = [];
   const commandName = 'task2_local_flow_working_repo_first';
-  const localCommandPath = path.join(
+  const realRepoCommandPath = path.join(
     repoRoot,
     'codeinfo_agents',
     'planning_agent',
     'commands',
     `${commandName}.json`,
   );
+  const isolatedRoot = await createIsolatedCodeInfo2CommandRoot();
 
   try {
+    assert.equal(await pathExists(realRepoCommandPath), false);
     await writeRepoCommand({
-      repoRoot,
+      repoRoot: isolatedRoot.codeInfo2Root,
       commandName,
       content: 'codeinfo2 owner command',
+      rootDirName: 'codeinfo_agents',
     });
+    assert.equal(await pathExists(realRepoCommandPath), false);
 
     await withFlowServer(
       async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -1575,8 +1607,10 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
                 slot: 'working_repository',
               },
               {
-                sourceId: path.resolve(repoRoot),
-                sourceLabel: 'codeInfo2',
+                sourceId: path.resolve(isolatedRoot.codeInfo2Root),
+                sourceLabel: path.basename(
+                  path.resolve(isolatedRoot.codeInfo2Root),
+                ),
                 slot: 'owner_repository',
               },
             ],
@@ -1586,10 +1620,14 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
       },
       {
         listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+        envOverrides: {
+          CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
+          CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
+        },
       },
     );
   } finally {
-    await fs.rm(localCommandPath, { force: true });
+    await fs.rm(isolatedRoot.codeInfo2Root, { recursive: true, force: true });
   }
 });
 
@@ -1859,21 +1897,24 @@ test('command resolution dedupes duplicate working and owner repositories', asyn
 
 test('command resolution dedupes duplicate working and local codeinfo2 repositories', async () => {
   const commandName = 'task2_dedupe_working_codeinfo2';
-  const localCommandPath = path.join(
+  const realRepoCommandPath = path.join(
     repoRoot,
     'codeinfo_agents',
     'planning_agent',
     'commands',
     `${commandName}.json`,
   );
+  const isolatedRoot = await createIsolatedCodeInfo2CommandRoot();
 
   try {
+    assert.equal(await pathExists(realRepoCommandPath), false);
     await writeRepoCommand({
-      repoRoot,
+      repoRoot: isolatedRoot.codeInfo2Root,
       commandName,
       rootDirName: 'codeinfo_agents',
       content: 'codeinfo2 repository command',
     });
+    assert.equal(await pathExists(realRepoCommandPath), false);
 
     await withFlowServer(async ({ baseUrl, wsUrl, tmpDir }) => {
       const conversationId = 'task2-dedupe-working-codeinfo2';
@@ -1886,7 +1927,7 @@ test('command resolution dedupes duplicate working and local codeinfo2 repositor
         .post('/flows/task2-dedupe-working-codeinfo2/run')
         .send({
           conversationId,
-          working_folder: repoRoot,
+          working_folder: isolatedRoot.codeInfo2Root,
         })
         .expect(202);
 
@@ -1905,14 +1946,20 @@ test('command resolution dedupes duplicate working and local codeinfo2 repositor
         : [];
       const matchingCandidates =
         candidateRepositories.filter(
-          (item) => item.sourceId === path.resolve(repoRoot),
+          (item) =>
+            item.sourceId === path.resolve(isolatedRoot.codeInfo2Root),
         ) ?? [];
       assert.equal(matchingCandidates.length, 1);
       assert.equal(matchingCandidates[0]?.slot, 'working_repository');
       cleanupMemory(conversationId);
+    }, {
+      envOverrides: {
+        CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
+        CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
+      },
     });
   } finally {
-    await fs.rm(localCommandPath, { force: true });
+    await fs.rm(isolatedRoot.codeInfo2Root, { recursive: true, force: true });
   }
 });
 
@@ -3719,22 +3766,24 @@ test('RED: repository flow should resolve same-source command before fallback or
 
 test('same-source missing command falls back to codeInfo2 repository', async () => {
   const commandName = 'task11_codeinfo2_fallback_command';
-  const localCommandPath = path.join(
+  const realRepoCommandPath = path.join(
     repoRoot,
     'codeinfo_agents',
     'planning_agent',
     'commands',
     `${commandName}.json`,
   );
-
-  await writeRepoCommand({
-    repoRoot: repoRoot,
-    commandName,
-    rootDirName: 'codeinfo_agents',
-    content: 'codeinfo2 fallback step',
-  });
+  const isolatedRoot = await createIsolatedCodeInfo2CommandRoot();
 
   try {
+    assert.equal(await pathExists(realRepoCommandPath), false);
+    await writeRepoCommand({
+      repoRoot: isolatedRoot.codeInfo2Root,
+      commandName,
+      rootDirName: 'codeinfo_agents',
+      content: 'codeinfo2 fallback step',
+    });
+    assert.equal(await pathExists(realRepoCommandPath), false);
     const repos: RepoEntry[] = [];
     await withFlowServer(
       async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -3786,10 +3835,14 @@ test('same-source missing command falls back to codeInfo2 repository', async () 
           repos,
           lockedModelId: null,
         }),
+        envOverrides: {
+          CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
+          CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
+        },
       },
     );
   } finally {
-    await fs.rm(localCommandPath, { force: true });
+    await fs.rm(isolatedRoot.codeInfo2Root, { recursive: true, force: true });
   }
 });
 

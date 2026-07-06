@@ -113,9 +113,17 @@ export function resolveCopilotHome(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   const effectiveEnv = getScopedProcessEnv(env);
+  const testProviderHomeRoot =
+    typeof effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT === 'string' &&
+    effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT.trim().length > 0
+      ? path.resolve(effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT)
+      : undefined;
   return path.resolve(
     overrideHome ??
       effectiveEnv.CODEINFO_COPILOT_HOME ??
+      (testProviderHomeRoot
+        ? path.join(testProviderHomeRoot, `pid-${process.pid}`, 'copilot')
+        : undefined) ??
       DEFAULT_CODEINFO_COPILOT_HOME,
   );
 }
@@ -160,9 +168,17 @@ export function resolveLmStudioHome(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   const effectiveEnv = getScopedProcessEnv(env);
+  const testProviderHomeRoot =
+    typeof effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT === 'string' &&
+    effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT.trim().length > 0
+      ? path.resolve(effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT)
+      : undefined;
   return path.resolve(
     overrideHome ??
       effectiveEnv.CODEINFO_LMSTUDIO_HOME ??
+      (testProviderHomeRoot
+        ? path.join(testProviderHomeRoot, `pid-${process.pid}`, 'lmstudio')
+        : undefined) ??
       DEFAULT_CODEINFO_LMSTUDIO_HOME,
   );
 }

@@ -3,12 +3,13 @@ import { append } from '../logStore.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { DEV_0000048_T4_WORKING_FOLDER_STATE_STORED } from '../mongo/repo.js';
 import type { Turn } from '../mongo/turn.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 
 export const memoryConversations = new Map<string, Conversation>();
 export const memoryTurns = new Map<string, Turn[]>();
 
 export const shouldUseMemoryPersistence = (): boolean =>
-  process.env.NODE_ENV === 'test' || mongoose.connection.readyState !== 1;
+  getScopedEnvValue('NODE_ENV') === 'test' || mongoose.connection.readyState !== 1;
 
 export const recordMemoryTurn = (turn: Turn): void => {
   const turns = memoryTurns.get(turn.conversationId) ?? [];

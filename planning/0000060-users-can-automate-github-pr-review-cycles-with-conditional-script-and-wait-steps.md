@@ -3066,3 +3066,48 @@ This task removes the lock as a practical server-unit concern by isolating the r
 - Added `server/src/test/unit/provider-home-isolation.contract.test.ts` to guard the touched harness files against future repo-root provider-home regressions now that server-unit chat-config contention is meant to stay isolated at the harness layer.
 - Extended `server/src/test/integration/flows.run.basic.test.ts` into the same isolation scheme after the first broad rerun exposed remaining `FLOWS_DIR`, `NODE_ENV`, and agent-home overrides there; the custom markdown and invalid-config fixtures also had to set `CODEINFO_AGENT_HOME` explicitly so they no longer fell back to the live `/app/codeinfo_agents` preferred root.
 - Re-ran the focused Task 34 wrappers, the new contract test, a focused `flows.run.basic.test.ts` wrapper, the full `npm run test:summary:server:unit` wrapper, `npm run lint`, and `npm run format:check`; the final broad server-unit pass finished green with 2538 passing tests.
+
+### Task 35. Isolate Server-Unit Wrapper Defaults And Remaining Global Env Leaks
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 34`
+- Task Status: `__done__`
+- Git Commits:
+
+#### Overview
+
+Task 34 isolated the Story 60 flow-heavy harnesses, but a broader repository survey showed that `server:unit` still has two remaining isolation gaps. First, the wrapper still launches the full suite with shared default provider-home fallbacks, so tests that do not explicitly override `CODEINFO_CODEX_HOME`, `CODEINFO_COPILOT_HOME`, or `CODEINFO_LMSTUDIO_HOME` can still converge on shared `config.toml` paths. Second, many suites still mutate `process.env` directly, which is only safe if cross-file execution is process-isolated and runtime env reads honor scoped fallback behavior.
+
+This task finishes the repository-wide `server:unit` isolation story by hardening the wrapper itself, giving each test process its own seeded default provider homes, migrating the remaining flow runtime suites that still only override agent homes, and removing the last important raw `NODE_ENV` runtime checks that bypass the scoped test-env seam. The goal is that broad `npm run test:summary:server:unit` runs no longer rely on shared provider config files or cross-file global env stability.
+
+#### Task Exit Criteria
+
+- [x] `server:unit` runs execute test files with process-level isolation and per-process default provider homes, so suites that forget provider-home overrides no longer share runtime `config.toml` paths.
+- [x] Remaining provider-backed flow runtime suites that only overrode agent homes now inherit isolated provider homes through the shared harness seam.
+- [x] Runtime test-only `NODE_ENV` branches used by `server:unit` honor scoped env reads instead of raw global `process.env`.
+- [x] Regression proof exists for the new wrapper/default-provider-home contract or the migrated suites that depended on it.
+
+#### Subtasks
+
+1. [x] Update the `server:unit` wrapper and test loader so each test process gets isolated default provider homes and process-level file isolation.
+2. [x] Migrate the remaining flow runtime integration suites that still only set agent-home overrides to the shared isolated provider-home harness pattern.
+3. [x] Replace the remaining important raw `NODE_ENV` runtime reads that affect `server:unit` behavior with scoped env lookups.
+4. [x] Add or extend regression coverage for the new wrapper/provider-home isolation contract.
+5. [x] Run focused and broad `server:unit` validation plus lint and format checks for the isolation sweep.
+
+#### Testing
+
+1. [x] Run focused `server:unit` validation for the wrapper-affected flow files and any new contract coverage from this task.
+2. [x] Run `npm run test:summary:server:unit` from the repository root as the broad wrapper proof for the repo-wide isolation change.
+3. [x] Run `npm run lint` from the repository root for the Task 35 isolation surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+4. [x] Run `npm run format:check` from the repository root for the Task 35 isolation surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Hardened the `server:unit` wrapper by giving it a dedicated `CODEINFO_TEST_PROVIDER_HOME_ROOT`, adding Node's `--experimental-test-isolation=process` flag, and teaching `server/scripts/register-ts-node-esm-loader.mjs` plus the provider-home resolvers to seed and resolve per-process default Codex, Copilot, and LMStudio homes under that root instead of falling back to shared repo or `/app` paths.
+- Migrated the remaining flow runtime suites that only set `CODEINFO_CODEX_AGENT_HOME` and `FLOWS_DIR` (`flows.run.agent-slot`, `flows.run.hot-reload`, `flows.run.resume.backfill`, and `flows.turn-metadata`) onto the shared provider-home harness seam so they now carry isolated provider homes in the same way as the Story 60 flow suites from Task 34.
+- Replaced the remaining important raw `NODE_ENV` gates used by `server:unit` in `chat/memoryPersistence.ts`, `mcp2/tools/codebaseQuestion.ts`, and `ingest/ingestJob.ts` with scoped env reads so test-mode behavior follows the AsyncLocalStorage override seam instead of the ambient process environment.
+- Extended `provider-home-isolation.contract.test.ts` and the wrapper-env contract coverage so the widened harness set and wrapper-level provider-home root contract fail fast if the new isolation assumptions regress.
+- Follow-up broad-wrapper debugging showed that the outer Codex harness was still leaking live `CODEX_HOME` and related provider-home env into `server:unit`; clearing those inherited provider-home vars in `scripts/test-summary-server-unit-env.mjs` let the per-process wrapper homes take effect consistently and removed the remaining `/app/*` fallback regressions.
+- Tightened the isolation sweep around test-only seams that were still broad-run fragile: the mocked Mongo persistence helper now scopes `NODE_ENV=production` through the AsyncLocalStorage override path, the command harness runs against an isolated local codeinfo2 root instead of touching checked-in command or markdown files, and a few slow flow-command / loop / subflow / turn-metadata waits were lengthened so persisted success and failure states still settle under full-suite load.
+- Validation completed with focused wrapper checks for the touched suites and contract test, a clean `npm run test:summary:server:unit` pass with `2539` passing tests, `npm run lint`, and `npm run format:check`.

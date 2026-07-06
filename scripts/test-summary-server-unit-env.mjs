@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV } from './summary-wrapper-protocol.mjs';
@@ -7,15 +8,26 @@ const rootDir = path.resolve(
   '..',
 );
 
-export const buildServerUnitWrapperEnv = (baseEnv = process.env) => {
+export const buildServerUnitProviderHomeRoot = () =>
+  path.join(
+    os.tmpdir(),
+    `codeinfo2-server-unit-provider-homes-${process.pid}-${Date.now()}`,
+  );
+
+export const buildServerUnitWrapperEnv = (
+  baseEnv = process.env,
+  options = {},
+) => {
   const defaultAgentHome = path.join(rootDir, 'codeinfo_agents');
   const defaultLegacyAgentHome = path.join(rootDir, 'codex_agents');
-  return {
+  const wrappedEnv = {
     ...baseEnv,
     // Unit and integration suites should resolve repository-backed agents and
     // CODEINFO_ROOT against this checkout, not against the outer Codex harness.
     CODEINFO_AGENT_HOME: defaultAgentHome,
     CODEINFO_CODEX_AGENT_HOME: defaultLegacyAgentHome,
+    CODEINFO_TEST_PROVIDER_HOME_ROOT:
+      options.testProviderHomeRoot ?? baseEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT,
     CODEINFO_LOG_FILE_PATH: '../logs/server-test.log',
     CODEINFO_CHROMA_URL: '',
     CODEINFO_MONGO_URI: '',
@@ -29,4 +41,13 @@ export const buildServerUnitWrapperEnv = (baseEnv = process.env) => {
     NODE_OPTIONS:
       '--max-old-space-size=6144 --import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180',
   };
+
+  // Force server:unit to use the wrapper-scoped provider-home root instead of
+  // inheriting live provider homes from the outer Codex harness process.
+  delete wrappedEnv.CODEINFO_CODEX_HOME;
+  delete wrappedEnv.CODEINFO_COPILOT_HOME;
+  delete wrappedEnv.CODEINFO_LMSTUDIO_HOME;
+  delete wrappedEnv.CODEX_HOME;
+
+  return wrappedEnv;
 };

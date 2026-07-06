@@ -15,7 +15,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
-import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const fixturesDir = path.resolve(
@@ -91,12 +91,15 @@ const repoRoot = path.resolve(
 );
 
 const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
-  await runWithTestEnvOverrides(
+  await withIsolatedProviderHomeTestEnv(
     {
-      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-      FLOWS_DIR: tmpDir,
+      prefix: 'flow-hot-reload-provider-homes-',
+      overrides: {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
     },
-    run,
+    async () => await run(),
   );
 
 test('Flow run reloads flow file between runs', async () => {

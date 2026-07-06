@@ -474,7 +474,7 @@ export type CodebaseQuestionDeps = {
   listIngestedRepositoriesFn?: typeof listIngestedRepositories;
 };
 
-const preferMemoryPersistence = process.env.NODE_ENV === 'test';
+const preferMemoryPersistence = getScopedEnvValue('NODE_ENV') === 'test';
 const shouldUseCodebaseQuestionMemoryPersistence = () =>
   preferMemoryPersistence || shouldUseMemoryPersistence();
 

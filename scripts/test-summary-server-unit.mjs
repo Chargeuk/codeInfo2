@@ -9,6 +9,7 @@
 //   --skip-build        reuse an existing server build instead of rebuilding first.
 
 import path from 'node:path';
+import fs from 'node:fs/promises';
 
 import { runLoggedCommand } from './summary-wrapper-protocol.mjs';
 import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
@@ -17,7 +18,10 @@ import {
   resolveWorkerSetting,
 } from './test-parallelism.mjs';
 import { DEFAULT_SERVER_UNIT_TEST_FILES } from './test-summary-server-unit-files.mjs';
-import { buildServerUnitWrapperEnv } from './test-summary-server-unit-env.mjs';
+import {
+  buildServerUnitProviderHomeRoot,
+  buildServerUnitWrapperEnv,
+} from './test-summary-server-unit-env.mjs';
 
 const wrapper = createSummaryWrapperRun({
   wrapperName: 'server:unit',
@@ -160,6 +164,7 @@ const unitFiles =
 
 const testArgs = [
   '--test',
+  '--experimental-test-isolation=process',
   `--test-concurrency=${serverUnitParallelism.workerCount}`,
 ];
 if (options.testName) {
@@ -167,33 +172,41 @@ if (options.testName) {
 }
 testArgs.push(...unitFiles);
 
+const testProviderHomeRoot = buildServerUnitProviderHomeRoot();
 const unitEnv = {
-  ...buildServerUnitWrapperEnv(),
+  ...buildServerUnitWrapperEnv(process.env, { testProviderHomeRoot }),
 };
 
 let exitCode = buildResult.code;
 let output = buildResult.output;
 let testForcedReason = '';
 let testLastProgressLine = '';
-if (buildResult.code === 0) {
-  const testResult = await runLoggedCommand({
-    cmd: 'node',
-    args: testArgs,
-    cwd: serverDir,
-    env: unitEnv,
-    logStream: wrapper.logStream,
-    protocol: wrapper.protocol,
-    phase: 'test',
-    semanticProgressPatterns: [/^# Subtest: /, /^ok \d+ - /, /^not ok \d+ - /],
-    terminalSummaryPatterns: [/^1\.\./, /^# tests /, /^# pass /, /^# fail /],
-  });
-  output += testResult.output;
-  exitCode = testResult.code;
-  testForcedReason = testResult.forcedReason ?? '';
-  testLastProgressLine = testResult.lastProgressLine ?? '';
+try {
+  if (buildResult.code === 0) {
+    const testResult = await runLoggedCommand({
+      cmd: 'node',
+      args: testArgs,
+      cwd: serverDir,
+      env: unitEnv,
+      logStream: wrapper.logStream,
+      protocol: wrapper.protocol,
+      phase: 'test',
+      semanticProgressPatterns: [
+        /^# Subtest: /,
+        /^ok \d+ - /,
+        /^not ok \d+ - /,
+      ],
+      terminalSummaryPatterns: [/^1\.\./, /^# tests /, /^# pass /, /^# fail /],
+    });
+    output += testResult.output;
+    exitCode = testResult.code;
+    testForcedReason = testResult.forcedReason ?? '';
+    testLastProgressLine = testResult.lastProgressLine ?? '';
+  }
+} finally {
+  await wrapper.closeLog();
+  await fs.rm(testProviderHomeRoot, { recursive: true, force: true });
 }
-
-await wrapper.closeLog();
 
 if (buildResult.code !== 0) {
   console.log('[server:unit] tests run: 0');

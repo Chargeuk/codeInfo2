@@ -11,12 +11,16 @@ const repoRoot = path.resolve(
 
 const harnessFiles = [
   'server/src/test/integration/agents-run-ws-cancel.test.ts',
+  'server/src/test/integration/flows.run.agent-slot.test.ts',
   'server/src/test/integration/flows.run.basic.test.ts',
   'server/src/test/integration/flows.run.command.test.ts',
   'server/src/test/integration/flows.run.errors.test.ts',
+  'server/src/test/integration/flows.run.hot-reload.test.ts',
   'server/src/test/integration/flows.run.loop.test.ts',
+  'server/src/test/integration/flows.run.resume.backfill.test.ts',
   'server/src/test/integration/flows.run.resume.identity.test.ts',
   'server/src/test/integration/flows.run.subflow.test.ts',
+  'server/src/test/integration/flows.turn-metadata.test.ts',
   'server/src/test/integration/flows.run.working-folder.test.ts',
 ] as const;
 

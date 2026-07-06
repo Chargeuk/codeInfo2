@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import { TurnModel } from '../../mongo/turn.js';
+import { runWithTestEnvOverrides } from './testEnvOverrideScope.js';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -296,7 +297,9 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   })) as typeof TurnModel.findOne;
 
   try {
-    return await params.run({ conversations, turns });
+    return await runWithTestEnvOverrides({ NODE_ENV: 'production' }, async () =>
+      await params.run({ conversations, turns }),
+    );
   } finally {
     if (originalNodeEnv === undefined) {
       delete process.env.NODE_ENV;

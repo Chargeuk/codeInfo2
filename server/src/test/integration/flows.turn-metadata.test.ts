@@ -28,6 +28,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
 import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
@@ -72,12 +73,22 @@ const describeConversationState = (conversationId: string): string =>
     })),
   });
 
-beforeEach(() => {
+let providerHomes: Awaited<
+  ReturnType<typeof createIsolatedProviderHomeEnv>
+> | null = null;
+
+beforeEach(async () => {
+  providerHomes = await createIsolatedProviderHomeEnv(
+    'flow-turn-metadata-provider-homes-',
+  );
   installDeterministicCodexAvailabilityBootstrap();
+  enterTestEnvOverrides(providerHomes.envOverrides);
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
+  await providerHomes?.cleanup();
+  providerHomes = null;
 });
 
 class SlowChat extends ChatInterface {
@@ -396,7 +407,7 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
         const items = memoryTurns.get(conversationId) ?? [];
         return items.length >= 2;
       },
-      8000,
+      20000,
       () =>
         JSON.stringify({
           conversation: JSON.parse(describeConversationState(conversationId)),

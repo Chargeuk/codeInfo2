@@ -30,6 +30,7 @@ import type {
   AstReferenceRecord,
   AstSymbolRecord,
 } from '../mongo/repo.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { broadcastIngestUpdate } from '../ws/server.js';
 import {
   clearLockedModel,
@@ -244,6 +245,7 @@ const queueRequestTerminalStatuses = new Map<
   }
 >();
 const ingestEvents = new EventEmitter();
+const isTestNodeEnv = () => getScopedEnvValue('NODE_ENV') === 'test';
 let beforeTerminalStatusPublishHook: ((runId: string) => Promise<void>) | null =
   null;
 let runProcessor:
@@ -3503,7 +3505,7 @@ export async function resetLocksIfEmpty() {
 }
 
 export function __setStatusForTest(runId: string, status: IngestJobStatus) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error('__setStatusForTest is only available in test mode');
   }
   jobs.set(runId, status);
@@ -3514,7 +3516,7 @@ export function __setStatusAndPublishForTest(
   status: IngestJobStatus,
   options?: { publishQueueTerminal?: boolean },
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__setStatusAndPublishForTest is only available in test mode',
     );
@@ -3531,14 +3533,14 @@ export function __setBeforeTerminalStatusPublishHookForTest(
 export function __setRunProcessorForTest(
   processor: ((runId: string, input: IngestJobInput) => Promise<void>) | null,
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error('__setRunProcessorForTest is only available in test mode');
   }
   runProcessor = processor;
 }
 
 export async function __validateQueueReplayStartForTest(input: IngestJobInput) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__validateQueueReplayStartForTest is only available in test mode',
     );
@@ -3578,7 +3580,7 @@ export async function __validateQueueReplayStartForTest(input: IngestJobInput) {
 }
 
 export function __setQueueCleanupRetryDelayForTest(delayMs: number | null) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__setQueueCleanupRetryDelayForTest is only available in test mode',
     );
@@ -3589,7 +3591,7 @@ export function __setQueueCleanupRetryDelayForTest(delayMs: number | null) {
 export function __setQueueRequestTerminalStatusTtlForTest(
   ttlMs: number | null,
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__setQueueRequestTerminalStatusTtlForTest is only available in test mode',
     );
@@ -3600,7 +3602,7 @@ export function __setQueueRequestTerminalStatusTtlForTest(
 export function __setQueueRequestTerminalStatusNowForTest(
   nowMs: number | null,
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__setQueueRequestTerminalStatusNowForTest is only available in test mode',
     );
@@ -3610,7 +3612,7 @@ export function __setQueueRequestTerminalStatusNowForTest(
 }
 
 export function __setRunSchedulerForTest(scheduler: RunScheduler | null) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error('__setRunSchedulerForTest is only available in test mode');
   }
   runScheduler = scheduler ?? defaultRunScheduler;
@@ -3619,7 +3621,7 @@ export function __setRunSchedulerForTest(scheduler: RunScheduler | null) {
 export function __setQueueRuntimeOpsForTest(
   overrides: Partial<QueueRuntimeOps> | null,
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__setQueueRuntimeOpsForTest is only available in test mode',
     );
@@ -3635,7 +3637,7 @@ export function __setQueueRuntimeOpsForTest(
 export function __setFinalizeQueueRequestForRunForTest(
   override: FinalizeQueueRequestForRunFn | null,
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__setFinalizeQueueRequestForRunForTest is only available in test mode',
     );
@@ -3647,7 +3649,7 @@ export function __setQueueRequestIdForRunForTest(
   runId: string,
   requestId: string | null,
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__setQueueRequestIdForRunForTest is only available in test mode',
     );
@@ -3660,7 +3662,7 @@ export function __setQueueRequestIdForRunForTest(
 }
 
 export async function __finalizeQueueRequestForRunForTest(runId: string) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__finalizeQueueRequestForRunForTest is only available in test mode',
     );
@@ -3669,7 +3671,7 @@ export async function __finalizeQueueRequestForRunForTest(runId: string) {
 }
 
 export async function __persistQueueTerminalBarrierForTest(runId: string) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__persistQueueTerminalBarrierForTest is only available in test mode',
     );
@@ -3678,7 +3680,7 @@ export async function __persistQueueTerminalBarrierForTest(runId: string) {
 }
 
 export function __scheduleQueueAdvanceForTest() {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__scheduleQueueAdvanceForTest is only available in test mode',
     );
@@ -3690,7 +3692,7 @@ export async function __scheduleQueueCleanupRetryForTest(params: {
   requestId: string;
   runId: string;
 }) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__scheduleQueueCleanupRetryForTest is only available in test mode',
     );
@@ -3699,7 +3701,7 @@ export async function __scheduleQueueCleanupRetryForTest(params: {
 }
 
 export function __resetIngestJobsForTest() {
-  if (process.env.NODE_ENV !== 'test') return;
+  if (!isTestNodeEnv()) return;
   jobs.clear();
   jobInputs.clear();
   queueRequestIdsByRunId.clear();
@@ -3733,7 +3735,7 @@ export function __resetIngestJobsForTest() {
 export function __getIngestEventListenerCountForTest(
   eventName: 'run-status' = 'run-status',
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__getIngestEventListenerCountForTest is only available in test mode',
     );
@@ -3742,7 +3744,7 @@ export function __getIngestEventListenerCountForTest(
 }
 
 export function __getQueueRequestTerminalStatusCountForTest() {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error(
       '__getQueueRequestTerminalStatusCountForTest is only available in test mode',
     );
@@ -3754,7 +3756,7 @@ export function __setJobInputForTest(
   runId: string,
   input: IngestJobInput & { root?: string },
 ) {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTestNodeEnv()) {
     throw new Error('__setJobInputForTest is only available in test mode');
   }
   jobInputs.set(runId, input);

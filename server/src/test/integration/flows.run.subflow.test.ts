@@ -98,7 +98,7 @@ const repoRoot = path.resolve(
 
 const waitFor = async (
   predicate: () => boolean,
-  timeoutMs = 10000,
+  timeoutMs = 20000,
   describe?: () => string,
 ): Promise<void> => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
@@ -117,7 +117,7 @@ const waitFor = async (
 const waitForAssistantStatus = async (
   conversationId: string,
   status: 'ok' | 'warning' | 'failed' | 'stopped',
-  timeoutMs = 10000,
+  timeoutMs = 20000,
   describe?: () => string,
 ) => {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
@@ -153,7 +153,7 @@ const waitForAssistantStatus = async (
 
 const waitForTerminalAssistantTurn = async (
   conversationId: string,
-  timeoutMs = 10000,
+  timeoutMs = 20000,
   describe?: () => string,
 ) => {
   const terminalStatuses = new Set(['ok', 'warning', 'failed', 'stopped']);

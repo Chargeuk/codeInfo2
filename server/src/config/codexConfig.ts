@@ -55,9 +55,13 @@ trust_level = "trusted"
 `;
 
 export function resolveCodexHome(overrideHome?: string): string {
+  const testProviderHomeRoot = getScopedEnvValue('CODEINFO_TEST_PROVIDER_HOME_ROOT');
   const defaultHome =
     getScopedEnvValue('CODEINFO_CODEX_HOME') ??
     getScopedEnvValue('CODEX_HOME') ??
+    (typeof testProviderHomeRoot === 'string' && testProviderHomeRoot.trim().length > 0
+      ? path.join(path.resolve(testProviderHomeRoot), `pid-${process.pid}`, 'codex')
+      : undefined) ??
     './codex';
   return path.resolve(overrideHome ?? defaultHome);
 }

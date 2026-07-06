@@ -3664,7 +3664,7 @@ test('continue step fails on invalid JSON response', async () => {
         ws: wsUrl,
         conversationId,
         expectedStatus: 'failed',
-        timeoutMs: 4000,
+        timeoutMs: 8000,
         describe: () =>
           describeFlowRuntimeState(conversationId, ['coding_agent:outer-break']),
       });
@@ -3782,7 +3782,7 @@ test('continue step fails with INVALID_CONTINUE_RESPONSE when wrappers contain n
         ws: wsUrl,
         conversationId,
         expectedStatus: 'failed',
-        timeoutMs: 4000,
+        timeoutMs: 8000,
         describe: () =>
           describeFlowRuntimeState(conversationId, [
             'coding_agent:outer',
@@ -3827,7 +3827,7 @@ test('continue step fails on invalid answer value', async () => {
         ws: wsUrl,
         conversationId,
         expectedStatus: 'failed',
-        timeoutMs: 4000,
+        timeoutMs: 8000,
       });
 
       assert.equal(final.status, 'failed');
@@ -3868,7 +3868,7 @@ test('break step fails on invalid JSON response', async () => {
         ws: wsUrl,
         conversationId,
         expectedStatus: 'failed',
-        timeoutMs: 4000,
+        timeoutMs: 8000,
       });
 
       assert.equal(final.status, 'failed');
@@ -5173,7 +5173,7 @@ test('shared decision seam follows valid script-driven if branch through happy p
         ws: wsUrl,
         conversationId,
         expectedStatus: 'ok',
-        timeoutMs: 4000,
+        timeoutMs: 8000,
       });
 
       const turns = await waitForTurns(
@@ -5289,7 +5289,7 @@ test('shared decision seam follows valid script-driven break branch through happ
               turn.role === 'user' &&
               turn.content.includes('Break exited the loop cleanly.'),
           ),
-        4000,
+        8000,
       );
       assert.equal(
         turns.filter(

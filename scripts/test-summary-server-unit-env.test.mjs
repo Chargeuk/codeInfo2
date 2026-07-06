@@ -10,20 +10,25 @@ const repoRoot = path.resolve(
   '..',
 );
 
-test('server unit summary wrapper uses repo-local agent roots while preserving the other inherited CODEINFO and CODEX env', () => {
-  const wrapped = buildServerUnitWrapperEnv({
-    CODEINFO_ROOT: '/tmp/harness-root',
-    CODEINFO_HOST_INGEST_DIR: '/tmp/ingest-root',
-    CODEINFO_COPILOT_HOME: '/tmp/copilot-home',
-    CODEINFO_CODEX_HOME: '/tmp/codeinfo-codex-home',
-    CODEX_HOME: '/tmp/codex-home',
-  });
+test('server unit summary wrapper uses repo-local agent roots while clearing inherited provider-home env', () => {
+  const testProviderHomeRoot = '/tmp/server-unit-provider-homes';
+  const wrapped = buildServerUnitWrapperEnv(
+    {
+      CODEINFO_ROOT: '/tmp/harness-root',
+      CODEINFO_HOST_INGEST_DIR: '/tmp/ingest-root',
+      CODEINFO_COPILOT_HOME: '/tmp/copilot-home',
+      CODEINFO_CODEX_HOME: '/tmp/codeinfo-codex-home',
+      CODEX_HOME: '/tmp/codex-home',
+    },
+    { testProviderHomeRoot },
+  );
 
   assert.equal(wrapped.CODEINFO_ROOT, '/tmp/harness-root');
   assert.equal(wrapped.CODEINFO_HOST_INGEST_DIR, '/tmp/ingest-root');
-  assert.equal(wrapped.CODEINFO_COPILOT_HOME, '/tmp/copilot-home');
-  assert.equal(wrapped.CODEINFO_CODEX_HOME, '/tmp/codeinfo-codex-home');
-  assert.equal(wrapped.CODEX_HOME, '/tmp/codex-home');
+  assert.equal(Object.hasOwn(wrapped, 'CODEINFO_COPILOT_HOME'), false);
+  assert.equal(Object.hasOwn(wrapped, 'CODEINFO_CODEX_HOME'), false);
+  assert.equal(Object.hasOwn(wrapped, 'CODEX_HOME'), false);
+  assert.equal(wrapped.CODEINFO_TEST_PROVIDER_HOME_ROOT, testProviderHomeRoot);
   assert.equal(
     wrapped.CODEINFO_AGENT_HOME,
     path.join(repoRoot, 'codeinfo_agents'),
@@ -50,7 +55,7 @@ test('server unit summary wrapper uses repo-local agent roots while preserving t
   );
 });
 
-test('server unit summary wrapper preserves optional inherited CODEINFO and CODEX env when they are provided', () => {
+test('server unit summary wrapper preserves unrelated inherited CODEINFO and CODEX env while clearing provider-home vars', () => {
   const wrapped = buildServerUnitWrapperEnv({
     CODEINFO_ROOT: '/tmp/harness-root',
     CODEX_HOME: '/tmp/codex-home',
@@ -58,7 +63,7 @@ test('server unit summary wrapper preserves optional inherited CODEINFO and CODE
   });
 
   assert.equal(wrapped.CODEINFO_ROOT, '/tmp/harness-root');
-  assert.equal(wrapped.CODEX_HOME, '/tmp/codex-home');
+  assert.equal(Object.hasOwn(wrapped, 'CODEX_HOME'), false);
   assert.equal(wrapped.CODEX_WORKDIR, '/tmp/codex-workdir');
   assert.equal(
     wrapped.CODEINFO_AGENT_HOME,
@@ -67,5 +72,17 @@ test('server unit summary wrapper preserves optional inherited CODEINFO and CODE
   assert.equal(
     wrapped.CODEINFO_CODEX_AGENT_HOME,
     path.join(repoRoot, 'codex_agents'),
+  );
+});
+
+test('server unit summary wrapper injects the test provider-home root when requested', () => {
+  const wrapped = buildServerUnitWrapperEnv(
+    { CODEINFO_ROOT: '/tmp/harness-root' },
+    { testProviderHomeRoot: '/tmp/server-unit-provider-homes' },
+  );
+
+  assert.equal(
+    wrapped.CODEINFO_TEST_PROVIDER_HOME_ROOT,
+    '/tmp/server-unit-provider-homes',
   );
 });

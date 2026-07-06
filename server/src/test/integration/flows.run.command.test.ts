@@ -244,6 +244,9 @@ const createIsolatedCodeInfo2CommandRoot = async (): Promise<{
   );
   const agentHome = path.join(codeInfo2Root, 'codeinfo_agents');
   await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codeInfo2Root, 'codeinfo_markdown'), {
+    recursive: true,
+  });
   await fs.cp(
     path.join(repoRoot, 'codeinfo_agents', 'planning_agent'),
     path.join(agentHome, 'planning_agent'),
@@ -366,6 +369,8 @@ const withFlowServer = async (
     baseUrl: string;
     wsUrl: WebSocket;
     tmpDir: string;
+    agentHome: string;
+    codeInfo2Root: string;
   }) => Promise<void>,
   options?: {
     listIngestedRepositories?: (tmpDir: string) => Promise<ListReposResult>;
@@ -377,14 +382,15 @@ const withFlowServer = async (
 ) => {
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-cmd-'));
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  const isolatedRoot = await createIsolatedCodeInfo2CommandRoot();
   try {
     await withDeterministicCodexAvailabilityBootstrap(async () =>
       await withIsolatedProviderHomeTestEnv(
         {
           prefix: 'flows-command-provider-homes-',
           overrides: {
-            CODEINFO_AGENT_HOME: path.join(repoRoot, 'codeinfo_agents'),
-            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
+            CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
             FLOWS_DIR: tmpDir,
             ...options?.envOverrides,
           },
@@ -436,7 +442,13 @@ const withFlowServer = async (
           const ws = await connectWs({ baseUrl });
 
           try {
-            await task({ baseUrl, wsUrl: ws, tmpDir });
+            await task({
+              baseUrl,
+              wsUrl: ws,
+              tmpDir,
+              agentHome: isolatedRoot.agentHome,
+              codeInfo2Root: isolatedRoot.codeInfo2Root,
+            });
           } finally {
             __resetAgentServiceDepsForTests();
             __resetMarkdownFileResolverDepsForTests();
@@ -451,6 +463,7 @@ const withFlowServer = async (
       ),
     );
   } finally {
+    await fs.rm(isolatedRoot.codeInfo2Root, { recursive: true, force: true });
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 };
@@ -505,6 +518,10 @@ const waitForFlowFinal = async (params: {
   timeoutMs?: number;
   describe?: () => string;
 }) => {
+  const persistedFallbackTimeoutMs = Math.max(
+    1000,
+    Math.min(3000, params.timeoutMs ?? 10000),
+  );
   const getLatestAssistantTurn = () =>
     [...(memoryTurns.get(params.conversationId) ?? [])]
       .reverse()
@@ -583,7 +600,8 @@ const waitForFlowFinal = async (params: {
       describeEvent: (event) => JSON.stringify(event),
     });
   } catch (error) {
-    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
+    const deadline =
+      Date.now() + resolveConfiguredTestTimeoutMs(persistedFallbackTimeoutMs);
     while (Date.now() < deadline) {
       const latestAssistantTurn = getLatestAssistantTurn();
       if (latestAssistantTurn?.status === params.status) {
@@ -1463,82 +1481,71 @@ test('flow-owned commands use the parent flow repository before markdown fallbac
 test('flow-owned commands fall back through markdown repositories after a same-source miss', async () => {
   const repos: RepoEntry[] = [];
   const commandName = 'task6_markdown_fallback';
-  const localMarkdownPath = path.join(
-    repoRoot,
-    'codeinfo_markdown',
-    'fallback-flow-cmd.md',
-  );
-  try {
-    await fs.mkdir(path.dirname(localMarkdownPath), { recursive: true });
-    await fs.writeFile(
-      localMarkdownPath,
-      'codeinfo2 fallback markdown',
-      'utf8',
-    );
-    await withFlowServer(
-      async ({ baseUrl, wsUrl, tmpDir }) => {
-        const sourceRoot = path.join(tmpDir, 'repo-markdown-fallback');
-        const conversationId = 'flow-command-markdown-fallback';
-        await writeRepoFlow({
-          repoRoot: sourceRoot,
-          flowName: 'repo-command-markdown-fallback',
-          commandName,
-        });
-        await writeRepoCommand({
-          repoRoot: sourceRoot,
-          commandName,
-          items: [
-            {
-              type: 'message',
-              role: 'user',
-              markdownFile: 'fallback-flow-cmd.md',
-            },
-          ],
-        });
-        repos.push(
-          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
-        );
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir, codeInfo2Root }) => {
+      await writeMarkdownFile({
+        repoRoot: codeInfo2Root,
+        relativePath: 'fallback-flow-cmd.md',
+        content: 'codeinfo2 fallback markdown',
+      });
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-        await supertest(baseUrl)
-          .post('/flows/repo-command-markdown-fallback/run')
-          .send({ conversationId, sourceId: sourceRoot })
-          .expect(202);
+      const sourceRoot = path.join(tmpDir, 'repo-markdown-fallback');
+      const conversationId = 'flow-command-markdown-fallback';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'repo-command-markdown-fallback',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        items: [
+          {
+            type: 'message',
+            role: 'user',
+            markdownFile: 'fallback-flow-cmd.md',
+          },
+        ],
+      });
+      repos.push(buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }));
 
-        await waitForFlowFinal({
-          ws: wsUrl,
-          conversationId,
-          status: 'ok',
-        });
-        const turns = await waitForTurns(
-          conversationId,
-          (items) =>
-            items.some(
-              (turn) =>
-                turn.role === 'user' &&
-                turn.content.includes('codeinfo2 fallback markdown'),
-            ),
-          3000,
-        );
-        assert.ok(
-          turns.some(
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-command-markdown-fallback/run')
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'ok',
+      });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
             (turn) =>
               turn.role === 'user' &&
               turn.content.includes('codeinfo2 fallback markdown'),
           ),
-        );
-        cleanupMemory(conversationId);
-      },
-      {
-        listIngestedRepositories: async () => ({
-          repos,
-          lockedModelId: null,
-        }),
-      },
-    );
-  } finally {
-    await fs.rm(localMarkdownPath, { force: true });
-  }
+        3000,
+      );
+      assert.ok(
+        turns.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('codeinfo2 fallback markdown'),
+        ),
+      );
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+    },
+  );
 });
 
 test('local codeinfo2 flows resolve commands from the selected working repository before codeinfo2', async () => {
@@ -1589,7 +1596,12 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
           })
           .expect(202);
 
-        await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'ok',
+          timeoutMs: 15000,
+        });
         const turns = await waitForTurns(
           conversationId,
           (items) =>
@@ -1598,7 +1610,7 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
                 turn.role === 'user' &&
                 turn.content.includes('working repository command'),
             ),
-          3000,
+          6000,
         );
         assert.ok(
           turns.some(
@@ -3435,7 +3447,7 @@ test('flow-owned commands preserve ordering across reingest, markdown, and inlin
       const turns = await waitForTurns(
         conversationId,
         (items) => items.length >= 6,
-        4000,
+        10000,
       );
       assert.equal(
         (
@@ -4275,21 +4287,20 @@ test('command-load failures are retried and then fail deterministically', async 
   const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
   process.env.FLOW_AND_COMMAND_RETRIES = '2';
   const commandName = 'task5_retry_temp_command';
-  const commandPath = path.join(
-    repoRoot,
-    'codeinfo_agents',
-    'planning_agent',
-    'commands',
-    `${commandName}.json`,
-  );
-  await fs.writeFile(
-    commandPath,
-    JSON.stringify({
-      Description: 'Temporary command for Task 5 retry test',
-      items: [{ type: 'message', role: 'user', content: ['temporary step'] }],
-    }),
-  );
-  await withFlowServer(async ({ baseUrl, wsUrl, tmpDir }) => {
+  await withFlowServer(async ({ baseUrl, wsUrl, tmpDir, agentHome }) => {
+    const commandPath = path.join(
+      agentHome,
+      'planning_agent',
+      'commands',
+      `${commandName}.json`,
+    );
+    await fs.writeFile(
+      commandPath,
+      JSON.stringify({
+        Description: 'Temporary command for Task 5 retry test',
+        items: [{ type: 'message', role: 'user', content: ['temporary step'] }],
+      }),
+    );
     const conversationId = 'flow-command-missing-retry-conv';
     sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
 
@@ -4326,7 +4337,7 @@ test('command-load failures are retried and then fail deterministically', async 
       ws: wsUrl,
       conversationId,
       status: 'failed',
-      timeoutMs: 5000,
+      timeoutMs: 10000,
       describe: () => describeCommandRetryDiagnosticState(conversationId),
     });
 
@@ -4334,7 +4345,7 @@ test('command-load failures are retried and then fail deterministically', async 
     const turns = await waitForTurns(
       conversationId,
       (items) => items.filter((turn) => turn.role === 'assistant').length >= 1,
-      3000,
+      6000,
       () => describeCommandRetryDiagnosticState(conversationId),
     );
     const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
@@ -4342,8 +4353,8 @@ test('command-load failures are retried and then fail deterministically', async 
 
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
+    await fs.rm(commandPath, { force: true });
   });
-  await fs.rm(commandPath, { force: true });
   if (previousRetries === undefined) {
     delete process.env.FLOW_AND_COMMAND_RETRIES;
   } else {

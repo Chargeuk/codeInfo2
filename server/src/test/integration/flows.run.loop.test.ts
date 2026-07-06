@@ -51,7 +51,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
-import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
@@ -497,11 +497,13 @@ const withFlowServer = async (
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
     try {
-      await runWithTestEnvOverrides(
+      await withIsolatedProviderHomeTestEnv(
         {
-          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
-          FLOWS_DIR: tmpDir,
+          prefix: 'flows-loop-provider-homes-',
+          overrides: {
+            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            FLOWS_DIR: tmpDir,
+          },
         },
         async () => {
           const app = express();

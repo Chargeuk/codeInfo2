@@ -3018,3 +3018,51 @@ This task extends the same diagnostics style to the three most similar proof hom
 - Focused validation note: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --skip-build` also passed cleanly on Jul 6, 2026, so the expanded subflow timeout snapshots did not disturb the existing subflow launch and terminal-state proofs.
 - Focused validation note: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --skip-build` passed cleanly on Jul 6, 2026, confirming the basic flow timeout helpers still behave normally after picking up the extra runtime-resolution and runtime-config evidence.
 - Repo validation note: `npm run lint` and `npm run format:check` both passed cleanly for the Task 33 diagnostics surface, so the sibling-suite snapshot expansion is ready to commit and push.
+
+### Task 34. Isolate Server-Unit Flow Harness Provider Homes From Shared Repo Chat Configs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 33`
+- Task Status: `__done__`
+- Git Commits:
+
+#### Overview
+
+The server-unit stress investigation confirmed that the chat-config lock in `server/src/config/runtimeConfig.ts` is still valid application behavior, but several flow and agent integration harnesses were still pointing at repo-root provider homes during test runs. That left Codex and, more importantly, default LMStudio bootstrap paths vulnerable to shared `chat/config.toml` mutation during `server:unit`, which keeps the lock relevant even though many tests already moved away from direct config editing.
+
+This task removes the lock as a practical server-unit concern by isolating the remaining flow-oriented harnesses onto per-test Codex, Copilot, and LMStudio homes. The application lock logic stays unchanged. The change is in the test harness layer only, plus a contract test that should fail quickly if repo-root provider homes are reintroduced into these server-unit seams.
+
+#### Task Exit Criteria
+
+- [x] Remaining Story 60 flow and agent server-unit harnesses use isolated temp Codex, Copilot, and LMStudio homes instead of repo-root provider homes during runtime bootstrap and flow execution.
+- [x] Shared harness helpers centralize provider-home isolation so future server-unit additions inherit the same behavior without reintroducing repo-root `chat/config.toml` contention.
+- [x] A small automated contract test fails if the targeted server-unit harnesses drift back to repo-root provider-home wiring.
+
+#### Subtasks
+
+1. [x] Add a shared test-support helper that provisions isolated temp Codex, Copilot, and LMStudio homes with minimal seeded files and exposes the corresponding env overrides plus cleanup.
+2. [x] Update the remaining flow-oriented server-unit harnesses that still referenced repo-root provider homes so they consume isolated provider homes instead, including harnesses that relied on the default LMStudio path implicitly.
+3. [x] Add a contract test that checks the targeted server-unit harnesses for repo-root provider-home regressions.
+4. [x] Run focused and broad server-unit validation plus lint and format checks for the isolation change.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --skip-build` from the repository root.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --skip-build` from the repository root.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --skip-build` from the repository root.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --skip-build` from the repository root.
+5. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts --skip-build` from the repository root.
+6. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts --skip-build` from the repository root.
+7. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-cancel.test.ts --skip-build` from the repository root.
+8. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/provider-home-isolation.contract.test.ts --skip-build` from the repository root.
+9. [x] Run `npm run test:summary:server:unit` from the repository root as the broad wrapper proof for the isolation change.
+10. [x] Run `npm run lint` from the repository root for the Task 34 server-unit isolation surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+11. [x] Run `npm run format:check` from the repository root for the Task 34 server-unit isolation surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Added `server/src/test/support/providerHomeHarness.ts` so the remaining flow and agent server-unit harnesses can provision isolated temp Codex, Copilot, and LMStudio homes through one shared seam instead of hand-rolling partial env overrides in each file.
+- Migrated the remaining flow-heavy server-unit harnesses away from repo-root provider homes by threading the shared helper into the loop, command, errors, working-folder, resume-identity, subflow, and WebSocket-cancel proof homes, while preserving each file's existing agent-home and fixture wiring.
+- Added `server/src/test/unit/provider-home-isolation.contract.test.ts` to guard the touched harness files against future repo-root provider-home regressions now that server-unit chat-config contention is meant to stay isolated at the harness layer.
+- Extended `server/src/test/integration/flows.run.basic.test.ts` into the same isolation scheme after the first broad rerun exposed remaining `FLOWS_DIR`, `NODE_ENV`, and agent-home overrides there; the custom markdown and invalid-config fixtures also had to set `CODEINFO_AGENT_HOME` explicitly so they no longer fell back to the live `/app/codeinfo_agents` preferred root.
+- Re-ran the focused Task 34 wrappers, the new contract test, a focused `flows.run.basic.test.ts` wrapper, the full `npm run test:summary:server:unit` wrapper, `npm run lint`, and `npm run format:check`; the final broad server-unit pass finished green with 2538 passing tests.

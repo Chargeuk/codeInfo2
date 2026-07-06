@@ -25,6 +25,8 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
+import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -34,20 +36,10 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function restoreOptionalEnvVar(
-  key:
-    | 'CODEINFO_AGENT_HOME'
-    | 'CODEINFO_CODEX_AGENT_HOME'
-    | 'CODEINFO_CODEX_HOME',
-  value: string | undefined,
-) {
-  if (value === undefined) {
-    delete process.env[key];
-    return;
-  }
-  process.env[key] = value;
-}
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -117,29 +109,26 @@ class SlowStreamingChat extends ChatInterface {
 async function setupWsTestServer() {
   resetStore();
 
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
   const tempRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'agents-ws-cancel-'),
   );
+  const providerHomes = await createIsolatedProviderHomeEnv(
+    'agents-ws-cancel-provider-homes-',
+  );
   const agentsHome = path.join(tempRoot, 'codeinfo_agents');
-  const codexHome = path.join(tempRoot, 'codex');
   const agentHome = path.join(agentsHome, 'coding_agent');
   await fs.mkdir(agentHome, { recursive: true });
-  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
     ['codeinfo_provider = "codex"', 'approval_policy = "never"'].join('\n'),
     'utf8',
   );
-  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
-  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
-  await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
+  enterTestEnvOverrides({
+    CODEINFO_AGENT_HOME: agentsHome,
+    CODEINFO_CODEX_AGENT_HOME: agentsHome,
+    ...providerHomes.envOverrides,
+  });
 
   const app = express();
   const httpServer = http.createServer(app);
@@ -155,9 +144,7 @@ async function setupWsTestServer() {
     wsHandle,
     httpServer,
     async restoreEnv() {
-      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', prevAgentHome);
-      restoreOptionalEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
-      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', prevCodexHome);
+      await providerHomes.cleanup();
       await fs.rm(tempRoot, { recursive: true, force: true });
     },
   };
@@ -166,16 +153,14 @@ async function setupWsTestServer() {
 test('Agents cancel_inflight publishes turn_final status stopped and run resolves', async () => {
   resetStore();
 
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
+  const providerHomes = await createIsolatedProviderHomeEnv(
+    'agents-ws-cancel-shared-provider-homes-',
   );
-  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codeinfo_agents');
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
+  enterTestEnvOverrides({
+    CODEINFO_AGENT_HOME: path.join(repoRoot, 'codeinfo_agents'),
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    ...providerHomes.envOverrides,
+  });
 
   const app = express();
   const httpServer = http.createServer(app);
@@ -270,9 +255,7 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    restoreOptionalEnvVar('CODEINFO_AGENT_HOME', prevAgentHome);
-    restoreOptionalEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
-    restoreOptionalEnvVar('CODEINFO_CODEX_HOME', prevCodexHome);
+    await providerHomes.cleanup();
   }
 });
 

@@ -52,7 +52,11 @@ import {
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
-import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
+import {
+  enterTestEnvOverrides,
+  runWithTestEnvOverrides,
+} from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -65,6 +69,10 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
+);
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
 );
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
@@ -354,24 +362,27 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   });
 };
 
-let previousPreferredAgentsHome: string | undefined;
+let providerHomes: Awaited<
+  ReturnType<typeof createIsolatedProviderHomeEnv>
+> | null = null;
 
-beforeEach(() => {
-  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
-  delete process.env.CODEINFO_AGENT_HOME;
+beforeEach(async () => {
+  providerHomes = await createIsolatedProviderHomeEnv(
+    'flow-basic-provider-homes-',
+  );
   installDeterministicCodexAvailabilityBootstrap();
+  enterTestEnvOverrides({
+    CODEINFO_AGENT_HOME: undefined,
+    ...providerHomes.envOverrides,
+  });
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetFreshRunRetryOwnershipCompletionForTests();
   __resetGitHubReviewDepsForTests();
-  if (previousPreferredAgentsHome === undefined) {
-    delete process.env.CODEINFO_AGENT_HOME;
-  } else {
-    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
-  }
-  previousPreferredAgentsHome = undefined;
+  await providerHomes?.cleanup();
+  providerHomes = null;
 });
 
 const writeAgentScaffold = async (params: {
@@ -667,6 +678,7 @@ const withMarkdownFlowHarness = async (
     try {
       await runWithTestEnvOverrides(
         {
+          CODEINFO_AGENT_HOME: agentsHome,
           CODEINFO_CODEX_AGENT_HOME: agentsHome,
           CODEINFO_CODEX_HOME: codexHome,
           FLOWS_DIR: localFlowsDir,
@@ -749,21 +761,12 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
     pkg.dependencies?.['@openai/codex-sdk'],
     DEV_0000037_T01_REQUIRED_VERSION,
   );
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const fixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-run-'));
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const app = express();
   app.use(
@@ -860,34 +863,19 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const fixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-whitespace-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const app = express();
   app.use(
@@ -923,34 +911,19 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
     memoryTurns.delete(conversationId);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('fresh flow start creates a new parent conversation when an older conversationId is supplied', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const localFixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-fresh-parent-'),
   );
-  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const oldConversationId = 'flow-basic-existing-parent';
   let newConversationId: string | undefined;
@@ -1009,12 +982,6 @@ test('fresh flow start creates a new parent conversation when an older conversat
         newConversationId,
         ...collectAgentConversationIds(newConversationId),
       );
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1282,23 +1249,14 @@ test('initial flow-owned execution falls back to another provider and persists t
 });
 
 test('fresh executions of the same flow can run concurrently in different parent conversations', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const localFixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-concurrent-'),
   );
-  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const flowRunA = startFlowRun({
     flowName: 'llm-basic',
@@ -1337,36 +1295,20 @@ test('fresh executions of the same flow can run concurrently in different parent
       'flow-concurrent-b',
       ...collectAgentConversationIds('flow-concurrent-b'),
     );
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('retryOwnershipPending replay distinguishes still running, finished, and accepted-then-died-before-terminal cleanup', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevNodeEnv = process.env.NODE_ENV;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const localFixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-retry-ownership-'),
   );
-  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
   const customTitle = 'Accepted Retry Launch';
 
   try {
@@ -1493,29 +1435,11 @@ test('retryOwnershipPending replay distinguishes still running, finished, and ac
       'flow-retry-ownership-crash-retry',
     );
     __resetFreshRunRetryOwnershipCompletionForTests();
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('retryOwnershipId replay stays scoped to sourceId for ingested flows that share the same flow name', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevNodeEnv = process.env.NODE_ENV;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-retry-source-local-'),
   );
@@ -1525,10 +1449,11 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
   await fs.mkdir(path.join(repoB, 'flows'), { recursive: true });
   await fs.cp(fixturesDir, path.join(repoA, 'flows'), { recursive: true });
   await fs.cp(fixturesDir, path.join(repoB, 'flows'), { recursive: true });
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
@@ -1589,17 +1514,6 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
   } finally {
     cleanupMemory('flow-retry-source-a', 'flow-retry-source-b');
     __resetFreshRunRetryOwnershipCompletionForTests();
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(repoA, { recursive: true, force: true });
     await fs.rm(repoB, { recursive: true, force: true });
@@ -1607,13 +1521,6 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
 });
 
 test('flow run stops before turn persistence when metadata retries exhaust', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevNodeEnv = process.env.NODE_ENV;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-metadata-exhaust-'),
   );
@@ -1623,10 +1530,11 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
   const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
   const originalSave = ConversationModel.prototype.save;
   let updateAttempts = 0;
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   try {
     await withMockedMongoConversationPersistence({
@@ -1677,33 +1585,18 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
       ...collectAgentConversationIds(conversationId),
     );
     __resetFreshRunRetryOwnershipCompletionForTests();
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-unknown-source-'),
   );
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const app = express();
   app.use(
@@ -1726,19 +1619,11 @@ test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
       .send({ sourceId: '/data/unknown-repo' })
       .expect(404);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run fails on invalid agent config supported key types (resolver regression guard)', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpAgentsHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'agents-home-'),
   );
@@ -1754,9 +1639,11 @@ test('POST /flows/:flowName/run fails on invalid agent config supported key type
     'utf8',
   );
   await fs.cp(fixturesDir, tmpFlowsDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = tmpAgentsHome;
-  process.env.FLOWS_DIR = tmpFlowsDir;
+  enterTestEnvOverrides({
+    CODEINFO_AGENT_HOME: tmpAgentsHome,
+    CODEINFO_CODEX_AGENT_HOME: tmpAgentsHome,
+    FLOWS_DIR: tmpFlowsDir,
+  });
 
   const app = express();
   app.use(
@@ -1779,24 +1666,12 @@ test('POST /flows/:flowName/run fails on invalid agent config supported key type
     assert.equal(typeof res.body.message, 'string');
     assert.equal(res.body.message.length > 0, true);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpFlowsDir, { recursive: true, force: true });
     await fs.rm(tmpAgentsHome, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run uses ingested flow when sourceId provided', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-'),
   );
@@ -1806,9 +1681,10 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
   const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
@@ -1837,24 +1713,12 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run requires the canonical sourceId instead of a host alias payload', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-legacy-'),
   );
@@ -1865,9 +1729,10 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
   const hostAliasPath = path.join('/host-alias', path.basename(tmpRepoRoot));
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
@@ -1922,25 +1787,12 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
     memoryConversations.delete('flow-ingested-conv-legacy-canonical');
     memoryTurns.delete('flow-ingested-conv-legacy-canonical');
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });
 
 test('flow llm.basic stops before replay completion when persisted metadata reports not_found after a concurrent delete', async () => {
-  const prevNodeEnv = process.env.NODE_ENV;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-not-found-'),
   );
@@ -1952,10 +1804,11 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
 
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   await fs.mkdir(workingFolder, { recursive: true });
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   try {
     await withMockedMongoConversationPersistence({
@@ -2025,28 +1878,11 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
   } finally {
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
     ConversationModel.prototype.save = originalSave;
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run uses local flows when sourceId omitted', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-only-'),
   );
@@ -2057,9 +1893,10 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
   const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
@@ -2088,24 +1925,12 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });
 
 test('memory-backed flow runs preserve saved workingFolder while updating flow resume snapshots', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-working-folder-state-'),
   );
@@ -2114,8 +1939,10 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
 
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   await fs.mkdir(workingFolder, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
   let executeStarted = false;
 
   memoryConversations.set(conversationId, {
@@ -2207,12 +2034,6 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
       conversationId,
       ...collectAgentConversationIds(conversationId),
     );
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -2270,10 +2091,9 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
 });
 
 test('github review skip publishes completed-with-warning and records a durable plan note', async () => {
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
   const repoRoot = await createGitHubReviewRepoFixture();
-  process.env.FLOWS_DIR = tempFlowsDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
   const conversationId = 'github-skip-conversation';
 
   try {
@@ -2325,23 +2145,17 @@ test('github review skip publishes completed-with-warning and records a durable 
       /GitHub review stage skipped during PR open:/,
     );
   } finally {
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 
 test('github review open PR emits retry warnings and a final aggregated failure when post-create reconciliation exhausts all lookup attempts', async () => {
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-flow-'),
   );
   const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
-  process.env.FLOWS_DIR = tempFlowsDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
   const conversationId = 'github-open-pr-retry-failure';
 
   try {
@@ -2480,23 +2294,17 @@ test('github review open PR emits retry warnings and a final aggregated failure 
     assert.match(planRaw, /Lookup retry warning 4 after 120s:/);
     assert.match(planRaw, /Final lookup failure 5 after 150s:/);
   } finally {
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 
 test('github review open PR surfaces recovered gh pr create ambiguity as a warning while the run still continues', async () => {
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-ambiguous-flow-'),
   );
   const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
-  process.env.FLOWS_DIR = tempFlowsDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
   const conversationId = 'github-open-pr-ambiguous-success';
 
   try {
@@ -2650,23 +2458,17 @@ test('github review open PR surfaces recovered gh pr create ambiguity as a warni
     );
     assert.match(planRaw, /stderr: connection dropped after create/i);
   } finally {
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 
 test('github review fetch without an open pull request publishes completed-with-warning while adjacent non-GitHub flows still complete with ok status', async () => {
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-fetch-flow-'),
   );
   const repoRoot = await createGitHubReviewRepoFixture();
-  process.env.FLOWS_DIR = tempFlowsDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
 
   try {
     await fs.writeFile(
@@ -2785,23 +2587,17 @@ test('github review fetch without an open pull request publishes completed-with-
     assert.equal(okTurn.status, 'ok');
   } finally {
     __resetGitHubReviewDepsForTests();
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 
 test('resumed github review warning-stop stays provider-free until a later provider-backed step is actually needed', async () => {
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-resume-warning-flow-'),
   );
   const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 26 });
-  process.env.FLOWS_DIR = tempFlowsDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
   const conversationId = 'github-resume-warning-conversation';
 
   try {
@@ -2947,11 +2743,6 @@ test('resumed github review warning-stop stays provider-free until a later provi
   } finally {
     cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
     __resetGitHubReviewDepsForTests();
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

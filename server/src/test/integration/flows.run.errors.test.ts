@@ -51,7 +51,7 @@ import {
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
-import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import {
   bindCurrentTestOverrides,
   runWithTestOverrides,
@@ -166,12 +166,15 @@ const repoRoot = path.resolve(
 );
 
 const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
-  await runWithTestEnvOverrides(
+  await withIsolatedProviderHomeTestEnv(
     {
-      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-      FLOWS_DIR: tmpDir,
+      prefix: 'flows-errors-fixture-provider-homes-',
+      overrides: {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
     },
-    run,
+    async () => await run(),
   );
 
 const withAgentRuntimeEnv = async (
@@ -184,21 +187,26 @@ const withAgentRuntimeEnv = async (
   },
   run: () => Promise<void>,
 ) =>
-  await runWithTestEnvOverrides(
+  await withIsolatedProviderHomeTestEnv(
     {
-      CODEINFO_AGENT_HOME: params.agentsHome,
-      CODEINFO_CODEX_AGENT_HOME: params.agentsHome,
-      CODEINFO_CODEX_HOME: params.codexHome,
-      CODEINFO_COPILOT_HOME: params.copilotHome,
-      ...(params.flowsDir === undefined ? {} : { FLOWS_DIR: params.flowsDir }),
-      ...(params.compatEndpoints === undefined
-        ? {}
-        : {
-            CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
-              params.compatEndpoints,
-          }),
+      prefix: 'flows-errors-runtime-provider-homes-',
+      overrides: {
+        CODEINFO_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_HOME: params.codexHome,
+        CODEINFO_COPILOT_HOME: params.copilotHome,
+        ...(params.flowsDir === undefined
+          ? {}
+          : { FLOWS_DIR: params.flowsDir }),
+        ...(params.compatEndpoints === undefined
+          ? {}
+          : {
+              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+                params.compatEndpoints,
+            }),
+      },
     },
-    run,
+    async () => await run(),
   );
 
 const withScopedAgentServiceDeps = async (
@@ -442,11 +450,13 @@ async function withFlowHarness(
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
     try {
-      await runWithTestEnvOverrides(
+      await withIsolatedProviderHomeTestEnv(
         {
-          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
-          FLOWS_DIR: tmpDir,
+          prefix: 'flows-errors-harness-provider-homes-',
+          overrides: {
+            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            FLOWS_DIR: tmpDir,
+          },
         },
         async () => {
           const app = express();

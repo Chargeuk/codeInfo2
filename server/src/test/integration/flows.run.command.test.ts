@@ -49,6 +49,7 @@ import {
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
@@ -378,13 +379,15 @@ const withFlowServer = async (
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   try {
     await withDeterministicCodexAvailabilityBootstrap(async () =>
-      await runWithTestEnvOverrides(
+      await withIsolatedProviderHomeTestEnv(
         {
-          CODEINFO_AGENT_HOME: path.join(repoRoot, 'codeinfo_agents'),
-          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
-          FLOWS_DIR: tmpDir,
-          ...options?.envOverrides,
+          prefix: 'flows-command-provider-homes-',
+          overrides: {
+            CODEINFO_AGENT_HOME: path.join(repoRoot, 'codeinfo_agents'),
+            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            FLOWS_DIR: tmpDir,
+            ...options?.envOverrides,
+          },
         },
         async () => {
           resetStore();

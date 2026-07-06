@@ -40,6 +40,7 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
@@ -107,18 +108,22 @@ const withResumeAgentRuntime = async (
   agentServiceOverrides: Parameters<typeof __setAgentServiceDepsForTests>[0],
   run: () => Promise<void>,
 ) =>
-  await runWithTestEnvOverrides(
+  await withIsolatedProviderHomeTestEnv(
     {
-      CODEINFO_AGENT_HOME: params.agentsHome,
-      CODEINFO_CODEX_AGENT_HOME: params.agentsHome,
-      CODEINFO_CODEX_HOME: params.codexHome,
-      CODEX_HOME: params.codexHome,
-      FLOWS_DIR: params.tmpDir,
-      ...(params.compatEndpoint === undefined
-        ? {}
-        : {
-            CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: `${params.compatEndpoint}|responses`,
-          }),
+      prefix: 'flows-resume-provider-homes-',
+      overrides: {
+        CODEINFO_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_HOME: params.codexHome,
+        CODEX_HOME: params.codexHome,
+        FLOWS_DIR: params.tmpDir,
+        ...(params.compatEndpoint === undefined
+          ? {}
+          : {
+              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+                `${params.compatEndpoint}|responses`,
+            }),
+      },
     },
     async () => {
       __setAgentServiceDepsForTests(agentServiceOverrides);
@@ -2207,11 +2212,13 @@ test('paused repository-backed waits keep the original sourceId and retryOwnersh
 
   try {
     await withDeterministicCodexAvailabilityBootstrap(async () => {
-      await runWithTestEnvOverrides(
+      await withIsolatedProviderHomeTestEnv(
         {
-          CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-          CODEINFO_CODEX_HOME: path.join(repoRoot, 'codex'),
-          FLOWS_DIR: undefined,
+          prefix: 'flows-resume-sourceid-provider-homes-',
+          overrides: {
+            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            FLOWS_DIR: undefined,
+          },
         },
         async () => {
           const firstStart = await startFlowRun({

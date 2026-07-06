@@ -3385,14 +3385,54 @@ const flowContainsReachableCodexReview = async (params: {
   return false;
 };
 
-const validateCommandSteps = async (
-  steps: FlowStep[],
-  agentByName: Map<string, { home: string }>,
-  repositoryContext: FlowCommandRepositoryContext,
-): Promise<void> => {
-  for (const step of steps) {
+const validateCommandSteps = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsRoot: string;
+  sourceId?: string;
+  agentByName: Map<string, { home: string }>;
+  repositoryContext: FlowCommandRepositoryContext;
+  visited?: Set<string>;
+}): Promise<void> => {
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+
+  for (const step of params.steps) {
     if (step.type === 'startLoop') {
-      await validateCommandSteps(step.steps, agentByName, repositoryContext);
+      await validateCommandSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        agentByName: params.agentByName,
+        repositoryContext: params.repositoryContext,
+        visited,
+      });
+      continue;
+    }
+    if (step.type === 'subflow') {
+      for (const childFlowName of step.flowNames) {
+        if (visited.has(childFlowName)) {
+          continue;
+        }
+        const childFlow = await loadFlowFile({
+          flowName: childFlowName,
+          flowsRoot: params.flowsRoot,
+          sourceId: params.sourceId,
+        }).catch(() => null);
+        if (!childFlow) {
+          continue;
+        }
+        await validateCommandSteps({
+          flowName: childFlowName,
+          steps: childFlow.steps,
+          flowsRoot: params.flowsRoot,
+          sourceId: params.sourceId,
+          agentByName: params.agentByName,
+          repositoryContext: params.repositoryContext,
+          visited: new Set(visited).add(childFlowName),
+        });
+      }
       continue;
     }
     if (step.type === 'command') {
@@ -3405,7 +3445,7 @@ const validateCommandSteps = async (
           `Flow agent "${step.agentType}" ${validatedAgentType.message}.`,
         );
       }
-      const agent = agentByName.get(step.agentType);
+      const agent = params.agentByName.get(step.agentType);
       if (!agent) {
         throw toFlowRunError(
           'AGENT_NOT_FOUND',
@@ -3414,7 +3454,7 @@ const validateCommandSteps = async (
       }
       const commandLoad = await resolveFlowCommandForAgent({
         step,
-        context: repositoryContext,
+        context: params.repositoryContext,
         phase: 'validation',
       });
       if (!commandLoad.ok) {
@@ -3601,7 +3641,6 @@ type FlowCommandRepositoryContext = {
   flowName: string;
   workingRepositoryPath?: string;
   defaultRepositoryRoot?: string;
-  flowOwnerRepositoryRoot: string;
   flowSourceId?: string;
   flowSourceLabel?: string;
   codeInfo2Root: string;
@@ -3614,10 +3653,7 @@ type FlowCommandRepositoryContext = {
 
 const resolveFlowGitBackedRepositoryPath = (
   context: FlowCommandRepositoryContext,
-) =>
-  context.workingRepositoryPath ??
-  context.flowSourceId ??
-  context.flowOwnerRepositoryRoot;
+) => context.workingRepositoryPath ?? context.flowSourceId;
 
 type FlowCommandCandidate = {
   sourceId: string;
@@ -6494,11 +6530,6 @@ export async function startFlowRun(
         sourceId,
         resumeStepPath,
       }));
-    const flowOwnerRepositoryRoot = sourceRepo?.containerPath
-      ? path.resolve(sourceRepo.containerPath)
-      : sourceId
-        ? path.resolve(sourceId)
-        : codeInfo2RootForRun();
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -6573,7 +6604,6 @@ export async function startFlowRun(
       flowName,
       workingRepositoryPath: effectiveWorkingFolder,
       defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
-      flowOwnerRepositoryRoot,
       flowSourceId: sourceRepo?.containerPath
         ? path.resolve(sourceRepo.containerPath)
         : sourceId
@@ -6598,7 +6628,14 @@ export async function startFlowRun(
       })),
     };
 
-    await validateCommandSteps(flow.steps, agentByName, repositoryContext);
+    await validateCommandSteps({
+      flowName,
+      steps: flow.steps,
+      flowsRoot,
+      sourceId,
+      agentByName,
+      repositoryContext,
+    });
     await validateCodexReviewSteps({
       flowName,
       steps: flow.steps,

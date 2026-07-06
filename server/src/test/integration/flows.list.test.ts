@@ -616,6 +616,50 @@ describe('GET /flows', () => {
     }
   });
 
+  test('parent flows inherit disabled agent availability from child subflows', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+
+    try {
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-agent-subflow',
+        JSON.stringify({
+          description: 'Parent flow',
+          steps: [{ type: 'subflow', flowNames: ['child-missing-agent'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'child-missing-agent',
+        JSON.stringify({
+          description: 'Child flow',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'missing_agent',
+              identifier: 'child',
+              messages: [{ role: 'user', content: ['Hello'] }],
+            },
+          ],
+        }),
+      );
+
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows');
+
+        assert.equal(response.status, 200);
+        const listed = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-agent-subflow',
+        );
+        assert.ok(listed);
+        assert.equal(listed.disabled, true);
+        assert.match(String(listed.error ?? ''), /missing_agent/u);
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('local flows omit source metadata', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(

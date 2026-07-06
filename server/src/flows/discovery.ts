@@ -78,8 +78,18 @@ const resolveFlowAgentLookupRoot = (flowsDir: string) => {
   return resolvedFlowsDir;
 };
 
-const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
-  for (const step of steps) {
+const collectAgentTypes = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsDir: string;
+  names?: Set<string>;
+  visited?: Set<string>;
+}) => {
+  const names = params.names ?? new Set<string>();
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+
+  for (const step of params.steps) {
     switch (step.type) {
       case 'llm':
       case 'break':
@@ -88,7 +98,43 @@ const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
         names.add(step.agentType);
         break;
       case 'startLoop':
-        collectAgentTypes(step.steps, names);
+        await collectAgentTypes({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsDir: params.flowsDir,
+          names,
+          visited,
+        });
+        break;
+      case 'subflow':
+        for (const childFlowName of step.flowNames) {
+          if (visited.has(childFlowName)) {
+            continue;
+          }
+          const childFlowPath = path.join(
+            params.flowsDir,
+            `${childFlowName}.json`,
+          );
+          const childFlowRaw = await fs
+            .readFile(childFlowPath, 'utf8')
+            .catch(() => null);
+          if (!childFlowRaw) {
+            continue;
+          }
+          const parsedChildFlow = parseFlowFile(childFlowRaw, {
+            flowName: childFlowName,
+          });
+          if (!parsedChildFlow.ok) {
+            continue;
+          }
+          await collectAgentTypes({
+            flowName: childFlowName,
+            steps: parsedChildFlow.flow.steps,
+            flowsDir: params.flowsDir,
+            names,
+            visited: new Set(visited).add(childFlowName),
+          });
+        }
         break;
       default:
         break;
@@ -98,6 +144,8 @@ const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
 };
 
 const collectFlowWarnings = async (params: {
+  flowName: string;
+  flowsDir: string;
   parsedFlow?: FlowFile;
   discoveredAgentsByName: Map<
     string,
@@ -106,7 +154,11 @@ const collectFlowWarnings = async (params: {
 }) => {
   if (!params.parsedFlow) return undefined;
   const warnings = new Set<string>();
-  for (const agentName of collectAgentTypes(params.parsedFlow.steps)) {
+  for (const agentName of await collectAgentTypes({
+    flowName: params.flowName,
+    steps: params.parsedFlow.steps,
+    flowsDir: params.flowsDir,
+  })) {
     const discovered = params.discoveredAgentsByName.get(agentName);
     for (const warning of discovered?.warnings ?? []) {
       warnings.add(warning);
@@ -231,7 +283,11 @@ const collectFlowAvailability = async (params: {
   const warningDetails: AgentAvailabilityWarning[] = [];
   let disabledReason: AgentDisabledReason | undefined;
 
-  for (const agentName of collectAgentTypes(params.parsedFlow.steps)) {
+  for (const agentName of await collectAgentTypes({
+    flowName: params.flowName,
+    steps: params.parsedFlow.steps,
+    flowsDir: params.flowsDir,
+  })) {
     const validatedAgentType = validateRepositoryBackedAgentType(agentName);
     if (!validatedAgentType.ok) {
       const message = `Flow agent "${agentName}" ${validatedAgentType.message}.`;
@@ -534,6 +590,8 @@ export async function discoverFlows(params?: {
 
       const parsed = parseFlowFile(jsonText, { flowName: name });
       const listWarnings = await collectFlowWarnings({
+        flowName: name,
+        flowsDir: params.flowsDir,
         parsedFlow: parsed.ok ? parsed.flow : undefined,
         discoveredAgentsByName,
       });

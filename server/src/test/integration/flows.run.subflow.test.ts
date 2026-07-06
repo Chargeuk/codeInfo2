@@ -1021,7 +1021,7 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
-test('local flow launches support prepareReviewBase without explicit repo selectors', async () => {
+test('local review-git flows fail instead of silently targeting the harness repo', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-local-review-base-'),
   );
@@ -1099,17 +1099,17 @@ test('local flow launches support prepareReviewBase without explicit repo select
     });
 
     assert.ok(result.conversationId);
-    await waitFor(
-      () =>
-        existsSync(
-          path.join(
-            repoDir,
-            'codeInfoTmp',
-            'reviews',
-            '0000027-current-review-base.json',
-          ),
+    await waitForAssistantStatus(result.conversationId, 'failed', 15_000);
+    assert.equal(
+      existsSync(
+        path.join(
+          repoDir,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-review-base.json',
         ),
-      15_000,
+      ),
+      false,
     );
   } finally {
     if (previousPreferredAgentHome === undefined) {
@@ -1253,6 +1253,65 @@ test('parent flows validate child codexReview model requirements before launchin
         assert.match(
           String((error as { reason?: string }).reason ?? ''),
           /requires codexReviewModelId or a step model/u,
+        );
+        return true;
+      },
+    );
+    assert.equal(executeCalls, 0);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('parent flows preflight child command steps before launching subflows', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-command-validation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-command-validation',
+      steps: [
+        {
+          type: 'command',
+          label: 'Missing Child Command',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          commandName: 'missing-child-command',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-command-validation',
+      steps: [
+        llmStep('should not run'),
+        subflowStep('Run Child Command', 'child-command-validation'),
+      ],
+    });
+
+    let executeCalls = 0;
+    await assert.rejects(
+      startFlowRun({
+        flowName: 'parent-command-validation',
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () =>
+          new SubflowChat(25, () => {
+            executeCalls += 1;
+          }),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      }),
+      (error: unknown) => {
+        assert.equal((error as { code?: string }).code, 'COMMAND_INVALID');
+        assert.match(
+          String((error as { reason?: string }).reason ?? ''),
+          /missing-child-command/u,
         );
         return true;
       },

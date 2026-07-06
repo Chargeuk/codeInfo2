@@ -15,6 +15,7 @@ import {
   getActiveRunOwnership,
   releaseConversationLock,
 } from '../../agents/runLock.js';
+import { prepareFlowOwnedAgentExecution } from '../../agents/service.js';
 import {
   cleanupInflight,
   getInflight,
@@ -42,11 +43,13 @@ import {
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
@@ -487,53 +490,56 @@ const withFlowServer = async (
     registerTmpDirAsRepo?: boolean;
   },
 ) => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-loop-'));
-  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await withDeterministicCodexAvailabilityBootstrap(async () => {
+    const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const prevFlowsDir = process.env.FLOWS_DIR;
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-loop-'));
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+    process.env.FLOWS_DIR = tmpDir;
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: options?.chatFactory ?? (() => new ScriptedChat(responder)),
-          listIngestedRepositories:
-            options?.listIngestedRepositoriesFn ??
-            (options?.registerTmpDirAsRepo
-              ? () => listHarnessRepo(tmpDir)
-              : undefined),
-          onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
-          cleanupInflightFn: options?.cleanupInflightFn,
-          releaseConversationLockFn: options?.releaseConversationLockFn,
-        }),
-    }),
-  );
+    const app = express();
+    app.use(
+      createFlowsRunRouter({
+        startFlowRun: (params) =>
+          startFlowRun({
+            ...params,
+            chatFactory:
+              options?.chatFactory ?? (() => new ScriptedChat(responder)),
+            listIngestedRepositories:
+              options?.listIngestedRepositoriesFn ??
+              (options?.registerTmpDirAsRepo
+                ? () => listHarnessRepo(tmpDir)
+                : undefined),
+            onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
+            cleanupInflightFn: options?.cleanupInflightFn,
+            releaseConversationLockFn: options?.releaseConversationLockFn,
+          }),
+      }),
+    );
 
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const ws = await connectWs({ baseUrl });
+    const httpServer = http.createServer(app);
+    const wsHandle = attachWs({ httpServer });
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+    const address = httpServer.address();
+    assert(address && typeof address === 'object');
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+    const ws = await connectWs({ baseUrl });
 
-  try {
-    await task({ baseUrl, wsUrl: ws, tmpDir });
-  } finally {
-    await closeFlowHarness({ ws, wsHandle, httpServer });
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
+    try {
+      await task({ baseUrl, wsUrl: ws, tmpDir });
+    } finally {
+      await closeFlowHarness({ ws, wsHandle, httpServer });
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+      if (prevFlowsDir) {
+        process.env.FLOWS_DIR = prevFlowsDir;
+      } else {
+        delete process.env.FLOWS_DIR;
+      }
+      await fs.rm(tmpDir, { recursive: true, force: true });
     }
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  }
+  });
 };
 
 const waitForTurns = async (
@@ -4235,6 +4241,55 @@ test('flow step retries to exhaustion and emits one terminal failure', async () 
     process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
   }
 });
+
+test(
+  'scoped deterministic Codex overrides stay isolated across concurrent runtime resolution work',
+  async () => {
+    const configPath = path.join(
+      repoRoot,
+      'codeinfo_agents/coding_agent/config.toml',
+    );
+
+    const [successProviderId] = await Promise.all([
+      withDeterministicCodexAvailabilityBootstrap(async () => {
+        await delay(25);
+        const result = await prepareFlowOwnedAgentExecution({
+          agentName: 'coding_agent',
+          configPath,
+          source: 'REST',
+          allowFallback: false,
+        });
+        return result.executionProviderId;
+      }),
+      withDeterministicCodexAvailabilityBootstrap(async () => {
+        setCodexDetection({
+          available: false,
+          authPresent: false,
+          configPresent: true,
+          reason: 'Missing auth.json',
+        });
+        await delay(10);
+        await assert.rejects(
+          async () =>
+            prepareFlowOwnedAgentExecution({
+              agentName: 'coding_agent',
+              configPath,
+              source: 'REST',
+              allowFallback: false,
+            }),
+          (error) =>
+            (error as { code?: string; reason?: string }).code ===
+              'PROVIDER_UNAVAILABLE' &&
+            /Missing auth\.json/i.test(
+              (error as { reason?: string }).reason ?? '',
+            ),
+        );
+      }),
+    ]);
+
+    assert.equal(successProviderId, 'codex');
+  },
+);
 
 test('aborted flow step is not retried', async () => {
   const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;

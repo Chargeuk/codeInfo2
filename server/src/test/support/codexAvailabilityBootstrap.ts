@@ -1,4 +1,9 @@
 import {
+  getCodexDetection,
+  setCodexDetection,
+  type CodexDetection,
+} from '../../providers/codexRegistry.js';
+import {
   __resetAgentAvailabilityDepsForTests,
   __setAgentAvailabilityDepsForTests,
 } from '../../agents/availability.js';
@@ -7,9 +12,10 @@ import {
   __setAgentServiceDepsForTests,
 } from '../../agents/service.js';
 import {
-  setCodexDetection,
-  type CodexDetection,
-} from '../../providers/codexRegistry.js';
+  enterTestOverrideScope,
+  hasActiveTestOverrideScope,
+  runWithTestOverrides,
+} from './testOverrideScope.js';
 
 type CodexModelCapability = {
   model: string;
@@ -66,41 +72,75 @@ const buildDeterministicCodexCapabilities = (
   fallbackUsed: false,
 });
 
+const buildDeterministicBootstrapOverrides = (
+  options: DeterministicCodexBootstrapOptions = {},
+) => {
+  const detection = buildAvailableCodexDetection();
+  const resolveCopilotReadiness = async () => ({
+    available: true,
+    toolsAvailable: true,
+    blockingStage: 'ready' as const,
+    models: ['copilot-gpt-5'],
+    modelsRaw: [],
+    authSource: 'env-token' as const,
+  });
+
+  return {
+    codexDetection: detection,
+    agentAvailabilityDeps: {
+      getCodexDetection,
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness,
+      getLmStudioBaseUrl: () => undefined,
+    },
+    agentServiceDeps: {
+      getCodexDetection,
+      resolveCodexCapabilities: async () =>
+        buildDeterministicCodexCapabilities(options.models),
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness,
+    },
+  };
+};
+
 export function installDeterministicCodexAvailabilityBootstrap(
   options: DeterministicCodexBootstrapOptions = {},
 ) {
-  const detection = buildAvailableCodexDetection();
-  setCodexDetection(detection);
-  __setAgentAvailabilityDepsForTests({
-    getCodexDetection: () => detection,
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready' as const,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [],
-      authSource: 'env-token' as const,
-    }),
-    getLmStudioBaseUrl: () => undefined,
-  });
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => detection,
-    resolveCodexCapabilities: async () =>
-      buildDeterministicCodexCapabilities(options.models),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready' as const,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [],
-      authSource: 'env-token' as const,
-    }),
-  });
+  const overrides = buildDeterministicBootstrapOverrides(options);
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope(overrides);
+    return;
+  }
+  setCodexDetection(overrides.codexDetection);
+  __setAgentAvailabilityDepsForTests(overrides.agentAvailabilityDeps);
+  __setAgentServiceDepsForTests(overrides.agentServiceDeps);
 }
 
 export function resetDeterministicCodexAvailabilityBootstrap() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      codexDetection: null,
+      agentAvailabilityDeps: null,
+      agentServiceDeps: null,
+    });
+    return;
+  }
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: false,
+    reason: 'not detected',
+  });
   __resetAgentAvailabilityDepsForTests();
   __resetAgentServiceDepsForTests();
+}
+
+export async function withDeterministicCodexAvailabilityBootstrap<T>(
+  fn: () => Promise<T>,
+  options: DeterministicCodexBootstrapOptions = {},
+): Promise<T> {
+  return await runWithTestOverrides(
+    buildDeterministicBootstrapOverrides(options),
+    fn,
+  );
 }

@@ -48,6 +48,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -373,7 +374,7 @@ const withFlowServer = async (
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: options?.chatFactory ?? (() => new ScriptedChat()),
@@ -383,7 +384,7 @@ const withFlowServer = async (
                   options.listIngestedRepositories!(tmpDir),
               }
             : {}),
-        }),
+        })),
     }),
   );
 

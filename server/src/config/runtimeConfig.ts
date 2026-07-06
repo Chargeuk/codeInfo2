@@ -10,6 +10,11 @@ import toml from 'toml';
 
 import { discoverAgents } from '../agents/discovery.js';
 import { append } from '../logStore.js';
+import {
+  enterTestOverrideScope,
+  getScopedProviderBootstrapStatusOverride,
+  hasActiveTestOverrideScope,
+} from '../test/support/testOverrideScope.js';
 
 import {
   buildDefaultCodexConfig,
@@ -2267,6 +2272,15 @@ export async function ensureAllProviderChatConfigsBootstrapped(params?: {
 export function getProviderBootstrapStatus(
   provider: ChatProviderId,
 ): ProviderBootstrapStatus {
+  const scoped = getScopedProviderBootstrapStatusOverride(provider);
+  if (scoped) {
+    return {
+      provider,
+      healthy: scoped.healthy ?? true,
+      ...(scoped.reason ? { reason: scoped.reason } : {}),
+      warnings: [...(scoped.warnings ?? [])],
+    };
+  }
   const status = providerBootstrapStatuses[provider];
   return {
     provider,
@@ -2280,6 +2294,18 @@ export function __setProviderBootstrapStatusForTests(
   provider: ChatProviderId,
   status: Partial<ProviderBootstrapStatus>,
 ) {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      providerBootstrapStatuses: {
+        [provider]: {
+          healthy: status.healthy ?? true,
+          reason: status.reason,
+          warnings: [...(status.warnings ?? [])],
+        },
+      },
+    });
+    return;
+  }
   providerBootstrapStatuses[provider] = {
     provider,
     healthy: status.healthy ?? true,
@@ -2289,6 +2315,16 @@ export function __setProviderBootstrapStatusForTests(
 }
 
 export function __resetProviderBootstrapStatusForTests() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      providerBootstrapStatuses: {
+        codex: null,
+        copilot: null,
+        lmstudio: null,
+      },
+    });
+    return;
+  }
   for (const provider of ['codex', 'copilot', 'lmstudio'] as const) {
     providerBootstrapStatuses[provider] = {
       provider,

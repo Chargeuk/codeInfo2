@@ -39,6 +39,7 @@ import {
 import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 class MinimalChat extends ChatInterface {
@@ -2983,11 +2984,11 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
   const app = express();
   app.use(
     createAgentsRunRouter({
-      startAgentInstruction: (params) =>
+      startAgentInstruction: bindCurrentTestOverrides((params) =>
         startAgentInstruction({
           ...params,
           chatFactory: () => new MinimalChat(),
-        }),
+        })),
     }),
   );
 
@@ -3120,11 +3121,11 @@ test('direct agent run falls back before provider runtime load when the requeste
   const app = express();
   app.use(
     createAgentsRunRouter({
-      startAgentInstruction: (params) =>
+      startAgentInstruction: bindCurrentTestOverrides((params) =>
         startAgentInstruction({
           ...params,
           chatFactory: () => new MinimalChat(),
-        }),
+        })),
     }),
   );
 
@@ -3213,11 +3214,11 @@ test('provider-independent agent config failures still fail clearly instead of s
   const app = express();
   app.use(
     createAgentsRunRouter({
-      startAgentInstruction: (params) =>
+      startAgentInstruction: bindCurrentTestOverrides((params) =>
         startAgentInstruction({
           ...params,
           chatFactory: () => new MinimalChat(),
-        }),
+        })),
     }),
   );
 
@@ -4763,11 +4764,11 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
     const app = express();
     app.use(
       createAgentsRunRouter({
-        startAgentInstruction: (params) =>
+        startAgentInstruction: bindCurrentTestOverrides((params) =>
           startAgentInstruction({
             ...params,
             chatFactory: () => new MinimalChat(),
-          }),
+          })),
       }),
     );
 

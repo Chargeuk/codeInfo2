@@ -106,6 +106,11 @@ import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  enterTestOverrideScope,
+  getScopedAgentServiceDepsOverride,
+  hasActiveTestOverrideScope,
+} from '../test/support/testOverrideScope.js';
+import {
   resolveSharedExecutionContext,
   resolveWorkingFolderWorkingDirectory,
   type RepositoryExecutionContextMetadata,
@@ -314,13 +319,37 @@ const agentServiceDeps: AgentServiceDeps = {
   getLmStudioBaseUrl: () => process.env.CODEINFO_LMSTUDIO_BASE_URL,
 };
 
+const getEffectiveAgentServiceDeps = (): AgentServiceDeps => {
+  const scoped =
+    getScopedAgentServiceDepsOverride() as Partial<AgentServiceDeps> | undefined;
+  if (!scoped) {
+    return agentServiceDeps;
+  }
+  return {
+    ...agentServiceDeps,
+    ...scoped,
+  };
+};
+
 export function __setAgentServiceDepsForTests(
   overrides: Partial<AgentServiceDeps>,
 ) {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      agentServiceDeps: overrides as Record<string, unknown>,
+    });
+    return;
+  }
   Object.assign(agentServiceDeps, overrides);
 }
 
 export function __resetAgentServiceDepsForTests() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      agentServiceDeps: null,
+    });
+    return;
+  }
   agentServiceDeps.listIngestedRepositories = listIngestedRepositories;
   agentServiceDeps.getCodexDetection = getCodexDetection;
   agentServiceDeps.resolveCodexCapabilities = resolveCodexCapabilities;
@@ -552,19 +581,20 @@ async function persistDirectAgentConversation(params: {
 async function collectDirectAgentProviderStates(): Promise<
   Record<ChatProviderId, DirectAgentProviderState>
 > {
-  const codexDetection = agentServiceDeps.getCodexDetection();
-  const codexCapabilities = await agentServiceDeps.resolveCodexCapabilities({
+  const deps = getEffectiveAgentServiceDeps();
+  const codexDetection = deps.getCodexDetection();
+  const codexCapabilities = await deps.resolveCodexCapabilities({
     consumer: 'chat_validation',
   });
-  const mcp = await agentServiceDeps.getMcpStatus();
+  const mcp = await deps.getMcpStatus();
   const [copilotReadiness, lmstudioState] = await Promise.all([
-    agentServiceDeps.resolveCopilotReadiness({
+    deps.resolveCopilotReadiness({
       env: process.env,
       toolsAvailable: mcp.available,
       toolsReason: mcp.reason,
     }),
     (async (): Promise<DirectAgentProviderState> => {
-      const baseUrl = agentServiceDeps.getLmStudioBaseUrl()?.trim();
+      const baseUrl = deps.getLmStudioBaseUrl()?.trim();
       if (!baseUrl || !BASE_URL_REGEX.test(baseUrl)) {
         return {
           available: false,
@@ -573,9 +603,7 @@ async function collectDirectAgentProviderStates(): Promise<
         };
       }
       try {
-        const client = agentServiceDeps.lmstudioClientFactory(
-          toWsBaseUrl(baseUrl),
-        );
+        const client = deps.lmstudioClientFactory(toWsBaseUrl(baseUrl));
         try {
           const models = await client.system.listDownloadedModels();
           const availableModels = models
@@ -817,8 +845,8 @@ async function prepareDirectAgentExecution(params: {
     throw error;
   }
   const availabilityContext =
-    await agentServiceDeps.createAgentAvailabilityContext();
-  const availability = await agentServiceDeps.evaluateAgentAvailability({
+    await getEffectiveAgentServiceDeps().createAgentAvailabilityContext();
+  const availability = await getEffectiveAgentServiceDeps().evaluateAgentAvailability({
     agentName: params.agentName,
     configPath: params.configPath,
     entrypoint: 'agents.service',
@@ -987,7 +1015,8 @@ async function prepareDirectAgentExecution(params: {
   const requestedProviderId =
     requestedMetadata.requestedProviderId ?? availability.requestedProviderId;
   const fallbackOrder =
-    agentServiceDeps.resolveAgentProviderFallbackOrder().normalizedProviders;
+    getEffectiveAgentServiceDeps().resolveAgentProviderFallbackOrder()
+      .normalizedProviders;
   const configuredRequestedProvider =
     requestedProviderId && isChatProviderId(requestedProviderId)
       ? requestedProviderId
@@ -2440,7 +2469,8 @@ export async function startAgentCommand(params: {
           startStep,
           conversationId,
           sourceId: resolution.selectedRepositoryPath,
-          listIngestedRepositories: agentServiceDeps.listIngestedRepositories,
+          listIngestedRepositories:
+            getEffectiveAgentServiceDeps().listIngestedRepositories,
           working_folder: effectiveWorkingFolder,
           signal: undefined,
           source: params.source,
@@ -2642,7 +2672,8 @@ export async function runAgentCommand(params: {
     startStep,
     conversationId,
     sourceId: resolution.selectedRepositoryPath,
-    listIngestedRepositories: agentServiceDeps.listIngestedRepositories,
+    listIngestedRepositories:
+      getEffectiveAgentServiceDeps().listIngestedRepositories,
     working_folder: effectiveWorkingFolder,
     signal: params.signal,
     source: params.source,

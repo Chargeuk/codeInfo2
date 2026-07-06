@@ -17,6 +17,11 @@ import {
   type CopilotReadinessRuntime,
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  enterTestOverrideScope,
+  getScopedAgentAvailabilityDepsOverride,
+  hasActiveTestOverrideScope,
+} from '../test/support/testOverrideScope.js';
 
 import { readAgentRequestedProviderMetadata } from './config.js';
 
@@ -98,6 +103,18 @@ const availabilityDeps: AvailabilityDeps = {
       baseUrl,
     } as LMStudioClientConstructorOpts),
   getLmStudioBaseUrl: () => process.env.CODEINFO_LMSTUDIO_BASE_URL,
+};
+
+const getEffectiveAvailabilityDeps = (): AvailabilityDeps => {
+  const scoped =
+    getScopedAgentAvailabilityDepsOverride() as Partial<AvailabilityDeps> | undefined;
+  if (!scoped) {
+    return availabilityDeps;
+  }
+  return {
+    ...availabilityDeps,
+    ...scoped,
+  };
 };
 
 const isChatProviderId = (value: string): value is ChatProviderId =>
@@ -186,16 +203,17 @@ async function resolveLmStudioAvailability(
 }
 
 export async function createAgentAvailabilityContext(): Promise<AvailabilityContext> {
-  const codexDetection = availabilityDeps.getCodexDetection();
-  const mcp = await availabilityDeps.getMcpStatus();
+  const deps = getEffectiveAvailabilityDeps();
+  const codexDetection = deps.getCodexDetection();
+  const mcp = await deps.getMcpStatus();
   const [copilotReadiness, lmstudioState] = await Promise.all([
-    availabilityDeps.resolveCopilotReadiness({
-      createRuntime: availabilityDeps.copilotRuntimeFactory,
+    deps.resolveCopilotReadiness({
+      createRuntime: deps.copilotRuntimeFactory,
       env: process.env,
       toolsAvailable: mcp.available,
       toolsReason: mcp.reason,
     }),
-    resolveLmStudioAvailability(availabilityDeps),
+    resolveLmStudioAvailability(deps),
   ]);
 
   const providerStates: Record<ChatProviderId, ProviderAvailabilityState> = {
@@ -212,7 +230,7 @@ export async function createAgentAvailabilityContext(): Promise<AvailabilityCont
     lmstudio: lmstudioState,
   };
 
-  const fallbackOrder = availabilityDeps.resolveAgentProviderFallbackOrder();
+  const fallbackOrder = deps.resolveAgentProviderFallbackOrder();
   const fallbackCandidates = fallbackOrder.normalizedProviders.map(
     (providerId) => ({
       providerId,
@@ -249,11 +267,11 @@ export async function evaluateAgentAvailability(params: {
   entrypoint?: 'agents.service' | 'flows.service';
   context?: AvailabilityContext;
 }): Promise<AgentAvailabilitySnapshot> {
+  const deps = getEffectiveAvailabilityDeps();
   const context = params.context ?? (await createAgentAvailabilityContext());
-  const requestedMetadata =
-    await availabilityDeps.readAgentRequestedProviderMetadata({
-      configPath: params.configPath,
-    });
+  const requestedMetadata = await deps.readAgentRequestedProviderMetadata({
+    configPath: params.configPath,
+  });
 
   const warnings = (params.discoveryWarnings ?? []).map(mapDiscoveryWarning);
   const requestedProviderId = requestedMetadata.requestedProviderId;
@@ -383,10 +401,22 @@ export async function evaluateAgentAvailability(params: {
 export function __setAgentAvailabilityDepsForTests(
   overrides: Partial<AvailabilityDeps>,
 ) {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      agentAvailabilityDeps: overrides as Record<string, unknown>,
+    });
+    return;
+  }
   Object.assign(availabilityDeps, overrides);
 }
 
 export function __resetAgentAvailabilityDepsForTests() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      agentAvailabilityDeps: null,
+    });
+    return;
+  }
   availabilityDeps.getCodexDetection = getCodexDetection;
   availabilityDeps.getMcpStatus = getMcpStatus;
   availabilityDeps.resolveCopilotReadiness = resolveCopilotReadiness;

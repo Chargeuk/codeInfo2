@@ -493,7 +493,6 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
       'branch --show-current',
       'rev-parse HEAD^{commit}',
       'rev-parse --show-toplevel',
-      'rev-parse origin/main^{commit}',
       'rev-parse --short HEAD^{commit}',
       'update-ref refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304 a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2',
       'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304',
@@ -509,113 +508,6 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
     ]);
     assert.equal(result.pointer.comparison_base_ref, 'origin/main');
     assert.equal(result.pointer.resolved_base_source, 'remote');
-  } finally {
-    await fs.rm(repoRoot, { recursive: true, force: true });
-  }
-});
-
-test('runCodexReviewStep preserves AbortError while checking prepared-base freshness', async () => {
-  const repoRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'codex-review-helper-prepared-base-abort-'),
-  );
-  try {
-    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
-      recursive: true,
-    });
-    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
-      recursive: true,
-    });
-    await fs.writeFile(
-      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
-      JSON.stringify({
-        plan_path: 'planning/0000027-codex-review.md',
-        branched_from: 'main',
-      }),
-    );
-    await fs.writeFile(
-      path.join(
-        repoRoot,
-        'codeInfoTmp',
-        'reviews',
-        '0000027-current-review-base.json',
-      ),
-      JSON.stringify({
-        story_id: '0000027',
-        plan_path: 'planning/0000027-codex-review.md',
-        repo_alias: 'current_repository',
-        repo_root: repoRoot,
-        branch: 'feature/0000027-codex-review',
-        head_commit: HEAD_SHA,
-        logical_base_branch: 'main',
-        resolved_base_branch: 'main',
-        resolved_base_source: 'remote',
-        remote_name: 'origin',
-        remote_fetch_status: 'success',
-        local_fallback_reason: null,
-        comparison_base_ref: 'origin/main',
-        comparison_base_commit: BASE_SHA,
-        comparison_head_ref: 'HEAD',
-        comparison_rule: 'local_head_vs_resolved_base',
-        status: 'completed',
-        started_at: '2026-07-05T16:20:00.000Z',
-        completed_at: '2026-07-05T16:20:01.000Z',
-      }),
-    );
-
-    const controller = new AbortController();
-    const execFile = async (
-      file: string,
-      args: readonly string[],
-      options?: {
-        signal?: AbortSignal;
-        timeout?: number;
-        killSignal?: NodeJS.Signals | number;
-        maxBuffer?: number;
-      },
-    ) => {
-      if (file !== 'git') {
-        throw new Error(`unexpected executable: ${file}`);
-      }
-      const key = args.slice(2).join(' ');
-      switch (key) {
-        case 'rev-parse --show-toplevel':
-          return { stdout: `${repoRoot}\n`, stderr: '' };
-        case 'branch --show-current':
-          return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
-        case 'rev-parse HEAD^{commit}':
-          return { stdout: `${HEAD_SHA}\n`, stderr: '' };
-        case 'rev-parse origin/main^{commit}': {
-          const error = new Error('aborted');
-          error.name = 'AbortError';
-          controller.abort();
-          assert.equal(options?.signal, controller.signal);
-          throw error;
-        }
-        default:
-          throw Object.assign(new Error(`unexpected git command: ${key}`), {
-            code: 128,
-            stdout: '',
-            stderr: `unexpected git command: ${key}`,
-          });
-      }
-    };
-
-    await assert.rejects(
-      runCodexReviewStep(
-        {
-          workingRepositoryPath: repoRoot,
-          outputKey: 'current-codex-review',
-          modelId: 'gpt-5.4',
-          signal: controller.signal,
-        },
-        {
-          execFile,
-          now: () => new Date('2026-07-05T16:21:00.000Z'),
-          randomHex: () => '1234abcd',
-        },
-      ),
-      (error) => (error as Error).name === 'AbortError',
-    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -982,7 +874,7 @@ test('runCodexReviewStep ignores stale review cycle ids from a different story w
   }
 });
 
-test('runCodexReviewStep refreshes a stale prepared review base artifact when the cached base commit no longer matches the current ref', async () => {
+test('runCodexReviewStep reuses a prepared review base artifact even when the tracked base ref has advanced', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codex-review-helper-stale-prepared-base-'),
   );
@@ -1043,19 +935,8 @@ test('runCodexReviewStep refreshes a stale prepared review base artifact when th
             return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
           case 'rev-parse HEAD^{commit}':
             return { stdout: `${HEAD_SHA}\n`, stderr: '' };
-          case 'rev-parse origin/main^{commit}':
-            return { stdout: `${BASE_SHA}\n`, stderr: '' };
-          case 'remote get-url origin':
-            return {
-              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
-              stderr: '',
-            };
-          case 'fetch --prune origin':
-            return { stdout: '', stderr: '' };
           case 'symbolic-ref --short refs/remotes/origin/HEAD':
             return { stdout: 'origin/main\n', stderr: '' };
-          case 'rev-parse --verify origin/main':
-            return { stdout: `${BASE_SHA}\n`, stderr: '' };
           case 'rev-parse --short HEAD^{commit}':
             return { stdout: 'd30c1246\n', stderr: '' };
           default:
@@ -1063,7 +944,7 @@ test('runCodexReviewStep refreshes a stale prepared review base artifact when th
               key.startsWith(
                 'update-ref refs/codeinfo/review-bases/0000027-20260705T162500Z-',
               ) &&
-              key.endsWith(` ${BASE_SHA}`)
+              key.endsWith(` ${staleBaseSha}`)
             ) {
               return { stdout: '', stderr: '' };
             }
@@ -1105,9 +986,9 @@ test('runCodexReviewStep refreshes a stale prepared review base artifact when th
       },
     );
 
-    assert.equal(result.pointer.comparison_base_commit, BASE_SHA);
-    assert.ok(gitCalls.includes('remote get-url origin'));
-    assert.ok(gitCalls.includes('fetch --prune origin'));
+    assert.equal(result.pointer.comparison_base_commit, staleBaseSha);
+    assert.ok(!gitCalls.includes('remote get-url origin'));
+    assert.ok(!gitCalls.includes('fetch --prune origin'));
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

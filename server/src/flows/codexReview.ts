@@ -294,13 +294,7 @@ const loadOrPrepareReviewBase = async (
     prepared &&
     prepared.artifact.branch === currentBranch &&
     prepared.artifact.head_commit === headCommit &&
-    prepared.artifact.story_id === storyNumber &&
-    (await isPreparedBaseStillFresh({
-      repoRoot,
-      artifact: prepared.artifact,
-      deps,
-      signal,
-    }))
+    prepared.artifact.story_id === storyNumber
   ) {
     return prepared;
   }
@@ -314,34 +308,6 @@ const loadOrPrepareReviewBase = async (
     },
     deps,
   );
-};
-
-const isPreparedBaseStillFresh = async (params: {
-  repoRoot: string;
-  artifact: PreparedReviewBase;
-  deps: Pick<CodexReviewDeps, 'execFile'>;
-  signal?: AbortSignal;
-}): Promise<boolean> => {
-  try {
-    const currentComparisonBaseCommit = await gitStdoutOrThrow(
-      params.repoRoot,
-      ['rev-parse', `${params.artifact.comparison_base_ref}^{commit}`],
-      params.deps,
-      `Unable to resolve comparison base commit for ${params.artifact.comparison_base_ref}.`,
-      params.signal,
-    );
-    return (
-      currentComparisonBaseCommit === params.artifact.comparison_base_commit
-    );
-  } catch (error) {
-    if (
-      params.signal?.aborted ||
-      (error as Error | undefined)?.name === 'AbortError'
-    ) {
-      throw error;
-    }
-    return false;
-  }
 };
 
 const createPinnedReviewBaseRef = async (params: {

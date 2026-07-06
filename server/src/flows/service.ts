@@ -3866,6 +3866,9 @@ const persistFlowResumeState = async (params: {
     hasWait: Boolean(params.wait),
     activeSubflowCount: params.activeSubflows?.length ?? 0,
     agentConversationCount: params.runtimeState.size,
+    activeSubflowConversationIds:
+      params.activeSubflows?.map((subflow) => subflow.conversationId) ?? [],
+    agentConversationKeys: Array.from(params.runtimeState.keys()),
     workingFolder: params.workingFolder ?? null,
   });
 };
@@ -4310,13 +4313,32 @@ const schedulePersistedWaitResume = (params: {
   source: 'REST' | 'MCP';
   wait: FlowWaitState;
 }) => {
+  const appendWaitWakeDiagnostic = (
+    event: string,
+    context: Record<string, unknown> = {},
+  ) => {
+    appendFlowRuntimeDiagnostic('flows.test.wait_wake_runtime', {
+      event,
+      conversationId: params.conversationId,
+      flowName: params.flowName,
+      executionId: params.wait.executionId,
+      stepPath: params.wait.stepPath,
+      resumeAt: params.wait.resumeAt,
+      ...context,
+    });
+  };
   clearScheduledFlowWait(params.conversationId);
   const handle = flowWaitResumeDeps.scheduleWake({
     resumeAt: params.wait.resumeAt,
     onWake: () => {
       void (async () => {
+        appendWaitWakeDiagnostic('wake_begin');
         const conversation = await getConversation(params.conversationId);
         if (!conversation || conversation.flowName !== params.flowName) {
+          appendWaitWakeDiagnostic('wake_skipped_conversation_mismatch', {
+            conversationFound: Boolean(conversation),
+            persistedFlowName: conversation?.flowName ?? null,
+          });
           clearScheduledFlowWait(params.conversationId);
           return;
         }
@@ -4326,11 +4348,21 @@ const schedulePersistedWaitResume = (params: {
             | undefined,
         );
         const persistedWait = persistedState?.wait;
+        appendWaitWakeDiagnostic('wake_persisted_state_loaded', {
+          hasPersistedState: Boolean(persistedState),
+          hasPersistedWait: Boolean(persistedWait),
+          persistedExecutionId: persistedWait?.executionId ?? null,
+          persistedStepPath: persistedWait?.stepPath ?? null,
+        });
         if (!persistedState || !persistedWait) {
+          appendWaitWakeDiagnostic('wake_skipped_missing_wait_state');
           clearScheduledFlowWait(params.conversationId);
           return;
         }
         if (persistedWait.executionId !== params.wait.executionId) {
+          appendWaitWakeDiagnostic('wake_skipped_execution_mismatch', {
+            persistedExecutionId: persistedWait.executionId,
+          });
           clearScheduledFlowWait(params.conversationId);
           return;
         }
@@ -4338,6 +4370,9 @@ const schedulePersistedWaitResume = (params: {
           getStepPathKey(persistedWait.stepPath) !==
           getStepPathKey(params.wait.stepPath)
         ) {
+          appendWaitWakeDiagnostic('wake_skipped_step_path_mismatch', {
+            persistedStepPath: persistedWait.stepPath,
+          });
           clearScheduledFlowWait(params.conversationId);
           return;
         }
@@ -4347,10 +4382,17 @@ const schedulePersistedWaitResume = (params: {
           latestAssistantStatus &&
           isTerminalFlowStatus(latestAssistantStatus)
         ) {
+          appendWaitWakeDiagnostic('wake_terminal_guard_skip', {
+            latestAssistantStatus,
+          });
           clearScheduledFlowWait(params.conversationId);
           return;
         }
         try {
+          appendWaitWakeDiagnostic('wake_resume_dispatch_begin', {
+            persistedWorkingFolder: persistedWait.workingFolder ?? null,
+            persistedSourceId: persistedWait.sourceId ?? null,
+          });
           await flowWaitResumeDeps.resumeFlowRun({
             flowName: params.flowName,
             conversationId: params.conversationId,
@@ -4358,8 +4400,10 @@ const schedulePersistedWaitResume = (params: {
             sourceId: persistedWait.sourceId,
             source: params.source,
           });
+          appendWaitWakeDiagnostic('wake_resume_dispatch_complete');
         } catch (error) {
           if ((error as FlowRunError | undefined)?.code === 'RUN_IN_PROGRESS') {
+            appendWaitWakeDiagnostic('wake_resume_dispatch_skipped_run_in_progress');
             baseLogger.info(
               {
                 conversationId: params.conversationId,
@@ -4371,6 +4415,22 @@ const schedulePersistedWaitResume = (params: {
             clearScheduledFlowWait(params.conversationId);
             return;
           }
+          appendWaitWakeDiagnostic('wake_resume_dispatch_failed', {
+            code:
+              error &&
+              typeof error === 'object' &&
+              typeof (error as { code?: unknown }).code === 'string'
+                ? String((error as { code?: string }).code)
+                : null,
+            reason:
+              error &&
+              typeof error === 'object' &&
+              typeof (error as { reason?: unknown }).reason === 'string'
+                ? String((error as { reason?: string }).reason)
+                : error instanceof Error
+                  ? error.message
+                  : String(error ?? 'unknown error'),
+          });
           const recoveryReason = describeFlowRunFailure(error);
           if (isPermanentPersistedWaitResumeFailure(error)) {
             await retirePersistedWaitRecoveryFailure({
@@ -5798,11 +5858,14 @@ async function runFlowUnlocked(params: {
       instructionPreview: instructionParams.instruction.slice(0, 120),
     });
 
+    const effectiveInstructionWorkingFolder =
+      instructionParams.runtime?.workingFolder ??
+      params.repositoryContext.workingRepositoryPath;
     const runtime = await resolveFlowInstructionPrerequisites({
       agentType: instructionParams.agentType,
       identifier: instructionParams.identifier,
       configPath: agent.configPath,
-      workingFolder: params.repositoryContext.workingRepositoryPath,
+      workingFolder: effectiveInstructionWorkingFolder,
       defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
       source: params.source,
     });
@@ -5822,6 +5885,8 @@ async function runFlowUnlocked(params: {
       requestedProviderId: runtime.requestedProviderId ?? null,
       endpointId: runtime.endpointId ?? null,
       workingDirectoryOverride: runtime.workingDirectoryOverride ?? null,
+      effectiveInstructionWorkingFolder:
+        effectiveInstructionWorkingFolder ?? null,
     });
 
     const { state: agentState, isNew } = await ensureAgentState({
@@ -5834,7 +5899,7 @@ async function runFlowUnlocked(params: {
       modelId,
       requestedProviderId: runtime.requestedProviderId,
       endpointId: runtime.endpointId ?? null,
-      workingFolder: params.repositoryContext.workingRepositoryPath,
+      workingFolder: effectiveInstructionWorkingFolder,
       customTitle: params.customTitle,
       source: params.source,
     });
@@ -8370,12 +8435,29 @@ async function runFlowUnlocked(params: {
         return 'failed';
       }
 
+      const commandWorkingFolder =
+        params.repositoryContext.workingRepositoryPath ??
+        (commandLoad.sourceRank === 'owner_repository' ||
+        commandLoad.sourceRank === 'working_repository'
+          ? commandLoad.sourceId
+          : undefined);
       const commandRuntime: TurnRuntimeMetadata = {
-        ...(params.repositoryContext.workingRepositoryPath
-          ? { workingFolder: params.repositoryContext.workingRepositoryPath }
+        ...(commandWorkingFolder
+          ? { workingFolder: commandWorkingFolder }
           : {}),
         lookupSummary: commandLoad.lookupSummary,
       };
+      appendCommandRuntimeDiagnostic('runtime_context_ready', {
+        commandName: step.commandName,
+        attempt,
+        stepPath: nextPath,
+        commandSourceId: commandLoad.sourceId,
+        commandSourceRank: commandLoad.sourceRank,
+        commandWorkingFolder: commandWorkingFolder ?? null,
+        lookupSelectedRepositoryPath:
+          commandRuntime.lookupSummary?.selectedRepositoryPath ?? null,
+        lookupFallbackUsed: commandRuntime.lookupSummary?.fallbackUsed ?? null,
+      });
 
       for (const [itemIndex, item] of commandLoad.command.items.entries()) {
         if (await stopCommandBeforeHandoff()) {

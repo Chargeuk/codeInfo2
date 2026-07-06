@@ -3111,3 +3111,45 @@ This task finishes the repository-wide `server:unit` isolation story by hardenin
 - Follow-up broad-wrapper debugging showed that the outer Codex harness was still leaking live `CODEX_HOME` and related provider-home env into `server:unit`; clearing those inherited provider-home vars in `scripts/test-summary-server-unit-env.mjs` let the per-process wrapper homes take effect consistently and removed the remaining `/app/*` fallback regressions.
 - Tightened the isolation sweep around test-only seams that were still broad-run fragile: the mocked Mongo persistence helper now scopes `NODE_ENV=production` through the AsyncLocalStorage override path, the command harness runs against an isolated local codeinfo2 root instead of touching checked-in command or markdown files, and a few slow flow-command / loop / subflow / turn-metadata waits were lengthened so persisted success and failure states still settle under full-suite load.
 - Validation completed with focused wrapper checks for the touched suites and contract test, a clean `npm run test:summary:server:unit` pass with `2539` passing tests, `npm run lint`, and `npm run format:check`.
+
+### Task 36. Fix Flow-Owned Command Runtime Context And Extend Stress Diagnostics
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 35`
+- Task Status: `__done__`
+- Git Commits:
+
+#### Overview
+
+The first post-isolation `npm run test:summary:all:stress` recurrence exposed four server-unit failures that no longer look like one shared provider-home problem. One command-sequencing failure showed a real runtime mismatch: a flow-owned command resolved from the source repository still executed without a repository-scoped working folder, fell back to the broad shared execution root, and failed before the markdown and inline items could complete. Three sibling failures stayed in the runtime-resolution / resume / child-tracking family, so the next useful increment is to fix the concrete command-context bug while also adding narrower wake, subflow, and agent-conversation diagnostics to the exact seams that still go ambiguous under stress.
+
+#### Task Exit Criteria
+
+- [x] Flow-owned command message items inherit a repository-scoped execution context when the command resolves from an owner or working repository and the flow did not provide an explicit `working_folder`.
+- [x] Persisted wait wake diagnostics record why a scheduled wake skipped, resumed, or failed so runtime-resolution stalls on resume are attributable without another broad probe.
+- [x] Failed loop or subflow stress recurrences emit richer parent and child conversation state when remembered agent-conversation or terminal-child tracking is missing.
+- [x] Focused wrapper validation covers the command, wait, loop, and subflow stress surfaces touched by this task.
+
+#### Subtasks
+
+1. [x] Reproduce and inspect the flow-owned command runtime-context failure path, then patch the flow command execution seam so resolved owner/working repositories can carry a working-folder context into instruction runtime resolution.
+2. [x] Add narrow runtime diagnostics around scheduled wait wake dispatch, persisted wait guards, and resume handoff outcomes.
+3. [x] Extend the relevant loop and error test snapshots so missing child conversation tracking or skipped wait wakes print parent state, child state, and the new runtime-resolution/runtime-config logs.
+4. [x] Run focused wrapper validation for the touched command, wait, loop, and subflow tests plus any required repo lint/format/build checks.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --skip-build`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --skip-build`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --skip-build`.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --skip-build`.
+5. [x] Run `npm run build:summary:server` from the repository root because this task changes server runtime code.
+6. [x] Run `npm run lint` from the repository root for the Task 36 surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+7. [x] Run `npm run format:check` from the repository root for the Task 36 surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Subtask 1 complete: traced the reproducible flow-command failure back to flow-owned command items resolving from the source repository but still inheriting the broad default execution root at instruction-runtime time, then updated `server/src/flows/service.ts` so owner- and working-repository command loads can supply a repository-scoped working folder into runtime resolution and persisted child-agent state when no explicit `working_folder` was provided.
+- Subtask 2 complete: added high-signal `flows.test.wait_wake_runtime` checkpoints for scheduled wake begin, persisted-state guard exits, terminal-state skips, resume dispatch begin/complete, and resume dispatch failures, and extended `flows.test.resume_state_saved` with active subflow conversation ids plus agent-conversation keys so missing child tracking is attributable on the next recurrence.
+- Subtask 3 complete: hardened the stress-facing test diagnostics by expanding `flows.run.errors.test.ts` timeout output with parent turns, runtime-resolution logs, and runtime-config logs, and by making `flows.run.loop.test.ts` include the full parent runtime snapshot when an expected remembered agent conversation is missing.
+- Subtask 4 complete: focused wrapper validation passed for `flows.run.command`, `flows.run.errors`, `flows.run.subflow`, and a clean rerun of `flows.run.loop` after one unrelated stop-cleanup recurrence; `npm run build:summary:server`, `npm run lint`, and `npm run format:check` also passed for the Task 36 surface.

@@ -85,8 +85,16 @@ const waitFor = async (
 };
 
 const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
-  JSON.stringify(
-    query({ text: 'flows.test.' }, 80)
+  JSON.stringify({
+    conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+      runtime: turn.runtime,
+      command: turn.command,
+    })),
+    runtimeLogs: query({ text: 'flows.test.' }, 120)
       .filter(
         (entry) =>
           entry.context?.conversationId === conversationId ||
@@ -96,7 +104,23 @@ const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
         message: entry.message,
         context: entry.context,
       })),
-  );
+    runtimeResolutionLogs: query({ text: 'flows.test.runtime_resolution_' }, 80)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+    runtimeConfigLogs: query({ text: 'runtime.' }, 80)
+      .filter(
+        (entry) =>
+          entry.message.startsWith('runtime.chat_config_') ||
+          entry.message.startsWith('runtime.runtime_config_resolution_'),
+      )
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  });
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
@@ -3239,7 +3263,11 @@ test('wait wake does not resume after the flow has already reached a terminal st
       assert.ok(wake, 'expected wait wake callback to be captured');
       (wake as () => void)();
       await new Promise((resolve) => setTimeout(resolve, 50));
-      assert.equal(captured.length, 1);
+      assert.equal(
+        captured.length,
+        1,
+        `Wake should not resume a terminal flow | ${describeRelevantFlowRuntimeLogs(conversationId)}`,
+      );
     },
     { registerTmpDirAsRepo: true },
   );

@@ -588,7 +588,14 @@ const getAgentConversationId = (
     flow?: { agentConversations?: Record<string, string> };
   };
   const agentConversationId = flowFlags.flow?.agentConversations?.[agentKey];
-  assert.ok(agentConversationId, `Missing agent conversation for ${agentKey}`);
+  assert.ok(
+    agentConversationId,
+    [
+      `Missing agent conversation for ${agentKey}`,
+      `conversationId=${conversationId}`,
+      `state=${describeFlowRuntimeState(conversationId, [agentKey])}`,
+    ].join(' | '),
+  );
   return agentConversationId;
 };
 

@@ -380,9 +380,9 @@ export async function runCodexReviewStep(
   }
   const codexArgs = [
     'exec',
-    'review',
     '-C',
     repoRoot,
+    'review',
     '--base',
     preparedBase.artifact.comparison_base_ref,
     '-m',

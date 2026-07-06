@@ -151,9 +151,9 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
     assert.equal(codexCalls.length, 1);
     assert.deepEqual(codexCalls[0]?.args.slice(0, 6), [
       'exec',
-      'review',
       '-C',
       repoRoot,
+      'review',
       '--base',
       'origin/main',
     ]);
@@ -308,9 +308,9 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
     assert.equal(codexCalls.length, 1);
     assert.deepEqual(codexCalls[0]?.slice(0, 6), [
       'exec',
-      'review',
       '-C',
       repoRoot,
+      'review',
       '--base',
       'origin/main',
     ]);

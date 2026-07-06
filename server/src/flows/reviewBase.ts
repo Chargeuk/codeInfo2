@@ -339,6 +339,7 @@ async function resolveBaseComparison(params: {
     const localDefaultRef = defaultBranch;
 
     let mergedResult: GitCommandResult | null = null;
+    let headDescendsFromParent = false;
     const canCompareRemote =
       (await refExists(repoRoot, remoteBranchRef, deps, signal)) &&
       (await refExists(repoRoot, remoteDefaultRef, deps, signal));
@@ -352,6 +353,16 @@ async function resolveBaseComparison(params: {
         deps,
         signal,
       );
+      if (!mergedResult.ok && mergedResult.code === 1) {
+        headDescendsFromParent = (
+          await runGit(
+            repoRoot,
+            ['merge-base', '--is-ancestor', remoteBranchRef, 'HEAD'],
+            deps,
+            signal,
+          )
+        ).ok;
+      }
     } else if (canCompareLocal) {
       mergedResult = await runGit(
         repoRoot,
@@ -359,11 +370,26 @@ async function resolveBaseComparison(params: {
         deps,
         signal,
       );
+      if (!mergedResult.ok && mergedResult.code === 1) {
+        headDescendsFromParent = (
+          await runGit(
+            repoRoot,
+            ['merge-base', '--is-ancestor', localBranchRef, 'HEAD'],
+            deps,
+            signal,
+          )
+        ).ok;
+      }
     }
 
     if (mergedResult?.ok) {
       logicalBaseBranch = defaultBranch;
-    } else if (mergedResult && mergedResult.code === 1) {
+    } else if (
+      mergedResult &&
+      !mergedResult.ok &&
+      mergedResult.code === 1 &&
+      headDescendsFromParent
+    ) {
       logicalBaseBranch = branchedFrom;
     }
   }

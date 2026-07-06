@@ -113,6 +113,21 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
           case 'rev-parse --short HEAD^{commit}':
             return { stdout: 'd30c1246\n', stderr: '' };
           default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T160455Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T160455Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
             throw Object.assign(new Error(`unexpected git command: ${key}`), {
               code: 128,
               stdout: '',
@@ -155,7 +170,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
       repoRoot,
       'review',
       '--base',
-      'origin/main',
+      'refs/codeinfo/review-bases/0000027-20260705T160455Z-7f3a1c2b',
     ]);
     assert.ok(codexCalls[0]?.args.includes('gpt-5.4'));
     assert.ok(
@@ -268,6 +283,21 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
           case 'rev-parse --short HEAD^{commit}':
             return { stdout: 'd30c1246\n', stderr: '' };
           default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T162100Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162100Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
             throw Object.assign(new Error(`unexpected git command: ${key}`), {
               code: 128,
               stdout: '',
@@ -304,6 +334,8 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
       'branch --show-current',
       'rev-parse HEAD^{commit}',
       'rev-parse --short HEAD^{commit}',
+      'update-ref refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304 a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2',
+      'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304',
     ]);
     assert.equal(codexCalls.length, 1);
     assert.deepEqual(codexCalls[0]?.slice(0, 6), [
@@ -312,7 +344,7 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
       repoRoot,
       'review',
       '--base',
-      'origin/main',
+      'refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304',
     ]);
     assert.equal(result.pointer.comparison_base_ref, 'origin/main');
     assert.equal(result.pointer.resolved_base_source, 'remote');
@@ -366,6 +398,21 @@ test('runCodexReviewStep sanitizes review pass ids before using them in artifact
           case 'rev-parse --short HEAD^{commit}':
             return { stdout: 'd30c1246\n', stderr: '' };
           default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T162200Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162200Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
             throw Object.assign(new Error(`unexpected git command: ${key}`), {
               code: 128,
               stdout: '',
@@ -406,6 +453,119 @@ test('runCodexReviewStep sanitizes review pass ids before using them in artifact
       result.pointer.codex_review_pass_id.startsWith('odd-pass-id-codex-'),
     );
     assert.equal(result.pointer.canonical_review_pass_id, '../odd pass/id');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('runCodexReviewStep ignores stale review cycle ids from a different story when seeding artifact names', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-stale-review-cycle-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoStatus',
+        'flow-state',
+        'review-disposition-state.json',
+      ),
+      JSON.stringify({
+        story_number: '0000057',
+        review_cycle_id: '0000057-rc-20260517T051958Z-9b052d08',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        switch (key) {
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'remote get-url origin':
+            return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+          case 'fetch --prune origin':
+            return { stdout: '', stderr: '' };
+          case 'symbolic-ref --short refs/remotes/origin/HEAD':
+            return { stdout: 'origin/main\n', stderr: '' };
+          case 'rev-parse --verify origin/main':
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260706T091129Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260706T091129Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      if (file === 'codex') {
+        const outputIndex = args.indexOf('-o');
+        const outputPath = String(args[outputIndex + 1]);
+        await fs.writeFile(outputPath, '# Codex Review\n\nNo issues.\n');
+        return { stdout: '', stderr: '' };
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    const result = await runCodexReviewStep(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-codex-review',
+        modelId: 'gpt-5.4',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-06T09:11:29.071Z'),
+        randomHex: () => '08185125',
+      },
+    );
+
+    assert.equal(result.pointer.review_cycle_id, null);
+    assert.ok(
+      result.pointer.codex_review_pass_id.startsWith(
+        '0000027-codex-review-codex-20260706T091129Z-d30c1246-08185125',
+      ),
+    );
+    assert.ok(
+      result.reviewOutputPath.endsWith(
+        '0000027-codex-review-codex-20260706T091129Z-d30c1246-08185125-codex-review.md',
+      ),
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -455,6 +615,21 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin is 
           case 'rev-parse --short HEAD^{commit}':
             return { stdout: 'd30c1246\n', stderr: '' };
           default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T161000Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T161000Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
             throw Object.assign(new Error(`unexpected git command: ${key}`), {
               code: 128,
               stdout: '',
@@ -549,6 +724,21 @@ test('runCodexReviewStep falls back to a local branched-from ref when origin fet
           case 'rev-parse --short HEAD^{commit}':
             return { stdout: 'd30c1246\n', stderr: '' };
           default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T161200Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T161200Z-',
+              )
+            ) {
+              return { stdout: '', stderr: '' };
+            }
             throw Object.assign(new Error(`unexpected git command: ${key}`), {
               code: 128,
               stdout: '',

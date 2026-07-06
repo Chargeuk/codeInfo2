@@ -148,3 +148,83 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-base-abort-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+
+    const controller = new AbortController();
+    let fetchSignal: AbortSignal | undefined;
+    const execFile = async (
+      file: string,
+      args: readonly string[],
+      options?: { signal?: AbortSignal },
+    ) => {
+      assert.equal(file, 'git');
+      const key = args.slice(2).join(' ');
+      switch (key) {
+        case 'branch --show-current':
+          return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+        case 'rev-parse HEAD^{commit}':
+          return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+        case 'remote get-url origin':
+          return { stdout: 'git@github.com:Chargeuk/codeInfo2.git\n', stderr: '' };
+        case 'fetch --prune origin':
+          fetchSignal = options?.signal;
+          return await new Promise<{ stdout: string; stderr: string }>(
+            (_resolve, reject) => {
+              options?.signal?.addEventListener(
+                'abort',
+                () => {
+                  const error = new Error('aborted');
+                  error.name = 'AbortError';
+                  reject(error);
+                },
+                { once: true },
+              );
+            },
+          );
+        default:
+          throw Object.assign(new Error(`unexpected git command: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `unexpected git command: ${key}`,
+          });
+      }
+    };
+
+    const pending = prepareReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-review-base',
+        signal: controller.signal,
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:32:00.000Z'),
+      },
+    );
+    const deadline = Date.now() + 1000;
+    while (!fetchSignal && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    assert.equal(fetchSignal, controller.signal);
+    controller.abort();
+
+    await assert.rejects(pending, /aborted/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});

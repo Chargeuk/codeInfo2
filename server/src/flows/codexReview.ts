@@ -91,6 +91,7 @@ type CurrentReviewPayload = {
 };
 
 type ReviewDispositionStatePayload = {
+  story_number?: unknown;
   review_cycle_id?: unknown;
 };
 
@@ -178,6 +179,23 @@ const sanitizePassSeed = (value: string): string => {
   return sanitized || 'codex-review';
 };
 
+const resolveApplicableReviewCycleId = (params: {
+  storyNumber: string;
+  reviewState: ReviewDispositionStatePayload | null;
+}): string | null => {
+  const reviewCycleId = normalizeOptionalString(params.reviewState?.review_cycle_id);
+  if (!reviewCycleId) return null;
+
+  const reviewStateStoryNumber = normalizeOptionalString(
+    params.reviewState?.story_number,
+  );
+  if (reviewStateStoryNumber) {
+    return reviewStateStoryNumber === params.storyNumber ? reviewCycleId : null;
+  }
+
+  return reviewCycleId.startsWith(`${params.storyNumber}-`) ? reviewCycleId : null;
+};
+
 const readJsonIfExists = async <T>(
   filePath: string,
   deps: Pick<CodexReviewDeps, 'readFile'>,
@@ -191,6 +209,25 @@ const readJsonIfExists = async <T>(
       return null;
     }
     throw error;
+  }
+};
+
+const runGitOrThrow = async (
+  repoRoot: string,
+  args: readonly string[],
+  deps: Pick<CodexReviewDeps, 'execFile'>,
+  failureMessage: string,
+  signal?: AbortSignal,
+): Promise<void> => {
+  try {
+    await deps.execFile('git', ['-C', repoRoot, ...args], {
+      signal,
+      encoding: 'utf8',
+      timeout: GIT_PROCESS_TIMEOUT_MS,
+      killSignal: PROCESS_KILL_SIGNAL,
+    });
+  } catch {
+    throw new Error(failureMessage);
   }
 };
 
@@ -242,6 +279,37 @@ const loadOrPrepareReviewBase = async (
     },
     deps,
   );
+};
+
+const createPinnedReviewBaseRef = async (params: {
+  repoRoot: string;
+  storyNumber: string;
+  comparisonBaseCommit: string;
+  passTimestamp: string;
+  deps: Pick<CodexReviewDeps, 'execFile' | 'randomHex'>;
+  signal?: AbortSignal;
+}) => {
+  const refName = `refs/codeinfo/review-bases/${params.storyNumber}-${params.passTimestamp}-${params.deps.randomHex(4)}`;
+  await runGitOrThrow(
+    params.repoRoot,
+    ['update-ref', refName, params.comparisonBaseCommit],
+    params.deps,
+    `Unable to create pinned review base ref for ${params.comparisonBaseCommit}.`,
+    params.signal,
+  );
+
+  return {
+    refName,
+    cleanup: async () => {
+      await runGitOrThrow(
+        params.repoRoot,
+        ['update-ref', '-d', refName],
+        params.deps,
+        `Unable to delete pinned review base ref ${refName}.`,
+        params.signal,
+      );
+    },
+  };
 };
 
 export function resolveCodexReviewModel(params: {
@@ -339,8 +407,10 @@ export async function runCodexReviewStep(
   const canonicalReviewPassId = normalizeOptionalString(
     currentReview?.review_pass_id,
   );
-  const reviewCycleId =
-    normalizeOptionalString(reviewState?.review_cycle_id) ?? null;
+  const reviewCycleId = resolveApplicableReviewCycleId({
+    storyNumber,
+    reviewState,
+  });
   const headCommit = await gitStdoutOrThrow(
     repoRoot,
     ['rev-parse', 'HEAD^{commit}'],
@@ -362,6 +432,14 @@ export async function runCodexReviewStep(
   const codexReviewPassId = `${passSeed}-codex-${passTimestamp}-${shortHead}-${resolvedDeps.randomHex(
     4,
   )}`;
+  const pinnedBaseRef = await createPinnedReviewBaseRef({
+    repoRoot,
+    storyNumber,
+    comparisonBaseCommit: preparedBase.artifact.comparison_base_commit,
+    passTimestamp,
+    deps: resolvedDeps,
+    signal: params.signal,
+  });
 
   const reviewDir = path.join(repoRoot, 'codeInfoTmp', 'reviews');
   await resolvedDeps.mkdir(reviewDir, { recursive: true });
@@ -384,7 +462,7 @@ export async function runCodexReviewStep(
     repoRoot,
     'review',
     '--base',
-    preparedBase.artifact.comparison_base_ref,
+    pinnedBaseRef.refName,
     '-m',
     params.modelId,
     '-o',
@@ -393,12 +471,26 @@ export async function runCodexReviewStep(
   for (const configOverride of configOverrides) {
     codexArgs.push('-c', configOverride);
   }
-  await resolvedDeps.execFile('codex', codexArgs, {
-    signal: params.signal,
-    timeout: CODEX_REVIEW_TIMEOUT_MS,
-    killSignal: PROCESS_KILL_SIGNAL,
-    maxBuffer: CODEX_REVIEW_MAX_BUFFER_BYTES,
-  });
+  let codexFailure: unknown = null;
+  try {
+    await resolvedDeps.execFile('codex', codexArgs, {
+      signal: params.signal,
+      timeout: CODEX_REVIEW_TIMEOUT_MS,
+      killSignal: PROCESS_KILL_SIGNAL,
+      maxBuffer: CODEX_REVIEW_MAX_BUFFER_BYTES,
+    });
+  } catch (error) {
+    codexFailure = error;
+    throw error;
+  } finally {
+    try {
+      await pinnedBaseRef.cleanup();
+    } catch (cleanupError) {
+      if (!codexFailure) {
+        throw cleanupError;
+      }
+    }
+  }
 
   const completedAtIso = resolvedDeps.now().toISOString();
   const pointer = buildPointer({

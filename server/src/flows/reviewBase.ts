@@ -130,7 +130,12 @@ const deriveBranchStoryNumber = (branchName: string): string | undefined =>
   branchName.match(BRANCH_STORY_PATTERN)?.[1];
 
 const sanitizeGitError = (value: string) =>
-  value.replace(/\s+/g, ' ').trim().slice(0, 300);
+  value
+    .replace(/(https?:\/\/)[^\s/@:]+:[^\s/@]+@/giu, '$1<redacted>@')
+    .replace(/(https?:\/\/)[^\s/@]+@/giu, '$1<redacted>@')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
 
 const ensureSafeOutputKey = (outputKey: string) => {
   const trimmed = outputKey.trim();

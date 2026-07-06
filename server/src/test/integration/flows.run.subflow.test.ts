@@ -1462,6 +1462,43 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
+test('flow step-boundary persistence keeps request-scoped codexReviewModelId', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-runtime-codex-model-persist-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'persist-requested-codex-model',
+      steps: [llmStep('before review')],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'persist-requested-codex-model',
+      source: 'REST',
+      working_folder: repoRoot,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const flowState = (
+      memoryConversations.get(result.conversationId)?.flags as
+        | { flow?: { codexReviewModelId?: string } }
+        | undefined
+    )?.flow;
+    assert.equal(flowState?.codexReviewModelId, 'gpt-5.4');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test(
   'resumed flows still preflight later Codex work after resuming inside loops',
   { concurrency: false },

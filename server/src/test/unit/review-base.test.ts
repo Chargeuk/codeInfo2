@@ -234,6 +234,83 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
   }
 });
 
+test('prepareReviewBase redacts credentials from persisted remote fetch errors', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-base-redacted-fetch-error-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+
+    const execFile = async (file: string, args: readonly string[]) => {
+      assert.equal(file, 'git');
+      const key = args.slice(2).join(' ');
+      switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
+        case 'branch --show-current':
+          return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+        case 'rev-parse HEAD^{commit}':
+          return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+        case 'remote get-url origin':
+          return {
+            stdout:
+              'https://user:secret-token@github.com/Chargeuk/codeInfo2.git\n',
+            stderr: '',
+          };
+        case 'fetch --prune origin':
+          throw Object.assign(new Error('remote auth failed'), {
+            code: 1,
+            stdout: '',
+            stderr:
+              'fatal: could not read Username for https://user:secret-token@github.com/Chargeuk/codeInfo2.git',
+          });
+        case 'rev-parse --verify main':
+        case 'rev-parse --verify origin/main':
+        case 'rev-parse origin/main^{commit}':
+          return { stdout: `${BASE_SHA}\n`, stderr: '' };
+        default:
+          throw Object.assign(new Error(`unexpected git command: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `unexpected git command: ${key}`,
+          });
+      }
+    };
+
+    const result = await prepareReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-review-base',
+      },
+      {
+        execFile,
+        now: () => new Date('2026-07-05T16:31:30.000Z'),
+      },
+    );
+
+    assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
+    assert.match(
+      result.artifact.remote_fetch_error ?? '',
+      /https:\/\/<redacted>@github\.com\/Chargeuk\/codeInfo2\.git/u,
+    );
+    assert.doesNotMatch(
+      result.artifact.remote_fetch_error ?? '',
+      /secret-token|user:secret-token/u,
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewBase uses cached origin HEAD when fetch fails', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-base-cached-origin-head-'),

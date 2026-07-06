@@ -40,13 +40,18 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codex-review-helper-'),
   );
+  const previousCodeInfoCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCodexHome = process.env.CODEX_HOME;
   try {
+    const configuredCodexHome = path.join(repoRoot, 'configured-codex-home');
     await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
       recursive: true,
     });
     await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
       recursive: true,
     });
+    process.env.CODEINFO_CODEX_HOME = configuredCodexHome;
+    delete process.env.CODEX_HOME;
     await fs.writeFile(
       path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
       JSON.stringify({
@@ -74,6 +79,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
             signal?: AbortSignal;
             timeout?: number;
             killSignal?: NodeJS.Signals | number;
+            env?: NodeJS.ProcessEnv;
           }
         | undefined;
     }> = [];
@@ -85,6 +91,7 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
             timeout?: number;
             killSignal?: NodeJS.Signals | number;
             maxBuffer?: number;
+            env?: NodeJS.ProcessEnv;
           }
         | undefined;
     }> = [];
@@ -195,6 +202,11 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
     assert.equal(codexCalls[0]?.options?.timeout, 1_800_000);
     assert.equal(codexCalls[0]?.options?.killSignal, 'SIGTERM');
     assert.equal(codexCalls[0]?.options?.maxBuffer, 16 * 1024 * 1024);
+    assert.equal(
+      codexCalls[0]?.options?.env?.CODEX_HOME,
+      configuredCodexHome,
+      'codex exec review should receive the resolved CODEX_HOME',
+    );
     assert.ok(gitCalls.length > 0);
     assert.equal(gitCalls[0]?.options?.signal, controller.signal);
     assert.equal(gitCalls[0]?.options?.timeout, 120_000);
@@ -230,6 +242,16 @@ test('runCodexReviewStep writes a stable pointer file and uses the canonical cur
     assert.equal(pointer.local_fallback_reason, null);
     assert.ok(pointer.review_output_file.endsWith('-codex-review.md'));
   } finally {
+    if (previousCodeInfoCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodeInfoCodexHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousCodexHome;
+    }
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
@@ -487,6 +509,113 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
     ]);
     assert.equal(result.pointer.comparison_base_ref, 'origin/main');
     assert.equal(result.pointer.resolved_base_source, 'remote');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('runCodexReviewStep preserves AbortError while checking prepared-base freshness', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-prepared-base-abort-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review-base.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        repo_alias: 'current_repository',
+        repo_root: repoRoot,
+        branch: 'feature/0000027-codex-review',
+        head_commit: HEAD_SHA,
+        logical_base_branch: 'main',
+        resolved_base_branch: 'main',
+        resolved_base_source: 'remote',
+        remote_name: 'origin',
+        remote_fetch_status: 'success',
+        local_fallback_reason: null,
+        comparison_base_ref: 'origin/main',
+        comparison_base_commit: BASE_SHA,
+        comparison_head_ref: 'HEAD',
+        comparison_rule: 'local_head_vs_resolved_base',
+        status: 'completed',
+        started_at: '2026-07-05T16:20:00.000Z',
+        completed_at: '2026-07-05T16:20:01.000Z',
+      }),
+    );
+
+    const controller = new AbortController();
+    const execFile = async (
+      file: string,
+      args: readonly string[],
+      options?: {
+        signal?: AbortSignal;
+        timeout?: number;
+        killSignal?: NodeJS.Signals | number;
+        maxBuffer?: number;
+      },
+    ) => {
+      if (file !== 'git') {
+        throw new Error(`unexpected executable: ${file}`);
+      }
+      const key = args.slice(2).join(' ');
+      switch (key) {
+        case 'rev-parse --show-toplevel':
+          return { stdout: `${repoRoot}\n`, stderr: '' };
+        case 'branch --show-current':
+          return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+        case 'rev-parse HEAD^{commit}':
+          return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+        case 'rev-parse origin/main^{commit}': {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          controller.abort();
+          assert.equal(options?.signal, controller.signal);
+          throw error;
+        }
+        default:
+          throw Object.assign(new Error(`unexpected git command: ${key}`), {
+            code: 128,
+            stdout: '',
+            stderr: `unexpected git command: ${key}`,
+          });
+      }
+    };
+
+    await assert.rejects(
+      runCodexReviewStep(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-codex-review',
+          modelId: 'gpt-5.4',
+          signal: controller.signal,
+        },
+        {
+          execFile,
+          now: () => new Date('2026-07-05T16:21:00.000Z'),
+          randomHex: () => '1234abcd',
+        },
+      ),
+      (error) => (error as Error).name === 'AbortError',
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

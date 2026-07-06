@@ -407,6 +407,14 @@ describe('agent command schema (v1)', () => {
       'codeinfo_agents/review_agent/commands/review_blind_spot_challenge.json',
       'codeinfo_agents/review_agent/commands/review_evidence_gate.json',
       'codeinfo_agents/review_agent/commands/review_findings_saturation.json',
+      'codeinfo_agents/review_agent_lite/commands/code_review_findings.json',
+      'codeinfo_agents/review_agent_lite/commands/external_review_blind_spot_challenge.json',
+      'codeinfo_agents/review_agent_lite/commands/external_review_evidence_gate.json',
+      'codeinfo_agents/review_agent_lite/commands/external_review_findings.json',
+      'codeinfo_agents/review_agent_lite/commands/external_review_findings_saturation.json',
+      'codeinfo_agents/review_agent_lite/commands/review_blind_spot_challenge.json',
+      'codeinfo_agents/review_agent_lite/commands/review_evidence_gate.json',
+      'codeinfo_agents/review_agent_lite/commands/review_findings_saturation.json',
     ] as const;
 
     for (const relativePath of commandFiles) {

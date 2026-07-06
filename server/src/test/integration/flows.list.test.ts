@@ -433,6 +433,32 @@ describe('GET /flows', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
+  test('GET /flows rejects unsafe subflow names before discovery resolves child paths', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    await writeRawFlowFile(
+      tmpDir,
+      'unsafe-subflow-name',
+      JSON.stringify({
+        description: 'unsafe subflow name',
+        steps: [{ type: 'subflow', flowNames: ['../escape'] }],
+      }),
+    );
+
+    await withFlowsDir(tmpDir, async () => {
+      const response = await supertest(buildApp()).get('/flows');
+
+      assert.equal(response.status, 200);
+      const listed = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'unsafe-subflow-name',
+      );
+      assert.equal(listed.disabled, true);
+      assert.match(String(listed.error ?? ''), /valid flow name/u);
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
   test('ingested command-step flows stay listable when the owner repo only provides command overlays without config.toml', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const flowsRoot = await fs.mkdtemp(

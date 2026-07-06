@@ -53,6 +53,37 @@ const isSafeCommandName = (raw: string): boolean => {
   );
 };
 
+const isSafeFlowName = (raw: string): boolean => {
+  const trimmed = raw.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed === path.posix.basename(trimmed) &&
+    !trimmed.includes('/') &&
+    !trimmed.includes('\\') &&
+    !trimmed.includes('..')
+  );
+};
+
+const resolveSafeChildFlowPath = (
+  flowsDir: string,
+  flowName: string,
+): string => {
+  if (!isSafeFlowName(flowName)) {
+    throw new Error(`Subflow name "${flowName}" must be a valid flow name.`);
+  }
+  const resolvedFlowsDir = path.resolve(flowsDir);
+  const childFlowPath = path.resolve(resolvedFlowsDir, `${flowName}.json`);
+  const relativePath = path.relative(resolvedFlowsDir, childFlowPath);
+  if (
+    relativePath === '' ||
+    relativePath.startsWith('..') ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error(`Subflow name "${flowName}" must stay within flowsDir.`);
+  }
+  return childFlowPath;
+};
+
 const resolveFlowsDir = (baseDir?: string): string => {
   if (baseDir) return path.resolve(baseDir);
   if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
@@ -111,9 +142,9 @@ const collectAgentTypes = async (params: {
           if (visited.has(childFlowName)) {
             continue;
           }
-          const childFlowPath = path.join(
+          const childFlowPath = resolveSafeChildFlowPath(
             params.flowsDir,
-            `${childFlowName}.json`,
+            childFlowName,
           );
           const childFlowRaw = await fs
             .readFile(childFlowPath, 'utf8')
@@ -468,7 +499,10 @@ const flowUsesCodexReview = async (params: {
       if (visited.has(childFlowName)) {
         continue;
       }
-      const childFlowPath = path.join(params.flowsDir, `${childFlowName}.json`);
+      const childFlowPath = resolveSafeChildFlowPath(
+        params.flowsDir,
+        childFlowName,
+      );
       const childFlowRaw = await fs
         .readFile(childFlowPath, 'utf8')
         .catch(() => null);
@@ -589,25 +623,48 @@ export async function discoverFlows(params?: {
       }
 
       const parsed = parseFlowFile(jsonText, { flowName: name });
-      const listWarnings = await collectFlowWarnings({
-        flowName: name,
-        flowsDir: params.flowsDir,
-        parsedFlow: parsed.ok ? parsed.flow : undefined,
-        discoveredAgentsByName,
-      });
-      const availability = await collectFlowAvailability({
-        parsedFlow: parsed.ok ? parsed.flow : undefined,
-        discoveredAgentsByName,
-        availabilityContext,
-        flowName: name,
-        flowsDir: params.flowsDir,
-        codeInfo2Root,
-        repos: params.repos,
-        sourceId: params.sourceId,
-        sourceLabel: params.sourceLabel,
-      });
+      let listWarnings: string[] | undefined;
+      let availability:
+        | Awaited<ReturnType<typeof collectFlowAvailability>>
+        | undefined;
+      let discoveryError: string | undefined;
+      try {
+        listWarnings = await collectFlowWarnings({
+          flowName: name,
+          flowsDir: params.flowsDir,
+          parsedFlow: parsed.ok ? parsed.flow : undefined,
+          discoveredAgentsByName,
+        });
+        availability = await collectFlowAvailability({
+          parsedFlow: parsed.ok ? parsed.flow : undefined,
+          discoveredAgentsByName,
+          availabilityContext,
+          flowName: name,
+          flowsDir: params.flowsDir,
+          codeInfo2Root,
+          repos: params.repos,
+          sourceId: params.sourceId,
+          sourceLabel: params.sourceLabel,
+        });
+      } catch (error) {
+        discoveryError =
+          error instanceof Error ? error.message : 'Invalid flow file';
+      }
+      const resolvedAvailability = availability ?? {
+        warnings: undefined,
+        warningDetails: undefined,
+        disabledReason: discoveryError
+          ? {
+              code: 'agent_not_found' as const,
+              message: discoveryError,
+            }
+          : undefined,
+      };
       const mergedWarnings = [
-        ...new Set([...(listWarnings ?? []), ...(availability.warnings ?? [])]),
+        ...new Set([
+          ...(listWarnings ?? []),
+          ...(resolvedAvailability.warnings ?? []),
+        ]),
       ];
       const warnings = mergedWarnings.length > 0 ? mergedWarnings : undefined;
       summaries.push(
@@ -615,7 +672,7 @@ export async function discoverFlows(params?: {
           name,
           parsed,
           error: parsed.ok
-            ? availability.disabledReason?.message
+            ? (discoveryError ?? resolvedAvailability.disabledReason?.message)
             : 'Invalid flow file',
           warnings,
           sourceId: params.sourceId,
@@ -624,9 +681,9 @@ export async function discoverFlows(params?: {
       );
       const latest = summaries[summaries.length - 1];
       if (latest) {
-        latest.warningDetails = availability.warningDetails;
-        latest.disabledReason = availability.disabledReason;
-        if (availability.disabledReason) {
+        latest.warningDetails = resolvedAvailability.warningDetails;
+        latest.disabledReason = resolvedAvailability.disabledReason;
+        if (resolvedAvailability.disabledReason) {
           latest.disabled = true;
         }
       }

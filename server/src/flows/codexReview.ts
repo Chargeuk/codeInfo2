@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { resolveCodexHome } from '../config/codexConfig.js';
 import {
   prepareReviewBase,
   readPreparedReviewBase,
@@ -103,6 +104,7 @@ type ExecFileOptions = {
   killSignal?: NodeJS.Signals | number;
   encoding?: BufferEncoding;
   maxBuffer?: number;
+  env?: NodeJS.ProcessEnv;
 };
 
 type ExecFileLike = (
@@ -234,7 +236,13 @@ const runGitOrThrow = async (
       timeout: GIT_PROCESS_TIMEOUT_MS,
       killSignal: PROCESS_KILL_SIGNAL,
     });
-  } catch {
+  } catch (error) {
+    if (
+      signal?.aborted ||
+      (error as Error | undefined)?.name === 'AbortError'
+    ) {
+      throw error;
+    }
     throw new Error(failureMessage);
   }
 };
@@ -254,7 +262,13 @@ const gitStdoutOrThrow = async (
       killSignal: PROCESS_KILL_SIGNAL,
     });
     return result.stdout.trim();
-  } catch {
+  } catch (error) {
+    if (
+      signal?.aborted ||
+      (error as Error | undefined)?.name === 'AbortError'
+    ) {
+      throw error;
+    }
     throw new Error(failureMessage);
   }
 };
@@ -319,7 +333,13 @@ const isPreparedBaseStillFresh = async (params: {
     return (
       currentComparisonBaseCommit === params.artifact.comparison_base_commit
     );
-  } catch {
+  } catch (error) {
+    if (
+      params.signal?.aborted ||
+      (error as Error | undefined)?.name === 'AbortError'
+    ) {
+      throw error;
+    }
     return false;
   }
 };
@@ -528,6 +548,10 @@ export async function runCodexReviewStep(
       timeout: CODEX_REVIEW_TIMEOUT_MS,
       killSignal: PROCESS_KILL_SIGNAL,
       maxBuffer: CODEX_REVIEW_MAX_BUFFER_BYTES,
+      env: {
+        ...process.env,
+        CODEX_HOME: resolveCodexHome(),
+      },
     });
   } catch (error) {
     codexFailure = error;

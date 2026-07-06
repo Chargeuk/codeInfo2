@@ -4022,6 +4022,7 @@ async function runFlowUnlocked(params: {
       loopStack,
       pendingLoopControl,
       activeSubflows,
+      codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
   const clearContinueBoundaryForActiveLoop = () => {

@@ -52,7 +52,10 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
-import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
+import {
+  bindCurrentTestOverrides,
+  runWithTestOverrides,
+} from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -195,6 +198,15 @@ const withAgentRuntimeEnv = async (
               params.compatEndpoints,
           }),
     },
+    run,
+  );
+
+const withScopedAgentServiceDeps = async (
+  overrides: Parameters<typeof __setAgentServiceDepsForTests>[0],
+  run: () => Promise<void>,
+) =>
+  await runWithTestOverrides(
+    { agentServiceDeps: overrides as Record<string, unknown> },
     run,
   );
 
@@ -1330,74 +1342,77 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
     'model = "copilot-model"\n',
     'utf8',
   );
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: false,
-      toolsAvailable: false,
-      blockingStage: 'authentication',
-      reason: 'copilot unavailable',
-      models: [],
-      modelsRaw: [],
-      authSource: 'unauthenticated',
-    }),
-  });
-
   try {
-    await withAgentRuntimeEnv(
-      { agentsHome, codexHome, copilotHome },
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'gpt-5.3-codex',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: false,
+          toolsAvailable: false,
+          blockingStage: 'authentication',
+          reason: 'copilot unavailable',
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated',
+        }),
+      },
       async () => {
-        await withFlowHarness(async ({ tmpDir }) => {
-          await writeFlowFile({
-            tmpDir,
-            flowName: 'fallback-warning-flow',
-            steps: [
-              {
-                type: 'llm',
-                agentType: 'coding_agent',
-                identifier: 'fallback-warning',
-                messages: [{ role: 'user', content: ['after'] }],
-              },
-            ],
-          });
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome },
+          async () => {
+            await withFlowHarness(async ({ tmpDir }) => {
+              await writeFlowFile({
+                tmpDir,
+                flowName: 'fallback-warning-flow',
+                steps: [
+                  {
+                    type: 'llm',
+                    agentType: 'coding_agent',
+                    identifier: 'fallback-warning',
+                    messages: [{ role: 'user', content: ['after'] }],
+                  },
+                ],
+              });
 
-          const result = await startFlowRun({
-            flowName: 'fallback-warning-flow',
-            source: 'REST',
-          });
+              const result = await startFlowRun({
+                flowName: 'fallback-warning-flow',
+                source: 'REST',
+              });
 
-          assert.equal(
-            result.warnings?.some((warning) =>
-              warning.includes('Unknown key agent.top_level_unknown'),
-            ) ?? false,
-            true,
-          );
-        });
+              assert.equal(
+                result.warnings?.some((warning) =>
+                  warning.includes('Unknown key agent.top_level_unknown'),
+                ) ?? false,
+                true,
+              );
+            });
+          },
+        );
       },
     );
   } finally {
@@ -1457,79 +1472,82 @@ test('flow start does not surface warnings for supported Codex compatibility key
     'model = "copilot-model"\n',
     'utf8',
   );
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: false,
-      toolsAvailable: false,
-      blockingStage: 'authentication',
-      reason: 'copilot unavailable',
-      models: [],
-      modelsRaw: [],
-      authSource: 'unauthenticated',
-    }),
-  });
-
   try {
-    await withAgentRuntimeEnv(
-      { agentsHome, codexHome, copilotHome },
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'gpt-5.3-codex',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: false,
+          toolsAvailable: false,
+          blockingStage: 'authentication',
+          reason: 'copilot unavailable',
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated',
+        }),
+      },
       async () => {
-        await withFlowHarness(async ({ tmpDir }) => {
-          await writeFlowFile({
-            tmpDir,
-            flowName: 'supported-config-flow',
-            steps: [
-              {
-                type: 'llm',
-                agentType: 'coding_agent',
-                identifier: 'supported-config-warning-check',
-                messages: [{ role: 'user', content: ['after'] }],
-              },
-            ],
-          });
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome },
+          async () => {
+            await withFlowHarness(async ({ tmpDir }) => {
+              await writeFlowFile({
+                tmpDir,
+                flowName: 'supported-config-flow',
+                steps: [
+                  {
+                    type: 'llm',
+                    agentType: 'coding_agent',
+                    identifier: 'supported-config-warning-check',
+                    messages: [{ role: 'user', content: ['after'] }],
+                  },
+                ],
+              });
 
-          const result = await startFlowRun({
-            flowName: 'supported-config-flow',
-            source: 'REST',
-          });
+              const result = await startFlowRun({
+                flowName: 'supported-config-flow',
+                source: 'REST',
+              });
 
-          const warningsText = result.warnings?.join('\n') ?? '';
-          assert.equal(
-            /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
-              warningsText,
-            ),
-            false,
-          );
-          assert.equal(
-            /Unknown key agent\.features\.fast_mode/u.test(warningsText),
-            false,
-          );
-        });
+              const warningsText = result.warnings?.join('\n') ?? '';
+              assert.equal(
+                /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
+                  warningsText,
+                ),
+                false,
+              );
+              assert.equal(
+                /Unknown key agent\.features\.fast_mode/u.test(warningsText),
+                false,
+              );
+            });
+          },
+        );
       },
     );
   } finally {
@@ -1569,80 +1587,83 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
     'model = "copilot-model"\n',
     'utf8',
   );
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: false,
-      toolsAvailable: false,
-      blockingStage: 'authentication',
-      reason: 'copilot unavailable',
-      models: [],
-      modelsRaw: [],
-      authSource: 'unauthenticated',
-    }),
-  });
-
   try {
-    await withAgentRuntimeEnv(
-      { agentsHome, codexHome, copilotHome, flowsDir },
-      async () => {
-        await writeFlowFile({
-          tmpDir: flowsDir,
-          flowName: 'task26-flow-warning-start',
-          steps: [
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
             {
-              type: 'llm',
-              agentType: 'coding_agent',
-              identifier: 'warning-start',
-              messages: [{ role: 'user', content: ['after'] }],
+              model: 'gpt-5.3-codex',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
             },
           ],
-        });
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: false,
+          toolsAvailable: false,
+          blockingStage: 'authentication',
+          reason: 'copilot unavailable',
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome, flowsDir },
+          async () => {
+            await writeFlowFile({
+              tmpDir: flowsDir,
+              flowName: 'task26-flow-warning-start',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'warning-start',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-        const response = await supertest(makeApp())
-          .post('/flows/task26-flow-warning-start/run')
-          .send({})
-          .expect(202);
+            const response = await supertest(makeApp())
+              .post('/flows/task26-flow-warning-start/run')
+              .send({})
+              .expect(202);
 
-        assert.equal(response.body.status, 'started');
-        assert.equal(response.body.providerId, 'codex');
-        assert.equal(response.body.modelId, 'gpt-5.3-codex');
-        assert.equal(
-          response.body.warnings.some((warning: string) =>
-            warning.includes('unsupported provider "bad-provider"'),
-          ),
-          true,
-        );
-        assert.equal(
-          response.body.warnings.some((warning: string) =>
-            warning.includes('fallback provider "codex"'),
-          ),
-          true,
+            assert.equal(response.body.status, 'started');
+            assert.equal(response.body.providerId, 'codex');
+            assert.equal(response.body.modelId, 'gpt-5.3-codex');
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes('unsupported provider "bad-provider"'),
+              ),
+              true,
+            );
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes('fallback provider "codex"'),
+              ),
+              true,
+            );
+          },
         );
       },
     );
@@ -1824,94 +1845,97 @@ test('flow run survives provider-specific runtime-config failure by falling back
     'tool_access = [\n',
     'utf8',
   );
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      reason: undefined,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [
-        {
-          id: 'copilot-gpt-5',
-          name: 'Copilot GPT-5',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
   try {
-    await withAgentRuntimeEnv(
-      { agentsHome, codexHome, copilotHome, flowsDir },
-      async () => {
-        await writeFlowFile({
-          tmpDir: flowsDir,
-          flowName: 'task30-flow-provider-runtime-fallback',
-          steps: [
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
             {
-              type: 'llm',
-              agentType: 'coding_agent',
-              identifier: 'provider-runtime-fallback',
-              messages: [{ role: 'user', content: ['after'] }],
+              model: 'gpt-5.3-codex',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
             },
           ],
-        });
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-gpt-5'],
+          modelsRaw: [
+            {
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome, flowsDir },
+          async () => {
+            await writeFlowFile({
+              tmpDir: flowsDir,
+              flowName: 'task30-flow-provider-runtime-fallback',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'provider-runtime-fallback',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-        const response = await supertest(makeApp())
-          .post('/flows/task30-flow-provider-runtime-fallback/run')
-          .send({})
-          .expect(202);
+            const response = await supertest(makeApp())
+              .post('/flows/task30-flow-provider-runtime-fallback/run')
+              .send({})
+              .expect(202);
 
-        assert.equal(response.body.status, 'started');
-        assert.equal(response.body.providerId, 'codex');
-        assert.equal(
-          memoryConversations.get(response.body.conversationId)?.provider,
-          'codex',
-        );
-        assert.equal(
-          response.body.warnings.some((warning: string) =>
-            warning.includes(
-              'requested provider "copilot" because its runtime config could not load',
-            ),
-          ),
-          true,
-        );
-        assert.equal(
-          response.body.warnings.some((warning: string) =>
-            warning.includes('fallback provider "codex"'),
-          ),
-          true,
+            assert.equal(response.body.status, 'started');
+            assert.equal(response.body.providerId, 'codex');
+            assert.equal(
+              memoryConversations.get(response.body.conversationId)?.provider,
+              'codex',
+            );
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes(
+                  'requested provider "copilot" because its runtime config could not load',
+                ),
+              ),
+              true,
+            );
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes('fallback provider "codex"'),
+              ),
+              true,
+            );
+          },
         );
       },
     );
@@ -1950,75 +1974,78 @@ test('flow run fails clearly when no fallback provider can execute after request
     'tool_access = [\n',
     'utf8',
   );
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: false,
-      authPresent: false,
-      configPresent: false,
-      reason: 'codex unavailable',
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      reason: undefined,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [
-        {
-          id: 'copilot-gpt-5',
-          name: 'Copilot GPT-5',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
   try {
-    await withAgentRuntimeEnv(
-      { agentsHome, codexHome, copilotHome, flowsDir },
-      async () => {
-        await writeFlowFile({
-          tmpDir: flowsDir,
-          flowName: 'task30-flow-provider-runtime-unavailable',
-          steps: [
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: false,
+          authPresent: false,
+          configPresent: false,
+          reason: 'codex unavailable',
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-gpt-5'],
+          modelsRaw: [
             {
-              type: 'llm',
-              agentType: 'coding_agent',
-              identifier: 'provider-runtime-unavailable',
-              messages: [{ role: 'user', content: ['after'] }],
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
             },
           ],
-        });
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome, flowsDir },
+          async () => {
+            await writeFlowFile({
+              tmpDir: flowsDir,
+              flowName: 'task30-flow-provider-runtime-unavailable',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'provider-runtime-unavailable',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-        const response = await supertest(makeApp())
-          .post('/flows/task30-flow-provider-runtime-unavailable/run')
-          .send({})
-          .expect(503);
+            const response = await supertest(makeApp())
+              .post('/flows/task30-flow-provider-runtime-unavailable/run')
+              .send({})
+              .expect(503);
 
-        assert.equal(response.body.error, 'provider_unavailable');
-        assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
-        assert.match(
-          String(response.body.reason),
-          /runtime config could not load/i,
+            assert.equal(response.body.error, 'provider_unavailable');
+            assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+            assert.match(
+              String(response.body.reason),
+              /runtime config could not load/i,
+            );
+          },
         );
       },
     );

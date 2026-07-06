@@ -95,6 +95,11 @@ import type {
   TurnUsageMetadata,
 } from '../mongo/turn.js';
 import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
+import {
+  enterTestOverrideScope,
+  getScopedFlowServiceDepsOverride,
+  hasActiveTestOverrideScope,
+} from '../test/support/testOverrideScope.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 import {
@@ -296,6 +301,18 @@ export async function getFlowDetails(params: {
 
 const flowServiceDeps: FlowServiceDeps = {
   ...defaultFlowServiceDeps,
+};
+
+const getEffectiveFlowServiceDeps = (): FlowServiceDeps => {
+  const scoped =
+    getScopedFlowServiceDepsOverride() as Partial<FlowServiceDeps> | undefined;
+  if (!scoped) {
+    return flowServiceDeps;
+  }
+  return {
+    ...flowServiceDeps,
+    ...scoped,
+  };
 };
 
 type FreshRunRetryOwnershipRecord = {
@@ -1030,10 +1047,22 @@ const clearFreshRunRetryOwnership = (params: {
 export function __setFlowServiceDepsForTests(
   overrides: Partial<FlowServiceDeps>,
 ) {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      flowServiceDeps: overrides as Record<string, unknown>,
+    });
+    return;
+  }
   Object.assign(flowServiceDeps, overrides);
 }
 
 export function __resetFlowServiceDepsForTests() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      flowServiceDeps: null,
+    });
+    return;
+  }
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
   freshRunRetryOwnershipByKey.clear();
   freshRunRetryOwnershipCompletedByKey.clear();
@@ -8372,6 +8401,7 @@ async function runFlowUnlocked(params: {
                 },
               }),
             executeReingest: async (reingestItem) => {
+              const flowServiceDeps = getEffectiveFlowServiceDeps();
               const result = await executeReingestRequest({
                 request: reingestItem,
                 surface: 'flow_command',
@@ -8584,7 +8614,8 @@ async function runFlowUnlocked(params: {
         deps: {
           listIngestedRepositories:
             params.repositoryContext.listIngestedRepositories,
-          runReingestRepository: flowServiceDeps.runReingestRepository,
+          runReingestRepository: getEffectiveFlowServiceDeps()
+            .runReingestRepository,
           appendLog: append,
         },
       });
@@ -8620,6 +8651,7 @@ async function runFlowUnlocked(params: {
       return 'failed';
     }
 
+    const flowServiceDeps = getEffectiveFlowServiceDeps();
     const callId = flowServiceDeps.createCallId();
     const toolResult = flowServiceDeps.buildReingestToolResult({
       callId,

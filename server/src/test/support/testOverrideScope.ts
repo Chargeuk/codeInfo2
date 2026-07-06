@@ -22,6 +22,7 @@ type TestOverrideStore = {
   codexDetection?: CodexDetectionOverride;
   agentServiceDeps?: OverrideRecord;
   agentAvailabilityDeps?: OverrideRecord;
+  flowServiceDeps?: OverrideRecord;
   envOverrides?: Record<string, string | undefined>;
   providerBootstrapStatuses?: Partial<
     Record<ChatProviderId, ProviderBootstrapStatusOverride>
@@ -32,6 +33,7 @@ type TestOverridePatch = {
   codexDetection?: CodexDetectionOverride | null;
   agentServiceDeps?: OverrideRecord | null;
   agentAvailabilityDeps?: OverrideRecord | null;
+  flowServiceDeps?: OverrideRecord | null;
   envOverrides?: Record<string, string | undefined> | null;
   providerBootstrapStatuses?: Partial<
     Record<ChatProviderId, ProviderBootstrapStatusOverride | null>
@@ -105,6 +107,7 @@ const mergeStore = (
     current?.agentAvailabilityDeps,
     patch.agentAvailabilityDeps,
   ),
+  flowServiceDeps: mergeRecord(current?.flowServiceDeps, patch.flowServiceDeps),
   envOverrides:
     patch.envOverrides === undefined
       ? current?.envOverrides
@@ -161,6 +164,12 @@ export function getScopedAgentAvailabilityDepsOverride():
   | OverrideRecord
   | undefined {
   return storage.getStore()?.agentAvailabilityDeps;
+}
+
+export function getScopedFlowServiceDepsOverride():
+  | OverrideRecord
+  | undefined {
+  return storage.getStore()?.flowServiceDeps;
 }
 
 export function getScopedEnvOverrides():

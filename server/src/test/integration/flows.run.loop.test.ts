@@ -58,6 +58,7 @@ import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
   connectWs,
+  peekBufferedEvents,
   sendJson,
   waitForEvent,
   waitForClose,
@@ -4617,14 +4618,35 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        await waitForLoopTerminalOutcome({
-          ws: wsUrl,
-          conversationId,
-          expectedStatus: 'stopped',
-          timeoutMs: 5000,
-        });
+        const stopOutcome =
+          (await waitForLoopTerminalOutcome({
+            ws: wsUrl,
+            conversationId,
+            expectedStatus: 'stopped',
+            timeoutMs: 5000,
+          }).catch(() => null)) ?? null;
 
-        await waitForRuntimeCleanup(conversationId);
+        await waitForRuntimeCleanup(
+          conversationId,
+          8000,
+          () =>
+            JSON.stringify({
+              stopOutcome,
+              recentEvents: peekBufferedEvents(wsUrl).slice(-12),
+              runtimeState: JSON.parse(
+                describeFlowRuntimeState(conversationId, [
+                  'coding_agent:outer',
+                  'coding_agent:inner',
+                  'coding_agent:inner-break',
+                  'coding_agent:outer-break',
+                ]),
+              ),
+            }),
+        );
+
+        if (stopOutcome) {
+          assert.equal(stopOutcome.status, 'stopped');
+        }
 
         const secondRun = await supertest(baseUrl)
           .post('/flows/llm-basic/run')

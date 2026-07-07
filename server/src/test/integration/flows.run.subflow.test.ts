@@ -20,7 +20,7 @@ import {
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
-import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -487,15 +487,31 @@ let providerHomes: Awaited<
   ReturnType<typeof createIsolatedProviderHomeEnv>
 > | null = null;
 
+const withSubflowTestEnv = async <T>(
+  tmpDir: string,
+  run: () => Promise<T>,
+): Promise<T> => {
+  assert.ok(providerHomes, 'provider homes should be initialized before tests');
+  return await runWithTestEnvOverrides(
+    {
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      ...providerHomes.envOverrides,
+      FLOWS_DIR: tmpDir,
+    },
+    run,
+  );
+};
+
+const startSubflowRun = async (
+  tmpDir: string,
+  params: Parameters<typeof startFlowRun>[0],
+) => await withSubflowTestEnv(tmpDir, async () => await startFlowRun(params));
+
 beforeEach(async () => {
   providerHomes = await createIsolatedProviderHomeEnv(
     'flow-subflow-provider-homes-',
   );
   installDeterministicCodexAvailabilityBootstrap();
-  enterTestEnvOverrides({
-    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-    ...providerHomes.envOverrides,
-  });
   memoryConversations.clear();
   memoryTurns.clear();
 });
@@ -510,7 +526,6 @@ afterEach(async () => {
 
 test('subflow step launches a child flow, waits for completion, and uses the generated child title', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-ok-'));
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -524,7 +539,7 @@ test('subflow step launches a child flow, waits for completion, and uses the gen
       steps: [subflowStep('Run Child', 'child-ok')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-ok',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -575,7 +590,6 @@ test('subflow step launches multiple child flows in parallel and waits for all o
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-ok-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -594,7 +608,7 @@ test('subflow step launches multiple child flows in parallel and waits for all o
       steps: [subflowStep('Run Child Batch', 'child-fast', 'child-slow')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-parallel',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -688,7 +702,6 @@ test('parallel subflow waits for every child and fails when any child fails', as
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-fail-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -709,7 +722,7 @@ test('parallel subflow waits for every child and fails when any child fails', as
       ],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-parallel-fail',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -749,7 +762,6 @@ test('nested subflows track only direct children per conversation and still comp
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-nested-parallel-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -773,7 +785,7 @@ test('nested subflows track only direct children per conversation and still comp
       steps: [subflowStep('Run Child Batch', 'child-nested', 'child-direct')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-nested',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -814,7 +826,6 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-inflight-rotation-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -833,7 +844,7 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
       conversationId: string;
       inflightId: string | null;
     }> = [];
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-two-step',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -862,7 +873,6 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
 
 test('subflow step mirrors child failure onto the parent flow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-fail-'));
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -876,7 +886,7 @@ test('subflow step mirrors child failure onto the parent flow', async () => {
       steps: [subflowStep('Run Broken Child', 'child-fail')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-fail',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -900,7 +910,6 @@ test('subflow waits for the full child flow and can fail on a later child step',
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-fail-later-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -914,7 +923,7 @@ test('subflow waits for the full child flow and can fail on a later child step',
       steps: [subflowStep('Run Later Failure', 'child-fail-later')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-fail-later',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -954,7 +963,6 @@ test('subflow fails when the child crashes after a prior successful step', async
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stale-ok-crash-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -968,7 +976,7 @@ test('subflow fails when the child crashes after a prior successful step', async
       steps: [subflowStep('Run Crashing Child', 'child-crash-after-ok')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-crash-after-ok',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -1012,7 +1020,6 @@ test('subflow fails fast when flows reference each other recursively', async () 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-recursive-cycle-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1026,7 +1033,7 @@ test('subflow fails fast when flows reference each other recursively', async () 
       steps: [subflowStep('Run Child', 'child-cycle-b')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-cycle-a',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -1069,7 +1076,6 @@ test('subflow fails fast when flows reference each other recursively', async () 
 
 test('stopping the parent flow stops the running child subflow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
   let releaseBlockedChild = false;
 
   try {
@@ -1096,7 +1102,7 @@ test('stopping the parent flow stops the running child subflow', async () => {
       }
       return 'released';
     };
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-stop',
       conversationId: parentConversationId,
       customTitle: 'Parent Review',
@@ -1189,7 +1195,6 @@ test('stopping the parent flow stops every running child in a parallel subflow s
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-parallel-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
   let releaseBlockedChildren = false;
 
   try {
@@ -1223,7 +1228,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       }
       return 'released';
     };
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-stop-parallel',
       conversationId: parentConversationId,
       customTitle: 'Parent Review',
@@ -1377,7 +1382,6 @@ test('parent stop becomes warning when cancel arrives after child completion', a
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-sticky-parent-stop-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1393,7 +1397,7 @@ test('parent stop becomes warning when cancel arrives after child completion', a
 
     let parentRunToken: string | undefined;
     const executions: string[] = [];
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-sticky-stop',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -1446,7 +1450,6 @@ test('pending parent stop prevents launching a new child subflow', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-before-launch-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1460,7 +1463,7 @@ test('pending parent stop prevents launching a new child subflow', async () => {
       steps: [subflowStep('Run Child', 'child-never-started')],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubflowRun(tmpDir, {
       flowName: 'parent-stop-before-launch',
       customTitle: 'Parent Review',
       source: 'REST',
@@ -1492,7 +1495,6 @@ test('resume reattaches to an already running child subflow instead of launching
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1507,7 +1509,7 @@ test('resume reattaches to an already running child subflow instead of launching
     });
 
     let childRunToken: string | undefined;
-    const childStart = await startFlowRun({
+    const childStart = await startSubflowRun(tmpDir, {
       flowName: 'child-resume',
       customTitle: 'Resume Parent-Run Slow Child',
       source: 'REST',
@@ -1551,7 +1553,7 @@ test('resume reattaches to an already running child subflow instead of launching
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-resume',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -1577,7 +1579,6 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-legacy-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1592,7 +1593,7 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
     });
 
     let childRunToken: string | undefined;
-    const childStart = await startFlowRun({
+    const childStart = await startSubflowRun(tmpDir, {
       flowName: 'child-resume-legacy',
       customTitle: 'Resume Parent-Run Slow Child',
       source: 'REST',
@@ -1634,7 +1635,7 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-resume-legacy',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -1660,7 +1661,6 @@ test('resume reattaches to already running parallel child subflows instead of la
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-parallel-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await withDeterministicCodexAvailabilityBootstrap(async () => {
@@ -1682,7 +1682,7 @@ test('resume reattaches to already running parallel child subflows instead of la
 
     let childRunTokenA: string | undefined;
     let childRunTokenB: string | undefined;
-    const childStartA = await startFlowRun({
+    const childStartA = await startSubflowRun(tmpDir, {
       flowName: 'child-resume-a',
       customTitle: 'Resume Parent-Run Slow Batch-child-resume-a',
       source: 'REST',
@@ -1691,7 +1691,7 @@ test('resume reattaches to already running parallel child subflows instead of la
         childRunTokenA = runToken;
       },
     });
-    const childStartB = await startFlowRun({
+    const childStartB = await startSubflowRun(tmpDir, {
       flowName: 'child-resume-b',
       customTitle: 'Resume Parent-Run Slow Batch-child-resume-b',
       source: 'REST',
@@ -1743,7 +1743,7 @@ test('resume reattaches to already running parallel child subflows instead of la
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-resume-parallel',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -1787,7 +1787,6 @@ test('resumed parent stop wins when the restored child already finished', async 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-terminal-stop-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1802,7 +1801,7 @@ test('resumed parent stop wins when the restored child already finished', async 
     });
 
     let childRunToken: string | undefined;
-    const childStart = await startFlowRun({
+    const childStart = await startSubflowRun(tmpDir, {
       flowName: 'child-resume-terminal',
       customTitle: 'Resume Parent-Run Finished Child',
       source: 'REST',
@@ -1847,7 +1846,7 @@ test('resumed parent stop wins when the restored child already finished', async 
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-resume-terminal',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -1877,7 +1876,6 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-terminal-parallel-stop-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1904,7 +1902,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
 
     let childRunTokenA: string | undefined;
     let childRunTokenB: string | undefined;
-    const childStartA = await startFlowRun({
+    const childStartA = await startSubflowRun(tmpDir, {
       flowName: 'child-resume-terminal-a',
       customTitle: 'Resume Parent-Run Finished Batch-child-resume-terminal-a',
       source: 'REST',
@@ -1913,7 +1911,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
         childRunTokenA = runToken;
       },
     });
-    const childStartB = await startFlowRun({
+    const childStartB = await startSubflowRun(tmpDir, {
       flowName: 'child-resume-terminal-b',
       customTitle: 'Resume Parent-Run Finished Batch-child-resume-terminal-b',
       source: 'REST',
@@ -1969,7 +1967,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-resume-terminal-parallel',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -2009,7 +2007,6 @@ test('resume fails stale subflows that have no active child run or terminal resu
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2080,7 +2077,7 @@ test('resume fails stale subflows that have no active child run or terminal resu
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-stale',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -2106,7 +2103,6 @@ test('resume fails stale legacy activeSubflow state that has no active child run
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-legacy-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2175,7 +2171,7 @@ test('resume fails stale legacy activeSubflow state that has no active child run
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-stale-legacy',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -2201,7 +2197,6 @@ test('resume fails stale remembered subflows before launching missing parallel c
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-before-launch-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2277,7 +2272,7 @@ test('resume fails stale remembered subflows before launching missing parallel c
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-stale-parallel',
       conversationId: parentConversationId,
       resumeStepPath: [],
@@ -2308,7 +2303,6 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-persisted-title-'),
   );
-  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2346,7 +2340,7 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
       updatedAt: now,
     } as Conversation);
 
-    const resumed = await startFlowRun({
+    const resumed = await startSubflowRun(tmpDir, {
       flowName: 'parent-title',
       conversationId: parentConversationId,
       resumeStepPath: [],

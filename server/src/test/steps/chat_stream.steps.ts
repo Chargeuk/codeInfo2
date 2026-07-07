@@ -91,15 +91,16 @@ function createConversationId(prefix: string) {
 
 async function removeDirectoryWithRetry(
   targetPath: string,
-  attempts = 3,
+  attempts = 8,
 ): Promise<void> {
+  let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       await fs.rm(targetPath, { recursive: true, force: true });
       return;
     } catch (error) {
+      lastError = error;
       if (
-        attempt === attempts ||
         !(
           error instanceof Error &&
           'code' in error &&
@@ -109,9 +110,29 @@ async function removeDirectoryWithRetry(
         throw error;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, attempt * 100));
+      const remainingEntries = await fs
+        .readdir(targetPath)
+        .catch(() => [] as string[]);
+      if (attempt === attempts) {
+        throw new Error(
+          [
+            `Failed to remove ${targetPath} after ${attempts} attempts`,
+            `last_code=${String((error as { code?: string }).code ?? 'unknown')}`,
+            `remaining_entries=${remainingEntries.join(',') || '(none)'}`,
+          ].join(' | '),
+          { cause: error },
+        );
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(1000, attempt * 200)),
+      );
     }
   }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Failed to remove ${targetPath}`);
 }
 
 async function writeCodexChatConfig(params: {
@@ -280,8 +301,9 @@ After(async () => {
       ORIGINAL_CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   }
   if (tempCodexHomeForScenario) {
-    await removeDirectoryWithRetry(tempCodexHomeForScenario);
+    const codexHomeToRemove = tempCodexHomeForScenario;
     tempCodexHomeForScenario = null;
+    await removeDirectoryWithRetry(codexHomeToRemove);
   }
 });
 

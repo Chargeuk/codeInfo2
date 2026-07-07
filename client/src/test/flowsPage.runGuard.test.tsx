@@ -10,10 +10,10 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
-  setScopedTestEnvValue('MODE', 'test');
   global.fetch = mockFetch;
 });
 beforeEach(() => {
+  setScopedTestEnvValue('MODE', 'test');
   mockFetch.mockReset();
   (
     globalThis as unknown as {

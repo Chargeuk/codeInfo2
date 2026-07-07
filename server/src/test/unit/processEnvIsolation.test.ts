@@ -49,12 +49,14 @@ test(
 );
 
 test('replaceScopedTestProcessEnv stays scoped to the active test', () => {
+  beginScopedTestEnvIsolation();
   replaceScopedTestProcessEnv({
     ...process.env,
     DEV_PROCESS_ENV_REPLACE_CANARY: 'scoped',
   });
 
   assert.equal(process.env.DEV_PROCESS_ENV_REPLACE_CANARY, 'scoped');
+  endScopedTestEnvIsolation();
 });
 
 test('out-of-scope scoped env helpers throw immediately', () => {
@@ -67,6 +69,26 @@ test('out-of-scope scoped env helpers throw immediately', () => {
   );
   assert.throws(
     () => clearScopedTestEnvValue('DEV_PROCESS_ENV_OUT_OF_SCOPE'),
+    /outside an active test scope/,
+  );
+  assert.throws(
+    () =>
+      replaceScopedTestProcessEnv({
+        DEV_PROCESS_ENV_REPLACE_OUT_OF_SCOPE: 'nope',
+      }),
+    /outside an active test scope/,
+  );
+  assert.throws(
+    () =>
+      Reflect.set(process.env, 'DEV_PROCESS_ENV_DIRECT_OUT_OF_SCOPE', 'nope'),
+    /outside an active test scope/,
+  );
+  assert.throws(
+    () =>
+      Reflect.deleteProperty(
+        process.env,
+        'DEV_PROCESS_ENV_DIRECT_OUT_OF_SCOPE',
+      ),
     /outside an active test scope/,
   );
 

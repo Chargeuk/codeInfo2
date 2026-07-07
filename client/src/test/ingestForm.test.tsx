@@ -4,15 +4,11 @@ import IngestForm from '../components/ingest/IngestForm';
 import { mockJsonResponse } from './support/fetchMock';
 describe('IngestForm', () => {
   const mockFetch = jest.fn<typeof fetch>();
-  const originalMode = process.env.MODE;
   beforeAll(() => {
-    setScopedTestEnvValue('MODE', 'test');
     global.fetch = mockFetch;
   });
-  afterAll(() => {
-    setScopedTestEnvValue('MODE', originalMode);
-  });
   beforeEach(() => {
+    setScopedTestEnvValue('MODE', 'test');
     mockFetch.mockReset();
   });
   const enqueueFetchJson = (payloads: unknown[]) => {

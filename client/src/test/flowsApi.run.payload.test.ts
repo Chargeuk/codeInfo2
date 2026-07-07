@@ -1,10 +1,10 @@
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 const mockFetch = getFetchMock();
 beforeAll(() => {
-    setScopedTestEnvValue("MODE", 'test');
     global.fetch = mockFetch;
 });
 beforeEach(() => {
+    setScopedTestEnvValue("MODE", 'test');
     mockFetch.mockReset();
     mockFetch.mockResolvedValue(mockJsonResponse({
         status: 'started',

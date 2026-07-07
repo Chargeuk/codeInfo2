@@ -12,10 +12,10 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
-  setScopedTestEnvValue('MODE', 'test');
   global.fetch = mockFetch;
 });
 beforeEach(() => {
+  setScopedTestEnvValue('MODE', 'test');
   mockFetch.mockReset();
   (
     globalThis as unknown as {

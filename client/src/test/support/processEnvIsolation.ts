@@ -2,6 +2,7 @@ type EnvOverlay = Record<string, string | undefined>;
 
 type ClientProcessEnvIsolationState = {
   bootstrapEnvOverrides: EnvOverlay;
+  hasEnteredTestScope: boolean;
   currentTestEnvOverrides: EnvOverlay | null;
   currentTestEnvScopeState: { open: boolean } | null;
   proxy: NodeJS.ProcessEnv;
@@ -38,6 +39,9 @@ const getStateHolder = () =>
 const getScopedLayer = (state: ClientProcessEnvIsolationState) =>
   state.currentTestEnvOverrides;
 
+const canWriteBootstrapEnv = (state: ClientProcessEnvIsolationState): boolean =>
+  !state.hasEnteredTestScope && !state.currentTestEnvScopeState?.open;
+
 const resolveOverride = (
   state: ClientProcessEnvIsolationState,
   key: string,
@@ -52,16 +56,6 @@ const resolveOverride = (
   return { found: false, value: undefined };
 };
 
-const getWritableLayer = (
-  state: ClientProcessEnvIsolationState,
-): EnvOverlay => {
-  const scopedLayer = getScopedLayer(state);
-  if (scopedLayer && state.currentTestEnvScopeState?.open) {
-    return scopedLayer;
-  }
-  return state.bootstrapEnvOverrides;
-};
-
 const getScopedWritableLayer = (
   state: ClientProcessEnvIsolationState,
 ): EnvOverlay => {
@@ -72,6 +66,21 @@ const getScopedWritableLayer = (
     );
   }
   return scopedLayer;
+};
+
+const getProxyWritableLayer = (
+  state: ClientProcessEnvIsolationState,
+): EnvOverlay => {
+  const scopedLayer = getScopedLayer(state);
+  if (scopedLayer && state.currentTestEnvScopeState?.open) {
+    return scopedLayer;
+  }
+  if (canWriteBootstrapEnv(state)) {
+    return state.bootstrapEnvOverrides;
+  }
+  throw new Error(
+    'Scoped test env write attempted outside an active test scope.',
+  );
 };
 
 const collectVisibleKeys = (
@@ -123,6 +132,7 @@ export function installClientTestProcessEnvIsolation(): void {
   const realEnv = process.env;
   const state: ClientProcessEnvIsolationState = {
     bootstrapEnvOverrides: {},
+    hasEnteredTestScope: false,
     currentTestEnvOverrides: null,
     currentTestEnvScopeState: null,
     proxy: realEnv,
@@ -134,7 +144,7 @@ export function installClientTestProcessEnvIsolation(): void {
       if (typeof prop !== 'string') {
         return Reflect.defineProperty(realEnv, prop, descriptor);
       }
-      const layer = getWritableLayer(state);
+      const layer = getProxyWritableLayer(state);
       layer[prop] =
         'value' in descriptor && descriptor.value !== undefined
           ? normalizeEnvValue(descriptor.value)
@@ -145,7 +155,7 @@ export function installClientTestProcessEnvIsolation(): void {
       if (typeof prop !== 'string') {
         return Reflect.deleteProperty(realEnv, prop);
       }
-      const layer = getWritableLayer(state);
+      const layer = getProxyWritableLayer(state);
       layer[prop] = undefined;
       return true;
     },
@@ -221,7 +231,7 @@ export function installClientTestProcessEnvIsolation(): void {
       if (typeof prop !== 'string') {
         return Reflect.set(realEnv, prop, value);
       }
-      const layer = getWritableLayer(state);
+      const layer = getProxyWritableLayer(state);
       layer[prop] = normalizeEnvValue(value);
       return true;
     },
@@ -245,6 +255,7 @@ export function beginClientTestEnvIsolation(): void {
   if (!state) {
     throw new Error('Client process.env isolation must be installed first.');
   }
+  state.hasEnteredTestScope = true;
   state.currentTestEnvOverrides = {};
   state.currentTestEnvScopeState = { open: true };
 }
@@ -263,10 +274,6 @@ export function setScopedTestEnvValue(name: string, value: unknown): void {
   if (!state) {
     throw new Error('Client process.env isolation must be installed first.');
   }
-  if (!state.currentTestEnvScopeState) {
-    state.bootstrapEnvOverrides[name] = normalizeEnvValue(value);
-    return;
-  }
   assertActiveScopedEnvWrite(state, name);
   state.currentTestEnvOverrides = {
     ...(state.currentTestEnvOverrides ?? {}),
@@ -278,10 +285,6 @@ export function clearScopedTestEnvValue(name: string): void {
   const state = getStateHolder()[CLIENT_PROCESS_ENV_ISOLATION_STATE];
   if (!state) {
     throw new Error('Client process.env isolation must be installed first.');
-  }
-  if (!state.currentTestEnvScopeState) {
-    state.bootstrapEnvOverrides[name] = undefined;
-    return;
   }
   assertActiveScopedEnvWrite(state, name);
   state.currentTestEnvOverrides = {
@@ -296,26 +299,6 @@ export function replaceScopedTestProcessEnv(
   const state = getStateHolder()[CLIENT_PROCESS_ENV_ISOLATION_STATE];
   if (!state) {
     throw new Error('Client process.env isolation must be installed first.');
-  }
-  if (!state.currentTestEnvScopeState) {
-    const layer = state.bootstrapEnvOverrides;
-    for (const key of Object.keys(layer)) {
-      delete layer[key];
-    }
-
-    const nextEntries = Object.entries(nextValue ?? {});
-    const nextKeys = new Set(nextEntries.map(([key]) => key));
-
-    for (const key of collectVisibleKeys(state)) {
-      if (!nextKeys.has(key)) {
-        layer[key] = undefined;
-      }
-    }
-
-    for (const [key, value] of nextEntries) {
-      layer[key] = value === undefined ? undefined : normalizeEnvValue(value);
-    }
-    return;
   }
   applyEnvSnapshot(state, nextValue);
 }

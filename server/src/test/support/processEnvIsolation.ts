@@ -1,5 +1,4 @@
 import {
-  hasActiveTestOverrideScope,
   enterTestOverrideScope,
   getScopedEnvOverrides,
   getScopedEnvScopeState,
@@ -9,6 +8,7 @@ type EnvOverlay = Record<string, string | undefined>;
 
 type ProcessEnvIsolationState = {
   bootstrapEnvOverrides: EnvOverlay;
+  hasEnteredTestScope: boolean;
   proxy: NodeJS.ProcessEnv;
   realEnv: NodeJS.ProcessEnv;
 };
@@ -44,6 +44,9 @@ const getStateHolder = () =>
 
 const getScopedLayer = (): EnvOverlay | undefined => getScopedEnvOverrides();
 
+const canWriteBootstrapEnv = (state: ProcessEnvIsolationState): boolean =>
+  !state.hasEnteredTestScope && !hasOpenScopedLayer();
+
 const resolveOverride = (
   state: ProcessEnvIsolationState,
   key: string,
@@ -65,6 +68,9 @@ const getWritableLayer = (
   const scopedLayer = getScopedLayer();
   if (scopedLayer && hasOpenScopedLayer()) {
     return scopedLayer;
+  }
+  if (canWriteBootstrapEnv(state)) {
+    return state.bootstrapEnvOverrides;
   }
   if (options?.requireActiveScope) {
     throw new Error(
@@ -124,6 +130,7 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
 
   const state: ProcessEnvIsolationState = {
     bootstrapEnvOverrides,
+    hasEnteredTestScope: false,
     proxy: realEnv,
     realEnv,
   };
@@ -133,7 +140,7 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
       if (typeof prop !== 'string') {
         return Reflect.defineProperty(realEnv, prop, descriptor);
       }
-      const layer = getWritableLayer(state);
+      const layer = getWritableLayer(state, { requireActiveScope: true });
       layer[prop] =
         'value' in descriptor && descriptor.value !== undefined
           ? normalizeEnvValue(descriptor.value)
@@ -144,7 +151,7 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
       if (typeof prop !== 'string') {
         return Reflect.deleteProperty(realEnv, prop);
       }
-      const layer = getWritableLayer(state);
+      const layer = getWritableLayer(state, { requireActiveScope: true });
       layer[prop] = undefined;
       return true;
     },
@@ -220,7 +227,7 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
       if (typeof prop !== 'string') {
         return Reflect.set(realEnv, prop, value);
       }
-      const layer = getWritableLayer(state);
+      const layer = getWritableLayer(state, { requireActiveScope: true });
       layer[prop] = normalizeEnvValue(value);
       return true;
     },
@@ -242,6 +249,11 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
 }
 
 export function beginScopedTestEnvIsolation(overrides: EnvOverlay = {}): void {
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  if (!state) {
+    throw new Error('Scoped process.env proxy is not installed.');
+  }
+  state.hasEnteredTestScope = true;
   enterTestOverrideScope({
     envOverrides: overrides,
     envScopeState: { open: true },
@@ -256,10 +268,6 @@ export function endScopedTestEnvIsolation(): void {
 }
 
 export function setScopedTestEnvValue(name: string, value: unknown): void {
-  if (!hasOpenScopedLayer() && !hasActiveTestOverrideScope()) {
-    setBootstrapTestEnvValue(name, value);
-    return;
-  }
   assertActiveScopedEnvWrite(name);
   enterTestOverrideScope({
     envOverrides: { [name]: normalizeEnvValue(value) },
@@ -267,10 +275,6 @@ export function setScopedTestEnvValue(name: string, value: unknown): void {
 }
 
 export function clearScopedTestEnvValue(name: string): void {
-  if (!hasOpenScopedLayer() && !hasActiveTestOverrideScope()) {
-    clearBootstrapTestEnvValue(name);
-    return;
-  }
   assertActiveScopedEnvWrite(name);
   enterTestOverrideScope({
     envOverrides: { [name]: undefined },
@@ -299,10 +303,6 @@ export function replaceScopedTestProcessEnv(
   const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
   if (!state) {
     throw new Error('Scoped process.env proxy is not installed.');
-  }
-  if (!hasOpenScopedLayer() && !hasActiveTestOverrideScope()) {
-    applyEnvSnapshot(state, nextValue);
-    return;
   }
   assertActiveScopedEnvWrite('process.env');
   applyEnvSnapshot(state, nextValue, { requireActiveScope: true });

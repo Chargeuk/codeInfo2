@@ -14,10 +14,10 @@ import useSharedTranscriptState from '../components/chat/useSharedTranscriptStat
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
-  setScopedTestEnvValue('MODE', 'test');
   global.fetch = mockFetch;
 });
 beforeEach(() => {
+  setScopedTestEnvValue('MODE', 'test');
   mockFetch.mockReset();
   (
     globalThis as unknown as {

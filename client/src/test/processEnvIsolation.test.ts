@@ -37,6 +37,24 @@ describe('client process env isolation', () => {
     expect(() =>
       clearScopedTestEnvValue('DEV_CLIENT_PROCESS_ENV_OUT_OF_SCOPE'),
     ).toThrow(/outside an active test scope/);
+    expect(() =>
+      replaceScopedTestProcessEnv({
+        DEV_CLIENT_PROCESS_ENV_REPLACE_OUT_OF_SCOPE: 'nope',
+      }),
+    ).toThrow(/outside an active test scope/);
+    expect(() =>
+      Reflect.set(
+        process.env,
+        'DEV_CLIENT_PROCESS_ENV_DIRECT_OUT_OF_SCOPE',
+        'nope',
+      ),
+    ).toThrow(/outside an active test scope/);
+    expect(() =>
+      Reflect.deleteProperty(
+        process.env,
+        'DEV_CLIENT_PROCESS_ENV_DIRECT_OUT_OF_SCOPE',
+      ),
+    ).toThrow(/outside an active test scope/);
 
     beginClientTestEnvIsolation();
   });

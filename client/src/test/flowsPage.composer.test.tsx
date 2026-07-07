@@ -5,10 +5,10 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 const mockFetch = jest.fn<typeof fetch>();
 const desktopWidth = 1280;
 beforeAll(() => {
-  setScopedTestEnvValue('MODE', 'test');
   global.fetch = mockFetch;
 });
 beforeEach(() => {
+  setScopedTestEnvValue('MODE', 'test');
   mockFetch.mockReset();
   (
     globalThis as unknown as {

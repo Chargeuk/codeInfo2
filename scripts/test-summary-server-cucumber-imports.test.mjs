@@ -25,11 +25,11 @@ test('targeted feature imports keep global support hooks and add matching step f
 
   assert.deepEqual(importArgs, [
     '--import',
+    'src/test/support/registerCucumberEnvIsolation.ts',
+    '--import',
     'src/test/support/chromaContainer.ts',
     '--import',
     'src/test/support/mongoContainer.ts',
-    '--import',
-    'src/test/support/registerCucumberEnvIsolation.ts',
     '--import',
     'src/test/steps/chat_models.steps.ts',
     '--import',
@@ -42,11 +42,11 @@ test('default feature imports still include support hooks plus the step glob', (
 
   assert.deepEqual(importArgs, [
     '--import',
+    'src/test/support/registerCucumberEnvIsolation.ts',
+    '--import',
     'src/test/support/chromaContainer.ts',
     '--import',
     'src/test/support/mongoContainer.ts',
-    '--import',
-    'src/test/support/registerCucumberEnvIsolation.ts',
     '--import',
     'src/test/steps/**/*.ts',
   ]);
@@ -86,11 +86,11 @@ test('targeted feature imports reject crafted paths that would escape the step-d
     ]),
     [
       '--import',
+      'src/test/support/registerCucumberEnvIsolation.ts',
+      '--import',
       'src/test/support/chromaContainer.ts',
       '--import',
       'src/test/support/mongoContainer.ts',
-      '--import',
-      'src/test/support/registerCucumberEnvIsolation.ts',
       '--import',
       'src/test/steps/**/*.ts',
     ],

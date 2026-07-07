@@ -1,7 +1,8 @@
-import { Before } from '@cucumber/cucumber';
+import { After, Before } from '@cucumber/cucumber';
 
 import {
   beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
   installScopedProcessEnvProxy,
   installScopedTestEnvGlobals,
 } from './processEnvIsolation.js';
@@ -11,4 +12,8 @@ installScopedTestEnvGlobals();
 
 Before(() => {
   beginScopedTestEnvIsolation();
+});
+
+After(() => {
+  endScopedTestEnvIsolation();
 });

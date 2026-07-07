@@ -18,6 +18,7 @@ describe('flow schema (v1)', () => {
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
+    flowNames?: string[];
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -104,6 +105,42 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('valid codexReview step parses as ok: true', () => {
+    const json = JSON.stringify({
+      description: 'Codex review flow',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          reasoningEffort: 'high',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+  });
+
+  test('valid prepareReviewBase step parses as ok: true', () => {
+    const json = JSON.stringify({
+      description: 'Prepare shared review base',
+      steps: [
+        {
+          type: 'prepareReviewBase',
+          label: 'Prepare Shared Review Base',
+          outputKey: 'current-review-base',
+          basePolicy: 'branched_from_or_default_if_merged',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+  });
+
   test('subflow step requires non-empty flowNames entries', () => {
     const json = JSON.stringify({
       description: 'Subflow parent',
@@ -143,6 +180,8 @@ describe('flow schema (v1)', () => {
 
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
+      'flows/codex_review.json',
+      'flows/review_artifacts_main.json',
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
@@ -165,6 +204,12 @@ describe('flow schema (v1)', () => {
     const flowFiles = [
       {
         relativePath: 'flows/review_plan.json',
+        findingsCommand: 'code_review_findings',
+        saturationCommand: 'review_findings_saturation',
+        challengeCommand: 'review_blind_spot_challenge',
+      },
+      {
+        relativePath: 'flows/review_artifacts_main.json',
         findingsCommand: 'code_review_findings',
         saturationCommand: 'review_findings_saturation',
         challengeCommand: 'review_blind_spot_challenge',
@@ -212,6 +257,21 @@ describe('flow schema (v1)', () => {
           (commandName): commandName is string =>
             typeof commandName === 'string',
         );
+
+      if (flowFile.relativePath === 'flows/implement_next_plan.json') {
+        const subflowMarkers = flattenSteps(parsed.steps ?? [])
+          .map((step) =>
+            step.type === 'subflow' && Array.isArray((step as { flowNames?: string[] }).flowNames)
+              ? (step as { flowNames: string[] }).flowNames.join(',')
+              : undefined,
+          )
+          .filter((marker): marker is string => typeof marker === 'string');
+        assert.ok(
+          subflowMarkers.includes('review_artifacts_main,codex_review'),
+          'flows/implement_next_plan.json should launch the main review and Codex review child flows',
+        );
+        continue;
+      }
 
       const findingsIndex = commands.indexOf(flowFile.findingsCommand);
       const saturationIndex = commands.indexOf(flowFile.saturationCommand);
@@ -449,6 +509,76 @@ describe('flow schema (v1)', () => {
         `${flowFile} should run classifier disposition, then scope-filter findings, then repair tasked findings`,
       );
     }
+  });
+
+  test('implement_next_plan runs Codex review merge before classifier disposition and scope filtering', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    assert.ok(
+      Array.isArray(parsed.steps),
+      'flows/implement_next_plan.json should define steps',
+    );
+
+    const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      if (step.type === 'llm') {
+        return step.markdownFile;
+      }
+      if (step.type === 'command') {
+        return step.commandName;
+      }
+      if (step.type === 'subflow') {
+        return (step as { flowNames?: string[] }).flowNames?.join(',');
+      }
+      return step.type;
+    });
+
+    const prepareIndex = markers.indexOf('prepareReviewBase');
+    const parallelReviewSubflowIndex = markers.indexOf(
+      'review_artifacts_main,codex_review',
+    );
+    const mergeIndex = markers.indexOf(
+      'merge_codex_review_findings_into_canonical_review.md',
+    );
+    const classifyIndex = markers.indexOf('classify_review_disposition.md');
+    const filterIndex = markers.indexOf(
+      'filter_review_findings_to_story_scope.md',
+    );
+
+    assert.notEqual(
+      prepareIndex,
+      -1,
+      'flows/implement_next_plan.json should prepare a shared review base',
+    );
+    assert.notEqual(
+      parallelReviewSubflowIndex,
+      -1,
+      'flows/implement_next_plan.json should include the main review artifact child flow',
+    );
+    assert.notEqual(
+      mergeIndex,
+      -1,
+      'flows/implement_next_plan.json should merge Codex review findings',
+    );
+    assert.notEqual(
+      classifyIndex,
+      -1,
+      'flows/implement_next_plan.json should include classifier disposition',
+    );
+    assert.notEqual(
+      filterIndex,
+      -1,
+      'flows/implement_next_plan.json should include findings scope filter',
+    );
+    assert.ok(
+      prepareIndex < parallelReviewSubflowIndex &&
+        parallelReviewSubflowIndex < mergeIndex &&
+        mergeIndex < classifyIndex &&
+        classifyIndex < filterIndex,
+      'flows/implement_next_plan.json should prepare the shared review base, then run the parallel review child flows, then merge, classify, and scope-filter findings',
+    );
   });
 
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {

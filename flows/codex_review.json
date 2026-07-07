@@ -1,0 +1,14 @@
+{
+  "description": "Run a native Codex review for the current story branch and write deterministic review artifacts.",
+  "steps": [
+    {
+      "type": "codexReview",
+      "label": "Run Codex Review",
+      "outputKey": "current-codex-review",
+      "basePolicy": "branched_from_or_default_if_merged",
+      "modelSource": "flow_request_or_step",
+      "model": "gpt-5.4",
+      "reasoningEffort": "high"
+    }
+  ]
+}

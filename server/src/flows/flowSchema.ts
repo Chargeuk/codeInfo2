@@ -59,6 +59,23 @@ export type FlowCommandStep = {
   commandName: string;
 };
 
+export type FlowPrepareReviewBaseStep = {
+  type: 'prepareReviewBase';
+  label?: string;
+  outputKey: string;
+  basePolicy?: 'branched_from_or_default_if_merged';
+};
+
+export type FlowCodexReviewStep = {
+  type: 'codexReview';
+  label?: string;
+  outputKey: string;
+  basePolicy?: 'branched_from_or_default_if_merged';
+  modelSource?: 'flow_request_or_step';
+  model?: string;
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+};
+
 export type FlowSubflowStep = {
   type: 'subflow';
   label?: string;
@@ -76,6 +93,8 @@ export type FlowStep =
   | FlowBreakStep
   | FlowContinueStep
   | FlowCommandStep
+  | FlowPrepareReviewBaseStep
+  | FlowCodexReviewStep
   | FlowSubflowStep
   | FlowReingestStep;
 
@@ -144,6 +163,29 @@ const FlowCommandStepSchema = z
   })
   .strict();
 
+const FlowPrepareReviewBaseStepSchema = z
+  .object({
+    type: z.literal('prepareReviewBase'),
+    label: trimmedNonEmptyString.optional(),
+    outputKey: trimmedNonEmptyString,
+    basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
+  })
+  .strict();
+
+const FlowCodexReviewStepSchema = z
+  .object({
+    type: z.literal('codexReview'),
+    label: trimmedNonEmptyString.optional(),
+    outputKey: trimmedNonEmptyString,
+    basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
+    modelSource: z.literal('flow_request_or_step').optional(),
+    model: trimmedNonEmptyString.optional(),
+    reasoningEffort: z
+      .enum(['minimal', 'low', 'medium', 'high', 'xhigh'])
+      .optional(),
+  })
+  .strict();
+
 const FlowSubflowStepSchema = z
   .object({
     type: z.literal('subflow'),
@@ -197,6 +239,8 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowContinueStepSchema,
     FlowCommandStepSchema,
+    FlowPrepareReviewBaseStepSchema,
+    FlowCodexReviewStepSchema,
     FlowSubflowStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,

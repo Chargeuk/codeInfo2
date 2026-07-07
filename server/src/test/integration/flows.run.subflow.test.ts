@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -11,7 +14,12 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
@@ -19,6 +27,29 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const execFile = promisify(execFileCb);
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: '2026-01-01T00:00:00.000Z',
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 class SubflowChat extends ChatInterface {
   constructor(
@@ -160,7 +191,9 @@ const waitForActiveSubflowCount = async (
           | { flow?: { activeSubflows?: unknown[] } }
           | undefined
       )?.flow?.activeSubflows ?? [];
-    return Array.isArray(activeSubflows) && activeSubflows.length === expectedCount;
+    return (
+      Array.isArray(activeSubflows) && activeSubflows.length === expectedCount
+    );
   });
   return waitForActiveSubflows(conversationId);
 };
@@ -219,6 +252,72 @@ const subflowStep = (label: string, ...flowNames: string[]) => ({
   flowNames,
 });
 
+const writeExecutable = async (filePath: string, content: string) => {
+  await fs.writeFile(filePath, content, 'utf8');
+  await fs.chmod(filePath, 0o755);
+};
+
+const codexReviewPointerPath = (
+  repoDir: string,
+  outputKey = 'current-codex-review',
+) =>
+  path.join(repoDir, 'codeInfoTmp', 'reviews', `0000027-${outputKey}.json`);
+
+const initializeCodexReviewRepo = async (repoDir: string) => {
+  await fs.mkdir(repoDir, { recursive: true });
+  await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+  await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+    cwd: repoDir,
+  });
+  await execFile('git', ['config', 'user.name', 'Codex Test'], {
+    cwd: repoDir,
+  });
+  await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+    recursive: true,
+  });
+  await fs.writeFile(path.join(repoDir, '.gitignore'), 'codeInfoTmp/\n', 'utf8');
+  await fs.writeFile(
+    path.join(repoDir, 'planning', '0000027-codex-review.md'),
+    '# Story 27\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+    JSON.stringify({
+      plan_path: 'planning/0000027-codex-review.md',
+      branched_from: 'main',
+    }),
+    'utf8',
+  );
+  await execFile('git', ['add', '.'], { cwd: repoDir });
+  await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+  await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+    cwd: repoDir,
+  });
+};
+
+const seedStaleCodexReviewPointer = async (repoDir: string) => {
+  const pointerPath = codexReviewPointerPath(repoDir);
+  await fs.mkdir(path.dirname(pointerPath), { recursive: true });
+  await fs.writeFile(
+    pointerPath,
+    `${JSON.stringify(
+      {
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        codex_review_pass_id: 'stale-codex-review-pass',
+        review_output_file: 'codeInfoTmp/reviews/stale-codex-review.md',
+        status: 'completed',
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+  return pointerPath;
+};
+
 const activeSubflowState = (params: {
   stepPath: number[];
   flowName: string;
@@ -267,6 +366,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetProviderBootstrapStatusForTests();
   if (previousAgentsHome === undefined) {
     delete process.env.CODEINFO_CODEX_AGENT_HOME;
   } else {
@@ -340,6 +440,8 @@ test('subflow step launches a child flow, waits for completion, and uses the gen
       undefined,
     );
   } finally {
+    resetDeterministicCodexAvailabilityBootstrap();
+    installDeterministicCodexAvailabilityBootstrap();
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -451,7 +553,1646 @@ test('subflow step launches multiple child flows in parallel and waits for all o
   }
 });
 
-test('parallel subflow waits for every child and fails when any child fails', async () => {
+test('subflow forwards codexReviewModelId into child flows so codex_review can run with a parent-supplied model override', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-codex-model-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-child',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          reasoningEffort: 'medium',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-codex-subflow',
+      steps: [subflowStep('Run Codex Review Child', 'codex-child')],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-codex-subflow',
+      source: 'REST',
+      working_folder: repoDir,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
+      model?: string;
+      reasoning_effort?: string | null;
+      merged_into_canonical_findings?: boolean;
+    };
+
+    assert.equal(pointer.model, 'gpt-5.4');
+    assert.equal(pointer.reasoning_effort, 'medium');
+    assert.equal(pointer.merged_into_canonical_findings, false);
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resume skips validating a completed codexReview step when resuming at the next step', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-resume-validation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'resume-codex-review',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Completed Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+        },
+        llmStep('after resumed codex review'),
+      ],
+    });
+
+    const conversationId = 'resume-codex-review-conversation';
+    const now = new Date();
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Codex Review',
+      flowName: 'resume-codex-review',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-codex-review-execution',
+          stepPath: [0],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const executions: string[] = [];
+    const resumed = await startFlowRun({
+      flowName: 'resume-codex-review',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+    });
+
+    assert.equal(resumed.conversationId, conversationId);
+    await waitForAssistantStatus(conversationId, 'ok');
+    assert.deepEqual(executions, ['after resumed codex review']);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('codexReview ignores a stale pending cancel that belongs to a different run token', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-stale-pending-cancel-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-stale-pending-cancel',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          model: 'gpt-5.4',
+          reasoningEffort: 'medium',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'codex-stale-pending-cancel',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken: `${runToken}-stale`,
+        });
+      },
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    assert.equal(existsSync(pointerPath), true);
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('prepareReviewBase consumes a pending cancel before starting review-base git work', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-prepare-review-base-pending-cancel-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'prepare-review-base-stop',
+      steps: [
+        {
+          type: 'prepareReviewBase',
+          label: 'Prepare Shared Review Base',
+          outputKey: 'current-review-base',
+          basePolicy: 'branched_from_or_default_if_merged',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'prepare-review-base-stop',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
+      },
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'stopped');
+    assert.equal(
+      existsSync(
+        path.join(
+          repoDir,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-review-base.json',
+        ),
+      ),
+      false,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('sourceId-only launches support prepareReviewBase and codexReview without working_folder', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-sourceid-review-steps-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const repoFlowsDir = path.join(repoDir, 'flows');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  process.env.FLOWS_DIR = path.join(tmpDir, 'local-flows-unused');
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(repoFlowsDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await fs.writeFile(
+      path.join(repoFlowsDir, 'sourceid-review.json'),
+      JSON.stringify({
+        steps: [
+          {
+            type: 'prepareReviewBase',
+            label: 'Prepare Shared Review Base',
+            outputKey: 'current-review-base',
+            basePolicy: 'branched_from_or_default_if_merged',
+          },
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            reasoningEffort: 'medium',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const result = await startFlowRun({
+      flowName: 'sourceid-review',
+      source: 'REST',
+      sourceId: repoDir,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'gpt-5.4');
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const preparedBasePath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-review-base.json',
+    );
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    await waitFor(() => existsSync(preparedBasePath));
+    await waitFor(() => existsSync(pointerPath));
+    assert.equal(existsSync(preparedBasePath), true);
+    assert.equal(existsSync(pointerPath), true);
+  } finally {
+    process.env.PATH = previousPath;
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('local review-git flows fail instead of silently targeting the harness repo', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-local-review-base-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const previousPreferredAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  try {
+    await fs.mkdir(path.join(repoDir, 'flows'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoDir, 'codeinfo_agents'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codex_agents'), { recursive: true });
+    process.env.CODEINFO_AGENT_HOME = path.join(repoDir, 'codeinfo_agents');
+    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoDir, 'codex_agents');
+    process.env.FLOWS_DIR = path.join(repoDir, 'flows');
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'flows', 'local-review-base.json'),
+      JSON.stringify({
+        description: 'Local review base',
+        steps: [
+          {
+            type: 'prepareReviewBase',
+            label: 'Prepare Shared Review Base',
+            outputKey: 'current-review-base',
+            basePolicy: 'branched_from_or_default_if_merged',
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    const result = await startFlowRun({
+      flowName: 'local-review-base',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.ok(result.conversationId);
+    await waitForAssistantStatus(result.conversationId, 'failed', 15_000);
+    assert.equal(
+      existsSync(
+        path.join(
+          repoDir,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-review-base.json',
+        ),
+      ),
+      false,
+    );
+  } finally {
+    if (previousPreferredAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousPreferredAgentHome;
+    }
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentHome;
+    }
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test(
+  'parent flows continue best-effort when child codexReview work is unavailable',
+  { concurrency: false },
+  async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'flow-subflow-codex-preflight-'),
+    );
+    process.env.FLOWS_DIR = tmpDir;
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'child-codex-review',
+        steps: [
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            model: 'gpt-5.4',
+            reasoningEffort: 'medium',
+          },
+        ],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'parent-preflight',
+        steps: [
+          subflowStep('Run Codex Review Child', 'child-codex-review'),
+          llmStep('parent after unavailable child codex review'),
+        ],
+      });
+
+      __setProviderBootstrapStatusForTests('codex', {
+        healthy: false,
+        reason: 'codex unavailable for parent preflight',
+        warnings: [],
+      });
+
+      const executions: string[] = [];
+      const result = await startFlowRun({
+        flowName: 'parent-preflight',
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () =>
+          new SubflowChat(25, ({ message }) => {
+            executions.push(message);
+          }),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      });
+      await waitFor(() =>
+        executions.includes('parent after unavailable child codex review'),
+      );
+      await waitForAssistantStatus(result.conversationId, 'ok');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  },
+);
+
+test('parent flows continue best-effort when child codexReview model requirements are missing', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-codex-model-validation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-codex-review-missing-model',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-codex-model-validation',
+      steps: [
+        subflowStep(
+          'Run Codex Review Child',
+          'child-codex-review-missing-model',
+        ),
+        llmStep('parent after child codex model skip'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-codex-model-validation',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => executions.includes('parent after child codex model skip'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('parent flows continue best-effort when child command steps are invalid', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-command-validation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-command-validation',
+      steps: [
+        {
+          type: 'command',
+          label: 'Missing Child Command',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          commandName: 'missing-child-command',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-command-validation',
+      steps: [
+        subflowStep('Run Child Command', 'child-command-validation'),
+        llmStep('parent after child command failure'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-command-validation',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => executions.includes('parent after child command failure'));
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 0 succeeded, 1 failed'),
+      ),
+      true,
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resume skips validating child subflow commands that are already behind resumeStepPath', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-command-resume-validation-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-command-resume-validation',
+      steps: [
+        {
+          type: 'command',
+          label: 'Removed Child Command',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          commandName: 'missing-child-command',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-command-resume-validation',
+      steps: [
+        subflowStep(
+          'Completed Child Command',
+          'child-command-resume-validation',
+        ),
+        llmStep('after resumed child subflow'),
+      ],
+    });
+
+    const conversationId = 'resume-child-command-validation-conversation';
+    const now = new Date();
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Child Command Validation',
+      flowName: 'parent-command-resume-validation',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-child-command-validation-execution',
+          stepPath: [0],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const executions: string[] = [];
+    const resumed = await startFlowRun({
+      flowName: 'parent-command-resume-validation',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(resumed.conversationId, conversationId);
+    await waitForAssistantStatus(conversationId, 'ok');
+    assert.deepEqual(executions, ['after resumed child subflow']);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resumed flows reuse persisted codexReviewModelId for pending codexReview steps', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-resume-codex-model-id-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'resume-pending-codex-model',
+      steps: [
+        llmStep('before review'),
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          reasoningEffort: 'medium',
+        },
+      ],
+    });
+
+    const conversationId = 'resume-pending-codex-model-conversation';
+    const now = new Date();
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Resume Pending Codex Model',
+      flowName: 'resume-pending-codex-model',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'resume-pending-codex-model-execution',
+          stepPath: [0],
+          loopStack: [],
+          codexReviewModelId: 'gpt-5.4',
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'resume-pending-codex-model',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(resumed.conversationId, conversationId);
+    await waitForAssistantStatus(conversationId, 'ok');
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    await waitFor(() => existsSync(pointerPath));
+    const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
+      model: string;
+    };
+    assert.equal(pointer.model, 'gpt-5.4');
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('flow step-boundary persistence keeps request-scoped codexReviewModelId', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-runtime-codex-model-persist-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'persist-requested-codex-model',
+      steps: [llmStep('before review')],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'persist-requested-codex-model',
+      source: 'REST',
+      working_folder: repoRoot,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const flowState = (
+      memoryConversations.get(result.conversationId)?.flags as
+        | { flow?: { codexReviewModelId?: string } }
+        | undefined
+    )?.flow;
+    assert.equal(flowState?.codexReviewModelId, 'gpt-5.4');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test(
+  'resumed flows continue best-effort for later Codex work after resuming inside loops',
+  { concurrency: false },
+  async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'flow-resume-loop-codex-preflight-'),
+    );
+    process.env.FLOWS_DIR = tmpDir;
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'child-codex-review',
+        steps: [
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            model: 'gpt-5.4',
+            reasoningEffort: 'medium',
+          },
+        ],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'resume-loop-parent',
+        steps: [
+          {
+            type: 'startLoop',
+            label: 'Outer Loop',
+            steps: [llmStep('loop step')],
+          },
+          subflowStep('Run Codex Review Child', 'child-codex-review'),
+        ],
+      });
+
+      const conversationId = 'resume-loop-parent-conversation';
+      const now = new Date();
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.1-codex-max',
+        title: 'Resume Loop Parent',
+        flowName: 'resume-loop-parent',
+        source: 'REST',
+        flags: {
+          flow: {
+            executionId: 'resume-loop-parent-execution',
+            stepPath: [0, 0],
+            loopStack: [],
+            agentConversations: {},
+            agentThreads: {},
+          },
+        },
+        lastMessageAt: now,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      } as Conversation);
+
+      __setProviderBootstrapStatusForTests('codex', {
+        healthy: false,
+        reason: 'codex unavailable for resume loop preflight',
+        warnings: [],
+      });
+
+      const result = await startFlowRun({
+        flowName: 'resume-loop-parent',
+        conversationId,
+        resumeStepPath: [0, 0],
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () => new SubflowChat(25),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      });
+      assert.equal(result.conversationId, conversationId);
+      await waitForAssistantStatus(conversationId, 'ok');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  },
+);
+
+test('prepareReviewBase can precede a parallel review subflow batch on the shared checkout', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-review-base-parallel-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-slow-review',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-child-review',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          reasoningEffort: 'medium',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-shared-review-base',
+      steps: [
+        {
+          type: 'prepareReviewBase',
+          label: 'Prepare Shared Review Base',
+          outputKey: 'current-review-base',
+          basePolicy: 'branched_from_or_default_if_merged',
+        },
+        subflowStep(
+          'Run Review Batch',
+          'child-slow-review',
+          'codex-child-review',
+        ),
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-shared-review-base',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      working_folder: repoDir,
+      codexReviewModelId: 'gpt-5.4',
+      chatFactory: () => new SubflowChat(140),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForActiveSubflowCount(result.conversationId, 2);
+
+    const basePath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-review-base.json',
+    );
+    const pointerPath = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      '0000027-current-codex-review.json',
+    );
+    await waitFor(() => existsSync(pointerPath));
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const preparedBase = JSON.parse(await fs.readFile(basePath, 'utf8')) as {
+      comparison_base_ref?: string;
+    };
+    const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
+      comparison_base_ref?: string;
+      model?: string;
+      reasoning_effort?: string | null;
+    };
+
+    assert.equal(preparedBase.comparison_base_ref, 'main');
+    assert.equal(pointer.comparison_base_ref, 'main');
+    assert.equal(pointer.model, 'gpt-5.4');
+    assert.equal(pointer.reasoning_effort, 'medium');
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('parent step after a successful codexReview gets a fresh inflight id', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-inflight-rotation-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+
+    await execFile('git', ['init', '-b', 'main'], { cwd: repoDir });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: repoDir,
+    });
+    await fs.mkdir(path.join(repoDir, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoDir, '.gitignore'),
+      'codeInfoTmp/\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: repoDir });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: repoDir,
+    });
+
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-then-llm',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          model: 'gpt-5.4',
+          reasoningEffort: 'medium',
+        },
+        llmStep('parent after codex review'),
+      ],
+    });
+
+    const executions: Array<{
+      message: string;
+      conversationId: string;
+      inflightId: string | null;
+    }> = [];
+    const result = await startFlowRun({
+      flowName: 'codex-then-llm',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message, flags, conversationId }) => {
+          executions.push({
+            message,
+            conversationId,
+            inflightId:
+              typeof flags.inflightId === 'string' ? flags.inflightId : null,
+          });
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() => executions.length === 1);
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const followUpExecution = executions[0];
+    assert.ok(followUpExecution);
+    assert.equal(followUpExecution?.message, 'parent after codex review');
+    assert.equal(typeof followUpExecution?.inflightId, 'string');
+    assert.notEqual(followUpExecution?.inflightId, result.inflightId);
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('codexReview steps skip cleanly when Codex is unavailable and later parent steps still run', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-skip-unavailable-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-skip-then-llm',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          model: 'gpt-5.4',
+          reasoningEffort: 'medium',
+        },
+        llmStep('parent after skipped codex review'),
+      ],
+    });
+    const pointerPath = await seedStaleCodexReviewPointer(repoDir);
+
+    __setProviderBootstrapStatusForTests('codex', {
+      healthy: false,
+      reason: 'codex unavailable for direct skip',
+      warnings: [],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'codex-skip-then-llm',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() => executions.includes('parent after skipped codex review'));
+    assert.equal(existsSync(pointerPath), false);
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('Codex review skipped.') &&
+          String(turn.content).includes('codex unavailable for direct skip'),
+      ),
+      true,
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('codexReview steps skip cleanly when no review model can be resolved and later parent steps still run', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-skip-missing-model-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-missing-model-then-llm',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+        },
+        llmStep('parent after skipped missing-model codex review'),
+      ],
+    });
+    const pointerPath = await seedStaleCodexReviewPointer(repoDir);
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'codex-missing-model-then-llm',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() =>
+      executions.includes('parent after skipped missing-model codex review'),
+    );
+    assert.equal(existsSync(pointerPath), false);
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('Codex review skipped.') &&
+          String(turn.content).includes(
+            'codexReview requires codexReviewModelId or a model on the flow step.',
+          ),
+      ),
+      true,
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('codexReview clears a stale pointer when the Codex run fails and later parent steps still run', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-skip-failing-run-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const previousPath = process.env.PATH;
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.mkdir(binDir, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+echo "codex failed" >&2
+exit 1
+`,
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'codex-failing-run-then-llm',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step',
+          model: 'gpt-5.4',
+          reasoningEffort: 'medium',
+        },
+        llmStep('parent after failed codex review'),
+      ],
+    });
+    const pointerPath = await seedStaleCodexReviewPointer(repoDir);
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'codex-failing-run-then-llm',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() => executions.includes('parent after failed codex review'));
+    assert.equal(existsSync(pointerPath), false);
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('Codex review skipped.'),
+      ),
+      true,
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('parallel subflow waits for every child and continues best-effort when one child fails', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-fail-'),
   );
@@ -472,15 +2213,24 @@ test('parallel subflow waits for every child and fails when any child fails', as
       tmpDir,
       flowName: 'parent-parallel-fail',
       steps: [
-        subflowStep('Run Failure Batch', 'child-fast-fail', 'child-slow-success'),
+        subflowStep(
+          'Run Failure Batch',
+          'child-fast-fail',
+          'child-slow-success',
+        ),
+        llmStep('parent after best-effort subflow batch'),
       ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-parallel-fail',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(140),
+      chatFactory: () =>
+        new SubflowChat(140, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
     await waitFor(() =>
@@ -498,14 +2248,20 @@ test('parallel subflow waits for every child and fails when any child fails', as
     assert.ok(slowChild?._id);
     await waitForConversationAssistantStatus(String(slowChild?._id), 'ok');
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
+    await waitFor(() =>
+      executions.includes('parent after best-effort subflow batch'),
     );
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
-      finalAssistant?.content,
-      'Subflows Parent Review-Run Failure Batch-child-fast-fail, Parent Review-Run Failure Batch-child-slow-success failed',
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 1 succeeded, 1 failed'),
+      ),
+      true,
     );
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -589,7 +2345,10 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-two-step',
-      steps: [subflowStep('Run Child', 'child-ok'), llmStep('parent after subflow')],
+      steps: [
+        subflowStep('Run Child', 'child-ok'),
+        llmStep('parent after subflow'),
+      ],
     });
 
     const executions: Array<{
@@ -624,7 +2383,7 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
   }
 });
 
-test('subflow step mirrors child failure onto the parent flow', async () => {
+test('subflow step keeps the parent flow running when a single child fails', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-fail-'));
   process.env.FLOWS_DIR = tmpDir;
 
@@ -637,30 +2396,41 @@ test('subflow step mirrors child failure onto the parent flow', async () => {
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-fail',
-      steps: [subflowStep('Run Broken Child', 'child-fail')],
+      steps: [
+        subflowStep('Run Broken Child', 'child-fail'),
+        llmStep('parent after failed child'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-fail',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(150),
+      chatFactory: () =>
+        new SubflowChat(150, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
+    await waitFor(() => executions.includes('parent after failed child'));
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Broken Child failed',
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 0 succeeded, 1 failed'),
+      ),
+      true,
     );
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('subflow waits for the full child flow and can fail on a later child step', async () => {
+test('subflow waits for the full child flow and still continues best-effort after a later child failure', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-fail-later-'),
   );
@@ -675,14 +2445,21 @@ test('subflow waits for the full child flow and can fail on a later child step',
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-fail-later',
-      steps: [subflowStep('Run Later Failure', 'child-fail-later')],
+      steps: [
+        subflowStep('Run Later Failure', 'child-fail-later'),
+        llmStep('parent after later child failure'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-fail-later',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(160),
+      chatFactory: () =>
+        new SubflowChat(160, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
     const childConversation = await waitFor(() => {
@@ -711,20 +2488,24 @@ test('subflow waits for the full child flow and can fail on a later child step',
       false,
     );
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
+    await waitFor(() => executions.includes('parent after later child failure'));
+    const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Later Failure failed',
+      assistantTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('best effort: 0 succeeded, 1 failed'),
+      ),
+      true,
     );
+    await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('subflow fails when the child crashes after a prior successful step', async () => {
+test('subflow continues best-effort when the child crashes after a prior successful step', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stale-ok-crash-'),
   );
@@ -739,24 +2520,25 @@ test('subflow fails when the child crashes after a prior successful step', async
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-crash-after-ok',
-      steps: [subflowStep('Run Crashing Child', 'child-crash-after-ok')],
+      steps: [
+        subflowStep('Run Crashing Child', 'child-crash-after-ok'),
+        llmStep('parent after crashing child'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-crash-after-ok',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(100),
+      chatFactory: () =>
+        new SubflowChat(100, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Crashing Child failed',
-    );
+    await waitFor(() => executions.includes('parent after crashing child'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
 
     const childConversation = findChildFlowConversation({
       parentConversationId: result.conversationId,
@@ -782,7 +2564,7 @@ test('subflow fails when the child crashes after a prior successful step', async
   }
 });
 
-test('subflow fails fast when flows reference each other recursively', async () => {
+test('subflow keeps the parent running when child flows reference each other recursively', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-recursive-cycle-'),
   );
@@ -797,24 +2579,25 @@ test('subflow fails fast when flows reference each other recursively', async () 
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-cycle-a',
-      steps: [subflowStep('Run Child', 'child-cycle-b')],
+      steps: [
+        subflowStep('Run Child', 'child-cycle-b'),
+        llmStep('parent after recursive child failure'),
+      ],
     });
 
+    const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-cycle-a',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(100),
+      chatFactory: () =>
+        new SubflowChat(100, ({ message }) => {
+          executions.push(message);
+        }),
     });
 
-    const finalAssistant = await waitForAssistantStatus(
-      result.conversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      'Subflow Parent Review-Run Child failed',
-    );
+    await waitFor(() => executions.includes('parent after recursive child failure'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
 
     const childConversation = findChildFlowConversation({
       parentConversationId: result.conversationId,
@@ -826,11 +2609,7 @@ test('subflow fails fast when flows reference each other recursively', async () 
     const latestChildAssistant = [...childTurns]
       .reverse()
       .find((turn) => turn.role === 'assistant');
-    assert.equal(latestChildAssistant?.status, 'failed');
-    assert.equal(
-      latestChildAssistant?.content,
-      'Subflow cycle detected: parent-cycle-a -> child-cycle-b -> parent-cycle-a.',
-    );
+    assert.equal(latestChildAssistant?.status, 'ok');
 
     const childCycleConversations = Array.from(memoryConversations.values())
       .filter((conversation) => conversation.flowName === 'parent-cycle-a')
@@ -980,7 +2759,10 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-sticky-stop',
-      steps: [subflowStep('Run Fast Child', 'child-fast-ok'), llmStep('should not run')],
+      steps: [
+        subflowStep('Run Fast Child', 'child-fast-ok'),
+        llmStep('should not run'),
+      ],
     });
 
     let parentRunToken: string | undefined;
@@ -1264,7 +3046,9 @@ test('resume reattaches to already running parallel child subflows instead of la
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-resume-parallel',
-      steps: [subflowStep('Run Slow Batch', 'child-resume-a', 'child-resume-b')],
+      steps: [
+        subflowStep('Run Slow Batch', 'child-resume-a', 'child-resume-b'),
+      ],
     });
 
     let childRunTokenA: string | undefined;
@@ -1517,16 +3301,14 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
               flowName: 'child-resume-terminal-a',
               conversationId: childStartA.conversationId,
               runToken: childRunTokenA as string,
-              title:
-                'Resume Parent-Run Finished Batch-child-resume-terminal-a',
+              title: 'Resume Parent-Run Finished Batch-child-resume-terminal-a',
             }),
             activeSubflowState({
               stepPath: [0],
               flowName: 'child-resume-terminal-b',
               conversationId: childStartB.conversationId,
               runToken: childRunTokenB as string,
-              title:
-                'Resume Parent-Run Finished Batch-child-resume-terminal-b',
+              title: 'Resume Parent-Run Finished Batch-child-resume-terminal-b',
             }),
           ],
           agentConversations: {},
@@ -1575,7 +3357,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
   }
 });
 
-test('resume fails stale subflows that have no active child run or terminal result', async () => {
+test('resume tolerates stale subflows that have no active child run or terminal result', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-'),
   );
@@ -1659,20 +3441,17 @@ test('resume fails stale subflows that have no active child run or terminal resu
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(
-      parentConversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      `Subflow child-stale could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    assert.match(
+      String(finalAssistant?.content ?? ''),
+      /best effort: 0 succeeded, 1 failed/u,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('resume fails stale legacy activeSubflow state that has no active child run or terminal result', async () => {
+test('resume tolerates stale legacy activeSubflow state that has no active child run or terminal result', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-legacy-'),
   );
@@ -1754,20 +3533,17 @@ test('resume fails stale legacy activeSubflow state that has no active child run
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(
-      parentConversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      `Subflow child-stale-legacy could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    assert.match(
+      String(finalAssistant?.content ?? ''),
+      /best effort: 0 succeeded, 1 failed/u,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('resume fails stale remembered subflows before launching missing parallel children', async () => {
+test('resume tolerates stale remembered subflows before launching missing parallel children', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-before-launch-'),
   );
@@ -1856,19 +3632,16 @@ test('resume fails stale remembered subflows before launching missing parallel c
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(
-      parentConversationId,
-      'failed',
-    );
-    assert.equal(
-      finalAssistant?.content,
-      `Subflow child-stale could not be resumed because child conversation ${childConversationId} has no active run and no terminal result.`,
+    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    assert.match(
+      String(finalAssistant?.content ?? ''),
+      /best effort: 1 succeeded, 1 failed/u,
     );
 
     const missingChildConversations = Array.from(
       memoryConversations.values(),
     ).filter((conversation) => conversation.flowName === 'child-missing');
-    assert.equal(missingChildConversations.length, 0);
+    assert.equal(missingChildConversations.length, 1);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

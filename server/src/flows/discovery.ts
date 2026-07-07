@@ -15,6 +15,7 @@ import {
   resolveAgentHomeEnv,
   validateRepositoryBackedAgentType,
 } from '../agents/roots.js';
+import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -52,6 +53,37 @@ const isSafeCommandName = (raw: string): boolean => {
   );
 };
 
+const isSafeFlowName = (raw: string): boolean => {
+  const trimmed = raw.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed === path.posix.basename(trimmed) &&
+    !trimmed.includes('/') &&
+    !trimmed.includes('\\') &&
+    !trimmed.includes('..')
+  );
+};
+
+const resolveSafeChildFlowPath = (
+  flowsDir: string,
+  flowName: string,
+): string => {
+  if (!isSafeFlowName(flowName)) {
+    throw new Error(`Subflow name "${flowName}" must be a valid flow name.`);
+  }
+  const resolvedFlowsDir = path.resolve(flowsDir);
+  const childFlowPath = path.resolve(resolvedFlowsDir, `${flowName}.json`);
+  const relativePath = path.relative(resolvedFlowsDir, childFlowPath);
+  if (
+    relativePath === '' ||
+    relativePath.startsWith('..') ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error(`Subflow name "${flowName}" must stay within flowsDir.`);
+  }
+  return childFlowPath;
+};
+
 const resolveFlowsDir = (baseDir?: string): string => {
   if (baseDir) return path.resolve(baseDir);
   if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
@@ -77,8 +109,119 @@ const resolveFlowAgentLookupRoot = (flowsDir: string) => {
   return resolvedFlowsDir;
 };
 
-const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
-  for (const step of steps) {
+const appendDiscoveryWarning = (params: {
+  warnings: Set<string>;
+  warningDetails: AgentAvailabilityWarning[];
+  message: string;
+  code?: AgentAvailabilityWarning['code'];
+  providerId?: AgentAvailabilityWarning['providerId'];
+}) => {
+  params.warnings.add(params.message);
+  if (
+    params.warningDetails.some(
+      (entry) =>
+        entry.code === (params.code ?? 'discovery_warning') &&
+        entry.message === params.message &&
+        entry.providerId === params.providerId,
+    )
+  ) {
+    return;
+  }
+  params.warningDetails.push({
+    code: params.code ?? 'discovery_warning',
+    message: params.message,
+    visibility: 'details',
+    ...(params.providerId ? { providerId: params.providerId } : {}),
+  });
+};
+
+const collectSubflowReferenceWarnings = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsDir: string;
+  warnings?: Set<string>;
+  warningDetails?: AgentAvailabilityWarning[];
+  visited?: Set<string>;
+}) => {
+  const warnings = params.warnings ?? new Set<string>();
+  const warningDetails = params.warningDetails ?? [];
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+
+  for (const step of params.steps) {
+    if (step.type === 'startLoop') {
+      await collectSubflowReferenceWarnings({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsDir: params.flowsDir,
+        warnings,
+        warningDetails,
+        visited,
+      });
+      continue;
+    }
+    if (step.type !== 'subflow') {
+      continue;
+    }
+
+    for (const childFlowName of step.flowNames) {
+      if (visited.has(childFlowName)) {
+        continue;
+      }
+      let childFlowPath: string;
+      try {
+        childFlowPath = resolveSafeChildFlowPath(params.flowsDir, childFlowName);
+      } catch (error) {
+        appendDiscoveryWarning({
+          warnings,
+          warningDetails,
+          message: error instanceof Error ? error.message : 'Invalid flow file',
+        });
+        continue;
+      }
+      const childFlowRaw = await fs.readFile(childFlowPath, 'utf8').catch(() => null);
+      if (!childFlowRaw) {
+        appendDiscoveryWarning({
+          warnings,
+          warningDetails,
+          message: `Subflow "${childFlowName}" could not be read.`,
+        });
+        continue;
+      }
+      const parsedChildFlow = parseFlowFile(childFlowRaw, {
+        flowName: childFlowName,
+      });
+      if (!parsedChildFlow.ok) {
+        appendDiscoveryWarning({
+          warnings,
+          warningDetails,
+          message: `Subflow "${childFlowName}" is invalid.`,
+        });
+        continue;
+      }
+      await collectSubflowReferenceWarnings({
+        flowName: childFlowName,
+        steps: parsedChildFlow.flow.steps,
+        flowsDir: params.flowsDir,
+        warnings,
+        warningDetails,
+        visited: new Set(visited).add(childFlowName),
+      });
+    }
+  }
+
+  return { warnings, warningDetails };
+};
+
+const collectAgentTypes = (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsDir: string;
+  names?: Set<string>;
+}) => {
+  const names = params.names ?? new Set<string>();
+
+  for (const step of params.steps) {
     switch (step.type) {
       case 'llm':
       case 'break':
@@ -87,7 +230,12 @@ const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
         names.add(step.agentType);
         break;
       case 'startLoop':
-        collectAgentTypes(step.steps, names);
+        collectAgentTypes({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsDir: params.flowsDir,
+          names,
+        });
         break;
       default:
         break;
@@ -97,6 +245,8 @@ const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
 };
 
 const collectFlowWarnings = async (params: {
+  flowName: string;
+  flowsDir: string;
   parsedFlow?: FlowFile;
   discoveredAgentsByName: Map<
     string,
@@ -105,7 +255,11 @@ const collectFlowWarnings = async (params: {
 }) => {
   if (!params.parsedFlow) return undefined;
   const warnings = new Set<string>();
-  for (const agentName of collectAgentTypes(params.parsedFlow.steps)) {
+  for (const agentName of collectAgentTypes({
+    flowName: params.flowName,
+    steps: params.parsedFlow.steps,
+    flowsDir: params.flowsDir,
+  })) {
     const discovered = params.discoveredAgentsByName.get(agentName);
     for (const warning of discovered?.warnings ?? []) {
       warnings.add(warning);
@@ -211,6 +365,8 @@ const collectFlowAvailability = async (params: {
   availabilityContext: Awaited<
     ReturnType<typeof createAgentAvailabilityContext>
   >;
+  flowName: string;
+  flowsDir: string;
   codeInfo2Root: string;
   repos: Array<{ sourceId: string; sourceLabel: string }>;
   sourceId?: string;
@@ -228,7 +384,11 @@ const collectFlowAvailability = async (params: {
   const warningDetails: AgentAvailabilityWarning[] = [];
   let disabledReason: AgentDisabledReason | undefined;
 
-  for (const agentName of collectAgentTypes(params.parsedFlow.steps)) {
+  for (const agentName of collectAgentTypes({
+    flowName: params.flowName,
+    steps: params.parsedFlow.steps,
+    flowsDir: params.flowsDir,
+  })) {
     const validatedAgentType = validateRepositoryBackedAgentType(agentName);
     if (!validatedAgentType.ok) {
       const message = `Flow agent "${agentName}" ${validatedAgentType.message}.`;
@@ -305,7 +465,11 @@ const collectFlowAvailability = async (params: {
     }
   }
 
-  const commandSteps = collectCommandSteps(params.parsedFlow.steps);
+  const commandSteps = collectCommandSteps({
+    flowName: params.flowName,
+    steps: params.parsedFlow.steps,
+    flowsDir: params.flowsDir,
+  });
   for (const step of commandSteps) {
     const resolved = await resolveFlowCommandForDiscovery({
       flowName: '(flow)',
@@ -316,15 +480,56 @@ const collectFlowAvailability = async (params: {
       repos: params.repos,
     });
     if (resolved.ok) continue;
-    warningDetails.push({
-      code: 'discovery_warning',
-      message: resolved.message,
-      visibility: 'details',
-    });
+      warningDetails.push({
+        code: 'discovery_warning',
+        message: resolved.message,
+        visibility: 'details',
+      });
     disabledReason ??= {
       code: 'agent_not_found',
       message: resolved.message,
     };
+  }
+
+  if (
+    await flowUsesCodexReview({
+      flowName: params.flowName,
+      steps: params.parsedFlow.steps,
+      flowsDir: params.flowsDir,
+    })
+  ) {
+    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+    if (!codexBootstrapStatus.healthy) {
+      const message = `Flow codexReview step is unavailable: ${codexBootstrapStatus.reason ?? 'codex unavailable'}`;
+      warningDetails.push({
+        code: 'provider_unavailable',
+        message,
+        visibility: 'details',
+        providerId: 'codex',
+      });
+      warnings.add(codexBootstrapStatus.reason ?? 'codex unavailable');
+    }
+  }
+
+  const subflowWarnings = await collectSubflowReferenceWarnings({
+    flowName: params.flowName,
+    steps: params.parsedFlow.steps,
+    flowsDir: params.flowsDir,
+  });
+  for (const warning of subflowWarnings.warnings) {
+    warnings.add(warning);
+  }
+  for (const warning of subflowWarnings.warningDetails) {
+    if (
+      !warningDetails.some(
+        (entry) =>
+          entry.code === warning.code &&
+          entry.message === warning.message &&
+          entry.providerId === warning.providerId,
+      )
+    ) {
+      warningDetails.push(warning);
+    }
   }
 
   return {
@@ -334,20 +539,101 @@ const collectFlowAvailability = async (params: {
   };
 };
 
-const collectCommandSteps = (
-  steps: FlowStep[],
-  collected: Array<Extract<FlowStep, { type: 'command' }>> = [],
-) => {
-  for (const step of steps) {
+const collectCommandSteps = (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsDir: string;
+}): Array<Extract<FlowStep, { type: 'command' }>> => {
+  const collected: Array<Extract<FlowStep, { type: 'command' }>> = [];
+
+  for (const step of params.steps) {
     if (step.type === 'command') {
       collected.push(step);
       continue;
     }
     if (step.type === 'startLoop') {
-      collectCommandSteps(step.steps, collected);
+      collected.push(
+        ...collectCommandSteps({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsDir: params.flowsDir,
+        }),
+      );
+      continue;
     }
   }
+
   return collected;
+};
+
+const flowUsesCodexReview = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsDir: string;
+  visited?: Set<string>;
+}): Promise<boolean> => {
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+
+  for (const step of params.steps) {
+    if (step.type === 'codexReview') {
+      return true;
+    }
+    if (step.type === 'startLoop') {
+      if (
+        await flowUsesCodexReview({
+          flowName: params.flowName,
+          steps: step.steps,
+          flowsDir: params.flowsDir,
+          visited,
+        })
+      ) {
+        return true;
+      }
+      continue;
+    }
+    if (step.type !== 'subflow') {
+      continue;
+    }
+
+    for (const childFlowName of step.flowNames) {
+      if (visited.has(childFlowName)) {
+        continue;
+      }
+      let childFlowPath: string;
+      try {
+        childFlowPath = resolveSafeChildFlowPath(
+          params.flowsDir,
+          childFlowName,
+        );
+      } catch {
+        continue;
+      }
+      const childFlowRaw = await fs
+        .readFile(childFlowPath, 'utf8')
+        .catch(() => null);
+      if (!childFlowRaw) {
+        continue;
+      }
+      const parsedChildFlow = parseFlowFile(childFlowRaw, {
+        flowName: childFlowName,
+      });
+      if (!parsedChildFlow.ok) {
+        continue;
+      }
+      if (
+        await flowUsesCodexReview({
+          flowName: childFlowName,
+          steps: parsedChildFlow.flow.steps,
+          flowsDir: params.flowsDir,
+          visited: new Set(visited).add(childFlowName),
+        })
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 };
 
 const buildSummary = (params: {
@@ -443,21 +729,48 @@ export async function discoverFlows(params?: {
       }
 
       const parsed = parseFlowFile(jsonText, { flowName: name });
-      const listWarnings = await collectFlowWarnings({
-        parsedFlow: parsed.ok ? parsed.flow : undefined,
-        discoveredAgentsByName,
-      });
-      const availability = await collectFlowAvailability({
-        parsedFlow: parsed.ok ? parsed.flow : undefined,
-        discoveredAgentsByName,
-        availabilityContext,
-        codeInfo2Root,
-        repos: params.repos,
-        sourceId: params.sourceId,
-        sourceLabel: params.sourceLabel,
-      });
+      let listWarnings: string[] | undefined;
+      let availability:
+        | Awaited<ReturnType<typeof collectFlowAvailability>>
+        | undefined;
+      let discoveryError: string | undefined;
+      try {
+        listWarnings = await collectFlowWarnings({
+          flowName: name,
+          flowsDir: params.flowsDir,
+          parsedFlow: parsed.ok ? parsed.flow : undefined,
+          discoveredAgentsByName,
+        });
+        availability = await collectFlowAvailability({
+          parsedFlow: parsed.ok ? parsed.flow : undefined,
+          discoveredAgentsByName,
+          availabilityContext,
+          flowName: name,
+          flowsDir: params.flowsDir,
+          codeInfo2Root,
+          repos: params.repos,
+          sourceId: params.sourceId,
+          sourceLabel: params.sourceLabel,
+        });
+      } catch (error) {
+        discoveryError =
+          error instanceof Error ? error.message : 'Invalid flow file';
+      }
+      const resolvedAvailability = availability ?? {
+        warnings: undefined,
+        warningDetails: undefined,
+        disabledReason: discoveryError
+          ? {
+              code: 'agent_not_found' as const,
+              message: discoveryError,
+            }
+          : undefined,
+      };
       const mergedWarnings = [
-        ...new Set([...(listWarnings ?? []), ...(availability.warnings ?? [])]),
+        ...new Set([
+          ...(listWarnings ?? []),
+          ...(resolvedAvailability.warnings ?? []),
+        ]),
       ];
       const warnings = mergedWarnings.length > 0 ? mergedWarnings : undefined;
       summaries.push(
@@ -465,7 +778,7 @@ export async function discoverFlows(params?: {
           name,
           parsed,
           error: parsed.ok
-            ? availability.disabledReason?.message
+            ? (discoveryError ?? resolvedAvailability.disabledReason?.message)
             : 'Invalid flow file',
           warnings,
           sourceId: params.sourceId,
@@ -474,9 +787,9 @@ export async function discoverFlows(params?: {
       );
       const latest = summaries[summaries.length - 1];
       if (latest) {
-        latest.warningDetails = availability.warningDetails;
-        latest.disabledReason = availability.disabledReason;
-        if (availability.disabledReason) {
+        latest.warningDetails = resolvedAvailability.warningDetails;
+        latest.disabledReason = resolvedAvailability.disabledReason;
+        if (resolvedAvailability.disabledReason) {
           latest.disabled = true;
         }
       }

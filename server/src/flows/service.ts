@@ -114,6 +114,11 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   };
 };
 
+import {
+  clearCodexReviewPointerFile,
+  resolveCodexReviewModel,
+  runCodexReviewStep,
+} from './codexReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
   parseFlowFile,
@@ -121,7 +126,9 @@ import {
   type FlowBreakStep,
   type FlowContinueStep,
   type FlowCommandStep,
+  type FlowCodexReviewStep,
   type FlowLlmStep,
+  type FlowPrepareReviewBaseStep,
   type FlowReingestStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
@@ -146,6 +153,7 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
+import { prepareReviewBase } from './reviewBase.js';
 import type {
   FlowAgentState,
   FlowChatFactory,
@@ -240,6 +248,7 @@ type FreshRunRetryOwnershipLaunch = {
   flowName: string;
   source: 'REST' | 'MCP';
   sourceId?: string;
+  codexReviewModelId?: string;
   workingFolder?: string;
   customTitle?: string;
 };
@@ -265,12 +274,14 @@ const normalizeFreshRunRetryOwnershipLaunch = (params: {
   flowName: string;
   source: 'REST' | 'MCP';
   sourceId?: string;
+  codexReviewModelId?: string;
   working_folder?: string;
   customTitle?: string;
 }): FreshRunRetryOwnershipLaunch => ({
   flowName: params.flowName.trim(),
   source: params.source,
   sourceId: params.sourceId?.trim() || undefined,
+  codexReviewModelId: params.codexReviewModelId?.trim() || undefined,
   workingFolder: params.working_folder?.trim() || undefined,
   customTitle: params.customTitle?.trim() || undefined,
 });
@@ -314,9 +325,7 @@ const rememberFreshRunRetryOwnershipCompletion = (params: {
       retryOwnershipId: params.retryOwnershipId,
       sourceId: params.sourceId?.trim() || undefined,
       result: cloneFlowRunStartResult(params.result),
-      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(
-        params.launch,
-      ),
+      launchSignature: makeFreshRunRetryOwnershipLaunchSignature(params.launch),
       completedAt: Date.now(),
     },
   );
@@ -332,7 +341,8 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? completion.retryOwnershipId.trim()
       : undefined;
   const sourceId =
-    typeof completion.sourceId === 'string' && completion.sourceId.trim().length > 0
+    typeof completion.sourceId === 'string' &&
+    completion.sourceId.trim().length > 0
       ? completion.sourceId.trim()
       : undefined;
   const launchSignature =
@@ -376,18 +386,13 @@ const parseFreshRunRetryOwnershipCompletion = (
       ? result.modelId.trim()
       : undefined;
   const warnings =
-    Array.isArray(result.warnings) && result.warnings.every((item) =>
-      typeof item === 'string',
-    )
-      ? result.warnings.filter((item): item is string => typeof item === 'string')
+    Array.isArray(result.warnings) &&
+    result.warnings.every((item) => typeof item === 'string')
+      ? result.warnings.filter(
+          (item): item is string => typeof item === 'string',
+        )
       : undefined;
-  if (
-    !flowName ||
-    !conversationId ||
-    !inflightId ||
-    !providerId ||
-    !modelId
-  ) {
+  if (!flowName || !conversationId || !inflightId || !providerId || !modelId) {
     return null;
   }
   return {
@@ -681,14 +686,12 @@ export function __resetFreshRunRetryOwnershipCompletionForTests() {
   freshRunRetryOwnershipCompletedByKey.clear();
 }
 
-export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(
-  params: {
-    flowName: string;
-    sourceId?: string;
-    retryOwnershipId: string;
-    launch: FreshRunRetryOwnershipLaunch;
-  },
-) {
+export async function __getPersistedFreshRunRetryOwnershipCompletionForTests(params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  launch: FreshRunRetryOwnershipLaunch;
+}) {
   return getPersistedFreshRunRetryOwnershipCompletion(params);
 }
 
@@ -892,6 +895,10 @@ const parseFlowResumeState = (
         }
       : {}),
     ...(activeSubflows.length > 0 ? { activeSubflows } : {}),
+    ...(typeof flow.codexReviewModelId === 'string' &&
+    flow.codexReviewModelId.trim()
+      ? { codexReviewModelId: flow.codexReviewModelId.trim() }
+      : {}),
     ...(typeof flow.workingFolder === 'string' && flow.workingFolder.trim()
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
@@ -906,9 +913,7 @@ const parseFlowResumeState = (
       ? { agentRequestedProviders }
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
-    ...(retryOwnershipCompletion
-      ? { retryOwnershipCompletion }
-      : {}),
+    ...(retryOwnershipCompletion ? { retryOwnershipCompletion } : {}),
   };
 };
 
@@ -1257,7 +1262,9 @@ const ensureFlowAgentConversation = async (params: {
         ...(params.requestedProviderId?.trim()
           ? { requestedProviderId: params.requestedProviderId.trim() }
           : {}),
-        ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+        ...(params.endpointId?.trim()
+          ? { endpointId: params.endpointId.trim() }
+          : {}),
         flowChild: { executionId: params.executionId },
       },
       lastMessageAt: now,
@@ -1330,7 +1337,9 @@ const ensureFlowAgentConversation = async (params: {
       ...(params.requestedProviderId?.trim()
         ? { requestedProviderId: params.requestedProviderId.trim() }
         : {}),
-      ...(params.endpointId?.trim() ? { endpointId: params.endpointId.trim() } : {}),
+      ...(params.endpointId?.trim()
+        ? { endpointId: params.endpointId.trim() }
+        : {}),
       flowChild: { executionId: params.executionId },
     },
     lastMessageAt: now,
@@ -1431,7 +1440,7 @@ const ensureAgentState = async (params: {
     const existingConversation = await getConversation(existing.conversationId);
     const requestedProviderIdToUse =
       typeof params.requestedProviderId === 'string' &&
-        params.requestedProviderId.trim()
+      params.requestedProviderId.trim()
         ? params.requestedProviderId.trim()
         : getSavedRequestedProviderId(existingConversation);
     const savedEndpointId =
@@ -1686,6 +1695,8 @@ const buildFlowCommandMetadata = (params: {
     | FlowBreakStep
     | FlowContinueStep
     | FlowCommandStep
+    | FlowPrepareReviewBaseStep
+    | FlowCodexReviewStep
     | FlowSubflowStep
     | FlowReingestStep;
   stepIndex: number;
@@ -2650,6 +2661,105 @@ const emitStoppedFlowStep = async (params: {
   });
 };
 
+const emitCompletedFlowStep = async (params: {
+  flowConversationId: string;
+  inflightId: string;
+  instruction: string;
+  response: string;
+  modelId: string;
+  providerId?: ConversationProvider;
+  source: 'REST' | 'MCP';
+  command?: TurnCommandMetadata;
+}) => {
+  const createdAtIso = new Date().toISOString();
+  const providerId = params.providerId ?? 'codex';
+  createInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: providerId,
+    model: params.modelId,
+    source: params.source,
+    command: params.command,
+    userTurn: { content: params.instruction, createdAt: createdAtIso },
+  });
+
+  publishUserTurn({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    content: params.instruction,
+    createdAt: createdAtIso,
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: providerId,
+    model: params.modelId,
+    chat: createNoopChat(),
+    deferFinal: true,
+  });
+
+  setAssistantText({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    text: params.response,
+  });
+  publishInflightSnapshot(params.flowConversationId);
+
+  const userCreatedAt = new Date(createdAtIso);
+  const userPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'user',
+    content: params.instruction,
+    model: params.modelId,
+    provider: providerId,
+    source: params.source,
+    status: 'ok',
+    toolCalls: null,
+    command: params.command,
+    createdAt: userCreatedAt,
+  });
+
+  const assistantCreatedAt = new Date();
+  const assistantPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'assistant',
+    content: params.response,
+    model: params.modelId,
+    provider: providerId,
+    source: params.source,
+    status: 'ok',
+    toolCalls: null,
+    command: params.command,
+    createdAt: assistantCreatedAt,
+  });
+
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'user',
+    turnId: userPersisted.turnId,
+  });
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'assistant',
+    turnId: assistantPersisted.turnId,
+  });
+
+  bridge.finalize({
+    fallback: {
+      status: 'ok',
+    },
+  });
+  bridge.cleanup();
+
+  cleanupInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+  });
+};
+
 type FlowStepOutcome = TurnStatus | 'break' | 'continue';
 
 type LoopFrame = {
@@ -2664,6 +2774,7 @@ const buildFlowResumeState = (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
+  codexReviewModelId?: string;
   workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
@@ -2721,6 +2832,9 @@ const buildFlowResumeState = (params: {
           })),
         }
       : {}),
+    ...(params.codexReviewModelId
+      ? { codexReviewModelId: params.codexReviewModelId }
+      : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
@@ -2744,6 +2858,7 @@ const persistFlowResumeState = async (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
+  codexReviewModelId?: string;
   workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
@@ -2753,6 +2868,7 @@ const persistFlowResumeState = async (params: {
     loopStack: params.loopStack,
     pendingLoopControl: params.pendingLoopControl,
     activeSubflows: params.activeSubflows,
+    codexReviewModelId: params.codexReviewModelId,
     workingFolder: params.workingFolder,
   });
   const existingConversation = await getConversation(params.conversationId);
@@ -3056,6 +3172,21 @@ const findFirstAgentStep = (
   return undefined;
 };
 
+const findFirstCodexReviewStep = (
+  steps: FlowStep[],
+): FlowCodexReviewStep | undefined => {
+  for (const step of steps) {
+    if (step.type === 'codexReview') {
+      return step;
+    }
+    if (step.type === 'startLoop') {
+      const nested = findFirstCodexReviewStep(step.steps);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+};
+
 const findRuntimeIdentityStep = (
   steps: FlowStep[],
   resumeStepPath?: number[] | null,
@@ -3116,14 +3247,124 @@ const findRuntimeIdentityStep = (
   return undefined;
 };
 
-const validateCommandSteps = async (
+const findRuntimeCodexReviewStep = (
   steps: FlowStep[],
-  agentByName: Map<string, { home: string }>,
-  repositoryContext: FlowCommandRepositoryContext,
-): Promise<void> => {
-  for (const step of steps) {
+  resumeStepPath?: number[] | null,
+): FlowCodexReviewStep | undefined => {
+  let resumePathRemaining =
+    resumeStepPath && resumeStepPath.length > 0 ? [...resumeStepPath] : null;
+  let resumeIndex = resumePathRemaining?.[0];
+
+  for (const [index, step] of steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        return undefined;
+      }
+      const nested = findRuntimeCodexReviewStep(
+        step.steps,
+        resumePathRemaining.slice(1),
+      );
+      if (nested) {
+        return nested;
+      }
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
+    }
+
+    if (step.type === 'codexReview') {
+      return step;
+    }
     if (step.type === 'startLoop') {
-      await validateCommandSteps(step.steps, agentByName, repositoryContext);
+      const nested = findRuntimeCodexReviewStep(step.steps, null);
+      if (nested) return nested;
+    }
+  }
+
+  return undefined;
+};
+
+const validateCommandSteps = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsRoot: string;
+  sourceId?: string;
+  agentByName: Map<string, { home: string }>;
+  repositoryContext: FlowCommandRepositoryContext;
+  resumeStepPath?: number[] | null;
+  visited?: Set<string>;
+}): Promise<void> => {
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+  let resumePathRemaining =
+    params.resumeStepPath && params.resumeStepPath.length > 0
+      ? [...params.resumeStepPath]
+      : null;
+  let resumeIndex = resumePathRemaining?.[0];
+
+  for (const [index, step] of params.steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'resumeStepPath must reference loop steps for nested indices',
+        );
+      }
+      await validateCommandSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        agentByName: params.agentByName,
+        repositoryContext: params.repositoryContext,
+        resumeStepPath: resumePathRemaining.slice(1),
+        visited,
+      });
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
+    }
+
+    if (step.type === 'startLoop') {
+      await validateCommandSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        agentByName: params.agentByName,
+        repositoryContext: params.repositoryContext,
+        resumeStepPath: null,
+        visited,
+      });
+      continue;
+    }
+    if (step.type === 'subflow') {
       continue;
     }
     if (step.type === 'command') {
@@ -3136,7 +3377,7 @@ const validateCommandSteps = async (
           `Flow agent "${step.agentType}" ${validatedAgentType.message}.`,
         );
       }
-      const agent = agentByName.get(step.agentType);
+      const agent = params.agentByName.get(step.agentType);
       if (!agent) {
         throw toFlowRunError(
           'AGENT_NOT_FOUND',
@@ -3145,12 +3386,84 @@ const validateCommandSteps = async (
       }
       const commandLoad = await resolveFlowCommandForAgent({
         step,
-        context: repositoryContext,
+        context: params.repositoryContext,
         phase: 'validation',
       });
       if (!commandLoad.ok) {
         throw toFlowRunError('COMMAND_INVALID', commandLoad.message);
       }
+    }
+  }
+};
+
+const validateCodexReviewSteps = async (params: {
+  flowName: string;
+  steps: FlowStep[];
+  flowsRoot: string;
+  sourceId?: string;
+  codexReviewModelId?: string;
+  resumeStepPath?: number[] | null;
+  visited?: Set<string>;
+}): Promise<void> => {
+  const visited = params.visited ?? new Set<string>();
+  visited.add(params.flowName);
+  let resumePathRemaining =
+    params.resumeStepPath && params.resumeStepPath.length > 0
+      ? [...params.resumeStepPath]
+      : null;
+  let resumeIndex = resumePathRemaining?.[0];
+
+  for (const [index, step] of params.steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'resumeStepPath must reference loop steps for nested indices',
+        );
+      }
+      await validateCodexReviewSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        codexReviewModelId: params.codexReviewModelId,
+        resumeStepPath: resumePathRemaining.slice(1),
+        visited,
+      });
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
+    }
+
+    if (step.type === 'startLoop') {
+      await validateCodexReviewSteps({
+        flowName: params.flowName,
+        steps: step.steps,
+        flowsRoot: params.flowsRoot,
+        sourceId: params.sourceId,
+        codexReviewModelId: params.codexReviewModelId,
+        visited,
+      });
+      continue;
+    }
+    if (step.type === 'subflow') {
+      continue;
+    }
+    if (step.type !== 'codexReview') {
+      continue;
     }
   }
 };
@@ -3236,6 +3549,10 @@ type FlowCommandRepositoryContext = {
   }>;
   repos: Array<{ sourceId: string; sourceLabel: string }>;
 };
+
+const resolveFlowGitBackedRepositoryPath = (
+  context: FlowCommandRepositoryContext,
+) => context.workingRepositoryPath ?? context.flowSourceId;
 
 type FlowCommandCandidate = {
   sourceId: string;
@@ -3528,6 +3845,7 @@ async function runFlowUnlocked(params: {
   modelId: string;
   providerId: ConversationProvider;
   workingDirectoryOverride?: string;
+  codexReviewModelId?: string;
   source: 'REST' | 'MCP';
   chatFactory?: FlowChatFactory;
   resumeState?: FlowResumeState | null;
@@ -3593,6 +3911,7 @@ async function runFlowUnlocked(params: {
       loopStack,
       pendingLoopControl,
       activeSubflows,
+      codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
   const clearContinueBoundaryForActiveLoop = () => {
@@ -3733,37 +4052,37 @@ async function runFlowUnlocked(params: {
       );
     }
 
-  const agentState = runtimeState.get(
-    getAgentKey(params.agentType, params.identifier),
-  );
-  if (agentState?.conversationId) {
-    const persistedConversation = await getConversation(
-      agentState.conversationId,
+    const agentState = runtimeState.get(
+      getAgentKey(params.agentType, params.identifier),
     );
-    if (persistedConversation?.agentName === params.agentType) {
-      const savedEndpointId =
-        typeof persistedConversation.flags?.endpointId === 'string' &&
-        persistedConversation.flags.endpointId.trim().length > 0
-          ? persistedConversation.flags.endpointId.trim()
-          : undefined;
-      if (!agentState.providerId || !agentState.modelId) {
-        agentState.providerId = persistedConversation.provider;
-        agentState.modelId = persistedConversation.model;
-        agentState.requestedProviderId = getSavedRequestedProviderId(
-          persistedConversation,
-        );
-      }
-      if (savedEndpointId) {
-        agentState.endpointId = savedEndpointId;
+    if (agentState?.conversationId) {
+      const persistedConversation = await getConversation(
+        agentState.conversationId,
+      );
+      if (persistedConversation?.agentName === params.agentType) {
+        const savedEndpointId =
+          typeof persistedConversation.flags?.endpointId === 'string' &&
+          persistedConversation.flags.endpointId.trim().length > 0
+            ? persistedConversation.flags.endpointId.trim()
+            : undefined;
+        if (!agentState.providerId || !agentState.modelId) {
+          agentState.providerId = persistedConversation.provider;
+          agentState.modelId = persistedConversation.model;
+          agentState.requestedProviderId = getSavedRequestedProviderId(
+            persistedConversation,
+          );
+        }
+        if (savedEndpointId) {
+          agentState.endpointId = savedEndpointId;
+        }
       }
     }
-  }
-  const providerBootstrapReady =
-    agentState?.providerId !== undefined
-      ? getProviderBootstrapStatus(
-          agentState.providerId as ConversationProvider,
-        ).healthy
-      : true;
+    const providerBootstrapReady =
+      agentState?.providerId !== undefined
+        ? getProviderBootstrapStatus(
+            agentState.providerId as ConversationProvider,
+          ).healthy
+        : true;
 
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
@@ -4306,8 +4625,7 @@ async function runFlowUnlocked(params: {
   const getActiveSubflowsForStep = (stepPath: number[]) => {
     const stepPathKey = getStepPathKey(stepPath);
     return (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) === stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) === stepPathKey,
     );
   };
 
@@ -4317,8 +4635,7 @@ async function runFlowUnlocked(params: {
   ) => {
     const stepPathKey = getStepPathKey(stepPath);
     const retainedSubflows = (activeSubflows ?? []).filter(
-      (activeSubflow) =>
-        getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
+      (activeSubflow) => getStepPathKey(activeSubflow.stepPath) !== stepPathKey,
     );
     const mergedSubflows = [...retainedSubflows, ...nextSubflows];
     activeSubflows = mergedSubflows.length > 0 ? mergedSubflows : undefined;
@@ -4384,6 +4701,49 @@ async function runFlowUnlocked(params: {
     const runningText = buildSubflowSummaryText(
       launchesMultipleChildren ? 'Running subflows' : 'Running subflow',
     );
+    const childOutcomes = new Map<
+      string,
+      {
+        title: string;
+        status: 'ok' | 'failed' | 'stopped';
+        reason?: string;
+      }
+    >();
+    const recordChildOutcome = (params: {
+      flowName: string;
+      status: 'ok' | 'failed' | 'stopped';
+      reason?: string;
+    }) => {
+      childOutcomes.set(params.flowName, {
+        title: buildTrackedSubflowTitle(params.flowName),
+        status: params.status,
+        ...(params.reason ? { reason: params.reason } : {}),
+      });
+    };
+    const buildBestEffortSummary = () => {
+      const outcomes = childFlowNames.map(
+        (flowName) =>
+          childOutcomes.get(flowName) ?? {
+            title: buildTrackedSubflowTitle(flowName),
+            status: 'failed' as const,
+          },
+      );
+      const successCount = outcomes.filter((entry) => entry.status === 'ok').length;
+      const failedCount = outcomes.filter((entry) => entry.status === 'failed').length;
+      const stoppedCount = outcomes.filter(
+        (entry) => entry.status === 'stopped',
+      ).length;
+      const parts = [`${successCount} succeeded`];
+      if (failedCount > 0) {
+        parts.push(`${failedCount} failed`);
+      }
+      if (stoppedCount > 0) {
+        parts.push(`${stoppedCount} stopped`);
+      }
+      return `${buildSubflowSummaryText(
+        launchesMultipleChildren ? 'Completed subflows' : 'Completed subflow',
+      )} (best effort: ${parts.join(', ')})`;
+    };
 
     const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
       const pendingCancel = getPendingConversationCancel(params.conversationId);
@@ -4453,24 +4813,28 @@ async function runFlowUnlocked(params: {
     });
 
     try {
-      await Promise.all(
-        childRuns.map(async (childRun) => {
-          const status = await getFlowConversationTerminalStatus({
-            conversationId: childRun.conversationId,
-            runToken: childRun.runToken,
-          });
-          if (status || getActiveRunOwnership(childRun.conversationId)) {
-            return;
-          }
-          throw toFlowRunError(
-            'INVALID_REQUEST',
-            `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
-          );
-        }),
-      );
+      const resumableChildRuns: FlowActiveSubflow[] = [];
+      for (const childRun of childRuns) {
+        const status = await getFlowConversationTerminalStatus({
+          conversationId: childRun.conversationId,
+          runToken: childRun.runToken,
+        });
+        if (status || getActiveRunOwnership(childRun.conversationId)) {
+          resumableChildRuns.push(childRun);
+          continue;
+        }
+        recordChildOutcome({
+          flowName: childRun.flowName,
+          status: 'failed',
+          reason: `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+        });
+      }
+      childRuns.length = 0;
+      childRuns.push(...resumableChildRuns);
+      setActiveSubflowsForStep(nextPath, childRuns);
 
       for (const flowName of childFlowNames) {
-        if (rememberedSubflowsByName.has(flowName)) {
+        if (rememberedSubflowsByName.has(flowName) || childOutcomes.has(flowName)) {
           continue;
         }
         if (
@@ -4482,41 +4846,56 @@ async function runFlowUnlocked(params: {
 
         let childConversationId: string | undefined;
         let childRunToken: string | undefined;
-        const started = await startFlowRun({
-          flowName,
-          sourceId: params.repositoryContext.flowSourceId,
-          flowPath: params.flowPath,
-          working_folder: params.repositoryContext.workingRepositoryPath,
-          customTitle: buildTrackedSubflowTitle(flowName),
-          source: params.source,
-          chatFactory: params.chatFactory,
-          listIngestedRepositories:
-            params.repositoryContext.listIngestedRepositories,
-          onOwnershipReady: ({ conversationId, runToken }) => {
-            childConversationId = conversationId;
-            childRunToken = runToken;
-          },
-        });
-        childConversationId = started.conversationId;
+        try {
+          const started = await startFlowRun({
+            flowName,
+            sourceId: params.repositoryContext.flowSourceId,
+            flowPath: params.flowPath,
+            codexReviewModelId: params.codexReviewModelId,
+            working_folder: params.repositoryContext.workingRepositoryPath,
+            customTitle: buildTrackedSubflowTitle(flowName),
+            source: params.source,
+            chatFactory: params.chatFactory,
+            listIngestedRepositories:
+              params.repositoryContext.listIngestedRepositories,
+            onOwnershipReady: ({ conversationId, runToken }) => {
+              childConversationId = conversationId;
+              childRunToken = runToken;
+            },
+          });
+          childConversationId = started.conversationId;
 
-        if (!childConversationId || !childRunToken) {
-          throw toFlowRunError(
-            'INVALID_REQUEST',
-            `Subflow ${flowName} did not start correctly.`,
-          );
+          if (!childConversationId || !childRunToken) {
+            recordChildOutcome({
+              flowName,
+              status: 'failed',
+              reason: `Subflow ${flowName} did not start correctly.`,
+            });
+            continue;
+          }
+
+          const trackedSubflow = {
+            stepPath: [...nextPath],
+            flowName,
+            conversationId: childConversationId,
+            runToken: childRunToken,
+            title: buildTrackedSubflowTitle(flowName),
+          };
+          rememberedSubflowsByName.set(flowName, trackedSubflow);
+          childRuns.push(trackedSubflow);
+          setActiveSubflowsForStep(nextPath, childRuns);
+          await persistRuntimeResumeState(lastCompletedStepPath);
+        } catch (error) {
+          recordChildOutcome({
+            flowName,
+            status: 'failed',
+            reason: isFlowRunError(error)
+              ? (error.reason ?? error.code)
+              : error instanceof Error
+                ? error.message
+                : `Subflow ${flowName} failed to start.`,
+          });
         }
-
-        const trackedSubflow = {
-          stepPath: [...nextPath],
-          flowName,
-          conversationId: childConversationId,
-          runToken: childRunToken,
-          title: buildTrackedSubflowTitle(flowName),
-        };
-        rememberedSubflowsByName.set(flowName, trackedSubflow);
-        childRuns.push(trackedSubflow);
-        setActiveSubflowsForStep(nextPath, childRuns);
-        await persistRuntimeResumeState(lastCompletedStepPath);
       }
 
       let terminalStatus: TurnStatus;
@@ -4549,6 +4928,30 @@ async function runFlowUnlocked(params: {
             };
           }),
         );
+        const staleChildren = childStatuses.filter(
+          ({ childRun, status }) =>
+            !status && !getActiveRunOwnership(childRun.conversationId),
+        );
+        if (staleChildren.length > 0) {
+          const staleConversationIds = new Set<string>();
+          staleChildren.forEach(({ childRun }) => {
+            staleConversationIds.add(childRun.conversationId);
+            recordChildOutcome({
+              flowName: childRun.flowName,
+              status: 'failed',
+              reason: `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+            });
+          });
+          const remainingChildRuns = childRuns.filter(
+            (childRun) => !staleConversationIds.has(childRun.conversationId),
+          );
+          childRuns.length = 0;
+          childRuns.push(...remainingChildRuns);
+          setActiveSubflowsForStep(nextPath, childRuns);
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          allChildrenOkObservedAt = null;
+          continue;
+        }
         const hasIncompleteChild = childStatuses.some(({ status }) => !status);
         if (!hasIncompleteChild) {
           const lateParentPendingCancel = consumePendingConversationCancel({
@@ -4569,50 +4972,42 @@ async function runFlowUnlocked(params: {
               continue;
             }
           }
-          if (terminalStatuses.includes('failed')) {
-            terminalStatus = 'failed';
-          } else if (
-            parentStopRequested ||
-            terminalStatuses.includes('stopped')
-          ) {
-            terminalStatus = 'stopped';
-          } else {
-            terminalStatus = 'ok';
-          }
+          childStatuses.forEach(({ childRun, status }) => {
+            if (!status) {
+              return;
+            }
+            recordChildOutcome({
+              flowName: childRun.flowName,
+              status,
+            });
+          });
+          terminalStatus = parentStopRequested ? 'stopped' : 'ok';
           break;
         }
         allChildrenOkObservedAt = null;
-
-        const staleChild = childStatuses.find(
-          ({ childRun, status }) =>
-            !status && !getActiveRunOwnership(childRun.conversationId),
-        );
-        if (staleChild) {
-          throw toFlowRunError(
-            'INVALID_REQUEST',
-            `Subflow ${staleChild.childRun.flowName} could not be resumed because child conversation ${staleChild.childRun.conversationId} has no active run and no terminal result.`,
-          );
-        }
 
         await sleep(25);
       }
 
       setActiveSubflowsForStep(nextPath, []);
 
+      const nonOkChildCount = [...childOutcomes.values()].filter(
+        (entry) => entry.status !== 'ok',
+      ).length;
       const finalMessage =
-        terminalStatus === 'ok'
+        terminalStatus === 'stopped'
           ? buildSubflowSummaryText(
               launchesMultipleChildren
-                ? 'Completed subflows'
-                : 'Completed subflow',
+                ? 'Stopped subflows'
+                : 'Stopped subflow',
             )
-          : terminalStatus === 'stopped'
+          : nonOkChildCount === 0
             ? buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',
+                launchesMultipleChildren
+                  ? 'Completed subflows'
+                  : 'Completed subflow',
               )
-            : buildSubflowSummaryText(
-                launchesMultipleChildren ? 'Subflows' : 'Subflow',
-              ) + ' failed';
+            : buildBestEffortSummary();
       setAssistantText({
         conversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -4659,18 +5054,9 @@ async function runFlowUnlocked(params: {
       });
 
       bridge.finalize({
-        fallback:
-          terminalStatus === 'failed'
-            ? {
-                status: terminalStatus,
-                error: {
-                  code: 'SUBFLOW_FAILED',
-                  message: finalMessage,
-                },
-              }
-            : {
-                status: terminalStatus,
-              },
+        fallback: {
+          status: terminalStatus,
+        },
       });
       return terminalStatus;
     } catch (error) {
@@ -5059,6 +5445,339 @@ async function runFlowUnlocked(params: {
     return 'failed';
   };
 
+  const runPrepareReviewBaseStep = async (
+    step: FlowPrepareReviewBaseStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    if (!reviewRepositoryPath) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Prepare review base: ${step.outputKey}`,
+        modelId: params.modelId,
+        source: params.source,
+        message:
+          'prepareReviewBase requires a resolved working repository path.',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+
+    const instruction = `Prepare review base: ${step.outputKey}`;
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+      command,
+    });
+    const inflightSignal = inflightState.abortController.signal;
+    const consumePendingPrepareStop = () => {
+      if (!params.runToken) return false;
+      const boundPending = bindPendingConversationCancelToInflight({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      if (!boundPending.ok) {
+        return false;
+      }
+
+      const aborted = abortInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+      if (!aborted.ok) return false;
+
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      return true;
+    };
+    if (consumePendingPrepareStop()) {
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'stopped';
+    }
+    try {
+      const result = await prepareReviewBase({
+        workingRepositoryPath: reviewRepositoryPath,
+        outputKey: step.outputKey,
+        basePolicy: step.basePolicy,
+        signal: inflightSignal,
+      });
+      if (inflightSignal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: [
+          'Prepared shared review base.',
+          `Artifact: ${path.relative(reviewRepositoryPath, result.artifactPath)}`,
+          `Comparison base: ${result.artifact.comparison_base_ref}`,
+        ].join('\n'),
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'ok';
+    } catch (error) {
+      if (
+        inflightSignal.aborted ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'prepareReviewBase failed unexpectedly',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+  };
+
+  const runCodexReviewFlowStep = async (
+    step: FlowCodexReviewStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const resolvedModelId = resolveCodexReviewModel({
+      requestedModelId: params.codexReviewModelId,
+      stepModelId: step.model,
+    });
+    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    const clearStaleCodexReviewPointer = async () => {
+      if (reviewRepositoryPath) {
+        try {
+          await clearCodexReviewPointerFile({
+            workingRepositoryPath: reviewRepositoryPath,
+            outputKey: step.outputKey,
+          });
+        } catch (error) {
+          await emitFailedFlowStep({
+            flowConversationId: params.conversationId,
+            inflightId: stepInflightId,
+            instruction: `Codex review: ${step.outputKey}`,
+            modelId: codexStepModelId,
+            providerId: 'codex',
+            source: params.source,
+            message: [
+              'codexReview could not clear the stale stable review pointer before starting.',
+              `Cleanup error: ${
+                error instanceof Error
+                  ? error.message
+                  : 'codexReview pointer cleanup failed unexpectedly'
+              }`,
+            ].join('\n'),
+            errorCode: 'INVALID_REQUEST',
+            command,
+          });
+          return 'failed' as const;
+        }
+      }
+      return 'ok' as const;
+    };
+    const emitSkippedCodexReviewStep = async (message: string) => {
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Codex review: ${step.outputKey}`,
+        response: `Codex review skipped.\nReason: ${message}`,
+        modelId: codexStepModelId,
+        providerId: 'codex',
+        source: params.source,
+        command,
+      });
+      return 'ok' as const;
+    };
+    const clearedStalePointer = await clearStaleCodexReviewPointer();
+    if (clearedStalePointer !== 'ok') {
+      return clearedStalePointer;
+    }
+    if (!resolvedModelId) {
+      return emitSkippedCodexReviewStep(
+        'codexReview requires codexReviewModelId or a model on the flow step.',
+      );
+    }
+
+    if (!codexBootstrapStatus.healthy) {
+      return emitSkippedCodexReviewStep(
+        codexBootstrapStatus.reason ?? 'codex unavailable',
+      );
+    }
+
+    if (!reviewRepositoryPath) {
+      return emitSkippedCodexReviewStep(
+        'codexReview requires a resolved working repository path.',
+      );
+    }
+
+    const instruction = `Codex review: ${step.outputKey}`;
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: 'codex',
+      model: resolvedModelId,
+      source: params.source,
+      command,
+    });
+    const inflightSignal = inflightState.abortController.signal;
+    const consumePendingCodexStop = () => {
+      if (!params.runToken) return false;
+      const boundPending = bindPendingConversationCancelToInflight({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      if (!boundPending.ok) {
+        return false;
+      }
+
+      const aborted = abortInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+      if (!aborted.ok) return false;
+
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      return true;
+    };
+    if (consumePendingCodexStop()) {
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: resolvedModelId,
+        providerId: 'codex',
+        source: params.source,
+        command,
+      });
+      return 'stopped';
+    }
+
+    try {
+      const result = await runCodexReviewStep({
+        workingRepositoryPath: reviewRepositoryPath,
+        outputKey: step.outputKey,
+        modelId: resolvedModelId,
+        reasoningEffort: step.reasoningEffort,
+        basePolicy: step.basePolicy,
+        signal: inflightSignal,
+      });
+      if (inflightSignal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: resolvedModelId,
+          providerId: 'codex',
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: [
+          'Codex review completed.',
+          `Model: ${result.modelId}`,
+          ...(result.reasoningEffort
+            ? [`Reasoning effort: ${result.reasoningEffort}`]
+            : []),
+          `Pointer: ${path.relative(reviewRepositoryPath, result.pointerPath)}`,
+        ].join('\n'),
+        modelId: resolvedModelId,
+        providerId: 'codex',
+        source: params.source,
+        command,
+      });
+      return 'ok';
+    } catch (error) {
+      if (
+        inflightSignal.aborted ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: resolvedModelId,
+          providerId: 'codex',
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: `Codex review skipped.\nReason: ${
+          error instanceof Error ? error.message : 'codexReview failed unexpectedly'
+        }`,
+        modelId: resolvedModelId,
+        providerId: 'codex',
+        source: params.source,
+        command,
+      });
+      return 'ok';
+    }
+  };
+
   const runReingestStep = async (
     step: FlowReingestStep,
     command: TurnCommandMetadata,
@@ -5345,6 +6064,7 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         continue;
       }
 
@@ -5465,6 +6185,75 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (step.type === 'prepareReviewBase') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            reviewBaseOutputKey: step.outputKey,
+          },
+        });
+        const status = await runPrepareReviewBaseStep(step, command);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.prepareReviewBase',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (step.type === 'codexReview') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            codexReviewOutputKey: step.outputKey,
+          },
+        });
+        const status = await runCodexReviewFlowStep(step, command);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.codexReview',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         continue;
       }
 
@@ -5585,6 +6374,7 @@ export async function startFlowRun(
     flowName,
     source: params.source,
     sourceId,
+    codexReviewModelId: params.codexReviewModelId,
     working_folder: params.working_folder,
     customTitle: params.customTitle,
   });
@@ -5720,6 +6510,8 @@ export async function startFlowRun(
         await validateResumeAgentConversations(resumeState);
     }
     executionId = resumeState?.executionId ?? executionId;
+    const effectiveCodexReviewModelId =
+      params.codexReviewModelId ?? resumeState?.codexReviewModelId;
 
     const runtimeIdentityStep = findRuntimeIdentityStep(
       flow.steps,
@@ -5727,6 +6519,12 @@ export async function startFlowRun(
     );
     const firstAgentStep =
       runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
+    const runtimeCodexReviewStep = !firstAgentStep
+      ? findRuntimeCodexReviewStep(flow.steps, resumeStepPath)
+      : undefined;
+    const firstCodexReviewStep =
+      runtimeCodexReviewStep ??
+      (!firstAgentStep ? findFirstCodexReviewStep(flow.steps) : undefined);
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -5764,6 +6562,15 @@ export async function startFlowRun(
       modelId = prepared.modelId;
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
+    } else if (firstCodexReviewStep) {
+      const resolvedModelId = resolveCodexReviewModel({
+        requestedModelId: effectiveCodexReviewModelId,
+        stepModelId: firstCodexReviewStep.model,
+      });
+      const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+      modelId = resolvedModelId ?? FALLBACK_MODEL_ID;
+      providerId = 'codex';
+      startupWarnings = codexBootstrapStatus.warnings;
     }
 
     const codeInfo2Root = codeInfo2RootForRun();
@@ -5795,7 +6602,23 @@ export async function startFlowRun(
       })),
     };
 
-    await validateCommandSteps(flow.steps, agentByName, repositoryContext);
+    await validateCommandSteps({
+      flowName,
+      steps: flow.steps,
+      flowsRoot,
+      sourceId,
+      agentByName,
+      repositoryContext,
+      resumeStepPath,
+    });
+    await validateCodexReviewSteps({
+      flowName,
+      steps: flow.steps,
+      flowsRoot,
+      sourceId,
+      codexReviewModelId: effectiveCodexReviewModelId,
+      resumeStepPath,
+    });
 
     await ensureFlowConversation({
       conversationId,
@@ -5866,6 +6689,8 @@ export async function startFlowRun(
         runToken: activeSubflow.runToken,
         ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
       })),
+      codexReviewModelId:
+        effectiveCodexReviewModelId ?? resumeState?.codexReviewModelId,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
     });
     if (retryOwnershipId && !resumeStepPath) {
@@ -5927,6 +6752,8 @@ export async function startFlowRun(
         modelId,
         providerId,
         workingDirectoryOverride,
+        codexReviewModelId:
+          params.codexReviewModelId ?? resumeState?.codexReviewModelId,
         source: params.source,
         chatFactory: params.chatFactory,
         resumeState,

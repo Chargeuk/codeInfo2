@@ -8,6 +8,10 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { __setAgentAvailabilityDepsForTests } from '../../agents/availability.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
 import {
@@ -175,6 +179,7 @@ const buildApp = (params?: {
 describe('GET /flows', () => {
   afterEach(() => {
     resetDeterministicCodexAvailabilityBootstrap();
+    __resetProviderBootstrapStatusForTests();
   });
 
   test('missing flows folder returns empty list', async () => {
@@ -428,6 +433,32 @@ describe('GET /flows', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
+  test('GET /flows keeps unsafe subflow names listable and surfaces a warning', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    await writeRawFlowFile(
+      tmpDir,
+      'unsafe-subflow-name',
+      JSON.stringify({
+        description: 'unsafe subflow name',
+        steps: [{ type: 'subflow', flowNames: ['../escape'] }],
+      }),
+    );
+
+    await withFlowsDir(tmpDir, async () => {
+      const response = await supertest(buildApp()).get('/flows');
+
+      assert.equal(response.status, 200);
+      const listed = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'unsafe-subflow-name',
+      );
+      assert.equal(listed.disabled, false);
+      assert.match(String((listed.warnings ?? []).join('\n')), /valid flow name/u);
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
   test('ingested command-step flows stay listable when the owner repo only provides command overlays without config.toml', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const flowsRoot = await fs.mkdtemp(
@@ -505,6 +536,259 @@ describe('GET /flows', () => {
     await fs.rm(flowsRoot, { recursive: true, force: true });
     await fs.rm(runtimeRoot, { recursive: true, force: true });
     await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
+  test('codexReview-only flows stay enabled and expose warnings when Codex bootstrap is unavailable', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+
+    try {
+      await writeRawFlowFile(
+        tmpDir,
+        'codex-review-only',
+        JSON.stringify({
+          description: 'Codex review only',
+          steps: [
+            {
+              type: 'codexReview',
+              label: 'Run Codex Review',
+              outputKey: 'current-codex-review',
+              basePolicy: 'branched_from_or_default_if_merged',
+              modelSource: 'flow_request_or_step',
+              model: 'gpt-5.4',
+              reasoningEffort: 'medium',
+            },
+          ],
+        }),
+      );
+
+      __setProviderBootstrapStatusForTests('codex', {
+        healthy: false,
+        reason: 'codex unavailable for list test',
+        warnings: [],
+      });
+
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows');
+
+        assert.equal(response.status, 200);
+        const listed = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'codex-review-only',
+        );
+        assert.ok(listed);
+        assert.equal(listed.disabled, false);
+        assert.match(
+          String((listed.warnings ?? []).join('\n')),
+          /codex unavailable for list test/u,
+        );
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('parent flows stay enabled when child subflows require Codex and Codex is unavailable', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+
+    try {
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-subflow',
+        JSON.stringify({
+          description: 'Parent flow',
+          steps: [{ type: 'subflow', flowNames: ['child-codex-review'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'child-codex-review',
+        JSON.stringify({
+          description: 'Child Codex review',
+          steps: [
+            {
+              type: 'codexReview',
+              label: 'Run Codex Review',
+              outputKey: 'current-codex-review',
+              basePolicy: 'branched_from_or_default_if_merged',
+              modelSource: 'flow_request_or_step',
+              model: 'gpt-5.4',
+              reasoningEffort: 'medium',
+            },
+          ],
+        }),
+      );
+
+      __setProviderBootstrapStatusForTests('codex', {
+        healthy: false,
+        reason: 'codex unavailable for subflow list test',
+        warnings: [],
+      });
+
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows');
+
+        assert.equal(response.status, 200);
+        const listed = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-subflow',
+        );
+        assert.ok(listed);
+        assert.equal(listed.disabled, false);
+        assert.match(
+          String((listed.warnings ?? []).join('\n')),
+          /codex unavailable for subflow list test/u,
+        );
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('parent flows stay enabled when child subflows reference unavailable agents', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+
+    try {
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-agent-subflow',
+        JSON.stringify({
+          description: 'Parent flow',
+          steps: [{ type: 'subflow', flowNames: ['child-missing-agent'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'child-missing-agent',
+        JSON.stringify({
+          description: 'Child flow',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'missing_agent',
+              identifier: 'child',
+              messages: [{ role: 'user', content: ['Hello'] }],
+            },
+          ],
+        }),
+      );
+
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows');
+
+        assert.equal(response.status, 200);
+        const listed = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-agent-subflow',
+        );
+        assert.ok(listed);
+        assert.equal(listed.disabled, false);
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('parent flows stay enabled when child subflows reference missing command steps', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+
+    try {
+      await writeAgentConfig({
+        repoRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName: 'planning_agent',
+      });
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-command-subflow',
+        JSON.stringify({
+          description: 'Parent flow',
+          steps: [{ type: 'subflow', flowNames: ['child-missing-command'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'child-missing-command',
+        commandFlowTemplate({
+          description: 'Child flow',
+          commandName: 'missing-command',
+        }),
+      );
+
+      await withAgentHomes(
+        {
+          preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+          legacy: path.join(runtimeRoot, 'codex_agents'),
+        },
+        async () => {
+          await withFlowsDir(tmpDir, async () => {
+            const response = await supertest(buildApp()).get('/flows');
+
+            assert.equal(response.status, 200);
+            const listed = response.body.flows.find(
+              (flow: { name: string }) => flow.name === 'parent-command-subflow',
+            );
+            assert.ok(listed);
+            assert.equal(listed.disabled, false);
+          });
+        },
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      await fs.rm(runtimeRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('parent flows stay enabled and warn when child subflow files are missing or invalid', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+
+    try {
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-missing-child',
+        JSON.stringify({
+          description: 'Parent missing child',
+          steps: [{ type: 'subflow', flowNames: ['child-missing'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-invalid-child',
+        JSON.stringify({
+          description: 'Parent invalid child',
+          steps: [{ type: 'subflow', flowNames: ['child-invalid'] }],
+        }),
+      );
+      await writeRawFlowFile(tmpDir, 'child-invalid', '{"description":"Broken"');
+
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows');
+
+        assert.equal(response.status, 200);
+        const missingChild = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-missing-child',
+        );
+        assert.ok(missingChild);
+        assert.equal(missingChild.disabled, false);
+        assert.match(
+          String((missingChild.warnings ?? []).join('\n')),
+          /Subflow "child-missing" could not be read/u,
+        );
+
+        const invalidChild = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-invalid-child',
+        );
+        assert.ok(invalidChild);
+        assert.equal(invalidChild.disabled, false);
+        assert.match(
+          String((invalidChild.warnings ?? []).join('\n')),
+          /Subflow "child-invalid" is invalid/u,
+        );
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('local flows omit source metadata', async () => {

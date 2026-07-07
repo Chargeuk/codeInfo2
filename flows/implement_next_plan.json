@@ -404,44 +404,22 @@
           "label": "Review Findings Disposition Loop",
           "steps": [
             {
-              "type": "reingest",
-              "label": "Re-embed plan-scope repositories before review disposition",
-              "target": "plan_scope"
+              "type": "prepareReviewBase",
+              "label": "Prepare Shared Review Base",
+              "outputKey": "current-review-base",
+              "basePolicy": "branched_from_or_default_if_merged"
             },
             {
-              "type": "command",
-              "label": "Run Review Evidence Gate",
-              "agentType": "review_agent",
-              "identifier": "reviewer_evidence",
-              "commandName": "review_evidence_gate"
-            },
-            {
-              "type": "command",
-              "label": "Run Code Review Findings",
-              "agentType": "review_agent",
-              "identifier": "reviewer_findings",
-              "commandName": "code_review_findings"
+              "type": "subflow",
+              "label": "Run Parallel Review Artifact Flows",
+              "flowNames": ["review_artifacts_main", "codex_review"]
             },
             {
               "type": "llm",
-              "label": "Review Visual Design Conformance",
-              "agentType": "review_agent",
-              "identifier": "reviewer_visual",
-              "markdownFile": "review_visual_design_conformance.md"
-            },
-            {
-              "type": "command",
-              "label": "Run Findings Saturation",
-              "agentType": "review_agent",
-              "identifier": "reviewer_saturation",
-              "commandName": "review_findings_saturation"
-            },
-            {
-              "type": "command",
-              "label": "Run Blind-Spot Challenge",
-              "agentType": "review_agent",
-              "identifier": "reviewer_blindspot",
-              "commandName": "review_blind_spot_challenge"
+              "label": "Merge Codex Review Findings Into Canonical Review",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "merge_codex_review_findings_into_canonical_review.md"
             },
             {
               "type": "llm",

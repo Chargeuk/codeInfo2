@@ -13,6 +13,7 @@ import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { queryTask16BootLogs, startNamedCopilotScenarioServer, } from '../support/copilotBootPath.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { closeWs, connectWs, sendJson, waitForEvent, } from '../support/wsClient.js';
 const envSnapshot = new Map<string, string | undefined>();
 const setEnv = (key: string, value: string | undefined) => {
@@ -36,6 +37,16 @@ const restoreEnv = () => {
     }
     envSnapshot.clear();
 };
+const runWithIsolatedCopilotHome = async <T>(copilotHome: string, fn: () => Promise<T>): Promise<T> => await runWithTestEnvOverrides({
+    CODEX_HOME: undefined,
+    CODEINFO_CODEX_HOME: undefined,
+    CODEINFO_COPILOT_HOME: copilotHome,
+    CODEINFO_LMSTUDIO_HOME: undefined,
+    CODEINFO_CHAT_DEFAULT_PROVIDER: undefined,
+    CODEINFO_CHAT_DEFAULT_MODEL: undefined,
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: undefined,
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: undefined,
+}, fn);
 beforeEach(() => {
     setEnv('CODEX_HOME', undefined);
     setEnv('CODEINFO_CODEX_HOME', undefined);
@@ -280,49 +291,51 @@ test('boot-path seeding repairs partial runtime homes and still skips a complete
         });
         assert.equal(normalizationResult.status, 'seed_skipped_runtime_already_initialized');
         assert.deepEqual(normalizationResult.copiedArtifacts, []);
-        const app = express();
-        app.use('/chat', createChatProvidersRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => ({
-                start: async () => { },
-                stop: async () => [],
-                ping: async () => createReadyPingResponse(),
-                getAuthStatus: async () => ({
-                    isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
-                    authType: 'user',
+        await runWithIsolatedCopilotHome(runtimeHome, async () => {
+            const app = express();
+            app.use('/chat', createChatProvidersRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => ({
+                    start: async () => { },
+                    stop: async () => [],
+                    ping: async () => createReadyPingResponse(),
+                    getAuthStatus: async () => ({
+                        isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+                        authType: 'user',
+                    }),
+                    listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
+                        ? createReadyModels()
+                        : [],
                 }),
-                listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
-                    ? createReadyModels()
-                    : [],
-            }),
-        }));
-        app.use('/chat', createChatModelsRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => ({
-                start: async () => { },
-                stop: async () => [],
-                ping: async () => createReadyPingResponse(),
-                getAuthStatus: async () => ({
-                    isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
-                    authType: 'user',
+            }));
+            app.use('/chat', createChatModelsRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => ({
+                    start: async () => { },
+                    stop: async () => [],
+                    ping: async () => createReadyPingResponse(),
+                    getAuthStatus: async () => ({
+                        isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+                        authType: 'user',
+                    }),
+                    listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
+                        ? createReadyModels()
+                        : [],
                 }),
-                listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
-                    ? createReadyModels()
-                    : [],
-            }),
-        }));
-        const providers = await request(app).get('/chat/providers');
-        assert.equal(providers.status, 200);
-        const copilotProvider = providers.body.providers.find((provider: {
-            id?: string;
-        }) => provider.id === 'copilot');
-        assert.ok(copilotProvider);
-        assert.equal(copilotProvider.available, true);
-        const models = await request(app).get('/chat/models?provider=copilot');
-        assert.equal(models.status, 200);
-        assert.equal(models.body.provider, 'copilot');
-        assert.equal(models.body.available, true);
-        assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
+            }));
+            const providers = await request(app).get('/chat/providers');
+            assert.equal(providers.status, 200);
+            const copilotProvider = providers.body.providers.find((provider: {
+                id?: string;
+            }) => provider.id === 'copilot');
+            assert.ok(copilotProvider);
+            assert.equal(copilotProvider.available, true);
+            const models = await request(app).get('/chat/models?provider=copilot');
+            assert.equal(models.status, 200);
+            assert.equal(models.body.provider, 'copilot');
+            assert.equal(models.body.available, true);
+            assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
+        });
     }
     finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
@@ -353,31 +366,33 @@ test('boot-path seeding repairs the supported /seed/copilot to /app/copilot sess
         assert.deepEqual(seedResult.copiedArtifacts, ['session-state']);
         assert.match(JSON.stringify(seedResult), /seed_applied/u);
         assert.equal(await fs.readFile(path.join(runtimeHome, 'session-state', 'session.json'), 'utf8'), '{"bootstrapped": true}\n');
-        const app = express();
-        app.use('/chat', createChatProvidersRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => ({
-                start: async () => { },
-                stop: async () => [],
-                ping: async () => createReadyPingResponse(),
-                getAuthStatus: async () => ({
-                    isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
-                    authType: 'user',
+        await runWithIsolatedCopilotHome(runtimeHome, async () => {
+            const app = express();
+            app.use('/chat', createChatProvidersRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => ({
+                    start: async () => { },
+                    stop: async () => [],
+                    ping: async () => createReadyPingResponse(),
+                    getAuthStatus: async () => ({
+                        isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+                        authType: 'user',
+                    }),
+                    listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
+                        ? createReadyModels()
+                        : [],
                 }),
-                listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
-                    ? createReadyModels()
-                    : [],
-            }),
-        }));
-        const providers = await request(app).get('/chat/providers');
-        assert.equal(providers.status, 200);
-        const copilotProvider = providers.body.providers.find((provider: {
-            id?: string;
-        }) => provider.id === 'copilot');
-        assert.ok(copilotProvider);
-        assert.equal(copilotProvider.available, true);
-        assert.equal(seedResult.status, 'seed_applied');
-        assert.doesNotMatch(seedResult.error ?? '', /seed_copy_failed|EXDEV/u);
+            }));
+            const providers = await request(app).get('/chat/providers');
+            assert.equal(providers.status, 200);
+            const copilotProvider = providers.body.providers.find((provider: {
+                id?: string;
+            }) => provider.id === 'copilot');
+            assert.ok(copilotProvider);
+            assert.equal(copilotProvider.available, true);
+            assert.equal(seedResult.status, 'seed_applied');
+            assert.doesNotMatch(seedResult.error ?? '', /seed_copy_failed|EXDEV/u);
+        });
     }
     finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
@@ -411,29 +426,31 @@ test('boot-path seeding rejects symlinked /seed/copilot runtime artifacts before
         assert.match(seedResult.error ?? '', /symlink/u);
         assert.match(seedResult.error ?? '', /session-state/u);
         assert.equal(await hasBootstrappedRuntime(runtimeHome), false);
-        const app = express();
-        app.use('/chat', createChatProvidersRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => ({
-                start: async () => { },
-                stop: async () => [],
-                ping: async () => createReadyPingResponse(),
-                getAuthStatus: async () => ({
-                    isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
-                    authType: 'user',
+        await runWithIsolatedCopilotHome(runtimeHome, async () => {
+            const app = express();
+            app.use('/chat', createChatProvidersRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => ({
+                    start: async () => { },
+                    stop: async () => [],
+                    ping: async () => createReadyPingResponse(),
+                    getAuthStatus: async () => ({
+                        isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+                        authType: 'user',
+                    }),
+                    listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
+                        ? createReadyModels()
+                        : [],
                 }),
-                listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
-                    ? createReadyModels()
-                    : [],
-            }),
-        }));
-        const providers = await request(app).get('/chat/providers');
-        assert.equal(providers.status, 200);
-        const copilotProvider = providers.body.providers.find((provider: {
-            id?: string;
-        }) => provider.id === 'copilot');
-        assert.ok(copilotProvider);
-        assert.equal(copilotProvider.available, false);
+            }));
+            const providers = await request(app).get('/chat/providers');
+            assert.equal(providers.status, 200);
+            const copilotProvider = providers.body.providers.find((provider: {
+                id?: string;
+            }) => provider.id === 'copilot');
+            assert.ok(copilotProvider);
+            assert.equal(copilotProvider.available, false);
+        });
     }
     finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
@@ -473,49 +490,51 @@ test('boot-path seeding preserves a runtime that initializes after preflight ins
         assert.deepEqual(seedResult.copiedArtifacts, []);
         assert.equal(await fs.readFile(path.join(runtimeHome, 'config.json'), 'utf8'), '{"runtime":"wins-after-preflight"}\n');
         assert.deepEqual(await listBootstrapStageRoots(tempRoot), []);
-        const app = express();
-        app.use('/chat', createChatProvidersRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => ({
-                start: async () => { },
-                stop: async () => [],
-                ping: async () => createReadyPingResponse(),
-                getAuthStatus: async () => ({
-                    isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
-                    authType: 'user',
+        await runWithIsolatedCopilotHome(runtimeHome, async () => {
+            const app = express();
+            app.use('/chat', createChatProvidersRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => ({
+                    start: async () => { },
+                    stop: async () => [],
+                    ping: async () => createReadyPingResponse(),
+                    getAuthStatus: async () => ({
+                        isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+                        authType: 'user',
+                    }),
+                    listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
+                        ? createReadyModels()
+                        : [],
                 }),
-                listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
-                    ? createReadyModels()
-                    : [],
-            }),
-        }));
-        app.use('/chat', createChatModelsRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => ({
-                start: async () => { },
-                stop: async () => [],
-                ping: async () => createReadyPingResponse(),
-                getAuthStatus: async () => ({
-                    isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
-                    authType: 'user',
+            }));
+            app.use('/chat', createChatModelsRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => ({
+                    start: async () => { },
+                    stop: async () => [],
+                    ping: async () => createReadyPingResponse(),
+                    getAuthStatus: async () => ({
+                        isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+                        authType: 'user',
+                    }),
+                    listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
+                        ? createReadyModels()
+                        : [],
                 }),
-                listModels: async () => (await hasBootstrappedRuntime(runtimeHome))
-                    ? createReadyModels()
-                    : [],
-            }),
-        }));
-        const providers = await request(app).get('/chat/providers');
-        assert.equal(providers.status, 200);
-        const copilotProvider = providers.body.providers.find((provider: {
-            id?: string;
-        }) => provider.id === 'copilot');
-        assert.ok(copilotProvider);
-        assert.equal(copilotProvider.available, true);
-        const models = await request(app).get('/chat/models?provider=copilot');
-        assert.equal(models.status, 200);
-        assert.equal(models.body.provider, 'copilot');
-        assert.equal(models.body.available, true);
-        assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
+            }));
+            const providers = await request(app).get('/chat/providers');
+            assert.equal(providers.status, 200);
+            const copilotProvider = providers.body.providers.find((provider: {
+                id?: string;
+            }) => provider.id === 'copilot');
+            assert.ok(copilotProvider);
+            assert.equal(copilotProvider.available, true);
+            const models = await request(app).get('/chat/models?provider=copilot');
+            assert.equal(models.status, 200);
+            assert.equal(models.body.provider, 'copilot');
+            assert.equal(models.body.available, true);
+            assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
+        });
     }
     finally {
         __resetCopilotSeedBootstrapHooksForTests();
@@ -526,7 +545,6 @@ test('seeded runtime boot normalizes the surfaced Copilot default model and lets
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-boot-normalized-default-'));
     const seedHome = path.join(tempRoot, 'seed-home');
     const runtimeHome = path.join(tempRoot, 'runtime-home');
-    const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
     const clientFactory = () => ({
         system: {
             listDownloadedModels: async () => [],
@@ -544,57 +562,52 @@ test('seeded runtime boot normalizes the surfaced Copilot default model and lets
     try {
         await writeSeedArtifacts(seedHome);
         await writeCopilotChatConfig(seedHome, ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'));
-        setScopedTestEnvValue("CODEINFO_COPILOT_HOME", seedHome);
-        const seedResult = await importCopilotSeedIntoRuntimeHome({
-            runtimeHome,
-            seedHome,
-            env: currentRuntimeEnv(),
+        await runWithIsolatedCopilotHome(seedHome, async () => {
+            const seedResult = await importCopilotSeedIntoRuntimeHome({
+                runtimeHome,
+                seedHome,
+                env: currentRuntimeEnv(),
+            });
+            assert.equal(seedResult.status, 'seed_applied');
+            const app = express();
+            app.use(express.json());
+            app.use('/chat', createChatProvidersRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => sdkHarness.createLifecycle(),
+            }));
+            app.use('/chat', createChatModelsRouter({
+                clientFactory,
+                copilotRuntimeFactory: () => sdkHarness.createLifecycle(),
+            }));
+            app.use('/chat', createChatRouter({
+                clientFactory,
+                copilotLifecycleFactory: () => sdkHarness.createLifecycle(),
+            }));
+            const providers = await request(app).get('/chat/providers').expect(200);
+            const copilotProvider = providers.body.providers.find((provider: {
+                id?: string;
+            }) => provider.id === 'copilot');
+            assert.ok(copilotProvider);
+            assert.equal(copilotProvider.defaultModel, 'gpt-5-mini');
+            const models = await request(app)
+                .get('/chat/models?provider=copilot')
+                .expect(200);
+            assert.equal(models.body.defaultModel, 'gpt-5-mini');
+            assert.equal(models.body.models[0]?.key, 'gpt-5-mini');
+            const chat = await request(app).post('/chat').send({
+                provider: 'copilot',
+                conversationId: 'boot-normalized-default',
+                message: 'Hello from the normalized default path',
+            });
+            assert.equal(chat.status, 202);
+            assert.equal(chat.body.provider, 'copilot');
+            assert.equal(chat.body.model, 'gpt-5-mini');
+            const createdSessionConfig = await sdkHarness.waitForCreateSessionConfig();
+            assert.equal(createdSessionConfig.model, 'gpt-5-mini');
+            assert.equal(createdSessionConfig.reasoningEffort, undefined);
         });
-        assert.equal(seedResult.status, 'seed_applied');
-        const app = express();
-        app.use(express.json());
-        app.use('/chat', createChatProvidersRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => sdkHarness.createLifecycle(),
-        }));
-        app.use('/chat', createChatModelsRouter({
-            clientFactory,
-            copilotRuntimeFactory: () => sdkHarness.createLifecycle(),
-        }));
-        app.use('/chat', createChatRouter({
-            clientFactory,
-            copilotLifecycleFactory: () => sdkHarness.createLifecycle(),
-        }));
-        const providers = await request(app).get('/chat/providers').expect(200);
-        const copilotProvider = providers.body.providers.find((provider: {
-            id?: string;
-        }) => provider.id === 'copilot');
-        assert.ok(copilotProvider);
-        assert.equal(copilotProvider.defaultModel, 'gpt-5-mini');
-        const models = await request(app)
-            .get('/chat/models?provider=copilot')
-            .expect(200);
-        assert.equal(models.body.defaultModel, 'gpt-5-mini');
-        assert.equal(models.body.models[0]?.key, 'gpt-5-mini');
-        const chat = await request(app).post('/chat').send({
-            provider: 'copilot',
-            conversationId: 'boot-normalized-default',
-            message: 'Hello from the normalized default path',
-        });
-        assert.equal(chat.status, 202);
-        assert.equal(chat.body.provider, 'copilot');
-        assert.equal(chat.body.model, 'gpt-5-mini');
-        const createdSessionConfig = await sdkHarness.waitForCreateSessionConfig();
-        assert.equal(createdSessionConfig.model, 'gpt-5-mini');
-        assert.equal(createdSessionConfig.reasoningEffort, undefined);
     }
     finally {
-        if (originalCopilotHome === undefined) {
-            clearScopedTestEnvValue("CODEINFO_COPILOT_HOME");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_COPILOT_HOME", originalCopilotHome);
-        }
         await fs.rm(tempRoot, { recursive: true, force: true });
     }
 });

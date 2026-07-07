@@ -3,6 +3,7 @@ import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
 import { createMcpRouter } from '../../mcp/server.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 test('classic MCP VectorSearch enforces locked provider/model path like REST', async () => {
     let queryEmbeddingSeen: number[] | null = null;
     const app = express();
@@ -83,10 +84,10 @@ test('classic MCP VectorSearch enforces locked provider/model path like REST', a
     assert.equal(payload.modelId, 'text-embedding-3-small');
 });
 test('classic MCP VectorSearch accepts host-path repository selectors', async () => {
-    const originalHost = process.env.CODEINFO_HOST_INGEST_DIR;
-    setScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR", '/Users/example/dev');
     let capturedWhere: Record<string, unknown> | undefined;
-    try {
+    await runWithTestEnvOverrides({
+        CODEINFO_HOST_INGEST_DIR: '/Users/example/dev',
+    }, async () => {
         const app = express();
         app.use(express.json());
         app.use('/', createMcpRouter({
@@ -159,13 +160,5 @@ test('classic MCP VectorSearch accepts host-path repository selectors', async ()
         })
             .expect(200);
         assert.deepEqual(capturedWhere, { root: '/data/repo-one' });
-    }
-    finally {
-        if (originalHost === undefined) {
-            clearScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR", originalHost);
-        }
-    }
+    });
 });

@@ -417,7 +417,8 @@ const withFlowServer = async (
 
           const app = express();
           app.use(
-            createFlowsRunRouter({
+            bindCurrentTestOverrides(
+              createFlowsRunRouter({
               startFlowRun: bindCurrentTestOverrides((params) =>
                 startFlowRun({
                   ...params,
@@ -430,12 +431,15 @@ const withFlowServer = async (
                       }
                     : {}),
                 })),
-            }),
+              }),
+            ),
           );
 
           const httpServer = http.createServer(app);
           const wsHandle = attachWs({ httpServer });
-          await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+          await new Promise<void>((resolve) =>
+            httpServer.listen(0, bindCurrentTestOverrides(resolve)),
+          );
           const address = httpServer.address();
           assert(address && typeof address === 'object');
           const baseUrl = `http://127.0.0.1:${address.port}`;
@@ -456,7 +460,7 @@ const withFlowServer = async (
             await closeWs(ws);
             await wsHandle.close();
             await new Promise<void>((resolve) =>
-              httpServer.close(() => resolve()),
+              httpServer.close(bindCurrentTestOverrides(() => resolve())),
             );
           }
         },

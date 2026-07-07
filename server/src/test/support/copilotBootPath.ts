@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
-import express from 'express';
+import express, { type Request, type RequestHandler, type Response } from 'express';
 
 import {
   getMemoryTurns,
@@ -49,9 +49,9 @@ import {
   type MockCopilotSdkHarness,
 } from './mockCopilotSdk.js';
 import {
-  clearScopedTestEnvValue,
-  setScopedTestEnvValue,
-} from './processEnvIsolation.js';
+  bindCurrentTestEnvOverrides,
+  enterTestEnvOverrides,
+} from './testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
@@ -62,19 +62,11 @@ const env = {
     if (!this.snapshot.has(key)) {
       this.snapshot.set(key, process.env[key]);
     }
-    if (value === undefined) {
-      clearScopedTestEnvValue(key);
-    } else {
-      setScopedTestEnvValue(key, value);
-    }
+    enterTestEnvOverrides({ [key]: value });
   },
   restore() {
     for (const [key, value] of this.snapshot.entries()) {
-      if (value === undefined) {
-        clearScopedTestEnvValue(key);
-      } else {
-        setScopedTestEnvValue(key, value);
-      }
+      enterTestEnvOverrides({ [key]: value });
     }
     this.snapshot.clear();
   },
@@ -222,41 +214,62 @@ export async function startNamedCopilotScenarioServer(params: {
 
   const app = express();
   app.use(express.json());
-  app.post('/mcp', (_req, res) => {
+  const clientFactory = createDummyClientFactory(scenario.lmstudioAvailable);
+  const copilotRuntimeFactory = () => sdkHarness.createLifecycle();
+
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) =>
+    httpServer.listen(0, bindCurrentTestEnvOverrides(resolve)),
+  );
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  env.set('CODEINFO_SERVER_PORT', String(address.port));
+  env.set('MCP_URL', `http://127.0.0.1:${address.port}/mcp`);
+  env.set('CODEX_HOME', undefined);
+  env.set('CODEINFO_CODEX_HOME', undefined);
+  env.set('CODEINFO_COPILOT_HOME', '/tmp/codeinfo2-task16-fake-copilot');
+  env.set('CODEINFO_LMSTUDIO_HOME', undefined);
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
+  env.set(
+    'CODEINFO_LMSTUDIO_BASE_URL',
+    scenario.lmstudioAvailable ? 'http://127.0.0.1:1234' : 'http://127.0.0.1:9',
+  );
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
+  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
+
+  app.post('/mcp', bindCurrentTestEnvOverrides(((_req: Request, res: Response) => {
     if (!scenario.mcpAvailable) {
       res.status(200).json({ error: { message: 'unavailable' } });
       return;
     }
     res.json({ result: { ok: true } });
-  });
-
-  const clientFactory = createDummyClientFactory(scenario.lmstudioAvailable);
-  const copilotRuntimeFactory = () => sdkHarness.createLifecycle();
-
+  }) as RequestHandler));
   app.use(
     '/chat',
-    createChatRouter({
+    bindCurrentTestEnvOverrides(createChatRouter({
       clientFactory,
       copilotLifecycleFactory: copilotRuntimeFactory,
-    }),
+    })),
   );
   app.use(
     '/chat',
-    createChatProvidersRouter({
+    bindCurrentTestEnvOverrides(createChatProvidersRouter({
       clientFactory,
       copilotRuntimeFactory,
-    }),
+    })),
   );
   app.use(
     '/chat',
-    createChatModelsRouter({
+    bindCurrentTestEnvOverrides(createChatModelsRouter({
       clientFactory,
       copilotRuntimeFactory,
-    }),
+    })),
   );
   app.use(
     '/copilot',
-    createCopilotDeviceAuthRouter({
+    bindCurrentTestEnvOverrides(createCopilotDeviceAuthRouter({
       getCopilotHome: () => '/tmp/codeinfo2-task16-fake-copilot',
       getCopilotConfigDirForHome: (home) => `${home}/config`,
       ensureCopilotAuthFileStore: async () => ({
@@ -275,22 +288,8 @@ export async function startNamedCopilotScenarioServer(params: {
       resolveCopilotCli: () => ({ available: true }),
       createRuntime: () => copilotRuntimeFactory(),
       env: process.env,
-    }),
+    })),
   );
-
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  env.set('CODEINFO_SERVER_PORT', String(address.port));
-  env.set('MCP_URL', `http://127.0.0.1:${address.port}/mcp`);
-  env.set(
-    'CODEINFO_LMSTUDIO_BASE_URL',
-    scenario.lmstudioAvailable ? 'http://127.0.0.1:1234' : 'http://127.0.0.1:9',
-  );
-  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
-  env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 
   return {
     scenarioName: scenario.name,
@@ -301,7 +300,11 @@ export async function startNamedCopilotScenarioServer(params: {
     wsHandle,
     stop: async () => {
       await wsHandle.close();
-      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+      await new Promise<void>((resolve) => {
+        httpServer.close(bindCurrentTestEnvOverrides(() => resolve()));
+        httpServer.closeIdleConnections?.();
+        httpServer.closeAllConnections?.();
+      });
       env.restore();
       memoryConversations.clear();
       memoryTurns.clear();

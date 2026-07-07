@@ -21,6 +21,7 @@ import { createConversationsRouter } from '../../routes/conversations.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { socketsSubscribedToConversation } from '../../ws/registry.js';
 import { attachWs } from '../../ws/server.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import { closeWs, connectWs, sendJson, waitForEvent, } from '../support/wsClient.js';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1493,195 +1494,153 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
     const savedModel = 'gpt-5.3-codex';
     const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
     const mountedPath = '/data/story55-manual-proof/queued-repo';
-    const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
-    const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
-    const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
-    const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
-    const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
-    const originalCodeHome = process.env.CODEX_HOME;
-    const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
     const tempCodexHome = await withTempCodexHome();
-    setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_PROVIDER", 'codex');
-    setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_MODEL", 'gpt-5.1-codex-max');
-    setScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR", '/home/d_a_s/code');
-    setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", '/data');
-    setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
-    setScopedTestEnvValue("CODEX_HOME", tempCodexHome.codexHome);
-    setScopedTestEnvValue("CODEINFO_CODEX_HOME", tempCodexHome.codexHome);
-    setMemoryConversation({
-        _id: conversationId,
-        provider: 'codex',
-        model: savedModel,
-        title: 'Saved selected repository route-edited conversation',
-        source: 'MCP',
-        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
-        createdAt: new Date('2025-01-01T00:00:00.000Z'),
-        updatedAt: new Date('2025-01-01T00:00:00.000Z'),
-        archivedAt: null,
-        flags: {},
-    } as never);
-    setWorkingFolderStatForTests(async (targetPath) => {
-        if (targetPath === mountedPath) {
-            return {
-                isDirectory: () => true,
-            } as never;
-        }
-        const error = new Error('missing') as NodeJS.ErrnoException;
-        error.code = 'ENOENT';
-        throw error;
-    });
-    setToolDeps({
-        chatFactory: () => new CapturingCodexMcpChat(calls, providerThreadId, 'Fresh route-selected-repository Codex answer'),
-        clientFactory: makeLmStudioClientFactory(),
-        listIngestedRepositoriesFn: async () => ({
-            repos: [buildRepoEntry(advertisedHostPath)],
-            lockedModelId: null,
-        }),
-    });
-    const conversationsApp = express();
-    conversationsApp.use(express.json());
-    conversationsApp.use(createConversationsRouter({
-        listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(advertisedHostPath)],
-            lockedModelId: null,
-        }),
-    }));
-    const conversationsHttp = http.createServer(conversationsApp);
-    await new Promise<void>((resolve) => conversationsHttp.listen(0, resolve));
-    const conversationsAddr = conversationsHttp.address() as AddressInfo;
-    const wsApp = express();
-    const wsHttp = http.createServer(wsApp);
-    const wsHandle = attachWs({ httpServer: wsHttp });
-    await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
-    const wsAddr = wsHttp.address() as AddressInfo;
-    const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
-    const mcpServer = http.createServer(handleRpc);
-    await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
-    const mcpAddr = mcpServer.address() as AddressInfo;
-    const ws = await connectWs({ baseUrl });
     try {
-        const workingFolderResponse = await fetch(`http://127.0.0.1:${conversationsAddr.port}/conversations/${conversationId}/working-folder`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ workingFolder: advertisedHostPath }),
+        await runWithTestEnvOverrides({
+            CODEINFO_CHAT_DEFAULT_PROVIDER: 'codex',
+            CODEINFO_CHAT_DEFAULT_MODEL: 'gpt-5.1-codex-max',
+            CODEINFO_HOST_INGEST_DIR: '/home/d_a_s/code',
+            CODEINFO_CODEX_WORKDIR: '/data',
+            MCP_FORCE_CODEX_AVAILABLE: 'true',
+            CODEX_HOME: tempCodexHome.codexHome,
+            CODEINFO_CODEX_HOME: tempCodexHome.codexHome,
+        }, async () => {
+            setMemoryConversation({
+                _id: conversationId,
+                provider: 'codex',
+                model: savedModel,
+                title: 'Saved selected repository route-edited conversation',
+                source: 'MCP',
+                lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+                createdAt: new Date('2025-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+                archivedAt: null,
+                flags: {},
+            } as never);
+            setWorkingFolderStatForTests(async (targetPath) => {
+                if (targetPath === mountedPath) {
+                    return {
+                        isDirectory: () => true,
+                    } as never;
+                }
+                const error = new Error('missing') as NodeJS.ErrnoException;
+                error.code = 'ENOENT';
+                throw error;
+            });
+            setToolDeps({
+                chatFactory: () => new CapturingCodexMcpChat(calls, providerThreadId, 'Fresh route-selected-repository Codex answer'),
+                clientFactory: makeLmStudioClientFactory(),
+                listIngestedRepositoriesFn: async () => ({
+                    repos: [buildRepoEntry(advertisedHostPath)],
+                    lockedModelId: null,
+                }),
+            });
+            const conversationsApp = express();
+            conversationsApp.use(express.json());
+            conversationsApp.use(createConversationsRouter({
+                listIngestedRepositories: async () => ({
+                    repos: [buildRepoEntry(advertisedHostPath)],
+                    lockedModelId: null,
+                }),
+            }));
+            const conversationsHttp = http.createServer(conversationsApp);
+            await new Promise<void>((resolve) => conversationsHttp.listen(0, resolve));
+            const conversationsAddr = conversationsHttp.address() as AddressInfo;
+            const wsApp = express();
+            const wsHttp = http.createServer(wsApp);
+            const wsHandle = attachWs({ httpServer: wsHttp });
+            await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+            const wsAddr = wsHttp.address() as AddressInfo;
+            const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+            const mcpServer = http.createServer(handleRpc);
+            await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+            const mcpAddr = mcpServer.address() as AddressInfo;
+            const ws = await connectWs({ baseUrl });
+            try {
+                const workingFolderResponse = await fetch(`http://127.0.0.1:${conversationsAddr.port}/conversations/${conversationId}/working-folder`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ workingFolder: advertisedHostPath }),
+                });
+                assert.equal(workingFolderResponse.status, 200);
+                assert.equal(memoryConversations.get(conversationId)?.flags?.workingFolder, mountedPath);
+                sendJson(ws, { type: 'subscribe_conversation', conversationId });
+                await waitForCondition(() => socketsSubscribedToConversation(conversationId).length > 0, 15000);
+                const toolCallPromise = postJson(mcpAddr.port, {
+                    jsonrpc: '2.0',
+                    id: 107,
+                    method: 'tools/call',
+                    params: {
+                        name: 'codebase_question',
+                        arguments: {
+                            question: 'Start a fresh omitted-provider Codex run after the working-folder edit route saves the mounted repository',
+                            conversationId,
+                        },
+                    },
+                });
+                const final = await waitForEvent({
+                    ws,
+                    predicate: (event: unknown): event is {
+                        type: string;
+                        status: string;
+                    } => {
+                        const e = event as {
+                            type?: string;
+                            conversationId?: string;
+                            status?: string;
+                        };
+                        return e.type === 'turn_final' && e.conversationId === conversationId;
+                    },
+                    timeoutMs: 15000,
+                });
+                assert.equal(final.status, 'ok');
+                const response = await toolCallPromise;
+                assert.ok((response as {
+                    result?: unknown;
+                }).result);
+                const payload = JSON.parse((response as {
+                    result: {
+                        content: Array<{
+                            text: string;
+                        }>;
+                    };
+                }).result
+                    .content[0].text);
+                assert.equal(calls.length, 1);
+                assert.equal(calls[0]?.conversationId, conversationId);
+                assert.equal(calls[0]?.flags.threadId, undefined);
+                assert.deepEqual(calls[0]?.flags.repositoryContext, {
+                    selectedRepositoryPath: mountedPath,
+                    defaultExecutionRoot: resolveAgentHomeEnv().codeInfoRoot,
+                    workingDirectoryOverride: mountedPath,
+                    fallbackUsed: false,
+                    workingRepositoryAvailable: true,
+                });
+                assert.equal(payload.conversationId, conversationId);
+                assert.equal(payload.modelId, savedModel);
+                assert.equal(memoryConversations.get(conversationId)?.flags?.threadId, providerThreadId);
+                const persistedTurns = getMemoryTurns(conversationId);
+                const assistantTurn = persistedTurns.find((turn) => turn.role === 'assistant');
+                assert.ok(assistantTurn);
+                assert.equal(assistantTurn?.status, 'ok');
+                assert.equal(assistantTurn?.content, 'Fresh route-selected-repository Codex answer');
+                assert.equal(assistantTurn?.model, savedModel);
+            }
+            finally {
+                deleteMemoryConversation(conversationId);
+                memoryTurns.delete(conversationId);
+                setWorkingFolderStatForTests(undefined);
+                await closeWs(ws);
+                await wsHandle.close();
+                resetToolDeps();
+                mcpServer.close();
+                conversationsHttp.close();
+                wsHttp.close();
+            }
         });
-        assert.equal(workingFolderResponse.status, 200);
-        assert.equal(memoryConversations.get(conversationId)?.flags?.workingFolder, mountedPath);
-        sendJson(ws, { type: 'subscribe_conversation', conversationId });
-        await waitForCondition(() => socketsSubscribedToConversation(conversationId).length > 0, 15000);
-        const toolCallPromise = postJson(mcpAddr.port, {
-            jsonrpc: '2.0',
-            id: 107,
-            method: 'tools/call',
-            params: {
-                name: 'codebase_question',
-                arguments: {
-                    question: 'Start a fresh omitted-provider Codex run after the working-folder edit route saves the mounted repository',
-                    conversationId,
-                },
-            },
-        });
-        const final = await waitForEvent({
-            ws,
-            predicate: (event: unknown): event is {
-                type: string;
-                status: string;
-            } => {
-                const e = event as {
-                    type?: string;
-                    conversationId?: string;
-                    status?: string;
-                };
-                return e.type === 'turn_final' && e.conversationId === conversationId;
-            },
-            timeoutMs: 15000,
-        });
-        assert.equal(final.status, 'ok');
-        const response = await toolCallPromise;
-        assert.ok((response as {
-            result?: unknown;
-        }).result);
-        const payload = JSON.parse((response as {
-            result: {
-                content: Array<{
-                    text: string;
-                }>;
-            };
-        }).result
-            .content[0].text);
-        assert.equal(calls.length, 1);
-        assert.equal(calls[0]?.conversationId, conversationId);
-        assert.equal(calls[0]?.flags.threadId, undefined);
-        assert.deepEqual(calls[0]?.flags.repositoryContext, {
-            selectedRepositoryPath: mountedPath,
-            defaultExecutionRoot: resolveAgentHomeEnv().codeInfoRoot,
-            workingDirectoryOverride: mountedPath,
-            fallbackUsed: false,
-            workingRepositoryAvailable: true,
-        });
-        assert.equal(payload.conversationId, conversationId);
-        assert.equal(payload.modelId, savedModel);
-        assert.equal(memoryConversations.get(conversationId)?.flags?.threadId, providerThreadId);
-        const persistedTurns = getMemoryTurns(conversationId);
-        const assistantTurn = persistedTurns.find((turn) => turn.role === 'assistant');
-        assert.ok(assistantTurn);
-        assert.equal(assistantTurn?.status, 'ok');
-        assert.equal(assistantTurn?.content, 'Fresh route-selected-repository Codex answer');
-        assert.equal(assistantTurn?.model, savedModel);
     }
     finally {
-        deleteMemoryConversation(conversationId);
-        memoryTurns.delete(conversationId);
-        setWorkingFolderStatForTests(undefined);
-        if (originalDefaultProvider === undefined) {
-            clearScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_PROVIDER");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_PROVIDER", originalDefaultProvider);
-        }
-        if (originalDefaultModel === undefined) {
-            clearScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_MODEL");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_MODEL", originalDefaultModel);
-        }
-        if (originalHostIngestDir === undefined) {
-            clearScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR", originalHostIngestDir);
-        }
-        if (originalCodexWorkdir === undefined) {
-            clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", originalCodexWorkdir);
-        }
-        if (originalForceAvailable === undefined) {
-            clearScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE");
-        }
-        else {
-            setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", originalForceAvailable);
-        }
-        if (originalCodeHome === undefined) {
-            clearScopedTestEnvValue("CODEX_HOME");
-        }
-        else {
-            setScopedTestEnvValue("CODEX_HOME", originalCodeHome);
-        }
-        if (originalCodeInfoCodeHome === undefined) {
-            clearScopedTestEnvValue("CODEINFO_CODEX_HOME");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_CODEX_HOME", originalCodeInfoCodeHome);
-        }
         await tempCodexHome.cleanup();
-        await closeWs(ws);
-        await wsHandle.close();
-        resetToolDeps();
-        mcpServer.close();
-        conversationsHttp.close();
-        wsHttp.close();
     }
 });
 test('MCP codebase_question keeps Copilot provider parity on the streamed websocket path', async () => {
@@ -1881,137 +1840,126 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
             deps: {},
         },
     ];
-    const originalCodeWorkdir = process.env.CODEX_WORKDIR;
-    const originalCodeInfoCodeWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
-    setScopedTestEnvValue("CODEX_WORKDIR", '/data');
-    setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", '/data');
-    const wsApp = express();
-    const wsHttp = http.createServer(wsApp);
-    const wsHandle = attachWs({ httpServer: wsHttp });
-    await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
-    const wsAddr = wsHttp.address() as AddressInfo;
-    const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
-    const mcpServer = http.createServer(handleRpc);
-    await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
-    const mcpAddr = mcpServer.address() as AddressInfo;
-    try {
-        for (const testCase of cases) {
-            const calls: Array<{
-                flags: Record<string, unknown>;
-                conversationId: string;
-                model: string;
-            }> = [];
-            setMemoryConversation({
-                _id: testCase.conversationId,
-                provider: testCase.provider,
-                model: testCase.model,
-                title: `Saved ${testCase.provider} follow-up conversation`,
-                source: 'MCP',
-                lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
-                createdAt: new Date('2025-01-01T00:00:00.000Z'),
-                updatedAt: new Date('2025-01-01T00:00:00.000Z'),
-                archivedAt: null,
-                flags: {
-                    workingFolder: '/data/story55-manual-proof/queued-repo',
-                },
-            } as never);
-            setToolDeps({
-                chatFactory: () => new CapturingPinnedConversationChat(calls, testCase.finalContent),
-                clientFactory: makeLmStudioClientFactory(),
-                listIngestedRepositoriesFn: async () => ({
-                    repos: [buildRepoEntry(advertisedHostPath)],
-                    lockedModelId: null,
-                }),
-                ...testCase.deps,
-            });
-            const ws = await connectWs({ baseUrl });
+    await runWithTestEnvOverrides({
+        CODEX_WORKDIR: '/data',
+        CODEINFO_CODEX_WORKDIR: '/data',
+    }, async () => {
+            const wsApp = express();
+            const wsHttp = http.createServer(wsApp);
+            const wsHandle = attachWs({ httpServer: wsHttp });
+            await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+            const wsAddr = wsHttp.address() as AddressInfo;
+            const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+            const mcpServer = http.createServer(handleRpc);
+            await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+            const mcpAddr = mcpServer.address() as AddressInfo;
             try {
-                sendJson(ws, {
-                    type: 'subscribe_conversation',
-                    conversationId: testCase.conversationId,
-                });
-                await waitForCondition(() => socketsSubscribedToConversation(testCase.conversationId).length > 0);
-                const toolCallPromise = postJson(mcpAddr.port, {
-                    jsonrpc: '2.0',
-                    id: testCase.conversationId,
-                    method: 'tools/call',
-                    params: {
-                        name: 'codebase_question',
-                        arguments: {
-                            question: `Reuse the saved ${testCase.provider} execution identity`,
-                            conversationId: testCase.conversationId,
+                for (const testCase of cases) {
+                    const calls: Array<{
+                        flags: Record<string, unknown>;
+                        conversationId: string;
+                        model: string;
+                    }> = [];
+                    setMemoryConversation({
+                        _id: testCase.conversationId,
+                        provider: testCase.provider,
+                        model: testCase.model,
+                        title: `Saved ${testCase.provider} follow-up conversation`,
+                        source: 'MCP',
+                        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+                        createdAt: new Date('2025-01-01T00:00:00.000Z'),
+                        updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+                        archivedAt: null,
+                        flags: {
+                            workingFolder: '/data/story55-manual-proof/queued-repo',
                         },
-                    },
-                });
-                const final = await waitForEvent({
-                    ws,
-                    predicate: (event: unknown): event is {
-                        type: string;
-                        status: string;
-                    } => {
-                        const e = event as {
-                            type?: string;
-                            conversationId?: string;
-                            status?: string;
-                        };
-                        return (e.type === 'turn_final' &&
-                            e.conversationId === testCase.conversationId);
-                    },
-                    timeoutMs: 5000,
-                });
-                assert.equal(final.status, 'ok');
-                const response = await toolCallPromise;
-                assert.ok((response as {
-                    result?: unknown;
-                }).result, JSON.stringify({ response, calls }, null, 2));
-                assert.equal(calls.length, 1);
-                assert.equal(calls[0]?.conversationId, testCase.conversationId);
-                assert.equal(calls[0]?.flags.provider, testCase.provider);
-                assert.equal(normalizeModelIdForComparison(calls[0]?.model ?? ''), normalizeModelIdForComparison(testCase.expectedExecutionModel));
-                const payload = JSON.parse((response as {
-                    result: {
-                        content: Array<{
-                            text: string;
-                        }>;
-                    };
-                }).result
-                    .content[0].text);
-                assert.equal(payload.conversationId, testCase.conversationId);
-                assert.equal(normalizeModelIdForComparison(payload.modelId), normalizeModelIdForComparison(testCase.expectedExecutionModel));
-                assert.equal(memoryConversations.get(testCase.conversationId)?.provider, testCase.provider);
-                assert.equal(normalizeModelIdForComparison(memoryConversations.get(testCase.conversationId)?.model ?? ''), normalizeModelIdForComparison(testCase.expectedExecutionModel));
-                const persistedTurns = getMemoryTurns(testCase.conversationId);
-                const assistantTurn = persistedTurns.find((turn) => turn.role === 'assistant');
-                assert.ok(assistantTurn);
-                assert.equal(assistantTurn?.status, 'ok');
-                assert.equal(normalizeModelIdForComparison(assistantTurn?.model ?? ''), normalizeModelIdForComparison(testCase.expectedExecutionModel));
+                    } as never);
+                    setToolDeps({
+                        chatFactory: () => new CapturingPinnedConversationChat(calls, testCase.finalContent),
+                        clientFactory: makeLmStudioClientFactory(),
+                        listIngestedRepositoriesFn: async () => ({
+                            repos: [buildRepoEntry(advertisedHostPath)],
+                            lockedModelId: null,
+                        }),
+                        ...testCase.deps,
+                    });
+                    const ws = await connectWs({ baseUrl });
+                    try {
+                        sendJson(ws, {
+                            type: 'subscribe_conversation',
+                            conversationId: testCase.conversationId,
+                        });
+                        await waitForCondition(() => socketsSubscribedToConversation(testCase.conversationId).length > 0);
+                        const toolCallPromise = postJson(mcpAddr.port, {
+                            jsonrpc: '2.0',
+                            id: testCase.conversationId,
+                            method: 'tools/call',
+                            params: {
+                                name: 'codebase_question',
+                                arguments: {
+                                    question: `Reuse the saved ${testCase.provider} execution identity`,
+                                    conversationId: testCase.conversationId,
+                                },
+                            },
+                        });
+                        const final = await waitForEvent({
+                            ws,
+                            predicate: (event: unknown): event is {
+                                type: string;
+                                status: string;
+                            } => {
+                                const e = event as {
+                                    type?: string;
+                                    conversationId?: string;
+                                    status?: string;
+                                };
+                                return (e.type === 'turn_final' &&
+                                    e.conversationId === testCase.conversationId);
+                            },
+                            timeoutMs: 5000,
+                        });
+                        assert.equal(final.status, 'ok');
+                        const response = await toolCallPromise;
+                        assert.ok((response as {
+                            result?: unknown;
+                        }).result, JSON.stringify({ response, calls }, null, 2));
+                        assert.equal(calls.length, 1);
+                        assert.equal(calls[0]?.conversationId, testCase.conversationId);
+                        assert.equal(calls[0]?.flags.provider, testCase.provider);
+                        assert.equal(normalizeModelIdForComparison(calls[0]?.model ?? ''), normalizeModelIdForComparison(testCase.expectedExecutionModel));
+                        const payload = JSON.parse((response as {
+                            result: {
+                                content: Array<{
+                                    text: string;
+                                }>;
+                            };
+                        }).result
+                            .content[0].text);
+                        assert.equal(payload.conversationId, testCase.conversationId);
+                        assert.equal(normalizeModelIdForComparison(payload.modelId), normalizeModelIdForComparison(testCase.expectedExecutionModel));
+                        assert.equal(memoryConversations.get(testCase.conversationId)?.provider, testCase.provider);
+                        assert.equal(normalizeModelIdForComparison(memoryConversations.get(testCase.conversationId)?.model ?? ''), normalizeModelIdForComparison(testCase.expectedExecutionModel));
+                        const persistedTurns = getMemoryTurns(testCase.conversationId);
+                        const assistantTurn = persistedTurns.find((turn) => turn.role === 'assistant');
+                        assert.ok(assistantTurn);
+                        assert.equal(assistantTurn?.status, 'ok');
+                        assert.equal(normalizeModelIdForComparison(assistantTurn?.model ?? ''), normalizeModelIdForComparison(testCase.expectedExecutionModel));
+                    }
+                    finally {
+                        deleteMemoryConversation(testCase.conversationId);
+                        memoryTurns.delete(testCase.conversationId);
+                        await closeWs(ws);
+                        resetToolDeps();
+                    }
+                }
             }
             finally {
-                deleteMemoryConversation(testCase.conversationId);
-                memoryTurns.delete(testCase.conversationId);
-                await closeWs(ws);
+                await wsHandle.close();
+                await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
+                await new Promise<void>((resolve) => mcpServer.close(() => resolve()));
                 resetToolDeps();
             }
-        }
-    }
-    finally {
-        if (originalCodeWorkdir === undefined) {
-            clearScopedTestEnvValue("CODEX_WORKDIR");
-        }
-        else {
-            setScopedTestEnvValue("CODEX_WORKDIR", originalCodeWorkdir);
-        }
-        if (originalCodeInfoCodeWorkdir === undefined) {
-            clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", originalCodeInfoCodeWorkdir);
-        }
-        await wsHandle.close();
-        await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
-        await new Promise<void>((resolve) => mcpServer.close(() => resolve()));
-        resetToolDeps();
-    }
+        });
 });
 test('MCP codebase_question exposes one deterministic in-progress replay claimant before provider completion and replays the completed result after cleanup', async () => {
     resetStore();

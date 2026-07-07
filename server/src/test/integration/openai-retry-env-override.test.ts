@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { runOpenAiWithRetry } from '../../ingest/providers/openaiRetry.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 test('OpenAI ingest retry path uses CODEINFO_OPENAI_INGEST_MAX_RETRIES override attempts', async () => {
-    const previous = process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
-    setScopedTestEnvValue("CODEINFO_OPENAI_INGEST_MAX_RETRIES", '1');
-    try {
+    await runWithTestEnvOverrides({
+        CODEINFO_OPENAI_INGEST_MAX_RETRIES: '1',
+    }, async () => {
         let attempts = 0;
         await assert.rejects(() => runOpenAiWithRetry({
             model: 'text-embedding-3-small',
@@ -18,13 +19,5 @@ test('OpenAI ingest retry path uses CODEINFO_OPENAI_INGEST_MAX_RETRIES override 
         }), () => true);
         // 1 retry after initial attempt => 2 total attempts.
         assert.equal(attempts, 2);
-    }
-    finally {
-        if (previous === undefined) {
-            clearScopedTestEnvValue("CODEINFO_OPENAI_INGEST_MAX_RETRIES");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_OPENAI_INGEST_MAX_RETRIES", previous);
-        }
-    }
+    });
 });

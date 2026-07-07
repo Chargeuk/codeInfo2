@@ -8,6 +8,7 @@ import { createMcpRouter } from '../../mcp/server.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 beforeEach(() => {
     mock.restoreAll();
@@ -23,20 +24,24 @@ afterEach(() => {
     }
 });
 test('POST /ingest/start rejects non-allowlisted OpenAI model with OPENAI_MODEL_UNAVAILABLE', async () => {
-    const app = express();
-    app.use(express.json());
-    app.use(createIngestStartRouter({
-        clientFactory: () => ({}) as never,
-        getLockedEmbeddingModel: async () => null,
-    }));
-    const response = await request(app).post('/ingest/start').send({
-        path: '/tmp/repo',
-        name: 'repo',
-        embeddingProvider: 'openai',
-        embeddingModel: 'text-embedding-ada-002',
+    await runWithTestEnvOverrides({
+        CODEINFO_CODEX_WORKDIR: undefined,
+    }, async () => {
+        const app = express();
+        app.use(express.json());
+        app.use(createIngestStartRouter({
+            clientFactory: () => ({}) as never,
+            getLockedEmbeddingModel: async () => null,
+        }));
+        const response = await request(app).post('/ingest/start').send({
+            path: '/tmp/repo',
+            name: 'repo',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-ada-002',
+        });
+        assert.equal(response.status, 409);
+        assert.equal(response.body.code, 'OPENAI_MODEL_UNAVAILABLE');
     });
-    assert.equal(response.status, 409);
-    assert.equal(response.body.code, 'OPENAI_MODEL_UNAVAILABLE');
 });
 test('POST /ingest/reembed rejects a lock-derived non-allowlisted OpenAI model at admission time without queueing work', async () => {
     let enqueueCalled = false;

@@ -2,6 +2,7 @@ import {
   enterPersistentTestOverrideScope,
   enterTestOverrideScope,
   exitPersistentTestOverrideScope,
+  getCurrentTestOverrideScopeId,
   getScopedEnvOverrides,
   getScopedEnvScopeState,
   hasPersistentTestOverrideScope,
@@ -11,6 +12,7 @@ type EnvOverlay = Record<string, string | undefined>;
 
 type ProcessEnvIsolationState = {
   bootstrapEnvOverrides: EnvOverlay;
+  closedScopeIds: Set<number>;
   hasEnteredTestScope: boolean;
   proxy: NodeJS.ProcessEnv;
   realEnv: NodeJS.ProcessEnv;
@@ -31,12 +33,11 @@ const normalizeEnvValue = (value: unknown): string => String(value);
 
 export const isNodeTestExecutionFrame = (): boolean => {
   const stack = new Error().stack ?? '';
-  return (
-    stack.includes('node:internal/test_runner/test') ||
-    stack.includes('startSubtestAfterBootstrap') ||
-    stack.includes('TestContext.<anonymous>') ||
-    stack.includes('TestHook.run')
-  );
+  return (stack.includes('TestHook.run') ||
+    stack.includes('runHook') ||
+    stack.includes('Test.runInAsyncScope') ||
+    stack.includes('Test.run') ||
+    stack.includes('startSubtestAfterBootstrap'));
 };
 
 const hasOpenScopedLayer = (): boolean => {
@@ -49,7 +50,32 @@ const assertActiveScopedEnvWrite = (prop: string): void => {
   if (hasOpenScopedLayer()) {
     return;
   }
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  const currentScopeId = getCurrentTestOverrideScopeId();
+  if (
+    state &&
+    currentScopeId !== undefined &&
+    !state.closedScopeIds.has(currentScopeId)
+  ) {
+    beginScopedTestEnvIsolation({}, {
+      persistentAcrossAsyncBoundaries: hasPersistentTestOverrideScope(),
+    });
+    return;
+  }
+  if (hasPersistentTestOverrideScope()) {
+    beginScopedTestEnvIsolation({}, { persistentAcrossAsyncBoundaries: true });
+    return;
+  }
   if (isNodeTestExecutionFrame()) {
+    if (
+      state &&
+      currentScopeId !== undefined &&
+      state.closedScopeIds.has(currentScopeId)
+    ) {
+      throw new Error(
+        `Scoped test env write attempted outside an active test scope for ${prop}`,
+      );
+    }
     beginScopedTestEnvIsolation({}, { persistentAcrossAsyncBoundaries: true });
     return;
   }
@@ -151,6 +177,7 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
 
   const state: ProcessEnvIsolationState = {
     bootstrapEnvOverrides,
+    closedScopeIds: new Set<number>(),
     hasEnteredTestScope: false,
     proxy: realEnv,
     realEnv,
@@ -284,17 +311,30 @@ export function beginScopedTestEnvIsolation(
   };
   if (options?.persistentAcrossAsyncBoundaries) {
     enterPersistentTestOverrideScope(patch);
+    const scopeId = getCurrentTestOverrideScopeId();
+    if (scopeId !== undefined) {
+      state.closedScopeIds.delete(scopeId);
+    }
     return;
   }
   enterTestOverrideScope(patch);
+  const scopeId = getCurrentTestOverrideScopeId();
+  if (scopeId !== undefined) {
+    state.closedScopeIds.delete(scopeId);
+  }
 }
 
 export function endScopedTestEnvIsolation(
   options?: BeginScopedTestEnvIsolationOptions,
 ): void {
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  const scopeId = getCurrentTestOverrideScopeId();
   const scopeState = getScopedEnvScopeState();
   if (scopeState) {
     scopeState.open = false;
+  }
+  if (state && scopeId !== undefined) {
+    state.closedScopeIds.add(scopeId);
   }
   if (
     options?.persistentAcrossAsyncBoundaries ||

@@ -1142,64 +1142,80 @@ test('codebase_question forwards external endpoint metadata on the Copilot MCP p
     }
 });
 test('codebase_question reuses one durable Copilot replay claim before completion and keeps a fresh replayId on the fresh path', async () => {
-    const chat = new BlockingReplayClaimChat();
-    const deps = {
-        chatFactory: () => chat,
-        copilotReadinessResolver: async () => ({
-            available: true,
-            toolsAvailable: true,
-            blockingStage: 'ready' as const,
-            models: ['copilot-gpt-5'],
-            modelsRaw: [],
-            authSource: 'env-token' as const,
-        }),
-    };
-    const firstResultPromise = runCodebaseQuestion({
-        question: 'first logical follow-up',
-        conversationId: 'mcp-replay-happy-1',
-        replayId: 'replay-1',
-        provider: 'copilot',
-        model: 'copilot-gpt-5',
-    }, deps);
-    await chat.waitForRunStart();
-    const sameReplayResult = await runCodebaseQuestion({
-        question: 'contradictory stale retry',
-        conversationId: 'mcp-replay-happy-1',
-        replayId: 'replay-1',
-        provider: 'copilot',
-        model: 'copilot-gpt-5',
-    }, deps);
-    const sameReplayPayload = JSON.parse(sameReplayResult.content[0].text);
-    assert.equal(chat.runs, 1);
-    assert.equal(sameReplayPayload.conversationId, 'mcp-replay-happy-1');
-    assert.equal(sameReplayPayload.replay?.replayId, 'replay-1');
-    assert.equal(sameReplayPayload.replay?.status, 'in_progress');
-    assert.equal(sameReplayPayload.modelId, 'copilot-gpt-5');
-    chat.releaseRun();
-    const firstResult = await firstResultPromise;
-    const firstPayload = JSON.parse(firstResult.content[0].text);
-    assert.equal(firstPayload.replay?.status, 'completed');
-    const freshReplayResult = await runCodebaseQuestion({
-        question: 'fresh logical follow-up',
-        conversationId: 'mcp-replay-happy-1',
-        replayId: 'replay-2',
-        provider: 'copilot',
-        model: 'copilot-gpt-5',
-    }, deps);
-    const freshReplayPayload = JSON.parse(freshReplayResult.content[0].text);
-    assert.equal(chat.runs, 2);
-    assert.equal(freshReplayPayload.conversationId, 'mcp-replay-happy-1');
-    assert.equal(freshReplayPayload.segments[0].text, 'Replay answer 2: fresh logical follow-up');
-    assert.equal(freshReplayPayload.replay?.status, 'completed');
-    const completedReplayResult = await runCodebaseQuestion({
-        question: 'late stale retry',
-        conversationId: 'mcp-replay-happy-1',
-        replayId: 'replay-1',
-        provider: 'copilot',
-        model: 'copilot-gpt-5',
-    }, deps);
-    const completedReplayPayload = JSON.parse(completedReplayResult.content[0].text);
-    assert.deepEqual(completedReplayPayload, firstPayload);
+    const originalHome = process.env.CODEINFO_COPILOT_HOME;
+    const tempHome = await withTempCopilotHome([
+        'model = "copilot-gpt-5"',
+        'tool_access = "off"',
+        '',
+    ].join('\n'));
+    setScopedTestEnvValue("CODEINFO_COPILOT_HOME", tempHome.copilotHome);
+    try {
+        const chat = new BlockingReplayClaimChat();
+        const deps = {
+            chatFactory: () => chat,
+            copilotReadinessResolver: async () => ({
+                available: true,
+                toolsAvailable: true,
+                blockingStage: 'ready' as const,
+                models: ['copilot-gpt-5'],
+                modelsRaw: [],
+                authSource: 'env-token' as const,
+            }),
+        };
+        const firstResultPromise = runCodebaseQuestion({
+            question: 'first logical follow-up',
+            conversationId: 'mcp-replay-happy-1',
+            replayId: 'replay-1',
+            provider: 'copilot',
+            model: 'copilot-gpt-5',
+        }, deps);
+        await chat.waitForRunStart();
+        const sameReplayResult = await runCodebaseQuestion({
+            question: 'contradictory stale retry',
+            conversationId: 'mcp-replay-happy-1',
+            replayId: 'replay-1',
+            provider: 'copilot',
+            model: 'copilot-gpt-5',
+        }, deps);
+        const sameReplayPayload = JSON.parse(sameReplayResult.content[0].text);
+        assert.equal(chat.runs, 1);
+        assert.equal(sameReplayPayload.conversationId, 'mcp-replay-happy-1');
+        assert.equal(sameReplayPayload.replay?.replayId, 'replay-1');
+        assert.equal(sameReplayPayload.replay?.status, 'in_progress');
+        assert.equal(sameReplayPayload.modelId, 'copilot-gpt-5');
+        chat.releaseRun();
+        const firstResult = await firstResultPromise;
+        const firstPayload = JSON.parse(firstResult.content[0].text);
+        assert.equal(firstPayload.replay?.status, 'completed');
+        const freshReplayResult = await runCodebaseQuestion({
+            question: 'fresh logical follow-up',
+            conversationId: 'mcp-replay-happy-1',
+            replayId: 'replay-2',
+            provider: 'copilot',
+            model: 'copilot-gpt-5',
+        }, deps);
+        const freshReplayPayload = JSON.parse(freshReplayResult.content[0].text);
+        assert.equal(chat.runs, 2);
+        assert.equal(freshReplayPayload.conversationId, 'mcp-replay-happy-1');
+        assert.equal(freshReplayPayload.segments[0].text, 'Replay answer 2: fresh logical follow-up');
+        assert.equal(freshReplayPayload.replay?.status, 'completed');
+        const completedReplayResult = await runCodebaseQuestion({
+            question: 'late stale retry',
+            conversationId: 'mcp-replay-happy-1',
+            replayId: 'replay-1',
+            provider: 'copilot',
+            model: 'copilot-gpt-5',
+        }, deps);
+        const completedReplayPayload = JSON.parse(completedReplayResult.content[0].text);
+        assert.deepEqual(completedReplayPayload, firstPayload);
+    }
+    finally {
+        if (originalHome === undefined)
+            clearScopedTestEnvValue("CODEINFO_COPILOT_HOME");
+        else
+            setScopedTestEnvValue("CODEINFO_COPILOT_HOME", originalHome);
+        await tempHome.cleanup();
+    }
 });
 test('codebase_question keeps the same caller-visible replay result after the completed cache is cleared while incomplete persisted replay state stays reader-visible instead of rebuilding provider work', async () => {
     resetStore();

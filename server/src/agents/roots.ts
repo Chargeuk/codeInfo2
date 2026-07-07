@@ -123,12 +123,11 @@ const getConfiguredAgentRoots = (resolution: AgentHomeEnvResolution) => ({
 export const resolveAgentHomeEnv = (
   env: Record<string, string | undefined> = process.env,
 ): AgentHomeEnvResolution => {
-  const effectiveEnv = getScopedProcessEnv(env);
   const configuredPreferred = normalizeOptionalEnvPath(
-    effectiveEnv.CODEINFO_AGENT_HOME,
+    env.CODEINFO_AGENT_HOME,
   );
   const configuredLegacy = normalizeOptionalEnvPath(
-    effectiveEnv.CODEINFO_CODEX_AGENT_HOME,
+    env.CODEINFO_CODEX_AGENT_HOME,
   );
 
   if (configuredPreferred) {

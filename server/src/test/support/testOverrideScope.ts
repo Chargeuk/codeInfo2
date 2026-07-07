@@ -23,6 +23,8 @@ type EnvScopeState = {
 type OverrideRecord = Record<string, unknown>;
 
 type TestOverrideStore = {
+  scopeId: number;
+  revision: number;
   codexDetection?: CodexDetectionOverride;
   agentServiceDeps?: OverrideRecord;
   agentAvailabilityDeps?: OverrideRecord;
@@ -47,12 +49,43 @@ type TestOverridePatch = {
 };
 
 const storage = new AsyncLocalStorage<TestOverrideStore>();
-let persistentStore: TestOverrideStore | undefined;
+const scopeIdStorage = new AsyncLocalStorage<number>();
+const persistentStores = new Map<number, TestOverrideStore>();
+let nextStoreRevision = 0;
+let nextScopeId = 0;
+
+const allocateStoreRevision = (): number => {
+  nextStoreRevision += 1;
+  return nextStoreRevision;
+};
+
+const allocateScopeId = (): number => {
+  nextScopeId += 1;
+  return nextScopeId;
+};
+
+const getCurrentScopeId = (): number | undefined =>
+  storage.getStore()?.scopeId ?? scopeIdStorage.getStore();
+
+export function getCurrentTestOverrideScopeId(): number | undefined {
+  return getCurrentScopeId();
+}
+
+const getPersistentStoreForCurrentScope = (): TestOverrideStore | undefined => {
+  const scopeId = getCurrentScopeId();
+  if (scopeId === undefined) {
+    return undefined;
+  }
+  return persistentStores.get(scopeId);
+};
 
 const getCurrentStore = (): TestOverrideStore | undefined => {
   const scopedStore = storage.getStore();
+  const persistentStore = getPersistentStoreForCurrentScope();
   if (persistentStore && scopedStore) {
-    return mergeStore(persistentStore, scopedStore);
+    return persistentStore.revision > scopedStore.revision
+      ? persistentStore
+      : scopedStore;
   }
   return scopedStore ?? persistentStore;
 };
@@ -109,10 +142,15 @@ const mergeProviderBootstrapStatuses = (
   return Object.keys(merged).length > 0 ? merged : undefined;
 };
 
-const mergeStore = (
+const buildPatchedStore = (
   current: TestOverrideStore | undefined,
   patch: TestOverridePatch,
+  options?: { newScope?: boolean },
 ): TestOverrideStore => ({
+  scopeId: options?.newScope
+    ? allocateScopeId()
+    : current?.scopeId ?? getCurrentScopeId() ?? allocateScopeId(),
+  revision: allocateStoreRevision(),
   codexDetection:
     patch.codexDetection === undefined
       ? current?.codexDetection
@@ -147,34 +185,40 @@ export function hasActiveTestOverrideScope(): boolean {
 }
 
 export function hasPersistentTestOverrideScope(): boolean {
-  return persistentStore !== undefined;
+  return getPersistentStoreForCurrentScope() !== undefined;
 }
 
 export function enterTestOverrideScope(patch: TestOverridePatch): void {
-  const merged = mergeStore(getCurrentStore(), patch);
-  if (persistentStore) {
-    persistentStore = merged;
+  const merged = buildPatchedStore(getCurrentStore(), patch);
+  if (persistentStores.has(merged.scopeId)) {
+    persistentStores.set(merged.scopeId, merged);
   }
+  scopeIdStorage.enterWith(merged.scopeId);
   storage.enterWith(merged);
 }
 
 export function enterPersistentTestOverrideScope(
   patch: TestOverridePatch,
 ): void {
-  const merged = mergeStore(getCurrentStore(), patch);
-  persistentStore = merged;
+  const merged = buildPatchedStore(getCurrentStore(), patch, { newScope: true });
+  persistentStores.set(merged.scopeId, merged);
+  scopeIdStorage.enterWith(merged.scopeId);
   storage.enterWith(merged);
 }
 
 export function exitPersistentTestOverrideScope(): void {
-  persistentStore = undefined;
+  const scopeId = getCurrentScopeId();
+  if (scopeId !== undefined) {
+    persistentStores.delete(scopeId);
+  }
 }
 
 export async function runWithTestOverrides<T>(
   patch: TestOverridePatch,
   fn: () => Promise<T>,
 ): Promise<T> {
-  return await storage.run(mergeStore(getCurrentStore(), patch), fn);
+  const merged = buildPatchedStore(getCurrentStore(), patch);
+  return await scopeIdStorage.run(merged.scopeId, () => storage.run(merged, fn));
 }
 
 export function bindCurrentTestOverrides<TArgs extends unknown[], TResult>(
@@ -184,7 +228,8 @@ export function bindCurrentTestOverrides<TArgs extends unknown[], TResult>(
   if (!snapshot) {
     return fn;
   }
-  return (...args: TArgs) => storage.run(snapshot, () => fn(...args));
+  return (...args: TArgs) =>
+    scopeIdStorage.run(snapshot.scopeId, () => storage.run(snapshot, () => fn(...args)));
 }
 
 export function getScopedCodexDetectionOverride():

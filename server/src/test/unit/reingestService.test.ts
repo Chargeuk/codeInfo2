@@ -5,7 +5,9 @@ import { formatReingestPrestartReason } from '../../ingest/reingestError.js';
 import { REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS, runReingestRepository, type ReingestSuccess, } from '../../ingest/reingestService.js';
 import type { EnqueueIngestRequestResult } from '../../ingest/requestQueue.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 const noopLog = () => undefined;
+const runWithNodeTestEnv = async <T>(fn: () => Promise<T>): Promise<T> => await runWithTestEnvOverrides({ NODE_ENV: 'test' }, fn);
 function useMicrotaskTimeoutMock() {
     mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
         void Promise.resolve().then(callback);
@@ -781,130 +783,135 @@ test('queued reembed preserves OpenAI model lock instead of falling back to LM S
     assert.equal(result.ok, true);
 });
 test('queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions', async () => {
-    setScopedTestEnvValue("NODE_ENV", 'test');
-    __setQueueRuntimeOpsForTest({
-        findQueueRequestById: async () => null,
+    await runWithNodeTestEnv(async () => {
+        __setQueueRuntimeOpsForTest({
+            findQueueRequestById: async () => null,
+        });
+        useMicrotaskTimeoutMock();
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
+            ...buildDeps(),
+            waitOptions: { timeoutMs: 5 },
+        });
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        assert.equal(result.ok, true);
+        if (!result.ok)
+            return;
+        assert.equal(result.value.status, 'error');
+        assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
     });
-    useMicrotaskTimeoutMock();
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
-        ...buildDeps(),
-        waitOptions: { timeoutMs: 5 },
-    });
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    assert.equal(result.ok, true);
-    if (!result.ok)
-        return;
-    assert.equal(result.value.status, 'error');
-    assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 test('queue-aware wait injected short timeout still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
-    setScopedTestEnvValue("NODE_ENV", 'test');
-    __setQueueRuntimeOpsForTest({
-        findQueueRequestById: async () => null,
+    await runWithNodeTestEnv(async () => {
+        __setQueueRuntimeOpsForTest({
+            findQueueRequestById: async () => null,
+        });
+        useMicrotaskTimeoutMock();
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
+            ...buildDeps(),
+            waitOptions: { timeoutMs: 5 },
+        });
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        assert.equal(result.ok, true);
+        if (!result.ok)
+            return;
+        assert.equal(result.value.status, 'error');
+        assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
     });
-    useMicrotaskTimeoutMock();
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
-        ...buildDeps(),
-        waitOptions: { timeoutMs: 5 },
-    });
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    assert.equal(result.ok, true);
-    if (!result.ok)
-        return;
-    assert.equal(result.value.status, 'error');
-    assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 test('queue-aware wait timeout-fallback read rejection returns retryable QUEUE_UNAVAILABLE and unregisters listeners', async () => {
-    setScopedTestEnvValue("NODE_ENV", 'test');
-    let readCount = 0;
-    __setQueueRuntimeOpsForTest({
-        findQueueRequestById: async () => {
-            readCount += 1;
-            if (readCount === 1) {
-                return null;
-            }
-            throw new Error('queue read failed during timeout fallback');
-        },
+    await runWithNodeTestEnv(async () => {
+        let readCount = 0;
+        __setQueueRuntimeOpsForTest({
+            findQueueRequestById: async () => {
+                readCount += 1;
+                if (readCount === 1) {
+                    return null;
+                }
+                throw new Error('queue read failed during timeout fallback');
+            },
+        });
+        useMicrotaskTimeoutMock();
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
+            ...buildDeps(),
+            waitOptions: { timeoutMs: 5 },
+        });
+        assert.equal(readCount, 2);
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        assert.equal(result.ok, false);
+        if (result.ok)
+            return;
+        assert.equal(result.error.code, 503);
+        assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
+        assert.equal(result.error.data.code, 'QUEUE_UNAVAILABLE');
+        assert.equal(result.error.data.retryable, true);
+        assert.equal(result.error.data.queueFailureStage, 'wait');
+        assert.equal(result.error.data.waitReason, 'queue-read-failed');
     });
-    useMicrotaskTimeoutMock();
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
-        ...buildDeps(),
-        waitOptions: { timeoutMs: 5 },
-    });
-    assert.equal(readCount, 2);
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    assert.equal(result.ok, false);
-    if (result.ok)
-        return;
-    assert.equal(result.error.code, 503);
-    assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
-    assert.equal(result.error.data.code, 'QUEUE_UNAVAILABLE');
-    assert.equal(result.error.data.retryable, true);
-    assert.equal(result.error.data.queueFailureStage, 'wait');
-    assert.equal(result.error.data.waitReason, 'queue-read-failed');
 });
 test('queue-aware wait setup-read rejection returns retryable QUEUE_UNAVAILABLE and unregisters listeners', async () => {
-    setScopedTestEnvValue("NODE_ENV", 'test');
-    let readCount = 0;
-    __setQueueRuntimeOpsForTest({
-        findQueueRequestById: async () => {
-            readCount += 1;
-            if (readCount === 1) {
-                throw new Error('queue read failed during waiter setup');
-            }
-            return null;
-        },
+    await runWithNodeTestEnv(async () => {
+        let readCount = 0;
+        __setQueueRuntimeOpsForTest({
+            findQueueRequestById: async () => {
+                readCount += 1;
+                if (readCount === 1) {
+                    throw new Error('queue read failed during waiter setup');
+                }
+                return null;
+            },
+        });
+        useMicrotaskTimeoutMock();
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
+            ...buildDeps(),
+            waitOptions: { timeoutMs: 5 },
+        });
+        assert.equal(readCount, 2);
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        assert.equal(result.ok, false);
+        if (result.ok)
+            return;
+        assert.equal(result.error.code, 503);
+        assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
+        assert.equal(result.error.data.code, 'QUEUE_UNAVAILABLE');
+        assert.equal(result.error.data.retryable, true);
+        assert.equal(result.error.data.queueFailureStage, 'wait');
+        assert.equal(result.error.data.waitReason, 'queue-read-failed');
     });
-    useMicrotaskTimeoutMock();
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
-        ...buildDeps(),
-        waitOptions: { timeoutMs: 5 },
-    });
-    assert.equal(readCount, 2);
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    assert.equal(result.ok, false);
-    if (result.ok)
-        return;
-    assert.equal(result.error.code, 503);
-    assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
-    assert.equal(result.error.data.code, 'QUEUE_UNAVAILABLE');
-    assert.equal(result.error.data.retryable, true);
-    assert.equal(result.error.data.queueFailureStage, 'wait');
-    assert.equal(result.error.data.waitReason, 'queue-read-failed');
 });
 test('queue-aware wait observed cancelled terminal state unregisters listeners before returning', async () => {
-    setScopedTestEnvValue("NODE_ENV", 'test');
-    __setQueueRuntimeOpsForTest({
-        findQueueRequestById: async () => ({
-            _id: { toString: () => 'queue-request-123' },
-            canonicalTargetPath: '/data/repo-a',
-            operation: 'reembed',
-            queueState: 'running',
-            requestPayload: {},
-            runId: 'ingest-123',
-        }) as never,
+    await runWithNodeTestEnv(async () => {
+        __setQueueRuntimeOpsForTest({
+            findQueueRequestById: async () => ({
+                _id: { toString: () => 'queue-request-123' },
+                canonicalTargetPath: '/data/repo-a',
+                operation: 'reembed',
+                queueState: 'running',
+                requestPayload: {},
+                runId: 'ingest-123',
+            }) as never,
+        });
+        __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
+        __setStatusAndPublishForTest('ingest-123', buildTerminal('cancelled', {
+            files: 1,
+            chunks: 2,
+            embedded: 0,
+        }));
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
+            ...buildDeps(),
+            waitOptions: { timeoutMs: 5 },
+        });
+        assert.equal(__getIngestEventListenerCountForTest(), 0);
+        assert.equal(result.ok, true);
+        if (!result.ok)
+            return;
+        assert.equal(result.value.status, 'cancelled');
+        assert.equal(result.value.errorCode, null);
     });
-    __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
-    __setStatusAndPublishForTest('ingest-123', buildTerminal('cancelled', {
-        files: 1,
-        chunks: 2,
-        embedded: 0,
-    }));
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    const result = await runReingestRepository({ sourceId: '/data/repo-a' }, {
-        ...buildDeps(),
-        waitOptions: { timeoutMs: 5 },
-    });
-    assert.equal(__getIngestEventListenerCountForTest(), 0);
-    assert.equal(result.ok, true);
-    if (!result.ok)
-        return;
-    assert.equal(result.value.status, 'cancelled');
-    assert.equal(result.value.errorCode, null);
 });
 test('mixed-shape canonical OpenAI metadata returns a structured invalid-state result instead of throwing or misclassifying provider availability', async () => {
     let enqueueCalls = 0;

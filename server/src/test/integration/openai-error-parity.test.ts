@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
 import {
@@ -10,11 +10,9 @@ import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createMcpRouter } from '../../mcp/server.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 afterEach(() => {
   __resetIngestJobsForTest();
-});
-beforeEach(() => {
-  setScopedTestEnvValue('NODE_ENV', 'test');
 });
 function openAiRateLimitError() {
   return new OpenAiEmbeddingError(
@@ -26,6 +24,7 @@ function openAiRateLimitError() {
   );
 }
 test('equivalent OpenAI failures map to the same normalized code/retryability across REST, MCP, and ingest status', async () => {
+  await runWithTestEnvOverrides({ NODE_ENV: 'test' }, async () => {
   const restApp = express();
   restApp.use(express.json());
   restApp.use(
@@ -127,4 +126,5 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
   assert.equal(status.body.error.error, 'OPENAI_RATE_LIMITED');
   assert.equal(status.body.error.retryable, true);
   assert.equal(status.body.error.provider, 'openai');
+  });
 });

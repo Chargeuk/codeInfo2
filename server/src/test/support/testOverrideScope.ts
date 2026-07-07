@@ -47,6 +47,10 @@ type TestOverridePatch = {
 };
 
 const storage = new AsyncLocalStorage<TestOverrideStore>();
+let persistentStore: TestOverrideStore | undefined;
+
+const getCurrentStore = (): TestOverrideStore | undefined =>
+  persistentStore ?? storage.getStore();
 
 const mergeRecord = (
   current: OverrideRecord | undefined,
@@ -134,24 +138,44 @@ const mergeStore = (
 });
 
 export function hasActiveTestOverrideScope(): boolean {
-  return storage.getStore() !== undefined;
+  return getCurrentStore() !== undefined;
+}
+
+export function hasPersistentTestOverrideScope(): boolean {
+  return persistentStore !== undefined;
 }
 
 export function enterTestOverrideScope(patch: TestOverridePatch): void {
-  storage.enterWith(mergeStore(storage.getStore(), patch));
+  const merged = mergeStore(getCurrentStore(), patch);
+  if (persistentStore) {
+    persistentStore = merged;
+  }
+  storage.enterWith(merged);
+}
+
+export function enterPersistentTestOverrideScope(
+  patch: TestOverridePatch,
+): void {
+  const merged = mergeStore(getCurrentStore(), patch);
+  persistentStore = merged;
+  storage.enterWith(merged);
+}
+
+export function exitPersistentTestOverrideScope(): void {
+  persistentStore = undefined;
 }
 
 export async function runWithTestOverrides<T>(
   patch: TestOverridePatch,
   fn: () => Promise<T>,
 ): Promise<T> {
-  return await storage.run(mergeStore(storage.getStore(), patch), fn);
+  return await storage.run(mergeStore(getCurrentStore(), patch), fn);
 }
 
 export function bindCurrentTestOverrides<TArgs extends unknown[], TResult>(
   fn: (...args: TArgs) => TResult,
 ): (...args: TArgs) => TResult {
-  const snapshot = storage.getStore();
+  const snapshot = getCurrentStore();
   if (!snapshot) {
     return fn;
   }
@@ -161,42 +185,42 @@ export function bindCurrentTestOverrides<TArgs extends unknown[], TResult>(
 export function getScopedCodexDetectionOverride():
   | CodexDetectionOverride
   | undefined {
-  return storage.getStore()?.codexDetection;
+  return getCurrentStore()?.codexDetection;
 }
 
 export function getScopedAgentServiceDepsOverride():
   | OverrideRecord
   | undefined {
-  return storage.getStore()?.agentServiceDeps;
+  return getCurrentStore()?.agentServiceDeps;
 }
 
 export function getScopedAgentAvailabilityDepsOverride():
   | OverrideRecord
   | undefined {
-  return storage.getStore()?.agentAvailabilityDeps;
+  return getCurrentStore()?.agentAvailabilityDeps;
 }
 
 export function getScopedFlowServiceDepsOverride():
   | OverrideRecord
   | undefined {
-  return storage.getStore()?.flowServiceDeps;
+  return getCurrentStore()?.flowServiceDeps;
 }
 
 export function getScopedEnvOverrides():
   | Record<string, string | undefined>
   | undefined {
-  return storage.getStore()?.envOverrides;
+  return getCurrentStore()?.envOverrides;
 }
 
 export function getScopedEnvScopeState(): EnvScopeState | undefined {
-  return storage.getStore()?.envScopeState;
+  return getCurrentStore()?.envScopeState;
 }
 
 export function getScopedEnvValue(
   name: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const scoped = storage.getStore()?.envOverrides;
+  const scoped = getCurrentStore()?.envOverrides;
   if (scoped && Object.prototype.hasOwnProperty.call(scoped, name)) {
     return scoped[name];
   }
@@ -206,7 +230,7 @@ export function getScopedEnvValue(
 export function getScopedProcessEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  const scoped = storage.getStore()?.envOverrides;
+  const scoped = getCurrentStore()?.envOverrides;
   if (!scoped) {
     return env;
   }
@@ -219,5 +243,5 @@ export function getScopedProcessEnv(
 export function getScopedProviderBootstrapStatusOverride(
   provider: ChatProviderId,
 ): ProviderBootstrapStatusOverride | undefined {
-  return storage.getStore()?.providerBootstrapStatuses?.[provider];
+  return getCurrentStore()?.providerBootstrapStatuses?.[provider];
 }

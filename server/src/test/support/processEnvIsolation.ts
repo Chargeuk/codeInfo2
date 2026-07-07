@@ -1,7 +1,10 @@
 import {
+  enterPersistentTestOverrideScope,
   enterTestOverrideScope,
+  exitPersistentTestOverrideScope,
   getScopedEnvOverrides,
   getScopedEnvScopeState,
+  hasPersistentTestOverrideScope,
 } from './testOverrideScope.js';
 
 type EnvOverlay = Record<string, string | undefined>;
@@ -11,6 +14,10 @@ type ProcessEnvIsolationState = {
   hasEnteredTestScope: boolean;
   proxy: NodeJS.ProcessEnv;
   realEnv: NodeJS.ProcessEnv;
+};
+
+type BeginScopedTestEnvIsolationOptions = {
+  persistentAcrossAsyncBoundaries?: boolean;
 };
 
 const PROCESS_ENV_ISOLATION_STATE = Symbol.for(
@@ -248,22 +255,38 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
   return state;
 }
 
-export function beginScopedTestEnvIsolation(overrides: EnvOverlay = {}): void {
+export function beginScopedTestEnvIsolation(
+  overrides: EnvOverlay = {},
+  options?: BeginScopedTestEnvIsolationOptions,
+): void {
   const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
   if (!state) {
     throw new Error('Scoped process.env proxy is not installed.');
   }
   state.hasEnteredTestScope = true;
-  enterTestOverrideScope({
+  const patch = {
     envOverrides: overrides,
     envScopeState: { open: true },
-  });
+  };
+  if (options?.persistentAcrossAsyncBoundaries) {
+    enterPersistentTestOverrideScope(patch);
+    return;
+  }
+  enterTestOverrideScope(patch);
 }
 
-export function endScopedTestEnvIsolation(): void {
+export function endScopedTestEnvIsolation(
+  options?: BeginScopedTestEnvIsolationOptions,
+): void {
   const scopeState = getScopedEnvScopeState();
   if (scopeState) {
     scopeState.open = false;
+  }
+  if (
+    options?.persistentAcrossAsyncBoundaries ||
+    hasPersistentTestOverrideScope()
+  ) {
+    exitPersistentTestOverrideScope();
   }
 }
 

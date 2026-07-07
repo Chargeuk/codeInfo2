@@ -30,6 +30,7 @@ import type {
   AstReferenceRecord,
   AstSymbolRecord,
 } from '../mongo/repo.js';
+import { isNodeTestExecutionFrame } from '../test/support/processEnvIsolation.js';
 import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { broadcastIngestUpdate } from '../ws/server.js';
 import {
@@ -245,7 +246,10 @@ const queueRequestTerminalStatuses = new Map<
   }
 >();
 const ingestEvents = new EventEmitter();
-const isTestNodeEnv = () => getScopedEnvValue('NODE_ENV') === 'test';
+// Test-only ingest helpers may run from node:test lifecycle hooks after the
+// scoped env overlay has already unwound for the current callback.
+const isTestNodeEnv = () =>
+  getScopedEnvValue('NODE_ENV') === 'test' || isNodeTestExecutionFrame();
 let beforeTerminalStatusPublishHook: ((runId: string) => Promise<void>) | null =
   null;
 let runProcessor:

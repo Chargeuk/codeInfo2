@@ -179,24 +179,24 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: bindCurrentTestOverrides((params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new MinimalChat(),
-          listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(process.cwd())],
-            lockedModelId: null,
-          }),
-        }),
-      ),
-    }),
-  );
-
   try {
     await withFlowFixtureEnv(tmpDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory: () => new MinimalChat(),
+              listIngestedRepositories: async () => ({
+                repos: [buildRepoEntry(process.cwd())],
+                lockedModelId: null,
+              }),
+            }),
+          ),
+        }),
+      );
+
       const invalid = await supertest(app)
         .post('/flows/llm-basic/run')
         .send({ working_folder: 'relative/path' });
@@ -374,20 +374,20 @@ test('a fresh run from an older flow conversation does not inherit its stale sav
     archivedAt: null,
   });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: bindCurrentTestOverrides((params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new MinimalChat(),
-        }),
-      ),
-    }),
-  );
-
   try {
     await withFlowFixtureEnv(tmpDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory: () => new MinimalChat(),
+            }),
+          ),
+        }),
+      );
+
       const res = await supertest(app)
         .post('/flows/llm-basic/run')
         .send({ conversationId: 'flow-stale-rerun' });
@@ -427,20 +427,20 @@ test('a fresh run still starts a replacement conversation when the older selecte
     archivedAt: null,
   });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: bindCurrentTestOverrides((params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new MinimalChat(),
-        }),
-      ),
-    }),
-  );
-
   try {
     await withFlowFixtureEnv(tmpDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory: () => new MinimalChat(),
+            }),
+          ),
+        }),
+      );
+
       const res = await supertest(app)
         .post('/flows/llm-basic/run')
         .send({ conversationId: 'flow-stale-log' })
@@ -927,24 +927,24 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
   await fs.mkdir(workingFolder, { recursive: true });
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: bindCurrentTestOverrides((params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new CapturingFlowChat(calls),
-          listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(workingFolder)],
-            lockedModelId: null,
-          }),
-        }),
-      ),
-    }),
-  );
-
   try {
     await withFlowFixtureEnv(tmpDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory: () => new CapturingFlowChat(calls),
+              listIngestedRepositories: async () => ({
+                repos: [buildRepoEntry(workingFolder)],
+                lockedModelId: null,
+              }),
+            }),
+          ),
+        }),
+      );
+
       await supertest(app)
         .post('/flows/llm-basic/run')
         .send({

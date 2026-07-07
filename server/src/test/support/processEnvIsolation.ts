@@ -29,7 +29,7 @@ const hasOwn = (record: EnvOverlay, key: string) =>
 
 const normalizeEnvValue = (value: unknown): string => String(value);
 
-const isNodeTestExecutionFrame = (): boolean => {
+export const isNodeTestExecutionFrame = (): boolean => {
   const stack = new Error().stack ?? '';
   return (
     stack.includes('node:internal/test_runner/test') ||

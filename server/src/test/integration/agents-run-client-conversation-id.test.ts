@@ -39,6 +39,7 @@ import {
 import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
@@ -5014,10 +5015,6 @@ test('T18 invalid-type policy hard-fails across REST, flow, and MCP surfaces and
 });
 
 test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow, and MCP surfaces', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -5082,11 +5079,6 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
     'utf8',
   );
 
-  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
-  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
-  process.env.FLOWS_DIR = tempFlowsDir;
-
   const infoLogs: string[] = [];
   const errorLogs: string[] = [];
   const originalInfo = console.info;
@@ -5096,97 +5088,107 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
   const conversationIds: string[] = [];
 
   try {
-    assert.equal(agentNames.length > 0, true);
-    for (const agentName of agentNames) {
-      const restFlags: Array<Record<string, unknown>> = [];
-      const flowFlags: Array<Record<string, unknown>> = [];
-      const mcpFlags: Array<Record<string, unknown>> = [];
-      const flowExecuteSignal = createExecuteSignal();
-      const restConversationId = `t19-rest-${agentName}`;
-      const flowConversationId = `t19-flow-${agentName}`;
-      const mcpConversationId = `t19-mcp-${agentName}`;
-      conversationIds.push(
-        restConversationId,
-        flowConversationId,
-        mcpConversationId,
-      );
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_AGENT_HOME: tempAgentsHome,
+        CODEINFO_CODEX_AGENT_HOME: tempAgentsHome,
+        CODEINFO_CODEX_HOME: tempCodexHome,
+        FLOWS_DIR: tempFlowsDir,
+      },
+      async () => {
+        assert.equal(agentNames.length > 0, true);
+        for (const agentName of agentNames) {
+          const restFlags: Array<Record<string, unknown>> = [];
+          const flowFlags: Array<Record<string, unknown>> = [];
+          const mcpFlags: Array<Record<string, unknown>> = [];
+          const flowExecuteSignal = createExecuteSignal();
+          const restConversationId = `t19-rest-${agentName}`;
+          const flowConversationId = `t19-flow-${agentName}`;
+          const mcpConversationId = `t19-mcp-${agentName}`;
+          conversationIds.push(
+            restConversationId,
+            flowConversationId,
+            mcpConversationId,
+          );
 
-      const restResult = await runAgentInstruction({
-        agentName,
-        instruction: `REST parity for ${agentName}`,
-        conversationId: restConversationId,
-        source: 'REST',
-        chatFactory: () =>
-          new CapturingChat((flags) => {
-            restFlags.push(flags);
-          }),
-      });
-      await startFlowRun({
-        flowName: agentName,
-        conversationId: flowConversationId,
-        source: 'REST',
-        chatFactory: () =>
-          new CapturingChat((flags) => {
-            flowFlags.push(flags);
-            flowExecuteSignal.onExecute(flags);
-          }),
-      });
-      await waitForFlowExecuteOrTerminal({
-        agentName,
-        flowConversationId,
-        executeSignal: flowExecuteSignal,
-        timeoutMs: 5000,
-      });
-      await callTool(
-        'run_agent_instruction',
-        {
-          agentName,
-          instruction: `MCP parity for ${agentName}`,
-          conversationId: mcpConversationId,
-        },
-        {
-          runAgentInstruction: (params) =>
-            runAgentInstruction({
-              ...(params as Parameters<typeof runAgentInstruction>[0]),
-              chatFactory: () =>
-                new CapturingChat((flags) => {
-                  mcpFlags.push(flags);
+          const restResult = await runAgentInstruction({
+            agentName,
+            instruction: `REST parity for ${agentName}`,
+            conversationId: restConversationId,
+            source: 'REST',
+            chatFactory: () =>
+              new CapturingChat((flags) => {
+                restFlags.push(flags);
+              }),
+          });
+          await startFlowRun({
+            flowName: agentName,
+            conversationId: flowConversationId,
+            source: 'REST',
+            chatFactory: () =>
+              new CapturingChat((flags) => {
+                flowFlags.push(flags);
+                flowExecuteSignal.onExecute(flags);
+              }),
+          });
+          await waitForFlowExecuteOrTerminal({
+            agentName,
+            flowConversationId,
+            executeSignal: flowExecuteSignal,
+            timeoutMs: 5000,
+          });
+          await callTool(
+            'run_agent_instruction',
+            {
+              agentName,
+              instruction: `MCP parity for ${agentName}`,
+              conversationId: mcpConversationId,
+            },
+            {
+              runAgentInstruction: (params) =>
+                runAgentInstruction({
+                  ...(params as Parameters<typeof runAgentInstruction>[0]),
+                  chatFactory: () =>
+                    new CapturingChat((flags) => {
+                      mcpFlags.push(flags);
+                    }),
                 }),
-            }),
-        },
-      );
+            },
+          );
 
-      assert.equal(restFlags.length > 0, true);
-      assert.equal(flowFlags.length > 0, true);
-      assert.equal(mcpFlags.length > 0, true);
+          assert.equal(restFlags.length > 0, true);
+          assert.equal(flowFlags.length > 0, true);
+          assert.equal(mcpFlags.length > 0, true);
 
-      assert.equal(typeof restResult.providerId, 'string');
-      assert.equal(restResult.providerId.length > 0, true);
-      assert.equal(typeof restResult.modelId, 'string');
-      assert.equal(restResult.modelId.length > 0, true);
+          assert.equal(typeof restResult.providerId, 'string');
+          assert.equal(restResult.providerId.length > 0, true);
+          assert.equal(typeof restResult.modelId, 'string');
+          assert.equal(restResult.modelId.length > 0, true);
 
-      const flowRuntimeConfig = toRuntimeConfigSnapshot(
-        flowFlags.at(-1) as Record<string, unknown>,
-      );
-      const mcpRuntimeConfig = toRuntimeConfigSnapshot(
-        mcpFlags.at(-1) as Record<string, unknown>,
-      );
-      if (Object.keys(mcpRuntimeConfig).length > 0) {
-        assert.deepEqual(
-          withoutModel(mcpRuntimeConfig),
-          withoutModel(flowRuntimeConfig),
+          const flowRuntimeConfig = toRuntimeConfigSnapshot(
+            flowFlags.at(-1) as Record<string, unknown>,
+          );
+          const mcpRuntimeConfig = toRuntimeConfigSnapshot(
+            mcpFlags.at(-1) as Record<string, unknown>,
+          );
+          if (Object.keys(mcpRuntimeConfig).length > 0) {
+            assert.deepEqual(
+              withoutModel(mcpRuntimeConfig),
+              withoutModel(flowRuntimeConfig),
+            );
+          }
+        }
+
+        console.info(T19_SUCCESS_LOG);
+        assert.equal(
+          infoLogs.some((line) => line.includes(T19_SUCCESS_LOG)),
+          true,
         );
-      }
-    }
-
-    console.info(T19_SUCCESS_LOG);
-    assert.equal(
-      infoLogs.some((line) => line.includes(T19_SUCCESS_LOG)),
-      true,
-    );
-    assert.equal(
-      errorLogs.some((line) => line.includes(T19_ERROR_LOG)),
-      false,
+        assert.equal(
+          errorLogs.some((line) => line.includes(T19_ERROR_LOG)),
+          false,
+        );
+      },
     );
   } finally {
     console.info = originalInfo;
@@ -5194,18 +5196,6 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
     for (const conversationId of conversationIds) {
       memoryConversations.delete(conversationId);
       memoryTurns.delete(conversationId);
-    }
-    if (previousAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
     }
     await fs.rm(tempAgentsHome, { recursive: true, force: true });
     await fs.rm(tempCodexHome, { recursive: true, force: true });

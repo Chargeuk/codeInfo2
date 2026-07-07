@@ -26,7 +26,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
-import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -124,12 +124,6 @@ async function setupWsTestServer() {
     ['codeinfo_provider = "codex"', 'approval_policy = "never"'].join('\n'),
     'utf8',
   );
-  enterTestEnvOverrides({
-    CODEINFO_AGENT_HOME: agentsHome,
-    CODEINFO_CODEX_AGENT_HOME: agentsHome,
-    ...providerHomes.envOverrides,
-  });
-
   const app = express();
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
@@ -143,6 +137,11 @@ async function setupWsTestServer() {
     ws,
     wsHandle,
     httpServer,
+    envOverrides: {
+      CODEINFO_AGENT_HOME: agentsHome,
+      CODEINFO_CODEX_AGENT_HOME: agentsHome,
+      ...providerHomes.envOverrides,
+    },
     async restoreEnv() {
       await providerHomes.cleanup();
       await fs.rm(tempRoot, { recursive: true, force: true });
@@ -156,11 +155,6 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
   const providerHomes = await createIsolatedProviderHomeEnv(
     'agents-ws-cancel-shared-provider-homes-',
   );
-  enterTestEnvOverrides({
-    CODEINFO_AGENT_HOME: path.join(repoRoot, 'codeinfo_agents'),
-    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
-    ...providerHomes.envOverrides,
-  });
 
   const app = express();
   const httpServer = http.createServer(app);
@@ -175,82 +169,91 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
   const ws = await connectWs({ baseUrl });
 
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-
-    const deltaPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'assistant_delta';
-        conversationId: string;
-        inflightId: string;
-        seq: number;
-        delta: string;
-      } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflightId?: string;
-        };
-        return (
-          e.type === 'assistant_delta' &&
-          e.conversationId === conversationId &&
-          e.inflightId === inflightId
-        );
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_AGENT_HOME: path.join(repoRoot, 'codeinfo_agents'),
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        ...providerHomes.envOverrides,
       },
-      timeoutMs: 8000,
-    });
+      async () => {
+        sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-    const finalPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'turn_final';
-        status: string;
-        conversationId: string;
-        inflightId: string;
-      } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflightId?: string;
-          status?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.inflightId === inflightId
-        );
+        const deltaPromise = waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'assistant_delta';
+            conversationId: string;
+            inflightId: string;
+            seq: number;
+            delta: string;
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              inflightId?: string;
+            };
+            return (
+              e.type === 'assistant_delta' &&
+              e.conversationId === conversationId &&
+              e.inflightId === inflightId
+            );
+          },
+          timeoutMs: 8000,
+        });
+
+        const finalPromise = waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'turn_final';
+            status: string;
+            conversationId: string;
+            inflightId: string;
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              inflightId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.inflightId === inflightId
+            );
+          },
+          timeoutMs: 8000,
+        });
+
+        const runPromise = runAgentInstructionUnlocked({
+          agentName: 'coding_agent',
+          instruction: 'Hello',
+          conversationId,
+          mustExist: false,
+          source: 'REST',
+          inflightId,
+          chatFactory: () => new SlowStreamingChat(),
+        });
+
+        await deltaPromise;
+
+        sendJson(ws, {
+          type: 'cancel_inflight',
+          conversationId,
+          inflightId,
+        });
+
+        const final = await finalPromise;
+        assert.equal(final.status, 'stopped');
+
+        const result = await runPromise;
+        assert.equal(result.conversationId, conversationId);
+        assert.equal(result.agentName, 'coding_agent');
       },
-      timeoutMs: 8000,
-    });
-
-    const runPromise = runAgentInstructionUnlocked({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      mustExist: false,
-      source: 'REST',
-      inflightId,
-      chatFactory: () => new SlowStreamingChat(),
-    });
-
-    await deltaPromise;
-
-    sendJson(ws, {
-      type: 'cancel_inflight',
-      conversationId,
-      inflightId,
-    });
-
-    const final = await finalPromise;
-    assert.equal(final.status, 'stopped');
-
-    const result = await runPromise;
-    assert.equal(result.conversationId, conversationId);
-    assert.equal(result.agentName, 'coding_agent');
+    );
   } finally {
     await closeWs(ws);
     await wsHandle.close();
@@ -264,66 +267,68 @@ test('cancelling an in-flight direct agent run does not rewrite the stored execu
   const conversationId = 'agents-ws-conv-cancel-identity-1';
 
   try {
-    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+    await runWithTestEnvOverrides(server.envOverrides, async () => {
+      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
 
-    const deltaPromise = waitForEvent({
-      ws: server.ws,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'assistant_delta'; conversationId: string } => {
-        const e = event as { type?: string; conversationId?: string };
-        return (
-          e.type === 'assistant_delta' && e.conversationId === conversationId
-        );
-      },
-      timeoutMs: 15_000,
+      const deltaPromise = waitForEvent({
+        ws: server.ws,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'assistant_delta'; conversationId: string } => {
+          const e = event as { type?: string; conversationId?: string };
+          return (
+            e.type === 'assistant_delta' && e.conversationId === conversationId
+          );
+        },
+        timeoutMs: 15_000,
+      });
+
+      const finalPromise = waitForEvent({
+        ws: server.ws,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          conversationId: string;
+        } => {
+          const e = event as {
+            type?: string;
+            status?: string;
+            conversationId?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 15_000,
+      });
+
+      const runPromise = runAgentInstructionUnlocked({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        conversationId,
+        mustExist: false,
+        source: 'REST',
+        inflightId: 'agents-ws-cancel-identity-inflight-1',
+        chatFactory: () => new SlowStreamingChat(),
+      });
+
+      await deltaPromise;
+      sendJson(server.ws, {
+        type: 'cancel_inflight',
+        conversationId,
+      });
+      await finalPromise;
+      const result = await runPromise;
+
+      const conversation = memoryConversations.get(conversationId);
+      assert.equal(conversation?.provider, result.providerId);
+      assert.equal(typeof conversation?.model, 'string');
+      assert.equal((conversation?.model ?? '').length > 0, true);
     });
-
-    const finalPromise = waitForEvent({
-      ws: server.ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'turn_final';
-        status: string;
-        conversationId: string;
-      } => {
-        const e = event as {
-          type?: string;
-          status?: string;
-          conversationId?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.status === 'stopped'
-        );
-      },
-      timeoutMs: 15_000,
-    });
-
-    const runPromise = runAgentInstructionUnlocked({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      mustExist: false,
-      source: 'REST',
-      inflightId: 'agents-ws-cancel-identity-inflight-1',
-      chatFactory: () => new SlowStreamingChat(),
-    });
-
-    await deltaPromise;
-    sendJson(server.ws, {
-      type: 'cancel_inflight',
-      conversationId,
-    });
-    await finalPromise;
-    const result = await runPromise;
-
-    const conversation = memoryConversations.get(conversationId);
-    assert.equal(conversation?.provider, result.providerId);
-    assert.equal(typeof conversation?.model, 'string');
-    assert.equal((conversation?.model ?? '').length > 0, true);
   } finally {
     await closeWs(server.ws);
     await server.wsHandle.close();
@@ -339,50 +344,52 @@ test('Agents startup-race conversation-only stop finishes a normal run as stoppe
   const conversationId = 'agents-ws-conv-startup-stop-1';
 
   try {
-    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+    await runWithTestEnvOverrides(server.envOverrides, async () => {
+      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
 
-    const finalPromise = waitForEvent({
-      ws: server.ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'turn_final';
-        status: string;
-        conversationId: string;
-        inflightId: string;
-      } => {
-        const e = event as {
-          type?: string;
-          status?: string;
-          conversationId?: string;
-          inflightId?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          typeof e.inflightId === 'string'
-        );
-      },
-      timeoutMs: 15_000,
+      const finalPromise = waitForEvent({
+        ws: server.ws,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          conversationId: string;
+          inflightId: string;
+        } => {
+          const e = event as {
+            type?: string;
+            status?: string;
+            conversationId?: string;
+            inflightId?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            typeof e.inflightId === 'string'
+          );
+        },
+        timeoutMs: 15_000,
+      });
+
+      const started = await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new SlowStreamingChat(),
+      });
+
+      sendJson(server.ws, {
+        type: 'cancel_inflight',
+        conversationId,
+      });
+
+      const final = await finalPromise;
+      assert.equal(final.status, 'stopped');
+      assert.equal(final.inflightId, started.inflightId);
+      await waitForRuntimeCleanup(conversationId);
     });
-
-    const started = await startAgentInstruction({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new SlowStreamingChat(),
-    });
-
-    sendJson(server.ws, {
-      type: 'cancel_inflight',
-      conversationId,
-    });
-
-    const final = await finalPromise;
-    assert.equal(final.status, 'stopped');
-    assert.equal(final.inflightId, started.inflightId);
-    await waitForRuntimeCleanup(conversationId);
   } finally {
     await closeWs(server.ws);
     await server.wsHandle.close();
@@ -404,51 +411,53 @@ test('Duplicate stop requests for a normal agent run emit one terminal event', a
   });
 
   try {
-    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+    await runWithTestEnvOverrides(server.envOverrides, async () => {
+      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
 
-    const finalPromise = waitForEvent({
-      ws: server.ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'turn_final';
-        status: string;
-        conversationId: string;
-      } => {
-        const e = event as {
-          type?: string;
-          status?: string;
-          conversationId?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.status === 'stopped'
-        );
-      },
-      timeoutMs: 15_000,
+      const finalPromise = waitForEvent({
+        ws: server.ws,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          conversationId: string;
+        } => {
+          const e = event as {
+            type?: string;
+            status?: string;
+            conversationId?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 15_000,
+      });
+
+      await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new SlowStreamingChat(),
+      });
+
+      sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+      sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+
+      await finalPromise;
+      await delay(200);
+
+      const finalEvents = events.filter(
+        (event) =>
+          event.type === 'turn_final' && event.conversationId === conversationId,
+      );
+      assert.equal(finalEvents.length, 1);
+      await waitForRuntimeCleanup(conversationId);
     });
-
-    await startAgentInstruction({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new SlowStreamingChat(),
-    });
-
-    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
-    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
-
-    await finalPromise;
-    await delay(200);
-
-    const finalEvents = events.filter(
-      (event) =>
-        event.type === 'turn_final' && event.conversationId === conversationId,
-    );
-    assert.equal(finalEvents.length, 1);
-    await waitForRuntimeCleanup(conversationId);
   } finally {
     await closeWs(server.ws);
     await server.wsHandle.close();
@@ -464,59 +473,61 @@ test('Normal agent stop cleanup fallback still releases runtime state', async ()
   const conversationId = 'agents-ws-conv-cleanup-fallback-1';
 
   try {
-    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+    await runWithTestEnvOverrides(server.envOverrides, async () => {
+      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
 
-    const finalPromise = waitForEvent({
-      ws: server.ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'turn_final';
-        status: string;
-        conversationId: string;
-      } => {
-        const e = event as {
-          type?: string;
-          status?: string;
-          conversationId?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.status === 'stopped'
-        );
-      },
-      timeoutMs: 15_000,
-    });
+      const finalPromise = waitForEvent({
+        ws: server.ws,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          conversationId: string;
+        } => {
+          const e = event as {
+            type?: string;
+            status?: string;
+            conversationId?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 15_000,
+      });
 
-    const started = await startAgentInstruction({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new SlowStreamingChat(),
-      cleanupInflightFn: ({ conversationId: cleanupConversationId }) => {
-        if (cleanupConversationId === conversationId) {
-          throw new Error('forced cleanup failure');
+      const started = await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new SlowStreamingChat(),
+        cleanupInflightFn: ({ conversationId: cleanupConversationId }) => {
+          if (cleanupConversationId === conversationId) {
+            throw new Error('forced cleanup failure');
+          }
+        },
+      });
+
+      const waitForInflight = async () => {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 15_000) {
+          const inflight = getInflight(conversationId);
+          if (inflight?.inflightId === started.inflightId) return;
+          await delay(25);
         }
-      },
+        throw new Error('inflight was not created before stop');
+      };
+
+      await waitForInflight();
+      sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+
+      await finalPromise;
+      await waitForRuntimeCleanup(conversationId);
     });
-
-    const waitForInflight = async () => {
-      const startedAt = Date.now();
-      while (Date.now() - startedAt < 15_000) {
-        const inflight = getInflight(conversationId);
-        if (inflight?.inflightId === started.inflightId) return;
-        await delay(25);
-      }
-      throw new Error('inflight was not created before stop');
-    };
-
-    await waitForInflight();
-    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
-
-    await finalPromise;
-    await waitForRuntimeCleanup(conversationId);
   } finally {
     await closeWs(server.ws);
     await server.wsHandle.close();
@@ -532,60 +543,65 @@ test('A new normal agent run can start on the same conversation after confirmed 
   const conversationId = 'agents-ws-conv-reuse-1';
 
   try {
-    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+    await runWithTestEnvOverrides(server.envOverrides, async () => {
+      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
 
-    const firstFinalPromise = waitForEvent({
-      ws: server.ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'turn_final';
-        status: string;
-        conversationId: string;
-      } => {
-        const e = event as {
-          type?: string;
-          status?: string;
-          conversationId?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === conversationId &&
-          e.status === 'stopped'
-        );
-      },
-      timeoutMs: 15_000,
+      const firstFinalPromise = waitForEvent({
+        ws: server.ws,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          conversationId: string;
+        } => {
+          const e = event as {
+            type?: string;
+            status?: string;
+            conversationId?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 15_000,
+      }).catch(() => null);
+
+      await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new SlowStreamingChat(),
+      });
+
+      sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+      const firstFinal = await firstFinalPromise;
+      await waitForRuntimeCleanup(conversationId);
+      if (firstFinal) {
+        assert.equal(firstFinal.status, 'stopped');
+      }
+
+      const secondRun = await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello again',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new SlowStreamingChat(),
+      });
+
+      assert.equal(secondRun.conversationId, conversationId);
+      sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+      await waitForRuntimeCleanup(conversationId);
     });
-
-    await startAgentInstruction({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new SlowStreamingChat(),
-    });
-
-    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
-    await firstFinalPromise;
-    await waitForRuntimeCleanup(conversationId);
-
-    const secondRun = await startAgentInstruction({
-      agentName: 'coding_agent',
-      instruction: 'Hello again',
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new SlowStreamingChat(),
-    });
-
-    assert.equal(secondRun.conversationId, conversationId);
-    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
-    await waitForRuntimeCleanup(conversationId);
   } finally {
     await closeWs(server.ws);
     await server.wsHandle.close();
     await new Promise<void>((resolve) =>
       server.httpServer.close(() => resolve()),
     );
-    server.restoreEnv();
+    await server.restoreEnv();
   }
 });

@@ -12,6 +12,11 @@ import {
   SimpleResponse,
 } from './support/fetchPolyfills';
 import { installMockWebSocket } from './support/mockWebSocket';
+import {
+  beginClientTestEnvIsolation,
+  endClientTestEnvIsolation,
+  installClientTestProcessEnvIsolation,
+} from './support/processEnvIsolation';
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.
@@ -25,6 +30,16 @@ globalThis.__CODEINFO_TEST__ = true;
 if (windowRef) {
   windowRef.__CODEINFO_TEST__ = true;
 }
+
+installClientTestProcessEnvIsolation();
+
+beforeEach(() => {
+  beginClientTestEnvIsolation();
+});
+
+afterEach(() => {
+  endClientTestEnvIsolation();
+});
 
 const nodeGlobals = globalThis as typeof globalThis & {
   TextEncoder?: typeof globalThis.TextEncoder;

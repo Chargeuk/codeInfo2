@@ -12,6 +12,7 @@ import { discoverAgents } from '../agents/discovery.js';
 import { append } from '../logStore.js';
 import {
   enterTestOverrideScope,
+  getScopedProcessEnv,
   getScopedProviderBootstrapStatusOverride,
   hasActiveTestOverrideScope,
 } from '../test/support/testOverrideScope.js';
@@ -1792,8 +1793,10 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
         pathLabel: `${params.surface}.${CODEINFO_OPENAI_ENDPOINT_METADATA_KEY}`,
       });
     }
+    const scopedEnv = getScopedProcessEnv(process.env);
     const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
       stripped.config,
+      scopedEnv,
     );
     const context7Result = normalizeContext7RuntimeConfig(placeholderResult);
     const validated = validateRuntimeConfig(context7Result.config, {
@@ -1805,7 +1808,7 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       config: validated.config,
       provider: effectiveProvider,
       appMetadata: stripped.appMetadata,
-      env: process.env,
+      env: scopedEnv,
       warningPath: `${params.surface}.mcp_servers.web_tools`,
     });
     validated.config = managedWebToolsResult.config;

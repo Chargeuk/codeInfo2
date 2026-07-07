@@ -32,6 +32,7 @@ import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
 } from '../support/mockCopilotSdk.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import {
   closeWs,
   connectWs,
@@ -40,6 +41,15 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const withScopedTestEnv = async <T>(
+  overrides: Record<string, string | undefined>,
+  run: () => Promise<T>,
+) => await runWithTestEnvOverrides(overrides, run);
 
 const getMcpServerKeys = (
   mcpServers: Record<string, unknown> | undefined,
@@ -137,13 +147,6 @@ test('Agents runs publish WS transcript events while the run is in progress', as
   );
   resetStore();
 
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-
   const app = express();
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
@@ -157,146 +160,148 @@ test('Agents runs publish WS transcript events while the run is in progress', as
   const ws = await connectWs({ baseUrl });
 
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await withScopedTestEnv(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      },
+      async () => {
+        sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-    // Start WS waits before triggering the HTTP request to avoid missing early frames.
-    const userTurnPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'user_turn';
-        conversationId: string;
-        inflightId: string;
-        content: string;
-        createdAt: string;
-        seq: number;
-      } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflightId?: string;
-        };
-        return (
-          e.type === 'user_turn' &&
-          e.conversationId === conversationId &&
-          e.inflightId === inflightId
+        // Start WS waits before triggering the HTTP request to avoid missing early frames.
+        const userTurnPromise = waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'user_turn';
+            conversationId: string;
+            inflightId: string;
+            content: string;
+            createdAt: string;
+            seq: number;
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              inflightId?: string;
+            };
+            return (
+              e.type === 'user_turn' &&
+              e.conversationId === conversationId &&
+              e.inflightId === inflightId
+            );
+          },
+          timeoutMs: 15000,
+        });
+
+        const snapshotPromise = waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'inflight_snapshot';
+            conversationId: string;
+            inflight: { command?: { name: string; stepIndex: number } };
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              inflight?: { command?: { name?: string } };
+            };
+            return (
+              e.type === 'inflight_snapshot' &&
+              e.conversationId === conversationId
+            );
+          },
+          timeoutMs: 8000,
+        });
+
+        const deltaPromise = waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'assistant_delta';
+            conversationId: string;
+            inflightId: string;
+            seq: number;
+            delta: string;
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              inflightId?: string;
+            };
+            return (
+              e.type === 'assistant_delta' &&
+              e.conversationId === conversationId &&
+              e.inflightId === inflightId
+            );
+          },
+          timeoutMs: 8000,
+        });
+
+        const finalPromise = waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is { type: string; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' && e.conversationId === conversationId
+            );
+          },
+          timeoutMs: 8000,
+        });
+
+        const runPromise = runAgentInstructionUnlocked({
+          agentName: 'coding_agent',
+          instruction: 'Hello',
+          conversationId,
+          mustExist: false,
+          command: { name: 'improve_plan', stepIndex: 1, totalSteps: 3 },
+          source: 'REST',
+          inflightId,
+          chatFactory: () => new StreamingChat(),
+        });
+
+        const userTurn = await userTurnPromise;
+        assert.equal(userTurn.content, 'Hello');
+        assert.equal(typeof userTurn.createdAt, 'string');
+        assert.ok(userTurn.createdAt.length > 0);
+
+        const snapshot = await snapshotPromise;
+        assert.deepEqual(snapshot.inflight.command, {
+          name: 'improve_plan',
+          stepIndex: 1,
+          totalSteps: 3,
+        });
+        const delta = await deltaPromise;
+        assert(
+          userTurn.seq < delta.seq,
+          'user_turn should be observed before assistant_delta for the same inflightId',
         );
+        const final = await finalPromise;
+        assert.equal(final.status, 'ok');
+
+        const result = await runPromise;
+        assert.equal(result.conversationId, conversationId);
+        assert.equal(result.agentName, 'coding_agent');
       },
-      timeoutMs: 15000,
-    });
-
-    const snapshotPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'inflight_snapshot';
-        conversationId: string;
-        inflight: { command?: { name: string; stepIndex: number } };
-      } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflight?: { command?: { name?: string } };
-        };
-        return (
-          e.type === 'inflight_snapshot' && e.conversationId === conversationId
-        );
-      },
-      timeoutMs: 8000,
-    });
-
-    const deltaPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'assistant_delta';
-        conversationId: string;
-        inflightId: string;
-        seq: number;
-        delta: string;
-      } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflightId?: string;
-        };
-        return (
-          e.type === 'assistant_delta' &&
-          e.conversationId === conversationId &&
-          e.inflightId === inflightId
-        );
-      },
-      timeoutMs: 8000,
-    });
-
-    const finalPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is { type: string; status: string } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return e.type === 'turn_final' && e.conversationId === conversationId;
-      },
-      timeoutMs: 8000,
-    });
-
-    const runPromise = runAgentInstructionUnlocked({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      mustExist: false,
-      command: { name: 'improve_plan', stepIndex: 1, totalSteps: 3 },
-      source: 'REST',
-      inflightId,
-      chatFactory: () => new StreamingChat(),
-    });
-
-    const userTurn = await userTurnPromise;
-    assert.equal(userTurn.content, 'Hello');
-    assert.equal(typeof userTurn.createdAt, 'string');
-    assert.ok(userTurn.createdAt.length > 0);
-
-    const snapshot = await snapshotPromise;
-    assert.deepEqual(snapshot.inflight.command, {
-      name: 'improve_plan',
-      stepIndex: 1,
-      totalSteps: 3,
-    });
-    const delta = await deltaPromise;
-    assert(
-      userTurn.seq < delta.seq,
-      'user_turn should be observed before assistant_delta for the same inflightId',
     );
-    const final = await finalPromise;
-    assert.equal(final.status, 'ok');
-
-    const result = await runPromise;
-    assert.equal(result.conversationId, conversationId);
-    assert.equal(result.agentName, 'coding_agent');
   } finally {
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
   }
 });
 
 test('Agents run passes inflightId into chat.run(...) flags', async () => {
   resetStore();
-
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
 
   let capturedFlags: Record<string, unknown> | null = null;
 
@@ -316,26 +321,29 @@ test('Agents run passes inflightId into chat.run(...) flags', async () => {
     }
   }
 
-  try {
-    const conversationId = 'agents-flags-conv-1';
-    const inflightId = 'agents-flags-inflight-1';
+  await withScopedTestEnv(
+    {
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    },
+    async () => {
+      const conversationId = 'agents-flags-conv-1';
+      const inflightId = 'agents-flags-inflight-1';
 
-    await runAgentInstructionUnlocked({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId,
-      mustExist: false,
-      source: 'REST',
-      inflightId,
-      chatFactory: () => new CapturingChat(),
-    });
+      await runAgentInstructionUnlocked({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        conversationId,
+        mustExist: false,
+        source: 'REST',
+        inflightId,
+        chatFactory: () => new CapturingChat(),
+      });
 
-    if (!capturedFlags) throw new Error('expected chat.execute to be called');
-    assert.equal(capturedFlags['inflightId'], inflightId);
-    assert.equal(capturedFlags['source'], 'REST');
-  } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-  }
+      if (!capturedFlags) throw new Error('expected chat.execute to be called');
+      assert.equal(capturedFlags['inflightId'], inflightId);
+      assert.equal(capturedFlags['source'], 'REST');
+    },
+  );
 });
 
 test('direct Copilot agent runs forward envOverrides into the Copilot runtime environment', async () => {
@@ -386,15 +394,6 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
     'utf8',
   );
 
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousAgentsMcpPort = process.env.CODEINFO_AGENTS_MCP_PORT;
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.CODEINFO_AGENTS_MCP_PORT = '5020';
-
   const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
   const harness = createMockCopilotSdkHarness({
     name: 'direct-agent-copilot-env-forwarding',
@@ -423,58 +422,65 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
   });
 
   try {
-    const result = await runAgentInstructionUnlocked({
-      agentName: 'coding_agent',
-      instruction: 'Hello from Copilot',
-      conversationId: 'copilot-direct-env-forwarding',
-      source: 'REST',
-      envOverrides: { CODEINFO_ROOT: '/tmp/codeinfo-root' },
-      chatFactory: (provider, deps) =>
-        getChatInterface(provider, {
-          ...deps,
-          copilotClientFactory: (options) => {
-            capturedOptions.push(options);
-            return harness.createClientFactory()(options);
-          },
-        }),
-    });
-
-    assert.equal(result.providerId, 'copilot');
-    assert.equal(capturedOptions.length, 1);
-    assert.equal(capturedOptions[0]?.env?.CODEINFO_ROOT, '/tmp/codeinfo-root');
-    assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
-    assert.deepEqual(
-      getMcpServerKeys(harness.getState().lastCreateSessionConfig?.mcpServers),
-      ['code_info'],
-    );
-    assert.deepEqual(
-      harness.getState().lastCreateSessionConfig?.mcpServers?.code_info,
+    await withScopedTestEnv(
       {
-        type: 'stdio',
-        command: 'npx',
-        args: ['-y', 'mcp-remote', 'http://localhost:5020/mcp'],
-        tools: [],
-        timeout: 1_800_000,
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+        CODEINFO_COPILOT_HOME: copilotHome,
+        CODEINFO_AGENTS_MCP_PORT: '5020',
       },
-    );
-    assert.deepEqual(
-      getMcpServerTools(harness.getState().lastCreateSessionConfig?.mcpServers),
-      {
-        code_info: [],
+      async () => {
+        const result = await runAgentInstructionUnlocked({
+          agentName: 'coding_agent',
+          instruction: 'Hello from Copilot',
+          conversationId: 'copilot-direct-env-forwarding',
+          source: 'REST',
+          envOverrides: { CODEINFO_ROOT: '/tmp/codeinfo-root' },
+          chatFactory: (provider, deps) =>
+            getChatInterface(provider, {
+              ...deps,
+              copilotClientFactory: (options) => {
+                capturedOptions.push(options);
+                return harness.createClientFactory()(options);
+              },
+            }),
+        });
+
+        assert.equal(result.providerId, 'copilot');
+        assert.equal(capturedOptions.length, 1);
+        assert.equal(
+          capturedOptions[0]?.env?.CODEINFO_ROOT,
+          '/tmp/codeinfo-root',
+        );
+        assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
+        assert.deepEqual(
+          getMcpServerKeys(harness.getState().lastCreateSessionConfig?.mcpServers),
+          ['code_info'],
+        );
+        assert.deepEqual(
+          harness.getState().lastCreateSessionConfig?.mcpServers?.code_info,
+          {
+            type: 'stdio',
+            command: 'npx',
+            args: ['-y', 'mcp-remote', 'http://localhost:5020/mcp'],
+            tools: [],
+            timeout: 1_800_000,
+          },
+        );
+        assert.deepEqual(
+          getMcpServerTools(
+            harness.getState().lastCreateSessionConfig?.mcpServers,
+          ),
+          {
+            code_info: [],
+          },
+        );
       },
     );
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.clear();
     memoryTurns.clear();
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    if (previousAgentsMcpPort === undefined) {
-      delete process.env.CODEINFO_AGENTS_MCP_PORT;
-    } else {
-      process.env.CODEINFO_AGENTS_MCP_PORT = previousAgentsMcpPort;
-    }
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
@@ -508,15 +514,6 @@ test('direct agent runs can fall back to a different provider when the requested
     'utf8',
   );
 
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFallbackOrder =
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: true,
@@ -564,27 +561,33 @@ test('direct agent runs can fall back to a different provider when the requested
   });
 
   try {
-    const result = await runAgentInstructionUnlocked({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId: 'task5-provider-fallback',
-      source: 'REST',
-      chatFactory: () => new ImmediateChat(),
-    });
+    await withScopedTestEnv(
+      {
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+        CODEINFO_COPILOT_HOME: copilotHome,
+        CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: 'copilot,codex',
+      },
+      async () => {
+        const result = await runAgentInstructionUnlocked({
+          agentName: 'coding_agent',
+          instruction: 'Hello',
+          conversationId: 'task5-provider-fallback',
+          source: 'REST',
+          chatFactory: () => new ImmediateChat(),
+        });
 
-    assert.equal(result.providerId, 'copilot');
-    assert.equal(result.modelId, 'copilot-model');
-    const conversation = memoryConversations.get(result.conversationId);
-    assert.equal(conversation?.provider, 'copilot');
-    assert.equal(conversation?.model, 'copilot-model');
+        assert.equal(result.providerId, 'copilot');
+        assert.equal(result.modelId, 'copilot-model');
+        const conversation = memoryConversations.get(result.conversationId);
+        assert.equal(conversation?.provider, 'copilot');
+        assert.equal(conversation?.model, 'copilot-model');
+      },
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.clear();
     memoryTurns.clear();
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = previousFallbackOrder;
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
@@ -610,10 +613,6 @@ test('saved execution identity fails in place when the pinned provider later bec
     'utf8',
   );
 
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: true,
@@ -653,74 +652,77 @@ test('saved execution identity fails in place when the pinned provider later bec
   });
 
   try {
-    const first = await runAgentInstructionUnlocked({
-      agentName: 'coding_agent',
-      instruction: 'Hello',
-      conversationId: 'task5-fail-in-place',
-      source: 'REST',
-      chatFactory: () => new ImmediateChat(),
-    });
-    assert.equal(first.providerId, 'codex');
-
-    __setAgentServiceDepsForTests({
-      getCodexDetection: () => ({
-        available: false,
-        authPresent: false,
-        configPresent: true,
-        reason: 'codex unavailable',
-      }),
-      resolveCodexCapabilities: async () => ({
-        defaults: {
-          sandboxMode: 'danger-full-access',
-          approvalPolicy: 'never',
-          modelReasoningEffort: 'high',
-          networkAccessEnabled: true,
-          webSearchEnabled: false,
-          webSearchMode: 'disabled',
-        },
-        models: [
-          {
-            model: 'codex-model',
-            supportedReasoningEfforts: ['high'],
-            defaultReasoningEffort: 'high',
-          },
-        ],
-        byModel: new Map(),
-        warnings: [],
-        fallbackUsed: false,
-      }),
-    });
-
-    await assert.rejects(
-      () =>
-        runAgentInstructionUnlocked({
+    await withScopedTestEnv(
+      {
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+      },
+      async () => {
+        const first = await runAgentInstructionUnlocked({
           agentName: 'coding_agent',
-          instruction: 'Hello again',
-          conversationId: first.conversationId,
+          instruction: 'Hello',
+          conversationId: 'task5-fail-in-place',
           source: 'REST',
           chatFactory: () => new ImmediateChat(),
-        }),
-      (error: unknown) =>
-        (error as { code?: string }).code === 'PROVIDER_UNAVAILABLE',
+        });
+        assert.equal(first.providerId, 'codex');
+
+        __setAgentServiceDepsForTests({
+          getCodexDetection: () => ({
+            available: false,
+            authPresent: false,
+            configPresent: true,
+            reason: 'codex unavailable',
+          }),
+          resolveCodexCapabilities: async () => ({
+            defaults: {
+              sandboxMode: 'danger-full-access',
+              approvalPolicy: 'never',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: false,
+              webSearchMode: 'disabled',
+            },
+            models: [
+              {
+                model: 'codex-model',
+                supportedReasoningEfforts: ['high'],
+                defaultReasoningEffort: 'high',
+              },
+            ],
+            byModel: new Map(),
+            warnings: [],
+            fallbackUsed: false,
+          }),
+        });
+
+        await assert.rejects(
+          () =>
+            runAgentInstructionUnlocked({
+              agentName: 'coding_agent',
+              instruction: 'Hello again',
+              conversationId: first.conversationId,
+              source: 'REST',
+              chatFactory: () => new ImmediateChat(),
+            }),
+          (error: unknown) =>
+            (error as { code?: string }).code === 'PROVIDER_UNAVAILABLE',
+        );
+        const conversation = memoryConversations.get(first.conversationId);
+        assert.equal(conversation?.provider, 'codex');
+        assert.equal(conversation?.model, 'codex-model');
+      },
     );
-    const conversation = memoryConversations.get(first.conversationId);
-    assert.equal(conversation?.provider, 'codex');
-    assert.equal(conversation?.model, 'codex-model');
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.clear();
     memoryTurns.clear();
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
 test('startStep > 1 keeps absolute command metadata in websocket events', async () => {
   resetStore();
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const tempAgentsHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'agents-home-'),
   );
@@ -762,10 +764,6 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
     ),
     'utf8',
   );
-  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
-  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
-
   const app = express();
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
@@ -777,55 +775,61 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
   const ws = await connectWs({ baseUrl });
 
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    const snapshotPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'inflight_snapshot';
-        conversationId: string;
-        inflight: {
-          command?: { name: string; stepIndex: number; totalSteps: number };
-        };
-      } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflight?: { command?: { name?: string; stepIndex?: number } };
-        };
-        return (
-          e.type === 'inflight_snapshot' &&
-          e.conversationId === conversationId &&
-          e.inflight?.command?.name === 'offset' &&
-          e.inflight.command.stepIndex === 3
-        );
+    await withScopedTestEnv(
+      {
+        CODEINFO_AGENT_HOME: tempAgentsHome,
+        CODEINFO_CODEX_AGENT_HOME: tempAgentsHome,
+        CODEINFO_CODEX_HOME: tempCodexHome,
       },
-      timeoutMs: 15000,
-    });
+      async () => {
+        sendJson(ws, { type: 'subscribe_conversation', conversationId });
+        const snapshotPromise = waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is {
+            type: 'inflight_snapshot';
+            conversationId: string;
+            inflight: {
+              command?: { name: string; stepIndex: number; totalSteps: number };
+            };
+          } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              inflight?: { command?: { name?: string; stepIndex?: number } };
+            };
+            return (
+              e.type === 'inflight_snapshot' &&
+              e.conversationId === conversationId &&
+              e.inflight?.command?.name === 'offset' &&
+              e.inflight.command.stepIndex === 3
+            );
+          },
+          timeoutMs: 15000,
+        });
 
-    await runAgentCommand({
-      agentName: 'coding_agent',
-      commandName: 'offset',
-      startStep: 3,
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new StreamingChat(),
-    });
+        await runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'offset',
+          startStep: 3,
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new StreamingChat(),
+        });
 
-    const snapshot = await snapshotPromise;
-    assert.deepEqual(snapshot.inflight.command, {
-      name: 'offset',
-      stepIndex: 3,
-      totalSteps: 3,
-    });
+        const snapshot = await snapshotPromise;
+        assert.deepEqual(snapshot.inflight.command, {
+          name: 'offset',
+          stepIndex: 3,
+          totalSteps: 3,
+        });
+      },
+    );
   } finally {
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempAgentsHome, { recursive: true, force: true });
     await fs.rm(tempCodexHome, { recursive: true, force: true });
   }

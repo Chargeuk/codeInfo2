@@ -2,12 +2,26 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import nodeTest from 'node:test';
 import request from 'supertest';
 import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
 import { startCopilotChatServer, waitForAssistantTurn, waitForAssistantTurnCount, } from './support/copilotChatHarness.js';
+
+const test = (name: string, fn: () => Promise<void> | void) =>
+  nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
+    try {
+      await fn();
+    } finally {
+      endScopedTestEnvIsolation();
+    }
+  });
 async function withTempCopilotHome(chatToml: string): Promise<{
     copilotHome: string;
     cleanup: () => Promise<void>;

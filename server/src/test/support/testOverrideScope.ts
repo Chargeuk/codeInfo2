@@ -49,8 +49,13 @@ type TestOverridePatch = {
 const storage = new AsyncLocalStorage<TestOverrideStore>();
 let persistentStore: TestOverrideStore | undefined;
 
-const getCurrentStore = (): TestOverrideStore | undefined =>
-  persistentStore ?? storage.getStore();
+const getCurrentStore = (): TestOverrideStore | undefined => {
+  const scopedStore = storage.getStore();
+  if (persistentStore && scopedStore) {
+    return mergeStore(persistentStore, scopedStore);
+  }
+  return scopedStore ?? persistentStore;
+};
 
 const mergeRecord = (
   current: OverrideRecord | undefined,

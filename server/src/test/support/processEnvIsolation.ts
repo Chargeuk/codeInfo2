@@ -29,6 +29,16 @@ const hasOwn = (record: EnvOverlay, key: string) =>
 
 const normalizeEnvValue = (value: unknown): string => String(value);
 
+const isNodeTestExecutionFrame = (): boolean => {
+  const stack = new Error().stack ?? '';
+  return (
+    stack.includes('node:internal/test_runner/test') ||
+    stack.includes('startSubtestAfterBootstrap') ||
+    stack.includes('TestContext.<anonymous>') ||
+    stack.includes('TestHook.run')
+  );
+};
+
 const hasOpenScopedLayer = (): boolean => {
   const scopedLayer = getScopedLayer();
   const scopeState = getScopedEnvScopeState();
@@ -37,6 +47,10 @@ const hasOpenScopedLayer = (): boolean => {
 
 const assertActiveScopedEnvWrite = (prop: string): void => {
   if (hasOpenScopedLayer()) {
+    return;
+  }
+  if (isNodeTestExecutionFrame()) {
+    beginScopedTestEnvIsolation({}, { persistentAcrossAsyncBoundaries: true });
     return;
   }
   throw new Error(
@@ -59,7 +73,7 @@ const resolveOverride = (
   key: string,
 ): { found: boolean; value: string | undefined } => {
   const scoped = getScopedLayer();
-  if (scoped && hasOwn(scoped, key)) {
+  if (hasOpenScopedLayer() && scoped && hasOwn(scoped, key)) {
     return { found: true, value: scoped[key] };
   }
   if (hasOwn(state.bootstrapEnvOverrides, key)) {
@@ -93,7 +107,7 @@ const collectVisibleKeys = (state: ProcessEnvIsolationState): Set<string> => {
     ...Object.keys(state.bootstrapEnvOverrides),
   ]);
   const scoped = getScopedLayer();
-  if (scoped) {
+  if (hasOpenScopedLayer() && scoped) {
     for (const key of Object.keys(scoped)) {
       keys.add(key);
     }
@@ -218,7 +232,7 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
       }
 
       const scoped = getScopedLayer();
-      if (scoped) {
+      if (hasOpenScopedLayer() && scoped) {
         for (const key of Object.keys(scoped)) {
           if (scoped[key] !== undefined) {
             keys.add(key);

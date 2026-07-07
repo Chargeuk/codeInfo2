@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import nodeTest from 'node:test';
 
 import request from 'supertest';
 
 import { getMemoryTurns } from '../../chat/memoryPersistence.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
 import {
   closeWs,
   connectWs,
@@ -18,6 +22,16 @@ type WsTurnFinalEvent = {
   inflightId: string;
   status: 'ok' | 'stopped' | 'failed';
 };
+
+const test = (name: string, fn: () => Promise<void> | void) =>
+  nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
+    try {
+      await fn();
+    } finally {
+      endScopedTestEnvIsolation();
+    }
+  });
 
 test('copilot chat shares the stop path and settles the inflight run cleanly', async () => {
   const server = await startCopilotChatServer({

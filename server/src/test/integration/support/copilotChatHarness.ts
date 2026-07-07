@@ -126,30 +126,39 @@ export async function startCopilotChatServer(params?: {
   const httpServer = http.createServer(app);
   const wsHandle = params?.withWs ? attachWs({ httpServer }) : undefined;
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  env.set('CODEINFO_SERVER_PORT', String(address.port));
-  env.set('MCP_URL', `http://127.0.0.1:${address.port}/mcp`);
-  env.set(
-    'CODEINFO_LMSTUDIO_BASE_URL',
-    params?.lmstudioAvailable === true
-      ? 'http://127.0.0.1:1234'
-      : 'http://127.0.0.1:9',
-  );
+  try {
+    const address = httpServer.address();
+    assert(address && typeof address === 'object');
+    env.set('CODEINFO_SERVER_PORT', String(address.port));
+    env.set('MCP_URL', `http://127.0.0.1:${address.port}/mcp`);
+    env.set(
+      'CODEINFO_LMSTUDIO_BASE_URL',
+      params?.lmstudioAvailable === true
+        ? 'http://127.0.0.1:1234'
+        : 'http://127.0.0.1:9',
+    );
 
-  return {
-    baseUrl: `http://127.0.0.1:${address.port}`,
-    harness,
-    httpServer,
-    wsHandle,
-    stop: async () => {
-      await wsHandle?.close();
-      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-      env.restore();
-      memoryConversations.clear();
-      memoryTurns.clear();
-    },
-  } satisfies StartedCopilotChatServer;
+    return {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      harness,
+      httpServer,
+      wsHandle,
+      stop: async () => {
+        await wsHandle?.close();
+        await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        env.restore();
+        memoryConversations.clear();
+        memoryTurns.clear();
+      },
+    } satisfies StartedCopilotChatServer;
+  } catch (error) {
+    await wsHandle?.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    env.restore();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    throw error;
+  }
 }
 
 export async function waitForAssistantTurn(

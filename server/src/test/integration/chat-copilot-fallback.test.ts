@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import nodeTest from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
 import express from 'express';
 import request from 'supertest';
@@ -15,7 +15,21 @@ import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness, createSessionIdleEvent, } from '../support/mockCopilotSdk.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
+
+const test = (name: string, fn: () => Promise<void> | void) =>
+  nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
+    try {
+      await fn();
+    } finally {
+      endScopedTestEnvIsolation();
+    }
+  });
 async function writeSeedArtifacts(seedHome: string) {
     await fs.mkdir(path.join(seedHome, 'session-state'), { recursive: true });
     await fs.writeFile(path.join(seedHome, 'config.json'), '{"store_token_plaintext": true}\n', 'utf8');

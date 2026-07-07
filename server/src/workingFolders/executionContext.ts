@@ -94,10 +94,10 @@ export type SharedExecutionContext = {
 export const resolveDefaultExecutionRoot = (
   env: NodeJS.ProcessEnv = process.env,
 ): string => {
-  const preferred = env.CODEX_WORKDIR?.trim();
+  const preferred = getScopedEnvValue('CODEX_WORKDIR', env)?.trim();
   if (preferred) return preferred;
 
-  const legacy = env.CODEINFO_CODEX_WORKDIR?.trim();
+  const legacy = getScopedEnvValue('CODEINFO_CODEX_WORKDIR', env)?.trim();
   if (legacy) return legacy;
 
   return '/data';

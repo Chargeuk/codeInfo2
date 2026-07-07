@@ -17,6 +17,7 @@ import {
 } from '../config/codexConfig.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
+import { bindCurrentTestEnvOverrides } from '../test/support/testEnvOverrideScope.js';
 import {
   createCodexAlreadyAuthenticatedResponse,
   createCodexCompletedResponse,
@@ -140,7 +141,9 @@ export function createCodexDeviceAuthRouter(
     },
   );
 
-  router.post('/device-auth', async (req, res) => {
+  router.post(
+    '/device-auth',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
     const requestId =
       (res.locals?.requestId as string | undefined) ?? undefined;
 
@@ -396,7 +399,8 @@ export function createCodexDeviceAuthRouter(
     );
 
     return res.status(200).json(responseState);
-  });
+    }),
+  );
 
   return router;
 }

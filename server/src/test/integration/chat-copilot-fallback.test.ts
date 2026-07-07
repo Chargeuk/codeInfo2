@@ -19,15 +19,16 @@ import {
   beginScopedTestEnvIsolation,
   endScopedTestEnvIsolation,
 } from '../support/processEnvIsolation.js';
+import { bindCurrentTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
 
 const test = (name: string, fn: () => Promise<void> | void) =>
   nodeTest(name, async () => {
-    beginScopedTestEnvIsolation();
+    beginScopedTestEnvIsolation({}, { persistentAcrossAsyncBoundaries: true });
     try {
       await fn();
     } finally {
-      endScopedTestEnvIsolation();
+      endScopedTestEnvIsolation({ persistentAcrossAsyncBoundaries: true });
     }
   });
 async function writeSeedArtifacts(seedHome: string) {
@@ -141,7 +142,7 @@ test('explicit copilot chat requests return PROVIDER_UNAVAILABLE instead of fall
     app.post('/mcp', (_req, res) => {
         res.json({ result: { ok: true } });
     });
-    app.use('/chat', createChatRouter({
+    app.use('/chat', bindCurrentTestEnvOverrides(createChatRouter({
         clientFactory: () => ({
             system: {
                 listDownloadedModels: async () => [],
@@ -152,7 +153,7 @@ test('explicit copilot chat requests return PROVIDER_UNAVAILABLE instead of fall
             name: 'copilot-explicit-no-cross-provider-fallback',
             startError: new Error('copilot unavailable'),
         }).createLifecycle(),
-    }));
+    })));
     const response = await request(app).post('/chat').send({
         provider: 'copilot',
         model: 'copilot-gpt-5',
@@ -785,7 +786,7 @@ test('explicit Copilot chat requests recover once startup seed import restores t
         app.post('/mcp', (_req, res) => {
             res.json({ result: { ok: true } });
         });
-        app.use('/chat', createChatRouter({
+        app.use('/chat', bindCurrentTestEnvOverrides(createChatRouter({
             clientFactory: () => ({
                 system: {
                     listDownloadedModels: async () => [],
@@ -806,10 +807,10 @@ test('explicit Copilot chat requests recover once startup seed import restores t
                     : {
                         isAuthenticated: false,
                         authType: 'user',
-                    };
+                };
                 return lifecycle;
             },
-        }));
+        })));
         const response = await request(app).post('/chat').send({
             provider: 'copilot',
             model: 'copilot-gpt-5',
@@ -856,7 +857,7 @@ test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async (
     app.post('/mcp', (_req, res) => {
         res.json({ result: { ok: true } });
     });
-    app.use('/chat', createChatRouter({
+    app.use('/chat', bindCurrentTestEnvOverrides(createChatRouter({
         clientFactory: () => ({
             system: {
                 listDownloadedModels: async () => [],
@@ -873,9 +874,10 @@ test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async (
                 return harness.createClientFactory()(options);
             },
         }),
-    }));
+    })));
     const httpServer = http.createServer(app);
-    await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+    await new Promise<void>((resolve) =>
+        httpServer.listen(0, bindCurrentTestEnvOverrides(resolve)));
     const address = httpServer.address();
     assert(address && typeof address === 'object');
     setScopedTestEnvValue("CODEINFO_SERVER_PORT", String(address.port));
@@ -901,7 +903,8 @@ test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async (
         assert.equal(capturedOptions.some((options) => options.env?.COPILOT_HOME === copilotHome), true);
     }
     finally {
-        await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        await new Promise<void>((resolve) =>
+            httpServer.close(bindCurrentTestEnvOverrides(() => resolve())));
         memoryConversations.delete('chat-copilot-codeinfo-root');
         for (const key of envKeys) {
             const value = originalEnv.get(key);

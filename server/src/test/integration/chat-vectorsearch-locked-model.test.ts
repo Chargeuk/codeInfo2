@@ -8,8 +8,14 @@ import request from 'supertest';
 import { resetCollectionsForTests, resetLmClientResolver, setLmClientResolver, } from '../../ingest/chromaClient.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
+import {
+    clearBootstrapTestEnvValue,
+    setBootstrapTestEnvValue,
+} from '../support/processEnvIsolation.js';
+import { bindCurrentTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { closeWs, connectWs, sendJson, waitForEvent, } from '../support/wsClient.js';
 const ORIGINAL_BASE_URL = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+const ORIGINAL_HOST_INGEST_DIR = process.env.CODEINFO_HOST_INGEST_DIR;
 type EmbedCall = {
     model: string;
     text?: string;
@@ -108,8 +114,8 @@ function setupChromaMock(lockedModelId: string | null, metadataOverride?: Record
 function buildChatApp(clientFactory: () => LMStudioClient) {
     const app = express();
     app.use(express.json());
-    app.use('/chat', createChatRouter({
-        clientFactory: () => {
+    app.use('/chat', bindCurrentTestEnvOverrides(createChatRouter({
+        clientFactory: bindCurrentTestEnvOverrides(() => {
             const client = clientFactory() as LMStudioClient & {
                 system?: {
                     listDownloadedModels?: () => Promise<unknown[]>;
@@ -124,15 +130,16 @@ function buildChatApp(clientFactory: () => LMStudioClient) {
                     listDownloadedModels,
                 },
             } as LMStudioClient;
-        },
-    }));
+        }),
+    })));
     return app;
 }
 async function startChatServer(clientFactory: () => LMStudioClient) {
     const app = buildChatApp(clientFactory);
     const httpServer = http.createServer(app);
     const wsHandle = attachWs({ httpServer });
-    await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+    await new Promise<void>((resolve) =>
+        httpServer.listen(0, bindCurrentTestEnvOverrides(resolve)));
     const address = httpServer.address();
     assert(address && typeof address === 'object');
     return {
@@ -151,7 +158,7 @@ function toolContext() {
 }
 beforeEach(() => {
     resetCollectionsForTests();
-    setScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR", '/host/base');
+    setBootstrapTestEnvValue("CODEINFO_HOST_INGEST_DIR", '/host/base');
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", ORIGINAL_BASE_URL ?? 'http://host.docker.internal:1234');
 });
 afterEach(() => {
@@ -163,6 +170,12 @@ afterEach(() => {
     }
     else {
         setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", ORIGINAL_BASE_URL);
+    }
+    if (ORIGINAL_HOST_INGEST_DIR === undefined) {
+        clearBootstrapTestEnvValue("CODEINFO_HOST_INGEST_DIR");
+    }
+    else {
+        setBootstrapTestEnvValue("CODEINFO_HOST_INGEST_DIR", ORIGINAL_HOST_INGEST_DIR);
     }
 });
 test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async () => {

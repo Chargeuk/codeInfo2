@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 
 import {
   getMemoryTurns,
@@ -23,6 +23,7 @@ import {
   clearScopedTestEnvValue,
   setScopedTestEnvValue,
 } from '../../support/processEnvIsolation.js';
+import { bindCurrentTestEnvOverrides } from '../../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../../support/testTimeouts.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
@@ -105,27 +106,29 @@ export async function startCopilotChatServer(params?: {
 
   const app = express();
   app.use(express.json());
-  app.post('/mcp', (_req, res) => {
+  app.post('/mcp', bindCurrentTestEnvOverrides((_req: Request, res: Response) => {
     if (params?.mcpAvailable === false) {
       res.status(200).json({ error: { message: 'unavailable' } });
       return;
     }
     res.json({ result: { ok: true } });
-  });
+  }));
   app.use(
     '/chat',
-    createChatRouter({
+    bindCurrentTestEnvOverrides(createChatRouter({
       clientFactory:
         params?.lmstudioClientFactory ??
         createDummyClientFactory(params?.lmstudioAvailable === true),
       copilotLifecycleFactory: () => harness.createLifecycle(),
       providerDiscoveryResolver: params?.providerDiscoveryResolver,
-    }),
+    })),
   );
 
   const httpServer = http.createServer(app);
   const wsHandle = params?.withWs ? attachWs({ httpServer }) : undefined;
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  await new Promise<void>((resolve) =>
+    httpServer.listen(0, bindCurrentTestEnvOverrides(resolve)),
+  );
   try {
     const address = httpServer.address();
     assert(address && typeof address === 'object');
@@ -145,7 +148,9 @@ export async function startCopilotChatServer(params?: {
       wsHandle,
       stop: async () => {
         await wsHandle?.close();
-        await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        await new Promise<void>((resolve) =>
+          httpServer.close(bindCurrentTestEnvOverrides(() => resolve())),
+        );
         env.restore();
         memoryConversations.clear();
         memoryTurns.clear();
@@ -153,7 +158,9 @@ export async function startCopilotChatServer(params?: {
     } satisfies StartedCopilotChatServer;
   } catch (error) {
     await wsHandle?.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    await new Promise<void>((resolve) =>
+      httpServer.close(bindCurrentTestEnvOverrides(() => resolve())),
+    );
     env.restore();
     memoryConversations.clear();
     memoryTurns.clear();

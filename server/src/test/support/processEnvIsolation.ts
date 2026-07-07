@@ -26,6 +26,19 @@ const PROCESS_ENV_ISOLATION_STATE = Symbol.for(
   'codeinfo2.test.processEnvIsolationState',
 );
 
+const DETACHED_CALLBACK_BOOTSTRAP_ENV_KEYS = new Set([
+  'CODEINFO_HOST_INGEST_DIR',
+  'CODEINFO_CODEX_WORKDIR',
+  'CODEX_WORKDIR',
+  'CODEINFO_AGENT_HOME',
+  'CODEINFO_CODEX_AGENT_HOME',
+  'CODEINFO_CODEX_HOME',
+  'CODEINFO_COPILOT_HOME',
+  'CODEINFO_LMSTUDIO_HOME',
+  'CODEINFO_ROOT',
+  'FLOWS_DIR',
+]);
+
 const hasOwn = (record: EnvOverlay, key: string) =>
   Object.prototype.hasOwnProperty.call(record, key);
 
@@ -39,6 +52,14 @@ export const isNodeTestExecutionFrame = (): boolean => {
     stack.includes('Test.run') ||
     stack.includes('startSubtestAfterBootstrap'));
 };
+
+export const isNodeTestHookFrame = (): boolean => {
+  const stack = new Error().stack ?? '';
+  return stack.includes('TestHook.run') || stack.includes('runHook');
+};
+
+export const shouldMirrorEnvKeyToBootstrap = (name: string): boolean =>
+  DETACHED_CALLBACK_BOOTSTRAP_ENV_KEYS.has(name);
 
 const hasOpenScopedLayer = (): boolean => {
   const scopedLayer = getScopedLayer();
@@ -72,6 +93,13 @@ const assertActiveScopedEnvWrite = (prop: string): void => {
       currentScopeId !== undefined &&
       state.closedScopeIds.has(currentScopeId)
     ) {
+      if (isNodeTestHookFrame()) {
+        beginScopedTestEnvIsolation(
+          {},
+          { persistentAcrossAsyncBoundaries: true },
+        );
+        return;
+      }
       throw new Error(
         `Scoped test env write attempted outside an active test scope for ${prop}`,
       );
@@ -163,6 +191,20 @@ const applyEnvSnapshot = (
   for (const [key, value] of nextEntries) {
     layer[key] = value === undefined ? undefined : normalizeEnvValue(value);
   }
+};
+
+const mirrorScopedEnvWriteToBootstrap = (
+  state: ProcessEnvIsolationState,
+  name: string,
+  value: string | undefined,
+) => {
+  if (
+    !shouldMirrorEnvKeyToBootstrap(name) &&
+    !isNodeTestHookFrame()
+  ) {
+    return;
+  }
+  state.bootstrapEnvOverrides[name] = value;
 };
 
 export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
@@ -346,6 +388,10 @@ export function endScopedTestEnvIsolation(
 
 export function setScopedTestEnvValue(name: string, value: unknown): void {
   assertActiveScopedEnvWrite(name);
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  if (state) {
+    mirrorScopedEnvWriteToBootstrap(state, name, normalizeEnvValue(value));
+  }
   enterTestOverrideScope({
     envOverrides: { [name]: normalizeEnvValue(value) },
   });
@@ -353,6 +399,10 @@ export function setScopedTestEnvValue(name: string, value: unknown): void {
 
 export function clearScopedTestEnvValue(name: string): void {
   assertActiveScopedEnvWrite(name);
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  if (state) {
+    mirrorScopedEnvWriteToBootstrap(state, name, undefined);
+  }
   enterTestOverrideScope({
     envOverrides: { [name]: undefined },
   });

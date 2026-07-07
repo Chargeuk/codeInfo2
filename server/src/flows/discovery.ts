@@ -406,10 +406,14 @@ const collectFlowAvailability = async (params: {
       message: resolved.message,
       visibility: 'details',
     });
-    disabledReason ??= {
-      code: 'agent_not_found',
-      message: resolved.message,
-    };
+    const invalidCommandName =
+      resolved.message === 'commandName must be a valid file name';
+    if (!disabledReason || invalidCommandName) {
+      disabledReason = {
+        code: 'agent_not_found',
+        message: resolved.message,
+      };
+    }
   }
 
   return {

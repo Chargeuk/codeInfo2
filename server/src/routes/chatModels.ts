@@ -5,7 +5,7 @@ import {
 } from '@codeinfo2/common';
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -29,6 +29,7 @@ import {
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  bindCurrentTestEnvOverrides,
   getScopedEnvValue,
   getScopedProcessEnv,
 } from '../test/support/testEnvOverrideScope.js';
@@ -302,7 +303,9 @@ export function createChatModelsRouter({
     return kind !== 'embedding' && kind !== 'vector';
   };
 
-  router.get('/models', async (req, res) => {
+  router.get(
+    '/models',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
     const env = getScopedProcessEnv();
     const codexHome =
       getScopedEnvValue('CODEINFO_CODEX_HOME') ?? getScopedEnvValue('CODEX_HOME');
@@ -835,8 +838,9 @@ export function createChatModelsRouter({
       providerInfo: providerMap.lmstudio,
       selectedEndpointId: undefined,
     });
-    return res.json(response);
-  });
+      return res.json(response);
+    }),
+  );
 
   return router;
 }

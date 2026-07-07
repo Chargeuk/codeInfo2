@@ -3,7 +3,7 @@ import {
   ORDERED_CHAT_PROVIDER_IDS,
 } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import {
   normalizeImplicitCopilotRequestedModel,
   resolveCopilotDefaultModel,
@@ -32,6 +32,7 @@ import {
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  bindCurrentTestEnvOverrides,
   getScopedEnvValue,
   getScopedProcessEnv,
 } from '../test/support/testEnvOverrideScope.js';
@@ -82,142 +83,144 @@ export function createChatProvidersRouter({
 }) {
   const router = Router();
 
-  router.get('/providers', async (_req, res) => {
-    const env = getScopedProcessEnv();
-    const codexHome =
-      getScopedEnvValue('CODEINFO_CODEX_HOME') ?? getScopedEnvValue('CODEX_HOME');
-    const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
-    const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
-    const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
-    const codex = getCodexDetection();
-    const mcp = await getMcpStatus();
-    const capabilities = await codexCapabilityResolver({
-      consumer: 'chat_models',
-    });
-    const baseUrl = getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
-    const safeBase = scrubBaseUrl(baseUrl);
-    let lmstudioReason: string | undefined;
-    let lmstudioModels: string[] = [];
-    if (!BASE_URL_REGEX.test(baseUrl)) {
-      lmstudioReason = 'lmstudio unavailable';
-    } else {
-      try {
-        const client = clientFactory(toWebSocketUrl(baseUrl));
-        const models = await client.system.listDownloadedModels();
-        lmstudioModels = models
-          .filter(isChatModel)
-          .map((entry) => entry.modelKey)
-          .filter((value) => typeof value === 'string' && value.trim().length);
-        if (lmstudioModels.length === 0) {
+  router.get(
+    '/providers',
+    bindCurrentTestEnvOverrides(async (_req: Request, res: Response) => {
+      const env = getScopedProcessEnv();
+      const codexHome =
+        getScopedEnvValue('CODEINFO_CODEX_HOME') ??
+        getScopedEnvValue('CODEX_HOME');
+      const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
+      const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
+      const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
+      const codex = getCodexDetection();
+      const mcp = await getMcpStatus();
+      const capabilities = await codexCapabilityResolver({
+        consumer: 'chat_models',
+      });
+      const baseUrl = getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
+      const safeBase = scrubBaseUrl(baseUrl);
+      let lmstudioReason: string | undefined;
+      let lmstudioModels: string[] = [];
+      if (!BASE_URL_REGEX.test(baseUrl)) {
+        lmstudioReason = 'lmstudio unavailable';
+      } else {
+        try {
+          const client = clientFactory(toWebSocketUrl(baseUrl));
+          const models = await client.system.listDownloadedModels();
+          lmstudioModels = models
+            .filter(isChatModel)
+            .map((entry) => entry.modelKey)
+            .filter((value) => typeof value === 'string' && value.trim().length);
+          if (lmstudioModels.length === 0) {
+            lmstudioReason = 'lmstudio unavailable';
+          }
+        } catch {
           lmstudioReason = 'lmstudio unavailable';
         }
-      } catch {
-        lmstudioReason = 'lmstudio unavailable';
       }
-    }
+      const copilot = await resolveCopilotReadiness({
+        createRuntime: copilotRuntimeFactory,
+        env,
+        toolsAvailable: mcp.available,
+        toolsReason: mcp.reason,
+      });
 
-    const copilot = await resolveCopilotReadiness({
-      createRuntime: copilotRuntimeFactory,
-      env,
-      toolsAvailable: mcp.available,
-      toolsReason: mcp.reason,
-    });
-
-    const requestedDefaults = resolveChatDefaults({
-      codexHome,
-      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
-      lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
-    });
-    const codexRequestedDefaults =
-      requestedDefaults.provider === 'codex'
-        ? await resolveCodexChatDefaults({
-            codexHome,
-          })
-        : undefined;
-    const requestedModel =
-      requestedDefaults.provider === 'codex'
-        ? (codexRequestedDefaults?.values.model ?? requestedDefaults.model)
-        : requestedDefaults.provider === 'copilot'
-          ? normalizeImplicitCopilotRequestedModel({
-              models: copilot.modelsRaw,
-              requestedModel: requestedDefaults.model,
-              requestedModelSource: requestedDefaults.modelSource,
+      const requestedDefaults = resolveChatDefaults({
+        codexHome,
+        copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+        lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
+      });
+      const codexRequestedDefaults =
+        requestedDefaults.provider === 'codex'
+          ? await resolveCodexChatDefaults({
+              codexHome,
             })
-          : requestedDefaults.model;
-    const codexExternalOpenAiCompatDiscovery =
-      await resolveOpenAiCompatProviderDiscovery({
-        provider: 'codex',
-        codexHome,
+          : undefined;
+      const requestedModel =
+        requestedDefaults.provider === 'codex'
+          ? (codexRequestedDefaults?.values.model ?? requestedDefaults.model)
+          : requestedDefaults.provider === 'copilot'
+            ? normalizeImplicitCopilotRequestedModel({
+                models: copilot.modelsRaw,
+                requestedModel: requestedDefaults.model,
+                requestedModelSource: requestedDefaults.modelSource,
+              })
+            : requestedDefaults.model;
+      const codexExternalOpenAiCompatDiscovery =
+        await resolveOpenAiCompatProviderDiscovery({
+          provider: 'codex',
+          codexHome,
+          copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+          env,
+        });
+      const copilotExternalOpenAiCompatDiscovery =
+        await resolveOpenAiCompatProviderDiscovery({
+          provider: 'copilot',
+          codexHome,
+          copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+          env,
+        });
+      const selectedProviderExternalDiscovery =
+        requestedDefaults.provider === 'codex'
+          ? codexExternalOpenAiCompatDiscovery
+          : requestedDefaults.provider === 'copilot'
+            ? copilotExternalOpenAiCompatDiscovery
+            : {
+                models: [],
+                liveModels: [],
+                warnings: [],
+              };
+      const resolvedRequestedModel =
+        requestedDefaults.provider === 'codex' ||
+        requestedDefaults.provider === 'copilot'
+          ? (selectedProviderExternalDiscovery.selectedModelKey ??
+            requestedModel)
+          : requestedModel;
+      const selectedProviderModelMetadata =
+        selectedProviderExternalDiscovery.selectedModelKey &&
+        (requestedDefaults.provider === 'codex' ||
+          requestedDefaults.provider === 'copilot')
+          ? {
+              defaultModel: selectedProviderExternalDiscovery.selectedModelKey,
+              defaultModelSource: 'config' as const,
+              warnings: [] as string[],
+            }
+          : undefined;
+      const copilotModelMetadata = resolveCopilotDefaultModel({
+        models: copilot.modelsRaw,
         copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
-        env,
       });
-    const copilotExternalOpenAiCompatDiscovery =
-      await resolveOpenAiCompatProviderDiscovery({
-        provider: 'copilot',
-        codexHome,
+      const copilotAgentFlags = buildCopilotAgentFlags({
+        models: copilot.modelsRaw,
         copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
-        env,
       });
-    const selectedProviderExternalDiscovery =
-      requestedDefaults.provider === 'codex'
-        ? codexExternalOpenAiCompatDiscovery
-        : requestedDefaults.provider === 'copilot'
-          ? copilotExternalOpenAiCompatDiscovery
+      const lmstudioModelMetadata = resolveProviderRuntimePreferredModel({
+        provider: 'lmstudio',
+        lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
+      });
+      const prioritizedLmstudioProviderModel =
+        prioritizeRuntimeProviderModels(lmstudioModels, requestedModel)[0] ??
+        lmstudioModelMetadata.model;
+      const lmstudioProviderModelMetadata =
+        prioritizedLmstudioProviderModel === undefined
+          ? undefined
           : {
-              models: [],
-              liveModels: [],
-              warnings: [],
+              defaultModel: prioritizedLmstudioProviderModel,
+              defaultModelSource:
+                prioritizedLmstudioProviderModel === lmstudioModelMetadata.model
+                  ? ('config' as const)
+                  : ('hardcoded' as const),
+              warnings:
+                prioritizedLmstudioProviderModel !==
+                  lmstudioModelMetadata.model && lmstudioModelMetadata.model
+                  ? [
+                      `lmstudio default model "${lmstudioModelMetadata.model}" is unavailable in the live model list; normalized to "${prioritizedLmstudioProviderModel}".`,
+                    ]
+                  : [],
             };
-    const resolvedRequestedModel =
-      requestedDefaults.provider === 'codex' ||
-      requestedDefaults.provider === 'copilot'
-        ? (selectedProviderExternalDiscovery.selectedModelKey ??
-          requestedModel)
-        : requestedModel;
-    const selectedProviderModelMetadata =
-      selectedProviderExternalDiscovery.selectedModelKey &&
-      (requestedDefaults.provider === 'codex' ||
-        requestedDefaults.provider === 'copilot')
-        ? {
-            defaultModel: selectedProviderExternalDiscovery.selectedModelKey,
-            defaultModelSource: 'config' as const,
-            warnings: [] as string[],
-          }
-        : undefined;
-    const copilotModelMetadata = resolveCopilotDefaultModel({
-      models: copilot.modelsRaw,
-      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
-    });
-    const copilotAgentFlags = buildCopilotAgentFlags({
-      models: copilot.modelsRaw,
-      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
-    });
-    const lmstudioModelMetadata = resolveProviderRuntimePreferredModel({
-      provider: 'lmstudio',
-      lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
-    });
-    const prioritizedLmstudioProviderModel =
-      prioritizeRuntimeProviderModels(lmstudioModels, requestedModel)[0] ??
-      lmstudioModelMetadata.model;
-    const lmstudioProviderModelMetadata =
-      prioritizedLmstudioProviderModel === undefined
-        ? undefined
-        : {
-            defaultModel: prioritizedLmstudioProviderModel,
-            defaultModelSource:
-              prioritizedLmstudioProviderModel === lmstudioModelMetadata.model
-                ? ('config' as const)
-                : ('hardcoded' as const),
-            warnings:
-              prioritizedLmstudioProviderModel !==
-                lmstudioModelMetadata.model && lmstudioModelMetadata.model
-                ? [
-                    `lmstudio default model "${lmstudioModelMetadata.model}" is unavailable in the live model list; normalized to "${prioritizedLmstudioProviderModel}".`,
-                  ]
-                : [],
-          };
-    const codexNativeAvailable = codex.available && codexBootstrapHealthy;
-    const codexLiveModels = selectProviderNativeAndEndpointLiveModels({
+      const codexNativeAvailable = codex.available && codexBootstrapHealthy;
+      const codexLiveModels = selectProviderNativeAndEndpointLiveModels({
       nativeAvailable: codexNativeAvailable,
       nativeModels: capabilities.models.map((entry) => entry.model),
       endpointModels: codexExternalOpenAiCompatDiscovery.liveModels,
@@ -491,8 +494,9 @@ export function createChatProvidersRouter({
       defaults: codexDefaults,
     });
 
-    res.json(response);
-  });
+      res.json(response);
+    }),
+  );
 
   return router;
 }

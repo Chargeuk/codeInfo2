@@ -51,6 +51,8 @@ type TestOverridePatch = {
 const storage = new AsyncLocalStorage<TestOverrideStore>();
 const scopeIdStorage = new AsyncLocalStorage<number>();
 const persistentStores = new Map<number, TestOverrideStore>();
+const latestStores = new Map<number, TestOverrideStore>();
+let ambientPersistentScopeId: number | undefined;
 let nextStoreRevision = 0;
 let nextScopeId = 0;
 
@@ -65,7 +67,9 @@ const allocateScopeId = (): number => {
 };
 
 const getCurrentScopeId = (): number | undefined =>
-  storage.getStore()?.scopeId ?? scopeIdStorage.getStore();
+  storage.getStore()?.scopeId ??
+  scopeIdStorage.getStore() ??
+  ambientPersistentScopeId;
 
 export function getCurrentTestOverrideScopeId(): number | undefined {
   return getCurrentScopeId();
@@ -79,15 +83,26 @@ const getPersistentStoreForCurrentScope = (): TestOverrideStore | undefined => {
   return persistentStores.get(scopeId);
 };
 
+const getLatestStoreForCurrentScope = (): TestOverrideStore | undefined => {
+  const scopeId = getCurrentScopeId();
+  if (scopeId === undefined) {
+    return undefined;
+  }
+  return latestStores.get(scopeId);
+};
+
 const getCurrentStore = (): TestOverrideStore | undefined => {
   const scopedStore = storage.getStore();
   const persistentStore = getPersistentStoreForCurrentScope();
-  if (persistentStore && scopedStore) {
-    return persistentStore.revision > scopedStore.revision
-      ? persistentStore
-      : scopedStore;
+  const latestStore = getLatestStoreForCurrentScope();
+  let current = scopedStore ?? persistentStore ?? latestStore;
+  if (persistentStore && (!current || persistentStore.revision > current.revision)) {
+    current = persistentStore;
   }
-  return scopedStore ?? persistentStore;
+  if (latestStore && (!current || latestStore.revision > current.revision)) {
+    current = latestStore;
+  }
+  return current;
 };
 
 const mergeRecord = (
@@ -190,6 +205,7 @@ export function hasPersistentTestOverrideScope(): boolean {
 
 export function enterTestOverrideScope(patch: TestOverridePatch): void {
   const merged = buildPatchedStore(getCurrentStore(), patch);
+  latestStores.set(merged.scopeId, merged);
   if (persistentStores.has(merged.scopeId)) {
     persistentStores.set(merged.scopeId, merged);
   }
@@ -201,7 +217,9 @@ export function enterPersistentTestOverrideScope(
   patch: TestOverridePatch,
 ): void {
   const merged = buildPatchedStore(getCurrentStore(), patch, { newScope: true });
+  latestStores.set(merged.scopeId, merged);
   persistentStores.set(merged.scopeId, merged);
+  ambientPersistentScopeId = merged.scopeId;
   scopeIdStorage.enterWith(merged.scopeId);
   storage.enterWith(merged);
 }
@@ -210,6 +228,9 @@ export function exitPersistentTestOverrideScope(): void {
   const scopeId = getCurrentScopeId();
   if (scopeId !== undefined) {
     persistentStores.delete(scopeId);
+    if (ambientPersistentScopeId === scopeId) {
+      ambientPersistentScopeId = undefined;
+    }
   }
 }
 
@@ -218,6 +239,7 @@ export async function runWithTestOverrides<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
   const merged = buildPatchedStore(getCurrentStore(), patch);
+  latestStores.set(merged.scopeId, merged);
   return await scopeIdStorage.run(merged.scopeId, () => storage.run(merged, fn));
 }
 
@@ -228,8 +250,20 @@ export function bindCurrentTestOverrides<TArgs extends unknown[], TResult>(
   if (!snapshot) {
     return fn;
   }
+  const { scopeId } = snapshot;
   return (...args: TArgs) =>
-    scopeIdStorage.run(snapshot.scopeId, () => storage.run(snapshot, () => fn(...args)));
+    scopeIdStorage.run(scopeId, () => {
+      const latestStore = latestStores.get(scopeId);
+      const persistentStore = persistentStores.get(scopeId);
+      let effectiveStore = snapshot;
+      if (persistentStore && persistentStore.revision > effectiveStore.revision) {
+        effectiveStore = persistentStore;
+      }
+      if (latestStore && latestStore.revision > effectiveStore.revision) {
+        effectiveStore = latestStore;
+      }
+      return storage.run(effectiveStore, () => fn(...args));
+    });
 }
 
 export function getScopedCodexDetectionOverride():

@@ -4,6 +4,10 @@ import path from 'node:path';
 
 import type { ChatProviderId } from '@codeinfo2/common';
 
+import {
+  clearBootstrapTestEnvValue,
+  setBootstrapTestEnvValue,
+} from './processEnvIsolation.js';
 import { runWithTestEnvOverrides } from './testEnvOverrideScope.js';
 
 type IsolatedProviderHomeEnv = {
@@ -80,15 +84,32 @@ export async function withIsolatedProviderHomeTestEnv<T>(
   run: (providerHomes: IsolatedProviderHomeEnv) => Promise<T>,
 ): Promise<T> {
   const providerHomes = await createIsolatedProviderHomeEnv(params.prefix);
+  const mergedOverrides = {
+    ...providerHomes.envOverrides,
+    ...(params.overrides ?? {}),
+  };
+  const previousValues = new Map<string, string | undefined>();
   try {
+    for (const [key, value] of Object.entries(mergedOverrides)) {
+      previousValues.set(key, process.env[key]);
+      if (value === undefined) {
+        clearBootstrapTestEnvValue(key);
+      } else {
+        setBootstrapTestEnvValue(key, value);
+      }
+    }
     return await runWithTestEnvOverrides(
-      {
-        ...providerHomes.envOverrides,
-        ...(params.overrides ?? {}),
-      },
+      mergedOverrides,
       async () => await run(providerHomes),
     );
   } finally {
+    for (const [key, value] of previousValues.entries()) {
+      if (value === undefined) {
+        clearBootstrapTestEnvValue(key);
+      } else {
+        setBootstrapTestEnvValue(key, value);
+      }
+    }
     await providerHomes.cleanup();
   }
 }

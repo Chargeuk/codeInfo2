@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import test, { beforeEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { Chat, type LMStudioClient, type LLMPredictionFragment, type Tool, type ToolCallContext, } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
@@ -11,6 +11,11 @@ import { getMemoryTurns, memoryConversations, memoryTurns, } from '../../chat/me
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
+import {
+    clearBootstrapTestEnvValue,
+    setBootstrapTestEnvValue,
+} from '../support/processEnvIsolation.js';
+import { bindCurrentTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import { closeWs, connectWs, sendJson, waitForEvent, } from '../support/wsClient.js';
 const toolDeps = {
@@ -46,6 +51,7 @@ const toolDeps = {
     }) as unknown as import('chromadb').Collection,
     getLockedModel: async () => 'embed-model',
 };
+const ORIGINAL_HOST_INGEST_DIR = process.env.CODEINFO_HOST_INGEST_DIR;
 type ActCallbacks = {
     onRoundStart?: (roundIndex: number) => void;
     onPredictionFragment?: (fragment: LLMPredictionFragment & {
@@ -112,9 +118,17 @@ test('ScriptedChat rejects already-aborted state before transcript events', asyn
 });
 beforeEach(() => {
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'http://localhost:1234');
-    setScopedTestEnvValue("CODEINFO_HOST_INGEST_DIR", '/host/base');
+    setBootstrapTestEnvValue("CODEINFO_HOST_INGEST_DIR", '/host/base');
     memoryConversations.clear();
     memoryTurns.clear();
+});
+afterEach(() => {
+    if (ORIGINAL_HOST_INGEST_DIR === undefined) {
+        clearBootstrapTestEnvValue("CODEINFO_HOST_INGEST_DIR");
+    }
+    else {
+        setBootstrapTestEnvValue("CODEINFO_HOST_INGEST_DIR", ORIGINAL_HOST_INGEST_DIR);
+    }
 });
 async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
     const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
@@ -149,8 +163,8 @@ async function startServer(act: (chat: Chat, tools: Tool[], opts: ActCallbacks) 
 }) {
     const app = express();
     app.use(express.json());
-    app.use('/chat', createChatRouter({
-        clientFactory: opts?.clientFactory ??
+    app.use('/chat', bindCurrentTestEnvOverrides(createChatRouter({
+        clientFactory: bindCurrentTestEnvOverrides(opts?.clientFactory ??
             (() => ({
                 system: {
                     listDownloadedModels: async () => [
@@ -158,18 +172,19 @@ async function startServer(act: (chat: Chat, tools: Tool[], opts: ActCallbacks) 
                     ],
                 },
                 llm: {
-                    model: async () => ({ act }),
+                    model: async () => ({ act: bindCurrentTestEnvOverrides(act) }),
                 },
-            }) as unknown as LMStudioClient),
+            }) as unknown as LMStudioClient)),
         ...(opts?.chatFactory ? { chatFactory: opts.chatFactory } : {}),
         ...(opts?.cleanupInflightFn
             ? { cleanupInflightFn: opts.cleanupInflightFn }
             : {}),
-        toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
-    }));
+        toolFactory: bindCurrentTestEnvOverrides((opts) => createLmStudioTools({ ...opts, deps: toolDeps })),
+    })));
     const httpServer = http.createServer(app);
     const wsHandle = attachWs({ httpServer });
-    await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+    await new Promise<void>((resolve) =>
+        httpServer.listen(0, bindCurrentTestEnvOverrides(resolve)));
     const address = httpServer.address();
     assert(address && typeof address === 'object');
     return {
@@ -185,7 +200,8 @@ async function stopServer(server: {
     };
 }) {
     await server.wsHandle.close();
-    await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
+    await new Promise<void>((resolve) =>
+        server.httpServer.close(bindCurrentTestEnvOverrides(() => resolve())));
 }
 test('chat route streams tool-result with hostPath/relPath from LM Studio tools', async () => {
     const act = async (_chat: Chat, tools: Tool[], opts: ActCallbacks) => {

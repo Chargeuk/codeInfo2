@@ -1,8 +1,9 @@
-import { Router, json } from 'express';
+import { Router, json, type Request, type Response } from 'express';
 
 import { startFlowRun } from '../flows/service.js';
 import type { FlowRunError } from '../flows/types.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
+import { bindCurrentTestEnvOverrides } from '../test/support/testEnvOverrideScope.js';
 import { getWorkingFolderClientMessage } from '../workingFolders/state.js';
 
 type Deps = {
@@ -131,7 +132,7 @@ export function createFlowsRunRouter(
   const { maxClientBytes } = resolveLogConfig();
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
 
-  router.post('/flows/:flowName/run', async (req, res) => {
+  router.post('/flows/:flowName/run', bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
     const requestId =
       (res.locals?.requestId as string | undefined) ?? undefined;
     const flowName = String(req.params.flowName ?? '').trim();
@@ -283,7 +284,7 @@ export function createFlowsRunRouter(
       baseLogger.error({ requestId, flowName, err }, 'flows run failed');
       return res.status(500).json({ error: 'flow_run_failed' });
     }
-  });
+  }));
 
   return router;
 }

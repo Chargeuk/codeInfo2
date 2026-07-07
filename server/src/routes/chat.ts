@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
-import { Router, json } from 'express';
+import { Router, json, type Request, type Response } from 'express';
 
 import {
   getActiveRunOwnership,
@@ -78,6 +78,7 @@ import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  bindCurrentTestEnvOverrides,
   getScopedEnvValue,
   getScopedProcessEnv,
 } from '../test/support/testEnvOverrideScope.js';
@@ -360,116 +361,118 @@ export function createChatRouter({
   const { maxClientBytes } = resolveLogConfig();
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
 
-  router.post('/', async (req, res) => {
-    const requestId = res.locals.requestId as string | undefined;
-    const rawBody = req.body ?? {};
-    const rawSize = JSON.stringify(rawBody).length;
-    if (rawSize > maxClientBytes) {
-      return res.status(400).json({
-        status: 'error',
-        code: 'VALIDATION_FAILED',
-        message: 'payload too large',
-      });
-    }
-
-    let validatedBody;
-    const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
-      async () =>
-        (await listIngestedRepositoriesFn()).repos.map((repo) =>
-          path.resolve(repo.containerPath),
-        ),
-    );
-    try {
-      validatedBody = await validateChatRequest(rawBody, {
-        codexCapabilityResolver,
-        knownRepositoryPathsState,
-      });
-    } catch (err) {
-      if (err instanceof ChatValidationError) {
-        if (err.code === 'PROVIDER_UNAVAILABLE') {
-          return res.status(503).json({
-            status: 'error',
-            code: 'PROVIDER_UNAVAILABLE',
-            message: err.message,
-          });
-        }
+  router.post(
+    '/',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
+      const requestId = res.locals.requestId as string | undefined;
+      const rawBody = req.body ?? {};
+      const rawSize = JSON.stringify(rawBody).length;
+      if (rawSize > maxClientBytes) {
         return res.status(400).json({
           status: 'error',
           code: 'VALIDATION_FAILED',
-          message: err.message,
+          message: 'payload too large',
         });
       }
-      const workingFolderError = err as { code?: string; reason?: string };
-      if (
-        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
-        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
-      ) {
-        return res.status(503).json({
-          status: 'error',
-          code: workingFolderError.code,
-          message: getWorkingFolderClientMessage(workingFolderError),
+
+      let validatedBody;
+      const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+        async () =>
+          (await listIngestedRepositoriesFn()).repos.map((repo) =>
+            path.resolve(repo.containerPath),
+          ),
+      );
+      try {
+        validatedBody = await validateChatRequest(rawBody, {
+          codexCapabilityResolver,
+          knownRepositoryPathsState,
         });
+      } catch (err) {
+        if (err instanceof ChatValidationError) {
+          if (err.code === 'PROVIDER_UNAVAILABLE') {
+            return res.status(503).json({
+              status: 'error',
+              code: 'PROVIDER_UNAVAILABLE',
+              message: err.message,
+            });
+          }
+          return res.status(400).json({
+            status: 'error',
+            code: 'VALIDATION_FAILED',
+            message: err.message,
+          });
+        }
+        const workingFolderError = err as { code?: string; reason?: string };
+        if (
+          workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+          workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+        ) {
+          return res.status(503).json({
+            status: 'error',
+            code: workingFolderError.code,
+            message: getWorkingFolderClientMessage(workingFolderError),
+          });
+        }
+        throw err;
       }
-      throw err;
-    }
 
-    const {
-      model,
-      message,
-      provider,
-      conversationId,
-      endpointId,
-      threadId,
-      inflightId: requestedInflightId,
-      working_folder: requestedWorkingFolder,
-      rawAgentFlags,
-      agentFlags,
-      warnings,
-      defaultsResolution,
-    } = validatedBody;
+      const {
+        model,
+        message,
+        provider,
+        conversationId,
+        endpointId,
+        threadId,
+        inflightId: requestedInflightId,
+        working_folder: requestedWorkingFolder,
+        rawAgentFlags,
+        agentFlags,
+        warnings,
+        defaultsResolution,
+      } = validatedBody;
 
-    const now = new Date();
-    const defaultsLogContext = {
-      requestId,
-      conversationId,
-      provider,
-      model,
-      endpointId,
-      providerSource: defaultsResolution.providerSource,
-      modelSource: defaultsResolution.modelSource,
-      requestedProvider: defaultsResolution.requestedProvider,
-      requestedModel: defaultsResolution.requestedModel,
-      envProviderPresent:
-        typeof process.env.CODEINFO_CHAT_DEFAULT_PROVIDER === 'string' &&
-        process.env.CODEINFO_CHAT_DEFAULT_PROVIDER.trim().length > 0,
-      envModelPresent:
-        typeof process.env.CODEINFO_CHAT_DEFAULT_MODEL === 'string' &&
-        process.env.CODEINFO_CHAT_DEFAULT_MODEL.trim().length > 0,
-    };
-    append({
-      level: 'info',
-      message: 'DEV-0000035:T1:defaults_resolution_evaluated',
-      timestamp: now.toISOString(),
-      source: 'server',
-      requestId,
-      context: defaultsLogContext,
-    });
-    baseLogger.info(
-      defaultsLogContext,
-      'DEV-0000035:T1:defaults_resolution_evaluated',
-    );
-    append({
-      level: 'info',
-      message: 'DEV-0000035:T1:defaults_resolution_result',
-      timestamp: now.toISOString(),
-      source: 'server',
-      requestId,
-      context: defaultsLogContext,
-    });
-    baseLogger.info(
-      defaultsLogContext,
-      'DEV-0000035:T1:defaults_resolution_result',
-    );
+      const now = new Date();
+      const defaultsLogContext = {
+        requestId,
+        conversationId,
+        provider,
+        model,
+        endpointId,
+        providerSource: defaultsResolution.providerSource,
+        modelSource: defaultsResolution.modelSource,
+        requestedProvider: defaultsResolution.requestedProvider,
+        requestedModel: defaultsResolution.requestedModel,
+        envProviderPresent:
+          typeof process.env.CODEINFO_CHAT_DEFAULT_PROVIDER === 'string' &&
+          process.env.CODEINFO_CHAT_DEFAULT_PROVIDER.trim().length > 0,
+        envModelPresent:
+          typeof process.env.CODEINFO_CHAT_DEFAULT_MODEL === 'string' &&
+          process.env.CODEINFO_CHAT_DEFAULT_MODEL.trim().length > 0,
+      };
+      append({
+        level: 'info',
+        message: 'DEV-0000035:T1:defaults_resolution_evaluated',
+        timestamp: now.toISOString(),
+        source: 'server',
+        requestId,
+        context: defaultsLogContext,
+      });
+      baseLogger.info(
+        defaultsLogContext,
+        'DEV-0000035:T1:defaults_resolution_evaluated',
+      );
+      append({
+        level: 'info',
+        message: 'DEV-0000035:T1:defaults_resolution_result',
+        timestamp: now.toISOString(),
+        source: 'server',
+        requestId,
+        context: defaultsLogContext,
+      });
+      baseLogger.info(
+        defaultsLogContext,
+        'DEV-0000035:T1:defaults_resolution_result',
+      );
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
@@ -1731,7 +1734,8 @@ export function createChatRouter({
         releaseConversationLockFn(conversationId, runToken);
       }
     }
-  });
+    }),
+  );
 
   return router;
 }

@@ -12,25 +12,24 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
-
 const mockFetch = jest.fn<typeof fetch>();
-
 beforeAll(() => {
-  process.env.MODE = 'test';
+  setScopedTestEnvValue('MODE', 'test');
   global.fetch = mockFetch;
 });
-
 beforeEach(() => {
   mockFetch.mockReset();
   (
-    globalThis as unknown as { __wsMock?: { reset: () => void } }
+    globalThis as unknown as {
+      __wsMock?: {
+        reset: () => void;
+      };
+    }
   ).__wsMock?.reset();
 });
-
 const { default: App } = await import('../App');
 const { default: FlowsPage } = await import('../pages/FlowsPage');
 const { default: HomePage } = await import('../pages/HomePage');
-
 const routes = [
   {
     path: '/',
@@ -41,8 +40,12 @@ const routes = [
     ],
   },
 ];
-
-function mockJsonResponse(payload: unknown, init?: { status?: number }) {
+function mockJsonResponse(
+  payload: unknown,
+  init?: {
+    status?: number;
+  },
+) {
   return Promise.resolve(
     new Response(JSON.stringify(payload), {
       status: init?.status ?? 200,
@@ -50,11 +53,14 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
     }),
   );
 }
-
 function emitWsEvent(event: Record<string, unknown>) {
   const wsRegistry = (
     globalThis as unknown as {
-      __wsMock?: { last: () => { _receive: (data: unknown) => void } | null };
+      __wsMock?: {
+        last: () => {
+          _receive: (data: unknown) => void;
+        } | null;
+      };
     }
   ).__wsMock;
   const ws = wsRegistry?.last();
@@ -63,14 +69,12 @@ function emitWsEvent(event: Record<string, unknown>) {
     ws._receive(event);
   });
 }
-
 async function openBubbleInfoPopover(bubble: HTMLElement) {
   const user = userEvent.setup();
   await user.click(within(bubble).getByTestId('bubble-info'));
   const popovers = await screen.findAllByTestId('bubble-info-popover');
   return popovers[popovers.length - 1];
 }
-
 describe('Flows page basics', () => {
   it('keeps flow metadata, omits citations, and recovers cleanly after a transient empty transcript', async () => {
     const harness = installTranscriptMeasurementHarness();
@@ -88,7 +92,6 @@ describe('Flows page basics', () => {
       },
       createdAt: `2026-03-19T02:${String(index).padStart(2, '0')}:00.000Z`,
     }));
-
     function StatefulFlowsTranscript({
       currentMessages,
     }: {
@@ -98,7 +101,6 @@ describe('Flows page basics', () => {
         surface: 'flows',
         conversationId: 'flow-remount',
       });
-
       return (
         <SharedTranscript
           surface="flows"
@@ -132,11 +134,9 @@ describe('Flows page basics', () => {
         />
       );
     }
-
     const { rerender } = render(
       <StatefulFlowsTranscript currentMessages={messages} />,
     );
-
     const transcript = await screen.findByTestId('chat-transcript');
     harness.setContainerMetrics(transcript, {
       width: 640,
@@ -147,7 +147,6 @@ describe('Flows page basics', () => {
     });
     transcript.scrollTop = 420;
     fireEvent.scroll(transcript);
-
     const bubble = (await screen.findAllByTestId('chat-bubble')).find((item) =>
       item.textContent?.includes('Flow transcript message 8'),
     ) as HTMLElement | undefined;
@@ -160,7 +159,6 @@ describe('Flows page basics', () => {
       within(bubble!).getByTestId('bubble-flow-step-header'),
     ).toHaveTextContent('Step 8 · 8 of 14');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
-
     const measuredRow = transcript.querySelector(
       '[data-virtualized-message-id]',
     ) as HTMLElement | null;
@@ -173,11 +171,9 @@ describe('Flows page basics', () => {
     harness.setElementRect(measuredRow!, { height: 180 });
     harness.triggerResize(measuredRow!);
     await waitFor(() => expect(transcript.scrollTop).toBe(scrollTop + 180));
-
     rerender(<StatefulFlowsTranscript currentMessages={[]} />);
     expect(screen.queryByTestId('bubble-info-popover')).toBeNull();
     expect(screen.getByText('No flow transcript yet.')).toBeInTheDocument();
-
     rerender(<StatefulFlowsTranscript currentMessages={messages} />);
     const rerenderedBubble = (await screen.findAllByTestId('chat-bubble')).find(
       (item) => item.textContent?.includes('Flow transcript message 8'),
@@ -193,19 +189,15 @@ describe('Flows page basics', () => {
       within(rerenderedBubble!).getByTestId('bubble-flow-step-header'),
     ).toHaveTextContent('Step 8 · 8 of 14');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
-
     harness.restore();
   });
-
   it('renders flows list and flow step metadata', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows/broken_flow')) {
         return mockJsonResponse({
           flow: {
@@ -225,7 +217,6 @@ describe('Flows page basics', () => {
           },
         });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -233,7 +224,6 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({
           items: [
@@ -258,7 +248,6 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -276,18 +265,14 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
-
     const bubbles = await screen.findAllByTestId('chat-bubble');
     const bubble = bubbles[0] as HTMLElement | undefined;
     expect(bubble).toBeDefined();
@@ -308,15 +293,12 @@ describe('Flows page basics', () => {
     expect(overlayStyles.display).toBe('flex');
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
-
   it('renders selected-flow warning arrays and disabled-state reasons from the details route', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows/daily')) {
         return mockJsonResponse({
           flow: {
@@ -343,7 +325,6 @@ describe('Flows page basics', () => {
           },
         });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -355,26 +336,20 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({ items: [] });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
-
     await act(async () => {
       await userEvent.click(screen.getByTestId('flow-info'));
     });
-
     const warnings = await screen.findByTestId('flow-warnings');
     expect(warnings).toHaveTextContent('Primary provider unavailable');
     expect(warnings).toHaveTextContent('One step is currently disabled');
@@ -383,18 +358,14 @@ describe('Flows page basics', () => {
       'Run the daily flow.',
     );
   });
-
   it('shows the server recovery guidance in the visible flow run error area', async () => {
     const user = userEvent.setup();
-
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const target = typeof url === 'string' ? url : url.toString();
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         if (target.includes('/flows/daily/run')) {
           expect(init?.method).toBe('POST');
           return mockJsonResponse(
@@ -405,7 +376,6 @@ describe('Flows page basics', () => {
             { status: 503 },
           );
         }
-
         if (target.includes('/flows/daily')) {
           return mockJsonResponse({
             flow: {
@@ -416,7 +386,6 @@ describe('Flows page basics', () => {
             },
           });
         }
-
         if (target.includes('/flows')) {
           return mockJsonResponse({
             flows: [
@@ -424,40 +393,31 @@ describe('Flows page basics', () => {
             ],
           });
         }
-
         if (target.includes('/conversations')) {
           return mockJsonResponse({ items: [] });
         }
-
         return mockJsonResponse({});
       },
     );
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
-
     await act(async () => {
       await user.click(runButton);
     });
-
     const errorBanner = await screen.findByTestId('flows-run-error');
     expect(errorBanner).toHaveTextContent(
       'Codex is unavailable. Re-authenticate and try again.',
     );
   });
-
   it('shows the flow turns warning when conversation history fails to load', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows/daily')) {
         return mockJsonResponse({
           flow: {
@@ -468,7 +428,6 @@ describe('Flows page basics', () => {
           },
         });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -476,7 +435,6 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return Promise.resolve(
           new Response(JSON.stringify({ error: 'boom' }), {
@@ -485,7 +443,6 @@ describe('Flows page basics', () => {
           }),
         );
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -503,28 +460,22 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     expect(await screen.findByTestId('flows-turns-error')).toHaveTextContent(
       'Failed to load conversation turns (500)',
     );
     expect(screen.getByTestId('flow-select')).toBeInTheDocument();
   });
-
   it('does not show stale conversations when flow has no history', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -536,7 +487,6 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({
           items: [
@@ -553,7 +503,6 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations')) {
         const urlObj = new URL(target);
         const flowName = urlObj.searchParams.get('flowName');
@@ -575,38 +524,30 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe(
         'execute_plan::local',
       ),
     );
-
     await waitFor(() =>
       expect(
         screen.getByText(/Transcript will appear here once a flow run starts/i),
       ).toBeInTheDocument(),
     );
-
     expect(screen.queryByText('Stale content')).not.toBeInTheDocument();
   });
-
   it('drops stale flow conversations when conversation_upsert omits flowName', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -614,11 +555,9 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -636,13 +575,10 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
@@ -652,7 +588,6 @@ describe('Flows page basics', () => {
         'Flow: daily',
       ),
     );
-
     emitWsEvent({
       protocolVersion: 'v1',
       type: 'conversation_upsert',
@@ -667,22 +602,18 @@ describe('Flows page basics', () => {
         archived: false,
       },
     });
-
     await waitFor(() =>
       expect(screen.queryByText('Flow: daily updated')).not.toBeInTheDocument(),
     );
   });
-
   it('does not leak shared expansion state between flow conversations', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -690,7 +621,6 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         const conversationId = target.includes('/conversations/flow-1/')
           ? 'flow-1'
@@ -719,7 +649,6 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -748,20 +677,16 @@ describe('Flows page basics', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowRows = await screen.findAllByTestId('conversation-row');
     const firstRow = flowRows.find((row) =>
       within(row).queryByText('Flow: daily one'),
     );
     expect(firstRow).toBeTruthy();
     await user.click(firstRow!);
-
     emitWsEvent({
       protocolVersion: 'v1',
       type: 'inflight_snapshot',
@@ -775,18 +700,15 @@ describe('Flows page basics', () => {
         startedAt: now,
       },
     });
-
     await user.click(await screen.findByTestId('think-toggle'));
     expect(await screen.findByTestId('think-content')).toBeVisible();
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
-
     const secondConversation = await screen.findByText('Flow: daily two');
     const secondRow = secondConversation.closest(
       '[data-testid="conversation-row"]',
     );
     expect(secondRow).toBeTruthy();
     await user.click(secondRow!);
-
     emitWsEvent({
       protocolVersion: 'v1',
       type: 'inflight_snapshot',
@@ -800,7 +722,6 @@ describe('Flows page basics', () => {
         startedAt: now,
       },
     });
-
     const bubble = (await screen.findAllByTestId('chat-bubble')).find((item) =>
       item.textContent?.includes('Flow content Two'),
     ) as HTMLElement | undefined;
@@ -817,16 +738,13 @@ describe('Flows page basics', () => {
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
 });
-
 describe('Flows info popover', () => {
   it('shows warnings when the flow is disabled', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -839,42 +757,32 @@ describe('Flows info popover', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({ items: [] });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('broken_flow::local'),
     );
-
     fireEvent.click(screen.getByTestId('flow-info'));
-
     const popover = await screen.findByTestId('flow-info-popover');
     expect(popover).toBeInTheDocument();
     expect(screen.getByTestId('flow-warnings')).toHaveTextContent('Warnings');
     expect(screen.getByText('Failed to parse flow JSON')).toBeInTheDocument();
   });
-
   it('shows the Markdown description when available', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -886,40 +794,30 @@ describe('Flows info popover', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({ items: [] });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
-
     fireEvent.click(screen.getByTestId('flow-info'));
-
     const description = await screen.findByTestId('flow-description');
     expect(description).toHaveTextContent('Run the daily flow.');
   });
-
   it('shows the empty-state copy when no warnings or description', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows/simple_flow')) {
         return mockJsonResponse({
           flow: {
@@ -929,50 +827,39 @@ describe('Flows info popover', () => {
           },
         });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [{ name: 'simple_flow', disabled: false }],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({ items: [] });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
       expect((flowSelect as HTMLInputElement).value).toBe('simple_flow::local'),
     );
-
     fireEvent.click(screen.getByTestId('flow-info'));
-
     const emptyState = await screen.findByTestId('flow-info-empty');
     expect(emptyState).toHaveTextContent(
       'No description or warnings are available for this flow yet.',
     );
   });
-
   it('uses the shared scroll contract without forcing Flows back to the bottom', async () => {
     const measurementHarness = installTranscriptMeasurementHarness();
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -980,7 +867,6 @@ describe('Flows info popover', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({
           items: Array.from({ length: 6 }, (_, index) => ({
@@ -1006,7 +892,6 @@ describe('Flows info popover', () => {
           })),
         });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -1024,18 +909,14 @@ describe('Flows info popover', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const transcript = await screen.findByTestId('flows-transcript');
     await waitFor(() =>
       expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6),
     );
-
     measurementHarness.setContainerMetrics(transcript, {
       width: 640,
       height: 320,
@@ -1043,19 +924,16 @@ describe('Flows info popover', () => {
       scrollHeight: 1200,
       scrollTop: 880,
     });
-
     transcript.scrollTop = 410;
     fireEvent.wheel(transcript, { deltaY: -320 });
     fireEvent.scroll(transcript);
     await waitFor(() => expect(transcript.scrollTop).toBe(410));
-
     measurementHarness.setScrollMetrics(transcript, {
       scrollHeight: 1310,
       scrollTop: 410,
     });
     measurementHarness.triggerResize(transcript);
     expect(transcript.scrollTop).toBe(410);
-
     const row = transcript.querySelector(
       '[data-transcript-row-id="turn-flow-turn-2"]',
     );
@@ -1063,7 +941,6 @@ describe('Flows info popover', () => {
     act(() => {
       row?.remove();
     });
-
     expect(() => measurementHarness.triggerResize(row)).not.toThrow();
     expect(screen.getByTestId('flows-transcript')).toBeInTheDocument();
     measurementHarness.restore();

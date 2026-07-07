@@ -16,6 +16,10 @@ type ProviderBootstrapStatusOverride = {
   warnings?: string[];
 };
 
+type EnvScopeState = {
+  open: boolean;
+};
+
 type OverrideRecord = Record<string, unknown>;
 
 type TestOverrideStore = {
@@ -24,6 +28,7 @@ type TestOverrideStore = {
   agentAvailabilityDeps?: OverrideRecord;
   flowServiceDeps?: OverrideRecord;
   envOverrides?: Record<string, string | undefined>;
+  envScopeState?: EnvScopeState;
   providerBootstrapStatuses?: Partial<
     Record<ChatProviderId, ProviderBootstrapStatusOverride>
   >;
@@ -35,6 +40,7 @@ type TestOverridePatch = {
   agentAvailabilityDeps?: OverrideRecord | null;
   flowServiceDeps?: OverrideRecord | null;
   envOverrides?: Record<string, string | undefined> | null;
+  envScopeState?: EnvScopeState | null;
   providerBootstrapStatuses?: Partial<
     Record<ChatProviderId, ProviderBootstrapStatusOverride | null>
   > | null;
@@ -117,6 +123,10 @@ const mergeStore = (
             ...(current?.envOverrides ?? {}),
             ...patch.envOverrides,
           },
+  envScopeState:
+    patch.envScopeState === undefined
+      ? current?.envScopeState
+      : patch.envScopeState ?? undefined,
   providerBootstrapStatuses: mergeProviderBootstrapStatuses(
     current?.providerBootstrapStatuses,
     patch.providerBootstrapStatuses,
@@ -176,6 +186,10 @@ export function getScopedEnvOverrides():
   | Record<string, string | undefined>
   | undefined {
   return storage.getStore()?.envOverrides;
+}
+
+export function getScopedEnvScopeState(): EnvScopeState | undefined {
+  return storage.getStore()?.envScopeState;
 }
 
 export function getScopedEnvValue(

@@ -18,6 +18,10 @@ import { release } from '../../ingest/lock.js';
 import { __resetIngestQueueAvailabilityForTest } from '../../ingest/requestQueue.js';
 import { resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
+import {
+  clearScopedTestEnvValue,
+  setScopedTestEnvValue,
+} from '../support/processEnvIsolation.js';
 
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 
@@ -95,7 +99,10 @@ export async function createTempRepo(files: Record<string, string>) {
       await fs.writeFile(fullPath, contents, 'utf8');
     }),
   );
-  process.env.CODEINFO_INGEST_TEST_GIT_PATHS = Object.keys(files).join(',');
+  setScopedTestEnvValue(
+    'CODEINFO_INGEST_TEST_GIT_PATHS',
+    Object.keys(files).join(','),
+  );
   return {
     root,
     cleanup: async () => {
@@ -186,7 +193,7 @@ export function setupIngestChromaMocks(options?: {
     mock.fn(() => ({ exec: async () => ({}) })),
   );
   (mongoose.connection as unknown as { readyState: number }).readyState = 0;
-  process.env.NODE_ENV = 'test';
+  setScopedTestEnvValue('NODE_ENV', 'test');
   return { roots, vectors };
 }
 
@@ -210,12 +217,12 @@ export function installQueueRuntimeTestHooks() {
     mock.reset();
     resetCollectionsForTests();
     resetStore();
-    process.env.NODE_ENV = 'test';
-    delete process.env.CODEINFO_CODEX_WORKDIR;
+    setScopedTestEnvValue('NODE_ENV', 'test');
+    clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
     __resetIngestJobsForTest();
     __resetIngestQueueAvailabilityForTest();
     release();
-    delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
+    clearScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS');
     __setRunSchedulerForTest((task) => {
       task();
     });
@@ -236,11 +243,14 @@ export function installQueueRuntimeTestHooks() {
     __resetIngestJobsForTest();
     __resetIngestQueueAvailabilityForTest();
     release();
-    delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
+    clearScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS');
     if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
-      delete process.env.CODEINFO_CODEX_WORKDIR;
+      clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
     } else {
-      process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+      setScopedTestEnvValue(
+        'CODEINFO_CODEX_WORKDIR',
+        ORIGINAL_CODEINFO_CODEX_WORKDIR,
+      );
     }
   });
 }

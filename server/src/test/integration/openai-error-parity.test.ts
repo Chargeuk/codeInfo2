@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
 import {
@@ -10,13 +10,12 @@ import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createMcpRouter } from '../../mcp/server.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';
-
 afterEach(() => {
   __resetIngestJobsForTest();
 });
-
-process.env.NODE_ENV = 'test';
-
+beforeEach(() => {
+  setScopedTestEnvValue('NODE_ENV', 'test');
+});
 function openAiRateLimitError() {
   return new OpenAiEmbeddingError(
     'OPENAI_RATE_LIMITED',
@@ -26,7 +25,6 @@ function openAiRateLimitError() {
     1500,
   );
 }
-
 test('equivalent OpenAI failures map to the same normalized code/retryability across REST, MCP, and ingest status', async () => {
   const restApp = express();
   restApp.use(express.json());
@@ -62,7 +60,6 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
       },
     }),
   );
-
   const rest = await request(restApp)
     .post('/tools/vector-search')
     .send({ query: 'hello' });
@@ -71,7 +68,6 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
   assert.equal(rest.body.retryable, true);
   assert.equal(rest.body.provider, 'openai');
   assert.equal(String(rest.body.message ?? '').includes('org-b0ry'), false);
-
   const mcpApp = express();
   mcpApp.use(express.json());
   mcpApp.use(
@@ -82,7 +78,6 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
       },
     }),
   );
-
   const mcp = await request(mcpApp)
     .post('/mcp')
     .send({
@@ -103,7 +98,6 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
     String(mcp.body.error.data.message ?? '').includes('org-b0ry'),
     false,
   );
-
   __setStatusForTest('run-openai-rate-limit', {
     runId: 'run-openai-rate-limit',
     state: 'error',
@@ -119,7 +113,6 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
       retryAfterMs: 1500,
     },
   });
-
   const statusApp = express();
   statusApp.use(express.json());
   statusApp.use(
@@ -127,7 +120,6 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
       clientFactory: () => ({}) as never,
     }),
   );
-
   const status = await request(statusApp).get(
     '/ingest/status/run-openai-rate-limit',
   );

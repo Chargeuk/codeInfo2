@@ -1,159 +1,118 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
-
-import {
-  getCodexEnvDefaults,
-  getCodexModelList,
-  mergeCodexModelList,
-} from '../../config/codexEnvDefaults.js';
-
+import { getCodexEnvDefaults, getCodexModelList, mergeCodexModelList, } from '../../config/codexEnvDefaults.js';
 const ENV_KEYS = [
-  'Codex_sandbox_mode',
-  'Codex_approval_policy',
-  'Codex_reasoning_effort',
-  'Codex_network_access_enabled',
-  'Codex_web_search_enabled',
-  'Codex_model_list',
+    'Codex_sandbox_mode',
+    'Codex_approval_policy',
+    'Codex_reasoning_effort',
+    'Codex_network_access_enabled',
+    'Codex_web_search_enabled',
+    'Codex_model_list',
 ];
-
 const originalEnv = new Map<string, string | undefined>();
-
 const setEnv = (values: Record<string, string | undefined>) => {
-  ENV_KEYS.forEach((key) => {
-    if (Object.prototype.hasOwnProperty.call(values, key)) {
-      const value = values[key];
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
-  });
+    ENV_KEYS.forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(values, key)) {
+            const value = values[key];
+            if (value === undefined) {
+                clearScopedTestEnvValue(key);
+            }
+            else {
+                setScopedTestEnvValue(key, value);
+            }
+        }
+    });
 };
-
 beforeEach(() => {
-  ENV_KEYS.forEach((key) => {
-    originalEnv.set(key, process.env[key]);
-    delete process.env[key];
-  });
+    ENV_KEYS.forEach((key) => {
+        originalEnv.set(key, process.env[key]);
+        clearScopedTestEnvValue(key);
+    });
 });
-
 afterEach(() => {
-  ENV_KEYS.forEach((key) => {
-    const value = originalEnv.get(key);
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  });
+    ENV_KEYS.forEach((key) => {
+        const value = originalEnv.get(key);
+        if (value === undefined) {
+            clearScopedTestEnvValue(key);
+        }
+        else {
+            setScopedTestEnvValue(key, value);
+        }
+    });
 });
-
 test('tracked Codex_* env values remain the live product-default contract when present', () => {
-  setEnv({
-    Codex_sandbox_mode: 'workspace-write',
-    Codex_approval_policy: 'on-request',
-    Codex_reasoning_effort: 'medium',
-    Codex_network_access_enabled: 'true',
-    Codex_web_search_enabled: 'false',
-  });
-
-  const { defaults, warnings } = getCodexEnvDefaults();
-
-  assert.deepEqual(defaults, {
-    sandboxMode: 'workspace-write',
-    approvalPolicy: 'on-request',
-    modelReasoningEffort: 'medium',
-    networkAccessEnabled: true,
-    webSearchEnabled: false,
-  });
-  assert.equal(warnings.length, 0);
+    setEnv({
+        Codex_sandbox_mode: 'workspace-write',
+        Codex_approval_policy: 'on-request',
+        Codex_reasoning_effort: 'medium',
+        Codex_network_access_enabled: 'true',
+        Codex_web_search_enabled: 'false',
+    });
+    const { defaults, warnings } = getCodexEnvDefaults();
+    assert.deepEqual(defaults, {
+        sandboxMode: 'workspace-write',
+        approvalPolicy: 'on-request',
+        modelReasoningEffort: 'medium',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+    });
+    assert.equal(warnings.length, 0);
 });
-
 test('parser falls back cleanly when Codex_* env values are absent', () => {
-  const { defaults, warnings } = getCodexEnvDefaults();
-
-  assert.deepEqual(defaults, {
-    sandboxMode: 'danger-full-access',
-    approvalPolicy: 'on-request',
-    modelReasoningEffort: 'high',
-    networkAccessEnabled: true,
-    webSearchEnabled: true,
-  });
-  assert.equal(warnings.length, 0);
+    const { defaults, warnings } = getCodexEnvDefaults();
+    assert.deepEqual(defaults, {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'on-request',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: true,
+    });
+    assert.equal(warnings.length, 0);
 });
-
 test('invalid enum values and empty strings warn + fall back', () => {
-  setEnv({
-    Codex_sandbox_mode: 'invalid-mode',
-    Codex_approval_policy: 'nope',
-    Codex_reasoning_effort: '   ',
-    Codex_network_access_enabled: 'false',
-  });
-
-  const { defaults, warnings } = getCodexEnvDefaults();
-
-  assert.equal(defaults.sandboxMode, 'danger-full-access');
-  assert.equal(defaults.approvalPolicy, 'on-request');
-  assert.equal(defaults.modelReasoningEffort, 'high');
-  assert.ok(
-    warnings.some((warning) =>
-      warning.includes('Codex_sandbox_mode must be one of'),
-    ),
-  );
-  assert.ok(
-    warnings.some((warning) =>
-      warning.includes('Codex_approval_policy must be one of'),
-    ),
-  );
-  assert.ok(
-    warnings.some((warning) =>
-      warning.includes('Codex_reasoning_effort is empty'),
-    ),
-  );
+    setEnv({
+        Codex_sandbox_mode: 'invalid-mode',
+        Codex_approval_policy: 'nope',
+        Codex_reasoning_effort: '   ',
+        Codex_network_access_enabled: 'false',
+    });
+    const { defaults, warnings } = getCodexEnvDefaults();
+    assert.equal(defaults.sandboxMode, 'danger-full-access');
+    assert.equal(defaults.approvalPolicy, 'on-request');
+    assert.equal(defaults.modelReasoningEffort, 'high');
+    assert.ok(warnings.some((warning) => warning.includes('Codex_sandbox_mode must be one of')));
+    assert.ok(warnings.some((warning) => warning.includes('Codex_approval_policy must be one of')));
+    assert.ok(warnings.some((warning) => warning.includes('Codex_reasoning_effort is empty')));
 });
-
 test('boolean parsing handles valid and invalid values', () => {
-  setEnv({
-    Codex_sandbox_mode: 'workspace-write',
-    Codex_network_access_enabled: 'TRUE',
-    Codex_web_search_enabled: 'not-bool',
-  });
-
-  const { defaults, warnings } = getCodexEnvDefaults();
-
-  assert.equal(defaults.networkAccessEnabled, true);
-  assert.equal(defaults.webSearchEnabled, true);
-  assert.ok(
-    warnings.some((warning) =>
-      warning.includes('Codex_web_search_enabled must be "true" or "false"'),
-    ),
-  );
+    setEnv({
+        Codex_sandbox_mode: 'workspace-write',
+        Codex_network_access_enabled: 'TRUE',
+        Codex_web_search_enabled: 'not-bool',
+    });
+    const { defaults, warnings } = getCodexEnvDefaults();
+    assert.equal(defaults.networkAccessEnabled, true);
+    assert.equal(defaults.webSearchEnabled, true);
+    assert.ok(warnings.some((warning) => warning.includes('Codex_web_search_enabled must be "true" or "false"')));
 });
-
 test('mergeCodexModelList preserves env order and appends chat config model only when missing', () => {
-  assert.deepEqual(mergeCodexModelList(['alpha', 'beta'], 'gamma'), [
-    'alpha',
-    'beta',
-    'gamma',
-  ]);
-  assert.deepEqual(mergeCodexModelList(['alpha', 'gamma', 'beta'], 'gamma'), [
-    'alpha',
-    'gamma',
-    'beta',
-  ]);
+    assert.deepEqual(mergeCodexModelList(['alpha', 'beta'], 'gamma'), [
+        'alpha',
+        'beta',
+        'gamma',
+    ]);
+    assert.deepEqual(mergeCodexModelList(['alpha', 'gamma', 'beta'], 'gamma'), [
+        'alpha',
+        'gamma',
+        'beta',
+    ]);
 });
-
 test('empty Codex_model_list still falls back to the parser-owned model defaults', () => {
-  setEnv({
-    Codex_model_list: '   ',
-  });
-
-  const { models, warnings, fallbackUsed } = getCodexModelList();
-
-  assert.equal(fallbackUsed, true);
-  assert.ok(models.length > 0);
-  assert.ok(
-    warnings.some((warning) => warning.includes('Codex_model_list is empty')),
-  );
+    setEnv({
+        Codex_model_list: '   ',
+    });
+    const { models, warnings, fallbackUsed } = getCodexModelList();
+    assert.equal(fallbackUsed, true);
+    assert.ok(models.length > 0);
+    assert.ok(warnings.some((warning) => warning.includes('Codex_model_list is empty')));
 });

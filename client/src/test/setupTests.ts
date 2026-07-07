@@ -14,7 +14,7 @@ import {
 import { installMockWebSocket } from './support/mockWebSocket';
 import {
   beginClientTestEnvIsolation,
-  endClientTestEnvIsolation,
+  installClientTestEnvGlobals,
   installClientTestProcessEnvIsolation,
 } from './support/processEnvIsolation';
 
@@ -32,13 +32,10 @@ if (windowRef) {
 }
 
 installClientTestProcessEnvIsolation();
+installClientTestEnvGlobals();
 
 beforeEach(() => {
   beginClientTestEnvIsolation();
-});
-
-afterEach(() => {
-  endClientTestEnvIsolation();
 });
 
 const nodeGlobals = globalThis as typeof globalThis & {

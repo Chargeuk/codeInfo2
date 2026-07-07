@@ -9,348 +9,316 @@ import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { validateParams } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
-
-const makeLmStudioClientFactory = () => () =>
-  ({
+const makeLmStudioClientFactory = () => () => ({
     system: {
-      listDownloadedModels: async () => [],
+        listDownloadedModels: async () => [],
     },
-  }) as never;
-
+}) as never;
 const makeCodexFactory = () => ({
-  startThread: () => ({
-    runStreamed: async () => ({
-      events: (async function* () {
-        yield { type: 'turn.completed' };
-      })(),
+    startThread: () => ({
+        runStreamed: async () => ({
+            events: (async function* () {
+                yield { type: 'turn.completed' };
+            })(),
+        }),
     }),
-  }),
-  resumeThread: () => ({
-    runStreamed: async () => ({
-      events: (async function* () {
-        yield { type: 'turn.completed' };
-      })(),
+    resumeThread: () => ({
+        runStreamed: async () => ({
+            events: (async function* () {
+                yield { type: 'turn.completed' };
+            })(),
+        }),
     }),
-  }),
 });
-
 type JsonRpcHttpResponse = {
-  id?: number | string | null;
-  result?: {
-    content: Array<{ type: string; text: string }>;
-  };
-  error?: {
-    code: number;
-    message: string;
-  };
-};
-
-async function postJson(port: number, body: unknown) {
-  const payload = JSON.stringify(body);
-  return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
-    const req = http.request({
-      host: '127.0.0.1',
-      port,
-      method: 'POST',
-      agent: false,
-      headers: {
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(payload),
-        connection: 'close',
-      },
-    });
-
-    let responseBody = '';
-
-    req.on('response', (response) => {
-      response.setEncoding('utf8');
-      response.on('data', (chunk) => {
-        responseBody += chunk;
-      });
-      response.on('end', () => {
-        try {
-          resolve(JSON.parse(responseBody));
-        } catch (error) {
-          reject(error);
-        }
-      });
-      response.on('error', reject);
-    });
-
-    req.on('error', reject);
-    req.end(payload);
-  });
-}
-
-async function withTempCodexHome(chatToml: string): Promise<{
-  codexHome: string;
-  cleanup: () => Promise<void>;
-}> {
-  const root = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'codeinfo2-task8-validation-'),
-  );
-  const codexHome = path.join(root, 'codex');
-  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
-  await fs.writeFile(
-    path.join(codexHome, 'chat', 'config.toml'),
-    chatToml,
-    'utf8',
-  );
-  return {
-    codexHome,
-    cleanup: async () => {
-      await fs.rm(root, { recursive: true, force: true });
-    },
-  };
-}
-
-test('codebase_question validation returns -32602 when question is missing', async () => {
-  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-
-  const server = http.createServer(handleRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
-
-  try {
-    const payload = {
-      jsonrpc: '2.0',
-      id: 99,
-      method: 'tools/call',
-      params: {
-        name: 'codebase_question',
-        arguments: { conversationId: 'abc' },
-      },
+    id?: number | string | null;
+    result?: {
+        content: Array<{
+            type: string;
+            text: string;
+        }>;
     };
-
-    const body = await postJson(port, payload);
-
-    assert.ok(body.error);
-    assert.equal(body.error.code, -32602);
-    assert.equal(body.error.message, 'Invalid params');
-  } finally {
-    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => {
-      server.close(() => resolve());
+    error?: {
+        code: number;
+        message: string;
+    };
+};
+async function postJson(port: number, body: unknown) {
+    const payload = JSON.stringify(body);
+    return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
+        const req = http.request({
+            host: '127.0.0.1',
+            port,
+            method: 'POST',
+            agent: false,
+            headers: {
+                'content-type': 'application/json',
+                'content-length': Buffer.byteLength(payload),
+                connection: 'close',
+            },
+        });
+        let responseBody = '';
+        req.on('response', (response) => {
+            response.setEncoding('utf8');
+            response.on('data', (chunk) => {
+                responseBody += chunk;
+            });
+            response.on('end', () => {
+                try {
+                    resolve(JSON.parse(responseBody));
+                }
+                catch (error) {
+                    reject(error);
+                }
+            });
+            response.on('error', reject);
+        });
+        req.on('error', reject);
+        req.end(payload);
     });
-  }
+}
+async function withTempCodexHome(chatToml: string): Promise<{
+    codexHome: string;
+    cleanup: () => Promise<void>;
+}> {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codeinfo2-task8-validation-'));
+    const codexHome = path.join(root, 'codex');
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), chatToml, 'utf8');
+    return {
+        codexHome,
+        cleanup: async () => {
+            await fs.rm(root, { recursive: true, force: true });
+        },
+    };
+}
+test('codebase_question validation returns -32602 when question is missing', async () => {
+    const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+    setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
+    const server = http.createServer(handleRpc);
+    server.listen(0);
+    const { port } = server.address() as AddressInfo;
+    try {
+        const payload = {
+            jsonrpc: '2.0',
+            id: 99,
+            method: 'tools/call',
+            params: {
+                name: 'codebase_question',
+                arguments: { conversationId: 'abc' },
+            },
+        };
+        const body = await postJson(port, payload);
+        assert.ok(body.error);
+        assert.equal(body.error.code, -32602);
+        assert.equal(body.error.message, 'Invalid params');
+    }
+    finally {
+        setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+        });
+    }
 });
-
 test('codebase_question emits field-specific warning fields when falling back to legacy env defaults', async () => {
-  const originalForce = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  const originalCodeHome = process.env.CODEX_HOME;
-  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-  resetStore();
-  const tempHome = await withTempCodexHome('# empty config\n');
-  process.env.CODEX_HOME = tempHome.codexHome;
-  process.env.Codex_sandbox_mode = 'workspace-write';
-  process.env.Codex_approval_policy = 'on-request';
-  process.env.Codex_reasoning_effort = 'medium';
-  process.env.Codex_web_search_enabled = 'false';
-
-  const server = http.createServer(handleRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
-  setToolDeps({
-    clientFactory: makeLmStudioClientFactory(),
-    codexFactory: makeCodexFactory,
-  });
-  try {
-    const body = await postJson(port, {
-      jsonrpc: '2.0',
-      id: 201,
-      method: 'tools/call',
-      params: {
-        name: 'codebase_question',
-        arguments: { question: 'warn-fields?' },
-      },
+    const originalForce = process.env.MCP_FORCE_CODEX_AVAILABLE;
+    const originalCodeHome = process.env.CODEX_HOME;
+    setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
+    resetStore();
+    const tempHome = await withTempCodexHome('# empty config\n');
+    setScopedTestEnvValue("CODEX_HOME", tempHome.codexHome);
+    setScopedTestEnvValue("Codex_sandbox_mode", 'workspace-write');
+    setScopedTestEnvValue("Codex_approval_policy", 'on-request');
+    setScopedTestEnvValue("Codex_reasoning_effort", 'medium');
+    setScopedTestEnvValue("Codex_web_search_enabled", 'false');
+    const server = http.createServer(handleRpc);
+    server.listen(0);
+    const { port } = server.address() as AddressInfo;
+    setToolDeps({
+        clientFactory: makeLmStudioClientFactory(),
+        codexFactory: makeCodexFactory,
     });
-    assert.equal(body.id, 201);
-    const markerLogs = query({
-      source: ['server'],
-      text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',
-    });
-    const context = markerLogs.at(-1)?.context as
-      | { warningFields?: string[] }
-      | undefined;
-    assert.ok(Array.isArray(context?.warningFields));
-    assert.ok(context?.warningFields?.includes('sandbox_mode'));
-    assert.ok(context?.warningFields?.includes('approval_policy'));
-    assert.ok(context?.warningFields?.includes('model_reasoning_effort'));
-    assert.ok(context?.warningFields?.includes('web_search'));
-  } finally {
-    resetToolDeps();
-    process.env.MCP_FORCE_CODEX_AVAILABLE = originalForce;
-    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
-    else process.env.CODEX_HOME = originalCodeHome;
-    delete process.env.Codex_sandbox_mode;
-    delete process.env.Codex_approval_policy;
-    delete process.env.Codex_reasoning_effort;
-    delete process.env.Codex_web_search_enabled;
-    await tempHome.cleanup();
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => {
-      server.close(() => resolve());
-    });
-  }
+    try {
+        const body = await postJson(port, {
+            jsonrpc: '2.0',
+            id: 201,
+            method: 'tools/call',
+            params: {
+                name: 'codebase_question',
+                arguments: { question: 'warn-fields?' },
+            },
+        });
+        assert.equal(body.id, 201);
+        const markerLogs = query({
+            source: ['server'],
+            text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',
+        });
+        const context = markerLogs.at(-1)?.context as {
+            warningFields?: string[];
+        } | undefined;
+        assert.ok(Array.isArray(context?.warningFields));
+        assert.ok(context?.warningFields?.includes('sandbox_mode'));
+        assert.ok(context?.warningFields?.includes('approval_policy'));
+        assert.ok(context?.warningFields?.includes('model_reasoning_effort'));
+        assert.ok(context?.warningFields?.includes('web_search'));
+    }
+    finally {
+        resetToolDeps();
+        setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", originalForce);
+        if (originalCodeHome === undefined)
+            clearScopedTestEnvValue("CODEX_HOME");
+        else
+            setScopedTestEnvValue("CODEX_HOME", originalCodeHome);
+        clearScopedTestEnvValue("Codex_sandbox_mode");
+        clearScopedTestEnvValue("Codex_approval_policy");
+        clearScopedTestEnvValue("Codex_reasoning_effort");
+        clearScopedTestEnvValue("Codex_web_search_enabled");
+        await tempHome.cleanup();
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+        });
+    }
 });
-
 test('codebase_question validation rejects invalid provider values deterministically', async () => {
-  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-
-  const server = http.createServer(handleRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
-  try {
-    const body = await postJson(port, {
-      jsonrpc: '2.0',
-      id: 202,
-      method: 'tools/call',
-      params: {
-        name: 'codebase_question',
-        arguments: { question: 'invalid provider?', provider: 'bad-provider' },
-      },
-    });
-    assert.ok(body.error);
-    assert.equal(body.error.code, -32602);
-    assert.equal(body.error.message, 'Invalid params');
-  } finally {
-    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => {
-      server.close(() => resolve());
-    });
-  }
+    const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+    setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
+    const server = http.createServer(handleRpc);
+    server.listen(0);
+    const { port } = server.address() as AddressInfo;
+    try {
+        const body = await postJson(port, {
+            jsonrpc: '2.0',
+            id: 202,
+            method: 'tools/call',
+            params: {
+                name: 'codebase_question',
+                arguments: { question: 'invalid provider?', provider: 'bad-provider' },
+            },
+        });
+        assert.ok(body.error);
+        assert.equal(body.error.code, -32602);
+        assert.equal(body.error.message, 'Invalid params');
+    }
+    finally {
+        setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+        });
+    }
 });
-
 test('codebase_question validation accepts provider copilot without widening the public input shape', () => {
-  assert.deepEqual(
-    validateParams({
-      question: 'copilot?',
-      provider: 'copilot',
-      model: 'copilot-gpt-5',
-    }),
-    {
-      question: 'copilot?',
-      provider: 'copilot',
-      model: 'copilot-gpt-5',
-    },
-  );
-
-  assert.throws(
-    () =>
-      validateParams({
+    assert.deepEqual(validateParams({
+        question: 'copilot?',
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+    }), {
+        question: 'copilot?',
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+    });
+    assert.throws(() => validateParams({
         question: 'copilot?',
         provider: 'copilot',
         model: 'copilot-gpt-5',
         agentFlags: {
-          toolAccess: 'off',
+            toolAccess: 'off',
         },
-      }),
-    /Invalid params/u,
-  );
+    }), /Invalid params/u);
 });
-
 test('codebase_question validation accepts a conversation-scoped replayId for one logical follow-up retry', () => {
-  assert.deepEqual(
-    validateParams({
-      question: 'retry this follow-up',
-      conversationId: 'conv-replay-1',
-      replayId: 'retry-1',
-      provider: 'copilot',
-      model: 'copilot-gpt-5',
-    }),
-    {
-      question: 'retry this follow-up',
-      conversationId: 'conv-replay-1',
-      replayId: 'retry-1',
-      provider: 'copilot',
-      model: 'copilot-gpt-5',
-    },
-  );
+    assert.deepEqual(validateParams({
+        question: 'retry this follow-up',
+        conversationId: 'conv-replay-1',
+        replayId: 'retry-1',
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+    }), {
+        question: 'retry this follow-up',
+        conversationId: 'conv-replay-1',
+        replayId: 'retry-1',
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+    });
 });
-
 test('codebase_question validation rejects replayId without conversationId before provider work starts', async () => {
-  let providerWorkStarted = 0;
-  setToolDeps({
-    chatFactory: () => {
-      providerWorkStarted += 1;
-      throw new Error('provider work should not start');
-    },
-    clientFactory: makeLmStudioClientFactory(),
-    codexFactory: makeCodexFactory,
-  });
-
-  const server = http.createServer(handleRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
-
-  try {
-    const body = await postJson(port, {
-      jsonrpc: '2.0',
-      id: 203,
-      method: 'tools/call',
-      params: {
-        name: 'codebase_question',
-        arguments: {
-          question: 'retry without a conversation?',
-          replayId: 'retry-1',
+    let providerWorkStarted = 0;
+    setToolDeps({
+        chatFactory: () => {
+            providerWorkStarted += 1;
+            throw new Error('provider work should not start');
         },
-      },
+        clientFactory: makeLmStudioClientFactory(),
+        codexFactory: makeCodexFactory,
     });
-    assert.ok(body.error);
-    assert.equal(body.error.code, -32602);
-    assert.equal(body.error.message, 'Invalid params');
-    assert.equal(providerWorkStarted, 0);
-  } finally {
-    resetToolDeps();
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => {
-      server.close(() => resolve());
-    });
-  }
+    const server = http.createServer(handleRpc);
+    server.listen(0);
+    const { port } = server.address() as AddressInfo;
+    try {
+        const body = await postJson(port, {
+            jsonrpc: '2.0',
+            id: 203,
+            method: 'tools/call',
+            params: {
+                name: 'codebase_question',
+                arguments: {
+                    question: 'retry without a conversation?',
+                    replayId: 'retry-1',
+                },
+            },
+        });
+        assert.ok(body.error);
+        assert.equal(body.error.code, -32602);
+        assert.equal(body.error.message, 'Invalid params');
+        assert.equal(providerWorkStarted, 0);
+    }
+    finally {
+        resetToolDeps();
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+        });
+    }
 });
-
 test('codebase_question validation rejects malformed replayId characters before provider work starts', async () => {
-  let providerWorkStarted = 0;
-  setToolDeps({
-    chatFactory: () => {
-      providerWorkStarted += 1;
-      throw new Error('provider work should not start');
-    },
-    clientFactory: makeLmStudioClientFactory(),
-    codexFactory: makeCodexFactory,
-  });
-
-  const server = http.createServer(handleRpc);
-  server.listen(0);
-  const { port } = server.address() as AddressInfo;
-
-  try {
-    const body = await postJson(port, {
-      jsonrpc: '2.0',
-      id: 204,
-      method: 'tools/call',
-      params: {
-        name: 'codebase_question',
-        arguments: {
-          question: 'retry with malformed replay id?',
-          conversationId: 'conv-replay-2',
-          replayId: 'retry value with spaces',
+    let providerWorkStarted = 0;
+    setToolDeps({
+        chatFactory: () => {
+            providerWorkStarted += 1;
+            throw new Error('provider work should not start');
         },
-      },
+        clientFactory: makeLmStudioClientFactory(),
+        codexFactory: makeCodexFactory,
     });
-    assert.ok(body.error);
-    assert.equal(body.error.code, -32602);
-    assert.equal(body.error.message, 'Invalid params');
-    assert.equal(providerWorkStarted, 0);
-  } finally {
-    resetToolDeps();
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => {
-      server.close(() => resolve());
-    });
-  }
+    const server = http.createServer(handleRpc);
+    server.listen(0);
+    const { port } = server.address() as AddressInfo;
+    try {
+        const body = await postJson(port, {
+            jsonrpc: '2.0',
+            id: 204,
+            method: 'tools/call',
+            params: {
+                name: 'codebase_question',
+                arguments: {
+                    question: 'retry with malformed replay id?',
+                    conversationId: 'conv-replay-2',
+                    replayId: 'retry value with spaces',
+                },
+            },
+        });
+        assert.ok(body.error);
+        assert.equal(body.error.code, -32602);
+        assert.equal(body.error.message, 'Invalid params');
+        assert.equal(providerWorkStarted, 0);
+    }
+    finally {
+        resetToolDeps();
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+        });
+    }
 });

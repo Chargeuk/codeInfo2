@@ -2,35 +2,28 @@ import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import IngestForm from '../components/ingest/IngestForm';
 import { mockJsonResponse } from './support/fetchMock';
-
 describe('IngestForm', () => {
   const mockFetch = jest.fn<typeof fetch>();
   const originalMode = process.env.MODE;
-
   beforeAll(() => {
-    process.env.MODE = 'test';
+    setScopedTestEnvValue('MODE', 'test');
     global.fetch = mockFetch;
   });
-
   afterAll(() => {
-    process.env.MODE = originalMode;
+    setScopedTestEnvValue('MODE', originalMode);
   });
-
   beforeEach(() => {
     mockFetch.mockReset();
   });
-
   const enqueueFetchJson = (payloads: unknown[]) => {
     for (const payload of payloads) {
       mockFetch.mockResolvedValueOnce(mockJsonResponse(payload));
     }
   };
-
   const models = [
     { id: 'embed-1', displayName: 'Embed One', provider: 'lmstudio' as const },
     { id: 'embed-2', displayName: 'Embed Two', provider: 'lmstudio' as const },
   ];
-
   it('applies size="small" inputs and button variant rules', () => {
     render(
       <IngestForm
@@ -39,29 +32,24 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     const pathInput = screen.getByLabelText(/folder path/i);
     expect(pathInput.closest('.MuiInputBase-root')).toHaveClass(
       'MuiInputBase-sizeSmall',
     );
-
     const nameInput = screen.getByLabelText(/display name/i);
     expect(nameInput.closest('.MuiInputBase-root')).toHaveClass(
       'MuiInputBase-sizeSmall',
     );
-
     const descriptionInput = screen.getByLabelText(/description/i);
     expect(descriptionInput.closest('.MuiInputBase-root')).toHaveClass(
       'MuiInputBase-sizeSmall',
     );
-
     const modelInput = screen.getByRole('combobox', {
       name: /embedding model/i,
     });
     expect(modelInput.closest('.MuiInputBase-root')).toHaveClass(
       'MuiInputBase-sizeSmall',
     );
-
     const chooseFolderButton = screen.getByRole('button', {
       name: /choose folder/i,
     });
@@ -69,7 +57,6 @@ describe('IngestForm', () => {
       'MuiButton-outlined',
       'MuiButton-sizeSmall',
     );
-
     const startIngestButton = screen.getByRole('button', {
       name: /start ingest/i,
     });
@@ -78,7 +65,6 @@ describe('IngestForm', () => {
       'MuiButton-sizeSmall',
     );
   });
-
   it('shows validation messages when required fields are missing', async () => {
     render(
       <IngestForm
@@ -87,14 +73,11 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.blur(screen.getByLabelText(/folder path/i));
     fireEvent.blur(screen.getByLabelText(/display name/i));
-
     expect(await screen.findByText(/path is required/i)).toBeInTheDocument();
     expect(screen.getByText(/name is required/i)).toBeInTheDocument();
   });
-
   it('does not render lock banner inside the form when locked', () => {
     render(
       <IngestForm
@@ -103,12 +86,10 @@ describe('IngestForm', () => {
         onStarted={jest.fn()}
       />,
     );
-
     expect(
       screen.queryByText(/embedding model locked to locked-model/i),
     ).not.toBeInTheDocument();
   });
-
   it('disables model select when lockedModelId is provided', () => {
     render(
       <IngestForm
@@ -120,13 +101,11 @@ describe('IngestForm', () => {
     const select = screen.getByRole('combobox', { name: /embedding model/i });
     expect(select).toBeDisabled();
   });
-
   it('treats requestId plus runId as immediate ingest success and surfaces runId via onStarted', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ requestId: 'queue-request-123', runId: 'run-123' }),
     );
     const onStarted = jest.fn();
-
     render(
       <IngestForm
         models={models}
@@ -134,7 +113,6 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
@@ -144,11 +122,8 @@ describe('IngestForm', () => {
     fireEvent.change(screen.getByLabelText(/embedding model/i), {
       target: { value: 'lmstudio::embed-2' },
     });
-
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-123'));
-
     const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
     expect(body).toMatchObject({
       path: '/repo',
@@ -159,7 +134,6 @@ describe('IngestForm', () => {
       dryRun: false,
     });
   });
-
   it('treats requestId plus queued metadata as queued ingest acceptance while another run is active', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
@@ -169,7 +143,6 @@ describe('IngestForm', () => {
       }),
     );
     const onAccepted = jest.fn();
-
     render(
       <IngestForm
         models={models}
@@ -178,18 +151,15 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
     fireEvent.change(screen.getByLabelText(/display name/i), {
       target: { value: 'Repo' },
     });
-
     const submit = screen.getByRole('button', { name: /start ingest/i });
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
-
     await waitFor(() =>
       expect(onAccepted).toHaveBeenCalledWith({
         queued: true,
@@ -198,7 +168,6 @@ describe('IngestForm', () => {
       }),
     );
   });
-
   it('retains visible edits locally until a later explicit resubmit', async () => {
     mockFetch.mockResolvedValueOnce(
       mockJsonResponse({
@@ -214,7 +183,6 @@ describe('IngestForm', () => {
         queuePosition: 1,
       }),
     );
-
     render(
       <IngestForm
         models={models}
@@ -222,7 +190,6 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
@@ -231,7 +198,6 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
-
     fireEvent.change(screen.getByLabelText(/display name/i), {
       target: { value: 'Repo edited locally' },
     });
@@ -241,14 +207,12 @@ describe('IngestForm', () => {
     expect(JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string).name).toBe(
       'Repo',
     );
-
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
     expect(JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string).name).toBe(
       'Repo edited locally',
     );
   });
-
   it('uses the currently visible target fields when switching from one queued target to another before the next submit', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
@@ -257,7 +221,6 @@ describe('IngestForm', () => {
         queuePosition: 1,
       }),
     );
-
     render(
       <IngestForm
         models={models}
@@ -265,7 +228,6 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo-a' },
     });
@@ -274,7 +236,6 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo-b' },
     });
@@ -283,7 +244,6 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-
     expect(
       JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string),
     ).toMatchObject({
@@ -291,7 +251,6 @@ describe('IngestForm', () => {
       name: 'Repo B',
     });
   });
-
   it('renders provider-qualified model options and keeps same model ids distinct by provider', () => {
     render(
       <IngestForm
@@ -303,7 +262,6 @@ describe('IngestForm', () => {
         defaultModelId="same-id"
       />,
     );
-
     const select = screen.getByRole('combobox', { name: /embedding model/i });
     const options = Array.from(select.querySelectorAll('option')).map(
       (option) => ({
@@ -311,7 +269,6 @@ describe('IngestForm', () => {
         label: option.textContent,
       }),
     );
-
     expect(options).toEqual(
       expect.arrayContaining([
         { value: 'lmstudio::same-id', label: 'lmstudio / Shared' },
@@ -319,7 +276,6 @@ describe('IngestForm', () => {
       ]),
     );
   });
-
   it('retains valid model selection but clears stale prior selection before submitting canonical payload', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
@@ -338,11 +294,9 @@ describe('IngestForm', () => {
         defaultModelId="embed-a"
       />,
     );
-
     const select = screen.getByRole('combobox', { name: /embedding model/i });
     fireEvent.change(select, { target: { value: 'lmstudio::embed-b' } });
     expect(select).toHaveValue('lmstudio::embed-b');
-
     rerender(
       <IngestForm
         models={[
@@ -353,9 +307,7 @@ describe('IngestForm', () => {
         defaultModelId="embed-a"
       />,
     );
-
     await waitFor(() => expect(select).toHaveValue('lmstudio::embed-b'));
-
     rerender(
       <IngestForm
         models={[
@@ -365,9 +317,7 @@ describe('IngestForm', () => {
         defaultModelId="embed-a"
       />,
     );
-
     await waitFor(() => expect(select).toHaveValue('lmstudio::embed-a'));
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
@@ -375,7 +325,6 @@ describe('IngestForm', () => {
       target: { value: 'Repo' },
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-stale'));
     const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
     expect(body).toMatchObject({
@@ -384,7 +333,6 @@ describe('IngestForm', () => {
       embeddingModel: 'embed-a',
     });
   });
-
   it('shows OPENAI_DISABLED info banner copy', () => {
     render(
       <IngestForm
@@ -394,14 +342,12 @@ describe('IngestForm', () => {
         openai={{ status: 'disabled', statusCode: 'OPENAI_DISABLED' }}
       />,
     );
-
     expect(
       screen.getByTestId('ingest-openai-banner-openai-disabled'),
     ).toHaveTextContent(
       /OpenAI embedding models are unavailable\. Set CODEINFO_OPENAI_EMBEDDING_KEY on the server to enable them\./i,
     );
   });
-
   it('shows OPENAI_MODELS_LIST_TEMPORARY_FAILURE warning and keeps lmstudio options', () => {
     render(
       <IngestForm
@@ -414,7 +360,6 @@ describe('IngestForm', () => {
         }}
       />,
     );
-
     expect(
       screen.getByTestId(
         'ingest-openai-banner-openai-models-list-temporary-failure',
@@ -424,7 +369,6 @@ describe('IngestForm', () => {
       screen.getByRole('option', { name: 'lmstudio / Embed One' }),
     ).toBeInTheDocument();
   });
-
   it('shows OPENAI_MODELS_LIST_AUTH_FAILED warning banner', () => {
     render(
       <IngestForm
@@ -437,12 +381,10 @@ describe('IngestForm', () => {
         }}
       />,
     );
-
     expect(
       screen.getByTestId('ingest-openai-banner-openai-models-list-auth-failed'),
     ).toHaveTextContent(/failed authentication/i);
   });
-
   it('shows OPENAI_MODELS_LIST_UNAVAILABLE warning banner', () => {
     render(
       <IngestForm
@@ -455,12 +397,10 @@ describe('IngestForm', () => {
         }}
       />,
     );
-
     expect(
       screen.getByTestId('ingest-openai-banner-openai-models-list-unavailable'),
     ).toHaveTextContent(/currently unavailable/i);
   });
-
   it('shows OPENAI_ALLOWLIST_NO_MATCH banner and no openai options', () => {
     render(
       <IngestForm
@@ -470,13 +410,11 @@ describe('IngestForm', () => {
         openai={{ status: 'warning', statusCode: 'OPENAI_ALLOWLIST_NO_MATCH' }}
       />,
     );
-
     expect(
       screen.getByTestId('ingest-openai-banner-openai-allowlist-no-match'),
     ).toHaveTextContent(/No allowlisted OpenAI embedding models/i);
     expect(screen.queryByRole('option', { name: /openai \/ /i })).toBeNull();
   });
-
   it('does not render a dimensions input on the ingest form', () => {
     render(
       <IngestForm
@@ -485,16 +423,13 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     expect(screen.queryByLabelText(/dimension/i)).toBeNull();
     expect(screen.queryByRole('spinbutton', { name: /dimension/i })).toBeNull();
   });
-
   it('submits canonical embedding fields for provider-qualified selection', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ requestId: 'queue-request-200', runId: 'run-200' }),
     );
-
     render(
       <IngestForm
         models={[
@@ -505,7 +440,6 @@ describe('IngestForm', () => {
         defaultModelId="shared-id"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
@@ -515,22 +449,18 @@ describe('IngestForm', () => {
     fireEvent.change(screen.getByLabelText(/embedding model/i), {
       target: { value: 'openai::shared-id' },
     });
-
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
     await waitFor(() => expect(mockFetch).toHaveBeenCalled());
     const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
     expect(body.embeddingProvider).toBe('openai');
     expect(body.embeddingModel).toBe('shared-id');
     expect(body.model).toBe('shared-id');
   });
-
   it('keeps provider-qualified selection and payload unambiguous for same model ids', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ requestId: 'queue-request-300', runId: 'run-300' }),
     );
     const onStarted = jest.fn();
-
     render(
       <IngestForm
         models={[
@@ -540,7 +470,6 @@ describe('IngestForm', () => {
         onStarted={onStarted}
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
@@ -550,9 +479,7 @@ describe('IngestForm', () => {
     fireEvent.change(screen.getByLabelText(/embedding model/i), {
       target: { value: 'openai::dup-model' },
     });
-
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-300'));
     const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
     expect(body).toMatchObject({
@@ -560,13 +487,11 @@ describe('IngestForm', () => {
       embeddingModel: 'dup-model',
     });
   });
-
   it('keeps locked openai fallback option when fetched models only include lmstudio same-id', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ requestId: 'queue-request-301', runId: 'run-301' }),
     );
     const onStarted = jest.fn();
-
     render(
       <IngestForm
         models={[{ id: 'dup-model', displayName: 'Dup', provider: 'lmstudio' }]}
@@ -579,18 +504,15 @@ describe('IngestForm', () => {
         onStarted={onStarted}
       />,
     );
-
     const select = screen.getByRole('combobox', { name: /embedding model/i });
     expect(select).toBeDisabled();
     expect(select).toHaveValue('openai::dup-model');
-
     const options = Array.from(select.querySelectorAll('option')).map(
       (option) => option.value,
     );
     expect(options).toEqual(
       expect.arrayContaining(['lmstudio::dup-model', 'openai::dup-model']),
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
@@ -598,7 +520,6 @@ describe('IngestForm', () => {
       target: { value: 'Repo' },
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-301'));
     const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
     expect(body).toMatchObject({
@@ -607,12 +528,10 @@ describe('IngestForm', () => {
       model: 'dup-model',
     });
   });
-
   it('shows server error message when request fails', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ message: 'boom' }, { status: 500 }),
     );
-
     render(
       <IngestForm
         models={models}
@@ -620,21 +539,17 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
     fireEvent.change(screen.getByLabelText(/display name/i), {
       target: { value: 'Repo' },
     });
-
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
     expect(await screen.findByTestId('submit-error')).toHaveTextContent(
       /boom/i,
     );
   });
-
   it('disables non-submit sibling controls while an ingest submit is in flight', async () => {
     let resolveResponse:
       | ((value: ReturnType<typeof mockJsonResponse>) => void)
@@ -646,7 +561,6 @@ describe('IngestForm', () => {
         }),
     );
     const onStarted = jest.fn();
-
     render(
       <IngestForm
         models={models}
@@ -654,16 +568,13 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/repo' },
     });
     fireEvent.change(screen.getByLabelText(/display name/i), {
       target: { value: 'Repo' },
     });
-
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
     expect(screen.getByLabelText(/folder path/i)).toBeDisabled();
     expect(screen.getByLabelText(/display name/i)).toBeDisabled();
     expect(screen.getByLabelText(/description/i)).toBeDisabled();
@@ -676,25 +587,20 @@ describe('IngestForm', () => {
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: /starting/i })).toBeDisabled();
     expect(screen.getByText(/submitting ingest request/i)).toBeInTheDocument();
-
     await waitFor(() => expect(resolveResponse).toBeDefined());
-
     await waitFor(async () => {
       resolveResponse?.(
         mockJsonResponse({ requestId: 'queue-request-400', runId: 'run-400' }),
       );
       await Promise.resolve();
     });
-
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-400'));
   });
-
   it('selecting a directory updates the Folder path input value', async () => {
     enqueueFetchJson([
       { base: '/data', path: '/data', dirs: ['projects'] },
       { base: '/data', path: '/data/projects', dirs: [] },
     ]);
-
     render(
       <IngestForm
         models={models}
@@ -702,29 +608,22 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
-
     const projects = await screen.findByRole('button', { name: 'projects' });
     fireEvent.click(projects);
-
     await waitFor(() =>
       expect(
         screen.getByRole('button', { name: /use this folder/i }),
       ).toBeEnabled(),
     );
-
     fireEvent.click(screen.getByRole('button', { name: /use this folder/i }));
-
     expect(screen.getByLabelText(/folder path/i)).toHaveValue('/data/projects');
   });
-
   it('clicking a directory triggers a second fetch for the new path', async () => {
     enqueueFetchJson([
       { base: '/data', path: '/data', dirs: ['projects'] },
       { base: '/data', path: '/data/projects', dirs: [] },
     ]);
-
     render(
       <IngestForm
         models={models}
@@ -732,25 +631,19 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
-
     const projects = await screen.findByRole('button', { name: 'projects' });
     fireEvent.click(projects);
-
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-
     const secondUrl = String(mockFetch.mock.calls[1][0]);
     expect(secondUrl).toContain('/ingest/dirs');
     expect(secondUrl).toContain('path=%2Fdata%2Fprojects');
   });
-
   it('"Up" is not available at base and appears after navigating', async () => {
     enqueueFetchJson([
       { base: '/data', path: '/data', dirs: ['projects'] },
       { base: '/data', path: '/data/projects', dirs: [] },
     ]);
-
     render(
       <IngestForm
         models={models}
@@ -758,24 +651,18 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
-
     await screen.findByRole('button', { name: 'projects' });
     expect(
       screen.queryByRole('button', { name: /up/i }),
     ).not.toBeInTheDocument();
-
     fireEvent.click(screen.getByRole('button', { name: 'projects' }));
-
     expect(
       await screen.findByRole('button', { name: /up/i }),
     ).toBeInTheDocument();
   });
-
   it('"Use this folder" sets the current path even without clicking a child directory', async () => {
     enqueueFetchJson([{ base: '/data', path: '/data', dirs: ['projects'] }]);
-
     render(
       <IngestForm
         models={models}
@@ -783,23 +670,17 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
-
     await waitFor(() =>
       expect(
         screen.getByRole('button', { name: /use this folder/i }),
       ).toBeEnabled(),
     );
-
     fireEvent.click(screen.getByRole('button', { name: /use this folder/i }));
-
     expect(screen.getByLabelText(/folder path/i)).toHaveValue('/data');
   });
-
   it('closes the already-open directory picker and prevents late path mutation when the form becomes disabled', async () => {
     enqueueFetchJson([{ base: '/data', path: '/data', dirs: ['projects'] }]);
-
     const { rerender } = render(
       <IngestForm
         models={models}
@@ -807,13 +688,10 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
-
     const useThisFolder = await screen.findByRole('button', {
       name: /use this folder/i,
     });
-
     rerender(
       <IngestForm
         models={models}
@@ -822,21 +700,16 @@ describe('IngestForm', () => {
         disabled
       />,
     );
-
     await waitFor(() =>
       expect(
         screen.queryByRole('button', { name: /use this folder/i }),
       ).not.toBeInTheDocument(),
     );
-
     fireEvent.click(useThisFolder);
-
     expect(screen.getByLabelText(/folder path/i)).toHaveValue('');
   });
-
   it('error path displays an error message when server returns OUTSIDE_BASE', async () => {
     enqueueFetchJson([{ status: 'error', code: 'OUTSIDE_BASE' }]);
-
     render(
       <IngestForm
         models={models}
@@ -844,13 +717,10 @@ describe('IngestForm', () => {
         defaultModelId="embed-1"
       />,
     );
-
     fireEvent.change(screen.getByLabelText(/folder path/i), {
       target: { value: '/tmp' },
     });
-
     fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
-
     expect(
       await screen.findByText(/unable to list directories \(outside_base\)/i),
     ).toBeInTheDocument();

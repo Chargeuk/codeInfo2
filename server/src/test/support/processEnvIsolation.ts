@@ -1,5 +1,9 @@
-import { enterTestEnvOverrides } from './testEnvOverrideScope.js';
-import { getScopedEnvOverrides } from './testOverrideScope.js';
+import {
+  hasActiveTestOverrideScope,
+  enterTestOverrideScope,
+  getScopedEnvOverrides,
+  getScopedEnvScopeState,
+} from './testOverrideScope.js';
 
 type EnvOverlay = Record<string, string | undefined>;
 
@@ -17,6 +21,21 @@ const hasOwn = (record: EnvOverlay, key: string) =>
   Object.prototype.hasOwnProperty.call(record, key);
 
 const normalizeEnvValue = (value: unknown): string => String(value);
+
+const hasOpenScopedLayer = (): boolean => {
+  const scopedLayer = getScopedLayer();
+  const scopeState = getScopedEnvScopeState();
+  return Boolean(scopedLayer && scopeState?.open);
+};
+
+const assertActiveScopedEnvWrite = (prop: string): void => {
+  if (hasOpenScopedLayer()) {
+    return;
+  }
+  throw new Error(
+    `Scoped test env write attempted outside an active test scope for ${prop}`,
+  );
+};
 
 const getStateHolder = () =>
   globalThis as typeof globalThis & {
@@ -39,8 +58,21 @@ const resolveOverride = (
   return { found: false, value: undefined };
 };
 
-const getWritableLayer = (state: ProcessEnvIsolationState): EnvOverlay =>
-  getScopedLayer() ?? state.bootstrapEnvOverrides;
+const getWritableLayer = (
+  state: ProcessEnvIsolationState,
+  options?: { requireActiveScope?: boolean },
+): EnvOverlay => {
+  const scopedLayer = getScopedLayer();
+  if (scopedLayer && hasOpenScopedLayer()) {
+    return scopedLayer;
+  }
+  if (options?.requireActiveScope) {
+    throw new Error(
+      'Scoped test env write attempted outside an active test scope.',
+    );
+  }
+  return state.bootstrapEnvOverrides;
+};
 
 const collectVisibleKeys = (state: ProcessEnvIsolationState): Set<string> => {
   const keys = new Set<string>([
@@ -59,8 +91,9 @@ const collectVisibleKeys = (state: ProcessEnvIsolationState): Set<string> => {
 const applyEnvSnapshot = (
   state: ProcessEnvIsolationState,
   nextValue: Record<string, unknown> | NodeJS.ProcessEnv,
+  options?: { requireActiveScope?: boolean },
 ) => {
-  const layer = getWritableLayer(state);
+  const layer = getWritableLayer(state, options);
   for (const key of Object.keys(layer)) {
     delete layer[key];
   }
@@ -75,8 +108,7 @@ const applyEnvSnapshot = (
   }
 
   for (const [key, value] of nextEntries) {
-    layer[key] =
-      value === undefined ? undefined : normalizeEnvValue(value);
+    layer[key] = value === undefined ? undefined : normalizeEnvValue(value);
   }
 };
 
@@ -209,8 +241,101 @@ export function installScopedProcessEnvProxy(): ProcessEnvIsolationState {
   return state;
 }
 
-export function beginScopedTestEnvIsolation(
-  overrides: EnvOverlay = {},
+export function beginScopedTestEnvIsolation(overrides: EnvOverlay = {}): void {
+  enterTestOverrideScope({
+    envOverrides: overrides,
+    envScopeState: { open: true },
+  });
+}
+
+export function endScopedTestEnvIsolation(): void {
+  const scopeState = getScopedEnvScopeState();
+  if (scopeState) {
+    scopeState.open = false;
+  }
+}
+
+export function setScopedTestEnvValue(name: string, value: unknown): void {
+  if (!hasOpenScopedLayer() && !hasActiveTestOverrideScope()) {
+    setBootstrapTestEnvValue(name, value);
+    return;
+  }
+  assertActiveScopedEnvWrite(name);
+  enterTestOverrideScope({
+    envOverrides: { [name]: normalizeEnvValue(value) },
+  });
+}
+
+export function clearScopedTestEnvValue(name: string): void {
+  if (!hasOpenScopedLayer() && !hasActiveTestOverrideScope()) {
+    clearBootstrapTestEnvValue(name);
+    return;
+  }
+  assertActiveScopedEnvWrite(name);
+  enterTestOverrideScope({
+    envOverrides: { [name]: undefined },
+  });
+}
+
+export function setBootstrapTestEnvValue(name: string, value: unknown): void {
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  if (!state) {
+    throw new Error('Scoped process.env proxy is not installed.');
+  }
+  state.bootstrapEnvOverrides[name] = normalizeEnvValue(value);
+}
+
+export function clearBootstrapTestEnvValue(name: string): void {
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  if (!state) {
+    throw new Error('Scoped process.env proxy is not installed.');
+  }
+  state.bootstrapEnvOverrides[name] = undefined;
+}
+
+export function replaceScopedTestProcessEnv(
+  nextValue: Record<string, unknown> | NodeJS.ProcessEnv,
 ): void {
-  enterTestEnvOverrides(overrides);
+  const state = getStateHolder()[PROCESS_ENV_ISOLATION_STATE];
+  if (!state) {
+    throw new Error('Scoped process.env proxy is not installed.');
+  }
+  if (!hasOpenScopedLayer() && !hasActiveTestOverrideScope()) {
+    applyEnvSnapshot(state, nextValue);
+    return;
+  }
+  assertActiveScopedEnvWrite('process.env');
+  applyEnvSnapshot(state, nextValue, { requireActiveScope: true });
+}
+
+export function installScopedTestEnvGlobals(): void {
+  const globals = globalThis as typeof globalThis & {
+    clearBootstrapTestEnvValue?: typeof clearBootstrapTestEnvValue;
+    clearScopedTestEnvValue?: typeof clearScopedTestEnvValue;
+    replaceScopedTestProcessEnv?: typeof replaceScopedTestProcessEnv;
+    setBootstrapTestEnvValue?: typeof setBootstrapTestEnvValue;
+    setScopedTestEnvValue?: typeof setScopedTestEnvValue;
+  };
+
+  globals.setBootstrapTestEnvValue = setBootstrapTestEnvValue;
+  globals.clearBootstrapTestEnvValue = clearBootstrapTestEnvValue;
+  globals.setScopedTestEnvValue = setScopedTestEnvValue;
+  globals.clearScopedTestEnvValue = clearScopedTestEnvValue;
+  globals.replaceScopedTestProcessEnv = replaceScopedTestProcessEnv;
+}
+
+type SetBootstrapTestEnvValueFn = (name: string, value: unknown) => void;
+type ClearBootstrapTestEnvValueFn = (name: string) => void;
+type SetScopedTestEnvValueFn = (name: string, value: unknown) => void;
+type ClearScopedTestEnvValueFn = (name: string) => void;
+type ReplaceScopedTestProcessEnvFn = (
+  nextValue: Record<string, unknown> | NodeJS.ProcessEnv,
+) => void;
+
+declare global {
+  var setBootstrapTestEnvValue: SetBootstrapTestEnvValueFn;
+  var clearBootstrapTestEnvValue: ClearBootstrapTestEnvValueFn;
+  var setScopedTestEnvValue: SetScopedTestEnvValueFn;
+  var clearScopedTestEnvValue: ClearScopedTestEnvValueFn;
+  var replaceScopedTestProcessEnv: ReplaceScopedTestProcessEnvFn;
 }

@@ -157,7 +157,6 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   );
   const turns: Array<Record<string, unknown>> = [];
 
-  const originalNodeEnv = process.env.NODE_ENV;
   const originalReadyState = mongoose.connection.readyState;
   const originalFindById = ConversationModel.findById;
   const originalFindOne = ConversationModel.findOne;
@@ -167,7 +166,6 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   const originalTurnFindOne = TurnModel.findOne;
   const originalTurnCreate = TurnModel.create;
 
-  process.env.NODE_ENV = 'production';
   Object.defineProperty(mongoose.connection, 'readyState', {
     value: 1,
     configurable: true,
@@ -297,15 +295,11 @@ export async function withMockedMongoConversationPersistence<T>(params: {
   })) as typeof TurnModel.findOne;
 
   try {
-    return await runWithTestEnvOverrides({ NODE_ENV: 'production' }, async () =>
-      await params.run({ conversations, turns }),
+    return await runWithTestEnvOverrides(
+      { NODE_ENV: 'production' },
+      async () => await params.run({ conversations, turns }),
     );
   } finally {
-    if (originalNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = originalNodeEnv;
-    }
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReadyState,
       configurable: true,

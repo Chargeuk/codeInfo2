@@ -2,31 +2,29 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-
 const mockFetch = jest.fn<typeof fetch>();
 const desktopWidth = 1280;
-
 beforeAll(() => {
-  process.env.MODE = 'test';
+  setScopedTestEnvValue('MODE', 'test');
   global.fetch = mockFetch;
 });
-
 beforeEach(() => {
   mockFetch.mockReset();
   (
-    globalThis as unknown as { __wsMock?: { reset: () => void } }
+    globalThis as unknown as {
+      __wsMock?: {
+        reset: () => void;
+      };
+    }
   ).__wsMock?.reset();
   setViewportWidth(desktopWidth);
 });
-
 afterEach(() => {
   setViewportWidth(desktopWidth);
 });
-
 const { default: App } = await import('../App');
 const { default: FlowsPage } = await import('../pages/FlowsPage');
 const { default: HomePage } = await import('../pages/HomePage');
-
 const routes = [
   {
     path: '/',
@@ -37,15 +35,18 @@ const routes = [
     ],
   },
 ];
-
 function setViewportWidth(width: number) {
   act(() => {
     window.innerWidth = width;
     window.dispatchEvent(new Event('resize'));
   });
 }
-
-function mockJsonResponse(payload: unknown, init?: { status?: number }) {
+function mockJsonResponse(
+  payload: unknown,
+  init?: {
+    status?: number;
+  },
+) {
   return Promise.resolve(
     new Response(JSON.stringify(payload), {
       status: init?.status ?? 200,
@@ -53,7 +54,6 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
     }),
   );
 }
-
 function installFlowsComposerMocks() {
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const target =
@@ -64,11 +64,9 @@ function installFlowsComposerMocks() {
           : 'url' in url && typeof url.url === 'string'
             ? url.url
             : url.toString();
-
     if (target.includes('/health')) {
       return mockJsonResponse({ mongoConnected: true });
     }
-
     if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
       return mockJsonResponse({
         flow: {
@@ -81,7 +79,6 @@ function installFlowsComposerMocks() {
         },
       });
     }
-
     if (target.includes('/flows') && !target.includes('/run')) {
       return mockJsonResponse({
         flows: [
@@ -95,19 +92,15 @@ function installFlowsComposerMocks() {
         ],
       });
     }
-
     if (target.includes('/conversations/') && target.includes('/turns')) {
       return mockJsonResponse({ items: [], nextCursor: null });
     }
-
     if (target.includes('/conversations')) {
       return mockJsonResponse({ items: [], nextCursor: null });
     }
-
     return mockJsonResponse({});
   });
 }
-
 function makeFlowConversation(overrides?: {
   title?: string;
   flowName?: string;
@@ -127,16 +120,12 @@ function makeFlowConversation(overrides?: {
     },
   };
 }
-
 describe('Flows page composer parity', () => {
   it('keeps the footer trigger order and compact working path/title states on the shared composer shell', async () => {
     const user = userEvent.setup();
-
     installFlowsComposerMocks();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const composer = await screen.findByTestId('chat-controls');
     const infoButton = await screen.findByTestId('flow-info');
     const newButton = await screen.findByTestId(
@@ -148,7 +137,6 @@ describe('Flows page composer parity', () => {
     const flowButton = await screen.findByTestId('flow-select-trigger');
     const titleButton = await screen.findByTestId('flow-title-trigger');
     const launchTitle = await screen.findByTestId('flow-launch-title');
-
     expect(composer).toContainElement(infoButton);
     expect(composer).toContainElement(newButton);
     expect(composer).toContainElement(workingPathButton);
@@ -170,7 +158,6 @@ describe('Flows page composer parity', () => {
       flowButton.compareDocumentPosition(titleButton) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-
     await waitFor(() => expect(flowButton).toHaveTextContent('daily'));
     expect(titleButton).toBeEnabled();
     expect(titleButton).toHaveTextContent('daily');
@@ -179,7 +166,6 @@ describe('Flows page composer parity', () => {
     expect(screen.queryByText(/^Resume step:/)).not.toBeInTheDocument();
     expect(newButton).toBeVisible();
     expect(screen.queryByTestId('flow-note')).not.toBeInTheDocument();
-
     await user.click(workingPathButton);
     const workingPathDialog = await screen.findByRole('dialog', {
       name: /choose folder…/i,
@@ -193,7 +179,6 @@ describe('Flows page composer parity', () => {
         screen.queryByRole('dialog', { name: /choose folder…/i }),
       ).not.toBeInTheDocument(),
     );
-
     await user.click(titleButton);
     const titlePopover = await screen.findByTestId('flow-title-popover');
     const titleInput = within(titlePopover).getByTestId('flow-title-input');
@@ -201,14 +186,11 @@ describe('Flows page composer parity', () => {
     await user.clear(titleInput);
     await user.type(titleInput, 'Daily recap');
     await user.tab();
-
     expect(titleButton).toBeEnabled();
     expect(titleButton).toHaveTextContent('Daily recap');
   });
-
   it('copies the active title instead of reopening the editor once a flow conversation already exists', async () => {
     const user = userEvent.setup();
-
     installFlowsComposerMocks();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target =
@@ -219,11 +201,9 @@ describe('Flows page composer parity', () => {
             : 'url' in url && typeof url.url === 'string'
               ? url.url
               : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
         return mockJsonResponse({
           flow: {
@@ -236,7 +216,6 @@ describe('Flows page composer parity', () => {
           },
         });
       }
-
       if (target.includes('/flows') && !target.includes('/run')) {
         return mockJsonResponse({
           flows: [
@@ -250,11 +229,9 @@ describe('Flows page composer parity', () => {
           ],
         });
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [], nextCursor: null });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -266,20 +243,16 @@ describe('Flows page composer parity', () => {
           nextCursor: null,
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const titleButton = await screen.findByTestId('flow-title-trigger');
     await waitFor(() =>
       expect(titleButton).toHaveTextContent('Resume nightly sync'),
     );
     expect(titleButton).toBeEnabled();
     expect(titleButton).toHaveAccessibleName('Copy flow title');
-
     await user.click(titleButton);
     await waitFor(() =>
       expect(
@@ -287,27 +260,20 @@ describe('Flows page composer parity', () => {
       ).not.toBeInTheDocument(),
     );
   });
-
   it('shows the repository source under each flow option in the selector', async () => {
     const user = userEvent.setup();
     installFlowsComposerMocks();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await user.click(await screen.findByTestId('flow-select-trigger'));
     const selector = await screen.findByTestId('flow-selector-content');
-
     expect(within(selector).getByText('daily')).toBeInTheDocument();
     expect(within(selector).getByText('Repo Alpha')).toBeInTheDocument();
   });
-
   it('shows the shared conversation-header new action on Flows', async () => {
     installFlowsComposerMocks();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const newButton = await screen.findByTestId('conversation-new');
     expect(newButton).toBeVisible();
     expect(newButton).toHaveAccessibleName('New flow');

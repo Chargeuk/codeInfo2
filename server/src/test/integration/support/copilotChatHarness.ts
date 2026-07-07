@@ -19,6 +19,10 @@ import {
   type MockCopilotSdkHarness,
   type MockCopilotSdkScenario,
 } from '../../support/mockCopilotSdk.js';
+import {
+  clearScopedTestEnvValue,
+  setScopedTestEnvValue,
+} from '../../support/processEnvIsolation.js';
 import { resolveConfiguredTestTimeoutMs } from '../../support/testTimeouts.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
@@ -30,17 +34,17 @@ const env = {
       this.snapshot.set(key, process.env[key]);
     }
     if (value === undefined) {
-      delete process.env[key];
+      clearScopedTestEnvValue(key);
     } else {
-      process.env[key] = value;
+      setScopedTestEnvValue(key, value);
     }
   },
   restore() {
     for (const [key, value] of this.snapshot.entries()) {
       if (value === undefined) {
-        delete process.env[key];
+        clearScopedTestEnvValue(key);
       } else {
-        process.env[key] = value;
+        setScopedTestEnvValue(key, value);
       }
     }
     this.snapshot.clear();

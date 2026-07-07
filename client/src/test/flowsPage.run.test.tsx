@@ -10,27 +10,26 @@ import {
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
-
 const mockFetch = jest.fn<typeof fetch>();
-
 beforeAll(() => {
-  process.env.MODE = 'test';
+  setScopedTestEnvValue('MODE', 'test');
   global.fetch = mockFetch;
 });
-
 beforeEach(() => {
   mockFetch.mockReset();
   (
-    globalThis as unknown as { __wsMock?: { reset: () => void } }
+    globalThis as unknown as {
+      __wsMock?: {
+        reset: () => void;
+      };
+    }
   ).__wsMock?.reset();
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
-
 const { default: App } = await import('../App');
 const { default: FlowsPage } = await import('../pages/FlowsPage');
 const { default: HomePage } = await import('../pages/HomePage');
-
 const routes = [
   {
     path: '/',
@@ -41,14 +40,17 @@ const routes = [
     ],
   },
 ];
-
 const defaultDirs = {
   base: '/base',
   path: '/base',
   dirs: ['repo'],
 };
-
-function mockJsonResponse(payload: unknown, init?: { status?: number }) {
+function mockJsonResponse(
+  payload: unknown,
+  init?: {
+    status?: number;
+  },
+) {
   return Promise.resolve(
     new Response(JSON.stringify(payload), {
       status: init?.status ?? 200,
@@ -56,7 +58,6 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
     }),
   );
 }
-
 function mockDailyFlowListOrDetailsResponse(
   target: string,
   flows: Array<{
@@ -89,7 +90,6 @@ function mockDailyFlowListOrDetailsResponse(
   }
   return mockJsonResponse({ flows });
 }
-
 function mockFlowsFetch(options?: {
   dirs?: typeof defaultDirs | ((path: string | undefined) => unknown) | unknown;
 }) {
@@ -110,20 +110,16 @@ function mockFlowsFetch(options?: {
       typeof url.method === 'string'
         ? url.method
         : undefined);
-
     if (target.includes('/health')) {
       return mockJsonResponse({ mongoConnected: true });
     }
-
     const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
     if (flowListOrDetails) {
       return flowListOrDetails;
     }
-
     if (target.includes('/conversations/') && target.includes('/turns')) {
       return mockJsonResponse({ items: [] });
     }
-
     if (
       target.includes('/conversations/') &&
       target.includes('/working-folder') &&
@@ -149,7 +145,6 @@ function mockFlowsFetch(options?: {
         },
       });
     }
-
     if (target.includes('/conversations')) {
       return mockJsonResponse({
         items: [
@@ -167,7 +162,6 @@ function mockFlowsFetch(options?: {
         ],
       });
     }
-
     if (target.includes('/ingest/dirs')) {
       const path = new URL(target).searchParams.get('path') ?? undefined;
       const dirs =
@@ -176,15 +170,17 @@ function mockFlowsFetch(options?: {
           : (options?.dirs ?? defaultDirs);
       return mockJsonResponse(dirs);
     }
-
     return mockJsonResponse({});
   });
 }
-
 function emitWsEvent(event: Record<string, unknown>) {
   const wsRegistry = (
     globalThis as unknown as {
-      __wsMock?: { last: () => { _receive: (data: unknown) => void } | null };
+      __wsMock?: {
+        last: () => {
+          _receive: (data: unknown) => void;
+        } | null;
+      };
     }
   ).__wsMock;
   const ws = wsRegistry?.last();
@@ -193,7 +189,6 @@ function emitWsEvent(event: Record<string, unknown>) {
     ws._receive(event);
   });
 }
-
 function emitInflightSnapshot(payload: {
   conversationId: string;
   inflightId: string | null;
@@ -212,17 +207,14 @@ function emitInflightSnapshot(payload: {
     },
   });
 }
-
 async function selectFirstConversation() {
   const rows = await screen.findAllByTestId('conversation-row');
   await userEvent.click(rows[0]);
 }
-
 async function openFlowInfoSurface() {
   await userEvent.click(await screen.findByTestId('flow-info'));
   return screen.findByTestId('flow-info-popover');
 }
-
 async function selectDailyFlow() {
   const flowTrigger = await screen.findByTestId('flow-select-trigger');
   await waitFor(() => expect(flowTrigger).toBeEnabled());
@@ -233,13 +225,11 @@ async function selectDailyFlow() {
   );
   await waitFor(() => expect(flowTrigger).toHaveTextContent('daily'));
 }
-
 async function waitForFlowTitle(title: string) {
   await waitFor(() =>
     expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent(title),
   );
 }
-
 function setupFlowsRunHarness(options?: {
   conversations?: unknown;
   turns?: unknown;
@@ -265,7 +255,6 @@ function setupFlowsRunHarness(options?: {
     nextCursor: null,
   }) as Record<string, unknown>;
   const workingFolderBodies: Array<Record<string, unknown>> = [];
-
   const harness = setupChatWsHarness({
     mockFetch,
     health: (options?.health ?? { mongoConnected: true }) as Record<
@@ -294,7 +283,6 @@ function setupFlowsRunHarness(options?: {
         typeof url.method === 'string'
           ? url.method
           : undefined);
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(
         target,
         (options?.flows ?? [
@@ -310,7 +298,6 @@ function setupFlowsRunHarness(options?: {
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/flows/daily/run')) {
         return mockJsonResponse(
           options?.runResponse ?? {
@@ -323,7 +310,6 @@ function setupFlowsRunHarness(options?: {
           },
         );
       }
-
       if (
         target.includes('/conversations/') &&
         target.includes('/working-folder') &&
@@ -352,28 +338,22 @@ function setupFlowsRunHarness(options?: {
           },
         });
       }
-
       return mockJsonResponse({});
     },
   });
-
   return {
     ...harness,
     workingFolderBodies,
   };
 }
-
 describe('Flows page run/resume controls', () => {
   it('renders the custom title input', async () => {
     mockFlowsFetch();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const customTitleInput = await screen.findByTestId('flow-custom-title');
     expect(customTitleInput).toBeInTheDocument();
   });
-
   it('renders existing flow transcript turns in chronological top-to-bottom order', async () => {
     setupFlowsRunHarness({
       turns: {
@@ -402,23 +382,19 @@ describe('Flows page run/resume controls', () => {
         nextCursor: null,
       },
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectFirstConversation();
     const transcript = await screen.findByTestId('flows-transcript');
     await waitFor(() =>
       expect(screen.getAllByTestId('chat-bubble')).toHaveLength(2),
     );
-
     const older = within(transcript).getByText('Reply with a short greeting.');
     const newer = within(transcript).getByText('Hello. No tools were used.');
     expect(
       older.compareDocumentPosition(newer) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
-
   it('disables the custom title input during resume and inflight states', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation(
@@ -439,20 +415,16 @@ describe('Flows page run/resume controls', () => {
           typeof url.method === 'string'
             ? url.method
             : undefined);
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
         if (flowListOrDetails) {
           return flowListOrDetails;
         }
-
         if (target.includes('/conversations/') && target.includes('/turns')) {
           return mockJsonResponse({ items: [] });
         }
-
         if (
           target.includes('/conversations/') &&
           target.includes('/working-folder') &&
@@ -480,7 +452,6 @@ describe('Flows page run/resume controls', () => {
             },
           });
         }
-
         if (target.includes('/conversations')) {
           return mockJsonResponse({
             items: [
@@ -498,42 +469,33 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         return mockJsonResponse({});
       },
     );
-
     const resumeRouter = createMemoryRouter(routes, {
       initialEntries: ['/flows'],
     });
     const { unmount } = render(<RouterProvider router={resumeRouter} />);
-
     await selectFirstConversation();
     const resumeTitleInput = await screen.findByTestId('flow-custom-title');
     await waitFor(() => expect(resumeTitleInput).toBeDisabled());
     unmount();
-
     let resolveRun: ((value: Response) => void) | undefined;
     const runPromise = new Promise<Response>((resolve) => {
       resolveRun = resolve;
     });
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -551,36 +513,27 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/flows/daily/run')) {
         return runPromise;
       }
-
       return mockJsonResponse({});
     });
-
     const runRouter = createMemoryRouter(routes, {
       initialEntries: ['/flows'],
     });
     render(<RouterProvider router={runRouter} />);
-
     await selectFirstConversation();
     const runTitleInput = await screen.findByTestId('flow-custom-title');
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
-
     await act(async () => {
       fireEvent.click(runButton);
     });
-
     await waitFor(() => expect(runTitleInput).toBeDisabled());
-
     if (!resolveRun) {
       throw new Error('Expected flow run promise resolver to be assigned');
     }
-
     const completeRun = resolveRun;
-
     await act(async () => {
       completeRun(
         new Response(
@@ -600,27 +553,21 @@ describe('Flows page run/resume controls', () => {
       );
     });
   });
-
   it('resumes a flow with working folder and selected conversation id', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -638,7 +585,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/flows/daily/run')) {
         return mockJsonResponse({
           status: 'started',
@@ -649,21 +595,16 @@ describe('Flows page run/resume controls', () => {
           modelId: 'gpt-5',
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectFirstConversation();
     const workingFolderInput = await screen.findByTestId('flow-working-folder');
     fireEvent.change(workingFolderInput, { target: { value: '/tmp/work' } });
-
     const resumeButton = await screen.findByTestId('flow-resume');
     await waitFor(() => expect(resumeButton).toBeEnabled());
     await user.click(resumeButton);
-
     await waitFor(() => {
       const runCall = mockFetch.mock.calls.find(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -676,19 +617,15 @@ describe('Flows page run/resume controls', () => {
       expect(body.working_folder).toBe('/tmp/work');
     });
   });
-
   it('still starts a fresh run when flow details fail to load but the summary stays enabled', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const target = typeof url === 'string' ? url : url.toString();
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         if (target.includes('/flows/daily/run')) {
           return mockJsonResponse(
             {
@@ -702,18 +639,15 @@ describe('Flows page run/resume controls', () => {
             { status: 202 },
           );
         }
-
         if (target.includes('/flows/daily')) {
           return mockJsonResponse(
             { error: 'flow_details_failed' },
             { status: 500 },
           );
         }
-
         if (target.includes('/conversations/') && target.includes('/turns')) {
           return mockJsonResponse({ items: [] });
         }
-
         if (target.includes('/conversations')) {
           return mockJsonResponse({
             items: [
@@ -731,7 +665,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (target.includes('/flows')) {
           return mockJsonResponse({
             flows: [
@@ -739,7 +672,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (
           target.includes('/conversations/') &&
           target.includes('/working-folder') &&
@@ -759,19 +691,15 @@ describe('Flows page run/resume controls', () => {
             },
           });
         }
-
         return mockJsonResponse({});
       },
     );
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectFirstConversation();
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     await waitFor(() => {
       const runCall = mockFetch.mock.calls.find(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -780,19 +708,15 @@ describe('Flows page run/resume controls', () => {
     });
     expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
   });
-
   it('still resumes when flow details fail to load but the summary stays enabled', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const target = typeof url === 'string' ? url : url.toString();
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         if (target.includes('/flows/daily/run')) {
           return mockJsonResponse(
             {
@@ -806,18 +730,15 @@ describe('Flows page run/resume controls', () => {
             { status: 202 },
           );
         }
-
         if (target.includes('/flows/daily')) {
           return mockJsonResponse(
             { error: 'flow_details_failed' },
             { status: 500 },
           );
         }
-
         if (target.includes('/conversations/') && target.includes('/turns')) {
           return mockJsonResponse({ items: [] });
         }
-
         if (target.includes('/conversations')) {
           return mockJsonResponse({
             items: [
@@ -835,7 +756,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (target.includes('/flows')) {
           return mockJsonResponse({
             flows: [
@@ -843,7 +763,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (
           target.includes('/conversations/') &&
           target.includes('/working-folder') &&
@@ -863,19 +782,15 @@ describe('Flows page run/resume controls', () => {
             },
           });
         }
-
         return mockJsonResponse({});
       },
     );
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectFirstConversation();
     const resumeButton = await screen.findByTestId('flow-resume');
     await waitFor(() => expect(resumeButton).toBeEnabled());
     await user.click(resumeButton);
-
     await waitFor(() => {
       const runCall = mockFetch.mock.calls.find(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -884,29 +799,23 @@ describe('Flows page run/resume controls', () => {
     });
     expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
   });
-
   it('clears stale launch state during a fresh pending run and repopulates providerId and warnings from the first response', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
     let runRequestCount = 0;
     let resolveSecondRun: ((response: Response) => void) | null = null;
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -924,7 +833,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/flows/daily/run')) {
         runRequestCount += 1;
         if (runRequestCount === 1) {
@@ -937,18 +845,14 @@ describe('Flows page run/resume controls', () => {
             { status: 503 },
           );
         }
-
         return new Promise<Response>((resolve) => {
           resolveSecondRun = resolve;
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectFirstConversation();
     expect(await screen.findByTestId('flow-info')).toBeEnabled();
     const infoPopover = await openFlowInfoSurface();
@@ -958,32 +862,26 @@ describe('Flows page run/resume controls', () => {
     expect(
       within(await infoPopover).getByTestId('composer-info-section-runtime'),
     ).toHaveTextContent('Modelgpt-5');
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     const firstError = await screen.findByTestId('flows-run-error');
     expect(firstError).toHaveTextContent('First provider unavailable.');
     expect(firstError).toHaveAttribute(
       'data-error-code',
       'PROVIDER_UNAVAILABLE',
     );
-
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     await waitFor(() =>
       expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
     );
     expect(
       screen.queryByTestId('flows-launch-warnings'),
     ).not.toBeInTheDocument();
-
     if (!resolveSecondRun) {
       throw new Error('Expected the second flow run promise resolver');
     }
-
     await act(async () => {
       resolveSecondRun?.(
         new Response(
@@ -1003,7 +901,6 @@ describe('Flows page run/resume controls', () => {
         ),
       );
     });
-
     await waitFor(() =>
       expect(
         within(screen.getByTestId('flow-info-popover')).getByTestId(
@@ -1020,27 +917,21 @@ describe('Flows page run/resume controls', () => {
       'fell back to provider "lmstudio"',
     );
   });
-
   it('starts a fresh run with a new conversation id and preserved custom title even when an older flow conversation is selected', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -1058,7 +949,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/flows/daily/run')) {
         const body =
           mockFetch.mock.calls.at(-1)?.[1]?.body &&
@@ -1079,24 +969,19 @@ describe('Flows page run/resume controls', () => {
           modelId: 'gpt-5',
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectDailyFlow();
     await selectFirstConversation();
     await user.type(
       await screen.findByTestId('flow-custom-title'),
       'Daily recap',
     );
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     await waitFor(() => {
       const runCall = mockFetch.mock.calls.find(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -1108,13 +993,11 @@ describe('Flows page run/resume controls', () => {
       expect(body.customTitle).toBe('Daily recap');
     });
   });
-
   it('keeps the accepted flow conversation selected when the follow-up refresh fails', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
     const acceptedConversationId = 'flow-accepted-1';
     let conversationsFetchCount = 0;
-
     mockFetch.mockImplementation(
       async (url: RequestInfo | URL, init?: RequestInit) => {
         const target =
@@ -1133,16 +1016,13 @@ describe('Flows page run/resume controls', () => {
           typeof url.method === 'string'
             ? url.method
             : undefined);
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
         if (flowListOrDetails) {
           return flowListOrDetails;
         }
-
         if (target.includes('/conversations/flow-1/turns')) {
           return mockJsonResponse({
             items: [
@@ -1158,7 +1038,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (target.includes(`/conversations/${acceptedConversationId}/turns`)) {
           return mockJsonResponse({
             items: [
@@ -1174,7 +1053,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (
           target.includes('/conversations/') &&
           target.includes('/working-folder') &&
@@ -1194,7 +1072,6 @@ describe('Flows page run/resume controls', () => {
             },
           });
         }
-
         if (target.includes('/conversations') && !target.includes('/turns')) {
           conversationsFetchCount += 1;
           if (conversationsFetchCount >= 2) {
@@ -1226,7 +1103,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (target.includes('/flows/daily/run')) {
           return mockJsonResponse(
             {
@@ -1240,19 +1116,15 @@ describe('Flows page run/resume controls', () => {
             { status: 202 },
           );
         }
-
         return mockJsonResponse({});
       },
     );
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectDailyFlow();
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     await waitFor(() =>
       expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
     );
@@ -1265,27 +1137,21 @@ describe('Flows page run/resume controls', () => {
       expect(screen.getByTestId('conversation-error')).toBeInTheDocument(),
     );
   });
-
   it('omits stale customTitle when Run starts fresh from a resumable selected conversation', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -1307,7 +1173,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/flows/daily/run')) {
         const body =
           mockFetch.mock.calls.at(-1)?.[1]?.body &&
@@ -1328,27 +1193,21 @@ describe('Flows page run/resume controls', () => {
           modelId: 'gpt-5',
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectDailyFlow();
     const titleInput = await screen.findByTestId('flow-custom-title');
     await user.click(screen.getByTestId('flow-new'));
     await waitFor(() => expect(titleInput).toBeEnabled());
     await user.type(titleInput, 'Should not leak');
-
     await selectFirstConversation();
     await waitFor(() => expect(titleInput).toBeDisabled());
     await user.click(screen.getByTestId('flow-new'));
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     await waitFor(() => {
       const runCall = mockFetch.mock.calls.find(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -1360,29 +1219,23 @@ describe('Flows page run/resume controls', () => {
       expect(body.customTitle).toBeUndefined();
     });
   });
-
   it('includes customTitle when starting a new flow run', async () => {
     const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/flows/daily/run')) {
         return mockJsonResponse({
           status: 'started',
@@ -1393,23 +1246,18 @@ describe('Flows page run/resume controls', () => {
           modelId: 'gpt-5',
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const titleInput = await screen.findByTestId('flow-custom-title');
     await waitFor(() => expect(screen.getByTestId('flow-new')).toBeEnabled());
     await user.click(screen.getByTestId('flow-new'));
     await waitFor(() => expect(titleInput).toBeEnabled());
     await user.type(titleInput, 'Daily recap');
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     await waitFor(() => {
       const runCall = mockFetch.mock.calls.find(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -1420,52 +1268,40 @@ describe('Flows page run/resume controls', () => {
       expect(body.customTitle).toBe('Daily recap');
     });
   });
-
   it('blocks same-frame duplicate fresh runs, mints one client conversation id, and re-enables retry after resolve', async () => {
     const user = userEvent.setup();
     let resolveRun: ((value: Response) => void) | undefined;
     const runPromise = new Promise<Response>((resolve) => {
       resolveRun = resolve;
     });
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/flows/daily/run')) {
         return runPromise;
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
-
     await act(async () => {
       fireEvent.click(runButton);
       fireEvent.click(runButton);
     });
-
     await waitFor(() => {
       const runCalls = mockFetch.mock.calls.filter(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -1483,12 +1319,10 @@ describe('Flows page run/resume controls', () => {
     >;
     expect(typeof firstBody.conversationId).toBe('string');
     expect(firstBody.conversationId).not.toBe('');
-
     const completeRun = resolveRun;
     if (!completeRun) {
       throw new Error('Expected fresh flow run promise resolver to be set');
     }
-
     await act(async () => {
       completeRun(
         new Response(
@@ -1507,11 +1341,8 @@ describe('Flows page run/resume controls', () => {
         ),
       );
     });
-
     await waitFor(() => expect(runButton).toBeEnabled());
-
     await user.click(runButton);
-
     await waitFor(() => {
       const runCalls = mockFetch.mock.calls.filter(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -1530,13 +1361,11 @@ describe('Flows page run/resume controls', () => {
     expect(secondBody.conversationId).toBeDefined();
     expect(secondBody.conversationId).not.toBe(firstBody.conversationId);
   });
-
   it('keeps one retry ownership token across an ambiguous fresh-run failure and reuses it on the retry', async () => {
     const user = userEvent.setup();
     const flowRows: Array<Record<string, unknown>> = [];
     const requestBodies: Record<string, unknown>[] = [];
     let acceptedConversationId: string | null = null;
-
     mockFetch.mockImplementation(
       async (url: RequestInfo | URL, init?: RequestInit) => {
         const target =
@@ -1555,11 +1384,9 @@ describe('Flows page run/resume controls', () => {
           typeof url.method === 'string'
             ? url.method
             : undefined);
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         if (target.includes('/flows/echo?') || target.endsWith('/flows/echo')) {
           return mockJsonResponse({
             flow: {
@@ -1570,18 +1397,15 @@ describe('Flows page run/resume controls', () => {
             },
           });
         }
-
         const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target, [
           { name: 'echo', description: 'Echo flow', disabled: false },
         ]);
         if (flowListOrDetails) {
           return flowListOrDetails;
         }
-
         if (target.includes('/conversations/') && target.includes('/turns')) {
           return mockJsonResponse({ items: [] });
         }
-
         if (
           target.includes('/conversations/') &&
           target.includes('/working-folder') &&
@@ -1601,11 +1425,9 @@ describe('Flows page run/resume controls', () => {
             },
           });
         }
-
         if (target.includes('/conversations')) {
           return mockJsonResponse({ items: flowRows });
         }
-
         if (target.includes('/flows/echo/run')) {
           const body =
             typeof init?.body === 'string'
@@ -1617,12 +1439,10 @@ describe('Flows page run/resume controls', () => {
             typeof body.conversationId === 'string'
               ? body.conversationId
               : `flow-run-${runIndex}`;
-
           if (runIndex === 1) {
             acceptedConversationId = freshConversationId;
             throw new TypeError('Network request lost after acceptance');
           }
-
           if (Array.isArray(body.resumeStepPath)) {
             return mockJsonResponse(
               {
@@ -1636,7 +1456,6 @@ describe('Flows page run/resume controls', () => {
               { status: 202 },
             );
           }
-
           const conversationId =
             runIndex === 2 && acceptedConversationId
               ? acceptedConversationId
@@ -1676,7 +1495,6 @@ describe('Flows page run/resume controls', () => {
               },
             });
           }
-
           return mockJsonResponse(
             {
               status: 'started',
@@ -1689,24 +1507,19 @@ describe('Flows page run/resume controls', () => {
             { status: 202 },
           );
         }
-
         return mockJsonResponse({});
       },
     );
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
-
     await user.click(runButton);
     await waitFor(() => expect(requestBodies).toHaveLength(1));
     expect(typeof requestBodies[0].retryOwnershipId).toBe('string');
     expect(requestBodies[0].retryOwnershipId).not.toBe('');
     expect(requestBodies[0]).not.toHaveProperty('resumeStepPath');
     await waitFor(() => expect(runButton).toBeEnabled());
-
     await user.click(runButton);
     await waitFor(() => expect(flowRows).toHaveLength(1));
     await waitFor(() => expect(requestBodies).toHaveLength(2));
@@ -1715,7 +1528,6 @@ describe('Flows page run/resume controls', () => {
     );
     expect(requestBodies[1]).not.toHaveProperty('resumeStepPath');
     expect(flowRows).toHaveLength(1);
-
     await selectFirstConversation();
     await waitFor(() =>
       expect(screen.getByTestId('flow-resume')).toBeEnabled(),
@@ -1723,7 +1535,6 @@ describe('Flows page run/resume controls', () => {
     await user.click(screen.getByTestId('flow-resume'));
     await waitFor(() => expect(requestBodies).toHaveLength(3));
     expect(requestBodies[2]).not.toHaveProperty('retryOwnershipId');
-
     await user.click(screen.getByTestId('flow-new'));
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
     await user.click(screen.getByTestId('flow-run'));
@@ -1735,23 +1546,18 @@ describe('Flows page run/resume controls', () => {
     );
     await waitFor(() => expect(flowRows).toHaveLength(2));
   });
-
   it('does not clone stale transcript turns into a failed fresh run conversation', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({
           items: [
@@ -1768,7 +1574,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -1786,7 +1591,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/flows/daily/run')) {
         return Promise.resolve(
           new Response(
@@ -1801,39 +1605,30 @@ describe('Flows page run/resume controls', () => {
           ),
         );
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await selectFirstConversation();
     expect(await screen.findByText('Earlier flow output')).toBeInTheDocument();
-
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);
-
     expect(await screen.findByText('Flow request failed')).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByText('Earlier flow output')).not.toBeInTheDocument(),
     );
   });
-
   it('keeps the earlier assistant bubble visible while the next flow step streams and stale earlier-step replays arrive', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const harness = setupFlowsRunHarness();
-
     try {
       const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
       render(<RouterProvider router={router} />);
-
       await waitForFlowTitle('Flow: daily');
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
-
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
@@ -1844,10 +1639,8 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-1',
         delta: 'First step answer',
       });
-
       expect(await screen.findByText('First step answer')).toBeInTheDocument();
       expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
-
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-2',
@@ -1878,13 +1671,11 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-2',
         delta: 'Second step live',
       });
-
       expect(await screen.findByText('Second step live')).toBeInTheDocument();
       expect(screen.getByText('First step answer')).toBeInTheDocument();
       expect(screen.queryByText('Run step one replay')).not.toBeInTheDocument();
       expect(screen.queryByText('First step answer hidden')).toBeNull();
       expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
-
       const retainedLog = logSpy.mock.calls.find(([entry]) => {
         if (!entry || typeof entry !== 'object') return false;
         const record = entry as {
@@ -1893,7 +1684,6 @@ describe('Flows page run/resume controls', () => {
         };
         return record.message === 'flows.page.live_transcript_retained';
       });
-
       expect(retainedLog?.[0]).toMatchObject({
         message: 'flows.page.live_transcript_retained',
         context: expect.objectContaining({
@@ -1921,17 +1711,14 @@ describe('Flows page run/resume controls', () => {
       logSpy.mockRestore();
     }
   });
-
   it('keeps the earlier flow bubble visible while the later step continues streaming its own text', async () => {
     const harness = setupFlowsRunHarness();
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await waitFor(() =>
       expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
     );
-
     harness.emitUserTurn({
       conversationId: 'flow-1',
       inflightId: 'flow-step-1',
@@ -1942,9 +1729,7 @@ describe('Flows page run/resume controls', () => {
       inflightId: 'flow-step-1',
       delta: 'First step answer',
     });
-
     expect(await screen.findByText('First step answer')).toBeInTheDocument();
-
     harness.emitUserTurn({
       conversationId: 'flow-1',
       inflightId: 'flow-step-2',
@@ -1960,18 +1745,18 @@ describe('Flows page run/resume controls', () => {
       inflightId: 'flow-step-2',
       delta: ' still streaming',
     });
-
     expect(
       await screen.findByText('Second step still streaming'),
     ).toBeInTheDocument();
     expect(screen.getByText('First step answer')).toBeInTheDocument();
   });
-
   it('clears stale virtualized rows when switching from a populated flow conversation to an empty one', async () => {
     const user = userEvent.setup();
     const turnsByConversation: Record<
       string,
-      { items: Record<string, unknown>[] }
+      {
+        items: Record<string, unknown>[];
+      }
     > = {
       'flow-1': {
         items: [
@@ -1999,7 +1784,6 @@ describe('Flows page run/resume controls', () => {
       },
       'flow-2': { items: [] },
     };
-
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const target =
@@ -2018,16 +1802,13 @@ describe('Flows page run/resume controls', () => {
           typeof url.method === 'string'
             ? url.method
             : undefined);
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
         if (flowListOrDetails) {
           return flowListOrDetails;
         }
-
         const turnsMatch = target.match(/\/conversations\/([^/]+)\/turns/);
         if (turnsMatch) {
           const conversationId = turnsMatch[1] ?? '';
@@ -2036,7 +1817,6 @@ describe('Flows page run/resume controls', () => {
             nextCursor: null,
           });
         }
-
         if (
           target.includes('/conversations/') &&
           target.includes('/working-folder') &&
@@ -2056,7 +1836,6 @@ describe('Flows page run/resume controls', () => {
             },
           });
         }
-
         if (target.includes('/conversations')) {
           return mockJsonResponse({
             items: [
@@ -2086,58 +1865,47 @@ describe('Flows page run/resume controls', () => {
             nextCursor: null,
           });
         }
-
         return mockJsonResponse({});
       },
     );
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const flowRows = await screen.findAllByTestId('conversation-row');
     const firstRow = flowRows.find((row) =>
       within(row).queryByText('Flow: daily'),
     );
     expect(firstRow).toBeTruthy();
     await user.click(firstRow!);
-
     expect(await screen.findByText('Run step one')).toBeInTheDocument();
     expect(await screen.findByText('First step answer')).toBeInTheDocument();
-
     const secondConversation = await screen.findByText('Flow: nightly');
     const secondRow = secondConversation.closest(
       '[data-testid="conversation-row"]',
     );
     expect(secondRow).toBeTruthy();
     await user.click(secondRow!);
-
     await waitFor(() => {
       expect(screen.queryByText('Run step one')).toBeNull();
       expect(screen.queryByText('First step answer')).toBeNull();
       expect(screen.queryAllByTestId('chat-bubble')).toHaveLength(0);
     });
   });
-
   it('keeps visible transcript text if a flow refresh temporarily omits the active conversation while streaming', async () => {
     const user = userEvent.setup();
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
     let conversationsRequestCount = 0;
     let runRequested = false;
-
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const target = typeof url === 'string' ? url : url.toString();
-
         if (target.includes('/health')) {
           return mockJsonResponse({ mongoConnected: true });
         }
-
         const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
         if (flowListOrDetails) {
           return flowListOrDetails;
         }
-
         if (target.includes('/conversations/flow-1/turns')) {
           return mockJsonResponse({
             items: [
@@ -2154,7 +1922,6 @@ describe('Flows page run/resume controls', () => {
             ],
           });
         }
-
         if (target.includes('/conversations') && init?.method !== 'POST') {
           conversationsRequestCount += 1;
           if (!runRequested || conversationsRequestCount < 3) {
@@ -2176,7 +1943,6 @@ describe('Flows page run/resume controls', () => {
           }
           return mockJsonResponse({ items: [] });
         }
-
         if (target.includes('/flows/daily/run')) {
           runRequested = true;
           return mockJsonResponse({
@@ -2188,21 +1954,16 @@ describe('Flows page run/resume controls', () => {
             modelId: 'gpt-5',
           });
         }
-
         return mockJsonResponse({});
       },
     );
-
     try {
       const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
       render(<RouterProvider router={router} />);
-
       expect(await screen.findByText('Earlier output')).toBeInTheDocument();
-
       const resumeButton = await screen.findByTestId('flow-resume');
       await waitFor(() => expect(resumeButton).toBeEnabled());
       await user.click(resumeButton);
-
       emitWsEvent({
         protocolVersion: 'v1',
         type: 'user_turn',
@@ -2228,7 +1989,6 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-2',
         delta: ' still running',
       });
-
       expect(await screen.findByText('Earlier output')).toBeInTheDocument();
       expect(
         await screen.findByText('Latest live output still running'),
@@ -2237,8 +1997,11 @@ describe('Flows page run/resume controls', () => {
       const hiddenLogs = logSpy.mock.calls.filter(([entry]) => {
         if (!entry || typeof entry !== 'object') return false;
         return (
-          (entry as { message?: string }).message ===
-          'flows.page.active_conversation_temporarily_hidden'
+          (
+            entry as {
+              message?: string;
+            }
+          ).message === 'flows.page.active_conversation_temporarily_hidden'
         );
       });
       expect(hiddenLogs).toHaveLength(1);
@@ -2246,20 +2009,16 @@ describe('Flows page run/resume controls', () => {
       logSpy.mockRestore();
     }
   });
-
   it('drops stale invisible retention candidates so later visible step transitions can still be logged', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const harness = setupFlowsRunHarness();
-
     try {
       const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
       render(<RouterProvider router={router} />);
-
       await waitForFlowTitle('Flow: daily');
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
-
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
@@ -2271,13 +2030,11 @@ describe('Flows page run/resume controls', () => {
         delta: 'First step answer',
       });
       expect(await screen.findByText('First step answer')).toBeInTheDocument();
-
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-2',
         content: 'Run silent step two',
       });
-
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-3',
@@ -2291,7 +2048,6 @@ describe('Flows page run/resume controls', () => {
       expect(
         (await screen.findAllByText('Third step answer')).length,
       ).toBeGreaterThan(0);
-
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-4',
@@ -2305,18 +2061,22 @@ describe('Flows page run/resume controls', () => {
       expect(
         (await screen.findAllByText('Fourth step answer')).length,
       ).toBeGreaterThan(0);
-
       await waitFor(() => {
         const retainedLogs = logSpy.mock.calls
           .map(([entry]) => entry)
           .filter((entry) => {
             if (!entry || typeof entry !== 'object') return false;
             return (
-              (entry as { message?: string }).message ===
-              'flows.page.live_transcript_retained'
+              (
+                entry as {
+                  message?: string;
+                }
+              ).message === 'flows.page.live_transcript_retained'
             );
-          }) as Array<{ context?: Record<string, unknown>; message?: string }>;
-
+          }) as Array<{
+          context?: Record<string, unknown>;
+          message?: string;
+        }>;
         expect(retainedLogs).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
@@ -2333,20 +2093,16 @@ describe('Flows page run/resume controls', () => {
       logSpy.mockRestore();
     }
   });
-
   it('logs the latest real flow step transition even if an older step replay arrives in between', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const harness = setupFlowsRunHarness();
-
     try {
       const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
       render(<RouterProvider router={router} />);
-
       await waitForFlowTitle('Flow: daily');
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
-
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
@@ -2383,18 +2139,22 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-3',
         delta: 'Third step answer',
       });
-
       await waitFor(() => {
         const retainedLogs = logSpy.mock.calls
           .map(([entry]) => entry)
           .filter((entry) => {
             if (!entry || typeof entry !== 'object') return false;
             return (
-              (entry as { message?: string }).message ===
-              'flows.page.live_transcript_retained'
+              (
+                entry as {
+                  message?: string;
+                }
+              ).message === 'flows.page.live_transcript_retained'
             );
-          }) as Array<{ context?: Record<string, unknown>; message?: string }>;
-
+          }) as Array<{
+          context?: Record<string, unknown>;
+          message?: string;
+        }>;
         expect(retainedLogs).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
@@ -2418,23 +2178,18 @@ describe('Flows page run/resume controls', () => {
       logSpy.mockRestore();
     }
   });
-
   it('clears transcript and active conversation on New Flow', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/flow-1/turns')) {
         return mockJsonResponse({
           items: [
@@ -2451,7 +2206,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -2469,18 +2223,13 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     expect(await screen.findByText('Hello from flow')).toBeInTheDocument();
-
     const newFlowButton = await screen.findByTestId('flow-new');
     await user.click(newFlowButton);
-
     expect(
       await screen.findByText(
         'Transcript will appear here once a flow run starts.',
@@ -2490,27 +2239,21 @@ describe('Flows page run/resume controls', () => {
       expect(screen.getByTestId('flow-custom-title')).toBeEnabled(),
     );
   });
-
   it('keeps the selected flow and run button enabled after New Flow', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -2528,42 +2271,31 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
-
     const newFlowButton = await screen.findByTestId('flow-new');
     await user.click(newFlowButton);
-
     expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent('daily');
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
   });
-
   it('resets custom title and working folder on New Flow', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -2581,28 +2313,21 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const customTitleInput = await screen.findByTestId('flow-custom-title');
     const workingFolderInput = await screen.findByTestId('flow-working-folder');
     await user.type(customTitleInput, 'Daily prep');
     await user.type(workingFolderInput, '/tmp/work');
-
     const newFlowButton = await screen.findByTestId('flow-new');
     await user.click(newFlowButton);
-
     expect(screen.getByTestId('flow-custom-title')).toHaveValue('');
     expect(screen.getByTestId('flow-working-folder')).toHaveValue('');
   });
-
   it('writes the selected folder into the working folder input', async () => {
     const user = userEvent.setup();
-
     mockFlowsFetch({
       dirs: (path: string | undefined) => {
         if (path === '/base/repo') {
@@ -2611,51 +2336,38 @@ describe('Flows page run/resume controls', () => {
         return defaultDirs;
       },
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
-
     await act(async () => {
       await user.click(screen.getByTestId('flow-working-folder-picker'));
     });
-
     const childDir = await screen.findByRole('button', { name: 'repo' });
     await act(async () => {
       await user.click(childDir);
     });
-
     await act(async () => {
       await user.click(screen.getByRole('button', { name: 'Use this folder' }));
     });
-
     const workingFolder = await screen.findByTestId('flow-working-folder');
     expect(workingFolder).toHaveValue('/base/repo');
   });
-
   it('keeps the working folder value on picker errors', async () => {
     const user = userEvent.setup();
     mockFlowsFetch({ dirs: { status: 'error', code: 'NOT_FOUND' } });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
-
     const workingFolder = await screen.findByTestId('flow-working-folder');
     await user.type(workingFolder, '/existing/path');
-
     await act(async () => {
       await user.click(screen.getByTestId('flow-working-folder-picker'));
     });
-
     await screen.findByText(/unable to list directories/i);
     expect(screen.getByTestId('flow-working-folder')).toHaveValue(
       '/existing/path',
     );
   });
-
   it('restores the saved working folder from conversation state', async () => {
     const harness = setupFlowsRunHarness({
       conversations: {
@@ -2675,47 +2387,34 @@ describe('Flows page run/resume controls', () => {
         nextCursor: null,
       },
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-
     expect(await screen.findByTestId('flow-working-folder')).toHaveValue(
       '/repos/flow',
     );
-
     expect(harness.getConversationId()).toBeNull();
   });
-
   it('shows the normal empty state when no saved working folder exists', async () => {
     setupFlowsRunHarness();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-
     expect(await screen.findByTestId('flow-working-folder')).toHaveValue('');
   });
-
   it('saves idle edits through the shared conversation helper', async () => {
     const user = userEvent.setup();
     setupFlowsRunHarness();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-
     const workingFolder = await screen.findByTestId('flow-working-folder');
     await user.clear(workingFolder);
     await user.type(workingFolder, '/repos/flow-updated');
     fireEvent.blur(workingFolder);
-
     await waitFor(() => {
       const updateCall = mockFetch.mock.calls.find(([url, init]) => {
         const href = typeof url === 'string' ? url : url.toString();
@@ -2732,48 +2431,37 @@ describe('Flows page run/resume controls', () => {
       expect(body).toEqual({ workingFolder: '/repos/flow-updated' });
     });
   });
-
   it('locks the picker while a flow run is active', async () => {
     const harness = setupFlowsRunHarness();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-
     act(() => {
       harness.emitInflightSnapshot({
         conversationId: 'flow-1',
         inflightId: 'flow-inflight-1',
       });
     });
-
     await waitFor(() =>
       expect(screen.getByTestId('flow-working-folder')).toBeDisabled(),
     );
   });
-
   it('closes an already-open flow directory picker when the working folder locks', async () => {
     const user = userEvent.setup();
     setupFlowsRunHarness();
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-
     await user.click(screen.getByTestId('flow-working-folder-picker'));
     expect(
       await screen.findByRole('dialog', { name: /choose folder…/i }),
     ).toBeInTheDocument();
-
     emitInflightSnapshot({
       conversationId: 'flow-1',
       inflightId: 'flow-inflight-1',
     });
-
     await waitFor(() =>
       expect(
         screen.queryByRole('dialog', { name: /choose folder…/i }),
@@ -2781,7 +2469,6 @@ describe('Flows page run/resume controls', () => {
     );
     expect(screen.getByTestId('flow-working-folder')).toHaveValue('');
   });
-
   it('disables working-folder persistence affordances when persistence is unavailable', async () => {
     const harness = setupFlowsRunHarness({
       health: { mongoConnected: false },
@@ -2802,29 +2489,23 @@ describe('Flows page run/resume controls', () => {
         nextCursor: null,
       },
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await waitFor(() =>
       expect(screen.getByTestId('flow-working-folder')).toHaveValue(
         '/repos/flow',
       ),
     );
-
     expect(screen.getByTestId('flow-run')).toBeDisabled();
     expect(screen.getByTestId('flow-working-folder-trigger')).toBeDisabled();
     expect(screen.getByTestId('flow-working-folder')).toBeDisabled();
     expect(screen.getByTestId('flow-working-folder-picker')).toBeDisabled();
-
     fireEvent.blur(screen.getByTestId('flow-working-folder'));
-
     await waitFor(() => {
       expect(harness.workingFolderBodies).toHaveLength(0);
     });
   });
-
   it('returns to the empty state after the server clears an invalid saved path', async () => {
     const harness = setupFlowsRunHarness({
       conversations: {
@@ -2844,16 +2525,13 @@ describe('Flows page run/resume controls', () => {
         nextCursor: null,
       },
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
     expect(await screen.findByTestId('flow-working-folder')).toHaveValue(
       '/repos/flow',
     );
-
     act(() => {
       harness.emitSidebarUpsert({
         conversationId: 'flow-1',
@@ -2867,12 +2545,10 @@ describe('Flows page run/resume controls', () => {
         flags: {},
       });
     });
-
     await waitFor(() =>
       expect(screen.getByTestId('flow-working-folder')).toHaveValue(''),
     );
   });
-
   it('clears through the shared conversation helper and returns to the empty state', async () => {
     const user = userEvent.setup();
     setupFlowsRunHarness({
@@ -2893,17 +2569,13 @@ describe('Flows page run/resume controls', () => {
         nextCursor: null,
       },
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-
     const workingFolder = await screen.findByTestId('flow-working-folder');
     await user.clear(workingFolder);
     fireEvent.blur(workingFolder);
-
     await waitFor(() => {
       const updateCall = mockFetch.mock.calls.find(([url, init]) => {
         const href = typeof url === 'string' ? url : url.toString();
@@ -2919,32 +2591,25 @@ describe('Flows page run/resume controls', () => {
           : null;
       expect(body).toEqual({ workingFolder: null });
     });
-
     await waitFor(() =>
       expect(screen.getByTestId('flow-working-folder')).toHaveValue(''),
     );
   });
-
   it('includes resumeStepPath when resuming a flow', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -2962,7 +2627,6 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       if (target.includes('/flows/daily/run')) {
         return mockJsonResponse({
           status: 'started',
@@ -2973,17 +2637,13 @@ describe('Flows page run/resume controls', () => {
           modelId: 'gpt-5',
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     const resumeButton = await screen.findByTestId('flow-resume');
     await waitFor(() => expect(resumeButton).toBeEnabled());
     await user.click(resumeButton);
-
     await waitFor(() => {
       const runCall = mockFetch.mock.calls.find(([url]) =>
         String(url).includes('/flows/daily/run'),
@@ -2994,26 +2654,20 @@ describe('Flows page run/resume controls', () => {
       expect(body.resumeStepPath).toEqual([2, 0]);
     });
   });
-
   it('keeps agent conversation upserts out of the Flows sidebar', async () => {
     const now = new Date().toISOString();
-
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
-
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
       }
-
       const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-
       if (target.includes('/conversations/') && target.includes('/turns')) {
         return mockJsonResponse({ items: [] });
       }
-
       if (target.includes('/conversations')) {
         return mockJsonResponse({
           items: [
@@ -3031,15 +2685,11 @@ describe('Flows page run/resume controls', () => {
           ],
         });
       }
-
       return mockJsonResponse({});
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
-
     emitWsEvent({
       protocolVersion: 'v1',
       type: 'conversation_upsert',
@@ -3055,14 +2705,12 @@ describe('Flows page run/resume controls', () => {
         agentName: 'coding_agent',
       },
     });
-
     await waitFor(() => {
       expect(
         screen.queryByText('Agent flow conversation'),
       ).not.toBeInTheDocument();
     });
   });
-
   it('preserves warning status through hydrated turns and live final rendering on the flows transcript surface', async () => {
     setupFlowsRunHarness({
       turns: {
@@ -3081,19 +2729,15 @@ describe('Flows page run/resume controls', () => {
         nextCursor: null,
       },
     });
-
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
-
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-
     expect(
       await screen.findByText('Persisted warning output'),
     ).toBeInTheDocument();
     let statusChips = await screen.findAllByTestId('status-chip');
     expect(statusChips[0]).toHaveTextContent('Warning');
-
     const infoButtons = await screen.findAllByTestId('bubble-info');
     await userEvent.click(infoButtons[0]);
     await waitFor(() =>
@@ -3101,7 +2745,6 @@ describe('Flows page run/resume controls', () => {
         'Status: Warning',
       ),
     );
-
     emitWsEvent({
       protocolVersion: 'v1',
       type: 'user_turn',
@@ -3128,7 +2771,6 @@ describe('Flows page run/resume controls', () => {
       status: 'warning',
       threadId: 'warning-live-1',
     });
-
     expect(await screen.findByText('Live warning output')).toBeInTheDocument();
     await waitFor(() => {
       statusChips = screen.getAllByTestId('status-chip');

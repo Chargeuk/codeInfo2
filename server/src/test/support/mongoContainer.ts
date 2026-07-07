@@ -10,16 +10,26 @@ import {
   isMongoConnected,
 } from '../../mongo/connection.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
+import {
+  setBootstrapTestEnvValue,
+  setScopedTestEnvValue,
+} from './processEnvIsolation.js';
 
 let container: StartedTestContainer | null = null;
 let containerPromise: Promise<StartedTestContainer> | null = null;
 let stopping = false;
-let managedMongoUri: string | null = null;
 const localMongoImage = process.env.CODEINFO_LOCAL_MONGO_IMAGE ?? 'mongo:8.2.9';
 const mongoBootstrapRetryDelaysMs = [0, 500, 1_000];
 
-process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
-process.env.TESTCONTAINERS_HOST_OVERRIDE ??= 'host.docker.internal';
+if (process.env.TESTCONTAINERS_RYUK_DISABLED === undefined) {
+  setBootstrapTestEnvValue('TESTCONTAINERS_RYUK_DISABLED', 'true');
+}
+if (process.env.TESTCONTAINERS_HOST_OVERRIDE === undefined) {
+  setBootstrapTestEnvValue(
+    'TESTCONTAINERS_HOST_OVERRIDE',
+    'host.docker.internal',
+  );
+}
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -36,17 +46,6 @@ const isRetryableMongoBootstrapError = (error: unknown) => {
     /Server selection timed out/i,
     /timed out waiting/i,
   ].some((pattern) => pattern.test(message));
-};
-
-const clearManagedMongoUri = () => {
-  if (
-    managedMongoUri &&
-    process.env.CODEINFO_MONGO_URI &&
-    process.env.CODEINFO_MONGO_URI === managedMongoUri
-  ) {
-    delete process.env.CODEINFO_MONGO_URI;
-  }
-  managedMongoUri = null;
 };
 
 async function resetMongoContainerState(reason: string) {
@@ -76,7 +75,6 @@ async function resetMongoContainerState(reason: string) {
 
   container = null;
   containerPromise = null;
-  clearManagedMongoUri();
 }
 
 async function ensureMongoContainer() {
@@ -130,8 +128,7 @@ async function connectScenarioMongo() {
       const host = started.getHost();
       const port = started.getMappedPort(27017);
       const uri = `mongodb://${host}:${port}/db?directConnection=true`;
-      process.env.CODEINFO_MONGO_URI = uri;
-      managedMongoUri = uri;
+      setScopedTestEnvValue('CODEINFO_MONGO_URI', uri);
 
       stage = 'connect';
       await connectMongo(uri);

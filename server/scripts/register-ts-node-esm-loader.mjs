@@ -61,20 +61,15 @@ ensureSeededProviderHomes();
 
 register('ts-node/esm', pathToFileURL('./'));
 
-const isNodeTestProcess = process.execArgv.some(
-  (arg) => arg === '--test' || arg.startsWith('--test='),
-);
 const isCucumberProcess = process.argv.some((arg) =>
   /(^|\/)cucumber-js(?:$|\.cjs$|\.mjs$)/.test(arg),
 );
-
-if (isNodeTestProcess) {
-  await import('../src/test/support/registerNodeTestEnvIsolation.ts');
-}
 
 if (isCucumberProcess) {
   const { installScopedProcessEnvProxy } = await import(
     '../src/test/support/processEnvIsolation.ts'
   );
   installScopedProcessEnvProxy();
+} else {
+  await import('../src/test/support/registerNodeTestEnvIsolation.ts');
 }

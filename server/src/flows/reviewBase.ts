@@ -134,6 +134,11 @@ const sanitizeGitError = (value: string) =>
   value
     .replace(/(https?:\/\/)[^\s/@:]+:[^\s/@]+@/giu, '$1<redacted>@')
     .replace(/(https?:\/\/)[^\s/@]+@/giu, '$1<redacted>@')
+    .replace(
+      /([?&](?:token|access_token|password|auth|key|secret)=)[^\s&]+/giu,
+      '$1<redacted>',
+    )
+    .replace(/(https?:\/\/[^\s?]+)\?[^\s]+/giu, '$1?<redacted>')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 300);

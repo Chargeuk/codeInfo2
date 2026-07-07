@@ -375,6 +375,136 @@ test('runCodexReviewStep deletes the pinned review-base ref even when codex abor
   }
 });
 
+test('runCodexReviewStep deletes the pinned review-base ref when review setup fails after ref creation', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codex-review-helper-setup-cleanup-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review-base.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+        repo_alias: 'current_repository',
+        repo_root: repoRoot,
+        branch: 'feature/0000027-codex-review',
+        head_commit: HEAD_SHA,
+        logical_base_branch: 'main',
+        resolved_base_branch: 'main',
+        resolved_base_source: 'remote',
+        remote_name: 'origin',
+        remote_fetch_status: 'success',
+        local_fallback_reason: null,
+        comparison_base_ref: 'origin/main',
+        comparison_base_commit: BASE_SHA,
+        comparison_head_ref: 'HEAD',
+        comparison_rule: 'local_head_vs_resolved_base',
+        status: 'completed',
+        started_at: '2026-07-05T16:05:00.000Z',
+        completed_at: '2026-07-05T16:05:01.000Z',
+      }),
+    );
+
+    const setupError = Object.assign(new Error('mkdir failed'), {
+      code: 'ENOSPC',
+    });
+    let cleanupAttempted = false;
+    const execFile = async (file: string, args: readonly string[]) => {
+      if (file === 'git') {
+        const key = args.slice(2).join(' ');
+        switch (key) {
+          case 'rev-parse --show-toplevel':
+            return { stdout: `${repoRoot}\n`, stderr: '' };
+          case 'branch --show-current':
+            return { stdout: 'feature/0000027-codex-review\n', stderr: '' };
+          case 'remote get-url origin':
+            return {
+              stdout: 'git@github.com:Chargeuk/codeInfo2.git\n',
+              stderr: '',
+            };
+          case 'fetch --prune origin':
+            return { stdout: '', stderr: '' };
+          case 'symbolic-ref --short refs/remotes/origin/HEAD':
+            return { stdout: 'origin/main\n', stderr: '' };
+          case 'rev-parse --verify origin/main':
+          case 'rev-parse origin/main^{commit}':
+            return { stdout: `${BASE_SHA}\n`, stderr: '' };
+          case 'rev-parse HEAD^{commit}':
+            return { stdout: `${HEAD_SHA}\n`, stderr: '' };
+          case 'rev-parse --short HEAD^{commit}':
+            return { stdout: 'd30c1246\n', stderr: '' };
+          default:
+            if (
+              key.startsWith(
+                'update-ref refs/codeinfo/review-bases/0000027-20260705T160505Z-',
+              ) &&
+              key.endsWith(` ${BASE_SHA}`)
+            ) {
+              return { stdout: '', stderr: '' };
+            }
+            if (
+              key.startsWith(
+                'update-ref -d refs/codeinfo/review-bases/0000027-20260705T160505Z-',
+              )
+            ) {
+              cleanupAttempted = true;
+              return { stdout: '', stderr: '' };
+            }
+            throw Object.assign(new Error(`unexpected git command: ${key}`), {
+              code: 128,
+              stdout: '',
+              stderr: `unexpected git command: ${key}`,
+            });
+        }
+      }
+
+      throw new Error(`unexpected executable: ${file}`);
+    };
+
+    await assert.rejects(
+      runCodexReviewStep(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-codex-review',
+          modelId: 'gpt-5.4',
+        },
+        {
+          execFile,
+          mkdir: async () => {
+            throw setupError;
+          },
+          now: () => new Date('2026-07-05T16:05:05.000Z'),
+          randomHex: () => '6abc1234',
+        },
+      ),
+      (error) => error === setupError,
+    );
+
+    assert.equal(cleanupAttempted, true);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('runCodexReviewStep throws cleanup failures after a successful codex run', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codex-review-helper-cleanup-failure-'),

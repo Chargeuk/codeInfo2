@@ -444,6 +444,10 @@ export async function runCodexReviewStep(
   deps?: Partial<CodexReviewDeps>,
 ): Promise<CodexReviewStepResult> {
   const resolvedDeps: CodexReviewDeps = { ...defaultDeps, ...deps };
+  const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
+  if (basePolicy !== 'branched_from_or_default_if_merged') {
+    throw new Error(`Unsupported codexReview basePolicy "${basePolicy}".`);
+  }
   const pointerContext = await resolveCodexReviewPointerContext(
     {
       workingRepositoryPath: params.workingRepositoryPath,
@@ -459,10 +463,6 @@ export async function runCodexReviewStep(
     storyNumber,
     currentPlanBranchedFrom,
   } = pointerContext;
-  const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
-  if (basePolicy !== 'branched_from_or_default_if_merged') {
-    throw new Error(`Unsupported codexReview basePolicy "${basePolicy}".`);
-  }
 
   const startedAt = resolvedDeps.now();
   const startedAtIso = startedAt.toISOString();
@@ -556,8 +556,6 @@ export async function runCodexReviewStep(
   });
 
   const reviewDir = path.join(repoRoot, 'codeInfoTmp', 'reviews');
-  await resolvedDeps.mkdir(reviewDir, { recursive: true });
-
   const reviewOutputPath = path.join(
     reviewDir,
     `${codexReviewPassId}-codex-review.md`,
@@ -567,30 +565,30 @@ export async function runCodexReviewStep(
     storyNumber,
     outputKey,
   });
-
-  const configOverrides = [`review_model=${JSON.stringify(params.modelId)}`];
-  if (params.reasoningEffort) {
-    configOverrides.push(
-      `model_reasoning_effort=${JSON.stringify(params.reasoningEffort)}`,
-    );
-  }
-  const codexArgs = [
-    'exec',
-    '-C',
-    repoRoot,
-    'review',
-    '--base',
-    pinnedBaseRef.refName,
-    '-m',
-    params.modelId,
-    '-o',
-    reviewOutputPath,
-  ];
-  for (const configOverride of configOverrides) {
-    codexArgs.push('-c', configOverride);
-  }
   let codexFailure: unknown = null;
   try {
+    await resolvedDeps.mkdir(reviewDir, { recursive: true });
+    const configOverrides = [`review_model=${JSON.stringify(params.modelId)}`];
+    if (params.reasoningEffort) {
+      configOverrides.push(
+        `model_reasoning_effort=${JSON.stringify(params.reasoningEffort)}`,
+      );
+    }
+    const codexArgs = [
+      'exec',
+      '-C',
+      repoRoot,
+      'review',
+      '--base',
+      pinnedBaseRef.refName,
+      '-m',
+      params.modelId,
+      '-o',
+      reviewOutputPath,
+    ];
+    for (const configOverride of configOverrides) {
+      codexArgs.push('-c', configOverride);
+    }
     await resolvedDeps.execFile('codex', codexArgs, {
       signal: params.signal,
       timeout: CODEX_REVIEW_TIMEOUT_MS,

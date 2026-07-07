@@ -119,6 +119,7 @@ type CodexReviewDeps = {
   readFile: typeof fs.readFile;
   writeFile: typeof fs.writeFile;
   mkdir: typeof fs.mkdir;
+  rm: typeof fs.rm;
   now: () => Date;
   randomHex: (bytes: number) => string;
 };
@@ -129,6 +130,7 @@ const defaultDeps: CodexReviewDeps = {
   readFile: fs.readFile,
   writeFile: fs.writeFile,
   mkdir: fs.mkdir,
+  rm: fs.rm,
   now: () => new Date(),
   randomHex: (bytes: number) => crypto.randomBytes(bytes).toString('hex'),
 };
@@ -222,6 +224,81 @@ const readJsonIfExists = async <T>(
     throw error;
   }
 };
+
+type CodexReviewPointerContext = {
+  repoRoot: string;
+  outputKey: string;
+  planPath: string;
+  storyNumber: string;
+  currentPlanBranchedFrom: string | null;
+};
+
+const resolveCodexReviewPointerContext = async (
+  params: {
+    workingRepositoryPath: string;
+    outputKey: string;
+    signal?: AbortSignal;
+  },
+  deps: Pick<CodexReviewDeps, 'readFile' | 'execFile'>,
+): Promise<CodexReviewPointerContext> => {
+  const repoRoot = await resolveReviewRepositoryRoot(
+    params.workingRepositoryPath,
+    deps,
+    params.signal,
+  );
+  const outputKey = ensureSafeOutputKey(params.outputKey);
+  const currentPlanPath = path.join(
+    repoRoot,
+    'codeInfoStatus',
+    'flow-state',
+    'current-plan.json',
+  );
+  const currentPlanRaw = await deps.readFile(currentPlanPath, 'utf8');
+  const currentPlan = JSON.parse(currentPlanRaw) as CurrentPlanPayload;
+  const planPath = normalizeOptionalString(currentPlan.plan_path);
+  if (!planPath) {
+    throw new Error('current-plan.json lacked a usable plan_path.');
+  }
+
+  return {
+    repoRoot,
+    outputKey,
+    planPath,
+    storyNumber: deriveStoryNumberFromPlanPath(planPath),
+    currentPlanBranchedFrom:
+      normalizeOptionalString(currentPlan.branched_from) ?? null,
+  };
+};
+
+const buildStablePointerPath = (params: {
+  repoRoot: string;
+  storyNumber: string;
+  outputKey: string;
+}) =>
+  path.join(
+    params.repoRoot,
+    'codeInfoTmp',
+    'reviews',
+    `${params.storyNumber}-${params.outputKey}.json`,
+  );
+
+export async function clearCodexReviewPointerFile(
+  params: {
+    workingRepositoryPath: string;
+    outputKey: string;
+    signal?: AbortSignal;
+  },
+  deps?: Partial<CodexReviewDeps>,
+): Promise<string> {
+  const resolvedDeps: CodexReviewDeps = { ...defaultDeps, ...deps };
+  const pointerContext = await resolveCodexReviewPointerContext(
+    params,
+    resolvedDeps,
+  );
+  const pointerPath = buildStablePointerPath(pointerContext);
+  await resolvedDeps.rm(pointerPath, { force: true });
+  return pointerPath;
+}
 
 const runGitOrThrow = async (
   repoRoot: string,
@@ -367,12 +444,21 @@ export async function runCodexReviewStep(
   deps?: Partial<CodexReviewDeps>,
 ): Promise<CodexReviewStepResult> {
   const resolvedDeps: CodexReviewDeps = { ...defaultDeps, ...deps };
-  const repoRoot = await resolveReviewRepositoryRoot(
-    params.workingRepositoryPath,
+  const pointerContext = await resolveCodexReviewPointerContext(
+    {
+      workingRepositoryPath: params.workingRepositoryPath,
+      outputKey: params.outputKey,
+      signal: params.signal,
+    },
     resolvedDeps,
-    params.signal,
   );
-  const outputKey = ensureSafeOutputKey(params.outputKey);
+  const {
+    repoRoot,
+    outputKey,
+    planPath,
+    storyNumber,
+    currentPlanBranchedFrom,
+  } = pointerContext;
   const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
   if (basePolicy !== 'branched_from_or_default_if_merged') {
     throw new Error(`Unsupported codexReview basePolicy "${basePolicy}".`);
@@ -381,23 +467,6 @@ export async function runCodexReviewStep(
   const startedAt = resolvedDeps.now();
   const startedAtIso = startedAt.toISOString();
   params.signal?.throwIfAborted();
-
-  const currentPlanPath = path.join(
-    repoRoot,
-    'codeInfoStatus',
-    'flow-state',
-    'current-plan.json',
-  );
-  const currentPlanRaw = await resolvedDeps.readFile(currentPlanPath, 'utf8');
-  const currentPlan = JSON.parse(currentPlanRaw) as CurrentPlanPayload;
-  const planPath = normalizeOptionalString(currentPlan.plan_path);
-  if (!planPath) {
-    throw new Error('current-plan.json lacked a usable plan_path.');
-  }
-
-  const storyNumber = deriveStoryNumberFromPlanPath(planPath);
-  const currentPlanBranchedFrom =
-    normalizeOptionalString(currentPlan.branched_from) ?? null;
   const currentBranch = await gitStdoutOrThrow(
     repoRoot,
     ['branch', '--show-current'],
@@ -493,7 +562,11 @@ export async function runCodexReviewStep(
     reviewDir,
     `${codexReviewPassId}-codex-review.md`,
   );
-  const pointerPath = path.join(reviewDir, `${storyNumber}-${outputKey}.json`);
+  const pointerPath = buildStablePointerPath({
+    repoRoot,
+    storyNumber,
+    outputKey,
+  });
 
   const configOverrides = [`review_model=${JSON.stringify(params.modelId)}`];
   if (params.reasoningEffort) {

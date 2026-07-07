@@ -114,7 +114,11 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   };
 };
 
-import { resolveCodexReviewModel, runCodexReviewStep } from './codexReview.js';
+import {
+  clearCodexReviewPointerFile,
+  resolveCodexReviewModel,
+  runCodexReviewStep,
+} from './codexReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
   parseFlowFile,
@@ -5587,6 +5591,40 @@ async function runFlowUnlocked(params: {
     });
     const codexBootstrapStatus = getProviderBootstrapStatus('codex');
     const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    const clearStaleCodexReviewPointer = async () => {
+      if (reviewRepositoryPath) {
+        try {
+          await clearCodexReviewPointerFile({
+            workingRepositoryPath: reviewRepositoryPath,
+            outputKey: step.outputKey,
+          });
+        } catch (error) {
+          await emitFailedFlowStep({
+            flowConversationId: params.conversationId,
+            inflightId: stepInflightId,
+            instruction: `Codex review: ${step.outputKey}`,
+            modelId: codexStepModelId,
+            providerId: 'codex',
+            source: params.source,
+            message: [
+              'codexReview could not clear the stale stable review pointer before starting.',
+              `Cleanup error: ${
+                error instanceof Error
+                  ? error.message
+                  : 'codexReview pointer cleanup failed unexpectedly'
+              }`,
+            ].join('\n'),
+            errorCode: 'INVALID_REQUEST',
+            command,
+          });
+          return 'failed' as const;
+        }
+      }
+      return 'ok' as const;
+    };
     const emitSkippedCodexReviewStep = async (message: string) => {
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
@@ -5600,6 +5638,10 @@ async function runFlowUnlocked(params: {
       });
       return 'ok' as const;
     };
+    const clearedStalePointer = await clearStaleCodexReviewPointer();
+    if (clearedStalePointer !== 'ok') {
+      return clearedStalePointer;
+    }
     if (!resolvedModelId) {
       return emitSkippedCodexReviewStep(
         'codexReview requires codexReviewModelId or a model on the flow step.',
@@ -5612,9 +5654,6 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
-      params.repositoryContext,
-    );
     if (!reviewRepositoryPath) {
       return emitSkippedCodexReviewStep(
         'codexReview requires a resolved working repository path.',

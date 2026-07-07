@@ -52,6 +52,7 @@ import {
   withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
@@ -4190,98 +4191,97 @@ test('failed flow step persists to agent conversation', async () => {
 });
 
 test('flow step retries transient failures and eventually succeeds', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '3';
   let outerBreakAttempts = 0;
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
-      if (message.includes('Exit outer loop?')) {
-        outerBreakAttempts += 1;
-        if (outerBreakAttempts < 2) return '{"answer":"maybe"}';
-        return '{"answer":"yes"}';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-retry-success';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await supertest(baseUrl)
-        .post('/flows/loop-break/run')
-        .send({ conversationId })
-        .expect(202);
+  await runWithTestEnvOverrides(
+    { FLOW_AND_COMMAND_RETRIES: '3' },
+    async () => {
+      await withFlowServer(
+        (message) => {
+          if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+          if (message.includes('Exit outer loop?')) {
+            outerBreakAttempts += 1;
+            if (outerBreakAttempts < 2) return '{"answer":"maybe"}';
+            return '{"answer":"yes"}';
+          }
+          return 'ok';
+        },
+        async ({ baseUrl, wsUrl }) => {
+          const conversationId = 'flow-loop-retry-success';
+          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+          await supertest(baseUrl)
+            .post('/flows/loop-break/run')
+            .send({ conversationId })
+            .expect(202);
 
-      await waitForTurns(
-        conversationId,
-        (items) =>
-          items.some(
-            (turn) =>
-              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
-          ) &&
-          items.some(
-            (turn) =>
-              turn.role === 'assistant' &&
-              turn.content.includes('{"answer":"yes"}'),
-          ),
-        5000,
-        () =>
-          JSON.stringify({
-            outerBreakAttempts,
-            state: JSON.parse(
-              describeFlowRuntimeState(conversationId, ['coding_agent:outer-break']),
-            ),
-          }),
+          await waitForTurns(
+            conversationId,
+            (items) =>
+              items.some(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Exit outer loop?'),
+              ) &&
+              items.some(
+                (turn) =>
+                  turn.role === 'assistant' &&
+                  turn.content.includes('{"answer":"yes"}'),
+              ),
+            5000,
+            () =>
+              JSON.stringify({
+                outerBreakAttempts,
+                state: JSON.parse(
+                  describeFlowRuntimeState(conversationId, [
+                    'coding_agent:outer-break',
+                  ]),
+                ),
+              }),
+          );
+          assert.equal(outerBreakAttempts, 2);
+          await cleanupConversationRuntime(conversationId);
+        },
       );
-      assert.equal(outerBreakAttempts, 2);
-      await cleanupConversationRuntime(conversationId);
     },
   );
-  if (previousRetries === undefined) {
-    delete process.env.FLOW_AND_COMMAND_RETRIES;
-  } else {
-    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-  }
 });
 
 test('flow step retries to exhaustion and emits one terminal failure', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '2';
   let outerBreakAttempts = 0;
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
-      if (message.includes('Exit outer loop?')) {
-        outerBreakAttempts += 1;
-        return '{"answer":"maybe"}';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-retry-exhausted';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await supertest(baseUrl)
-        .post('/flows/loop-break/run')
-        .send({ conversationId })
-        .expect(202);
+  await runWithTestEnvOverrides(
+    { FLOW_AND_COMMAND_RETRIES: '2' },
+    async () => {
+      await withFlowServer(
+        (message) => {
+          if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+          if (message.includes('Exit outer loop?')) {
+            outerBreakAttempts += 1;
+            return '{"answer":"maybe"}';
+          }
+          return 'ok';
+        },
+        async ({ baseUrl, wsUrl }) => {
+          const conversationId = 'flow-loop-retry-exhausted';
+          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+          await supertest(baseUrl)
+            .post('/flows/loop-break/run')
+            .send({ conversationId })
+            .expect(202);
 
-      const final = await waitForLoopTerminalOutcome({
-        ws: wsUrl,
-        conversationId,
-        expectedStatus: 'failed',
-        timeoutMs: 5000,
-      });
+          const final = await waitForLoopTerminalOutcome({
+            ws: wsUrl,
+            conversationId,
+            expectedStatus: 'failed',
+            timeoutMs: 5000,
+          });
 
-      assert.equal(final.status, 'failed');
-      assert.equal(outerBreakAttempts, 2);
-      await expectNoTerminalFinal(wsUrl, conversationId);
-      await cleanupConversationRuntime(conversationId);
+          assert.equal(final.status, 'failed');
+          assert.equal(outerBreakAttempts, 2);
+          await expectNoTerminalFinal(wsUrl, conversationId);
+          await cleanupConversationRuntime(conversationId);
+        },
+      );
     },
   );
-  if (previousRetries === undefined) {
-    delete process.env.FLOW_AND_COMMAND_RETRIES;
-  } else {
-    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-  }
 });
 
 test(
@@ -4334,8 +4334,6 @@ test(
 );
 
 test('aborted flow step is not retried', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '3';
   let outerBreakAttempts = 0;
   let stopRegisteredAtStepStart = false;
   const conversationId = 'flow-loop-retry-aborted';
@@ -4390,119 +4388,125 @@ test('aborted flow step is not retried', async () => {
       ownershipReleaseCalls,
       stopUnwindCheckpoints,
     });
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Say hello from a flow step.')) {
-        outerBreakAttempts += 1;
-        return '__delay:1000::Flow agent response';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      try {
-        const response = await supertest(baseUrl)
-          .post('/flows/llm-basic/run')
-          .send({ conversationId })
-          .expect(202);
+  await runWithTestEnvOverrides(
+    { FLOW_AND_COMMAND_RETRIES: '3' },
+    async () => {
+      await withFlowServer(
+        (message) => {
+          if (message.includes('Say hello from a flow step.')) {
+            outerBreakAttempts += 1;
+            return '__delay:1000::Flow agent response';
+          }
+          return 'ok';
+        },
+        async ({ baseUrl, wsUrl }) => {
+          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+          try {
+            const response = await supertest(baseUrl)
+              .post('/flows/llm-basic/run')
+              .send({ conversationId })
+              .expect(202);
 
-        await waitFor(
-          () => stopRegisteredAtStepStart,
-          5000,
-          () =>
-            JSON.stringify({
-              responseInflightId: response.body.inflightId as string,
-              stopRegisteredAtStepStart,
-              state: JSON.parse(describeAbortedRetryState(conversationId)),
-            }),
-        );
+            await waitFor(
+              () => stopRegisteredAtStepStart,
+              5000,
+              () =>
+                JSON.stringify({
+                  responseInflightId: response.body.inflightId as string,
+                  stopRegisteredAtStepStart,
+                  state: JSON.parse(describeAbortedRetryState(conversationId)),
+                }),
+            );
 
-        const final = await waitForLoopTerminalOutcome({
-          ws: wsUrl,
-          conversationId,
-          expectedStatus: ['stopped', 'failed'],
-          timeoutMs: 5000,
-        });
+            const final = await waitForLoopTerminalOutcome({
+              ws: wsUrl,
+              conversationId,
+              expectedStatus: ['stopped', 'failed'],
+              timeoutMs: 5000,
+            });
 
-        assert.ok(final.status === 'stopped' || final.status === 'failed');
-        assert.equal(outerBreakAttempts <= 1, true);
-      } finally {
-        await waitForRuntimeCleanup(
-          conversationId,
-          15000,
-          () => describeAbortedRetryState(conversationId),
-        );
-        cleanupMemory(conversationId);
-      }
-    },
-    {
-      chatFactory: () =>
-        new ScriptedChat(
-          (message) => {
-            if (message.includes('Say hello from a flow step.')) {
-              outerBreakAttempts += 1;
-              return '__delay:1000::Flow agent response';
-            }
-            return 'ok';
-          },
-          {
-            onExecute: ({ message }) => {
-              if (
-                !stopRegisteredAtStepStart &&
-                message.includes('Say hello from a flow step.')
-              ) {
-                const runToken =
-                  getActiveRunOwnership(conversationId)?.runToken;
-                if (!runToken) {
-                  return;
+            assert.ok(final.status === 'stopped' || final.status === 'failed');
+            assert.equal(outerBreakAttempts <= 1, true);
+          } finally {
+            await waitForRuntimeCleanup(
+              conversationId,
+              15000,
+              () => describeAbortedRetryState(conversationId),
+            );
+            cleanupMemory(conversationId);
+          }
+        },
+        {
+          chatFactory: () =>
+            new ScriptedChat(
+              (message) => {
+                if (message.includes('Say hello from a flow step.')) {
+                  outerBreakAttempts += 1;
+                  return '__delay:1000::Flow agent response';
                 }
-                stopRegisteredAtStepStart = true;
-                registerPendingConversationCancel({
-                  conversationId,
-                  runToken,
-                });
-              }
-            },
+                return 'ok';
+              },
+              {
+                onExecute: ({ message }) => {
+                  if (
+                    !stopRegisteredAtStepStart &&
+                    message.includes('Say hello from a flow step.')
+                  ) {
+                    const runToken =
+                      getActiveRunOwnership(conversationId)?.runToken;
+                    if (!runToken) {
+                      return;
+                    }
+                    stopRegisteredAtStepStart = true;
+                    registerPendingConversationCancel({
+                      conversationId,
+                      runToken,
+                    });
+                  }
+                },
+              },
+            ),
+          cleanupInflightFn: (params) => {
+            recordCleanupEvent(
+              'before cleanupInflightFn',
+              params.conversationId,
+              `inflightId=${params.inflightId ?? 'none'}`,
+            );
+            cleanupInflight(params);
+            recordCleanupEvent(
+              'after cleanupInflightFn',
+              params.conversationId,
+              `inflightId=${params.inflightId ?? 'none'}`,
+            );
           },
-        ),
-      cleanupInflightFn: (params) => {
-        recordCleanupEvent(
-          'before cleanupInflightFn',
-          params.conversationId,
-          `inflightId=${params.inflightId ?? 'none'}`,
-        );
-        cleanupInflight(params);
-        recordCleanupEvent(
-          'after cleanupInflightFn',
-          params.conversationId,
-          `inflightId=${params.inflightId ?? 'none'}`,
-        );
-      },
-      releaseConversationLockFn: (conversationId, expectedRunToken) => {
-        const beforeState = snapshotRuntimeCleanupState(conversationId);
-        const released = releaseConversationLock(conversationId, expectedRunToken);
-        const afterState = snapshotRuntimeCleanupState(conversationId);
-        ownershipReleaseCalls.push({
-          expectedRunToken,
-          released,
-          beforeState,
-          afterState,
-        });
-        if (ownershipReleaseCalls.length > 12) {
-          ownershipReleaseCalls.splice(0, ownershipReleaseCalls.length - 12);
-        }
-        return released;
-      },
-      onStopUnwindCheckpoint: (params) => {
-        recordStopUnwindCheckpoint(params);
-      },
+          releaseConversationLockFn: (conversationId, expectedRunToken) => {
+            const beforeState = snapshotRuntimeCleanupState(conversationId);
+            const released = releaseConversationLock(
+              conversationId,
+              expectedRunToken,
+            );
+            const afterState = snapshotRuntimeCleanupState(conversationId);
+            ownershipReleaseCalls.push({
+              expectedRunToken,
+              released,
+              beforeState,
+              afterState,
+            });
+            if (ownershipReleaseCalls.length > 12) {
+              ownershipReleaseCalls.splice(
+                0,
+                ownershipReleaseCalls.length - 12,
+              );
+            }
+            return released;
+          },
+          onStopUnwindCheckpoint: (params) => {
+            recordStopUnwindCheckpoint(params);
+          },
+        },
+      );
     },
   );
-  if (previousRetries === undefined) {
-    delete process.env.FLOW_AND_COMMAND_RETRIES;
-  } else {
-    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-  }
 });
 
 test('startup-race conversation-only stop still terminalizes a flow as stopped', async () => {

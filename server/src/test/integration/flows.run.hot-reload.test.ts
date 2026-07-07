@@ -16,6 +16,7 @@ import {
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const fixturesDir = path.resolve(
@@ -117,19 +118,19 @@ test('Flow run reloads flow file between runs', async () => {
       if (nextMessageResolver) nextMessageResolver();
     });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory,
-        }),
-    }),
-  );
-
   try {
     await withFlowFixtureEnv(tmpDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory,
+            }),
+          ),
+        }),
+      );
       nextMessageResolver = null;
       const firstMessagePromise = new Promise<void>((resolve) => {
         nextMessageResolver = resolve;
@@ -180,23 +181,23 @@ test('Flow run returns 404 when ingested flow file is missing', async () => {
   );
   await fs.mkdir(path.join(tmpRepoRoot, 'flows'), { recursive: true });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new CapturingChat(() => undefined),
-          listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(tmpRepoRoot)],
-            lockedModelId: null,
-          }),
-        }),
-    }),
-  );
-
   try {
     await withFlowFixtureEnv(tmpLocalDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory: () => new CapturingChat(() => undefined),
+              listIngestedRepositories: async () => ({
+                repos: [buildRepoEntry(tmpRepoRoot)],
+                lockedModelId: null,
+              }),
+            }),
+          ),
+        }),
+      );
       await supertest(app)
         .post('/flows/missing-ingested/run')
         .send({ sourceId: tmpRepoRoot })

@@ -57,6 +57,7 @@ import {
   enterTestEnvOverrides,
   runWithTestEnvOverrides,
 } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   closeWs,
@@ -771,11 +772,12 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new StreamingChat(),
         }),
+      ),
     }),
   );
 
@@ -880,11 +882,12 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new StreamingChat(),
         }),
+      ),
     }),
   );
 
@@ -1458,7 +1461,7 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1467,6 +1470,7 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1601,7 +1605,7 @@ test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1610,6 +1614,7 @@ test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1648,11 +1653,12 @@ test('POST /flows/:flowName/run fails on invalid agent config supported key type
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
         }),
+      ),
     }),
   );
 
@@ -1689,7 +1695,7 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1698,6 +1704,7 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1737,7 +1744,7 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1758,6 +1765,7 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1834,7 +1842,7 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
         const app = express();
         app.use(
           createFlowsRunRouter({
-            startFlowRun: (params) =>
+            startFlowRun: bindCurrentTestOverrides((params) =>
               startFlowRun({
                 ...params,
                 chatFactory: () => new InstantChat(),
@@ -1843,6 +1851,7 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
                   lockedModelId: null,
                 }),
               }),
+            ),
           }),
         );
 
@@ -1901,7 +1910,7 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1910,6 +1919,7 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 

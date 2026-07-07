@@ -2249,80 +2249,75 @@ test('flow-owned command message execution matches the direct-command path for t
 });
 
 test('flow command-step retries and direct-command retries remain unchanged after shared message-item extraction', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '2';
   const repos: RepoEntry[] = [];
   const flowAttempts = { count: 0 };
   const directAttempts = { count: 0 };
-  try {
-    await withFlowServer(
-      async ({ baseUrl, wsUrl, tmpDir }) => {
-        const sourceRoot = path.join(tmpDir, 'repo-command-retry-shared');
-        const commandName = 'task6_retry_markdown';
-        const flowConversationId = 'flow-command-retry-shared';
-        const directConversationId = 'direct-command-retry-shared';
-        await writeRepoFlow({
-          repoRoot: sourceRoot,
-          flowName: 'repo-command-retry-shared',
-          commandName,
-        });
-        await writeRepoCommand({
-          repoRoot: sourceRoot,
-          commandName,
-          items: [{ type: 'message', role: 'user', markdownFile: 'retry.md' }],
-        });
-        await writeMarkdownFile({
-          repoRoot: sourceRoot,
-          relativePath: 'retry.md',
-          content: 'retry markdown item',
-        });
-        repos.push(
-          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
-        );
+  await runWithTestEnvOverrides(
+    { FLOW_AND_COMMAND_RETRIES: '2' },
+    async () => {
+      await withFlowServer(
+        async ({ baseUrl, wsUrl, tmpDir }) => {
+          const sourceRoot = path.join(tmpDir, 'repo-command-retry-shared');
+          const commandName = 'task6_retry_markdown';
+          const flowConversationId = 'flow-command-retry-shared';
+          const directConversationId = 'direct-command-retry-shared';
+          await writeRepoFlow({
+            repoRoot: sourceRoot,
+            flowName: 'repo-command-retry-shared',
+            commandName,
+          });
+          await writeRepoCommand({
+            repoRoot: sourceRoot,
+            commandName,
+            items: [{ type: 'message', role: 'user', markdownFile: 'retry.md' }],
+          });
+          await writeMarkdownFile({
+            repoRoot: sourceRoot,
+            relativePath: 'retry.md',
+            content: 'retry markdown item',
+          });
+          repos.push(
+            buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+          );
 
-        sendJson(wsUrl, {
-          type: 'subscribe_conversation',
-          conversationId: flowConversationId,
-        });
-        await supertest(baseUrl)
-          .post('/flows/repo-command-retry-shared/run')
-          .send({ conversationId: flowConversationId, sourceId: sourceRoot })
-          .expect(202);
+          sendJson(wsUrl, {
+            type: 'subscribe_conversation',
+            conversationId: flowConversationId,
+          });
+          await supertest(baseUrl)
+            .post('/flows/repo-command-retry-shared/run')
+            .send({ conversationId: flowConversationId, sourceId: sourceRoot })
+            .expect(202);
 
-        await waitForFlowFinal({
-          ws: wsUrl,
-          conversationId: flowConversationId,
-          status: 'ok',
-          timeoutMs: 6000,
-        });
-        assert.equal(flowAttempts.count, 2);
+          await waitForFlowFinal({
+            ws: wsUrl,
+            conversationId: flowConversationId,
+            status: 'ok',
+            timeoutMs: 6000,
+          });
+          assert.equal(flowAttempts.count, 2);
 
-        await bindCurrentTestOverrides(runAgentCommand)({
-          agentName: 'planning_agent',
-          commandName,
-          conversationId: directConversationId,
-          sourceId: sourceRoot,
-          source: 'REST',
-          chatFactory: () => new FlakyOnceChat(directAttempts),
-        });
-        assert.equal(directAttempts.count, 2);
-        cleanupMemory(flowConversationId, directConversationId);
-      },
-      {
-        listIngestedRepositories: async () => ({
-          repos,
-          lockedModelId: null,
-        }),
-        chatFactory: () => new FlakyOnceChat(flowAttempts),
-      },
-    );
-  } finally {
-    if (previousRetries === undefined) {
-      delete process.env.FLOW_AND_COMMAND_RETRIES;
-    } else {
-      process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-    }
-  }
+          await bindCurrentTestOverrides(runAgentCommand)({
+            agentName: 'planning_agent',
+            commandName,
+            conversationId: directConversationId,
+            sourceId: sourceRoot,
+            source: 'REST',
+            chatFactory: () => new FlakyOnceChat(directAttempts),
+          });
+          assert.equal(directAttempts.count, 2);
+          cleanupMemory(flowConversationId, directConversationId);
+        },
+        {
+          listIngestedRepositories: async () => ({
+            repos,
+            lockedModelId: null,
+          }),
+          chatFactory: () => new FlakyOnceChat(flowAttempts),
+        },
+      );
+    },
+  );
 });
 
 test('flow-owned commands can execute reingest items', async () => {
@@ -3597,135 +3592,125 @@ test('cancellation during flow-owned command reingest stops later items and late
 });
 
 test('flow-owned command message retries remain intact after adding reingest support', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '2';
   const flowAttempts = { count: 0 };
   const repos: RepoEntry[] = [];
-  try {
-    await withFlowServer(
-      async ({ baseUrl, wsUrl, tmpDir }) => {
-        const sourceRoot = path.join(tmpDir, 'repo-command-retry-task11');
-        const commandName = 'task11_message_retry';
-        const conversationId = 'flow-command-retry-task11';
-        await writeRepoFlow({
-          repoRoot: sourceRoot,
-          flowName: 'repo-command-retry-task11',
-          commandName,
-        });
-        await writeRepoCommand({
-          repoRoot: sourceRoot,
-          commandName,
-          items: [{ type: 'message', role: 'user', content: ['retry me'] }],
-        });
-        repos.push(
-          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
-        );
+  await runWithTestEnvOverrides(
+    { FLOW_AND_COMMAND_RETRIES: '2' },
+    async () => {
+      await withFlowServer(
+        async ({ baseUrl, wsUrl, tmpDir }) => {
+          const sourceRoot = path.join(tmpDir, 'repo-command-retry-task11');
+          const commandName = 'task11_message_retry';
+          const conversationId = 'flow-command-retry-task11';
+          await writeRepoFlow({
+            repoRoot: sourceRoot,
+            flowName: 'repo-command-retry-task11',
+            commandName,
+          });
+          await writeRepoCommand({
+            repoRoot: sourceRoot,
+            commandName,
+            items: [{ type: 'message', role: 'user', content: ['retry me'] }],
+          });
+          repos.push(
+            buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+          );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-        await supertest(baseUrl)
-          .post('/flows/repo-command-retry-task11/run')
-          .send({ conversationId, sourceId: sourceRoot })
-          .expect(202);
+          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+          await supertest(baseUrl)
+            .post('/flows/repo-command-retry-task11/run')
+            .send({ conversationId, sourceId: sourceRoot })
+            .expect(202);
 
-        await waitForFlowFinal({
-          ws: wsUrl,
-          conversationId,
-          status: 'ok',
-          timeoutMs: 6000,
-        });
-        assert.equal(flowAttempts.count, 2);
-        cleanupMemory(conversationId);
-      },
-      {
-        listIngestedRepositories: async () => ({
-          repos,
-          lockedModelId: null,
-        }),
-        chatFactory: () => new FlakyOnceChat(flowAttempts),
-      },
-    );
-  } finally {
-    if (previousRetries === undefined) {
-      delete process.env.FLOW_AND_COMMAND_RETRIES;
-    } else {
-      process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-    }
-  }
+          await waitForFlowFinal({
+            ws: wsUrl,
+            conversationId,
+            status: 'ok',
+            timeoutMs: 6000,
+          });
+          assert.equal(flowAttempts.count, 2);
+          cleanupMemory(conversationId);
+        },
+        {
+          listIngestedRepositories: async () => ({
+            repos,
+            lockedModelId: null,
+          }),
+          chatFactory: () => new FlakyOnceChat(flowAttempts),
+        },
+      );
+    },
+  );
 });
 
 test('flow-owned command reingest items stay single-attempt while later message items can retry', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '2';
   const flowAttempts = { count: 0 };
   let reingestCalls = 0;
   const repos: RepoEntry[] = [];
-  try {
-    await withFlowServer(
-      async ({ baseUrl, wsUrl, tmpDir }) => {
-        const sourceRoot = path.join(tmpDir, 'repo-command-reingest-retry');
-        const commandName = 'task11_reingest_then_retry';
-        const conversationId = 'flow-command-reingest-retry';
-        await writeRepoFlow({
-          repoRoot: sourceRoot,
-          flowName: 'repo-command-reingest-retry',
-          commandName,
-        });
-        await writeRepoCommand({
-          repoRoot: sourceRoot,
-          commandName,
-          items: [
-            { type: 'reingest', sourceId: '/repo/source-a' },
-            {
-              type: 'message',
-              role: 'user',
-              content: ['retry after reingest'],
-            },
-          ],
-        });
-        repos.push(
-          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
-        );
+  await runWithTestEnvOverrides(
+    { FLOW_AND_COMMAND_RETRIES: '2' },
+    async () => {
+      await withFlowServer(
+        async ({ baseUrl, wsUrl, tmpDir }) => {
+          const sourceRoot = path.join(tmpDir, 'repo-command-reingest-retry');
+          const commandName = 'task11_reingest_then_retry';
+          const conversationId = 'flow-command-reingest-retry';
+          await writeRepoFlow({
+            repoRoot: sourceRoot,
+            flowName: 'repo-command-reingest-retry',
+            commandName,
+          });
+          await writeRepoCommand({
+            repoRoot: sourceRoot,
+            commandName,
+            items: [
+              { type: 'reingest', sourceId: '/repo/source-a' },
+              {
+                type: 'message',
+                role: 'user',
+                content: ['retry after reingest'],
+              },
+            ],
+          });
+          repos.push(
+            buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+          );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-        await supertest(baseUrl)
-          .post('/flows/repo-command-reingest-retry/run')
-          .send({ conversationId, sourceId: sourceRoot })
-          .expect(202);
+          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+          await supertest(baseUrl)
+            .post('/flows/repo-command-reingest-retry/run')
+            .send({ conversationId, sourceId: sourceRoot })
+            .expect(202);
 
-        await waitForTurns(
-          conversationId,
-          (items) => items.length >= 4,
-          12000,
-        );
-        assert.equal(reingestCalls, 1);
-        assert.equal(flowAttempts.count, 2);
-        cleanupMemory(conversationId);
-      },
-      {
-        listIngestedRepositories: async () => ({
-          repos,
-          lockedModelId: null,
-        }),
-        chatFactory: () => new FlakyOnceChat(flowAttempts),
-        flowServiceDeps: {
-          runReingestRepository: async () => {
-            reingestCalls += 1;
-            return {
-              ok: true,
-              value: buildReingestSuccess(),
-            };
-          },
-          createCallId: () => 'call-flow-retry',
+          await waitForTurns(
+            conversationId,
+            (items) => items.length >= 4,
+            12000,
+          );
+          assert.equal(reingestCalls, 1);
+          assert.equal(flowAttempts.count, 2);
+          cleanupMemory(conversationId);
         },
-      },
-    );
-  } finally {
-    if (previousRetries === undefined) {
-      delete process.env.FLOW_AND_COMMAND_RETRIES;
-    } else {
-      process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-    }
-  }
+        {
+          listIngestedRepositories: async () => ({
+            repos,
+            lockedModelId: null,
+          }),
+          chatFactory: () => new FlakyOnceChat(flowAttempts),
+          flowServiceDeps: {
+            runReingestRepository: async () => {
+              reingestCalls += 1;
+              return {
+                ok: true,
+                value: buildReingestSuccess(),
+              };
+            },
+            createCallId: () => 'call-flow-retry',
+          },
+        },
+      );
+    },
+  );
 
   const logs = query(
     { text: 'DEV-0000045:T11:flow_command_reingest_recorded' },
@@ -4284,82 +4269,81 @@ test('invalid command steps return 400 invalid_request', async () => {
 });
 
 test('command-load failures are retried and then fail deterministically', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '2';
   const commandName = 'task5_retry_temp_command';
-  await withFlowServer(async ({ baseUrl, wsUrl, tmpDir, agentHome }) => {
-    const commandPath = path.join(
-      agentHome,
-      'planning_agent',
-      'commands',
-      `${commandName}.json`,
-    );
-    await fs.writeFile(
-      commandPath,
-      JSON.stringify({
-        Description: 'Temporary command for Task 5 retry test',
-        items: [{ type: 'message', role: 'user', content: ['temporary step'] }],
-      }),
-    );
-    const conversationId = 'flow-command-missing-retry-conv';
-    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+  await runWithTestEnvOverrides(
+    { FLOW_AND_COMMAND_RETRIES: '2' },
+    async () => {
+      await withFlowServer(async ({ baseUrl, wsUrl, tmpDir, agentHome }) => {
+        const commandPath = path.join(
+          agentHome,
+          'planning_agent',
+          'commands',
+          `${commandName}.json`,
+        );
+        await fs.writeFile(
+          commandPath,
+          JSON.stringify({
+            Description: 'Temporary command for Task 5 retry test',
+            items: [{ type: 'message', role: 'user', content: ['temporary step'] }],
+          }),
+        );
+        const conversationId = 'flow-command-missing-retry-conv';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
 
-    const retryFlow = {
-      description: 'Retry missing command',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'planning_agent',
-          identifier: 'prep',
-          messages: [{ role: 'user', content: ['__delay:300::prep'] }],
-        },
-        {
-          type: 'command',
-          agentType: 'planning_agent',
-          identifier: 'missing-command',
-          commandName,
-        },
-      ],
-    };
-    await fs.writeFile(
-      path.join(tmpDir, 'command-missing-retry.json'),
-      JSON.stringify(retryFlow, null, 2),
-    );
+        const retryFlow = {
+          description: 'Retry missing command',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'prep',
+              messages: [{ role: 'user', content: ['__delay:300::prep'] }],
+            },
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'missing-command',
+              commandName,
+            },
+          ],
+        };
+        await fs.writeFile(
+          path.join(tmpDir, 'command-missing-retry.json'),
+          JSON.stringify(retryFlow, null, 2),
+        );
 
-    await supertest(baseUrl)
-      .post('/flows/command-missing-retry/run')
-      .send({ conversationId })
-      .expect(202);
-    await delay(50);
-    await fs.rm(commandPath, { force: true });
+        await supertest(baseUrl)
+          .post('/flows/command-missing-retry/run')
+          .send({ conversationId })
+          .expect(202);
+        await delay(50);
+        await fs.rm(commandPath, { force: true });
 
-    const final = await waitForFlowFinal({
-      ws: wsUrl,
-      conversationId,
-      status: 'failed',
-      timeoutMs: 10000,
-      describe: () => describeCommandRetryDiagnosticState(conversationId),
-    });
+        const final = await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'failed',
+          timeoutMs: 10000,
+          describe: () => describeCommandRetryDiagnosticState(conversationId),
+        });
 
-    assert.equal(final.status, 'failed');
-    const turns = await waitForTurns(
-      conversationId,
-      (items) => items.filter((turn) => turn.role === 'assistant').length >= 1,
-      6000,
-      () => describeCommandRetryDiagnosticState(conversationId),
-    );
-    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-    assert.equal(assistantTurns.length, 2);
+        assert.equal(final.status, 'failed');
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.filter((turn) => turn.role === 'assistant').length >= 1,
+          6000,
+          () => describeCommandRetryDiagnosticState(conversationId),
+        );
+        const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+        assert.equal(assistantTurns.length, 2);
 
-    memoryConversations.delete(conversationId);
-    memoryTurns.delete(conversationId);
-    await fs.rm(commandPath, { force: true });
-  });
-  if (previousRetries === undefined) {
-    delete process.env.FLOW_AND_COMMAND_RETRIES;
-  } else {
-    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-  }
+        memoryConversations.delete(conversationId);
+        memoryTurns.delete(conversationId);
+        await fs.rm(commandPath, { force: true });
+      });
+    },
+  );
 });
 
 test('flow run rejects path traversal attempts', async () => {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, test } from 'node:test';
+import { describe } from 'node:test';
+import nodeTest from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import mongoose from 'mongoose';
@@ -11,6 +12,10 @@ import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
     id: path.basename(containerPath) || 'repo',
     description: null,
@@ -24,7 +29,6 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
     counts: { files: 0, chunks: 0, embedded: 0 },
     lastError: null,
 });
-let originalEnv: string | undefined;
 const originalReady = mongoose.connection.readyState;
 const originalLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
 class MockCodexThread {
@@ -73,8 +77,9 @@ class MockCodexClient {
         return new MockCodexThread();
     }
 }
-beforeEach(() => {
-    originalEnv = process.env.NODE_ENV;
+const test = (name: string, fn: () => Promise<void> | void) => nodeTest(name, async () => {
+    const originalEnv = process.env.NODE_ENV;
+    beginScopedTestEnvIsolation();
     setCodexDetection({
         available: true,
         authPresent: true,
@@ -87,26 +92,30 @@ beforeEach(() => {
     });
     setScopedTestEnvValue("NODE_ENV", 'test');
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'http://127.0.0.1:1234');
-});
-afterEach(() => {
-    Object.defineProperty(mongoose.connection, 'readyState', {
-        value: originalReady,
-        configurable: true,
-    });
-    if (originalEnv === undefined) {
-        clearScopedTestEnvValue("NODE_ENV");
+    try {
+        await fn();
     }
-    else {
-        setScopedTestEnvValue("NODE_ENV", originalEnv);
+    finally {
+        Object.defineProperty(mongoose.connection, 'readyState', {
+            value: originalReady,
+            configurable: true,
+        });
+        if (originalEnv === undefined) {
+            clearScopedTestEnvValue("NODE_ENV");
+        }
+        else {
+            setScopedTestEnvValue("NODE_ENV", originalEnv);
+        }
+        if (originalLmStudioBaseUrl === undefined) {
+            clearScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL");
+        }
+        else {
+            setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", originalLmStudioBaseUrl);
+        }
+        memoryTurns.clear();
+        memoryConversations.clear();
+        endScopedTestEnvIsolation();
     }
-    if (originalLmStudioBaseUrl === undefined) {
-        clearScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL");
-    }
-    else {
-        setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", originalLmStudioBaseUrl);
-    }
-    memoryTurns.clear();
-    memoryConversations.clear();
 });
 describe('assistant persistence via ChatInterface base', () => {
     test('Codex path persists assistant with tool calls once', async () => {

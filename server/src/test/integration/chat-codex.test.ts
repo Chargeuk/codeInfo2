@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach, mock } from 'node:test';
+import nodeTest, { mock } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions, ThreadEvent, ThreadOptions as CodexThreadOptions, TurnOptions as CodexTurnOptions, } from '@openai/codex-sdk';
 import express from 'express';
@@ -14,13 +14,22 @@ import { getMemoryTurns, memoryConversations, memoryTurns, } from '../../chat/me
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { __resetProviderBootstrapStatusForTests, __setProviderBootstrapStatusForTests, } from '../../config/runtimeConfig.js';
-import { setCodexDetection } from '../../providers/codexRegistry.js';
+import {
+  __setGlobalCodexDetectionForTests,
+  getCodexDetection,
+  setCodexDetection,
+} from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
+import { enterTestOverrideScope } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import { closeWs, connectWs, sendJson, waitForEvent, } from '../support/wsClient.js';
 class MockThread {
@@ -110,11 +119,13 @@ function createUnavailableCopilotLifecycle() {
         },
     }).createLifecycle();
 }
-beforeEach(async () => {
+const test = (name: string, fn: () => Promise<void> | void) => nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
     clearScopedTestEnvValue("CODEX_WORKDIR");
     clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
     tempCodexHomeForTest = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-home-'));
     await fs.mkdir(path.join(tempCodexHomeForTest, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(tempCodexHomeForTest, 'config.toml'), '', 'utf8');
     await fs.writeFile(path.join(tempCodexHomeForTest, 'chat', 'config.toml'), 'model = "gpt-5.1-codex-max"\n', 'utf8');
     await fs.writeFile(path.join(tempCodexHomeForTest, 'auth.json'), '{}', 'utf8');
     setScopedTestEnvValue("CODEX_HOME", tempCodexHomeForTest);
@@ -129,39 +140,43 @@ beforeEach(async () => {
     });
     __resetProviderBootstrapStatusForTests();
     conversationSeq = 0;
-});
-afterEach(async () => {
-    mock.restoreAll();
-    if (ORIGINAL_CODEX_WORKDIR === undefined) {
-        clearScopedTestEnvValue("CODEX_WORKDIR");
+    try {
+        await fn();
     }
-    else {
-        setScopedTestEnvValue("CODEX_WORKDIR", ORIGINAL_CODEX_WORKDIR);
+    finally {
+        mock.restoreAll();
+        if (ORIGINAL_CODEX_WORKDIR === undefined) {
+            clearScopedTestEnvValue("CODEX_WORKDIR");
+        }
+        else {
+            setScopedTestEnvValue("CODEX_WORKDIR", ORIGINAL_CODEX_WORKDIR);
+        }
+        if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+            clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
+        }
+        else {
+            setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", ORIGINAL_CODEINFO_CODEX_WORKDIR);
+        }
+        if (ORIGINAL_CODEX_HOME === undefined) {
+            clearScopedTestEnvValue("CODEX_HOME");
+        }
+        else {
+            setScopedTestEnvValue("CODEX_HOME", ORIGINAL_CODEX_HOME);
+        }
+        if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+            clearScopedTestEnvValue("CODEINFO_CODEX_HOME");
+        }
+        else {
+            setScopedTestEnvValue("CODEINFO_CODEX_HOME", ORIGINAL_CODEINFO_CODEX_HOME);
+        }
+        if (tempCodexHomeForTest) {
+            await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
+            tempCodexHomeForTest = undefined;
+        }
+        setWorkingFolderStatForTests(undefined);
+        __resetProviderBootstrapStatusForTests();
+        endScopedTestEnvIsolation();
     }
-    if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
-        clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
-    }
-    else {
-        setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", ORIGINAL_CODEINFO_CODEX_WORKDIR);
-    }
-    if (ORIGINAL_CODEX_HOME === undefined) {
-        clearScopedTestEnvValue("CODEX_HOME");
-    }
-    else {
-        setScopedTestEnvValue("CODEX_HOME", ORIGINAL_CODEX_HOME);
-    }
-    if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
-        clearScopedTestEnvValue("CODEINFO_CODEX_HOME");
-    }
-    else {
-        setScopedTestEnvValue("CODEINFO_CODEX_HOME", ORIGINAL_CODEINFO_CODEX_HOME);
-    }
-    if (tempCodexHomeForTest) {
-        await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
-        tempCodexHomeForTest = undefined;
-    }
-    setWorkingFolderStatForTests(undefined);
-    __resetProviderBootstrapStatusForTests();
 });
 let conversationSeq = 0;
 const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
@@ -195,6 +210,17 @@ async function waitForAssistantTurnCount(conversationId: string, assistantCount:
     throw new Error(`Timed out waiting for ${assistantCount} assistant turns: ${conversationId}`);
 }
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+async function waitForCodexDetectionReady(timeoutMs = 4000) {
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
+    while (Date.now() < deadline) {
+        const detection = getCodexDetection();
+        if (detection.available && detection.authPresent && detection.configPresent) {
+            return detection;
+        }
+        await sleep(25);
+    }
+    throw new Error(`Timed out waiting for Codex detection readiness: ${JSON.stringify(getCodexDetection())}`);
+}
 async function waitForNoSecondFinal(params: {
     ws: Awaited<ReturnType<typeof connectWs>>;
     conversationId: string;
@@ -463,7 +489,7 @@ test('shared-home device-auth success unlocks chat without extra target selectio
                 authPresent: true,
                 configPresent: true,
             };
-            setCodexDetection(detection);
+            __setGlobalCodexDetectionForTests(detection);
             return detection;
         },
         getCodexHome: () => tempCodexHomeForTest ?? '/tmp/codex-home',
@@ -493,13 +519,14 @@ test('shared-home device-auth success unlocks chat without extra target selectio
         codexFactory: () => new MockCodex('thread-after-auth'),
     }));
     await request(app).post('/codex/device-auth').send({}).expect(200);
-    await new Promise((resolve) => setImmediate(resolve));
+    enterTestOverrideScope({ codexDetection: null });
+    await waitForCodexDetectionReady();
     const res = await request(app)
         .post('/chat')
         .send(buildCodexBody({
         conversationId: `conv-codex-after-device-auth-${++conversationSeq}`,
     }));
-    assert.equal(res.status, 202);
+    assert.equal(res.status, 202, JSON.stringify(res.body));
 });
 test('codex chat uses chat runtime config file for inherited behavior keys while keeping the resolved execution model', async () => {
     setCodexDetection({

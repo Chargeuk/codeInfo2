@@ -1,4 +1,4 @@
-import { After, Before } from '@cucumber/cucumber';
+import { AfterAll } from '@cucumber/cucumber';
 
 import {
   beginScopedTestEnvIsolation,
@@ -9,11 +9,8 @@ import {
 
 installScopedProcessEnvProxy();
 installScopedTestEnvGlobals();
+beginScopedTestEnvIsolation();
 
-Before(() => {
-  beginScopedTestEnvIsolation();
-});
-
-After(() => {
+AfterAll(() => {
   endScopedTestEnvIsolation();
 });

@@ -11,8 +11,8 @@ import {
   clearVectorsCollection,
 } from '../../ingest/chromaClient.js';
 import {
+  clearBootstrapTestEnvValue,
   setBootstrapTestEnvValue,
-  setScopedTestEnvValue,
 } from './processEnvIsolation.js';
 
 let environment: StartedDockerComposeEnvironment | null = null;
@@ -54,13 +54,13 @@ async function ensureContainer() {
     `[chroma-compose] current CODEINFO_CHROMA_URL=${process.env.CODEINFO_CHROMA_URL ?? 'unset'}`,
   );
   if (environment && activeChromaUrl) {
-    setScopedTestEnvValue('CODEINFO_CHROMA_URL', activeChromaUrl);
+    setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', activeChromaUrl);
     return environment;
   }
   if (envPromise) {
     const env = await envPromise;
     if (activeChromaUrl) {
-      setScopedTestEnvValue('CODEINFO_CHROMA_URL', activeChromaUrl);
+      setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', activeChromaUrl);
     }
     return env;
   }
@@ -74,7 +74,7 @@ async function ensureContainer() {
       `[chroma-compose] using reachable preconfigured CODEINFO_CHROMA_URL=${configuredChromaUrl}`,
     );
     activeChromaUrl = configuredChromaUrl;
-    setScopedTestEnvValue('CODEINFO_CHROMA_URL', configuredChromaUrl);
+    setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', configuredChromaUrl);
     envPromise = Promise.resolve(null);
     return envPromise;
   }
@@ -120,7 +120,7 @@ async function ensureContainer() {
 
     // Set CODEINFO_CHROMA_URL directly to the mapped host:port (compose binds 8100->8000)
     activeChromaUrl = managedChromaUrl;
-    setScopedTestEnvValue('CODEINFO_CHROMA_URL', managedChromaUrl);
+    setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', managedChromaUrl);
     console.log(
       `[chroma-compose] CODEINFO_CHROMA_URL set to ${process.env.CODEINFO_CHROMA_URL}`,
     );
@@ -170,6 +170,7 @@ AfterAll({ timeout: 120_000 }, async () => {
   environment = null;
   envPromise = null;
   activeChromaUrl = null;
+  clearBootstrapTestEnvValue('CODEINFO_CHROMA_URL');
 });
 
 // Failsafe: ensure container stops even if Cucumber bails early
@@ -188,6 +189,7 @@ const gracefulShutdown = async () => {
     environment = null;
     activeChromaUrl = null;
   }
+  clearBootstrapTestEnvValue('CODEINFO_CHROMA_URL');
 };
 
 process.once('beforeExit', gracefulShutdown);

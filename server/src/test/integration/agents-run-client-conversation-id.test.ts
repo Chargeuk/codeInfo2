@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import nodeTest from 'node:test';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
@@ -21,6 +21,7 @@ import { installDeterministicCodexAvailabilityBootstrap, resetDeterministicCodex
 import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { beginScopedTestEnvIsolation, endScopedTestEnvIsolation } from '../support/processEnvIsolation.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
@@ -287,21 +288,24 @@ const T18_SUCCESS_LOG = '[DEV-0000037][T18] event=precedence_normalization_regre
 const T18_ERROR_LOG = '[DEV-0000037][T18] event=precedence_normalization_regressions_executed result=error';
 const T19_SUCCESS_LOG = '[DEV-0000037][T19] event=migration_safety_regressions_executed result=success';
 const T19_ERROR_LOG = '[DEV-0000037][T19] event=migration_safety_regressions_executed result=error';
-let previousPreferredAgentsHome: string | undefined;
-beforeEach(() => {
-    previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+const test = (name: string, fn: () => Promise<void> | void) => nodeTest(name, async () => {
+    const previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+    beginScopedTestEnvIsolation();
     installDeterministicCodexAvailabilityBootstrap();
-});
-afterEach(() => {
-    resetDeterministicCodexAvailabilityBootstrap();
-    __resetProviderBootstrapStatusForTests();
-    if (previousPreferredAgentsHome === undefined) {
-        clearScopedTestEnvValue("CODEINFO_AGENT_HOME");
+    try {
+        await fn();
     }
-    else {
-        setScopedTestEnvValue("CODEINFO_AGENT_HOME", previousPreferredAgentsHome);
+    finally {
+        resetDeterministicCodexAvailabilityBootstrap();
+        __resetProviderBootstrapStatusForTests();
+        if (previousPreferredAgentsHome === undefined) {
+            clearScopedTestEnvValue("CODEINFO_AGENT_HOME");
+        }
+        else {
+            setScopedTestEnvValue("CODEINFO_AGENT_HOME", previousPreferredAgentsHome);
+        }
+        endScopedTestEnvIsolation();
     }
-    previousPreferredAgentsHome = undefined;
 });
 test('Agents runs accept a client-supplied conversationId even when it does not exist yet', async () => {
     resetStore();

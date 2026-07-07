@@ -11,8 +11,8 @@ import {
 } from '../../mongo/connection.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
+  clearBootstrapTestEnvValue,
   setBootstrapTestEnvValue,
-  setScopedTestEnvValue,
 } from './processEnvIsolation.js';
 
 let container: StartedTestContainer | null = null;
@@ -128,7 +128,7 @@ async function connectScenarioMongo() {
       const host = started.getHost();
       const port = started.getMappedPort(27017);
       const uri = `mongodb://${host}:${port}/db?directConnection=true`;
-      setScopedTestEnvValue('CODEINFO_MONGO_URI', uri);
+      setBootstrapTestEnvValue('CODEINFO_MONGO_URI', uri);
 
       stage = 'connect';
       await connectMongo(uri);
@@ -172,4 +172,5 @@ AfterAll(async () => {
   if (stopping) return;
   stopping = true;
   await resetMongoContainerState('after-all');
+  clearBootstrapTestEnvValue('CODEINFO_MONGO_URI');
 });

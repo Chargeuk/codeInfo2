@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import nodeTest from 'node:test';
 import { SYSTEM_CONTEXT, VECTORSEARCH_PROTOCOL_REMINDER, } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { ThreadEvent, ThreadOptions as CodexThreadOptions, } from '@openai/codex-sdk';
@@ -20,6 +20,10 @@ import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { attachWs } from '../../ws/server.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
 import { closeWs, connectWs, sendJson, waitForEvent, } from '../support/wsClient.js';
 class MockThread {
     id: string | null;
@@ -163,13 +167,15 @@ const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
-beforeEach(async () => {
+const test = (name: string, fn: () => Promise<void> | void) => nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
     resetToolDeps();
     clearScopedTestEnvValue("CODEX_HOME");
     clearScopedTestEnvValue("CODEX_WORKDIR");
     clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
     tempCodexHomeForTest = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-mcp-home-'));
     await fs.mkdir(path.join(tempCodexHomeForTest, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(tempCodexHomeForTest, 'config.toml'), '', 'utf8');
     await fs.writeFile(path.join(tempCodexHomeForTest, 'chat', 'config.toml'), 'model = "gpt-5.1-codex-max"\n', 'utf8');
     setScopedTestEnvValue("CODEX_HOME", tempCodexHomeForTest);
     setScopedTestEnvValue("CODEINFO_CODEX_HOME", tempCodexHomeForTest);
@@ -183,39 +189,43 @@ beforeEach(async () => {
     });
     resetStore();
     conversationCounter = 0;
-});
-afterEach(async () => {
-    resetToolDeps();
-    if (ORIGINAL_CODEX_HOME === undefined) {
-        clearScopedTestEnvValue("CODEX_HOME");
+    try {
+        await fn();
     }
-    else {
-        setScopedTestEnvValue("CODEX_HOME", ORIGINAL_CODEX_HOME);
+    finally {
+        resetToolDeps();
+        if (ORIGINAL_CODEX_HOME === undefined) {
+            clearScopedTestEnvValue("CODEX_HOME");
+        }
+        else {
+            setScopedTestEnvValue("CODEX_HOME", ORIGINAL_CODEX_HOME);
+        }
+        if (ORIGINAL_CODEX_WORKDIR === undefined) {
+            clearScopedTestEnvValue("CODEX_WORKDIR");
+        }
+        else {
+            setScopedTestEnvValue("CODEX_WORKDIR", ORIGINAL_CODEX_WORKDIR);
+        }
+        if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+            clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
+        }
+        else {
+            setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", ORIGINAL_CODEINFO_CODEX_WORKDIR);
+        }
+        if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+            clearScopedTestEnvValue("CODEINFO_CODEX_HOME");
+        }
+        else {
+            setScopedTestEnvValue("CODEINFO_CODEX_HOME", ORIGINAL_CODEINFO_CODEX_HOME);
+        }
+        if (tempCodexHomeForTest) {
+            await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
+            tempCodexHomeForTest = undefined;
+        }
+        memoryConversations.clear();
+        memoryTurns.clear();
+        endScopedTestEnvIsolation();
     }
-    if (ORIGINAL_CODEX_WORKDIR === undefined) {
-        clearScopedTestEnvValue("CODEX_WORKDIR");
-    }
-    else {
-        setScopedTestEnvValue("CODEX_WORKDIR", ORIGINAL_CODEX_WORKDIR);
-    }
-    if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
-        clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
-    }
-    else {
-        setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", ORIGINAL_CODEINFO_CODEX_WORKDIR);
-    }
-    if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
-        clearScopedTestEnvValue("CODEINFO_CODEX_HOME");
-    }
-    else {
-        setScopedTestEnvValue("CODEINFO_CODEX_HOME", ORIGINAL_CODEINFO_CODEX_HOME);
-    }
-    if (tempCodexHomeForTest) {
-        await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
-        tempCodexHomeForTest = undefined;
-    }
-    memoryConversations.clear();
-    memoryTurns.clear();
 });
 let conversationCounter = 0;
 const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({

@@ -27,6 +27,10 @@ export function setCodexDetection(value: CodexDetection) {
   detection = value;
 }
 
+export function __setGlobalCodexDetectionForTests(value: CodexDetection) {
+  detection = value;
+}
+
 export function updateCodexDetection(value: CodexDetection): CodexDetection {
   if (hasActiveTestOverrideScope()) {
     enterTestOverrideScope({ codexDetection: value });

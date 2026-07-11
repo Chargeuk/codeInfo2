@@ -25,7 +25,7 @@ Resolve the single current task for this implementation-loop pass, or record tha
 3. Run `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"`.
 4. Determine the selector result from its stdout JSON.
 5. Read `current-task.json` from disk after the script finishes and confirm it matches the selector stdout JSON.
-6. If the selector stdout JSON or the reread `current-task.json` says a current task was resolved, re-open the exact `plan_path` from disk with shell reads such as `sed`, `cat`, or `rg`, then re-read the bound task before answering.
+6. If the selector stdout JSON or the reread `current-task.json` says a current task was resolved, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile current-task --task current` and use only that bounded task packet before answering.
 7. If the selector stdout JSON and the reread `current-task.json` disagree, or if either one says the plan needs repair, the story is complete, or a task could not be resolved, report that state clearly and do not invent a task anyway.
 
 </exact_step_order>
@@ -37,7 +37,7 @@ Resolve the single current task for this implementation-loop pass, or record tha
 - If selector stdout is empty, unreadable, or malformed after the selector runs, stop and say the current task handoff must be regenerated.
 - If `current-task.json` is missing or unreadable after the selector runs, stop and say the current task handoff must be regenerated.
 - If selector stdout and the reread `current-task.json` disagree, stop and say the current task handoff must be regenerated.
-- If the selector resolved a task but the plan no longer contains that task when you re-open it from disk, stop and say the current task handoff must be regenerated.
+- If the selector resolved a task but `plan_sections.py` no longer returns that task, stop and say the current task handoff must be regenerated.
 
 </edge_case_rules>
 
@@ -59,7 +59,7 @@ Return a concise summary that includes:
   - run `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"`;
   - parse the selector stdout JSON;
   - read `current-task.json` and confirm it matches stdout;
-  - if they resolve Task 12, re-open the plan from disk and re-read `### Task 12.` before answering;
+  - if they resolve Task 12, run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile current-task --task current` before answering;
   - report Task 12 as the bound task for this loop pass.
 
 </correct_example>
@@ -71,7 +71,7 @@ Return a concise summary that includes:
 - confirm you used the selector stdout JSON as the primary result;
 - confirm you read `current-task.json` after the script finished as the persistence check;
 - confirm you stopped if selector stdout and the reread file disagreed;
-- confirm you re-opened the plan and re-read the bound task from disk when a task was resolved;
+- confirm you loaded fresh bounded sections for the bound task when one was resolved;
 - confirm you did not invent a different task when the selector said repair was needed or the story was complete;
 - confirm tracked plan-file changes were committed if any occurred;
 - confirm `current-task.json` was not committed.

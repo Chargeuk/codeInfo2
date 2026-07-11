@@ -9,50 +9,45 @@
       "markdownFile": "store_current_plan_handoff.md"
     },
     {
-      "type": "llm",
-      "label": "Lite Planner Use Next Plan",
-      "agentType": "planning_agent_lite",
-      "identifier": "planner_lite",
-      "markdownFile": "use_current_plan_handoff.md"
-    },
-    {
-      "type": "llm",
-      "label": "Heavy Coder Use Next Plan",
-      "agentType": "coding_agent",
-      "identifier": "coder",
-      "markdownFile": "use_current_plan_handoff.md"
-    },
-    {
-      "type": "llm",
-      "label": "Lite Coder Use Next Plan",
-      "agentType": "coding_agent_lite",
-      "identifier": "lite_coder",
-      "markdownFile": "use_current_plan_handoff.md"
-    },
-    {
-      "type": "llm",
-      "label": "Manual Tester Use Next Plan",
-      "agentType": "manual_testing_agent",
-      "identifier": "manual_tester",
-      "markdownFile": "manual_tester_use_current_plan_handoff.md"
-    },
-    {
       "type": "startLoop",
       "label": "Story Execution And Review Loop",
       "steps": [
         {
-          "type": "llm",
-          "label": "Double-check plan",
+          "type": "reset",
+          "label": "Reset planner before story execution pass",
+          "agentType": "planning_agent",
+          "identifier": "planner"
+        },
+        {
+          "type": "reset",
+          "label": "Reset lite coder before story execution pass",
           "agentType": "coding_agent_lite",
-          "identifier": "lite_coder",
-          "messages": [
-            {
-              "role": "user",
-              "content": [
-                "Use fresh disk reads and current git state, not conversational memory. Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Reopen the exact relative `plan_path` from disk even if you have read it before, using explicit shell reads such as `sed`, `cat`, or `rg`. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. Recheck the current repository branch directly from git, for example with `git branch --show-current`, and recheck the most recent commit directly from git, for example with `git log --oneline -1`. If either of those scope checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. Recheck each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`, and recheck its most recent commit directly from git, for example with `git -C <repo_root> log --oneline -1`. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. You MUST double-check whether tasks have been added to the plan by another agent or whether anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the whole plan again and CANNOT assume you understand it from before. Once you have done this, give me a summary of the remaining work."
-              ]
-            }
-          ]
+          "identifier": "lite_coder"
+        },
+        {
+          "type": "reset",
+          "label": "Reset deep repair coder before story execution pass",
+          "agentType": "coding_agent",
+          "identifier": "coder"
+        },
+        {
+          "type": "reset",
+          "label": "Reset automated tester before story execution pass",
+          "agentType": "automated_testing_agent",
+          "identifier": "automated_tester"
+        },
+        {
+          "type": "reset",
+          "label": "Reset manual tester before story execution pass",
+          "agentType": "manual_testing_agent",
+          "identifier": "manual_tester"
+        },
+        {
+          "type": "llm",
+          "label": "Load planner story context",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "load_planner_story_context.md"
         },
         {
           "type": "startLoop",
@@ -79,6 +74,13 @@
                 },
                 {
                   "type": "llm",
+                  "label": "Load manual tester current task context",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "load_manual_tester_current_task_context.md"
+                },
+                {
+                  "type": "llm",
                   "label": "Preflight visual diagnosis for current task",
                   "agentType": "manual_testing_agent",
                   "identifier": "manual_tester",
@@ -92,6 +94,13 @@
                       "type": "reingest",
                       "label": "Re-embed plan-scope repositories before implementation",
                       "target": "plan_scope"
+                    },
+                    {
+                      "type": "llm",
+                      "label": "Load lite coder current task context",
+                      "agentType": "coding_agent_lite",
+                      "identifier": "lite_coder",
+                      "markdownFile": "load_lite_coder_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -121,6 +130,13 @@
                       "identifier": "loop_controller",
                       "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_implementation_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
+                    },
+                    {
+                      "type": "llm",
+                      "label": "Load coder current task context before implementation repair",
+                      "agentType": "coding_agent",
+                      "identifier": "coder",
+                      "markdownFile": "load_coder_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -158,10 +174,10 @@
                     },
                     {
                       "type": "llm",
-                      "label": "Preflight automated-proof current task orientation",
+                      "label": "Load automated tester current task context",
                       "agentType": "automated_testing_agent",
                       "identifier": "automated_tester",
-                      "markdownFile": "preflight_automated_proof_current_task.md"
+                      "markdownFile": "load_automated_tester_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -187,10 +203,10 @@
                     },
                     {
                       "type": "llm",
-                      "label": "Preflight deep automated-proof blocker orientation",
+                      "label": "Load coder current task context before proof repair",
                       "agentType": "coding_agent",
                       "identifier": "coder",
-                      "markdownFile": "preflight_deep_test_failure_current_blocker.md"
+                      "markdownFile": "load_coder_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -296,6 +312,43 @@
                   "identifier": "loop_controller",
                   "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_story_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset planner after completed task",
+                  "agentType": "planning_agent",
+                  "identifier": "planner"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset lite coder after completed task",
+                  "agentType": "coding_agent_lite",
+                  "identifier": "lite_coder"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset deep repair coder after completed task",
+                  "agentType": "coding_agent",
+                  "identifier": "coder"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset automated tester after completed task",
+                  "agentType": "automated_testing_agent",
+                  "identifier": "automated_tester"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset manual tester after completed task",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester"
+                },
+                {
+                  "type": "llm",
+                  "label": "Reload planner story context after completed task",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "load_planner_story_context.md"
                 }
               ]
             },
@@ -415,6 +468,32 @@
               "flowNames": ["review_artifacts_main", "codex_review"]
             },
             {
+              "type": "reset",
+              "label": "Reset planner for current review disposition pass",
+              "agentType": "planning_agent",
+              "identifier": "planner"
+            },
+            {
+              "type": "reset",
+              "label": "Reset lite planner for current review disposition pass",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite"
+            },
+            {
+              "type": "llm",
+              "label": "Load planner review context",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "load_planner_review_context.md"
+            },
+            {
+              "type": "llm",
+              "label": "Load lite planner review context",
+              "agentType": "planning_agent_lite",
+              "identifier": "planner_lite",
+              "markdownFile": "load_lite_planner_review_context.md"
+            },
+            {
               "type": "llm",
               "label": "Merge Codex Review Findings Into Canonical Review",
               "agentType": "planning_agent",
@@ -451,6 +530,19 @@
                   "identifier": "loop_controller",
                   "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset coder for next minor review finding",
+                  "agentType": "coding_agent",
+                  "identifier": "coder"
+                },
+                {
+                  "type": "llm",
+                  "label": "Load coder review context",
+                  "agentType": "coding_agent",
+                  "identifier": "coder",
+                  "markdownFile": "load_coder_review_context.md"
                 },
                 {
                   "type": "llm",
@@ -537,7 +629,7 @@
                       "label": "Exit Review-Created Task Scope Loop If Context Is Not Safely Usable",
                       "agentType": "planning_agent",
                       "identifier": "planner",
-                      "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step. Then re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json` when it exists and is valid enough to supply current review-cycle context, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`, whenever the current review handoff is needed to identify the active review-created block safely. Do not rely on conversational memory, prior loop passes, earlier summaries, or any previous snapshot. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` if this loop should exit cleanly without another repair pass because the context is not safely usable, including when `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`; when the canonical plan is missing, unreadable, or unusable; when the current branch story number does not match the selected plan filename; when both the review disposition state and the current review handoff are missing, unreadable, malformed, or otherwise unusable for active review-cycle identification; when multiple plausible current-cycle review-created blocks still remain after the selector order; or when the active review-created block still cannot be identified safely. Answer `no` only when the loop context is safe enough to continue into the repair step.",
+                      "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only its stored scope. Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`, and run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --profile review-tasking`. Read `codeInfoStatus/flow-state/review-disposition-state.json` and `codeInfoTmp/reviews/<story-number>-current-review.json` only when needed to identify the current review cycle. Do not open or read the complete plan Markdown and do not rely on conversational memory. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` if scope is invalid, neither review-state source safely identifies the active review cycle, multiple plausible current-cycle review-created blocks remain, or the bounded review-tasking packet cannot identify the active block safely. Answer `no` only when the bounded context is safe enough to continue into repair.",
                       "breakOn": "yes"
                     },
                     {
@@ -552,7 +644,7 @@
                       "label": "Exit Review-Created Task Scope Loop When Clean",
                       "agentType": "planning_agent",
                       "identifier": "planner",
-                      "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step. Then read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json` when it exists and is valid enough to provide the active review-cycle context, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Re-open the exact relative `plan_path` from disk immediately before answering, using explicit shell reads such as `sed`, `cat`, or `rg`. Do not rely on conversational memory, prior loop passes, earlier summaries, or any previous snapshot because the plan may have been modified by another llm in the previous loop pass. Inspect only the newly added or updated review-created tasks for the current review cycle. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` only if every newly added or updated review-created task is now fully within current-story scope across all relevant sections, including heading/title, `Repository Name`, `Task Dependencies`, `Notes`, `Overview`, `Task Exit Criteria`, `Addresses Findings`, `Risk Ownership`, `Owner Map`, `Requirement-To-Proof Mapping` or `Proof Mapping`, `Affected Repositories`, `Documentation Locations`, `Subtasks`, `Testing`, `Manual Testing Guidance`, and `Implementation Notes`. Answer `no` if another repair pass is still needed.",
+                      "question": "Read `codeInfoStatus/flow-state/current-plan.json` and `codeInfoStatus/flow-state/review-disposition-state.json` first. Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --profile review-tasking` immediately before answering. Do not open or read the complete plan Markdown and do not rely on conversational memory. Inspect only the current cycle's newly added or updated review-created tasks returned by the bounded packet and identified by review state. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` only if every such task is fully within current-story scope across heading/title, `Repository Name`, `Task Dependencies`, `Notes`, `Overview`, `Task Exit Criteria`, `Addresses Findings`, `Risk Ownership`, `Owner Map`, `Requirement-To-Proof Mapping` or `Proof Mapping`, `Affected Repositories`, `Documentation Locations`, `Subtasks`, `Testing`, `Manual Testing Guidance`, and `Implementation Notes`. Answer `no` if another repair pass is still needed.",
                       "breakOn": "yes"
                     }
                   ]

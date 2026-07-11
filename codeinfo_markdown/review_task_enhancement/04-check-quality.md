@@ -1,6 +1,6 @@
 # Goal
 
-Re-read the plan after the scoped review-task-up command and keep improving the newly added review-created `__to_do__` tasks until they match the repository's normal high-quality tasking standard.
+Load the bounded review-created task packet after the scoped review-task-up command and keep improving those `__to_do__` tasks until they match the repository's normal high-quality tasking standard.
 
 <instruction_priority>
 
@@ -23,7 +23,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 <quality_check_rules>
 
 - Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact `plan_path` from disk after the scoped review-task-up command has edited it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` after the scoped review-task-up command has edited the plan.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Re-identify the same newly added review-created `__to_do__` tasks that were eligible for the scoped review-task-up command. Keep edits focused on those tasks except for minimal dependency, numbering, cross-reference, or testing-honesty fixes elsewhere in the plan.
 - Compare the selected review-created tasks against the story's stronger pre-existing tasks. Review-created tasks should read like normal first-class story tasks, not lightweight review notes.

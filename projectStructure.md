@@ -5,6 +5,69 @@
 Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
 The migrated story ledgers below now reference that durable location consistently.
 
+## Story 0000064 structural change ledger
+
+Added files:
+
+- `codeinfo_markdown/bounded_plan_read_mapping.md`
+- `codeinfo_markdown/load_agent_work_context.md`
+- `codeinfo_markdown/load_automated_tester_current_task_context.md`
+- `codeinfo_markdown/load_coder_current_task_context.md`
+- `codeinfo_markdown/load_coder_review_context.md`
+- `codeinfo_markdown/load_lite_coder_current_task_context.md`
+- `codeinfo_markdown/load_lite_planner_review_context.md`
+- `codeinfo_markdown/load_manual_tester_current_task_context.md`
+- `codeinfo_markdown/load_planner_review_context.md`
+- `codeinfo_markdown/load_planner_story_context.md`
+- `codeinfo_markdown/shared/bounded-plan-read.md`
+- `scripts/agent_work_context.py`
+- `scripts/plan_sections.py`
+- `scripts/test/test_agent_work_context.py`
+- `scripts/test/test_plan_read_policy.py`
+- `scripts/test/test_plan_sections.py`
+
+Removed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `AGENTS.md`
+- `codeinfo_markdown/code_review_findings/01-core.md`
+- `codeinfo_markdown/review_blind_spot_challenge/01-core.md`
+- `codeinfo_markdown/review_evidence_gate/01-core.md`
+- `codeinfo_markdown/review_findings_saturation.md`
+- `codeinfo_markdown/promote_story_manual_proof.md`
+- `codeinfo_markdown/repair_review_workflow_state.md`
+- `codeinfo_markdown/repair_story_workflow_state.md`
+- `codeinfo_markdown/review_task_enhancement/02b-risk-and-prerequisite-scan.md`
+- `codeinfo_markdown/review_task_enhancement/03-finalize.md`
+- `codeinfo_markdown/review_task_enhancement/05-compact-granularity.md`
+- `codeinfo_markdown/review_task_enhancement/07-compact-proof-expansion.md`
+- `codeinfo_markdown/review_task_enhancement/09-compact-proof-and-testing.md`
+- `design.md`
+- `flows/implement_next_plan.json`
+- `projectStructure.md`
+- `scripts/check_current_task_handoff.py`
+- `scripts/test/test_review_prompt_contracts.py`
+- `server/src/flows/flowSchema.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.agent-slot.test.ts`
+- `server/src/test/unit/flows-schema.test.ts`
+
+Story notes:
+
+- Story 64 adds a strict `reset` flow step that targets one execution-local `agentType:identifier` slot, evicts its conversation and thread state, persists the reset checkpoint, and lets the next use create a fresh child conversation.
+- Missing slots are successful observable no-ops so reset steps remain safe before first use and when repeated inside user-interactive flows. Existing child conversations remain available as history, while sibling agent slots are unchanged.
+- The implementation flow now resets the planner and implementation agents at safe story-pass and completed-task boundaries, while preserving the loop controller and lite planner across iterations.
+- Resolved context-loader prompts restore only the compact story or current-task state each reset agent needs, avoiding broad plan reads and unnecessary tool calls.
+- Review disposition passes reset and reload the parent planner agents after fresh review artifacts are available, while each minor finding receives a freshly reset coder with compact review context.
+- Reachable implementation and review prompts now use `plan_sections.py` profiles plus a shared bounded-read contract; `bounded_plan_read_mapping.md` records the prompt-family mapping and policy tests prevent unbounded plan-read instructions from returning.
+- Review evidence and findings profiles provide content-free heading/task indexes and final-task proof context, while policy traversal now resolves command-owned Markdown stacks used by the review subflows.
+- Every review-task enhancement pass refreshes the bounded `review-tasking` packet, and story/review workflow repair fallbacks use content-free path and Git checks rather than reopening a plan.
+- The recursive policy rejects selected-plan, referenced-plan, and content-from-disk instructions and keeps explicit reachability assertions for the affected command-owned and direct-flow prompts.
+- Bounded `review-scope` and `review-tasking` packets now carry Description together with Acceptance Criteria and Out Of Scope so scope decisions retain the story's stated intent.
+
 ## Story 0000059 structural change ledger
 
 Added files:

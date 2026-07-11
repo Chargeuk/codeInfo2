@@ -130,6 +130,7 @@ import {
   type FlowLlmStep,
   type FlowPrepareReviewBaseStep,
   type FlowReingestStep,
+  type FlowResetStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
   type FlowStep,
@@ -1695,6 +1696,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowBreakStep
     | FlowContinueStep
     | FlowCommandStep
+    | FlowResetStep
     | FlowPrepareReviewBaseStep
     | FlowCodexReviewStep
     | FlowSubflowStep
@@ -6189,6 +6191,54 @@ async function runFlowUnlocked(params: {
           await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
         }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (step.type === 'reset') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        const agentKey = getAgentKey(step.agentType, step.identifier);
+        const resetExistingSlot = runtimeState.delete(agentKey);
+        const outcome = resetExistingSlot ? 'reset' : 'already_absent';
+        append({
+          level: 'info',
+          message: 'flows.agent.reset',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            label: command.label,
+            agentType: step.agentType,
+            identifier: step.identifier,
+            agentKey,
+            outcome,
+          },
+        });
+        baseLogger.info(
+          {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            stepPath: nextPath,
+            stepIndex: command.stepIndex,
+            label: command.label,
+            agentType: step.agentType,
+            identifier: step.identifier,
+            agentKey,
+            outcome,
+          },
+          'flow agent slot reset completed',
+        );
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);

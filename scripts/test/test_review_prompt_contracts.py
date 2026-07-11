@@ -50,7 +50,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
     def test_blind_spot_command_includes_changed_hunk_runtime_scan(self) -> None:
         command = json.loads(
-            read_text("codex_agents/review_agent/commands/review_blind_spot_challenge.json")
+            read_text("codeinfo_agents/review_agent/commands/review_blind_spot_challenge.json")
         )
         markdown_files = [item["markdownFile"] for item in command["items"]]
         self.assertIn(
@@ -196,6 +196,36 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("preserved behavior proof", ensure_text)
         self.assertIn("contract-shape assertions", compact_text)
 
+    def test_internal_review_stacks_use_bounded_plan_profiles(self) -> None:
+        evidence = read_text("codeinfo_markdown/review_evidence_gate/01-core.md")
+        findings = read_text("codeinfo_markdown/code_review_findings/01-core.md")
+        saturation = read_text("codeinfo_markdown/review_findings_saturation.md")
+        blind_spot = read_text(
+            "codeinfo_markdown/review_blind_spot_challenge/01-core.md"
+        )
+
+        self.assertIn("shared/bounded-plan-read.md", evidence)
+        self.assertIn('plan_sections.py" --profile review-evidence', evidence)
+        self.assertIn("Runtime Contract Preservation Matrix", evidence)
+        self.assertIn("final-task proof details", evidence)
+
+        self.assertIn("shared/bounded-plan-read.md", findings)
+        self.assertIn('plan_sections.py" --profile review-findings', findings)
+        self.assertIn("--task-number <number>", findings)
+        self.assertIn("perform the actual review", findings)
+
+        self.assertIn("shared/bounded-plan-read.md", saturation)
+        self.assertIn('plan_sections.py" --profile review-findings', saturation)
+        self.assertIn("same-class sibling", saturation)
+
+        self.assertIn("shared/bounded-plan-read.md", blind_spot)
+        self.assertIn('plan_sections.py" --profile review-findings', blind_spot)
+        self.assertIn("blind-spot challenge", blind_spot)
+
+        for text in (evidence, findings, saturation, blind_spot):
+            self.assertNotIn("re-open that exact plan", text.lower())
+            self.assertNotIn("re-open the exact relative `plan_path`", text.lower())
+
     def test_review_created_task_scope_prompt_requires_disk_rereads_and_section_gates(
         self,
     ) -> None:
@@ -203,9 +233,10 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("Read `codeInfoStatus/flow-state/current-plan.json` from disk first", text)
         self.assertIn("Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`", text)
-        self.assertIn("using explicit shell reads such as `sed`, `cat`, or `rg`", text)
+        self.assertIn("shared/bounded-plan-read.md", text)
+        self.assertIn("plan_sections.py\" --profile review-tasking", text)
         self.assertIn("Do not answer from conversational memory", text)
-        self.assertIn("After making any repair edit, re-open the exact canonical plan from disk again", text)
+        self.assertIn("After making any repair edit, rerun the same bounded review-tasking query", text)
         self.assertIn("This step runs only after a separate loop preflight", text)
         self.assertIn("If the context became unusable after the loop preflight", text)
         self.assertIn("Task Exit Criteria", text)
@@ -223,7 +254,8 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("Read `codeInfoStatus/flow-state/current-plan.json` from disk first", text)
         self.assertIn("Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`", text)
-        self.assertIn("Re-open the exact canonical plan from disk before filtering any finding", text)
+        self.assertIn("shared/bounded-plan-read.md", text)
+        self.assertIn("plan_sections.py\" --profile review-scope", text)
         self.assertIn("Read `\"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md\"`", text)
         self.assertIn("make no edits and treat this step as a clean skip", text)
         self.assertIn("optional evidence inputs", text)
@@ -232,6 +264,21 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("needs_task_up_path` remains true only because an `incomplete_review_blocker` tied solely to a rejected finding was preserved", text)
         self.assertIn("safe_to_exit_review_loop_without_tasking` remains false only because a blocker tied solely to a rejected finding was preserved", text)
         self.assertIn("no `incomplete_review_blocker` or `operationally_blocked_minor_finding` remains solely because a rejected finding used to justify it", text)
+
+    def test_active_task_normalization_does_not_require_a_selected_task(self) -> None:
+        text = read_text("codeinfo_markdown/normalize_inconsistent_active_task.md")
+
+        self.assertIn('plan_status.py" --include-tasks', text)
+        self.assertIn("without depending on `current-task.json` having a selection", text)
+        self.assertIn("--task-number <inconsistent-task-number>", text)
+        self.assertIn('plan_sections.py" --profile current-task --task current', text)
+
+    def test_select_current_task_example_matches_required_bounded_profile(self) -> None:
+        text = read_text("codeinfo_markdown/select_current_task.md")
+        command = 'plan_sections.py" --profile current-task --task current'
+
+        self.assertGreaterEqual(text.count(command), 2)
+        self.assertNotIn("--task-number 12 --section", text)
 
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())

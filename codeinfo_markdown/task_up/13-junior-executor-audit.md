@@ -11,7 +11,7 @@ Perform a final readability and execution audit so the resulting task list can b
 
 <junior_executor_rules>
 
-- Re-read the active plan from disk before editing.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md` and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before editing.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each task and subtask, check whether it clearly says:

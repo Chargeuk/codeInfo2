@@ -14,7 +14,7 @@ Scan the selected review-created tasks for high-risk invariants, missing prerequ
 
 <risk_scan_rules>
 
-- Re-read the selected plan from disk before editing.
+- Immediately before editing, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content.
 - Keep the selected review-created task identities stable. Do not delete, absorb, merge away, split, repackage, or renumber selected tasks in a way that changes which tasks are in scope for later enhancement passes. Only make minimal ordering or dependency repairs that preserve selected task identity.
 - For each selected task that touches lifecycle, persistence, cross-contract behavior, default-entrypoint behavior, runtime proof, or broad wrappers, identify the highest-risk invariant that could still fail after a happy-path proof.
 - When a selected task changes create, admission, waiting, running, success, no-op, error, cancel, retry, cleanup, startup recovery, or dependency-outage behavior, ensure the task owns an exact ordering or interleaving proof when adjacent before/after proof would not prove the real invariant.

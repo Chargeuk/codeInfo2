@@ -8,7 +8,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
-- Re-open the exact canonical plan from disk before deciding whether to edit it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before deciding whether to edit the relevant closeout section.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Use the stored review handoff plus the artifacts it references as the source of review context.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
@@ -75,7 +75,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 <verification_loop>
 
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
-- Confirm the exact canonical plan was re-opened from disk before editing.
+- Confirm a fresh bounded review-scope packet was loaded before editing.
 - Confirm no unresolved task-required findings, unresolved minor-batchable findings, incomplete-review blockers, rerun requirements, or final minor-fix revalidation requirements remained before writing the closeout.
 - Confirm no fresh review-created work remained from the current review cycle.
 - Confirm no unfinished task-up-owned final revalidation task remained for the current review cycle.

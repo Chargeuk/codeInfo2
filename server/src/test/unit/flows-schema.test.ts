@@ -15,6 +15,9 @@ describe('flow schema (v1)', () => {
 
   type FlowStep = {
     type: string;
+    label?: string;
+    agentType?: string;
+    identifier?: string;
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
@@ -30,6 +33,18 @@ describe('flow schema (v1)', () => {
       }
     }
     return flattened;
+  };
+
+  const assertOrdered = (
+    labels: Array<string | undefined>,
+    before: string,
+    after: string,
+  ) => {
+    const beforeIndex = labels.indexOf(before);
+    const afterIndex = labels.indexOf(after);
+    assert.notEqual(beforeIndex, -1, `missing flow step: ${before}`);
+    assert.notEqual(afterIndex, -1, `missing flow step: ${after}`);
+    assert.ok(beforeIndex < afterIndex, `${before} should precede ${after}`);
   };
 
   test('does not emit Story 45 parse logs unless explicitly requested', () => {
@@ -200,6 +215,157 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('implement_next_plan resets implementation agents only at safe boundaries and reloads compact context', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const steps = flattenSteps(parsed.steps ?? []);
+    const resetSteps = steps.filter((step) => step.type === 'reset');
+    const implementationResetSteps = resetSteps.filter(
+      (step) =>
+        step.label?.includes('story execution pass') === true ||
+        step.label?.includes('completed task') === true,
+    );
+
+    assert.equal(implementationResetSteps.length, 10);
+    for (const [agentType, identifier] of [
+      ['planning_agent', 'planner'],
+      ['coding_agent_lite', 'lite_coder'],
+      ['coding_agent', 'coder'],
+      ['automated_testing_agent', 'automated_tester'],
+      ['manual_testing_agent', 'manual_tester'],
+    ] as const) {
+      assert.equal(
+        implementationResetSteps.filter(
+          (step) =>
+            step.agentType === agentType && step.identifier === identifier,
+        ).length,
+        2,
+        `${agentType}:${identifier} should reset at the story-pass and completed-task boundaries`,
+      );
+    }
+    assert.equal(
+      resetSteps.some((step) => step.identifier === 'loop_controller'),
+      false,
+    );
+    assert.equal(
+      implementationResetSteps.some(
+        (step) => step.identifier === 'planner_lite',
+      ),
+      false,
+    );
+    assert.equal(
+      steps.some((step) => step.label === 'Double-check plan'),
+      false,
+    );
+    assert.equal(
+      steps.some(
+        (step) =>
+          step.markdownFile === 'use_current_plan_handoff.md' ||
+          step.markdownFile === 'manual_tester_use_current_plan_handoff.md',
+      ),
+      false,
+    );
+    assert.deepEqual(
+      (parsed.steps ?? []).slice(0, 2).map((step) => step.label),
+      ['Planner Select And Store Next Plan', 'Story Execution And Review Loop'],
+    );
+
+    const labels = steps.map((step) => step.label);
+    assertOrdered(
+      labels,
+      'Exit task loop if story is complete',
+      'Reset planner after completed task',
+    );
+    assertOrdered(
+      labels,
+      'Reset manual tester after completed task',
+      'Reload planner story context after completed task',
+    );
+
+    const contextFiles = steps
+      .map((step) => step.markdownFile)
+      .filter((value): value is string => typeof value === 'string')
+      .filter(
+        (value) =>
+          value.startsWith('load_') && !value.endsWith('_review_context.md'),
+      );
+    assert.deepEqual(
+      contextFiles.sort(),
+      [
+        'load_automated_tester_current_task_context.md',
+        'load_coder_current_task_context.md',
+        'load_coder_current_task_context.md',
+        'load_lite_coder_current_task_context.md',
+        'load_manual_tester_current_task_context.md',
+        'load_planner_story_context.md',
+        'load_planner_story_context.md',
+      ].sort(),
+    );
+  });
+
+  test('implement_next_plan resets parent review agents at review-owned boundaries', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const steps = flattenSteps(parsed.steps ?? []);
+    const labels = steps.map((step) => step.label);
+    const reviewResetSteps = steps.filter(
+      (step) =>
+        step.type === 'reset' &&
+        (step.label?.includes('review disposition pass') === true ||
+          step.label?.includes('minor review finding') === true),
+    );
+
+    assert.deepEqual(
+      reviewResetSteps.map((step) => step.identifier),
+      ['planner', 'planner_lite', 'coder'],
+    );
+    assertOrdered(
+      labels,
+      'Run Parallel Review Artifact Flows',
+      'Reset planner for current review disposition pass',
+    );
+    assertOrdered(
+      labels,
+      'Reset lite planner for current review disposition pass',
+      'Load planner review context',
+    );
+    assertOrdered(
+      labels,
+      'Load lite planner review context',
+      'Merge Codex Review Findings Into Canonical Review',
+    );
+    assertOrdered(
+      labels,
+      'Exit Minor-Fix Path Unless Minor Findings Remain',
+      'Reset coder for next minor review finding',
+    );
+    assertOrdered(
+      labels,
+      'Load coder review context',
+      'Implement Next Minor Review Finding',
+    );
+
+    const reviewContextFiles = steps
+      .map((step) => step.markdownFile)
+      .filter((value): value is string => typeof value === 'string')
+      .filter((value) => value.endsWith('_review_context.md'));
+    assert.deepEqual(reviewContextFiles, [
+      'load_planner_review_context.md',
+      'load_lite_planner_review_context.md',
+      'load_coder_review_context.md',
+    ]);
+    assert.equal(
+      reviewResetSteps.some((step) => step.identifier?.startsWith('reviewer_')),
+      false,
+    );
+  });
+
   test('review flows run findings saturation before blind-spot challenge', async () => {
     const flowFiles = [
       {
@@ -261,7 +427,8 @@ describe('flow schema (v1)', () => {
       if (flowFile.relativePath === 'flows/implement_next_plan.json') {
         const subflowMarkers = flattenSteps(parsed.steps ?? [])
           .map((step) =>
-            step.type === 'subflow' && Array.isArray((step as { flowNames?: string[] }).flowNames)
+            step.type === 'subflow' &&
+            Array.isArray((step as { flowNames?: string[] }).flowNames)
               ? (step as { flowNames: string[] }).flowNames.join(',')
               : undefined,
           )
@@ -780,6 +947,59 @@ describe('flow schema (v1)', () => {
     });
 
     const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reset steps parse with an optional trimmed label', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'reset',
+            label: '  Reset planner context  ',
+            agentType: '  planning_agent  ',
+            identifier: '  planner  ',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.deepEqual(parsed.flow.steps[0], {
+      type: 'reset',
+      label: 'Reset planner context',
+      agentType: 'planning_agent',
+      identifier: 'planner',
+    });
+  });
+
+  test('reset steps require non-empty agentType and identifier values', () => {
+    for (const step of [
+      { type: 'reset', identifier: 'planner' },
+      { type: 'reset', agentType: 'planning_agent' },
+      { type: 'reset', agentType: '   ', identifier: 'planner' },
+      { type: 'reset', agentType: 'planning_agent', identifier: '   ' },
+    ]) {
+      const parsed = parseFlowFile(JSON.stringify({ steps: [step] }));
+      assert.equal(parsed.ok, false);
+    }
+  });
+
+  test('reset steps reject unsupported extra fields', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'reset',
+            agentType: 'planning_agent',
+            identifier: 'planner',
+            preserveRuntime: true,
+          },
+        ],
+      }),
+    );
+
     assert.equal(parsed.ok, false);
   });
 

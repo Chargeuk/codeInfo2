@@ -8,7 +8,7 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
-- Re-open the exact canonical plan from disk before filtering any finding, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before filtering any finding.
 - Read `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"` and follow it strictly.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk using explicit shell reads such as `cat`, `sed`, or `rg` whenever review-handoff context is needed. Read the `findings_file` referenced by that handoff from disk before relying on its review evidence.
 - Use the stored review handoff plus the artifacts it references only when needed to verify whether a finding is in scope. Do not rediscover review artifacts by timestamp.
@@ -23,7 +23,7 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 
 1. Read `codeInfoStatus/flow-state/current-plan.json` from disk and extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
 2. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no edits and treat this step as a clean skip for the current pass.
-3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
+3. Use the fresh bounded review-scope packet for the exact relative `plan_path`.
 4. If the canonical plan is missing, unreadable, or unusable, make no edits and treat this step as a clean skip for the current pass.
 5. Verify the current repository branch story number matches the story number in the selected plan filename. If it does not match, make no edits and treat this step as a clean skip for the current pass.
 6. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and treat it as the only actionable-routing input for this step.
@@ -200,7 +200,7 @@ Never leave the state in a shape where:
 <verification_loop>
 
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
-- Confirm the exact canonical plan was re-opened from disk before filtering findings.
+- Confirm a fresh bounded review-scope packet was loaded before filtering findings.
 - Confirm `story_behavior_lock.md` was read and applied.
 - Confirm that if `current-plan.json`, the canonical plan, or `review-disposition-state.json` was missing or unusable, the step made no edits and clean-skipped the current pass.
 - Confirm that if the current branch story number did not match the selected plan filename, the step made no edits and clean-skipped the current pass.

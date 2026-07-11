@@ -5,7 +5,7 @@ Create or update the durable reviewer-facing PR summary artifact for the active 
 <task>
 
 Read the stored current-plan handoff first and use only that scope for this step.
-Re-open the exact active plan file from disk immediately before writing.
+Load the bounded closeout packet immediately before writing.
 Derive the story number from the active plan filename.
 Create or update `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
 Inspect `codeInfoStatus/manual-proof/<story-number>/` if it exists and treat it as part of the repository-owned closeout state for this story.
@@ -18,7 +18,7 @@ Do not create or update any reviewer summary under `planning/` in this step.
 
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact relative `plan_path` from disk before writing, even if you read it earlier in the flow.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile closeout` before writing, even if you loaded earlier context.
 - Use fresh disk reads and current git state, not conversational memory.
 - If the story scope includes additional repositories, the summary must cover that multi-repository scope truthfully.
 
@@ -68,7 +68,7 @@ You may adjust the headings slightly if the final result is clearer, but keep th
 <verification_loop>
 
 - confirm you re-read `current-plan.json`;
-- confirm you re-opened the exact plan from disk immediately before writing;
+- confirm you loaded a fresh bounded closeout packet immediately before writing;
 - confirm the artifact was written under `codeInfoStatus/pr-summaries/` and not under `planning/`;
 - confirm the content reflects the latest final-summary and review state present in the plan;
 - confirm any mentioned `codeInfoStatus/manual-proof/<story-number>/` bundle actually exists on disk;

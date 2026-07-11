@@ -10,7 +10,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - For manual proof only, you may inspect and run additional supporting repositories when they are reasonably needed to perform honest proof for the active story or bound task.
 - Do not treat a supporting repository outside `additional_repositories` as a blocker by itself.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
-- Re-open the exact relative `plan_path` from disk before deciding what to test, because another agent may have just edited it. Use explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current` before deciding what to test, because another agent may have just edited the bound task.
 - If `current-task.json` does not clearly resolve a task for this loop pass, state that manual testing must wait for task resolution and do not invent a different candidate task.
 - After resolving the bound task number, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>` and use its JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan.
 - Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists and determine its meaning from the information it contains rather than depending on an exact JSON shape.
@@ -311,7 +311,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - if needed, add temporary diagnostic log lines or other minimal instrumentation, restart the affected runtime, and rerun the repro a small bounded number of times.
 - Remove purely temporary diagnostic instrumentation before finishing this step unless it is genuinely useful production or test logging.
 - Do not add speculative follow-up subtasks before that diagnosis pass is complete.
-- Before adding any follow-up subtasks for a visual discrepancy, inspect the remaining open tasks in the active plan.
+- Before adding any follow-up subtasks for a visual discrepancy, run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks`, then use `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --all-tasks --section Overview --section Non-Goals` to inspect only the ownership descriptions of remaining open tasks.
 - If a later open task already clearly owns that same visual discrepancy or comparison gap, record that it is already planned and do not add duplicate subtasks or reopen the current task solely for that already-owned work.
 
 <section_ownership_rules>

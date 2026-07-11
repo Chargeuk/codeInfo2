@@ -21,7 +21,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 <source_priority>
 
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
-- Re-open the exact `plan_path` from disk before editing testing sections.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile testing-audit` before editing testing sections. This returns the required sections for every task without exposing unrelated task prose.
 - Read `AGENTS.md` first for each repository whose tasks appear in the plan.
 - Use `README.md` and `codeinfo_markdown/repository_information.md` as supporting runtime and product context when they exist.
 - Inspect repository-native runtime and test entry points directly, including `package.json`, `docker-compose*`, Dockerfiles, Makefiles, justfiles, CI workflows, and test directories.

@@ -8,7 +8,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this command.
-- Re-open the exact relative `plan_path` from disk before editing.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before editing.
 - This command is scoped enhancement, not full story tasking. Do not rewrite the whole plan.
 - Only enhance review-created tasks that are still `__to_do__` and were newly added by the immediately preceding review-disposition pass.
 - Do not modify older `__done__` or `__in_progress__` tasks unless a minimal cross-reference, dependency, numbering, or testing-alignment update is required to keep the plan executable and honest.

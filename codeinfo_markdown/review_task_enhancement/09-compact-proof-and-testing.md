@@ -14,7 +14,7 @@ Give selected review-created tasks realistic automated proof and testing without
 
 <compact_testing_rules>
 
-- Re-read the selected plan from disk before editing.
+- Immediately before editing, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content.
 - For each selected review-created task, name the narrowest repository-supported automated proof that honestly reaches the changed behavior.
 - Prefer targeted wrapper options, targeted files, tags, scenarios, or subsets when the repository supports them and they prove the review fix directly.
 - Do not duplicate full-suite, broad-wrapper, Compose, Docker, browser, or e2e runs in every selected review-created task when the fresh final revalidation task already runs that broader proof for the review-created block.

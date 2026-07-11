@@ -20,7 +20,8 @@ Repair broken review-loop flow state for the current story so review exit routin
 - Only after a permitted script failure may you determine repair state manually from disk.
 - In that manual fallback, first determine story-scope repair exactly as follows:
   - if `current-plan.json` is missing, unreadable, invalid, or lacks a usable current story or `plan_path`, treat story scope as `repair_needed: true` with `repair_action: regenerate_current_plan_handoff`;
-  - otherwise, re-open the referenced plan and verify the current repository plus every additional repository in the handoff exists, is readable, and is still a git repository;
+  - otherwise, resolve `plan_path` against the current repository and require both `test -f <resolved-plan-path>` and `test -r <resolved-plan-path>` to verify only that the plan is a regular readable file; do not open its contents;
+  - verify the current repository plus every additional repository in the handoff with `test -d <repository-path>` and `git -C <repository-path> rev-parse --is-inside-work-tree`; do not read plan content for these checks;
   - if the plan file or any scoped repository is missing, unreadable, or no longer a git repository, treat story scope as `repair_needed: true` with `repair_action: refresh_current_plan_handoff`;
   - if the scoped repositories still exist but any current branch no longer matches the handoff story number, treat story scope as `repair_needed: true` with `repair_action: normalize_scope_then_refresh_handoff`;
   - otherwise, treat story scope as `repair_needed: false`.

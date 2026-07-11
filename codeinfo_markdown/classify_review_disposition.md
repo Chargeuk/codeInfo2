@@ -7,7 +7,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 <critical_rules>
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact canonical plan from disk before classifying the review, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before classifying the review.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Do not discover review artifacts by timestamp.
 - Use the stored review handoff plus the artifacts it references as the sole source of review outcome.
@@ -33,7 +33,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 1. Read `codeInfoStatus/flow-state/current-plan.json` from disk, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 2. Extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
-3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
+3. Use the fresh bounded review-scope packet for the exact relative `plan_path`.
 4. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename.
 5. Verify every additional repository path still exists, is readable, and is on a branch whose story number matches the selected plan filename.
 6. Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
@@ -280,7 +280,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 <verification_loop>
 
 - Confirm `current-plan.json` was read before any other flow-state file.
-- Confirm the exact canonical plan was re-opened from disk.
+- Confirm a fresh bounded review-scope packet was loaded.
 - Confirm the review handoff and referenced findings artifact were read.
 - Confirm every endorsed finding was classified into exactly one state bucket.
 - Confirm uncertain findings were classified as task-required rather than minor.

@@ -21,21 +21,49 @@ Re-read this file at the start of each session. Assume it may have changed since
 
 Perform this onboarding only when you are first working in this folder structure or when history has been compacted.
 
-1. Before doing anything else, call the `code_info` MCP tool.
+1. Before doing anything else, call the `code_info` MCP tool unless instructed not to do so.
 2. In that tool call, include the full repository path for this repository when doing so.
 3. Ask for:
-   - a concise project overview;
-   - the next plan in `./planning`, defined as the lowest `<index>-<title>.md` file that still contains tasks marked `todo` or `in progress` that is NOT a pr-summary file;
-   - the current status of that plan.
-4. View the last 3 commits in the repository.
-5. Confirm the current git branch.
-6. Check the planning document that matches the current branch story number that is NOT a pr-summary file, if one exists.
-7. Check the latest planning document in `./planning` that is NOT a pr-summary file if it is different from the branch-matched plan.
-8. Summarize for the user:
-   - the project overview;
-   - what was last implemented;
-   - what should be implemented next.
-9. If no planning file currently contains tasks marked `todo` or `in progress`, state that explicitly and treat the latest numbered planning file as context only.
+   - a concise project overview, including a summary of the last 3 git commits.
+   - Confirm the current git branch.
+4. Without performaing any additional research directly, relying only on thin information provided by code_info, summarize for the user the project overview and the current branch
+5. The `code_info` MCP tool can take some time to comples, so please be patient while waiting for a response.
+
+## Working with Planning Files
+
+1. Do NOT read whole planning files directly unless the user asks for specific plan content and the required information cannot be obtained from the Python helpers in `$CODEINFO_ROOT/scripts`. Planning files can be very large, so query their structured summaries first and read only the smallest relevant section as a fallback.
+2. Run these helpers from the target repository root so their default handoff paths resolve correctly. Prefer the default compact JSON output and add detail flags only when the task requires them.
+3. Use `python3 "$CODEINFO_ROOT/scripts/plan_status.py"` for the common case. It resolves the active plan from `codeInfoStatus/flow-state/current-plan.json` and reports the selected task, task counts, completion state, unchecked subtasks or testing, and live blockers.
+4. Narrow `plan_status.py` instead of opening a plan:
+   - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <number>` inspects one task.
+   - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --plan <path-to-plan.md>` inspects a specific plan without changing the handoff.
+   - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` returns every task summary; use it only when the compact default is insufficient.
+5. Use `python3 "$CODEINFO_ROOT/scripts/plan_sections.py"` when an agent needs plan prose. It returns only requested sections with exact line ranges and completeness indicators:
+   - `--profile implementation --task current` returns the current task's implementation packet.
+   - `--profile automated-proof --task current`, `--profile manual-proof --task current`, and `--profile blocker-repair --task current` return purpose-specific task packets.
+   - `--profile story-scope`, `--profile review-scope`, `--profile review-tasking`, `--profile testing-audit`, and `--profile closeout` return bounded cross-task or story context.
+   - `--profile review-evidence` returns the story contract, repository scope, compact task index, and final-task proof packet; `--profile review-findings` returns story scope plus the task index for targeted review expansion.
+   - Review profiles expose available story headings and task-section names without their prose so agents can request custom sections deliberately.
+   - `--task-number <number> --section <heading>` and `--story-section <heading>` request one additional named section without opening the complete plan.
+6. Use `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` for the combined story view, including plan completion, repository scope, and review-loop state. Add `--include-tasks` only when per-task detail is necessary.
+7. Use the focused read-only helpers when only one answer is needed:
+   - `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` checks whether the persisted current-task handoff is still valid.
+   - `python3 "$CODEINFO_ROOT/scripts/plan_blocker_status.py"` reports blocker status for the selected task; it also accepts `--task-number <number>` or `--plan <path-to-plan.md>`.
+   - `python3 "$CODEINFO_ROOT/scripts/questions_section_status.py"` reports whether the active plan's Questions section requires attention.
+   - `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` extracts story-level manual-testing guidance; pass `--task-number <number>` for one task.
+8. `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"` writes the current-task flow-state handoff. Use it only when the workflow requires selecting or refreshing that handoff, not for a read-only status query.
+9. If a helper's interface is unclear, run it with `--help` before reading its source or the planning file.
+10. When the Python helpers do not expose the required detail, use shell tools to locate and print only a bounded section. Use this fallback order:
+
+- `wc -l <plan.md>` checks the file size before selecting a reading strategy.
+- `rg -n --max-count <count> '<heading-or-term>' <plan.md>` finds relevant line numbers without printing the file. Add `-C <lines>`, `-A <lines>`, or `-B <lines>` only for small, bounded context around a match.
+- `sed -n '<start>,<end>p' <plan.md>` prints an exact line range after `rg -n` identifies its boundaries.
+- `awk '/<start-heading>/{show=1} show{print} /<end-heading>/{exit}' <plan.md>` extracts a heading-delimited section when line numbers are inconvenient. Choose a specific end-heading so output cannot run to the end of the file accidentally.
+- `head -n <count> <plan.md>` or `tail -n <count> <plan.md>` reads a bounded introduction or ending only when the needed content is known to be there.
+- `git diff --unified=<lines> -- <plan.md>` inspects only uncommitted plan changes with limited surrounding context.
+
+11. Use `jq` to narrow JSON emitted by the Python helpers before requesting more plan text, for example `python3 "$CODEINFO_ROOT/scripts/plan_status.py" | jq '{selected_task, story_complete, tasks_with_live_blockers}'`.
+12. Do not use `cat`, an unbounded `sed`/`awk` range, or a broad recursive search to read a large planning file. Start with the smallest likely query and expand the line range or context only when the first bounded result is insufficient.
 
 ## Documentation Sources
 

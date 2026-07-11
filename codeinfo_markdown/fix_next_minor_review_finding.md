@@ -10,7 +10,7 @@ This step performs the code/config/docs/test edit for one routed inline-fix find
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
-- Re-open the exact canonical plan from disk before touching files, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before touching files. Request the selected finding's owning task sections separately if the disposition state identifies one.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - If `needs_minor_fix_path` is not true, do not change repository files. Write a skipped result and stop.
@@ -138,7 +138,7 @@ Then write that exact `full_commit_sha` value into `minor-review-fix-result.json
 <verification_loop>
 
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
-- Confirm the exact canonical plan was re-opened from disk.
+- Confirm a fresh bounded review-scope packet was loaded.
 - Confirm only one minor finding was selected.
 - Confirm the selected finding still satisfied the minor-batchable rules before editing.
 - Confirm no manual testing was performed.

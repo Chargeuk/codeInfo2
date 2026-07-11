@@ -24,18 +24,18 @@ Perform this onboarding only when you are first working in this folder structure
 1. Before doing anything else, call the `code_info` MCP tool.
 2. In that tool call, include the full repository path for this repository when doing so.
 3. Ask for:
-   - a concise project overview;
-   - the next plan in `./planning`, defined as the lowest `<index>-<title>.md` file that still contains tasks marked `todo` or `in progress` that is NOT a pr-summary file;
-   - the current status of that plan.
-4. View the last 3 commits in the repository.
-5. Confirm the current git branch.
-6. Check the planning document that matches the current branch story number that is NOT a pr-summary file, if one exists.
-7. Check the latest planning document in `./planning` that is NOT a pr-summary file if it is different from the branch-matched plan.
-8. Summarize for the user:
+   - a concise project overview, including a summary of the last 3 git commits.
+   - Confirm the current git branch.
+   - The current active plan, if any, along with a brief summary status of the plan
+4. Without performaing any additional research directly, relying only on thin information provided by code_info, summarize for the user:
    - the project overview;
    - what was last implemented;
    - what should be implemented next.
-9. If no planning file currently contains tasks marked `todo` or `in progress`, state that explicitly and treat the latest numbered planning file as context only.
+
+## Working with Planning Files
+
+1. Do NOT read whole planning files directly unless you are asked specific information about the plan AND the required data cannot be found by using the python files within `$CODEINFO_ROOT/scripts`. The planning files are huge and burn tokens which is expensive, so avoid reading the whole file unless absolutely nesessary.
+2. 
 
 ## Documentation Sources
 

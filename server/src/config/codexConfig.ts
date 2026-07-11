@@ -16,7 +16,7 @@ import {
 
 const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
 
-const defaultCodexConfigTemplate = `model = "gpt-5.3-codex"
+const defaultCodexConfigTemplate = `model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
@@ -101,7 +101,9 @@ const resolveOpenAiCompatWireApi = (
 ): 'responses' | 'completions' =>
   endpoint.capabilities.includes('responses') ? 'responses' : 'completions';
 
-const hasExplicitWebSearchSetting = (config: Record<string, unknown>): boolean => {
+const hasExplicitWebSearchSetting = (
+  config: Record<string, unknown>,
+): boolean => {
   if (
     Object.prototype.hasOwnProperty.call(config, 'web_search') ||
     Object.prototype.hasOwnProperty.call(config, 'web_search_mode') ||
@@ -169,9 +171,8 @@ export function applyCodexOpenAiCompatEndpointToRuntimeConfig(
     ...baseConfigWithoutCatalog,
     ...generatedConfig,
     model_providers: {
-      ...((baseConfigWithoutCatalog as Record<string, unknown>).model_providers as
-        | Record<string, unknown>
-        | undefined),
+      ...((baseConfigWithoutCatalog as Record<string, unknown>)
+        .model_providers as Record<string, unknown> | undefined),
       ...(generatedConfig.model_providers as Record<string, unknown>),
     },
   } as CodexOptions['config'];

@@ -164,7 +164,7 @@ import type {
   FlowRunStartResult,
 } from './types.js';
 
-const FALLBACK_MODEL_ID = 'gpt-5.1-codex-max';
+const FALLBACK_MODEL_ID = 'gpt-5.6-sol';
 const FLOW_STEP_BASE_DELAY_MS = 500;
 const T07_SUCCESS_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';
@@ -4728,8 +4728,12 @@ async function runFlowUnlocked(params: {
             status: 'failed' as const,
           },
       );
-      const successCount = outcomes.filter((entry) => entry.status === 'ok').length;
-      const failedCount = outcomes.filter((entry) => entry.status === 'failed').length;
+      const successCount = outcomes.filter(
+        (entry) => entry.status === 'ok',
+      ).length;
+      const failedCount = outcomes.filter(
+        (entry) => entry.status === 'failed',
+      ).length;
       const stoppedCount = outcomes.filter(
         (entry) => entry.status === 'stopped',
       ).length;
@@ -4834,7 +4838,10 @@ async function runFlowUnlocked(params: {
       setActiveSubflowsForStep(nextPath, childRuns);
 
       for (const flowName of childFlowNames) {
-        if (rememberedSubflowsByName.has(flowName) || childOutcomes.has(flowName)) {
+        if (
+          rememberedSubflowsByName.has(flowName) ||
+          childOutcomes.has(flowName)
+        ) {
           continue;
         }
         if (
@@ -4997,9 +5004,7 @@ async function runFlowUnlocked(params: {
       const finalMessage =
         terminalStatus === 'stopped'
           ? buildSubflowSummaryText(
-              launchesMultipleChildren
-                ? 'Stopped subflows'
-                : 'Stopped subflow',
+              launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',
             )
           : nonOkChildCount === 0
             ? buildSubflowSummaryText(
@@ -5767,7 +5772,9 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         instruction,
         response: `Codex review skipped.\nReason: ${
-          error instanceof Error ? error.message : 'codexReview failed unexpectedly'
+          error instanceof Error
+            ? error.message
+            : 'codexReview failed unexpectedly'
         }`,
         modelId: resolvedModelId,
         providerId: 'codex',

@@ -119,7 +119,7 @@ const PROVIDER_LABELS: Record<ChatProviderId, string> = {
 };
 
 const DEFAULT_PROVIDER_MODELS = {
-  codex: 'gpt-5.3-codex',
+  codex: 'gpt-5.6-sol',
   copilot: 'copilot-gpt-5',
   lmstudio: 'model-1',
 } as const;
@@ -215,7 +215,9 @@ function getProviderChatOpenAiCompatDefaults(params: {
   }
 }
 
-const normalizeModelIdentity = (value: string | undefined): string | undefined => {
+const normalizeModelIdentity = (
+  value: string | undefined,
+): string | undefined => {
   const normalized = normalizeString(value);
   return normalized ? normalized.toLowerCase() : undefined;
 };
@@ -239,7 +241,9 @@ function resolveSelectedPinnedModelKey(params: {
     return exactMatch.key;
   }
 
-  const normalizedConfiguredModel = normalizeModelIdentity(params.configuredModel);
+  const normalizedConfiguredModel = normalizeModelIdentity(
+    params.configuredModel,
+  );
   if (!normalizedConfiguredModel) {
     return undefined;
   }
@@ -384,7 +388,7 @@ export function buildCodexCompatibilityDefaults(params: {
         ? modelVerbosity
         : DEFAULT_CODEX_VERBOSITY,
     webSearchMode:
-      webSearchMode ?? (params.capabilities.defaults.webSearchMode ?? 'live'),
+      webSearchMode ?? params.capabilities.defaults.webSearchMode ?? 'live',
   };
 }
 

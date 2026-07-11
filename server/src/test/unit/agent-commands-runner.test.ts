@@ -2370,7 +2370,7 @@ describe('agent commands runner (v1)', () => {
 
       assert.equal(bootstrapCalls, 0);
       assert.equal(result.providerId, 'codex');
-      assert.equal(result.modelId, 'gpt-5.1-codex-max');
+      assert.equal(result.modelId, 'gpt-5.6-sol');
     } finally {
       if (previousCodexHome === undefined) {
         delete process.env.CODEINFO_CODEX_HOME;

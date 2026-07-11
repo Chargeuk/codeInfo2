@@ -141,7 +141,7 @@ Corporate certificate directory requirements:
 - On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, the server writes one canonical in-code base template to that path (the `codex/` directory is git-ignored).
 - `config.toml.example` may remain in the repo as a human-facing sample, but runtime bootstrap does not read, parse, or copy it.
 - Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
-- Fresh base bootstrap uses `model = "gpt-5.3-codex"` and seeds Context7 in the no-key local stdio form `args = ['-y', '@upstash/context7-mcp']`; it does not seed any checked-in or placeholder `--api-key` pair.
+- Fresh base bootstrap uses `model = "gpt-5.6-sol"` and seeds Context7 in the no-key local stdio form `args = ['-y', '@upstash/context7-mcp']`; it does not seed any checked-in or placeholder `--api-key` pair.
 - Chat runtime config bootstrap (`./codex/chat/config.toml`) is deterministic and non-destructive:
   - if chat config exists: no overwrite (`existing_noop`).
   - if chat config is missing: write the canonical in-code chat template directly (`generated_template`), regardless of whether base config exists.
@@ -170,8 +170,8 @@ Corporate certificate directory requirements:
 - Copilot credential precedence is runtime-owned, not committed-env-owned. Checked-in env files may set `CODEINFO_COPILOT_HOME` and the optional CLI-path override, but they do not replace or mask `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, or `gh` fallback. `/health` also stays process-only; Copilot readiness continues to surface through `/chat/providers` and `/chat/models` instead of server health.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
-  - `@openai/codex-sdk` is pinned at `0.107.0` in `server/package.json`.
-  - startup guard requires exact `0.107.0`; pre-release, lower, and higher versions are rejected.
+  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.144.1` in `server/package.json`.
+  - startup guard requires exact `0.144.1`; pre-release, lower, and higher versions are rejected.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
 ## GitHub Copilot and provider-neutral runtime

@@ -563,7 +563,7 @@ test('chat models parity fixture remains deterministic across resolver-backed de
 test('codex models expose the Story 56 provider-neutral Agent Flags and workspace-write-scoped compatibility details', async () => {
   await setCodexHome(
     [
-      'model = "gpt-5.3-codex"',
+      'model = "gpt-5.6-sol"',
       'model_reasoning_effort = "high"',
       'approval_policy = "on-request"',
       'sandbox_mode = "workspace-write"',
@@ -595,7 +595,7 @@ test('codex models expose the Story 56 provider-neutral Agent Flags and workspac
     const verbosity = flags.find((entry) => entry.key === 'modelVerbosity');
     const webSearch = flags.find((entry) => entry.key === 'webSearchMode');
 
-    assert.equal(res.body.providerInfo.defaultModel, 'gpt-5.3-codex');
+    assert.equal(res.body.providerInfo.defaultModel, 'gpt-5.6-sol');
     assert.equal(res.body.providerInfo.defaultModelSource, 'config');
     assert.equal(res.body.codexDefaults.sandboxMode, 'workspace-write');
     assert.equal(res.body.codexDefaults.networkAccessEnabled, false);
@@ -661,7 +661,7 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
       (model: { key: string }) => model.key,
     );
     assert.deepEqual(modelKeys, [
-      'gpt-5.3-codex',
+      'gpt-5.6-sol',
       'gpt-5.1-codex-max',
       'gpt-5.1',
       'gpt-5.2',
@@ -690,7 +690,7 @@ test('codex model list empty CSV falls back with warning', async () => {
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.ok(modelKeys.includes('gpt-5.2-codex'));
+    assert.ok(modelKeys.includes('gpt-5.6-sol'));
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
@@ -720,7 +720,7 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.ok(modelKeys.includes('gpt-5.2-codex'));
+    assert.ok(modelKeys.includes('gpt-5.6-sol'));
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
@@ -1130,10 +1130,7 @@ test('codex models route preserves duplicate raw model ids and the selected endp
     assert.ok(sharedModels.length >= 2);
     assert.equal(res.body.defaultModel, 'shared-model');
     assert.equal(res.body.defaultModelSource, 'config');
-    assert.equal(
-      res.body.selectedEndpointId,
-      `${secondServer.baseUrl}/v1`,
-    );
+    assert.equal(res.body.selectedEndpointId, `${secondServer.baseUrl}/v1`);
     assert.equal(sharedModels[0]?.endpointId, `${secondServer.baseUrl}/v1`);
     assert.ok(sharedEndpointIds.includes(`${firstServer.baseUrl}/v1`));
     assert.ok(sharedEndpointIds.includes(`${secondServer.baseUrl}/v1`));
@@ -1266,9 +1263,9 @@ test('codex models route clears stale endpoint identity when the default normali
     assert.equal(res.body.defaultModel, 'builtin-a');
     assert.equal(res.body.defaultModelSource, 'config');
     assert.equal(res.body.selectedEndpointId, undefined);
-    const nativeModel = (res.body.models as Array<Record<string, unknown>>).find(
-      (model) => model.key === 'builtin-a',
-    );
+    const nativeModel = (
+      res.body.models as Array<Record<string, unknown>>
+    ).find((model) => model.key === 'builtin-a');
     assert.ok(nativeModel);
     assert.equal(nativeModel?.endpointId, undefined);
     assert.equal(nativeModel?.type, 'codex');
@@ -1312,23 +1309,21 @@ test('codex models route promotes a pinned endpoint-backed default once and remo
       res.body.models as Array<Record<string, unknown>>
     ).filter(
       (model) =>
-        String(model.key ?? '').trim().toLowerCase() ===
-        'unsloth/gemma-4-26b-a4b-it-qat-gguf',
+        String(model.key ?? '')
+          .trim()
+          .toLowerCase() === 'unsloth/gemma-4-26b-a4b-it-qat-gguf',
     );
 
     assert.equal(res.body.defaultModel, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
     assert.equal(res.body.defaultModelSource, 'config');
-    assert.equal(
-      res.body.selectedEndpointId,
-      `${externalServer.baseUrl}/v1`,
-    );
+    assert.equal(res.body.selectedEndpointId, `${externalServer.baseUrl}/v1`);
     assert.equal(matchingModels.length, 1);
+    assert.equal(matchingModels[0]?.key, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
+    assert.equal(matchingModels[0]?.endpointId, `${externalServer.baseUrl}/v1`);
     assert.equal(
-      matchingModels[0]?.key,
+      res.body.models[0]?.key,
       'unsloth/gemma-4-26B-A4B-it-qat-GGUF',
     );
-    assert.equal(matchingModels[0]?.endpointId, `${externalServer.baseUrl}/v1`);
-    assert.equal(res.body.models[0]?.key, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
     assert.equal(
       res.body.models[0]?.endpointId,
       `${externalServer.baseUrl}/v1`,
@@ -1438,10 +1433,7 @@ test('codex models route uses the configured endpoint label in endpoint-backed d
     );
 
     assert.ok(endpointBackedModel);
-    assert.equal(
-      endpointBackedModel?.displayName,
-      'OpenRouter / shared-model',
-    );
+    assert.equal(endpointBackedModel?.displayName, 'OpenRouter / shared-model');
   } finally {
     await stopServer(server);
   }

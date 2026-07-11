@@ -144,7 +144,7 @@ test('invalid shared env defaults fallback without leaking invalid state', async
   });
 
   assert.equal(result.provider, 'codex');
-  assert.equal(result.model, 'gpt-5.3-codex');
+  assert.equal(result.model, 'gpt-5.6-sol');
   assert.equal(result.defaultsResolution.providerSource, 'fallback');
   assert.equal(result.defaultsResolution.modelSource, 'fallback');
   assert.ok(

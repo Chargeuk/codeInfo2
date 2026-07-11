@@ -42,7 +42,12 @@ export type RuntimeProviderState = {
   available: boolean;
   models: string[];
   reason?: string;
-  unavailableKind?: 'authentication' | 'bootstrap' | 'connectivity' | 'models' | 'other';
+  unavailableKind?:
+    | 'authentication'
+    | 'bootstrap'
+    | 'connectivity'
+    | 'models'
+    | 'other';
 };
 
 export type RuntimeProviderEndpointState = {
@@ -127,7 +132,7 @@ export type DefaultsAppliedMarkerPayload = {
 export const ORDERED_CHAT_PROVIDERS = ORDERED_CHAT_PROVIDER_IDS;
 
 const FALLBACK_PROVIDER: ChatDefaultProvider = DEFAULT_CHAT_PROVIDER_ID;
-const FALLBACK_MODEL = 'gpt-5.3-codex';
+const FALLBACK_MODEL = 'gpt-5.6-sol';
 export const STORY_47_TASK_1_LOG_MARKER =
   'DEV_0000047_T01_CODEX_DEFAULTS_APPLIED';
 const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ORDERED_CHAT_PROVIDERS;
@@ -410,7 +415,7 @@ export const resolveCodexChatDefaults = (params?: {
   const effectiveConfigWebSearch =
     config && hasOwn(config, 'web_search')
       ? configWebSearch
-      : configWebSearch ?? configWebSearchMode ?? configWebSearchAlias;
+      : (configWebSearch ?? configWebSearchMode ?? configWebSearchAlias);
 
   const overrideWebSearch =
     params?.overrides?.webSearch ??
@@ -618,7 +623,10 @@ export const resolveRuntimeProviderSelection = ({
   const endpointReason = endpoint?.reason;
   if (endpoint) {
     if (endpoint.available) {
-      const endpointModel = selectEndpointExecutionModel(endpoint, requestedModel);
+      const endpointModel = selectEndpointExecutionModel(
+        endpoint,
+        requestedModel,
+      );
       if (
         endpointModel.model &&
         (requestedState.available ||

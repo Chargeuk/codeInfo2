@@ -2233,10 +2233,7 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
 
     assert.deepEqual(replayResult, firstResult);
     await delay(150);
-    assert.equal(
-      (memoryTurns.get(firstResult.conversationId) ?? []).length,
-      2,
-    );
+    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
   });
 });
 
@@ -2320,10 +2317,7 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
     await waitForConversationUnlocked(secondResult.conversationId);
 
     assert.notEqual(secondResult.conversationId, firstResult.conversationId);
-    assert.equal(
-      (memoryTurns.get(firstResult.conversationId) ?? []).length,
-      2,
-    );
+    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
     assert.equal(
       (memoryTurns.get(secondResult.conversationId) ?? []).length,
       2,
@@ -2527,7 +2521,7 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
-    assert.equal(result.modelId, 'gpt-5.1-codex-max');
+    assert.equal(result.modelId, 'gpt-5.6-sol');
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -2538,9 +2532,9 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       result.conversationId,
       (items) => items.length >= 2,
     );
-    assert.equal(conversation?.model, 'gpt-5.1-codex-max');
-    assert.equal(turns[0]?.model, 'gpt-5.1-codex-max');
-    assert.equal(turns[1]?.model, 'gpt-5.1-codex-max');
+    assert.equal(conversation?.model, 'gpt-5.6-sol');
+    assert.equal(turns[0]?.model, 'gpt-5.6-sol');
+    assert.equal(turns[1]?.model, 'gpt-5.6-sol');
   });
 });
 

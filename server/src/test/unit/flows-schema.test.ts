@@ -211,8 +211,13 @@ describe('flow schema (v1)', () => {
     const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
     const steps = flattenSteps(parsed.steps ?? []);
     const resetSteps = steps.filter((step) => step.type === 'reset');
+    const implementationResetSteps = resetSteps.filter(
+      (step) =>
+        step.label?.includes('story execution pass') === true ||
+        step.label?.includes('completed task') === true,
+    );
 
-    assert.equal(resetSteps.length, 10);
+    assert.equal(implementationResetSteps.length, 10);
     for (const identifier of [
       'planner',
       'lite_coder',
@@ -221,7 +226,9 @@ describe('flow schema (v1)', () => {
       'manual_tester',
     ]) {
       assert.equal(
-        resetSteps.filter((step) => step.identifier === identifier).length,
+        implementationResetSteps.filter(
+          (step) => step.identifier === identifier,
+        ).length,
         2,
         `${identifier} should reset at the story-pass and completed-task boundaries`,
       );
@@ -231,12 +238,26 @@ describe('flow schema (v1)', () => {
       false,
     );
     assert.equal(
-      resetSteps.some((step) => step.identifier === 'planner_lite'),
+      implementationResetSteps.some(
+        (step) => step.identifier === 'planner_lite',
+      ),
       false,
     );
     assert.equal(
       steps.some((step) => step.label === 'Double-check plan'),
       false,
+    );
+    assert.equal(
+      steps.some(
+        (step) =>
+          step.markdownFile === 'use_current_plan_handoff.md' ||
+          step.markdownFile === 'manual_tester_use_current_plan_handoff.md',
+      ),
+      false,
+    );
+    assert.deepEqual(
+      (parsed.steps ?? []).slice(0, 2).map((step) => step.label),
+      ['Planner Select And Store Next Plan', 'Story Execution And Review Loop'],
     );
 
     const labels = steps.map((step) => step.label);
@@ -252,7 +273,10 @@ describe('flow schema (v1)', () => {
     const contextFiles = steps
       .map((step) => step.markdownFile)
       .filter((value): value is string => typeof value === 'string')
-      .filter((value) => value.startsWith('load_'));
+      .filter(
+        (value) =>
+          value.startsWith('load_') && !value.endsWith('_review_context.md'),
+      );
     assert.deepEqual(
       contextFiles.sort(),
       [
@@ -264,6 +288,61 @@ describe('flow schema (v1)', () => {
         'load_planner_story_context.md',
         'load_planner_story_context.md',
       ].sort(),
+    );
+  });
+
+  test('implement_next_plan resets parent review agents at review-owned boundaries', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const steps = flattenSteps(parsed.steps ?? []);
+    const labels = steps.map((step) => step.label);
+    const reviewResetSteps = steps.filter(
+      (step) =>
+        step.type === 'reset' &&
+        (step.label?.includes('review disposition pass') === true ||
+          step.label?.includes('minor review finding') === true),
+    );
+
+    assert.deepEqual(
+      reviewResetSteps.map((step) => step.identifier),
+      ['planner', 'planner_lite', 'coder'],
+    );
+    assert.ok(
+      labels.indexOf('Run Parallel Review Artifact Flows') <
+        labels.indexOf('Reset planner for current review disposition pass'),
+    );
+    assert.ok(
+      labels.indexOf('Reset lite planner for current review disposition pass') <
+        labels.indexOf('Load planner review context'),
+    );
+    assert.ok(
+      labels.indexOf('Load lite planner review context') <
+        labels.indexOf('Merge Codex Review Findings Into Canonical Review'),
+    );
+    assert.ok(
+      labels.indexOf('Exit Minor-Fix Path Unless Minor Findings Remain') <
+        labels.indexOf('Reset coder for next minor review finding'),
+    );
+    assert.ok(
+      labels.indexOf('Load coder review context') <
+        labels.indexOf('Implement Next Minor Review Finding'),
+    );
+
+    const reviewContextFiles = steps
+      .map((step) => step.markdownFile)
+      .filter((value): value is string => typeof value === 'string')
+      .filter((value) => value.endsWith('_review_context.md'));
+    assert.deepEqual(reviewContextFiles, [
+      'load_planner_review_context.md',
+      'load_lite_planner_review_context.md',
+      'load_coder_review_context.md',
+    ]);
+    assert.equal(
+      reviewResetSteps.some((step) => step.identifier?.startsWith('reviewer_')),
+      false,
     );
   });
 
@@ -328,7 +407,8 @@ describe('flow schema (v1)', () => {
       if (flowFile.relativePath === 'flows/implement_next_plan.json') {
         const subflowMarkers = flattenSteps(parsed.steps ?? [])
           .map((step) =>
-            step.type === 'subflow' && Array.isArray((step as { flowNames?: string[] }).flowNames)
+            step.type === 'subflow' &&
+            Array.isArray((step as { flowNames?: string[] }).flowNames)
               ? (step as { flowNames: string[] }).flowNames.join(',')
               : undefined,
           )

@@ -12,8 +12,11 @@ Added files:
 - `codeinfo_markdown/load_agent_work_context.md`
 - `codeinfo_markdown/load_automated_tester_current_task_context.md`
 - `codeinfo_markdown/load_coder_current_task_context.md`
+- `codeinfo_markdown/load_coder_review_context.md`
 - `codeinfo_markdown/load_lite_coder_current_task_context.md`
+- `codeinfo_markdown/load_lite_planner_review_context.md`
 - `codeinfo_markdown/load_manual_tester_current_task_context.md`
+- `codeinfo_markdown/load_planner_review_context.md`
 - `codeinfo_markdown/load_planner_story_context.md`
 - `scripts/agent_work_context.py`
 - `scripts/test/test_agent_work_context.py`
@@ -40,6 +43,7 @@ Story notes:
 - Missing slots are successful observable no-ops so reset steps remain safe before first use and when repeated inside user-interactive flows. Existing child conversations remain available as history, while sibling agent slots are unchanged.
 - The implementation flow now resets the planner and implementation agents at safe story-pass and completed-task boundaries, while preserving the loop controller and lite planner across iterations.
 - Resolved context-loader prompts restore only the compact story or current-task state each reset agent needs, avoiding broad plan reads and unnecessary tool calls.
+- Review disposition passes reset and reload the parent planner agents after fresh review artifacts are available, while each minor finding receives a freshly reset coder with compact review context.
 
 ## Story 0000059 structural change ledger
 

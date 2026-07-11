@@ -82,6 +82,7 @@ PROFILE_CONFIG: dict[str, dict[str, Any]] = {
     "review-scope": {
         "story_sections": [
             "Implementation Plan",
+            "Description",
             "Overview",
             "Non-Goals",
             "Acceptance Criteria",
@@ -137,6 +138,7 @@ PROFILE_CONFIG: dict[str, dict[str, Any]] = {
     },
     "review-tasking": {
         "story_sections": [
+            "Description",
             "Overview",
             "Acceptance Criteria",
             "Out Of Scope",

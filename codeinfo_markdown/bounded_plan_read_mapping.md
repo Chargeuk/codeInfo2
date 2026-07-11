@@ -13,8 +13,8 @@
 | Review evidence gate                   | `plan_sections.py --profile review-evidence` for story scope, task index, and the final-task proof packet               |
 | Code review findings                   | `plan_sections.py --profile review-findings`, followed by named sections for only tasks relevant to changed seams       |
 | Findings saturation and blind spots    | `plan_sections.py --profile review-findings`, current review artifacts, and finding-specific task expansion             |
-| Review classification and filtering    | `agent_work_context.py --view review` and `plan_sections.py --profile review-scope`                                     |
-| Review-created task repair             | Fresh `plan_sections.py --profile review-tasking` output before each edit or final verification pass                    |
+| Review classification and filtering    | `agent_work_context.py --view review` and `plan_sections.py --profile review-scope`, including Description and scope    |
+| Review-created task repair             | Fresh `review-tasking` output with Description and scope before each edit or final verification pass                    |
 | Cross-task testing audit               | `plan_sections.py --profile testing-audit`; request extra named sections only for tasks needing repair                  |
 | Visual design review                   | `plan_sections.py --profile review-scope`, followed by one named task design packet when needed                         |
 | Simple-story and closeout summaries    | `plan_sections.py --profile closeout`, task summaries, review state, and retained proof paths                           |

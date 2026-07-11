@@ -31,6 +31,18 @@ class PlanSectionsTests(unittest.TestCase):
                 """
                 # Story
 
+                ## Description
+
+                Preserve the agreed story behavior.
+
+                ## Acceptance Criteria
+
+                - The bounded review remains accurate.
+
+                ## Out Of Scope
+
+                - Unrelated redesign work.
+
                 ## Implementation Plan
 
                 Story overview text.
@@ -205,6 +217,20 @@ class PlanSectionsTests(unittest.TestCase):
         self.assertNotIn("Run focused proof", packet)
         self.assertEqual(len(output["task_index"]), 2)
         self.assertNotIn("task_summaries", output)
+
+    def test_review_scope_and_tasking_profiles_include_story_scope_contract(self) -> None:
+        repo = self.make_repo()
+
+        for profile in ("review-scope", "review-tasking"):
+            with self.subTest(profile=profile):
+                output = plan_sections.build_plan_sections(
+                    profile=profile, repo_root=repo
+                )
+                story = json.dumps(output["story_sections"])
+                self.assertIn("Preserve the agreed story behavior", story)
+                self.assertIn("The bounded review remains accurate", story)
+                self.assertIn("Unrelated redesign work", story)
+                self.assertNotIn("Existing closeout text", story)
 
     def test_review_created_query_selects_only_tasks_with_addresses_findings(
         self,

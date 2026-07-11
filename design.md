@@ -19,6 +19,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Task indexes expose ownership, affected repositories, finding IDs, checklist state, available section names, and exact task ranges without including unrequested task prose.
 - Reachability policy follows parent flows, subflows, agent command JSON stacks, direct Markdown, and recursively linked shared Markdown so command-owned prompts cannot bypass the bounded-read contract.
 - Multi-pass review task enhancement reruns `review-tasking` before each mutation and again for final verification, so every pass receives fresh state without reopening the plan. Workflow-state fallback checks only plan readability and repository validity when the primary status helper cannot run.
+- `review-scope` and `review-tasking` include Description alongside Acceptance Criteria and Out Of Scope, allowing later classification and task-repair stages to preserve story intent as well as its explicit boundaries.
 - Policy matching covers selected and referenced plan wording, content-from-disk variants, and the existing canonical, active, exact, whole, full, complete, and entire-plan forms while allowing explicit prohibitions and helper-internal parsing.
 
 ## Story 0000057 final provider-neutral runtime closeout

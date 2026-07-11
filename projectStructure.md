@@ -66,6 +66,7 @@ Story notes:
 - Review evidence and findings profiles provide content-free heading/task indexes and final-task proof context, while policy traversal now resolves command-owned Markdown stacks used by the review subflows.
 - Every review-task enhancement pass refreshes the bounded `review-tasking` packet, and story/review workflow repair fallbacks use content-free path and Git checks rather than reopening a plan.
 - The recursive policy rejects selected-plan, referenced-plan, and content-from-disk instructions and keeps explicit reachability assertions for the affected command-owned and direct-flow prompts.
+- Bounded `review-scope` and `review-tasking` packets now carry Description together with Acceptance Criteria and Out Of Scope so scope decisions retain the story's stated intent.
 
 ## Story 0000059 structural change ledger
 

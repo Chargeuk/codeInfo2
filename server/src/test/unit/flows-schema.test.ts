@@ -783,6 +783,59 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
+  test('reset steps parse with an optional trimmed label', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'reset',
+            label: '  Reset planner context  ',
+            agentType: '  planning_agent  ',
+            identifier: '  planner  ',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.deepEqual(parsed.flow.steps[0], {
+      type: 'reset',
+      label: 'Reset planner context',
+      agentType: 'planning_agent',
+      identifier: 'planner',
+    });
+  });
+
+  test('reset steps require non-empty agentType and identifier values', () => {
+    for (const step of [
+      { type: 'reset', identifier: 'planner' },
+      { type: 'reset', agentType: 'planning_agent' },
+      { type: 'reset', agentType: '   ', identifier: 'planner' },
+      { type: 'reset', agentType: 'planning_agent', identifier: '   ' },
+    ]) {
+      const parsed = parseFlowFile(JSON.stringify({ steps: [step] }));
+      assert.equal(parsed.ok, false);
+    }
+  });
+
+  test('reset steps reject unsupported extra fields', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'reset',
+            agentType: 'planning_agent',
+            identifier: 'planner',
+            preserveRuntime: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
   test('continue steps parse when they use the expected shape', () => {
     const json = JSON.stringify({
       description: 'Loop flow',

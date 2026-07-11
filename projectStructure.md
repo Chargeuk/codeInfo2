@@ -5,6 +5,30 @@
 Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
 The migrated story ledgers below now reference that durable location consistently.
 
+## Story 0000064 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `projectStructure.md`
+- `server/src/flows/flowSchema.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.agent-slot.test.ts`
+- `server/src/test/unit/flows-schema.test.ts`
+
+Story notes:
+
+- Story 64 adds a strict `reset` flow step that targets one execution-local `agentType:identifier` slot, evicts its conversation and thread state, persists the reset checkpoint, and lets the next use create a fresh child conversation.
+- Missing slots are successful observable no-ops so reset steps remain safe before first use and when repeated inside user-interactive flows. Existing child conversations remain available as history, while sibling agent slots are unchanged.
+
 ## Story 0000059 structural change ledger
 
 Added files:

@@ -59,6 +59,13 @@ export type FlowCommandStep = {
   commandName: string;
 };
 
+export type FlowResetStep = {
+  type: 'reset';
+  label?: string;
+  agentType: string;
+  identifier: string;
+};
+
 export type FlowPrepareReviewBaseStep = {
   type: 'prepareReviewBase';
   label?: string;
@@ -93,6 +100,7 @@ export type FlowStep =
   | FlowBreakStep
   | FlowContinueStep
   | FlowCommandStep
+  | FlowResetStep
   | FlowPrepareReviewBaseStep
   | FlowCodexReviewStep
   | FlowSubflowStep
@@ -160,6 +168,15 @@ const FlowCommandStepSchema = z
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
     commandName: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowResetStepSchema = z
+  .object({
+    type: z.literal('reset'),
+    label: trimmedNonEmptyString.optional(),
+    agentType: trimmedNonEmptyString,
+    identifier: trimmedNonEmptyString,
   })
   .strict();
 
@@ -239,6 +256,7 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowContinueStepSchema,
     FlowCommandStepSchema,
+    FlowResetStepSchema,
     FlowPrepareReviewBaseStepSchema,
     FlowCodexReviewStepSchema,
     FlowSubflowStepSchema,

@@ -9,7 +9,14 @@ The migrated story ledgers below now reference that durable location consistentl
 
 Added files:
 
-- None.
+- `codeinfo_markdown/load_agent_work_context.md`
+- `codeinfo_markdown/load_automated_tester_current_task_context.md`
+- `codeinfo_markdown/load_coder_current_task_context.md`
+- `codeinfo_markdown/load_lite_coder_current_task_context.md`
+- `codeinfo_markdown/load_manual_tester_current_task_context.md`
+- `codeinfo_markdown/load_planner_story_context.md`
+- `scripts/agent_work_context.py`
+- `scripts/test/test_agent_work_context.py`
 
 Removed files:
 
@@ -17,8 +24,11 @@ Removed files:
 
 Modified files (implementation traceability):
 
+- `AGENTS.md`
 - `design.md`
+- `flows/implement_next_plan.json`
 - `projectStructure.md`
+- `scripts/check_current_task_handoff.py`
 - `server/src/flows/flowSchema.ts`
 - `server/src/flows/service.ts`
 - `server/src/test/integration/flows.run.agent-slot.test.ts`
@@ -28,6 +38,8 @@ Story notes:
 
 - Story 64 adds a strict `reset` flow step that targets one execution-local `agentType:identifier` slot, evicts its conversation and thread state, persists the reset checkpoint, and lets the next use create a fresh child conversation.
 - Missing slots are successful observable no-ops so reset steps remain safe before first use and when repeated inside user-interactive flows. Existing child conversations remain available as history, while sibling agent slots are unchanged.
+- The implementation flow now resets the planner and implementation agents at safe story-pass and completed-task boundaries, while preserving the loop controller and lite planner across iterations.
+- Resolved context-loader prompts restore only the compact story or current-task state each reset agent needs, avoiding broad plan reads and unnecessary tool calls.
 
 ## Story 0000059 structural change ledger
 

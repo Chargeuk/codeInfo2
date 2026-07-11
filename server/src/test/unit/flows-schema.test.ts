@@ -15,6 +15,9 @@ describe('flow schema (v1)', () => {
 
   type FlowStep = {
     type: string;
+    label?: string;
+    agentType?: string;
+    identifier?: string;
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
@@ -198,6 +201,70 @@ describe('flow schema (v1)', () => {
       });
       assert.equal(parsed.ok, true, relativePath);
     }
+  });
+
+  test('implement_next_plan resets implementation agents only at safe boundaries and reloads compact context', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const steps = flattenSteps(parsed.steps ?? []);
+    const resetSteps = steps.filter((step) => step.type === 'reset');
+
+    assert.equal(resetSteps.length, 10);
+    for (const identifier of [
+      'planner',
+      'lite_coder',
+      'coder',
+      'automated_tester',
+      'manual_tester',
+    ]) {
+      assert.equal(
+        resetSteps.filter((step) => step.identifier === identifier).length,
+        2,
+        `${identifier} should reset at the story-pass and completed-task boundaries`,
+      );
+    }
+    assert.equal(
+      resetSteps.some((step) => step.identifier === 'loop_controller'),
+      false,
+    );
+    assert.equal(
+      resetSteps.some((step) => step.identifier === 'planner_lite'),
+      false,
+    );
+    assert.equal(
+      steps.some((step) => step.label === 'Double-check plan'),
+      false,
+    );
+
+    const labels = steps.map((step) => step.label);
+    assert.ok(
+      labels.indexOf('Exit task loop if story is complete') <
+        labels.indexOf('Reset planner after completed task'),
+    );
+    assert.ok(
+      labels.indexOf('Reset manual tester after completed task') <
+        labels.indexOf('Reload planner story context after completed task'),
+    );
+
+    const contextFiles = steps
+      .map((step) => step.markdownFile)
+      .filter((value): value is string => typeof value === 'string')
+      .filter((value) => value.startsWith('load_'));
+    assert.deepEqual(
+      contextFiles.sort(),
+      [
+        'load_automated_tester_current_task_context.md',
+        'load_coder_current_task_context.md',
+        'load_coder_current_task_context.md',
+        'load_lite_coder_current_task_context.md',
+        'load_manual_tester_current_task_context.md',
+        'load_planner_story_context.md',
+        'load_planner_story_context.md',
+      ].sort(),
+    );
   });
 
   test('review flows run findings saturation before blind-spot challenge', async () => {

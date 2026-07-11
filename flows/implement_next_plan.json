@@ -41,18 +41,41 @@
       "label": "Story Execution And Review Loop",
       "steps": [
         {
-          "type": "llm",
-          "label": "Double-check plan",
+          "type": "reset",
+          "label": "Reset planner before story execution pass",
+          "agentType": "planning_agent",
+          "identifier": "planner"
+        },
+        {
+          "type": "reset",
+          "label": "Reset lite coder before story execution pass",
           "agentType": "coding_agent_lite",
-          "identifier": "lite_coder",
-          "messages": [
-            {
-              "role": "user",
-              "content": [
-                "Use fresh disk reads and current git state, not conversational memory. Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Reopen the exact relative `plan_path` from disk even if you have read it before, using explicit shell reads such as `sed`, `cat`, or `rg`. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. Recheck the current repository branch directly from git, for example with `git branch --show-current`, and recheck the most recent commit directly from git, for example with `git log --oneline -1`. If either of those scope checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. Recheck each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`, and recheck its most recent commit directly from git, for example with `git -C <repo_root> log --oneline -1`. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. You MUST double-check whether tasks have been added to the plan by another agent or whether anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the whole plan again and CANNOT assume you understand it from before. Once you have done this, give me a summary of the remaining work."
-              ]
-            }
-          ]
+          "identifier": "lite_coder"
+        },
+        {
+          "type": "reset",
+          "label": "Reset deep repair coder before story execution pass",
+          "agentType": "coding_agent",
+          "identifier": "coder"
+        },
+        {
+          "type": "reset",
+          "label": "Reset automated tester before story execution pass",
+          "agentType": "automated_testing_agent",
+          "identifier": "automated_tester"
+        },
+        {
+          "type": "reset",
+          "label": "Reset manual tester before story execution pass",
+          "agentType": "manual_testing_agent",
+          "identifier": "manual_tester"
+        },
+        {
+          "type": "llm",
+          "label": "Load planner story context",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "load_planner_story_context.md"
         },
         {
           "type": "startLoop",
@@ -79,6 +102,13 @@
                 },
                 {
                   "type": "llm",
+                  "label": "Load manual tester current task context",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "load_manual_tester_current_task_context.md"
+                },
+                {
+                  "type": "llm",
                   "label": "Preflight visual diagnosis for current task",
                   "agentType": "manual_testing_agent",
                   "identifier": "manual_tester",
@@ -92,6 +122,13 @@
                       "type": "reingest",
                       "label": "Re-embed plan-scope repositories before implementation",
                       "target": "plan_scope"
+                    },
+                    {
+                      "type": "llm",
+                      "label": "Load lite coder current task context",
+                      "agentType": "coding_agent_lite",
+                      "identifier": "lite_coder",
+                      "markdownFile": "load_lite_coder_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -121,6 +158,13 @@
                       "identifier": "loop_controller",
                       "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_implementation_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
+                    },
+                    {
+                      "type": "llm",
+                      "label": "Load coder current task context before implementation repair",
+                      "agentType": "coding_agent",
+                      "identifier": "coder",
+                      "markdownFile": "load_coder_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -158,10 +202,10 @@
                     },
                     {
                       "type": "llm",
-                      "label": "Preflight automated-proof current task orientation",
+                      "label": "Load automated tester current task context",
                       "agentType": "automated_testing_agent",
                       "identifier": "automated_tester",
-                      "markdownFile": "preflight_automated_proof_current_task.md"
+                      "markdownFile": "load_automated_tester_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -187,10 +231,10 @@
                     },
                     {
                       "type": "llm",
-                      "label": "Preflight deep automated-proof blocker orientation",
+                      "label": "Load coder current task context before proof repair",
                       "agentType": "coding_agent",
                       "identifier": "coder",
-                      "markdownFile": "preflight_deep_test_failure_current_blocker.md"
+                      "markdownFile": "load_coder_current_task_context.md"
                     },
                     {
                       "type": "llm",
@@ -296,6 +340,43 @@
                   "identifier": "loop_controller",
                   "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_story_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset planner after completed task",
+                  "agentType": "planning_agent",
+                  "identifier": "planner"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset lite coder after completed task",
+                  "agentType": "coding_agent_lite",
+                  "identifier": "lite_coder"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset deep repair coder after completed task",
+                  "agentType": "coding_agent",
+                  "identifier": "coder"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset automated tester after completed task",
+                  "agentType": "automated_testing_agent",
+                  "identifier": "automated_tester"
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset manual tester after completed task",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester"
+                },
+                {
+                  "type": "llm",
+                  "label": "Reload planner story context after completed task",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "load_planner_story_context.md"
                 }
               ]
             },

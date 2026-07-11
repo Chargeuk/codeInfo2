@@ -325,7 +325,7 @@ describe('runtimeConfig bootstrap', () => {
       assert.equal(result.copied, false);
       assert.equal(result.generatedTemplate, true);
       assert.equal(result.branch, 'generated_template');
-      assert.match(content, /model = "gpt-5.3-codex"/u);
+      assert.match(content, /model = "gpt-5.6-sol"/u);
       assert.match(content, /model_reasoning_effort = "high"/u);
       assert.match(content, /approval_policy = "on-request"/u);
       assert.match(content, /sandbox_mode = "danger-full-access"/u);
@@ -364,7 +364,7 @@ describe('runtimeConfig bootstrap', () => {
 
       assert.equal(result.copied, false);
       assert.equal(result.branch, 'generated_template');
-      assert.match(chatContents, /model = "gpt-5.3-codex"/u);
+      assert.match(chatContents, /model = "gpt-5.6-sol"/u);
       assert.doesNotMatch(chatContents, /base-model/u);
       assert.doesNotMatch(chatContents, /\[mcp_servers\.context7\]/u);
       assert.match(chatContents, /\[mcp_servers\.code_info\]/u);
@@ -432,10 +432,10 @@ describe('runtimeConfig bootstrap', () => {
       );
 
       assert.equal(seededBasePath, getCodexConfigPathForHome(codexHome));
-      assert.match(baseConfig, /model = "gpt-5\.3-codex"/u);
+      assert.match(baseConfig, /model = "gpt-5\.6-sol"/u);
       assert.doesNotMatch(baseConfig, /from-example/u);
       assert.equal(bootstrapResult.branch, 'generated_template');
-      assert.match(chatConfig, /model = "gpt-5\.3-codex"/u);
+      assert.match(chatConfig, /model = "gpt-5\.6-sol"/u);
       assert.doesNotMatch(chatConfig, /from-copy-template/u);
     } finally {
       process.chdir(originalCwd);
@@ -490,7 +490,7 @@ describe('runtimeConfig bootstrap', () => {
       await fs.writeFile(
         chatConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           'model_reasoning_effort = "high"',
           'approval_policy = "on-request"',
           'sandbox_mode = "danger-full-access"',
@@ -512,7 +512,7 @@ describe('runtimeConfig bootstrap', () => {
         /http:\/\/localhost:\$\{CODEINFO_SERVER_PORT\}\/mcp/u,
       );
       assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
-      assert.match(chatContents, /model = "gpt-5.3-codex"/u);
+      assert.match(chatContents, /model = "gpt-5.6-sol"/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
@@ -523,7 +523,7 @@ describe('runtimeConfig bootstrap', () => {
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const originalWriteFile = fs.writeFile.bind(fs);
     const legacyConfig = [
-      'model = "gpt-5.3-codex"',
+      'model = "gpt-5.6-sol"',
       'model_reasoning_effort = "high"',
       'approval_policy = "on-request"',
       'sandbox_mode = "danger-full-access"',
@@ -537,14 +537,21 @@ describe('runtimeConfig bootstrap', () => {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
 
-      mock.method(fs, 'writeFile', async (...args: Parameters<typeof fs.writeFile>) => {
-        const [file, data, options] = args;
-        const filePath = String(file);
-        if (filePath.startsWith(`${chatConfigPath}.`) && filePath.endsWith('.tmp')) {
-          throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
-        }
-        return originalWriteFile(file, data, options as never);
-      });
+      mock.method(
+        fs,
+        'writeFile',
+        async (...args: Parameters<typeof fs.writeFile>) => {
+          const [file, data, options] = args;
+          const filePath = String(file);
+          if (
+            filePath.startsWith(`${chatConfigPath}.`) &&
+            filePath.endsWith('.tmp')
+          ) {
+            throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+          }
+          return originalWriteFile(file, data, options as never);
+        },
+      );
 
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
@@ -562,7 +569,7 @@ describe('runtimeConfig bootstrap', () => {
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const originalWriteFile = fs.writeFile.bind(fs);
     const legacyConfig = [
-      'model = "gpt-5.3-codex"',
+      'model = "gpt-5.6-sol"',
       'model_reasoning_effort = "high"',
       'approval_policy = "on-request"',
       'sandbox_mode = "danger-full-access"',
@@ -572,7 +579,7 @@ describe('runtimeConfig bootstrap', () => {
       '',
     ].join('\n');
     const concurrentConfig = [
-      'model = "gpt-5.3-codex"',
+      'model = "gpt-5.6-sol"',
       'model_reasoning_effort = "medium"',
       'approval_policy = "on-request"',
       'sandbox_mode = "danger-full-access"',
@@ -587,20 +594,24 @@ describe('runtimeConfig bootstrap', () => {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
 
-      mock.method(fs, 'writeFile', async (...args: Parameters<typeof fs.writeFile>) => {
-        const [file, data, options] = args;
-        const filePath = String(file);
-        const result = await originalWriteFile(file, data, options as never);
-        if (
-          !injectedConcurrentWrite &&
-          filePath.startsWith(`${chatConfigPath}.`) &&
-          filePath.endsWith('.tmp')
-        ) {
-          injectedConcurrentWrite = true;
-          await originalWriteFile(chatConfigPath, concurrentConfig, 'utf8');
-        }
-        return result;
-      });
+      mock.method(
+        fs,
+        'writeFile',
+        async (...args: Parameters<typeof fs.writeFile>) => {
+          const [file, data, options] = args;
+          const filePath = String(file);
+          const result = await originalWriteFile(file, data, options as never);
+          if (
+            !injectedConcurrentWrite &&
+            filePath.startsWith(`${chatConfigPath}.`) &&
+            filePath.endsWith('.tmp')
+          ) {
+            injectedConcurrentWrite = true;
+            await originalWriteFile(chatConfigPath, concurrentConfig, 'utf8');
+          }
+          return result;
+        },
+      );
 
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
@@ -618,7 +629,7 @@ describe('runtimeConfig bootstrap', () => {
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const originalOpen = fs.open.bind(fs);
     const legacyConfig = [
-      'model = "gpt-5.3-codex"',
+      'model = "gpt-5.6-sol"',
       'model_reasoning_effort = "high"',
       'approval_policy = "on-request"',
       'sandbox_mode = "danger-full-access"',
@@ -1007,14 +1018,14 @@ describe('runtimeConfig parser', () => {
     try {
       await fs.writeFile(
         configPath,
-        'model = "gpt-5.3-codex"\n[features]\nview_image_tool = true\n',
+        'model = "gpt-5.6-sol"\n[features]\nview_image_tool = true\n',
         'utf8',
       );
       const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
         required: true,
       });
 
-      assert.equal(parsed?.model, 'gpt-5.3-codex');
+      assert.equal(parsed?.model, 'gpt-5.6-sol');
       assert.deepEqual(parsed?.tools, { view_image: true });
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
@@ -1105,11 +1116,11 @@ describe('runtimeConfig merge and validation', () => {
 
   it('warns and preserves unknown top-level keys for forward compatibility', () => {
     const result = validateRuntimeConfig({
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-sol',
       totally_unknown: true,
     });
 
-    assert.equal(result.config.model, 'gpt-5.3-codex');
+    assert.equal(result.config.model, 'gpt-5.6-sol');
     assert.equal(result.config.totally_unknown, true);
     assert.equal(result.warnings.length, 1);
     assert.match(result.warnings[0].message, /Unknown key/u);
@@ -1187,7 +1198,7 @@ describe('runtimeConfig merge and validation', () => {
 
   it('warns and preserves unknown nested keys while keeping known key validation', () => {
     const result = validateRuntimeConfig({
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-sol',
       tools: {
         view_image: true,
         unknown_tool_field: { nested: true },
@@ -1221,7 +1232,7 @@ describe('runtimeConfig merge and validation', () => {
 
   it('warns and ignores misplaced cli_auth_credentials_store under project path', () => {
     const result = validateRuntimeConfig({
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-sol',
       projects: {
         '/data': {
           trust_level: 'trusted',
@@ -1242,7 +1253,7 @@ describe('runtimeConfig merge and validation', () => {
 
   it('ignores unsafe top-level keys and preserves safe unknown keys', () => {
     const config = Object.create(null) as Record<string, unknown>;
-    config.model = 'gpt-5.3-codex';
+    config.model = 'gpt-5.6-sol';
     config.safe_unknown = { keep: true };
     config['__proto__'] = { polluted: true };
     config['constructor'] = { polluted: true };
@@ -1250,7 +1261,7 @@ describe('runtimeConfig merge and validation', () => {
 
     const result = validateRuntimeConfig(config);
 
-    assert.equal(result.config.model, 'gpt-5.3-codex');
+    assert.equal(result.config.model, 'gpt-5.6-sol');
     assert.deepEqual(result.config.safe_unknown, { keep: true });
     assert.equal(Object.hasOwn(result.config, '__proto__'), false);
     assert.equal(Object.hasOwn(result.config, 'constructor'), false);
@@ -1283,7 +1294,7 @@ describe('runtimeConfig merge and validation', () => {
     projects['__proto__'] = { polluted: true };
 
     const result = validateRuntimeConfig({
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-sol',
       tools,
       features,
       projects,
@@ -1340,7 +1351,7 @@ describe('runtimeConfig merge and validation', () => {
     assert.throws(
       () =>
         validateRuntimeConfig({
-          model: 'gpt-5.3-codex',
+          model: 'gpt-5.6-sol',
           tools: {
             view_image: 'true',
           },
@@ -2160,7 +2171,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
     const agentConfigPath = path.join(codexHome, 'agent-config.toml');
     const originalReadFile = fs.readFile.bind(fs);
     try {
-      await fs.writeFile(agentConfigPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+      await fs.writeFile(agentConfigPath, 'model = "gpt-5.6-sol"\n', 'utf8');
       mock.method(
         fs,
         'readFile',
@@ -2270,7 +2281,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
     const originalReadFile = fs.readFile.bind(fs);
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.writeFile(chatConfigPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+      await fs.writeFile(chatConfigPath, 'model = "gpt-5.6-sol"\n', 'utf8');
       mock.method(
         fs,
         'readFile',
@@ -2315,7 +2326,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(baseConfigPath, '', 'utf8');
-      await fs.writeFile(chatConfigPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+      await fs.writeFile(chatConfigPath, 'model = "gpt-5.6-sol"\n', 'utf8');
       await fs.writeFile(authPath, '{}', 'utf8');
 
       mock.method(
@@ -2350,7 +2361,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
           materializeRepositoryBackedCodexChatHome({
             conversationId: 'conv:repo-backed',
             codexHome,
-            overrides: { model: 'gpt-5.3-codex' },
+            overrides: { model: 'gpt-5.6-sol' },
           }),
         (error) => {
           const typed = error as RuntimeConfigResolutionError;
@@ -2379,7 +2390,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
 
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        baseConfigPath,
+      );
       await fs.copyFile(
         path.join(repoRoot, 'codex/chat/config.toml'),
         chatConfigPath,
@@ -2388,7 +2402,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
       const materialized = await materializeRepositoryBackedCodexChatHome({
         conversationId: 'conv:placeholder-resolution',
         codexHome,
-        overrides: { model: 'gpt-5.3-codex' },
+        overrides: { model: 'gpt-5.6-sol' },
       });
 
       const runtimeChatConfig = await fs.readFile(
@@ -2416,7 +2430,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
 
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        baseConfigPath,
+      );
       await fs.copyFile(
         path.join(repoRoot, 'codex/chat/config.toml'),
         chatConfigPath,
@@ -2450,11 +2467,14 @@ describe('runtimeConfig deterministic resolver failures', () => {
 
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        baseConfigPath,
+      );
       await fs.writeFile(
         chatConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           '',
           '[mcp_servers.code_info]',
           'command = "npx"',
@@ -2510,11 +2530,14 @@ describe('runtimeConfig deterministic resolver failures', () => {
 
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        baseConfigPath,
+      );
       await fs.writeFile(
         chatConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           '',
           '[mcp_servers.code_info]',
           'command = "npx"',
@@ -2567,11 +2590,14 @@ describe('runtimeConfig deterministic resolver failures', () => {
 
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        baseConfigPath,
+      );
       await fs.writeFile(
         chatConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           '',
           '[mcp_servers.web_tools]',
           'command = "node"',
@@ -2600,10 +2626,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
         runtimeChatConfig,
         /args = \["\.\/manual-web-tools\.js", "--port", "9911"\]/u,
       );
-      assert.doesNotMatch(
-        runtimeChatConfig,
-        /http:\/\/localhost:7533\/mcp/u,
-      );
+      assert.doesNotMatch(runtimeChatConfig, /http:\/\/localhost:7533\/mcp/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
@@ -2618,11 +2641,14 @@ describe('runtimeConfig deterministic resolver failures', () => {
 
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.copyFile(path.join(repoRoot, 'config.toml.example'), baseConfigPath);
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        baseConfigPath,
+      );
       await fs.writeFile(
         chatConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           '',
           '[mcp_servers.web_tools]',
           'command = "node"',
@@ -2651,10 +2677,7 @@ describe('runtimeConfig deterministic resolver failures', () => {
         runtimeChatConfig,
         /args = \["\.\/manual-web-tools\.js", "--port", "9911"\]/u,
       );
-      assert.doesNotMatch(
-        runtimeChatConfig,
-        /http:\/\/localhost:7543\/mcp/u,
-      );
+      assert.doesNotMatch(runtimeChatConfig, /http:\/\/localhost:7543\/mcp/u);
       assert.equal(
         runtimeChatConfig.match(/\[mcp_servers\.web_tools\]/gu)?.length ?? 0,
         1,
@@ -2728,12 +2751,16 @@ describe('runtimeConfig deterministic resolver failures', () => {
         copilotHome,
       });
 
-      const resolvedMcpServers = (resolved.config.mcp_servers ??
-        {}) as Record<string, unknown>;
+      const resolvedMcpServers = (resolved.config.mcp_servers ?? {}) as Record<
+        string,
+        unknown
+      >;
       assert.equal(resolvedMcpServers.web_tools, undefined);
       assert.ok(
         resolved.warnings.some((warning) =>
-          warning.message.includes('cached mode is only supported by native Codex web search'),
+          warning.message.includes(
+            'cached mode is only supported by native Codex web search',
+          ),
         ),
       );
     } finally {
@@ -2767,8 +2794,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
         lmstudioHome,
       });
 
-      const resolvedMcpServers = (resolved.config.mcp_servers ??
-        {}) as Record<string, unknown>;
+      const resolvedMcpServers = (resolved.config.mcp_servers ?? {}) as Record<
+        string,
+        unknown
+      >;
       assert.equal(resolvedMcpServers.web_tools, undefined);
     } finally {
       await fs.rm(lmstudioHome, { recursive: true, force: true });
@@ -2781,7 +2810,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
     try {
-      await ensureProviderChatConfigBootstrapped({ provider: 'codex', codexHome });
+      await ensureProviderChatConfigBootstrapped({
+        provider: 'codex',
+        codexHome,
+      });
       await fs.writeFile(
         chatConfigPath,
         [
@@ -3255,7 +3287,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(
         chatConfigPath,
-        'model = "gpt-5.3-codex"\n[features]\nview_image_tool = true\nweb_search_request = false\n',
+        'model = "gpt-5.6-sol"\n[features]\nview_image_tool = true\nweb_search_request = false\n',
         'utf8',
       );
       const resolved = await resolveChatRuntimeConfig({
@@ -3281,7 +3313,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(
         chatConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           '[features]',
           'view_image_tool = "maybe"',
           '[tools]',
@@ -3317,7 +3349,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(
         chatConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           'web_search = "cached"',
           '[features]',
           'web_search_request = "sometimes"',
@@ -3354,7 +3386,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       infoLogs.push(args.map(String).join(' '));
     });
     try {
-      await fs.writeFile(agentConfigPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+      await fs.writeFile(agentConfigPath, 'model = "gpt-5.6-sol"\n', 'utf8');
       await resolveAgentRuntimeConfig({
         codexHome,
         agentConfigPath,
@@ -3442,7 +3474,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'utf8',
       );
 
-      assert.match(codexConfig, /model = "gpt-5\.3-codex"/u);
+      assert.match(codexConfig, /model = "gpt-5\.6-sol"/u);
       assert.match(copilotConfig, /model = "copilot-gpt-5"/u);
       assert.match(lmstudioConfig, /model = "model-1"/u);
     } finally {
@@ -3697,7 +3729,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       );
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
-        'model = "gpt-5.3-codex"\n',
+        'model = "gpt-5.6-sol"\n',
         'utf8',
       );
 
@@ -3849,7 +3881,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(
         agentConfigPath,
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           'codeinfo_provider = "copilot"',
           'codeinfo_hidden_note = "strip-me"',
           '',
@@ -3882,7 +3914,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
-        ['model = "gpt-5.3-codex"', 'codeinfo_provider = "copilot"', ''].join(
+        ['model = "gpt-5.6-sol"', 'codeinfo_provider = "copilot"', ''].join(
           '\n',
         ),
         'utf8',
@@ -3917,7 +3949,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           'codeinfo_openai_endpoint = " https://LOCALHOST:1234/v1/ | RESPONSES, completions, responses "',
           '',
         ].join('\n'),
@@ -3935,7 +3967,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ['responses', 'completions'],
       );
       assert.equal('codeinfo_openai_endpoint' in resolved.config, false);
-      assert.equal(resolved.config.model, 'gpt-5.3-codex');
+      assert.equal(resolved.config.model, 'gpt-5.6-sol');
       assert.deepEqual(resolved.warnings, []);
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
@@ -3953,7 +3985,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
-        ['model = "gpt-5.3-codex"', 'codeinfo_openai_endpoint = ""', ''].join(
+        ['model = "gpt-5.6-sol"', 'codeinfo_openai_endpoint = ""', ''].join(
           '\n',
         ),
         'utf8',
@@ -4030,7 +4062,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
         [
-          'model = "gpt-5.3-codex"',
+          'model = "gpt-5.6-sol"',
           'codeinfo_openai_endpoint = "https://example.com/v1|completions"',
           '',
         ].join('\n'),
@@ -4111,7 +4143,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
-        'model = "gpt-5.3-codex"\n',
+        'model = "gpt-5.6-sol"\n',
         'utf8',
       );
       await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -4164,7 +4196,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
-        'model = "gpt-5.3-codex"\n',
+        'model = "gpt-5.6-sol"\n',
         'utf8',
       );
       await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');

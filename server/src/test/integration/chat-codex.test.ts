@@ -697,13 +697,11 @@ test('codex chat uses chat runtime config file for inherited behavior keys while
   };
 
   try {
-    const response = await request(app)
-      .post('/chat')
-      .send({
-        provider: 'codex',
-        conversationId: 'conv-codex-chat-config',
-        message: 'Use runtime config',
-      });
+    const response = await request(app).post('/chat').send({
+      provider: 'codex',
+      conversationId: 'conv-codex-chat-config',
+      message: 'Use runtime config',
+    });
     assert.equal(response.status, 202);
 
     const deadline = Date.now() + 3000;
@@ -714,7 +712,7 @@ test('codex chat uses chat runtime config file for inherited behavior keys while
     assert.equal(capturedOptions.env?.CODEX_HOME, tempCodexHome);
     assert.equal(
       (capturedOptions.config as Record<string, unknown>)?.model,
-      'gpt-5.1-codex-max',
+      'gpt-5.6-sol',
     );
 
     const projects =
@@ -879,7 +877,9 @@ test('codex stream preserves nested subprocess cause details when runStreamed th
       events: AsyncGenerator<ThreadEvent>;
     }> {
       throw Object.assign(
-        new Error('Codex Exec exited with code 1: Reading prompt from stdin...'),
+        new Error(
+          'Codex Exec exited with code 1: Reading prompt from stdin...',
+        ),
         {
           cause: new Error(
             'Error: thread/resume: thread/resume failed: no rollout found for thread id 019ecb2f-2e9a-7401-a449-9633616169a6 (code -32600)',
@@ -1357,19 +1357,20 @@ test('endpoint-unavailable Codex chat falls back to the same provider native pat
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const originalCodexHome = process.env.CODEINFO_CODEX_HOME;
   const originalRuntimeCodexHome = process.env.CODEX_HOME;
-  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-home-'));
+  const codexHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-codex-home-'),
+  );
   await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
   await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.1-codex-max"\n',
+    'model = "gpt-5.6-sol"\n',
     'utf8',
   );
   process.env.CODEINFO_CODEX_HOME = codexHome;
   process.env.CODEX_HOME = codexHome;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses`;
 
   const mockCodex = new MockCodex('thread-endpoint-native-fallback');
   const codexFactory = () => mockCodex;
@@ -1393,12 +1394,12 @@ test('endpoint-unavailable Codex chat falls back to the same provider native pat
       .expect(202);
 
     assert.equal(response.body.provider, 'codex');
-    assert.equal(response.body.model, 'gpt-5.1-codex-max');
-    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-5.1-codex-max');
+    assert.equal(response.body.model, 'gpt-5.6-sol');
+    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-5.6-sol');
     assert.equal(
       response.body.warnings.some((warning: string) =>
         warning.includes(
-          `Endpoint "${externalServer.baseUrl}/v1" was unavailable; falling back to native codex model "gpt-5.1-codex-max".`,
+          `Endpoint "${externalServer.baseUrl}/v1" was unavailable; falling back to native codex model "gpt-5.6-sol".`,
         ),
       ),
       true,
@@ -1439,7 +1440,9 @@ test('POST /chat accepts a Codex endpoint pinned only in chat config when select
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const originalCodexHome = process.env.CODEINFO_CODEX_HOME;
   const originalRuntimeCodexHome = process.env.CODEX_HOME;
-  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-home-'));
+  const codexHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-codex-home-'),
+  );
   await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
   await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
@@ -1524,7 +1527,9 @@ test('POST /chat does not inherit a config-pinned endpoint when the request expl
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const originalCodexHome = process.env.CODEINFO_CODEX_HOME;
   const originalRuntimeCodexHome = process.env.CODEX_HOME;
-  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-codex-home-'));
+  const codexHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-codex-home-'),
+  );
   await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
   await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
@@ -1552,7 +1557,13 @@ test('POST /chat does not inherit a config-pinned endpoint when the request expl
     models: [
       {
         model: 'gpt-5.4',
-        supportedReasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+        supportedReasoningEfforts: [
+          'minimal',
+          'low',
+          'medium',
+          'high',
+          'xhigh',
+        ],
         defaultReasoningEffort: 'high',
       },
     ],
@@ -1607,7 +1618,10 @@ test('POST /chat does not inherit a config-pinned endpoint when the request expl
     assert.deepEqual(response.body.warnings, []);
     assert.equal(mockCodex.lastStartOptions?.model, 'gpt-5.4');
     assert.equal(externalServer.requestCount(), 0);
-    assert.equal(memoryConversations.get(conversationId)?.flags?.endpointId, undefined);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.endpointId,
+      undefined,
+    );
   } finally {
     await externalServer.stop();
     if (originalCodexHome === undefined) {
@@ -1710,8 +1724,7 @@ test('pinned Codex chat fails in place when the saved endpoint later becomes una
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses`;
 
   const conversationId = 'conv-codex-endpoint-fail-in-place';
   memoryConversations.set(conversationId, {
@@ -1777,8 +1790,7 @@ test('resumed Codex chat ignores a contradictory request endpointId when a saved
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${savedEndpointServer.baseUrl}/v1|responses;${requestEndpointServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${savedEndpointServer.baseUrl}/v1|responses;${requestEndpointServer.baseUrl}/v1|responses`;
 
   const conversationId = 'conv-codex-saved-endpoint-wins';
   memoryConversations.set(conversationId, {
@@ -1859,8 +1871,7 @@ test('resumed native Codex chat ignores a contradictory request endpointId when 
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${requestEndpointServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${requestEndpointServer.baseUrl}/v1|responses`;
 
   const conversationId = 'conv-codex-native-resume-ignores-request-endpoint';
   memoryConversations.set(conversationId, {
@@ -1960,8 +1971,7 @@ test('resumed native Codex chat keeps the saved thread instead of drifting onto 
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${endpointServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointServer.baseUrl}/v1|responses`;
 
   const conversationId = 'conv-codex-stale-thread-cleared-on-endpoint-add';
   memoryConversations.set(conversationId, {
@@ -2315,8 +2325,7 @@ test('repository-backed codex chat preserves live web search for Unsloth endpoin
     externalServer = await startExternalOpenAiCompatServer({
       models: ['google/gemma-4-27b-it'],
     });
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
       'sparkunsloth,sk-unsloth-test';
 
@@ -2435,8 +2444,7 @@ test('repository-backed codex chat skips managed web_tools when request-time web
     externalServer = await startExternalOpenAiCompatServer({
       models: ['google/gemma-4-27b-it'],
     });
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
       'sparkunsloth,sk-unsloth-test';
 
@@ -2557,8 +2565,7 @@ test('repository-backed codex chat refreshes cached web-search warnings when req
     externalServer = await startExternalOpenAiCompatServer({
       models: ['google/gemma-4-27b-it'],
     });
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
       'sparkunsloth,sk-unsloth-test';
 
@@ -2618,7 +2625,9 @@ test('repository-backed codex chat refreshes cached web-search warnings when req
     assert.equal(mockCodex.lastStartOptions?.webSearchMode, 'live');
     assert.equal(
       response.body.warnings.some((warning: string) =>
-        warning.includes('web_tools will not be injected for external endpoint execution'),
+        warning.includes(
+          'web_tools will not be injected for external endpoint execution',
+        ),
       ),
       false,
     );
@@ -2676,15 +2685,16 @@ test('repository-backed codex chat preserves config-owned live web search for Un
   try {
     await fs.writeFile(
       path.join(String(tempCodexHomeForTest), 'chat', 'config.toml'),
-      ['model = "gpt-5.1-codex-max"', 'web_search_mode = "live"', ''].join('\n'),
+      ['model = "gpt-5.1-codex-max"', 'web_search_mode = "live"', ''].join(
+        '\n',
+      ),
       'utf8',
     );
 
     externalServer = await startExternalOpenAiCompatServer({
       models: ['google/gemma-4-27b-it'],
     });
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
       'sparkunsloth,sk-unsloth-test';
 
@@ -2785,8 +2795,7 @@ test('repository-backed codex chat preserves config-owned live web search for pi
       'utf8',
     );
 
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `SparkUnsloth,${externalServer.baseUrl}/v1|responses,completions`;
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
       'sparkunsloth,sk-unsloth-test';
 
@@ -2920,8 +2929,7 @@ test('explicit Codex /chat requests start in endpoint-only mode when Codex auth 
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses`;
 
   const mockCodex = new MockCodex('thread-codex-endpoint-only');
   const codexFactory = () => mockCodex;
@@ -2983,8 +2991,7 @@ test('explicit Codex /chat requests fail closed when bootstrap is degraded even 
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses`;
 
   const mockCodex = new MockCodex('thread-codex-bootstrap-degraded');
   const codexFactory = () => mockCodex;

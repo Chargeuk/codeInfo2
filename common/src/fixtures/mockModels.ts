@@ -14,8 +14,8 @@ export const mockModels: ChatModelInfo[] = [
 
 export const mockCodexModels: ChatModelInfo[] = [
   {
-    key: 'gpt-5.2-codex',
-    displayName: 'gpt-5.2-codex',
+    key: 'gpt-5.6-sol',
+    displayName: 'gpt-5.6-sol',
     type: 'codex',
     supportedReasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
     defaultReasoningEffort: 'high',
@@ -176,7 +176,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
     label: 'OpenAI Codex',
     available: true,
     toolsAvailable: true,
-    defaultModel: 'gpt-5.2-codex',
+    defaultModel: 'gpt-5.6-sol',
     defaultModelSource: 'config',
     warnings: [],
     agentFlags: [
@@ -203,7 +203,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       label: 'OpenAI Codex',
       available: true,
       toolsAvailable: true,
-      defaultModel: 'gpt-5.2-codex',
+      defaultModel: 'gpt-5.6-sol',
       defaultModelSource: 'config',
       warnings: [],
       agentFlags: [
@@ -253,7 +253,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       ],
     },
   ],
-  defaultModel: 'gpt-5.2-codex',
+  defaultModel: 'gpt-5.6-sol',
   defaultModelSource: 'config',
   warnings: [],
   codexDefaults: {

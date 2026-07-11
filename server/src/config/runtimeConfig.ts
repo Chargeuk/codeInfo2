@@ -227,7 +227,7 @@ const RESERVED_PROVIDER_CHAT_MCP_BLOCKS: Record<
 };
 const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
   codex: [
-    'model = "gpt-5.3-codex"',
+    'model = "gpt-5.6-sol"',
     'model_reasoning_effort = "high"',
     'approval_policy = "on-request"',
     'sandbox_mode = "danger-full-access"',
@@ -398,7 +398,9 @@ function buildChatConfigTempPath(chatConfigPath: string): string {
 const CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 25;
 const CHAT_CONFIG_LOCK_MAX_RETRIES = 20;
 
-async function acquireChatConfigLock(chatConfigPath: string): Promise<() => Promise<void>> {
+async function acquireChatConfigLock(
+  chatConfigPath: string,
+): Promise<() => Promise<void>> {
   const lockPath = `${chatConfigPath}.codeinfo.lock`;
 
   for (let attempt = 0; attempt < CHAT_CONFIG_LOCK_MAX_RETRIES; attempt += 1) {
@@ -1482,7 +1484,10 @@ const stripManagedWebToolsBlocksFromRawConfig = (
 
   const stripped = rawConfig.replace(blockPattern, (block) => {
     try {
-      const normalizedBlock = replaceCodeinfoEnvPlaceholdersInString(block, env);
+      const normalizedBlock = replaceCodeinfoEnvPlaceholdersInString(
+        block,
+        env,
+      );
       const parsedBlock = parseTomlOrThrow(
         normalizedBlock,
         '<inline web_tools block>',
@@ -1505,7 +1510,10 @@ const stripManagedWebToolsBlocksFromRawConfig = (
   });
 
   const collapsed = stripped
-    .replace(/\r?\n(?:\r?\n){2,}/gu, `${normalizedNewlines}${normalizedNewlines}`)
+    .replace(
+      /\r?\n(?:\r?\n){2,}/gu,
+      `${normalizedNewlines}${normalizedNewlines}`,
+    )
     .replace(/\s+$/u, '');
   return {
     rawConfig: `${collapsed}${normalizedNewlines}`,
@@ -1709,7 +1717,8 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       surface: params.surface,
       warnings: metadataWarnings,
     });
-    const overrideProvider = stripped.appMetadata.codeinfoProvider?.trim() ?? '';
+    const overrideProvider =
+      stripped.appMetadata.codeinfoProvider?.trim() ?? '';
     let effectiveProvider: ChatProviderId = provider;
     if (isChatProviderId(overrideProvider)) {
       effectiveProvider = overrideProvider;
@@ -2109,11 +2118,10 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
     const runtimeChatConfigWithManagedWebTools = shouldAppendManagedWebTools
       ? appendTomlBlocks(runtimeChatConfig, [WEB_TOOLS_MCP_SERVER_BLOCK])
       : runtimeChatConfig;
-    const normalizedRuntimeChatConfig =
-      replaceCodeinfoEnvPlaceholdersInString(
-        runtimeChatConfigWithManagedWebTools,
-        process.env,
-      );
+    const normalizedRuntimeChatConfig = replaceCodeinfoEnvPlaceholdersInString(
+      runtimeChatConfigWithManagedWebTools,
+      process.env,
+    );
     assertNoUnresolvedRequiredMcpPlaceholders(normalizedRuntimeChatConfig);
 
     await Promise.all([

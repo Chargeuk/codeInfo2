@@ -70,7 +70,7 @@ test('shared provider order is codex, copilot, lmstudio', () => {
 test('same-provider model repair keeps the requested provider when that provider is healthy but the requested model is missing there', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     codex: {
       available: true,
       models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
@@ -124,7 +124,7 @@ test('cross-provider fallback keeps the same requested model first when the fall
 test('cross-provider fallback drops from the requested model to the fallback provider preferred model when the requested model is unavailable there', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     codex: {
       available: false,
       models: [],
@@ -151,11 +151,11 @@ test('cross-provider fallback drops from the requested model to the fallback pro
 test('endpoint-aware selection keeps the configured endpoint when the requested model exists there', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.3-codex', 'gpt-5.1-codex-max'],
+      models: ['gpt-5.6-sol', 'gpt-5.1-codex-max'],
       reason: undefined,
     },
     codex: {
@@ -176,7 +176,7 @@ test('endpoint-aware selection keeps the configured endpoint when the requested 
   });
 
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.3-codex');
+  assert.equal(result.executionModel, 'gpt-5.6-sol');
   assert.equal(result.executionPath, 'configured_endpoint');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'selected');
@@ -191,11 +191,11 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
 
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.3-codex', 'gpt-5.1-codex-max'],
+      models: ['gpt-5.6-sol', 'gpt-5.1-codex-max'],
       reason: undefined,
     },
     codex: {
@@ -218,7 +218,7 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
   });
 
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.3-codex');
+  assert.equal(result.executionModel, 'gpt-5.6-sol');
   assert.equal(result.executionPath, 'unavailable');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'unavailable');
@@ -229,7 +229,7 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
 test('endpoint-aware selection repairs to the first selectable model on the same endpoint before broader fallback', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
@@ -264,7 +264,7 @@ test('endpoint-aware selection repairs to the first selectable model on the same
 test('endpoint-aware selection falls back to the same provider native path before cross-provider fallback when the endpoint is unavailable', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: false,
@@ -299,7 +299,7 @@ test('endpoint-aware selection falls back to the same provider native path befor
 test('endpoint-aware selection reaches cross-provider fallback only after the endpoint path and same-provider native path are both unavailable', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: false,
@@ -334,7 +334,7 @@ test('endpoint-aware selection reaches cross-provider fallback only after the en
 test('endpoint-aware selection can fail in place when a pinned endpoint becomes unavailable', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: false,
@@ -360,7 +360,7 @@ test('endpoint-aware selection can fail in place when a pinned endpoint becomes 
   });
 
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.3-codex');
+  assert.equal(result.executionModel, 'gpt-5.6-sol');
   assert.equal(result.executionPath, 'unavailable');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'unavailable');
@@ -380,7 +380,7 @@ test('healthy endpoints still run when the requested provider is unavailable onl
     allowCrossProviderFallback: false,
     codex: {
       available: true,
-      models: ['gpt-5.3-codex'],
+      models: ['gpt-5.6-sol'],
       reason: undefined,
     },
     copilot: {
@@ -407,7 +407,7 @@ test('defaults applied marker payload includes the resolved runtime path', () =>
   const payload = buildDefaultsAppliedMarkerPayload({
     surface: '/chat',
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.3-codex',
+    requestedModel: 'gpt-5.6-sol',
     resolvedModel: 'gpt-5.1-codex-max',
     modelSource: 'request',
     runtimePath: 'same_provider_native_fallback',
@@ -532,7 +532,7 @@ test('resolver falls back deterministically and warns when codex chat config TOM
   assert.equal(result.values.sandboxMode, 'danger-full-access');
   assert.equal(result.values.approvalPolicy, 'on-request');
   assert.equal(result.values.modelReasoningEffort, 'high');
-  assert.equal(result.values.model, 'gpt-5.3-codex');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.equal(result.values.webSearch, 'live');
   assert.ok(
     result.warnings.some(
@@ -561,7 +561,7 @@ web_search = "broken"
   assert.equal(result.values.sandboxMode, 'workspace-write');
   assert.equal(result.values.approvalPolicy, 'never');
   assert.equal(result.values.modelReasoningEffort, 'medium');
-  assert.equal(result.values.model, 'gpt-5.3-codex');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.equal(result.values.webSearch, 'disabled');
   assert.ok(
     result.warnings.some((warning) =>
@@ -713,7 +713,7 @@ test('model precedence is override > config > hardcoded', async () => {
   const withHardcoded = await resolveCodexChatDefaults({
     codexHome: noConfigHome,
   });
-  assert.equal(withHardcoded.values.model, 'gpt-5.3-codex');
+  assert.equal(withHardcoded.values.model, 'gpt-5.6-sol');
   assert.equal(withHardcoded.sources.model, 'hardcoded');
 });
 
@@ -723,7 +723,7 @@ test('missing codex chat config falls back without creating the file', async () 
 
   const result = await resolveCodexChatDefaults({ codexHome });
 
-  assert.equal(result.values.model, 'gpt-5.3-codex');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   await assert.rejects(fs.access(chatConfigPath));
 });
 
@@ -736,7 +736,7 @@ test('unreadable codex chat config warns and falls back without repair', async (
 
   const result = await resolveCodexChatDefaults({ codexHome });
 
-  assert.equal(result.values.model, 'gpt-5.3-codex');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.ok(
     result.warnings.some((warning) => warning.includes('could not be read')),
   );
@@ -756,7 +756,7 @@ test('bootstrap leaves invalid existing chat config untouched while defaults sti
 
   assert.equal(bootstrapResult.branch, 'existing_noop');
   assert.equal(chatContents, '[broken');
-  assert.equal(result.values.model, 'gpt-5.3-codex');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.ok(
     result.warnings.some(
       (warning) =>
@@ -799,7 +799,9 @@ web_search_request = true
   assert.equal(result.values.webSearch, 'live');
   assert.equal(result.sources.webSearch, 'hardcoded');
   assert.ok(
-    result.warnings.some((warning) => warning.includes('invalid value for "web_search"')),
+    result.warnings.some((warning) =>
+      warning.includes('invalid value for "web_search"'),
+    ),
   );
 });
 

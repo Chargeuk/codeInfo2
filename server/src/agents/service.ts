@@ -52,9 +52,7 @@ import {
   type ChatDefaultProvider,
   type RuntimeProviderSelectionPath,
 } from '../config/chatDefaults.js';
-import {
-  applyCodexOpenAiCompatEndpointToRuntimeConfig,
-} from '../config/codexConfig.js';
+import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
 import { type OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
 import {
   RuntimeConfigResolutionError,
@@ -506,20 +504,20 @@ async function persistDirectAgentConversation(params: {
       lastMessageAt: now,
     });
   } else {
-  const metaOutcome = await updateConversationMeta({
-    conversationId: params.conversationId,
-    provider: params.providerId,
-    model: params.modelId,
-    flags,
-    replaceFlags: true,
-    lastMessageAt: now,
-  });
-  if (metaOutcome.outcome === 'not_found') {
-    throw toRunAgentError('CONVERSATION_ARCHIVED');
-  }
-  if (metaOutcome.outcome === 'retry_exhausted') {
-    throw new Error('agent conversation metadata update exhausted');
-  }
+    const metaOutcome = await updateConversationMeta({
+      conversationId: params.conversationId,
+      provider: params.providerId,
+      model: params.modelId,
+      flags,
+      replaceFlags: true,
+      lastMessageAt: now,
+    });
+    if (metaOutcome.outcome === 'not_found') {
+      throw toRunAgentError('CONVERSATION_ARCHIVED');
+    }
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('agent conversation metadata update exhausted');
+    }
   }
 
   const persisted = (await ConversationModel.findById(params.conversationId)
@@ -822,12 +820,13 @@ async function prepareDirectAgentExecution(params: {
   });
   if (params.pinnedProviderId) {
     const providerState = runtimeProviderStates[params.pinnedProviderId];
-    const providerRuntimeResolution = await resolveProviderRuntimeConfigForExecution({
-      configPath: params.configPath,
-      providerId: params.pinnedProviderId,
-      source: params.source,
-      surface: params.surface,
-    });
+    const providerRuntimeResolution =
+      await resolveProviderRuntimeConfigForExecution({
+        configPath: params.configPath,
+        providerId: params.pinnedProviderId,
+        source: params.source,
+        surface: params.surface,
+      });
     const configuredEndpointId =
       providerRuntimeResolution.endpoint?.endpointId?.trim() || undefined;
     if (
@@ -1069,7 +1068,8 @@ async function prepareDirectAgentExecution(params: {
     if (runtimeSelection.unavailable) {
       if (
         params.pinnedEndpointId &&
-        providerRuntimeResolution.endpoint?.endpointId === params.pinnedEndpointId
+        providerRuntimeResolution.endpoint?.endpointId ===
+          params.pinnedEndpointId
       ) {
         throw toRunAgentError(
           'PROVIDER_UNAVAILABLE',
@@ -1789,7 +1789,7 @@ export async function startAgentInstruction(
     },
   });
 
-  let modelId = 'gpt-5.1-codex-max';
+  let modelId = 'gpt-5.6-sol';
   let providerId: ChatProviderId = 'codex';
   let warnings: string[] = [];
   let startPathWasNewConversation = false;
@@ -1967,7 +1967,7 @@ function isSafeAgentCommandName(raw: string): boolean {
   return true;
 }
 
-const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.1-codex-max';
+const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.6-sol';
 
 const loadKnownRepositoryPathsStateForAgentRuns = async () =>
   await agentServiceDeps
@@ -2220,7 +2220,7 @@ export async function startAgentCommand(params: {
   const { runToken } = ownership;
 
   let backgroundScheduled = false;
-  let modelId = 'gpt-5.1-codex-max';
+  let modelId = 'gpt-5.6-sol';
   let providerId: ChatProviderId = 'codex';
   let warnings: string[] = [];
 

@@ -12,7 +12,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 
 <finalization_rules>
 
-- Re-read the selected plan from disk after all enhancement edits.
+- After all enhancement edits, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content for final verification.
 - Confirm that each eligible review-created `__to_do__` task now has:
   - concrete subtasks with explicit owning files, seams, or proof artifacts;
   - realistic wrapper-first testing steps;

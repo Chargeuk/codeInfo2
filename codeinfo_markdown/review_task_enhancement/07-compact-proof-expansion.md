@@ -13,7 +13,7 @@ Add honest proof ownership to selected review-created tasks without creating one
 
 <compact_proof_rules>
 
-- Re-read the selected plan from disk before editing.
+- Immediately before editing, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content.
 - For each selected review-created task, identify the proof files, harnesses, markers, fixtures, screenshots, logs, or prepared proof surfaces that must be authored or updated.
 - Use one compact proof-authoring subtask per proof file or proof surface when that file or surface can cover multiple related assertions.
 - Inside that proof subtask, list the required assertions or invariants inline, including any exact ordering, interleaving, producer-consumer propagation, default-path reachability, stale-state, or runtime-handoff checks.

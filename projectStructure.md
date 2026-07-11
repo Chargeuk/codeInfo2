@@ -37,6 +37,14 @@ Modified files (implementation traceability):
 - `codeinfo_markdown/review_blind_spot_challenge/01-core.md`
 - `codeinfo_markdown/review_evidence_gate/01-core.md`
 - `codeinfo_markdown/review_findings_saturation.md`
+- `codeinfo_markdown/promote_story_manual_proof.md`
+- `codeinfo_markdown/repair_review_workflow_state.md`
+- `codeinfo_markdown/repair_story_workflow_state.md`
+- `codeinfo_markdown/review_task_enhancement/02b-risk-and-prerequisite-scan.md`
+- `codeinfo_markdown/review_task_enhancement/03-finalize.md`
+- `codeinfo_markdown/review_task_enhancement/05-compact-granularity.md`
+- `codeinfo_markdown/review_task_enhancement/07-compact-proof-expansion.md`
+- `codeinfo_markdown/review_task_enhancement/09-compact-proof-and-testing.md`
 - `design.md`
 - `flows/implement_next_plan.json`
 - `projectStructure.md`
@@ -56,6 +64,8 @@ Story notes:
 - Review disposition passes reset and reload the parent planner agents after fresh review artifacts are available, while each minor finding receives a freshly reset coder with compact review context.
 - Reachable implementation and review prompts now use `plan_sections.py` profiles plus a shared bounded-read contract; `bounded_plan_read_mapping.md` records the prompt-family mapping and policy tests prevent unbounded plan-read instructions from returning.
 - Review evidence and findings profiles provide content-free heading/task indexes and final-task proof context, while policy traversal now resolves command-owned Markdown stacks used by the review subflows.
+- Every review-task enhancement pass refreshes the bounded `review-tasking` packet, and story/review workflow repair fallbacks use content-free path and Git checks rather than reopening a plan.
+- The recursive policy rejects selected-plan, referenced-plan, and content-from-disk instructions and keeps explicit reachability assertions for the affected command-owned and direct-flow prompts.
 
 ## Story 0000059 structural change ledger
 

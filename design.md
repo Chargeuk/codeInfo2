@@ -18,6 +18,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - `scripts/plan_sections.py --profile review-findings` provides story scope plus content-free task and heading indexes. Findings, saturation, and blind-spot agents expand only tasks relevant to a changed file, repository, finding, or behavior seam.
 - Task indexes expose ownership, affected repositories, finding IDs, checklist state, available section names, and exact task ranges without including unrequested task prose.
 - Reachability policy follows parent flows, subflows, agent command JSON stacks, direct Markdown, and recursively linked shared Markdown so command-owned prompts cannot bypass the bounded-read contract.
+- Multi-pass review task enhancement reruns `review-tasking` before each mutation and again for final verification, so every pass receives fresh state without reopening the plan. Workflow-state fallback checks only plan readability and repository validity when the primary status helper cannot run.
+- Policy matching covers selected and referenced plan wording, content-from-disk variants, and the existing canonical, active, exact, whole, full, complete, and entire-plan forms while allowing explicit prohibitions and helper-internal parsing.
 
 ## Story 0000057 final provider-neutral runtime closeout
 

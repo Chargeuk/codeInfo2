@@ -20,7 +20,8 @@ Repair broken story-scope flow state for the current story so downstream steps c
 - Only after a permitted script failure may you determine story-scope repair manually from disk.
 - In that manual fallback:
   - if `current-plan.json` is missing, unreadable, invalid, or lacks a usable current story or `plan_path`, treat the result as `repair_needed: true` with `repair_action: regenerate_current_plan_handoff`;
-  - otherwise, re-open the referenced plan and verify the current repository plus every additional repository in the handoff exists, is readable, and is still a git repository;
+  - otherwise, resolve `plan_path` against the current repository and use `test -r <resolved-plan-path>` to verify only that the plan exists and is readable; do not open its contents;
+  - verify the current repository plus every additional repository in the handoff with `test -d <repository-path>` and `git -C <repository-path> rev-parse --is-inside-work-tree`; do not read plan content for these checks;
   - if the plan file or any scoped repository is missing, unreadable, or no longer a git repository, treat the result as `repair_needed: true` with `repair_action: refresh_current_plan_handoff`;
   - if the scoped repositories still exist but any current branch no longer matches the handoff story number, treat the result as `repair_needed: true` with `repair_action: normalize_scope_then_refresh_handoff`;
   - if none of those repair conditions apply, treat the result as `repair_needed: false`.

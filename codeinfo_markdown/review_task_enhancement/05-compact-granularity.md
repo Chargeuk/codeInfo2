@@ -13,7 +13,7 @@ Make selected review-created tasks concrete and executable without expanding the
 
 <compact_granularity_rules>
 
-- Re-read the selected plan from disk before editing.
+- Immediately before editing, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content.
 - Preserve grouped review-fix tasks that share repository ownership, repair seam, root cause, and proof story.
 - Keep one compact implementation subtask when several nearby files must change together to express one coherent fix. Name the files or surfaces inline inside that subtask.
 - Keep one compact proof-authoring subtask when one proof file or proof surface can honestly cover several related assertions. List the assertions inline inside that subtask.

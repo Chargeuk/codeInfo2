@@ -19,11 +19,19 @@ MARKDOWN_REFERENCE_RE = re.compile(
 )
 FORBIDDEN_PLAN_READS = (
     re.compile(
-        r"\b(?:re-?open|re-?read)\s+(?:(?:the|that)\s+)?(?:exact\s+|canonical\s+|active\s+)?(?:relative\s+)?(?:`plan_path`|plan(?:\s+file)?)",
+        r"\b(?:open|read|scan|parse|load|re-?open|re-?read)\s+"
+        r"(?:(?:the|that)\s+)?"
+        r"(?:(?:exact|canonical|active|selected|referenced|whole|entire|full|complete|latest|relative)\s+)*"
+        r"(?:`plan_path`|(?<![-/])plan(?:ning)?(?:\s+(?:markdown|file))?)\b",
         re.IGNORECASE,
     ),
     re.compile(r"\bread\s+the\s+(?:whole|entire|full)\s+plan\b", re.IGNORECASE),
     re.compile(r"\bread\s+the\s+end\s+of\s+the\s+plan\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:open|read|scan|parse|load|re-?open|re-?read)\b[^\n]{0,100}"
+        r"(?<![-/])\bplan(?:ning)?(?:\s+(?:markdown|file))?\b[^\n]{0,80}\bfrom\s+disk\b",
+        re.IGNORECASE,
+    ),
 )
 FORBIDDEN_DOCUMENT_PLAN_READS = (
     re.compile(
@@ -32,6 +40,9 @@ FORBIDDEN_DOCUMENT_PLAN_READS = (
     ),
 )
 NEGATION_RE = re.compile(r"\b(?:do not|must not|never|without)\b", re.IGNORECASE)
+HELPER_INTERNAL_READ_RE = re.compile(
+    r"\bhelper\s+may\b.*\binternally\b", re.IGNORECASE
+)
 
 
 def walk_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -102,7 +113,7 @@ class PlanReadPolicyTests(unittest.TestCase):
         for path in sorted(markdown):
             text = path.read_text()
             for line_no, line in enumerate(text.splitlines(), start=1):
-                if NEGATION_RE.search(line):
+                if NEGATION_RE.search(line) or HELPER_INTERNAL_READ_RE.search(line):
                     continue
                 if any(pattern.search(line) for pattern in FORBIDDEN_PLAN_READS):
                     failures.append(f"{path.relative_to(REPO_ROOT)}:{line_no}: {line}")
@@ -141,6 +152,60 @@ class PlanReadPolicyTests(unittest.TestCase):
         self.assertIn(
             MARKDOWN_ROOT / "review_blind_spot_challenge/01-core.md", markdown
         )
+
+    def test_review_tasking_and_repair_prompts_remain_reachable(self) -> None:
+        markdown, _ = reachable_assets("implement_next_plan")
+        expected = (
+            "review_task_enhancement/02b-risk-and-prerequisite-scan.md",
+            "review_task_enhancement/03-finalize.md",
+            "review_task_enhancement/05-compact-granularity.md",
+            "review_task_enhancement/07-compact-proof-expansion.md",
+            "review_task_enhancement/09-compact-proof-and-testing.md",
+            "repair_story_workflow_state.md",
+            "repair_review_workflow_state.md",
+            "promote_story_manual_proof.md",
+        )
+        for relative_path in expected:
+            self.assertIn(MARKDOWN_ROOT / relative_path, markdown)
+
+    def test_remaining_review_prompts_enforce_bounded_plan_access(self) -> None:
+        enhancement_paths = (
+            "review_task_enhancement/02b-risk-and-prerequisite-scan.md",
+            "review_task_enhancement/03-finalize.md",
+            "review_task_enhancement/05-compact-granularity.md",
+            "review_task_enhancement/07-compact-proof-expansion.md",
+            "review_task_enhancement/09-compact-proof-and-testing.md",
+        )
+        for relative_path in enhancement_paths:
+            text = (MARKDOWN_ROOT / relative_path).read_text()
+            self.assertIn('plan_sections.py" --profile review-tasking', text)
+            self.assertNotIn("re-read the selected plan", text.lower())
+
+        for relative_path in (
+            "repair_story_workflow_state.md",
+            "repair_review_workflow_state.md",
+        ):
+            text = (MARKDOWN_ROOT / relative_path).read_text()
+            self.assertIn("test -r <resolved-plan-path>", text)
+            self.assertIn("git -C <repository-path> rev-parse", text)
+            self.assertNotIn("re-open the referenced plan", text.lower())
+
+        promotion = (MARKDOWN_ROOT / "promote_story_manual_proof.md").read_text()
+        self.assertIn('plan_sections.py" --profile closeout', promotion)
+        self.assertNotIn("reopened from disk", promotion.lower())
+
+    def test_forbidden_patterns_cover_indirect_whole_plan_wording(self) -> None:
+        unsafe_samples = (
+            "Re-read the selected plan from disk before editing.",
+            "Re-open the referenced plan before continuing.",
+            "Read the complete planning file.",
+            "Scan the entire plan Markdown from disk.",
+        )
+        for sample in unsafe_samples:
+            self.assertTrue(
+                any(pattern.search(sample) for pattern in FORBIDDEN_PLAN_READS),
+                sample,
+            )
 
 
 if __name__ == "__main__":

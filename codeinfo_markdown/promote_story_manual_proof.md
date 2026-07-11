@@ -104,7 +104,7 @@ Do not commit or push in this step.
 <failure_modes>
 
 - If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
-- If the selected `plan_path` is missing or unreadable, stop and report that the active plan could not be reopened from disk.
+- If the bounded closeout helper cannot resolve or read the selected `plan_path`, stop and report that the active plan could not be loaded through the bounded helper.
 - If a temporary or durable per-task destination cannot be created safely, stop and report the exact path and failure.
 - If copying a selected file for a selected task fails, stop and report the exact source path, intended temporary destination path, and task number.
 - If staging a selected task fails, leave any existing durable `task-<task-number>/` folder unchanged and report that the task-level promotion did not replace prior durable proof for that task.

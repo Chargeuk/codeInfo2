@@ -34,8 +34,21 @@ Perform this onboarding only when you are first working in this folder structure
 
 ## Working with Planning Files
 
-1. Do NOT read whole planning files directly unless you are asked specific information about the plan AND the required data cannot be found by using the python files within `$CODEINFO_ROOT/scripts`. The planning files are huge and burn tokens which is expensive, so avoid reading the whole file unless absolutely nesessary.
-2. 
+1. Do NOT read whole planning files directly unless the user asks for specific plan content and the required information cannot be obtained from the Python helpers in `$CODEINFO_ROOT/scripts`. Planning files can be very large, so query their structured summaries first and read only the smallest relevant section as a fallback.
+2. Run these helpers from the target repository root so their default handoff paths resolve correctly. Prefer the default compact JSON output and add detail flags only when the task requires them.
+3. Use `python3 "$CODEINFO_ROOT/scripts/plan_status.py"` for the common case. It resolves the active plan from `codeInfoStatus/flow-state/current-plan.json` and reports the selected task, task counts, completion state, unchecked subtasks or testing, and live blockers.
+4. Narrow `plan_status.py` instead of opening a plan:
+   - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <number>` inspects one task.
+   - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --plan <path-to-plan.md>` inspects a specific plan without changing the handoff.
+   - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` returns every task summary; use it only when the compact default is insufficient.
+5. Use `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` for the combined story view, including plan completion, repository scope, and review-loop state. Add `--include-tasks` only when per-task detail is necessary.
+6. Use the focused read-only helpers when only one answer is needed:
+   - `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` checks whether the persisted current-task handoff is still valid.
+   - `python3 "$CODEINFO_ROOT/scripts/plan_blocker_status.py"` reports blocker status for the selected task; it also accepts `--task-number <number>` or `--plan <path-to-plan.md>`.
+   - `python3 "$CODEINFO_ROOT/scripts/questions_section_status.py"` reports whether the active plan's Questions section requires attention.
+   - `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` extracts story-level manual-testing guidance; pass `--task-number <number>` for one task.
+7. `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"` writes the current-task flow-state handoff. Use it only when the workflow requires selecting or refreshing that handoff, not for a read-only status query.
+8. If a helper's interface is unclear, run it with `--help` before reading its source or the planning file.
 
 ## Documentation Sources
 

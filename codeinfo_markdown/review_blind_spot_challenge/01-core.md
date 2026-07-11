@@ -5,7 +5,8 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 <critical_rules>
 
 - Use fresh disk reads and current git state, not conversational memory.
-- Re-read `codeInfoStatus/flow-state/current-plan.json` first, derive the canonical `plan_path`, and re-open that exact plan from disk.
+- Re-read `codeInfoStatus/flow-state/current-plan.json`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-findings` for fresh story scope and the compact task index.
+- When a challenge depends on a task-specific promise, request only that task's relevant named sections with `plan_sections.py --task-number <number>`.
 - After deriving the story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When it exists, preserve that artifact's current-repository comparison metadata as authoritative context for this challenge.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and use only the artifacts referenced there.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
@@ -20,7 +21,7 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 
 Read all of the following from disk:
 
-- the canonical plan from `plan_path`;
+- the bounded review-findings packet for the canonical `plan_path`;
 - the current review handoff;
 - the evidence artifact referenced by that handoff;
 - the findings artifact referenced by that handoff.

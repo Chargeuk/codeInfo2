@@ -94,6 +94,47 @@ PROFILE_CONFIG: dict[str, dict[str, Any]] = {
         ],
         "include_task_summaries": True,
     },
+    "review-evidence": {
+        "story_sections": [
+            "Implementation Plan",
+            "Description",
+            "Overview",
+            "Non-Goals",
+            "Acceptance Criteria",
+            "Out Of Scope",
+            "Additional Repositories",
+            "Decisions",
+            "Design Contract",
+            "Story Manual Testing Guidance",
+        ],
+        "task_sections": [
+            "Overview",
+            "Task Exit Criteria",
+            "Review Cycle Coverage",
+            "Risk Ownership",
+            "Affected Repositories",
+            "Requirement-To-Proof Mapping",
+            "Proof Mapping",
+            "Testing",
+            "Implementation Notes",
+        ],
+        "select_final_task": True,
+        "include_task_index": True,
+    },
+    "review-findings": {
+        "story_sections": [
+            "Implementation Plan",
+            "Description",
+            "Overview",
+            "Non-Goals",
+            "Acceptance Criteria",
+            "Out Of Scope",
+            "Additional Repositories",
+            "Decisions",
+            "Design Contract",
+        ],
+        "include_task_index": True,
+    },
     "review-tasking": {
         "story_sections": [
             "Overview",
@@ -163,6 +204,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--section", action="append", default=[])
     parser.add_argument("--story-section", action="append", default=[])
     parser.add_argument("--include-task-summaries", action="store_true")
+    parser.add_argument("--include-task-index", action="store_true")
     parser.add_argument("--profile", choices=tuple(PROFILE_CONFIG))
     return parser.parse_args()
 
@@ -233,16 +275,32 @@ def render_range(lines: list[str], start: int, end: int) -> str:
     return "\n".join(lines[start - 1 : end]).rstrip()
 
 
-def task_sections(
-    lines: list[str], task: dict[str, Any], requested: list[str] | str
-) -> dict[str, Any]:
+def bounded_task_end(lines: list[str], task: dict[str, Any]) -> int:
     start = int(task["start_line"])
     end = int(task["end_line"])
     for line_no in range(start + 1, end + 1):
         if lines[line_no - 1].startswith("## "):
-            end = line_no - 1
-            break
-    ranges = section_ranges(lines, start=start, end=end, heading_re=TASK_SECTION_RE)
+            return line_no - 1
+    return end
+
+
+def task_section_ranges(
+    lines: list[str], task: dict[str, Any]
+) -> list[dict[str, Any]]:
+    return section_ranges(
+        lines,
+        start=int(task["start_line"]),
+        end=bounded_task_end(lines, task),
+        heading_re=TASK_SECTION_RE,
+    )
+
+
+def task_sections(
+    lines: list[str], task: dict[str, Any], requested: list[str] | str
+) -> dict[str, Any]:
+    start = int(task["start_line"])
+    end = bounded_task_end(lines, task)
+    ranges = task_section_ranges(lines, task)
     first_section_line = ranges[0]["start_line"] if ranges else end + 1
     output: dict[str, Any] = {
         "number": task["number"],
@@ -281,6 +339,51 @@ def task_sections(
     return output
 
 
+def section_items(lines: list[str], section: dict[str, Any]) -> list[str]:
+    items: list[str] = []
+    for line in lines[int(section["start_line"]) : int(section["end_line"])]:
+        normalized = re.sub(r"^\s*(?:[-*]|\d+\.)\s+", "", line).strip()
+        if normalized:
+            items.append(normalized)
+    return items
+
+
+def task_index_entry(lines: list[str], task: dict[str, Any]) -> dict[str, Any]:
+    start = int(task["start_line"])
+    end = bounded_task_end(lines, task)
+    ranges = task_section_ranges(lines, task)
+    first_section = int(ranges[0]["start_line"]) if ranges else end + 1
+    metadata: dict[str, str] = {}
+    for line in lines[start:first_section - 1]:
+        match = re.match(r"^-\s+([^:]+):\s*(.*)$", line)
+        if match:
+            metadata[normalize_heading(match.group(1))] = match.group(2).strip(" `")
+    indexed_sections = {
+        normalize_heading(section["name"]): section for section in ranges
+    }
+    result: dict[str, Any] = {
+        "number": task["number"],
+        "title": task["title"],
+        "status": task["status"],
+        "start_line": start,
+        "end_line": end,
+        "repository_name": metadata.get("repository name"),
+        "task_dependencies": metadata.get("task dependencies"),
+        "subtasks_unchecked": task.get("subtasks_unchecked"),
+        "testing_unchecked": task.get("testing_unchecked"),
+        "has_live_blocker": task.get("has_live_blocker"),
+        "available_sections": [section["name"] for section in ranges],
+    }
+    for output_key, section_name in (
+        ("affected_repositories", "affected repositories"),
+        ("finding_ids", "addresses findings"),
+    ):
+        section = indexed_sections.get(section_name)
+        if section:
+            result[output_key] = section_items(lines, section)
+    return {key: value for key, value in result.items() if value is not None}
+
+
 def story_sections(
     lines: list[str], requested: list[str]
 ) -> tuple[list[dict[str, Any]], list[str]]:
@@ -310,6 +413,20 @@ def story_sections(
         )
     missing = [item for item in requested if normalize_heading(item) not in found]
     return output, missing
+
+
+def available_story_sections(lines: list[str]) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for item in section_ranges(
+        lines, start=1, end=len(lines), heading_re=STORY_SECTION_RE
+    ):
+        end = int(item["end_line"])
+        for line_no in range(int(item["start_line"]) + 1, end + 1):
+            if TASK_HEADING_RE.match(lines[line_no - 1]):
+                end = line_no - 1
+                break
+        output.append({**item, "end_line": end})
+    return output
 
 
 def is_review_created_task(
@@ -385,6 +502,7 @@ def build_plan_sections(
     sections: list[str] | None = None,
     requested_story_sections: list[str] | None = None,
     include_task_summaries: bool = False,
+    include_task_index: bool = False,
     profile: str | None = None,
     repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -406,6 +524,7 @@ def build_plan_sections(
     include_task_summaries = include_task_summaries or bool(
         config.get("include_task_summaries")
     )
+    include_task_index = include_task_index or bool(config.get("include_task_index"))
     selector = task_selector or config.get("selector")
     if selector == "current":
         selector = None
@@ -421,7 +540,11 @@ def build_plan_sections(
         task_number = current_task_number(current_path)
 
     selected_tasks: list[dict[str, Any]] = []
-    if all_tasks or review_created_tasks:
+    if config.get("select_final_task"):
+        if not tasks:
+            raise SystemExit("final task could not be resolved")
+        selected_tasks = [max(tasks, key=lambda task: task["number"])]
+    elif all_tasks or review_created_tasks:
         selected_tasks = list(tasks)
         if review_created_tasks:
             review_path = Path(review_state)
@@ -460,6 +583,7 @@ def build_plan_sections(
             "story_sections": story_requested,
         },
         "story_sections": story_output,
+        "available_story_sections": available_story_sections(lines),
         "missing_story_sections": missing_story,
         "tasks": [
             task_sections(lines, task, requested_sections)
@@ -472,10 +596,19 @@ def build_plan_sections(
         output["task_summaries"] = [
             plan_status.summarise_task(task) for task in tasks
         ]
+    if include_task_index:
+        output["task_index"] = [task_index_entry(lines, task) for task in tasks]
     if review_created_tasks:
         output["review_task_selection_basis"] = review_selection_basis
     if handoff_path is not None:
         output["handoff_path"] = str(handoff_path)
+        handoff_payload = plan_status.load_handoff(handoff_path)
+        output["repository_scope"] = {
+            "additional_repositories": handoff_payload.get(
+                "additional_repositories", []
+            ),
+            "branched_from": handoff_payload.get("branched_from"),
+        }
     return output
 
 
@@ -491,6 +624,7 @@ def main() -> int:
             args.section,
             args.story_section,
             args.include_task_summaries,
+            args.include_task_index,
         )
     ):
         raise SystemExit("at least one bounded query option is required")
@@ -506,6 +640,7 @@ def main() -> int:
         sections=args.section,
         requested_story_sections=args.story_section,
         include_task_summaries=args.include_task_summaries,
+        include_task_index=args.include_task_index,
         profile=args.profile,
     )
     json.dump(output, sys.stdout, indent=2)

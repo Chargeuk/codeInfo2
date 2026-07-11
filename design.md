@@ -11,6 +11,14 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000064 bounded review-plan context
+
+- Review subflows consume the complete story contract without loading the complete plan Markdown into an agent thread.
+- `scripts/plan_sections.py --profile review-evidence` provides repository scope, requested story sections, a compact task index, and the final task's proof-owning sections for the evidence gate.
+- `scripts/plan_sections.py --profile review-findings` provides story scope plus content-free task and heading indexes. Findings, saturation, and blind-spot agents expand only tasks relevant to a changed file, repository, finding, or behavior seam.
+- Task indexes expose ownership, affected repositories, finding IDs, checklist state, available section names, and exact task ranges without including unrequested task prose.
+- Reachability policy follows parent flows, subflows, agent command JSON stacks, direct Markdown, and recursively linked shared Markdown so command-owned prompts cannot bypass the bounded-read contract.
+
 ## Story 0000057 final provider-neutral runtime closeout
 
 - Story `0000057` finishes the migration from provider-specific agent assumptions to one shared provider-neutral execution contract for direct agents, commands, flow-owned agent execution, and MCP `code_info` grounding.

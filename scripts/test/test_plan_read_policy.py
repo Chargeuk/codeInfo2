@@ -13,16 +13,23 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FLOW_ROOT = REPO_ROOT / "flows"
 MARKDOWN_ROOT = REPO_ROOT / "codeinfo_markdown"
+AGENT_ROOT = REPO_ROOT / "codeinfo_agents"
 MARKDOWN_REFERENCE_RE = re.compile(
     r"(?:\$CODEINFO_ROOT/)?codeinfo_markdown/([A-Za-z0-9_./-]+\.md)"
 )
 FORBIDDEN_PLAN_READS = (
     re.compile(
-        r"\b(?:re-?open|re-?read)\s+(?:the\s+)?(?:exact\s+|canonical\s+|active\s+)?(?:relative\s+)?(?:`plan_path`|plan(?:\s+file)?)",
+        r"\b(?:re-?open|re-?read)\s+(?:(?:the|that)\s+)?(?:exact\s+|canonical\s+|active\s+)?(?:relative\s+)?(?:`plan_path`|plan(?:\s+file)?)",
         re.IGNORECASE,
     ),
     re.compile(r"\bread\s+the\s+(?:whole|entire|full)\s+plan\b", re.IGNORECASE),
     re.compile(r"\bread\s+the\s+end\s+of\s+the\s+plan\b", re.IGNORECASE),
+)
+FORBIDDEN_DOCUMENT_PLAN_READS = (
+    re.compile(
+        r"read all of the following from disk:[\s\S]{0,400}(?:canonical|active) plan",
+        re.IGNORECASE,
+    ),
 )
 NEGATION_RE = re.compile(r"\b(?:do not|must not|never|without)\b", re.IGNORECASE)
 
@@ -52,6 +59,20 @@ def reachable_assets(flow_name: str) -> tuple[set[Path], list[str]]:
             markdown_file = step.get("markdownFile")
             if isinstance(markdown_file, str):
                 markdown.add(MARKDOWN_ROOT / markdown_file)
+            command_name = step.get("commandName")
+            agent_type = step.get("agentType")
+            if isinstance(command_name, str) and isinstance(agent_type, str):
+                command_path = (
+                    AGENT_ROOT / agent_type / "commands" / f"{command_name}.json"
+                )
+                command = json.loads(command_path.read_text())
+                for item in command.get("items", []):
+                    item_markdown = item.get("markdownFile")
+                    if isinstance(item_markdown, str):
+                        markdown.add(MARKDOWN_ROOT / item_markdown)
+                    content = item.get("content")
+                    if isinstance(content, str):
+                        inline_text.append(content)
             flow_names = step.get("flowNames")
             if isinstance(flow_names, list):
                 pending.extend(item for item in flow_names if isinstance(item, str))
@@ -79,11 +100,14 @@ class PlanReadPolicyTests(unittest.TestCase):
         markdown, inline_text = reachable_assets("implement_next_plan")
         failures: list[str] = []
         for path in sorted(markdown):
-            for line_no, line in enumerate(path.read_text().splitlines(), start=1):
+            text = path.read_text()
+            for line_no, line in enumerate(text.splitlines(), start=1):
                 if NEGATION_RE.search(line):
                     continue
                 if any(pattern.search(line) for pattern in FORBIDDEN_PLAN_READS):
                     failures.append(f"{path.relative_to(REPO_ROOT)}:{line_no}: {line}")
+            if any(pattern.search(text) for pattern in FORBIDDEN_DOCUMENT_PLAN_READS):
+                failures.append(f"{path.relative_to(REPO_ROOT)}: document-level read")
         for index, text in enumerate(inline_text):
             for line in text.splitlines():
                 if NEGATION_RE.search(line):
@@ -110,6 +134,12 @@ class PlanReadPolicyTests(unittest.TestCase):
         markdown, _ = reachable_assets("implement_next_plan")
         self.assertIn(
             MARKDOWN_ROOT / "review_visual_design_conformance.md", markdown
+        )
+        self.assertIn(MARKDOWN_ROOT / "review_evidence_gate/01-core.md", markdown)
+        self.assertIn(MARKDOWN_ROOT / "code_review_findings/01-core.md", markdown)
+        self.assertIn(MARKDOWN_ROOT / "review_findings_saturation.md", markdown)
+        self.assertIn(
+            MARKDOWN_ROOT / "review_blind_spot_challenge/01-core.md", markdown
         )
 
 

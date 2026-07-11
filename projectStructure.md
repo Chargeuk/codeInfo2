@@ -33,6 +33,10 @@ Removed files:
 Modified files (implementation traceability):
 
 - `AGENTS.md`
+- `codeinfo_markdown/code_review_findings/01-core.md`
+- `codeinfo_markdown/review_blind_spot_challenge/01-core.md`
+- `codeinfo_markdown/review_evidence_gate/01-core.md`
+- `codeinfo_markdown/review_findings_saturation.md`
 - `design.md`
 - `flows/implement_next_plan.json`
 - `projectStructure.md`
@@ -51,6 +55,7 @@ Story notes:
 - Resolved context-loader prompts restore only the compact story or current-task state each reset agent needs, avoiding broad plan reads and unnecessary tool calls.
 - Review disposition passes reset and reload the parent planner agents after fresh review artifacts are available, while each minor finding receives a freshly reset coder with compact review context.
 - Reachable implementation and review prompts now use `plan_sections.py` profiles plus a shared bounded-read contract; `bounded_plan_read_mapping.md` records the prompt-family mapping and policy tests prevent unbounded plan-read instructions from returning.
+- Review evidence and findings profiles provide content-free heading/task indexes and final-task proof context, while policy traversal now resolves command-owned Markdown stacks used by the review subflows.
 
 ## Story 0000059 structural change ledger
 

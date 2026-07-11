@@ -6,7 +6,8 @@ Continue the current story review using ONLY the stored review handoff, perform 
 
 - Do NOT discover the latest review artifact by timestamp.
 - Use fresh disk reads and current git state, not conversational memory.
-- Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and determine the canonical `plan_path`, then extract repository paths from `additional_repositories` and re-open the exact relative `plan_path` from disk.
+- Re-read `codeInfoStatus/flow-state/current-plan.json`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-findings`. Use its repository scope, story contract, available headings, and compact task index as the initial plan context.
+- When a changed file, finding, repository, or behavior seam needs detailed task requirements, use the task index to run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --task-number <number> --section Overview --section "Task Exit Criteria" --section Subtasks --section Testing`. Request another named section only when that review decision genuinely requires it.
 - After deriving the shared story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When it exists, treat it as the authoritative current-repository comparison contract for this pass and do not re-fetch or recompute the current repository base branch.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - Then re-read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, derived from the shared story number.

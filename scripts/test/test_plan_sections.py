@@ -67,6 +67,8 @@ class PlanSectionsTests(unittest.TestCase):
                 ### Task 2. Review-created repair
 
                 - Task Status: `__to_do__`
+                - Repository Name: secondary-repository
+                - Task Dependencies: Task 1
 
                 #### Overview
 
@@ -75,6 +77,11 @@ class PlanSectionsTests(unittest.TestCase):
                 #### Addresses Findings
 
                 - finding-1
+
+                #### Affected Repositories
+
+                - Current Repository
+                - secondary-repository
 
                 #### Testing
 
@@ -93,7 +100,12 @@ class PlanSectionsTests(unittest.TestCase):
         state = repo / "codeInfoStatus" / "flow-state"
         state.mkdir(parents=True)
         (state / "current-plan.json").write_text(
-            json.dumps({"plan_path": "planning/0000123-bounded-plan.md"})
+            json.dumps(
+                {
+                    "plan_path": "planning/0000123-bounded-plan.md",
+                    "additional_repositories": [{"path": "/tmp/secondary"}],
+                }
+            )
         )
         (state / "current-task.json").write_text(
             json.dumps({"selected_task": {"number": 1}})
@@ -154,6 +166,45 @@ class PlanSectionsTests(unittest.TestCase):
         section = output["story_sections"][0]
         self.assertIn("No Additional Repositories", section["markdown"])
         self.assertNotIn("Current implementation", section["markdown"])
+
+    def test_available_heading_indexes_do_not_expose_unrequested_content(self) -> None:
+        repo = self.make_repo()
+
+        output = plan_sections.build_plan_sections(
+            profile="review-findings", repo_root=repo
+        )
+
+        story_headings = [item["name"] for item in output["available_story_sections"]]
+        self.assertIn("Additional Repositories", story_headings)
+        task_two = next(item for item in output["task_index"] if item["number"] == 2)
+        self.assertEqual(task_two["repository_name"], "secondary-repository")
+        self.assertEqual(task_two["task_dependencies"], "Task 1")
+        self.assertEqual(task_two["finding_ids"], ["finding-1"])
+        self.assertEqual(
+            task_two["affected_repositories"],
+            ["Current Repository", "secondary-repository"],
+        )
+        self.assertIn("Testing", task_two["available_sections"])
+        self.assertEqual(
+            output["repository_scope"]["additional_repositories"],
+            [{"path": "/tmp/secondary"}],
+        )
+        self.assertNotIn("Run review proof", json.dumps(output["task_index"]))
+
+    def test_review_evidence_profile_returns_only_final_task_proof_packet(self) -> None:
+        repo = self.make_repo()
+
+        output = plan_sections.build_plan_sections(
+            profile="review-evidence", repo_root=repo
+        )
+
+        self.assertEqual([task["number"] for task in output["tasks"]], [2])
+        packet = json.dumps(output["tasks"])
+        self.assertIn("Run review proof", packet)
+        self.assertIn("Not started", packet)
+        self.assertNotIn("Run focused proof", packet)
+        self.assertEqual(len(output["task_index"]), 2)
+        self.assertNotIn("task_summaries", output)
 
     def test_review_created_query_selects_only_tasks_with_addresses_findings(
         self,

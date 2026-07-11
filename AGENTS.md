@@ -42,6 +42,8 @@ Perform this onboarding only when you are first working in this folder structure
    - `--profile implementation --task current` returns the current task's implementation packet.
    - `--profile automated-proof --task current`, `--profile manual-proof --task current`, and `--profile blocker-repair --task current` return purpose-specific task packets.
    - `--profile story-scope`, `--profile review-scope`, `--profile review-tasking`, `--profile testing-audit`, and `--profile closeout` return bounded cross-task or story context.
+   - `--profile review-evidence` returns the story contract, repository scope, compact task index, and final-task proof packet; `--profile review-findings` returns story scope plus the task index for targeted review expansion.
+   - Review profiles expose available story headings and task-section names without their prose so agents can request custom sections deliberately.
    - `--task-number <number> --section <heading>` and `--story-section <heading>` request one additional named section without opening the complete plan.
 6. Use `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` for the combined story view, including plan completion, repository scope, and review-loop state. Add `--include-tasks` only when per-task detail is necessary.
 7. Use the focused read-only helpers when only one answer is needed:

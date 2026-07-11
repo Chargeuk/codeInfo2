@@ -196,6 +196,36 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("preserved behavior proof", ensure_text)
         self.assertIn("contract-shape assertions", compact_text)
 
+    def test_internal_review_stacks_use_bounded_plan_profiles(self) -> None:
+        evidence = read_text("codeinfo_markdown/review_evidence_gate/01-core.md")
+        findings = read_text("codeinfo_markdown/code_review_findings/01-core.md")
+        saturation = read_text("codeinfo_markdown/review_findings_saturation.md")
+        blind_spot = read_text(
+            "codeinfo_markdown/review_blind_spot_challenge/01-core.md"
+        )
+
+        self.assertIn("shared/bounded-plan-read.md", evidence)
+        self.assertIn('plan_sections.py" --profile review-evidence', evidence)
+        self.assertIn("Runtime Contract Preservation Matrix", evidence)
+        self.assertIn("final-task proof details", evidence)
+
+        self.assertIn("shared/bounded-plan-read.md", findings)
+        self.assertIn('plan_sections.py" --profile review-findings', findings)
+        self.assertIn("--task-number <number>", findings)
+        self.assertIn("perform the actual review", findings)
+
+        self.assertIn("shared/bounded-plan-read.md", saturation)
+        self.assertIn('plan_sections.py" --profile review-findings', saturation)
+        self.assertIn("same-class sibling", saturation)
+
+        self.assertIn("shared/bounded-plan-read.md", blind_spot)
+        self.assertIn('plan_sections.py" --profile review-findings', blind_spot)
+        self.assertIn("blind-spot challenge", blind_spot)
+
+        for text in (evidence, findings, saturation, blind_spot):
+            self.assertNotIn("re-open that exact plan", text.lower())
+            self.assertNotIn("re-open the exact relative `plan_path`", text.lower())
+
     def test_review_created_task_scope_prompt_requires_disk_rereads_and_section_gates(
         self,
     ) -> None:

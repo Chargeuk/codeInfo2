@@ -3,8 +3,13 @@ model = "gpt-5.4-mini"
 model_reasoning_effort = "medium"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-web_search_mode = "disabled"
 personality = "pragmatic"
+web_search_mode = "disabled"
+web_search = "disabled"
+
+[features]
+view_image_tool = false
+view_image = false
 
 [mcp_servers]
 [mcp_servers.code_info]

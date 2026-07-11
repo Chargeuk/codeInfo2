@@ -3,7 +3,8 @@ model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-web_search_mode = "live" 
+web_search_mode = "live"
+personality = "friendly"
 
 [features]
 view_image_tool = true

@@ -21,12 +21,13 @@ Re-read this file at the start of each session. Assume it may have changed since
 
 Perform this onboarding only when you are first working in this folder structure or when history has been compacted.
 
-1. Before doing anything else, call the `code_info` MCP tool.
+1. Before doing anything else, call the `code_info` MCP tool unless instructed not to do so.
 2. In that tool call, include the full repository path for this repository when doing so.
 3. Ask for:
    - a concise project overview, including a summary of the last 3 git commits.
    - Confirm the current git branch.
 4. Without performaing any additional research directly, relying only on thin information provided by code_info, summarize for the user the project overview and the current branch
+5. The `code_info` MCP tool can take some time to comples, so please be patient while waiting for a response.
 
 ## Working with Planning Files
 

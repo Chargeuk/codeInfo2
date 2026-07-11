@@ -59,7 +59,7 @@ Return a concise summary that includes:
   - run `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"`;
   - parse the selector stdout JSON;
   - read `current-task.json` and confirm it matches stdout;
-  - if they resolve Task 12, run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --task-number 12 --section Overview --section Subtasks --section Testing` before answering;
+  - if they resolve Task 12, run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile current-task --task current` before answering;
   - report Task 12 as the bound task for this loop pass.
 
 </correct_example>

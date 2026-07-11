@@ -35,6 +35,18 @@ describe('flow schema (v1)', () => {
     return flattened;
   };
 
+  const assertOrdered = (
+    labels: Array<string | undefined>,
+    before: string,
+    after: string,
+  ) => {
+    const beforeIndex = labels.indexOf(before);
+    const afterIndex = labels.indexOf(after);
+    assert.notEqual(beforeIndex, -1, `missing flow step: ${before}`);
+    assert.notEqual(afterIndex, -1, `missing flow step: ${after}`);
+    assert.ok(beforeIndex < afterIndex, `${before} should precede ${after}`);
+  };
+
   test('does not emit Story 45 parse logs unless explicitly requested', () => {
     resetStore();
     const json = JSON.stringify({
@@ -218,19 +230,20 @@ describe('flow schema (v1)', () => {
     );
 
     assert.equal(implementationResetSteps.length, 10);
-    for (const identifier of [
-      'planner',
-      'lite_coder',
-      'coder',
-      'automated_tester',
-      'manual_tester',
-    ]) {
+    for (const [agentType, identifier] of [
+      ['planning_agent', 'planner'],
+      ['coding_agent_lite', 'lite_coder'],
+      ['coding_agent', 'coder'],
+      ['automated_testing_agent', 'automated_tester'],
+      ['manual_testing_agent', 'manual_tester'],
+    ] as const) {
       assert.equal(
         implementationResetSteps.filter(
-          (step) => step.identifier === identifier,
+          (step) =>
+            step.agentType === agentType && step.identifier === identifier,
         ).length,
         2,
-        `${identifier} should reset at the story-pass and completed-task boundaries`,
+        `${agentType}:${identifier} should reset at the story-pass and completed-task boundaries`,
       );
     }
     assert.equal(
@@ -261,13 +274,15 @@ describe('flow schema (v1)', () => {
     );
 
     const labels = steps.map((step) => step.label);
-    assert.ok(
-      labels.indexOf('Exit task loop if story is complete') <
-        labels.indexOf('Reset planner after completed task'),
+    assertOrdered(
+      labels,
+      'Exit task loop if story is complete',
+      'Reset planner after completed task',
     );
-    assert.ok(
-      labels.indexOf('Reset manual tester after completed task') <
-        labels.indexOf('Reload planner story context after completed task'),
+    assertOrdered(
+      labels,
+      'Reset manual tester after completed task',
+      'Reload planner story context after completed task',
     );
 
     const contextFiles = steps
@@ -310,25 +325,30 @@ describe('flow schema (v1)', () => {
       reviewResetSteps.map((step) => step.identifier),
       ['planner', 'planner_lite', 'coder'],
     );
-    assert.ok(
-      labels.indexOf('Run Parallel Review Artifact Flows') <
-        labels.indexOf('Reset planner for current review disposition pass'),
+    assertOrdered(
+      labels,
+      'Run Parallel Review Artifact Flows',
+      'Reset planner for current review disposition pass',
     );
-    assert.ok(
-      labels.indexOf('Reset lite planner for current review disposition pass') <
-        labels.indexOf('Load planner review context'),
+    assertOrdered(
+      labels,
+      'Reset lite planner for current review disposition pass',
+      'Load planner review context',
     );
-    assert.ok(
-      labels.indexOf('Load lite planner review context') <
-        labels.indexOf('Merge Codex Review Findings Into Canonical Review'),
+    assertOrdered(
+      labels,
+      'Load lite planner review context',
+      'Merge Codex Review Findings Into Canonical Review',
     );
-    assert.ok(
-      labels.indexOf('Exit Minor-Fix Path Unless Minor Findings Remain') <
-        labels.indexOf('Reset coder for next minor review finding'),
+    assertOrdered(
+      labels,
+      'Exit Minor-Fix Path Unless Minor Findings Remain',
+      'Reset coder for next minor review finding',
     );
-    assert.ok(
-      labels.indexOf('Load coder review context') <
-        labels.indexOf('Implement Next Minor Review Finding'),
+    assertOrdered(
+      labels,
+      'Load coder review context',
+      'Implement Next Minor Review Finding',
     );
 
     const reviewContextFiles = steps

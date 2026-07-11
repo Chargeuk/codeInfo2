@@ -7,7 +7,7 @@ Normalize structurally inconsistent task state so the overnight implementation l
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
-Load a fresh bounded current-task packet before normalizing anything.
+Load compact task status first, then load a fresh bounded packet for the exact inconsistent task before normalizing anything.
 Identify the highest-numbered task whose `Task Status` is `__in_progress__`.
 If there is no such task, identify the highest-numbered task whose `Task Status` is `__done__` but whose parser state still reports unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`.
 If `current-task.json` says the plan needs repair for any reason, treat that as an inconsistent state that MUST be repaired before work continues.
@@ -26,7 +26,8 @@ If `current-task.json` says no current task could be selected because no open or
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile current-task --task current` before normalizing.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` to identify the highest-numbered inconsistent task without depending on `current-task.json` having a selection.
+- If `current-task.json` contains a valid selected task, run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile current-task --task current`. Otherwise, run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --task-number <inconsistent-task-number> --section Overview --section "Task Exit Criteria" --section Subtasks --section Testing --section "Implementation Notes"`. Use only that bounded task packet before normalizing.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </scope_rules>

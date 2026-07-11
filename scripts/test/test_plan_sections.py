@@ -218,6 +218,18 @@ class PlanSectionsTests(unittest.TestCase):
         self.assertEqual(len(output["task_index"]), 2)
         self.assertNotIn("task_summaries", output)
 
+    def test_final_task_profile_omits_unused_review_selection_basis(self) -> None:
+        repo = self.make_repo()
+
+        output = plan_sections.build_plan_sections(
+            profile="review-evidence",
+            review_created_tasks=True,
+            repo_root=repo,
+        )
+
+        self.assertEqual([task["number"] for task in output["tasks"]], [2])
+        self.assertNotIn("review_task_selection_basis", output)
+
     def test_review_scope_and_tasking_profiles_include_story_scope_contract(self) -> None:
         repo = self.make_repo()
 

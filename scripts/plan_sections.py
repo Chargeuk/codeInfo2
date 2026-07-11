@@ -534,14 +534,9 @@ def build_plan_sections(
         if not current_path.is_absolute():
             current_path = root / current_path
         task_number = current_task_number(current_path)
-    elif task_selector == "current":
-        selector = None
-        current_path = Path(current_task)
-        if not current_path.is_absolute():
-            current_path = root / current_path
-        task_number = current_task_number(current_path)
 
     selected_tasks: list[dict[str, Any]] = []
+    review_selection_basis: str | None = None
     if config.get("select_final_task"):
         if not tasks:
             raise SystemExit("final task could not be resolved")
@@ -600,7 +595,7 @@ def build_plan_sections(
         ]
     if include_task_index:
         output["task_index"] = [task_index_entry(lines, task) for task in tasks]
-    if review_created_tasks:
+    if review_selection_basis is not None:
         output["review_task_selection_basis"] = review_selection_basis
     if handoff_path is not None:
         output["handoff_path"] = str(handoff_path)

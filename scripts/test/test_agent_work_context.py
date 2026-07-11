@@ -10,6 +10,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -128,6 +129,24 @@ class AgentWorkContextTests(unittest.TestCase):
         self.assertNotIn("next", output)
         self.assertNotIn("additional_repositories", output)
         self.assertNotIn("review", output)
+
+    def test_git_output_handles_success_failure_and_timeout(self) -> None:
+        repo = self.make_repo()
+
+        self.assertTrue(agent_work_context.git_output(repo, "rev-parse", "HEAD"))
+        self.assertIsNone(
+            agent_work_context.git_output(repo, "rev-parse", "missing-ref")
+        )
+        with mock.patch.object(
+            agent_work_context.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(cmd="git", timeout=10),
+        ) as run:
+            self.assertIsNone(agent_work_context.git_output(repo, "status"))
+        self.assertEqual(
+            run.call_args.kwargs["timeout"],
+            agent_work_context.GIT_COMMAND_TIMEOUT_SECONDS,
+        )
 
     def test_story_view_omits_task_and_review_state(self) -> None:
         repo = self.make_repo()

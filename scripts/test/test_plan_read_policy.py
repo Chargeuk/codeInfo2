@@ -39,10 +39,25 @@ FORBIDDEN_DOCUMENT_PLAN_READS = (
         re.IGNORECASE,
     ),
 )
-NEGATION_RE = re.compile(r"\b(?:do not|must not|never|without)\b", re.IGNORECASE)
+NEGATION_GOVERNS_READ_RE = re.compile(
+    r"\b(?:do not|must not|never|without)\b"
+    r"(?:(?![.;:]|\bbut\b|\bhowever\b|\bthen\b).){0,100}$",
+    re.IGNORECASE,
+)
 HELPER_INTERNAL_READ_RE = re.compile(
     r"\bhelper\s+may\b.*\binternally\b", re.IGNORECASE
 )
+
+
+def has_unnegated_forbidden_plan_read(line: str) -> bool:
+    if HELPER_INTERNAL_READ_RE.search(line):
+        return False
+    for pattern in FORBIDDEN_PLAN_READS:
+        for match in pattern.finditer(line):
+            if NEGATION_GOVERNS_READ_RE.search(line[: match.start()]):
+                continue
+            return True
+    return False
 
 
 def walk_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -113,17 +128,13 @@ class PlanReadPolicyTests(unittest.TestCase):
         for path in sorted(markdown):
             text = path.read_text()
             for line_no, line in enumerate(text.splitlines(), start=1):
-                if NEGATION_RE.search(line) or HELPER_INTERNAL_READ_RE.search(line):
-                    continue
-                if any(pattern.search(line) for pattern in FORBIDDEN_PLAN_READS):
+                if has_unnegated_forbidden_plan_read(line):
                     failures.append(f"{path.relative_to(REPO_ROOT)}:{line_no}: {line}")
             if any(pattern.search(text) for pattern in FORBIDDEN_DOCUMENT_PLAN_READS):
                 failures.append(f"{path.relative_to(REPO_ROOT)}: document-level read")
         for index, text in enumerate(inline_text):
             for line in text.splitlines():
-                if NEGATION_RE.search(line):
-                    continue
-                if any(pattern.search(line) for pattern in FORBIDDEN_PLAN_READS):
+                if has_unnegated_forbidden_plan_read(line):
                     failures.append(f"inline[{index}]: {line}")
         self.assertEqual(failures, [])
 
@@ -186,6 +197,7 @@ class PlanReadPolicyTests(unittest.TestCase):
             "repair_review_workflow_state.md",
         ):
             text = (MARKDOWN_ROOT / relative_path).read_text()
+            self.assertIn("test -f <resolved-plan-path>", text)
             self.assertIn("test -r <resolved-plan-path>", text)
             self.assertIn("git -C <repository-path> rev-parse", text)
             self.assertNotIn("re-open the referenced plan", text.lower())
@@ -206,6 +218,24 @@ class PlanReadPolicyTests(unittest.TestCase):
                 any(pattern.search(sample) for pattern in FORBIDDEN_PLAN_READS),
                 sample,
             )
+
+    def test_negation_must_govern_the_forbidden_read(self) -> None:
+        safe_samples = (
+            "Do not read the entire plan Markdown file.",
+            "Never re-open the selected plan.",
+        )
+        for sample in safe_samples:
+            self.assertFalse(has_unnegated_forbidden_plan_read(sample), sample)
+
+        unsafe = "Do not consider this safe; re-open the selected plan."
+        self.assertTrue(has_unnegated_forbidden_plan_read(unsafe))
+
+    def test_bounded_fallback_supplies_numeric_max_count(self) -> None:
+        text = (MARKDOWN_ROOT / "shared/bounded-plan-read.md").read_text()
+        self.assertRegex(
+            text,
+            r"rg -n --max-count \d+ '<heading-or-term>' <plan-path>",
+        )
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ import story_workflow_status
 DEFAULT_HANDOFF = "codeInfoStatus/flow-state/current-plan.json"
 DEFAULT_CURRENT_TASK = "codeInfoStatus/flow-state/current-task.json"
 DEFAULT_REVIEW_STATE = "codeInfoStatus/flow-state/review-disposition-state.json"
+GIT_COMMAND_TIMEOUT_SECONDS = 10
 
 
 def non_empty(value: str) -> str:
@@ -45,12 +46,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def git_output(repo_path: Path, *args: str) -> str | None:
-    result = subprocess.run(
-        ["git", "-C", str(repo_path), *args],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), *args],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return None
     if result.returncode != 0:
         return None
     return result.stdout.strip()

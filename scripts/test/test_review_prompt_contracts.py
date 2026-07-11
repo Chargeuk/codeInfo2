@@ -265,6 +265,21 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("safe_to_exit_review_loop_without_tasking` remains false only because a blocker tied solely to a rejected finding was preserved", text)
         self.assertIn("no `incomplete_review_blocker` or `operationally_blocked_minor_finding` remains solely because a rejected finding used to justify it", text)
 
+    def test_active_task_normalization_does_not_require_a_selected_task(self) -> None:
+        text = read_text("codeinfo_markdown/normalize_inconsistent_active_task.md")
+
+        self.assertIn('plan_status.py" --include-tasks', text)
+        self.assertIn("without depending on `current-task.json` having a selection", text)
+        self.assertIn("--task-number <inconsistent-task-number>", text)
+        self.assertIn('plan_sections.py" --profile current-task --task current', text)
+
+    def test_select_current_task_example_matches_required_bounded_profile(self) -> None:
+        text = read_text("codeinfo_markdown/select_current_task.md")
+        command = 'plan_sections.py" --profile current-task --task current'
+
+        self.assertGreaterEqual(text.count(command), 2)
+        self.assertNotIn("--task-number 12 --section", text)
+
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())
         expected = {

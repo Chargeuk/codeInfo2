@@ -26,11 +26,7 @@ Perform this onboarding only when you are first working in this folder structure
 3. Ask for:
    - a concise project overview, including a summary of the last 3 git commits.
    - Confirm the current git branch.
-   - The current active plan, if any, along with a brief summary status of the plan
-4. Without performaing any additional research directly, relying only on thin information provided by code_info, summarize for the user:
-   - the project overview;
-   - what was last implemented;
-   - what should be implemented next.
+4. Without performaing any additional research directly, relying only on thin information provided by code_info, summarize for the user the project overview and the current branch
 
 ## Working with Planning Files
 
@@ -49,6 +45,15 @@ Perform this onboarding only when you are first working in this folder structure
    - `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` extracts story-level manual-testing guidance; pass `--task-number <number>` for one task.
 7. `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"` writes the current-task flow-state handoff. Use it only when the workflow requires selecting or refreshing that handoff, not for a read-only status query.
 8. If a helper's interface is unclear, run it with `--help` before reading its source or the planning file.
+9. When the Python helpers do not expose the required detail, use shell tools to locate and print only a bounded section. Use this fallback order:
+   - `wc -l <plan.md>` checks the file size before selecting a reading strategy.
+   - `rg -n --max-count <count> '<heading-or-term>' <plan.md>` finds relevant line numbers without printing the file. Add `-C <lines>`, `-A <lines>`, or `-B <lines>` only for small, bounded context around a match.
+   - `sed -n '<start>,<end>p' <plan.md>` prints an exact line range after `rg -n` identifies its boundaries.
+   - `awk '/<start-heading>/{show=1} show{print} /<end-heading>/{exit}' <plan.md>` extracts a heading-delimited section when line numbers are inconvenient. Choose a specific end-heading so output cannot run to the end of the file accidentally.
+   - `head -n <count> <plan.md>` or `tail -n <count> <plan.md>` reads a bounded introduction or ending only when the needed content is known to be there.
+   - `git diff --unified=<lines> -- <plan.md>` inspects only uncommitted plan changes with limited surrounding context.
+10. Use `jq` to narrow JSON emitted by the Python helpers before requesting more plan text, for example `python3 "$CODEINFO_ROOT/scripts/plan_status.py" | jq '{selected_task, story_complete, tasks_with_live_blockers}'`.
+11. Do not use `cat`, an unbounded `sed`/`awk` range, or a broad recursive search to read a large planning file. Start with the smallest likely query and expand the line range or context only when the first bounded result is insufficient.
 
 ## Documentation Sources
 

@@ -19,7 +19,7 @@ Do not commit or push in this step.
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Treat the current repository as in scope even if it is not listed in `additional_repositories`.
-- Re-open the exact relative `plan_path` from disk before deriving the story number.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile closeout` before deriving story and final-task proof ownership.
 - Use fresh disk reads and current filesystem state, not conversational memory.
 - Do not search for a different story and do not infer a different repository scope.
 - Do not use `code_info` for this step unless direct repository reads are genuinely insufficient, which should be rare here.
@@ -53,7 +53,7 @@ Do not commit or push in this step.
 - Define the `final story task` for this step as the highest-numbered task in the active plan that owns story implementation or story proof, rather than a separate flow/meta step outside the task list.
 - Identify the highest-numbered candidate task folder that contains eligible screenshot proof files as the default latest screenshot-proof source.
 - If that highest-numbered screenshot-owning task folder does not belong to the final story task, treat it as the default screenshot-proof source for this pass and retain earlier screenshots only when they still appear uniquely necessary.
-- If that highest-numbered screenshot-owning task folder belongs to the final story task, inspect the active plan plus the latest task-level manual-proof notes semantically to determine whether that final task's manual proof re-covered the relevant story-owned visual surfaces in their current final state.
+- If that highest-numbered screenshot-owning task folder belongs to the final story task, use the closeout packet plus the latest task-level manual-proof notes to determine whether that final task's manual proof re-covered the relevant story-owned visual surfaces in their current final state.
 - If the available plan and manual-proof context indicates that the final task re-covered those visual surfaces, select screenshot proof from that final task folder only by default and treat earlier screenshots for the same surfaces as superseded scratch proof.
 - Retain earlier-task screenshots only when repository-visible evidence shows they still provide uniquely necessary proof for a required visual surface that the final task did not honestly re-prove.
 - When the available evidence is ambiguous, preserve plausibly unique earlier screenshot proof rather than discarding it aggressively.
@@ -140,7 +140,7 @@ Do not commit or push in this step.
 <verification_loop>
 
 - Confirm you read `current-plan.json` first.
-- Confirm you re-opened the exact active plan from disk before deriving the story number.
+- Confirm you used a fresh bounded closeout packet before deriving story and final-task proof ownership.
 - Confirm you used only the active story's `codeInfoTmp/manual-testing/<story-number>/` root as the candidate source.
 - Confirm you treated only numeric child directories as task folders.
 - Confirm you copied only approved filename patterns.

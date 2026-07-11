@@ -38,23 +38,30 @@ Perform this onboarding only when you are first working in this folder structure
    - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <number>` inspects one task.
    - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --plan <path-to-plan.md>` inspects a specific plan without changing the handoff.
    - `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` returns every task summary; use it only when the compact default is insufficient.
-5. Use `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` for the combined story view, including plan completion, repository scope, and review-loop state. Add `--include-tasks` only when per-task detail is necessary.
-6. Use the focused read-only helpers when only one answer is needed:
+5. Use `python3 "$CODEINFO_ROOT/scripts/plan_sections.py"` when an agent needs plan prose. It returns only requested sections with exact line ranges and completeness indicators:
+   - `--profile implementation --task current` returns the current task's implementation packet.
+   - `--profile automated-proof --task current`, `--profile manual-proof --task current`, and `--profile blocker-repair --task current` return purpose-specific task packets.
+   - `--profile story-scope`, `--profile review-scope`, `--profile review-tasking`, `--profile testing-audit`, and `--profile closeout` return bounded cross-task or story context.
+   - `--task-number <number> --section <heading>` and `--story-section <heading>` request one additional named section without opening the complete plan.
+6. Use `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` for the combined story view, including plan completion, repository scope, and review-loop state. Add `--include-tasks` only when per-task detail is necessary.
+7. Use the focused read-only helpers when only one answer is needed:
    - `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` checks whether the persisted current-task handoff is still valid.
    - `python3 "$CODEINFO_ROOT/scripts/plan_blocker_status.py"` reports blocker status for the selected task; it also accepts `--task-number <number>` or `--plan <path-to-plan.md>`.
    - `python3 "$CODEINFO_ROOT/scripts/questions_section_status.py"` reports whether the active plan's Questions section requires attention.
    - `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` extracts story-level manual-testing guidance; pass `--task-number <number>` for one task.
-7. `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"` writes the current-task flow-state handoff. Use it only when the workflow requires selecting or refreshing that handoff, not for a read-only status query.
-8. If a helper's interface is unclear, run it with `--help` before reading its source or the planning file.
-9. When the Python helpers do not expose the required detail, use shell tools to locate and print only a bounded section. Use this fallback order:
-   - `wc -l <plan.md>` checks the file size before selecting a reading strategy.
-   - `rg -n --max-count <count> '<heading-or-term>' <plan.md>` finds relevant line numbers without printing the file. Add `-C <lines>`, `-A <lines>`, or `-B <lines>` only for small, bounded context around a match.
-   - `sed -n '<start>,<end>p' <plan.md>` prints an exact line range after `rg -n` identifies its boundaries.
-   - `awk '/<start-heading>/{show=1} show{print} /<end-heading>/{exit}' <plan.md>` extracts a heading-delimited section when line numbers are inconvenient. Choose a specific end-heading so output cannot run to the end of the file accidentally.
-   - `head -n <count> <plan.md>` or `tail -n <count> <plan.md>` reads a bounded introduction or ending only when the needed content is known to be there.
-   - `git diff --unified=<lines> -- <plan.md>` inspects only uncommitted plan changes with limited surrounding context.
-10. Use `jq` to narrow JSON emitted by the Python helpers before requesting more plan text, for example `python3 "$CODEINFO_ROOT/scripts/plan_status.py" | jq '{selected_task, story_complete, tasks_with_live_blockers}'`.
-11. Do not use `cat`, an unbounded `sed`/`awk` range, or a broad recursive search to read a large planning file. Start with the smallest likely query and expand the line range or context only when the first bounded result is insufficient.
+8. `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"` writes the current-task flow-state handoff. Use it only when the workflow requires selecting or refreshing that handoff, not for a read-only status query.
+9. If a helper's interface is unclear, run it with `--help` before reading its source or the planning file.
+10. When the Python helpers do not expose the required detail, use shell tools to locate and print only a bounded section. Use this fallback order:
+
+- `wc -l <plan.md>` checks the file size before selecting a reading strategy.
+- `rg -n --max-count <count> '<heading-or-term>' <plan.md>` finds relevant line numbers without printing the file. Add `-C <lines>`, `-A <lines>`, or `-B <lines>` only for small, bounded context around a match.
+- `sed -n '<start>,<end>p' <plan.md>` prints an exact line range after `rg -n` identifies its boundaries.
+- `awk '/<start-heading>/{show=1} show{print} /<end-heading>/{exit}' <plan.md>` extracts a heading-delimited section when line numbers are inconvenient. Choose a specific end-heading so output cannot run to the end of the file accidentally.
+- `head -n <count> <plan.md>` or `tail -n <count> <plan.md>` reads a bounded introduction or ending only when the needed content is known to be there.
+- `git diff --unified=<lines> -- <plan.md>` inspects only uncommitted plan changes with limited surrounding context.
+
+11. Use `jq` to narrow JSON emitted by the Python helpers before requesting more plan text, for example `python3 "$CODEINFO_ROOT/scripts/plan_status.py" | jq '{selected_task, story_complete, tasks_with_live_blockers}'`.
+12. Do not use `cat`, an unbounded `sed`/`awk` range, or a broad recursive search to read a large planning file. Start with the smallest likely query and expand the line range or context only when the first bounded result is insufficient.
 
 ## Documentation Sources
 

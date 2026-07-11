@@ -9,7 +9,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
-- Re-open the exact canonical plan from disk before deciding whether to edit it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` before deciding whether to edit the plan.
 - Run `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` before deciding whether an existing final minor-fix revalidation task should be reused or reopened.
 - Treat the helper's `review_cycle_id` match as the primary identity for the task. Use task order only as a sanity check, not as the identity rule.
 - Treat `review_cycle_id` as the stable machine identity for the current review loop, using the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
@@ -121,7 +121,7 @@ When no task is needed and no unresolved work remains:
 <verification_loop>
 
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
-- Confirm the exact canonical plan was re-opened from disk before editing.
+- Confirm fresh bounded review scope and task summaries were loaded before editing.
 - Confirm no unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remained before generating the task.
 - Confirm exactly one special inline-minor final revalidation task exists for the current cycle only when the task-up path does not already own final revalidation for that cycle.
 - Confirm this step did not create or update a special inline-minor final revalidation task when the task-up path already owned final revalidation for the same cycle.

@@ -15,7 +15,7 @@ Refresh the existing `codeInfoStatus/flow-state/current-plan.json` handoff for t
 <scope_rules>
 
 1. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk.
-2. Determine the existing active `plan_path` from that handoff and re-open that exact relative plan file from disk.
+2. Determine the existing active `plan_path` from that handoff, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile story-scope`.
 3. Re-check current repository branch state from git, for example with `git branch --show-current`.
 4. Re-derive repository scope from the plan file's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`.
 5. If the plan has no `Additional Repositories` section, treat it as `- No Additional Repositories`.
@@ -74,7 +74,7 @@ Build the refreshed canonical handoff payload using:
 <verification_loop>
 
 - Confirm you re-read the existing handoff from disk.
-- Confirm you re-opened the exact stored `plan_path`.
+- Confirm you used a fresh bounded story-scope packet for the stored `plan_path`.
 - Confirm you did not rediscover or switch to a different story.
 - Confirm the current repository and every in-scope additional repository are on matching story branches.
 - Confirm you did not overwrite local changes while refreshing branch scope.

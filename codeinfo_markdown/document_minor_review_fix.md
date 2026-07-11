@@ -10,7 +10,7 @@ This step runs after every terminal minor-fix attempt outcome. It records what t
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk after the review disposition state, for example with `cat codeInfoStatus/flow-state/minor-review-fix-result.json`.
 - Use only the stored `plan_path`, `additional_repositories`, review disposition state, and minor-fix result as the active scope.
-- Re-open the exact canonical plan from disk before editing it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before editing the relevant review section.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - If the minor-fix result does not have `status: "fixed"`, do not mark any finding resolved. Update the state only when a skipped, blocked, reclassification, or out-of-scope outcome must steer the next loop step honestly.
@@ -161,7 +161,7 @@ When the result has `status: "skipped"`:
 
 - Confirm `current-plan.json` was read first.
 - Confirm `review-disposition-state.json` and `minor-review-fix-result.json` were read after `current-plan.json`.
-- Confirm the exact canonical plan was re-opened from disk before editing.
+- Confirm a fresh bounded review-scope packet was loaded before editing.
 - Confirm no numbered task was created for a resolved minor finding.
 - Confirm the state file is valid JSON after updating.
 - Confirm counts match the state arrays.

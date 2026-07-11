@@ -17,8 +17,8 @@ Before implementation starts on the current task, inspect the live supported UI 
 - If `check_current_task_handoff.py` reports an `active_selected_task`, you may mention it as freshness or diagnostic context, but do not let it override a clearly resolved persisted task from `current-task.json`.
 - Treat the stored `plan_path` and `additional_repositories` as the primary scope for this step.
 - Expand beyond that primary scope only when needed to inspect a supporting repository for honest visual diagnosis, and report any such scope expansion in the response.
-- Re-open the exact relative `plan_path` from disk before deciding what to inspect or edit.
-- If a `validator-cleared bound task` was resolved, read that task's full task block from the plan, including:
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current` before deciding what to inspect or edit.
+- If a `validator-cleared bound task` was resolved, use the complete requested sections in the bounded manual-proof packet, including:
   - `Overview`
   - `Non-Goals`
   - `Task Exit Criteria`
@@ -204,7 +204,7 @@ Return a concise report with these exact sections:
 - Confirm you used the stored current-plan and current-task handoff.
 - Confirm you ran `check_current_task_handoff.py`.
 - Confirm you used the persisted task from `current-task.json` as the bound task only when it clearly resolved one and the validator did not invalidate the persisted handoff.
-- Confirm you re-opened the plan from disk.
+- Confirm you loaded a fresh bounded manual-proof packet.
 - Confirm you treated every existing subtask as in scope when a `validator-cleared bound task` was resolved.
 - Confirm you returned the full `output_contract` even when an early-exit condition applied.
 - Confirm you reported `story complete` separately from `current-task handoff stale` when `current-task.json` indicated that no task was available because the story was complete.

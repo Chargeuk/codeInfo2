@@ -7,7 +7,7 @@ Perform a deep repair pass only for a live blocker caused by automated-proof fai
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
-Re-open the exact plan file from disk before doing anything else.
+Load a fresh bounded blocker-repair packet before doing anything else.
 Check whether the current selected task has a live blocker caused by automated-proof test failure or by incomplete automated-proof testing that the task can continue by running next.
 If there is no such blocker, stop immediately, make no edits, and do not append any implementation note.
 If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the next task-owned proof step passes or the failure is honestly still blocked.
@@ -19,7 +19,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
-- Re-open the exact relative `plan_path` from disk before starting.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current` before starting.
 - If `current-task.json` does not clearly resolve a task for this loop pass, stop and say the task handoff must be regenerated before deep automated-proof repair continues.
 - Use fresh disk reads and current git state, not conversational memory.
 - Do not run `git switch`, `git checkout`, `git branch`, or otherwise create or change branches in this step.
@@ -50,7 +50,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 
 <repair_rules>
 
-- Re-read the selected task's full text, especially `Subtasks`, `Testing`, `Task Exit Criteria`, and `Implementation Notes`, before changing code or the plan.
+- Use the returned bounded task sections, especially `Subtasks`, `Testing`, `Task Exit Criteria`, and `Implementation Notes`, before changing code or the plan.
 - Follow the repository's wrapper-first workflow and begin from:
   - the failing task-owned proof step; or
   - when the live blocker is only that automated proof is still incomplete, the first unchecked task-owned `Testing` step.
@@ -128,7 +128,7 @@ Return a concise summary that includes:
 
 Before finishing:
 
-- confirm you re-read the plan from disk;
+- confirm you used a fresh bounded blocker-repair packet;
 - confirm you re-read `current-task.json` from disk and used the bound task from it;
 - confirm you used `selected_task.live_blockers` as the blocker source of truth;
 - confirm you made no edits and appended no note when no applicable live blocker existed;

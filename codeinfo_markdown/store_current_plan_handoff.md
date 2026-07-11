@@ -20,8 +20,7 @@ Select the active implementation story only when the current handoff is missing,
 1. If `codeInfoStatus/flow-state/current-plan.json` exists, read it first.
 2. Determine the active `plan_path` from the information it contains rather than from an exact JSON shape.
 3. If the file identifies a readable story/spec/plan file:
-   - re-open that exact relative plan path from disk;
-   - check whether it is still honestly in progress;
+   - run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --plan <plan_path>` to check whether it is still honestly in progress;
    - if it is, treat that as the selected story and do NOT search for a different one.
 4. Treat the existing handoff as stale and continue to fresh story selection only if:
    - the file is missing;
@@ -51,7 +50,7 @@ Select the active implementation story only when the current handoff is missing,
 1. First prefer the existing handoff if it still points at an active in-progress implementation plan.
 2. Otherwise, among eligible executable implementation plans, select the lowest-numbered file that already contains task-status tracking and still has open work.
 3. Only if no such file exists, select the lowest-numbered eligible untasked implementation story/spec file.
-4. Once selected, re-open that plan from disk before taking any branch or handoff action.
+4. Once selected, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --plan <selected-plan> --profile story-scope`, and use that bounded story packet before taking any branch or handoff action.
 
 </selection_order>
 
@@ -62,7 +61,7 @@ Select the active implementation story only when the current handoff is missing,
 3. Follow the rules within the `## Branching And Phase Flow` section of `AGENTS.md` to ensure the current repository is on the correct story branch.
 4. If the current repository is not already on the correct story branch, create or reuse the correct branch and switch to it safely.
 5. If this step creates the current repository branch, remember what branch or ref it was created from so it can be recorded later as `branched_from`.
-6. Read the selected plan's `Additional Repositories` section if it exists. Support both `## Additional Repositories` and `### Additional Repositories`.
+6. Use the bounded story packet's `Additional Repositories` section when present. If the plan uses a task-level variant, request only that named section with `plan_sections.py`.
 7. If the selected plan has no `Additional Repositories` section, treat it as a legacy single-repository plan and behave as if it said `- No Additional Repositories`.
 8. Treat the current repository as the canonical plan host and as implicitly in scope.
 9. Before touching any additional repository in this step, read that repository's `AGENTS.md` and follow its repository-specific workflow rules.

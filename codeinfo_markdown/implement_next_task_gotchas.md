@@ -19,7 +19,7 @@ Explain the implementation gotchas for the currently active task using the store
 
 - Use the task already resolved into `current-task.json` as the active task for this pass.
 - Do not rediscover a different active task by scanning the plan.
-- Re-read that bound task from the plan and resolve the default owner repository from its `Repository Name` field.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile implementation --task current` and resolve the default owner repository from the returned task metadata.
 - Treat `Repository Name` as the default owner repository and planning metadata for the task, not as an exclusive execution boundary for code, documentation, or proof work during this pass.
 - Resolve `Current Repository` to the current repository root.
 - Resolve any other repository name from the plan's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`.
@@ -56,12 +56,12 @@ Explain the implementation gotchas for the currently active task using the store
 
 - Explain the gotchas a developer would need to watch out for while implementing the active task, using the current task plus any relevant acceptance criteria, out-of-scope notes, decisions, implementation notes, and dependent-task context from the plan.
 - Also take into account the implementation information of any previous tasks.
-- Before giving gotchas, read the end of the plan file from disk and report the highest `### Task` heading currently present, then name the exact bound task heading and `Task Status` you are using for this gotchas pass.
+- Before giving gotchas, run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` and report its highest-numbered task, then name the exact bound task heading and `Task Status` from the bounded implementation packet.
 - If you had asked for clarification about a blocker, then ensure you re-read the task because answers may now exist in the current task's implementation notes.
 - Even if you think you know what is in the plan, you must re-read at least the active task from disk before answering.
 - If the active task is still `__in_progress__` but has no unchecked subtasks, state that explicitly and make clear that the task remains active because automated proof or other remaining non-subtask work still needs to run before later tasks may begin.
 - If the previous loop iteration involved manual-testing edits, explicitly re-read the current task's subtasks, testing steps, and implementation notes so you catch any newly added follow-up work before giving gotchas.
-- If the previous loop iteration involved a blocker or planner edits, also re-read the next downstream task that depends on the current task so you understand the updated sequencing and proof expectations.
+- If the previous loop iteration involved a blocker or planner edits, identify the next downstream task from `plan_status.py --include-tasks`, then request only its `Task Dependencies`, `Overview`, and `Testing` sections with `plan_sections.py --task-number <number>`.
 - When the previous loop iteration involved normalization or planner repair, briefly call out any task-status updates, newly inserted tasks, or renumbering that affect this pass.
 - When the previous loop iteration involved normalization or planner repair, explicitly confirm the bound task is still the true next executable owner after those edits, not a still-blocked task sitting ahead of a newly inserted prerequisite.
 - If the active task has already gone through repeated implementation passes while the same subtasks remain unchecked, call that out explicitly.
@@ -87,7 +87,7 @@ Explain the implementation gotchas for the currently active task using the store
 
 <verification_loop>
 
-- Confirm you re-read the active plan from the stored handoff.
+- Confirm you used the bounded implementation packet from the stored handoff.
 - Confirm you re-read the active task from disk.
 - Confirm you resolved the default owner repository from `Repository Name`.
 - Confirm every implementation-scope and proof-scope repository branch matches the selected plan story number.

@@ -50,7 +50,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
     def test_blind_spot_command_includes_changed_hunk_runtime_scan(self) -> None:
         command = json.loads(
-            read_text("codex_agents/review_agent/commands/review_blind_spot_challenge.json")
+            read_text("codeinfo_agents/review_agent/commands/review_blind_spot_challenge.json")
         )
         markdown_files = [item["markdownFile"] for item in command["items"]]
         self.assertIn(
@@ -203,9 +203,10 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("Read `codeInfoStatus/flow-state/current-plan.json` from disk first", text)
         self.assertIn("Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`", text)
-        self.assertIn("using explicit shell reads such as `sed`, `cat`, or `rg`", text)
+        self.assertIn("shared/bounded-plan-read.md", text)
+        self.assertIn("plan_sections.py\" --profile review-tasking", text)
         self.assertIn("Do not answer from conversational memory", text)
-        self.assertIn("After making any repair edit, re-open the exact canonical plan from disk again", text)
+        self.assertIn("After making any repair edit, rerun the same bounded review-tasking query", text)
         self.assertIn("This step runs only after a separate loop preflight", text)
         self.assertIn("If the context became unusable after the loop preflight", text)
         self.assertIn("Task Exit Criteria", text)
@@ -223,7 +224,8 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("Read `codeInfoStatus/flow-state/current-plan.json` from disk first", text)
         self.assertIn("Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`", text)
-        self.assertIn("Re-open the exact canonical plan from disk before filtering any finding", text)
+        self.assertIn("shared/bounded-plan-read.md", text)
+        self.assertIn("plan_sections.py\" --profile review-scope", text)
         self.assertIn("Read `\"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md\"`", text)
         self.assertIn("make no edits and treat this step as a clean skip", text)
         self.assertIn("optional evidence inputs", text)

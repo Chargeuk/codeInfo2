@@ -9,6 +9,7 @@ The migrated story ledgers below now reference that durable location consistentl
 
 Added files:
 
+- `codeinfo_markdown/bounded_plan_read_mapping.md`
 - `codeinfo_markdown/load_agent_work_context.md`
 - `codeinfo_markdown/load_automated_tester_current_task_context.md`
 - `codeinfo_markdown/load_coder_current_task_context.md`
@@ -18,8 +19,12 @@ Added files:
 - `codeinfo_markdown/load_manual_tester_current_task_context.md`
 - `codeinfo_markdown/load_planner_review_context.md`
 - `codeinfo_markdown/load_planner_story_context.md`
+- `codeinfo_markdown/shared/bounded-plan-read.md`
 - `scripts/agent_work_context.py`
+- `scripts/plan_sections.py`
 - `scripts/test/test_agent_work_context.py`
+- `scripts/test/test_plan_read_policy.py`
+- `scripts/test/test_plan_sections.py`
 
 Removed files:
 
@@ -32,6 +37,7 @@ Modified files (implementation traceability):
 - `flows/implement_next_plan.json`
 - `projectStructure.md`
 - `scripts/check_current_task_handoff.py`
+- `scripts/test/test_review_prompt_contracts.py`
 - `server/src/flows/flowSchema.ts`
 - `server/src/flows/service.ts`
 - `server/src/test/integration/flows.run.agent-slot.test.ts`
@@ -44,6 +50,7 @@ Story notes:
 - The implementation flow now resets the planner and implementation agents at safe story-pass and completed-task boundaries, while preserving the loop controller and lite planner across iterations.
 - Resolved context-loader prompts restore only the compact story or current-task state each reset agent needs, avoiding broad plan reads and unnecessary tool calls.
 - Review disposition passes reset and reload the parent planner agents after fresh review artifacts are available, while each minor finding receives a freshly reset coder with compact review context.
+- Reachable implementation and review prompts now use `plan_sections.py` profiles plus a shared bounded-read contract; `bounded_plan_read_mapping.md` records the prompt-family mapping and policy tests prevent unbounded plan-read instructions from returning.
 
 ## Story 0000059 structural change ledger
 

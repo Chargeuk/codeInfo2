@@ -6,6 +6,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 
 - Follow `AGENTS.md` for the current repository and any participating additional repository.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md"` for the repository-agnostic dedicated final validation task contract.
 - Treat this command as an autonomous tasking pass.
 - Do not ask the user follow-up questions unless blocked by information that cannot be retrieved from repository files, git state, MCP tools, or official documentation.
 - Keep the selected story in scope and aligned to the KISS principle.
@@ -41,7 +42,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 
 - Use this section contract everywhere in this workflow:
   - `Story Manual Testing Guidance`, when present as a story-level section above `# Tasks`, contains optional story-scoped guidance for later manual testing or story QA. It must stay checkbox-free and non-blocking, and it may name paired or supporting repositories that are useful for later manual proof.
-  - `Subtasks` contain only implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - Substantive tasks' `Subtasks` contain only implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs. The dedicated final task is the exception: it starts with exactly the lint and formatting subtasks defined by the final-task contract.
   - `Testing` contains only automated proof execution steps that the coding agent can run with repository-supported wrappers, commands, or harnesses.
   - `Manual Testing Guidance` contains optional, non-blocking guidance for the manual testing agent. It must not contain checkboxes, pass/fail gating language, or any requirement that blocks task completion.
   - Task-level `Manual Testing Guidance` may refine or override story-level `Story Manual Testing Guidance` for that one task when needed, may name paired or supporting repositories for task-specific proof paths, must not contradict fresher repository truth, and should carry forward any relevant repository-defined manual-testing skip or narrowing conditions from `AGENTS.md` or `codeinfo_markdown/repository_information.md` when those conditions affect that task's honest proof path.
@@ -79,7 +80,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 <phase_dependency_contract>
 
 - Never create a subtask or testing step that requires manual testing to have already happened.
-- Never create a subtask that requires automated test execution results to become complete.
+- Never create a subtask that requires automated test execution results to become complete. The final task's lint and formatting subtasks are direct code-hygiene execution, not dependencies on later `Testing` output.
 - Subtasks may name the exact proof-owning files, log markers, fixtures, screenshot paths, or harness surfaces that must be prepared, but the generated proof output itself belongs to the later `Testing` phase or to optional `Manual Testing Guidance`.
 - Do not create subtasks that say or imply `run automated tests`, `after Testing step N`, or `capture proof from the later test run`.
 

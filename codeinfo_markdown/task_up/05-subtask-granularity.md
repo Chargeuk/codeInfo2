@@ -7,6 +7,7 @@ Split bundled subtasks into smaller, more detailed units so each subtask express
 - Preserve the task boundaries that already group coherent repository-owned work.
 - Prefer more detailed subtasks over broader bundled subtasks when that improves execution clarity.
 - Do not remove valid context that a weak implementer needs.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Do not split, expand, or add to the dedicated final task's two initial lint and formatting subtasks.
   </instruction_priority>
 
 <subtask_granularity_rules>
@@ -14,7 +15,7 @@ Split bundled subtasks into smaller, more detailed units so each subtask express
 - Re-read the active plan from disk before editing.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
-- Keep each task focused on one primary seam, but split subtasks until each one usually performs one implementation action or one proof-authoring action.
+- Keep each substantive implementation task focused on one primary seam, but split its subtasks until each one usually performs one implementation action or one proof-authoring action. Exclude the dedicated final validation task from this expansion pass.
 - Split any subtask that changes multiple unrelated files, multiple distinct invariants, or multiple separate acceptance paths unless those changes are inseparable.
 - If a subtask says “A and B and C,” split it unless all three changes are required to express one inseparable behavior.
 - Prefer one subtask per implementation seam and one subtask per proof seam, even when they point to the same file.

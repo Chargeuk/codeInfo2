@@ -5,6 +5,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 <instruction_priority>
 
 - Follow the scoped contract from `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"`.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md"` and verify the review task-up path still has exactly one current-cycle final revalidation owner.
 - Treat scope drift or execution-order regressions as failures of this command.
 - Keep the final result maintainable: improve the new review-created tasks, do not churn the story.
 
@@ -13,7 +14,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 <finalization_rules>
 
 - After all enhancement edits, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content for final verification.
-- Confirm that each eligible review-created `__to_do__` task now has:
+- Confirm that each eligible substantive review-created `__to_do__` task now has:
   - concrete subtasks with explicit owning files, seams, or proof artifacts;
   - realistic wrapper-first testing steps;
   - honest proof homes for the acceptance path, meaningful edge cases, and important review hotspot invariants that task owns;
@@ -32,7 +33,8 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Confirm that the new review-created tasks form one contiguous appended block rather than being inserted into older parts of the plan.
 - Confirm that the selected review-created task identities were preserved throughout enhancement rather than deleted, absorbed, or renumbered out of scope.
 - Confirm that each selected review-created task still carries durable `Addresses Findings` coverage and that the fresh final revalidation task explicitly covers the current review-created findings block and owns full relevant regression proof for every affected repository.
-- Confirm that the fresh final revalidation task names the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns, or states why a category is not applicable.
+- Confirm that the fresh final revalidation task initially contains exactly the supported lint and formatting subtasks, names every story- and review-affected repository and component, and lists every repository-supported full automated suite for those components, including supported end-to-end suites and no targeted filters.
+- Explain whether the current-cycle final revalidation task was created, reused, or repaired, and confirm that the minor-fix-only path will no-op when `final_revalidation_owned_by_task_up_path` is true.
 - Confirm that any older-task edits were limited to minimal numbering, dependency, testing-alignment, or cross-reference changes required to keep the plan honest.
 - If the enhancement pass reveals that a selected review-created task cannot be made concrete honestly, replace it with a bounded diagnostic task rather than leaving a vague repair task in the plan.
 

@@ -24,6 +24,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 
 - If the story has no tasks, create them.
 - If the story already has tasks, rewrite them where needed so they match the tasking rules below.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`: after all substantive implementation tasks, append one dedicated final validation task with only the two required initial lint and formatting subtasks and a story-wide full-suite `Testing` inventory.
 - Each task must implement exactly one primary seam that can be tested as a coherent unit.
 - Each task must belong to exactly one repository.
 - If the story spans multiple repositories, split provider-repository and consumer-repository work into separate tasks and make the sequencing explicit.
@@ -59,7 +60,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Use the current `plan_format.md` structure.
 - Every task must name its repository.
 - Every task must include a concise Overview and a concrete Task Exit Criteria section.
-- Every task must include a requirement-to-proof map in its subtasks: for each implemented acceptance path, name the exact code surface and the exact proof-owning file(s) or prepared proof surface(s) that will need to change. Do not require the later generated proof output itself for subtask completion.
+- Except for the dedicated final validation task, every task must include a requirement-to-proof map in its subtasks: for each implemented acceptance path, name the exact code surface and the exact proof-owning file(s) or prepared proof surface(s) that will need to change. Do not require the later generated proof output itself for subtask completion. The final task consumes the proof prepared by earlier tasks and must not duplicate those proof-authoring subtasks.
 - `Documentation Locations` must reference external docs, MCP docs, official URLs, or installed library code. Local repo files to inspect or change belong in Subtasks, not in Documentation Locations.
 - Subtasks must name the relevant local files, folders, classes, functions, commands, configs, or runtime assets to inspect or update.
 - Each subtask must be understandable in isolation for a very weak, junior, forgetful developer who may read only that one subtask and may not reliably cross-reference the rest of the plan.
@@ -70,7 +71,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - If `Design Contract Present` is true, add a short `Visual Invariants` subsection or equivalent task wording for each design-driven task that lists the concrete required visual matches and any allowed implementation flex.
 - When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, write those visual invariants from the markdown first and use the visual asset only to preserve the intended visual direction when the markdown is silent.
 - When a current task intentionally restates or narrows a design requirement, carry that restated requirement directly into the task wording so implementers, testers, and reviewers can follow the task without guessing from lower-level design sources.
-- If `Design Contract Present` is true, ensure the final task in the story carries `Manual Testing Guidance` that asks for screenshots covering the full implemented frontend for the story, not just the final task's narrow local seam.
+- If `Design Contract Present` is true, ensure the dedicated final task carries `Manual Testing Guidance` that asks for screenshots covering the full implemented frontend for the story. Keep that optional guidance outside `Subtasks` and `Testing`.
 - Do not make a subtask's completion depend on executed test output, later screenshots, later logs, or later manual validation.
 - When a changed behavior could leave an existing test title misleading, add an explicit subtask to rename or rewrite that proof so the stated invariant still matches the assertions.
 - When a UI surface changes enablement, visibility, mode gating, or create-vs-reuse behavior, add an explicit subtask for stale-state handling and proof that disabled or hidden state is either cleared or excluded from submission.

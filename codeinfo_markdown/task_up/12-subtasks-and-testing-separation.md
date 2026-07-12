@@ -7,6 +7,7 @@ Ensure `Subtasks` and `Testing` stay separated so implementation and proof-autho
 - Keep the task list honest and executable for a junior developer.
 - Preserve wrapper-first proof rules from earlier passes.
 - Do not let build or test execution commands leak into `Subtasks` unless the task is specifically creating or repairing a harness or wrapper.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. The dedicated final validation task is the explicit exception whose only two initial subtasks run lint and formatting; all of its full suites remain in `Testing`.
   </instruction_priority>
 
 <subtask_testing_separation_rules>
@@ -20,10 +21,10 @@ Ensure `Subtasks` and `Testing` stay separated so implementation and proof-autho
   - the subtask names the exact file, fixture, marker, harness file, or prepared proof surface that must be created or updated before testing runs.
 - Do not create a subtask whose only purpose is to say "after Testing X, update `Implementation notes`".
 - Treat `Implementation notes` refreshes as plan-maintenance that happens immediately after the related subtask or testing step is completed, following `AGENTS.md`; do not model that maintenance as a separate future-gated subtask.
-- Keep exact proof-file and proof-artifact references in `Subtasks`.
+- Keep exact proof-file and proof-artifact references in substantive tasks' `Subtasks`; do not add them to the dedicated final validation task.
 - Keep runnable wrapper commands in `Testing`.
 - Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
-- Also allow the required final lint subtask and final prettier or format-check subtask to remain in `Subtasks`, but keep them as the last two subtasks in that order and do not let them pull other testing commands earlier into the subtask list.
+- Also allow the required lint subtask and prettier or format-check subtask to remain in `Subtasks`. In the dedicated final validation task they must be the entire initially generated `Subtasks` list, in that order, and must not be duplicated in `Testing`.
 - When one testing step later produces outputs used for validation, keep the execution command in `Testing` and do not make any subtask depend on those later outputs in order to become executable.
 - A subtask may name a proof-owning file, marker, harness surface, or screenshot path convention to prepare, but it must not require the later generated artifact itself for completion.
 - If a task needs alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams, keep those seams in test-owned code, fixtures, harnesses, or test configuration rather than in the shipped production path.

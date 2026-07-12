@@ -24,6 +24,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Use fresh disk reads and current git state, not conversational memory.
 - Do not run `git switch`, `git checkout`, `git branch`, or otherwise create or change branches in this step.
 - Perform all work on the current repository branch that matches the story selected by `codeInfoStatus/flow-state/current-plan.json`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. When the selected task is the dedicated current closeout owner, treat the whole approved story and every listed affected repository as available same-task repair scope.
 
 </scope_rules>
 
@@ -66,6 +67,9 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - If additional `Testing` steps still remain after that pass, keep the task `__in_progress__` without preserving a generic live `**BLOCKER**` solely because more listed proof work remains.
 - If running the next unchecked proof step fails, replace any generic blocker with a narrower blocker that names the exact failing wrapper or command and whether the failure is task-owned or a prerequisite, harness, runtime, or baseline seam.
 - Continue the diagnose-fix-rerun cycle while there is a credible in-scope next fix and the failure remains task-owned.
+- For a dedicated final task, prefer repairing story-caused failures directly in this task. Rerun the failed full suite after each repair and uncheck every other full suite whose result became stale.
+- If a final-task repair cannot be completed in this pass but remains concrete and story-scoped, add a bounded repair subtask to the same final task and route it back through implementation instead of creating a different numbered task.
+- Recommend a different numbered task only when same-task repair would be dishonest because distinct repository implementation ownership, prerequisite sequencing, architectural decomposition, external authority, or approved scope expansion is required.
 - If the repair requires explicit research on a library or framework contract, use official documentation and current repository evidence to confirm the intended behavior before changing code.
 
 </repair_rules>
@@ -79,6 +83,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Do not add manual-testing checklist items in `Subtasks` or `Testing`.
 - Do not add subtasks that depend on future screenshots, logs, later manual-testing-agent reruns, or later automated-proof outputs in order to become complete.
 - Do not add subtasks that tell the coding agent to perform browser validation, Playwright MCP validation, screenshot review, or other manual-testing-agent proof work.
+- Preserve the dedicated final task's two-subtask initial shape unless a real story-caused failure has triggered the shared contract's bounded runtime repair-subtask exception.
 
 </section_ownership_rules>
 

@@ -55,8 +55,9 @@ Load the bounded review-created task packet after the scoped review-task-up comm
 - Do not merge, delete, absorb, or otherwise identity-shift the selected review-created tasks during this scoped quality pass.
 - Do not absorb selected work into older pre-existing story tasks.
 - Preserve and improve any existing `Addresses Findings` coverage in the selected tasks.
+- Apply detailed subtask-quality rules only to substantive review-fix tasks. For the dedicated final task, preserve exactly the two initial lint and formatting subtasks required by `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`.
 - If the fresh final revalidation task is missing explicit coverage of the current review-created findings block for this `review_pass_id`, add or repair that wording now instead of only preserving what is already there.
-- If the fresh final revalidation task does not explicitly own full relevant regression proof for the affected repositories in the current review-created findings block, add or repair that wording now instead of adding duplicated broad proof to every selected review-created task.
+- If the fresh final revalidation task does not list every repository-supported full suite for every component affected by the whole story and current review cycle, add or repair that inventory now instead of adding duplicated broad proof to every selected review-created task.
 - For the fresh final revalidation task, treat `Affected Repositories` as the source of truth for story-wide proof scope and do not flag the task as malformed merely because its `Testing` spans more than one repository.
 
 </quality_check_rules>
@@ -82,7 +83,7 @@ Load the bounded review-created task packet after the scoped review-task-up comm
 - Check that any automated screenshot or browser-artifact path points only to ignored artifact storage.
 - Check that the selected review-created task identities remain the same ones chosen by the scoped review-task-up command.
 - Check that each selected task still carries clear `Addresses Findings` coverage, and that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`.
-- Check that the fresh final revalidation task's `Testing` clearly covers every repository named in `Affected Repositories`.
+- Check that the fresh final revalidation task's `Testing` clearly groups every affected component by repository, includes every supported full suite and end-to-end suite, and contains no targeted filters or duplicate lint and formatting items.
 - Check that the latest `Code Review Findings` section and its review-created tasks now sit in one contiguous end-of-file block with the fresh final revalidation task after them.
 - Check that any edits outside the selected tasks were minimal and only to keep the plan executable and truthful.
 

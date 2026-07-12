@@ -844,6 +844,47 @@ describe('flow schema (v1)', () => {
     );
   });
 
+  test('all review disposition flows filter and promote actionable findings before inline fixing', async () => {
+    const flowFiles = [
+      'flows/review_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/ingest_external_review_plan.json',
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const markers = flattenSteps(parsed.steps ?? []).map(
+        (step) => step.markdownFile,
+      );
+      const classifyIndex = markers.indexOf('classify_review_disposition.md');
+      const filterIndex = markers.indexOf(
+        'filter_review_findings_to_story_scope.md',
+      );
+      const promoteIndex = markers.indexOf(
+        'promote_actionable_review_findings_to_minor_path.md',
+      );
+      const fixIndex = markers.indexOf('fix_next_minor_review_finding.md');
+
+      assert.notEqual(classifyIndex, -1, `${flowFile} should classify findings`);
+      assert.notEqual(filterIndex, -1, `${flowFile} should filter findings`);
+      assert.notEqual(
+        promoteIndex,
+        -1,
+        `${flowFile} should promote actionable findings`,
+      );
+      assert.notEqual(fixIndex, -1, `${flowFile} should attempt inline fixes`);
+      assert.ok(
+        classifyIndex < filterIndex &&
+          filterIndex < promoteIndex &&
+          promoteIndex < fixIndex,
+        `${flowFile} should classify, filter, promote, and then attempt findings`,
+      );
+    }
+  });
+
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {
     const flowFiles = [
       'flows/review_plan.json',

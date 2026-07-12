@@ -98,10 +98,11 @@ When the result has `status: "skipped"`:
 
 1. If the skipped result clearly identifies stale or already-resolved state, remove that stale minor finding from `unresolved_minor_batchable_findings` and record the cleanup reason.
 2. Otherwise, move the skipped finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings` so the issue is not left hanging in the minor bucket.
-3. Recompute counts and booleans so `needs_minor_fix_path` reflects whether any unresolved minor findings still remain, and `needs_task_up_path` reflects any escalated work.
-4. Add a concise `classification_notes` entry explaining why the issue was cleaned up or escalated after the skipped outcome.
-5. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
-6. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
+3. When a skipped finding is escalated, preserve its existing routing constraints and mark its routed reason as the outcome of an inline attempt in the current review cycle so `promote_actionable_review_findings_to_minor_path.md` cannot promote it into a repeat attempt during that cycle.
+4. Recompute counts and booleans so `needs_minor_fix_path` reflects whether any unresolved minor findings still remain, and `needs_task_up_path` reflects any escalated work.
+5. Add a concise `classification_notes` entry explaining why the issue was cleaned up or escalated after the skipped outcome.
+6. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+7. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 </state_update_rules>
 

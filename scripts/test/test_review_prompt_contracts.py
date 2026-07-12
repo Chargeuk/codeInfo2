@@ -306,6 +306,8 @@ class ReviewPromptContractTests(unittest.TestCase):
             "cannot promote the same durable follow-up into a repeat attempt",
             document_text,
         )
+        self.assertIn("When a skipped finding is escalated", document_text)
+        self.assertIn("cannot promote it into a repeat attempt", document_text)
 
     def test_active_task_normalization_does_not_require_a_selected_task(self) -> None:
         text = read_text("codeinfo_markdown/normalize_inconsistent_active_task.md")

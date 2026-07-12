@@ -21,6 +21,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Multi-pass review task enhancement reruns `review-tasking` before each mutation and again for final verification, so every pass receives fresh state without reopening the plan. Workflow-state fallback checks only plan readability and repository validity when the primary status helper cannot run.
 - `review-scope` and `review-tasking` include Description alongside Acceptance Criteria and Out Of Scope, allowing later classification and task-repair stages to preserve story intent as well as its explicit boundaries.
 - Policy matching covers selected and referenced plan wording, content-from-disk variants, and the existing canonical, active, exact, whole, full, complete, and entire-plan forms while allowing explicit prohibitions and helper-internal parsing.
+- `implement_next_plan`, `task_and_implement_plan`, and `improve_task_implement_plan` share one canonical execution, review, and closeout suffix. Their prefixes remain purpose-specific for implementation-only, task-and-implement, and improve-task-and-implement entry paths.
 
 ## Story 0000057 final provider-neutral runtime closeout
 

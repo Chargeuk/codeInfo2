@@ -300,6 +300,15 @@ class ReviewPromptContractTests(unittest.TestCase):
             "Do not stop merely because the first approach failed", fix_text
         )
         self.assertIn(
+            "Do not repeat the same failed code change and proof command without new evidence",
+            fix_text,
+        )
+        self.assertIn("makes a materially different safe change", fix_text)
+        self.assertIn("If no new safe action remains", fix_text)
+        self.assertIn(
+            "Confirm no failed approach was repeated without new evidence", fix_text
+        )
+        self.assertIn(
             "attempted every safe bounded action it identified", document_text
         )
         self.assertIn(

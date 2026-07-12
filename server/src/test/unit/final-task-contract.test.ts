@@ -41,6 +41,9 @@ describe('final task contract', () => {
       contract,
       /Immediately below the final task's `Testing` heading/,
     );
+    assert.match(contract, /failures found by these checks/);
+    assert.match(contract, /rerun every affected check/);
+    assert.doesNotMatch(contract, /failures found by these suites/);
     assert.match(contract, /Do not reopen an older task solely to own that repair/);
     assert.match(
       contract,
@@ -118,6 +121,43 @@ describe('final task contract', () => {
       assert.match(content, /shared\/final-task-creation\.md/, relativePath);
     }
 
+    const finalTaskConsumers = [
+      ...requiredReferences,
+      'codeinfo_markdown/task_up/01-shared-contract.md',
+      'codeinfo_markdown/task_up/04-generate.md',
+      'codeinfo_markdown/task_up/05-subtask-granularity.md',
+      'codeinfo_markdown/task_up/06-proof-matrix.md',
+      'codeinfo_markdown/task_up/07-test-case-expansion.md',
+      'codeinfo_markdown/task_up/08-stateful-ui-proof.md',
+      'codeinfo_markdown/task_up/09-proof-and-testing.md',
+      'codeinfo_markdown/task_up/10-test-semantics-audit.md',
+      'codeinfo_markdown/task_up/11-review-preemption-audit.md',
+      'codeinfo_markdown/task_up/12-subtasks-and-testing-separation.md',
+      'codeinfo_markdown/task_up/13-junior-executor-audit.md',
+      'codeinfo_markdown/task_up/14-finalize.md',
+      'codeinfo_markdown/review_task_enhancement/01-shared-contract.md',
+      'codeinfo_markdown/review_task_enhancement/02b-risk-and-prerequisite-scan.md',
+      'codeinfo_markdown/review_task_enhancement/03-finalize.md',
+      'codeinfo_markdown/review_task_enhancement/04-check-quality.md',
+      'codeinfo_markdown/review_task_enhancement/05-compact-granularity.md',
+      'codeinfo_markdown/review_task_enhancement/07-compact-proof-expansion.md',
+      'codeinfo_markdown/review_task_enhancement/09-compact-proof-and-testing.md',
+    ];
+    const forbiddenLegacyRules = [
+      /failures found by these suites/,
+      /create a bounded proof-authoring subtask and an automated testing placeholder/,
+      /final lint then prettier testing steps/,
+      /do(?:es)? not duplicate lint or formatting/,
+      /two-initial-subtask shape/,
+    ];
+
+    for (const relativePath of finalTaskConsumers) {
+      const content = await read(relativePath);
+      for (const forbiddenRule of forbiddenLegacyRules) {
+        assert.doesNotMatch(content, forbiddenRule, relativePath);
+      }
+    }
+
     const minorRevalidation = await read(
       'codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md',
     );
@@ -138,6 +178,9 @@ describe('final task contract', () => {
       /matching shutdown, supported lint, and supported formatting in that order/,
     );
     assert.match(minorRevalidation, /omit unsupported commands/);
+    assert.match(minorRevalidation, /do not add a proof-authoring subtask/);
+    assert.match(minorRevalidation, /do not add.*automated testing placeholder/);
+    assert.match(minorRevalidation, /record a live blocker/);
     assert.match(
       minorRevalidation,
       /final_minor_fix_revalidation\\`` in `Implementation Notes`/,

@@ -106,7 +106,7 @@ When no task is needed and no unresolved work remains:
 - If the canonical plan is missing or branch story scope has drifted, stop and say the current-plan handoff is stale and must be regenerated.
 - If state says final revalidation is needed but `resolved_minor_findings` is empty, do not create a task. Record a state note and report the contradiction.
 - If unresolved task-required, minor-batchable, or incomplete-review items remain, do not create the final minor-fix revalidation task. Leave routing to the task-up or minor-fix path.
-- If no repository-supported automated proof can be identified for the affected files, create a bounded proof-authoring subtask and an automated testing placeholder only when it remains concrete; otherwise stop and report that the final revalidation task cannot be generated honestly.
+- If no repository-supported automated proof can be identified for the affected files, do not add a proof-authoring subtask or an automated testing placeholder to the final task. Keep its initial subtasks limited to any supported lint and formatting commands, record a live blocker that names the unavailable proof, and route required test or harness authoring through a substantive task only when the shared final-task contract's different-task exception applies. Otherwise stop and report that final revalidation cannot be completed honestly.
 - If the plan edit succeeds but commit fails, stop and report the failed commit command without pretending the task was committed.
 
 </failure_modes>

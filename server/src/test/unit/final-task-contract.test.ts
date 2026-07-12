@@ -62,6 +62,13 @@ describe('final task contract', () => {
     assert.match(contract, /Do not add startup or shutdown.*no supported runtime/);
     assert.match(contract, /Do not invent commands/);
     assert.match(contract, /Do not add.*targeting filters/);
+    assert.match(contract, /confirms.*no supported automated test suite/);
+    assert.match(contract, /omit that suite item and continue/);
+    assert.match(
+      contract,
+      /Do not invent a test command, placeholder, harness, proof-authoring subtask, or blocker/,
+    );
+    assert.match(contract, /missing, unreadable, or otherwise cannot be inspected/);
     assert.match(
       contract,
       /runtime exception to the initial lint-and-format-only rule/,
@@ -149,6 +156,7 @@ describe('final task contract', () => {
       /final lint then prettier testing steps/,
       /do(?:es)? not duplicate lint or formatting/,
       /two-initial-subtask shape/,
+      /record a live blocker that names the unavailable proof/,
     ];
 
     for (const relativePath of finalTaskConsumers) {
@@ -178,9 +186,15 @@ describe('final task contract', () => {
       /matching shutdown, supported lint, and supported formatting in that order/,
     );
     assert.match(minorRevalidation, /omit unsupported commands/);
-    assert.match(minorRevalidation, /do not add a proof-authoring subtask/);
-    assert.match(minorRevalidation, /do not add.*automated testing placeholder/);
-    assert.match(minorRevalidation, /record a live blocker/);
+    assert.match(minorRevalidation, /Do not add a proof-authoring subtask/);
+    assert.match(minorRevalidation, /Do not add.*automated testing placeholder/);
+    assert.match(minorRevalidation, /omit the unavailable suite item and continue/);
+    assert.match(minorRevalidation, /non-blocking `Implementation Notes` entry/);
+    assert.match(minorRevalidation, /repository is missing or unreadable/);
+    assert.doesNotMatch(
+      minorRevalidation,
+      /record a live blocker that names the unavailable proof/,
+    );
     assert.match(
       minorRevalidation,
       /final_minor_fix_revalidation\\`` in `Implementation Notes`/,

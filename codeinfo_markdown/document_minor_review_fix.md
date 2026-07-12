@@ -54,12 +54,13 @@ When `minor-review-fix-result.json` has `status: "fixed"`:
 When the result has `status: "reclassify_task_required"`:
 
 1. Move the matching finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings`.
-2. Record the reclassification reason.
+2. Record the reclassification reason, including the source or proof evidence showing that the coding agent completed its one-shot resolution plan, attempted every safe bounded action it identified, and could not complete the finding within the inline path's existing contract.
 3. If the original minor-batchable entry already carried a routed fix constraint in its `reason`, preserve that constraint when writing the escalated task-required entry instead of replacing it with a generic escalation note. The later task-up step must still be able to tell that the underlying issue is actionable while the reviewer-proposed remedy is not.
-4. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true when other unresolved minor findings still remain.
-5. Keep `review_created_tasks_added_or_updated` false in this step.
-6. Set `safe_to_exit_review_loop_without_tasking` false.
-7. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+4. Mark the routed reason as the outcome of an inline attempt in the current review cycle so `promote_actionable_review_findings_to_minor_path.md` cannot promote the same durable follow-up into a repeat attempt during that cycle.
+5. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true when other unresolved minor findings still remain.
+6. Keep `review_created_tasks_added_or_updated` false in this step.
+7. Set `safe_to_exit_review_loop_without_tasking` false.
+8. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
 
 When the result has `status: "out_of_scope_current_story"`:
 
@@ -97,10 +98,11 @@ When the result has `status: "skipped"`:
 
 1. If the skipped result clearly identifies stale or already-resolved state, remove that stale minor finding from `unresolved_minor_batchable_findings` and record the cleanup reason.
 2. Otherwise, move the skipped finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings` so the issue is not left hanging in the minor bucket.
-3. Recompute counts and booleans so `needs_minor_fix_path` reflects whether any unresolved minor findings still remain, and `needs_task_up_path` reflects any escalated work.
-4. Add a concise `classification_notes` entry explaining why the issue was cleaned up or escalated after the skipped outcome.
-5. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
-6. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
+3. When a skipped finding is escalated, preserve its existing routing constraints and mark its routed reason as the outcome of an inline attempt in the current review cycle so `promote_actionable_review_findings_to_minor_path.md` cannot promote it into a repeat attempt during that cycle.
+4. Recompute counts and booleans so `needs_minor_fix_path` reflects whether any unresolved minor findings still remain, and `needs_task_up_path` reflects any escalated work.
+5. Add a concise `classification_notes` entry explaining why the issue was cleaned up or escalated after the skipped outcome.
+6. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+7. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 </state_update_rules>
 

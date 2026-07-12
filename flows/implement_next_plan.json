@@ -515,6 +515,13 @@
               "markdownFile": "filter_review_findings_to_story_scope.md"
             },
             {
+              "type": "llm",
+              "label": "Promote Actionable Review Findings To Minor Path",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "promote_actionable_review_findings_to_minor_path.md"
+            },
+            {
               "type": "startLoop",
               "label": "Minor Review Fix Path",
               "steps": [

@@ -406,6 +406,16 @@ describe('flow schema (v1)', () => {
     );
     assertOrdered(
       labels,
+      'Filter Review Findings To Story Scope',
+      'Promote Actionable Review Findings To Minor Path',
+    );
+    assertOrdered(
+      labels,
+      'Promote Actionable Review Findings To Minor Path',
+      'Exit Minor-Fix Path Unless Minor Findings Remain',
+    );
+    assertOrdered(
+      labels,
       'Exit Minor-Fix Path Unless Minor Findings Remain',
       'Reset coder for next minor review finding',
     );
@@ -748,7 +758,7 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('implement_next_plan runs Codex review merge before classifier disposition and scope filtering', async () => {
+  test('implement_next_plan promotes scope-approved actionable findings before the minor path', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/implement_next_plan.json'),
       'utf8',
@@ -783,6 +793,10 @@ describe('flow schema (v1)', () => {
     const filterIndex = markers.indexOf(
       'filter_review_findings_to_story_scope.md',
     );
+    const promoteIndex = markers.indexOf(
+      'promote_actionable_review_findings_to_minor_path.md',
+    );
+    const minorFixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 
     assert.notEqual(
       prepareIndex,
@@ -809,13 +823,66 @@ describe('flow schema (v1)', () => {
       -1,
       'flows/implement_next_plan.json should include findings scope filter',
     );
+    assert.notEqual(
+      promoteIndex,
+      -1,
+      'flows/implement_next_plan.json should promote actionable findings into the minor path',
+    );
+    assert.notEqual(
+      minorFixIndex,
+      -1,
+      'flows/implement_next_plan.json should include the minor finding fix step',
+    );
     assert.ok(
       prepareIndex < parallelReviewSubflowIndex &&
         parallelReviewSubflowIndex < mergeIndex &&
         mergeIndex < classifyIndex &&
-        classifyIndex < filterIndex,
-      'flows/implement_next_plan.json should prepare the shared review base, then run the parallel review child flows, then merge, classify, and scope-filter findings',
+        classifyIndex < filterIndex &&
+        filterIndex < promoteIndex &&
+        promoteIndex < minorFixIndex,
+      'flows/implement_next_plan.json should prepare the shared review base, run reviews, merge, classify, scope-filter, promote actionable findings, and then attempt a minor fix',
     );
+  });
+
+  test('all review disposition flows filter and promote actionable findings before inline fixing', async () => {
+    const flowFiles = [
+      'flows/review_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/ingest_external_review_plan.json',
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const markers = flattenSteps(parsed.steps ?? []).map(
+        (step) => step.markdownFile,
+      );
+      const classifyIndex = markers.indexOf('classify_review_disposition.md');
+      const filterIndex = markers.indexOf(
+        'filter_review_findings_to_story_scope.md',
+      );
+      const promoteIndex = markers.indexOf(
+        'promote_actionable_review_findings_to_minor_path.md',
+      );
+      const fixIndex = markers.indexOf('fix_next_minor_review_finding.md');
+
+      assert.notEqual(classifyIndex, -1, `${flowFile} should classify findings`);
+      assert.notEqual(filterIndex, -1, `${flowFile} should filter findings`);
+      assert.notEqual(
+        promoteIndex,
+        -1,
+        `${flowFile} should promote actionable findings`,
+      );
+      assert.notEqual(fixIndex, -1, `${flowFile} should attempt inline fixes`);
+      assert.ok(
+        classifyIndex < filterIndex &&
+          filterIndex < promoteIndex &&
+          promoteIndex < fixIndex,
+        `${flowFile} should classify, filter, promote, and then attempt findings`,
+      );
+    }
   });
 
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {

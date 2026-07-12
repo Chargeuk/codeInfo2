@@ -45,10 +45,10 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - If more than one repository is named in `Affected Repositories`, the task body must explicitly say that validation scope is driven by `Affected Repositories`, not by `Repository Name` alone.
 - The task must include an `Addresses Findings` section naming every `resolved_minor_findings` ID, summary, repository, and resolution commit from the state.
 - The task must include `Subtasks`, `Testing`, and `Implementation Notes`; include optional `Manual Testing Guidance` only when useful.
-- The task must include the exact line `- Review Task Role: \`final_minor_fix_revalidation\``in`Implementation Notes` so the helper script can recognize it on later passes.
-- The task must include the exact line `- Review Cycle Id: \`<review_cycle_id>\``in`Implementation Notes` so the helper script can bind the task to the active review cycle.
-- At creation time, `Subtasks` must begin with the shared contract's non-checkbox final-task repair-scope note and then contain exactly two checklist items per worked-on repository in this order: run that repository's supported lint command and fix issues; then run that repository's supported formatting command and fix issues. Group the discovered commands by repository and do not add another initial subtask type.
-- `Testing` must begin with the shared contract's non-checkbox final-task repair-scope note. For each worked-on repository, list its discovered full build, applicable startup, every repository-supported full automated suite for its affected applications or components including every supported end-to-end suite, and matching shutdown in that order. Use no targeting filters and do not duplicate lint or formatting there.
+- The task must include the exact line `- Review Task Role: \`final_minor_fix_revalidation\`` in `Implementation Notes` so the helper script can recognize it on later passes.
+- The task must include the exact line `- Review Cycle Id: \`<review_cycle_id>\`` in `Implementation Notes` so the helper script can bind the task to the active review cycle.
+- At creation time, `Subtasks` must begin with the shared contract's non-checkbox final-task repair-scope note and then contain only supported lint and formatting checklist-item types per worked-on repository in this order: when available, run that repository's supported lint command and fix issues; then, when available, run that repository's supported formatting command and fix issues. Discover the commands independently, omit an unsupported item without inventing a replacement, group the discovered commands by repository, and do not add another initial subtask type.
+- `Testing` must begin with the shared contract's non-checkbox final-task repair-scope note. For each worked-on repository, list its discovered full build, applicable startup, every repository-supported full automated suite for its affected applications or components including every supported end-to-end suite, matching shutdown, supported lint, and supported formatting in that order. Discover lint and formatting independently, omit unsupported commands, and use no targeting filters.
 - Group testing steps first by repository and then by application or component so the build, runtime lifecycle, every full suite, and ownership are obvious.
 - Do not add manual-testing-only work to `Subtasks` or `Testing`.
 - Do not add pre-planned subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output. A later failure-repair pass may add a bounded story-level repair subtask to this same final task only under the runtime exception in the shared final-task contract.
@@ -61,7 +61,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 <idempotency_rules>
 
 - Before appending a new task, use the JSON output from `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` as the source of truth for whether an existing unfinished or finished task already marks itself as the final revalidation task for inline minor review fixes in the current `review_cycle_id`.
-- If such a task exists, update that task's finding coverage, affected repositories, affected applications or components, per-repository lint and formatting checklist, and build/runtime/full-suite testing obligations instead of adding a new task.
+- If such a task exists, update that task's finding coverage, affected repositories, affected applications or components, supported per-repository lint and formatting checklist, and build/runtime/full-suite/shutdown/lint/formatting testing obligations instead of adding a new task.
 - Do not append a second final minor-fix revalidation task for the same story and same `review_cycle_id`.
 - If the helper reports duplicate current-cycle tasks, do not update either task yet. Repair the plan so only one task remains for that `review_cycle_id`, then rerun the helper.
 - If the helper reports a non-current-cycle historical task, do not reopen it for the current cycle.
@@ -132,9 +132,9 @@ When no task is needed and no unresolved work remains:
 - Confirm the selected or created task carries the same `review_cycle_id` as `review-disposition-state.json`.
 - Confirm the task has an `Affected Repositories` and `Affected Applications Or Components` inventory covering the whole story and every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
-- Confirm `Subtasks` and `Testing` each begin with the required non-checkbox repair-scope note, and that the initially generated `Subtasks` checklist contains exactly one lint and one formatting bullet per worked-on repository, in that order and grouped by repository, with the discovered commands.
-- Confirm `Testing` is grouped clearly enough that every worked-on repository's full build, applicable startup, complete relevant full-suite inventory including every supported end-to-end suite, and matching shutdown are easy to identify and use no targeted filters.
-- Confirm lint and formatting are not duplicated in `Testing`.
+- Confirm `Subtasks` and `Testing` each begin with the required non-checkbox repair-scope note, and that the initially generated `Subtasks` checklist contains each repository's supported lint bullet followed by its supported formatting bullet, with either unsupported command omitted independently, grouped by repository, and no other initial subtask types.
+- Confirm `Testing` is grouped clearly enough that every worked-on repository's full build, applicable startup, complete relevant full-suite inventory including every supported end-to-end suite, matching shutdown, supported lint, and supported formatting are easy to identify in that order and use no targeted filters.
+- Confirm unsupported lint and formatting commands are omitted rather than invented in both `Subtasks` and `Testing`.
 - Confirm no manual-testing work was added to `Subtasks` or `Testing`.
 - Confirm a non-last selected task was treated only as a layout warning rather than as proof of wrong identity when the `review_cycle_id` matched.
 - Confirm the state file is valid JSON after updating.

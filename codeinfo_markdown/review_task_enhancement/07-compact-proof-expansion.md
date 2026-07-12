@@ -8,7 +8,7 @@ Add honest proof ownership to selected review-created tasks without creating one
 - Preserve selected review-created task identities and grouping.
 - Prefer one proof-authoring subtask per proof file, proof surface, or harness path.
 - Compactness must not weaken exact ordering, producer-consumer, default-path, runtime-handoff, or review-finding proof.
-- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Add proof-authoring subtasks only to substantive review-fix tasks; preserve exactly one lint and one formatting checklist item per worked-on repository in the dedicated final task.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Add proof-authoring subtasks only to substantive review-fix tasks; preserve only each worked-on repository's supported lint and formatting initial subtask types in the dedicated final task, omitting either unsupported command independently.
 
 </instruction_priority>
 

@@ -8,7 +8,7 @@ Make selected review-created tasks concrete and executable without expanding the
 - Preserve selected review-created task identities, grouping, and `Addresses Findings` coverage.
 - Prefer compact first-class patch tasks over one-checkbox-per-file decomposition.
 - Compactness must not hide ownership, sequencing, file targets, proof homes, or stopping rules.
-- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Exclude the dedicated final task from subtask compaction or expansion and preserve exactly one lint and one formatting checklist item per worked-on repository.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Exclude the dedicated final task from subtask compaction or expansion and preserve only each worked-on repository's supported lint and formatting initial subtask types, omitting either unsupported command independently.
 
 </instruction_priority>
 

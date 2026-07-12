@@ -7,7 +7,7 @@ Split bundled subtasks into smaller, more detailed units so each subtask express
 - Preserve the task boundaries that already group coherent repository-owned work.
 - Prefer more detailed subtasks over broader bundled subtasks when that improves execution clarity.
 - Do not remove valid context that a weak implementer needs.
-- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Do not split, expand, or add another initial subtask type to the dedicated final task's per-repository lint and formatting checklist.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Do not split, expand, or add another initial subtask type to the dedicated final task's supported per-repository lint and formatting checklist, and do not add a placeholder for an unsupported command.
   </instruction_priority>
 
 <subtask_granularity_rules>

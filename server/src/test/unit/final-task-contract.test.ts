@@ -27,8 +27,12 @@ describe('final task contract', () => {
     );
     assert.match(
       contract,
-      /exactly two checklist items for each repository worked on by the story/,
+      /only the supported lint and formatting checklist-item types for each repository worked on by the story/,
     );
+    assert.match(contract, /Discover lint and formatting independently/);
+    assert.match(contract, /Omit a repository's lint item/);
+    assert.match(contract, /omit its formatting item/);
+    assert.match(contract, /Do not invent a command or add a placeholder/);
     assert.match(
       contract,
       /Immediately below the final task's `Subtasks` heading/,
@@ -44,7 +48,14 @@ describe('final task contract', () => {
     );
     assert.match(contract, /every supported full automated test suite/);
     assert.match(contract, /End-to-end coverage is mandatory/);
-    assert.match(contract, /full build; startup.*full automated test suite; shutdown/);
+    assert.match(
+      contract,
+      /full build; startup.*full automated test suite; shutdown.*supported lint; supported formatting/,
+    );
+    assert.match(
+      contract,
+      /After shutdown and all full suites have passed.*supported lint command.*supported formatting command/,
+    );
     assert.match(contract, /Do not add startup or shutdown.*no supported runtime/);
     assert.match(contract, /Do not invent commands/);
     assert.match(contract, /Do not add.*targeting filters/);
@@ -52,6 +63,8 @@ describe('final task contract', () => {
       contract,
       /runtime exception to the initial lint-and-format-only rule/,
     );
+    assert.doesNotMatch(contract, /Keep lint and formatting out of.*`Testing`/);
+    assert.doesNotMatch(contract, /exactly two checklist items for each repository/);
   });
 
   test('loads the shared contract before initial task generation and in every review task-up command', async () => {
@@ -110,7 +123,7 @@ describe('final task contract', () => {
     );
     assert.match(
       minorRevalidation,
-      /exactly two checklist items per worked-on repository in this order/,
+      /only supported lint and formatting checklist-item types per worked-on repository/,
     );
     assert.match(
       minorRevalidation,
@@ -120,6 +133,19 @@ describe('final task contract', () => {
     assert.match(minorRevalidation, /every supported end-to-end suite/);
     assert.match(minorRevalidation, /full build, applicable startup/);
     assert.match(minorRevalidation, /matching shutdown/);
+    assert.match(
+      minorRevalidation,
+      /matching shutdown, supported lint, and supported formatting in that order/,
+    );
+    assert.match(minorRevalidation, /omit unsupported commands/);
+    assert.match(
+      minorRevalidation,
+      /final_minor_fix_revalidation\\`` in `Implementation Notes`/,
+    );
+    assert.match(
+      minorRevalidation,
+      /<review_cycle_id>\\`` in `Implementation Notes`/,
+    );
 
     const automatedProof = await read(
       'codeinfo_markdown/run_automated_proof_and_fix_issues.md',
@@ -133,9 +159,26 @@ describe('final task contract', () => {
       'flows/improve_task_implement_plan.json',
     ]) {
       const flow = await read(flowPath);
-      assert.match(flow, /one discovered lint and one discovered formatting/, flowPath);
+      assert.match(flow, /independently discovered supported lint and formatting/, flowPath);
       assert.match(flow, /full build, applicable startup/, flowPath);
       assert.match(flow, /matching shutdown/, flowPath);
+      assert.match(
+        flow,
+        /matching shutdown, supported lint, and supported formatting in that order/,
+        flowPath,
+      );
+      assert.match(flow, /omits unsupported commands/, flowPath);
+      assert.doesNotMatch(flow, /final lint then prettier testing steps/, flowPath);
+      assert.doesNotMatch(flow, /does not duplicate lint or formatting/, flowPath);
+    }
+
+    for (const promptPath of [
+      'codeinfo_markdown/task_up/11-review-preemption-audit.md',
+      'codeinfo_markdown/run_automated_proof_and_fix_issues.md',
+    ]) {
+      const prompt = await read(promptPath);
+      assert.doesNotMatch(prompt, /two-initial-subtask shape/, promptPath);
+      assert.match(prompt, /supported lint.*supported formatting/, promptPath);
     }
   });
 
@@ -176,6 +219,12 @@ describe('final task contract', () => {
       );
       assert.match(testingContract, /full build, applicable startup/, testingPrompt);
       assert.match(testingContract, /matching shutdown/, testingPrompt);
+      assert.match(
+        testingContract,
+        /matching shutdown, supported lint, and supported formatting in that order/,
+        testingPrompt,
+      );
+      assert.match(testingContract, /unsupported commands/, testingPrompt);
     }
   });
 });

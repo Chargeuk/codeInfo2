@@ -7,7 +7,7 @@ Perform a final readability and execution audit so the resulting task list can b
 - Rewrite vague subtasks rather than merely commenting that they are vague.
 - Preserve valid technical detail while improving clarity and sequencing.
 - Do not remove necessary repository ownership, proof, or edge-case detail.
-- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Treat the dedicated final task's deliberately minimal per-repository lint-and-format-only shape as valid rather than expanding it for implementation detail.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Treat the dedicated final task's deliberately minimal supported-lint-and-formatting-only subtask types per repository as valid rather than expanding it for implementation detail or adding placeholders for unsupported commands.
   </instruction_priority>
 
 <junior_executor_rules>
@@ -33,7 +33,7 @@ Perform a final readability and execution audit so the resulting task list can b
 
 - Check whether a junior developer could execute each subtask without reading the whole story first.
 - Check whether any subtask still hides multiple decisions behind one checkbox.
-- Check whether the final validation task has the required repair-scope note first in both `Subtasks` and `Testing`, exactly one lint and one formatting checklist item per worked-on repository, and a concrete repository-evidenced build, applicable startup, full-suite, and matching shutdown sequence for every worked-on repository.
+- Check whether the final validation task has the required repair-scope note first in both `Subtasks` and `Testing`; only each worked-on repository's supported lint and formatting items in `Subtasks`, with unsupported commands omitted; and a concrete repository-evidenced build, applicable startup, full-suite, matching shutdown, supported lint, and supported formatting sequence in `Testing`.
   </verification_loop>
 
 <output_contract>

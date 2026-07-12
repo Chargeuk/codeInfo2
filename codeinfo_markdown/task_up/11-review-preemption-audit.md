@@ -30,7 +30,7 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 - When later manual/runtime proof is likely, ensure the tasks or final manual guidance name the current supported runtime contract: stack, env files, mounted path namespace, ports, readiness checks, seed/setup source, and artifact location.
 - When a proposed review-created task explicitly carries `Scope Impact: cleanup_preference` and would change a known-working runtime contract, ensure the task names the reproduced defect that justifies the change. If no reproduced defect exists, treat that proposal as a tasking defect and do not let portability or neatness alone drive the task.
 - Missing or malformed `Scope Impact` metadata must not block the task by itself; treat it as `unknown_scope_impact` and continue the normal tasking audit.
-- Add or rewrite subtasks in the owning substantive tasks where needed so a later implementer does not have to infer these review hotspots from broad task wording. Preserve the final task's two-initial-subtask shape.
+- Add or rewrite subtasks in the owning substantive tasks where needed so a later implementer does not have to infer these review hotspots from broad task wording. Preserve the final task's two permitted initial subtask types per repository—supported lint then supported formatting—with either unsupported command omitted independently.
 - When a likely review hotspot would benefit from manual browser validation, express that as optional `Manual Testing Guidance`, not as a required subtask or testing checklist item.
 - When a hotspot needs proof, prefer proof-authoring subtasks plus automated `Testing` coverage wherever realistic.
   </review_preemption_audit_rules>
@@ -40,7 +40,7 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 - Check whether any likely review hotspot from the checklist would still be discovered for the first time only after code is written.
 - Check whether any likely blocker family would still be discovered for the first time only during broad-wrapper proof or manual runtime validation.
 - Check whether each applicable hotspot now has a concrete implementation home and a named proof home in the task list.
-- Check whether the final validation task lists each worked-on repository's full build, applicable startup, every repository-supported full suite for every affected component including supported end-to-end suites, and matching shutdown, rather than targeted routes.
+- Check whether the final validation task lists each worked-on repository's full build, applicable startup, every repository-supported full suite for every affected component including supported end-to-end suites, matching shutdown, supported lint, and supported formatting in order, omitting unsupported commands rather than inventing targeted routes or placeholders.
   </verification_loop>
 
 <output_contract>

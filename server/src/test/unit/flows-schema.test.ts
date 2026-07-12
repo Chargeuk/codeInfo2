@@ -328,6 +328,16 @@ describe('flow schema (v1)', () => {
       'Lite Coder Use Next Plan',
       'Manual Tester Use Next Plan',
     ];
+    const canonicalSuffixLabels = flattenSteps(canonicalSuffix).map(
+      (step) => step.label,
+    );
+    for (const staleLabel of staleOrientationLabels) {
+      assert.equal(
+        canonicalSuffixLabels.includes(staleLabel),
+        false,
+        `${canonicalPath} should not contain stale orientation step ${staleLabel}`,
+      );
+    }
 
     for (const relativePath of [
       'flows/task_and_implement_plan.json',

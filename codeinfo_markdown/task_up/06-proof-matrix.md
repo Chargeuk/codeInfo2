@@ -8,14 +8,14 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 - Keep the matrix lightweight, but do not allow proof to remain implied.
 - Preserve the repository-specific task structure already created in earlier steps.
 - Do not replace wrapper-first testing with narrow execution commands.
-- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Earlier substantive tasks own proof authoring; the dedicated final task owns full-suite execution and must retain only its two initial lint and formatting subtasks.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Earlier substantive tasks own proof authoring; the dedicated final task owns each worked-on repository's build, runtime lifecycle, and full-suite execution and must retain only per-repository lint and formatting as its initial subtask types.
   </instruction_priority>
 
 <proof_matrix_rules>
 
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
-- For each substantive implementation task, identify every acceptance path, important edge case, and meaningful failure mode that task is responsible for. For the dedicated final validation task, verify the story-wide affected-surface and full-suite inventory instead of adding proof-matrix subtasks.
+- For each substantive implementation task, identify every acceptance path, important edge case, and meaningful failure mode that task is responsible for. For the dedicated final validation task, verify the story-wide worked-on repository, build, runtime, and full-suite inventory instead of adding proof-matrix subtasks.
 - Treat invalid env/config inputs, blank or whitespace-only inputs, out-of-range numeric values, and large-input scale behavior as proof obligations whenever the task changes constrained config parsing or large-repository query/filter logic.
 - Treat partial or in-progress state, cleanup ownership, reader/writer compatibility, and stale-vs-live state handling as proof obligations whenever the task changes persisted artifacts, caches, locks, files, or collections.
 - Treat cancel, retry, teardown, crash-recovery, and destructive-cleanup ordering as proof obligations whenever the task changes lifecycle-sensitive orchestration.

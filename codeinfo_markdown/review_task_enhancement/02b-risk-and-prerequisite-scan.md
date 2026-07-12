@@ -9,7 +9,7 @@ Scan the selected review-created tasks for high-risk invariants, missing prerequ
 - Use fresh disk reads and current git state, not conversational memory.
 - Do not retask the whole story or broaden scope to older unrelated tasks.
 - Treat missing risk ownership as a tasking defect to repair before subtask granularity and proof-matrix passes run.
-- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Keep risk and prerequisite implementation work on substantive review tasks; for the dedicated final task, update only its affected-surface and full-suite inventory while preserving its two initial subtasks.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Keep risk and prerequisite implementation work on substantive review tasks; for the dedicated final task, update only its worked-on repository, build, runtime, and full-suite inventory while preserving per-repository lint and formatting as its only initial subtask types.
 
 </instruction_priority>
 

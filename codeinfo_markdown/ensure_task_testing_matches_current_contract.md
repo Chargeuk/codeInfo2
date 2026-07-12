@@ -49,7 +49,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - When a task is a newly added review-created `__to_do__` task from the current review-created findings block, do not add full broad build, test, browser, Compose, Docker, smoke, or wrapper proof to that individual task solely because normal story tasks would carry it.
 - Keep the individual review-created task's `Testing` focused on the narrowest repository-supported automated proof that honestly reaches that task's changed behavior.
 - This compact treatment is allowed only when a fresh final revalidation task exists after the review-created tasks and explicitly owns full relevant regression proof for the current review-created findings block across every affected repository.
-- The final revalidation task must name every affected repository and component from the whole story and current review cycle and list every repository-supported full automated suite for them, including supported end-to-end suites and no targeted filters.
+- The final revalidation task must name every worked-on repository and affected component from the whole story and current review cycle. For each repository, list its discovered full build, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, and matching shutdown, with no targeted filters.
 - Use the final task's affected-surface inventory as the source of truth for `Testing`, even when it carries one administrative `Repository Name` for plan-format compatibility.
 - If the final revalidation task is missing, vague, too narrow, or fails to own full relevant regression proof, repair that final revalidation task instead of duplicating broad proof across every review-created task.
 - If targeted task-local proof cannot directly reach a review fix, or if that review-created task changes wrappers, harnesses, startup paths, default routing, runtime lifecycle, shared state, or cross-repository behavior, add the broader task-local proof needed for that task.
@@ -59,7 +59,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 
 <proof_and_testing_rules>
 
-- For each affected repository or project, define automated proof in this order when applicable:
+- For each non-final task's affected repository or project, define automated proof in this order when applicable:
   1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
   2. run the relevant automated tests;
   3. if the automated proof path itself requires a running system or services, start only the runnable system or required services needed for that automated proof path;
@@ -120,7 +120,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Check whether the generated testing order matches the repository's primary proof workflow, including Docker or Compose build steps where those are the primary build mechanism.
 - Check whether the generated testing order reaches the changed behavior through the repository's default launcher, wrapper, startup path, CI path, or selector flow when one exists.
 - Check whether the necessary runtime, harnesses, dependencies, scripts, and repos will exist by the point each proof step is reached.
-- Check whether each substantive task's implementation subtasks name the exact proof files that must be added or updated. For the dedicated final task, verify its two-subtask shape and exhaustive full-suite inventory instead.
+- Check whether each substantive task's implementation subtasks name the exact proof files that must be added or updated. For the dedicated final task, verify its per-repository lint and formatting shape plus each worked-on repository's build, runtime, and full-suite inventory instead.
 - Check whether newly added review-created tasks rely on compact targeted proof only when a fresh final revalidation task explicitly owns full relevant regression proof for the current review-created findings block.
 - Check whether manual testing steps were avoided here so that manual validation remains owned by the implementation flows.
 - Check whether no subtask now depends on future automated or manual proof output.

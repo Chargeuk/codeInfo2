@@ -38,6 +38,7 @@ Do not perform manual testing in this step.
 - Do not rediscover a different task by scanning the plan.
 - Re-read that task's full text before running proof.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. When the selected task is the dedicated current closeout owner, apply its whole-story affected-surface, full-suite, and same-task repair rules.
+- Before applying skip rules to the dedicated final task, compare its worked-on repository inventory with the actual story-owned changes. For any newly changed repository, add its lint and formatting subtasks plus its discovered full build, applicable startup, every relevant full suite, and matching shutdown. If this adds unchecked subtasks, leave the task ready to return through implementation before automated proof starts.
 
 </task_selection_rules>
 
@@ -67,7 +68,7 @@ Do not perform manual testing in this step.
 - Treat every unchecked `Testing` checklist item as mandatory blocking proof in this step.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
 - Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
-- For the dedicated final task, compare its planned affected-surface inventory with actual story-owned changes before proof. Add any missing supported full suites to this same task, and uncheck every previously completed suite made stale by later story-owned repairs.
+- For the dedicated final task, compare its planned affected-surface inventory with actual story-owned changes before proof. Add any missing worked-on repository build, runtime, or full-suite steps to this same task, and uncheck every previously completed testing item made stale by later story-owned repairs.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.
 - Mark each unchecked testing step complete immediately after it honestly passes.
 - If a testing step honestly closes one or more remaining proof-owned subtasks, mark those subtasks complete immediately as well and update the implementation notes before starting the next testing step.
@@ -103,7 +104,7 @@ Do not perform manual testing in this step.
 - You may fix code, tests, config, wrappers, or task-owned proof files as needed to make the candidate task's automated proof pass honestly.
 - For ordinary tasks, do not add new `Subtasks` or `Testing` items in this step.
 - For the dedicated final task, the whole approved story is repair scope. Prefer direct diagnose-fix-rerun iterations and record straightforward repairs in `Implementation Notes` rather than creating another numbered task.
-- If final proof reveals a missing affected component or supported full suite, add that full-suite `Testing` item to this same final task and run it.
+- If final proof reveals a missing affected component or validation step, add the missing full build, applicable startup, relevant full suite, or matching shutdown item to this same final task and run the updated lifecycle in honest order.
 - If a story-caused final-task failure needs meaningful work that cannot be completed honestly in this proof pass, add one or more concrete bounded repair subtasks to this same final task, uncheck every suite made stale, write a live blocker that routes back through implementation, and stop. This is the runtime exception to the final task's two-initial-subtask shape.
 - Create or recommend a different numbered task only when same-task repair would be dishonest because distinct repository implementation ownership, prerequisite sequencing, architectural decomposition, external authority, or approved scope expansion is required.
 - For an ordinary task, if automated proof reveals missing implementation work, missing proof coverage, or malformed task shape that is not already represented honestly in the checklist, stop and write a live `**BLOCKER**` note instead of reshaping the task in this step.

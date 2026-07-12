@@ -83,7 +83,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Do not add manual-testing checklist items in `Subtasks` or `Testing`.
 - Do not add subtasks that depend on future screenshots, logs, later manual-testing-agent reruns, or later automated-proof outputs in order to become complete.
 - Do not add subtasks that tell the coding agent to perform browser validation, Playwright MCP validation, screenshot review, or other manual-testing-agent proof work.
-- Preserve the dedicated final task's two-subtask initial shape unless a real story-caused failure has triggered the shared contract's bounded runtime repair-subtask exception.
+- Preserve the dedicated final task's initial per-repository lint-and-format-only shape unless a real story-caused failure has triggered the shared contract's bounded runtime repair-subtask exception.
 
 </section_ownership_rules>
 

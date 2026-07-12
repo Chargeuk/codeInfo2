@@ -40,7 +40,7 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 - Check whether any likely review hotspot from the checklist would still be discovered for the first time only after code is written.
 - Check whether any likely blocker family would still be discovered for the first time only during broad-wrapper proof or manual runtime validation.
 - Check whether each applicable hotspot now has a concrete implementation home and a named proof home in the task list.
-- Check whether the final validation task lists every repository-supported full suite for every affected component, including supported end-to-end suites, rather than targeted routes.
+- Check whether the final validation task lists each worked-on repository's full build, applicable startup, every repository-supported full suite for every affected component including supported end-to-end suites, and matching shutdown, rather than targeted routes.
   </verification_loop>
 
 <output_contract>

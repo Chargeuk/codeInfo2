@@ -306,6 +306,60 @@ describe('flow schema (v1)', () => {
     );
   });
 
+  test('main implementation flows share the canonical execution, review, and closeout suffix', async () => {
+    const canonicalPath = 'flows/implement_next_plan.json';
+    const canonicalRaw = await fs.readFile(
+      path.join(repoRoot, canonicalPath),
+      'utf8',
+    );
+    const canonical = JSON.parse(canonicalRaw) as { steps?: FlowStep[] };
+    const canonicalSteps = canonical.steps ?? [];
+    const canonicalLoopIndex = canonicalSteps.findIndex(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    assert.notEqual(
+      canonicalLoopIndex,
+      -1,
+      `${canonicalPath} should define the story loop`,
+    );
+    const canonicalSuffix = canonicalSteps.slice(canonicalLoopIndex);
+    const staleOrientationLabels = [
+      'Heavy Coder Use Next Plan',
+      'Lite Coder Use Next Plan',
+      'Manual Tester Use Next Plan',
+    ];
+
+    for (const relativePath of [
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ]) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const steps = parsed.steps ?? [];
+      const loopIndex = steps.findIndex(
+        (step) => step.label === 'Story Execution And Review Loop',
+      );
+      assert.notEqual(
+        loopIndex,
+        -1,
+        `${relativePath} should define the story loop`,
+      );
+      assert.deepEqual(
+        steps.slice(loopIndex),
+        canonicalSuffix,
+        `${relativePath} should share the canonical execution, review, and closeout suffix`,
+      );
+      const prefixLabels = steps.slice(0, loopIndex).map((step) => step.label);
+      for (const staleLabel of staleOrientationLabels) {
+        assert.equal(
+          prefixLabels.includes(staleLabel),
+          false,
+          `${relativePath} should not orient ${staleLabel} immediately before resetting that agent`,
+        );
+      }
+    }
+  });
+
   test('implement_next_plan resets parent review agents at review-owned boundaries', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/implement_next_plan.json'),
@@ -424,7 +478,13 @@ describe('flow schema (v1)', () => {
             typeof commandName === 'string',
         );
 
-      if (flowFile.relativePath === 'flows/implement_next_plan.json') {
+      if (
+        [
+          'flows/implement_next_plan.json',
+          'flows/task_and_implement_plan.json',
+          'flows/improve_task_implement_plan.json',
+        ].includes(flowFile.relativePath)
+      ) {
         const subflowMarkers = flattenSteps(parsed.steps ?? [])
           .map((step) =>
             step.type === 'subflow' &&
@@ -435,7 +495,7 @@ describe('flow schema (v1)', () => {
           .filter((marker): marker is string => typeof marker === 'string');
         assert.ok(
           subflowMarkers.includes('review_artifacts_main,codex_review'),
-          'flows/implement_next_plan.json should launch the main review and Codex review child flows',
+          `${flowFile.relativePath} should launch the main review and Codex review child flows`,
         );
         continue;
       }

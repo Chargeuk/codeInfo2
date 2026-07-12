@@ -46,7 +46,9 @@ Modified files (implementation traceability):
 - `codeinfo_markdown/review_task_enhancement/07-compact-proof-expansion.md`
 - `codeinfo_markdown/review_task_enhancement/09-compact-proof-and-testing.md`
 - `design.md`
+- `flows/improve_task_implement_plan.json`
 - `flows/implement_next_plan.json`
+- `flows/task_and_implement_plan.json`
 - `projectStructure.md`
 - `scripts/check_current_task_handoff.py`
 - `scripts/test/test_review_prompt_contracts.py`
@@ -59,7 +61,7 @@ Story notes:
 
 - Story 64 adds a strict `reset` flow step that targets one execution-local `agentType:identifier` slot, evicts its conversation and thread state, persists the reset checkpoint, and lets the next use create a fresh child conversation.
 - Missing slots are successful observable no-ops so reset steps remain safe before first use and when repeated inside user-interactive flows. Existing child conversations remain available as history, while sibling agent slots are unchanged.
-- The implementation flow now resets the planner and implementation agents at safe story-pass and completed-task boundaries, while preserving the loop controller and lite planner across iterations.
+- All three main implementation flows now share the same execution, review, and closeout suffix. They reset the planner and implementation agents at safe story-pass and completed-task boundaries while preserving the loop controller and lite planner across iterations.
 - Resolved context-loader prompts restore only the compact story or current-task state each reset agent needs, avoiding broad plan reads and unnecessary tool calls.
 - Review disposition passes reset and reload the parent planner agents after fresh review artifacts are available, while each minor finding receives a freshly reset coder with compact review context.
 - Reachable implementation and review prompts now use `plan_sections.py` profiles plus a shared bounded-read contract; `bounded_plan_read_mapping.md` records the prompt-family mapping and policy tests prevent unbounded plan-read instructions from returning.

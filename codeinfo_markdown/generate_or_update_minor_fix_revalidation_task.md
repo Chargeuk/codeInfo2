@@ -47,8 +47,8 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - The task must include `Subtasks`, `Testing`, and `Implementation Notes`; include optional `Manual Testing Guidance` only when useful.
 - The task must include the exact line `- Review Task Role: \`final_minor_fix_revalidation\``in`Implementation Notes` so the helper script can recognize it on later passes.
 - The task must include the exact line `- Review Cycle Id: \`<review_cycle_id>\``in`Implementation Notes` so the helper script can bind the task to the active review cycle.
-- At creation time, `Subtasks` must contain exactly two bullets in this order: run every affected repository's supported lint command and fix issues; then run every affected repository's supported formatting command and fix issues. Name the discovered commands inside those two bullets without creating one subtask per repository.
-- `Testing` must contain every repository-supported full automated suite for every application or component in `Affected Applications Or Components`. Include every supported end-to-end suite, use no targeting filters, and do not duplicate lint or formatting there.
+- At creation time, `Subtasks` must begin with the shared contract's non-checkbox final-task repair-scope note and then contain exactly two checklist bullets in this order: run every affected repository's supported lint command and fix issues; then run every affected repository's supported formatting command and fix issues. Name the discovered commands inside those two bullets without creating one subtask per repository.
+- `Testing` must begin with the shared contract's non-checkbox final-task repair-scope note and then contain every repository-supported full automated suite for every application or component in `Affected Applications Or Components`. Include every supported end-to-end suite, use no targeting filters, and do not duplicate lint or formatting there.
 - Group testing steps first by repository and then by application or component so every full suite and its ownership are obvious.
 - Do not add manual-testing-only work to `Subtasks` or `Testing`.
 - Do not add pre-planned subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output. A later failure-repair pass may add a bounded story-level repair subtask to this same final task only under the runtime exception in the shared final-task contract.
@@ -132,7 +132,7 @@ When no task is needed and no unresolved work remains:
 - Confirm the selected or created task carries the same `review_cycle_id` as `review-disposition-state.json`.
 - Confirm the task has an `Affected Repositories` and `Affected Applications Or Components` inventory covering the whole story and every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
-- Confirm the initially generated `Subtasks` contain exactly the lint and formatting bullets, in that order, with the discovered affected-repository commands.
+- Confirm `Subtasks` and `Testing` each begin with the required non-checkbox repair-scope note, and that the initially generated `Subtasks` checklist contains exactly the lint and formatting bullets, in that order, with the discovered affected-repository commands.
 - Confirm `Testing` is grouped clearly enough that every affected repository and component's complete full-suite inventory is easy to identify, including every supported end-to-end suite and no targeted filters.
 - Confirm lint and formatting are not duplicated in `Testing`.
 - Confirm no manual-testing work was added to `Subtasks` or `Testing`.

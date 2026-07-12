@@ -36,6 +36,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that each non-final `Testing` section ends with separate lint and prettier or format-check steps in that order. Check that the dedicated final task keeps lint and formatting only as its two initial subtasks and does not duplicate them in `Testing`.
 - Identify the exact dedicated final validation task that is the current story closeout owner.
 - Check that its initially generated `Subtasks` section contains exactly the repository-supported lint command followed by the repository-supported formatting command, with no other pre-planned subtasks.
+- Check that `Subtasks` and `Testing` each begin with the required non-checkbox final-task repair-scope note before any checklist item, explicitly allowing story-caused repairs to remain in this task without reopening older tasks solely because their code is implicated.
 - Check that its `Testing` lists every supported full automated suite for every application, service, workspace, package, or component changed across the whole story, including every supported end-to-end suite and no targeted filters.
 - Check that initial task-up produced exactly one final story closeout owner and that a later review-created tail is allowed to supersede it with one fresh review-cycle final revalidation task rather than rewriting history.
 - Check that any task writing manual-testing proof artifacts into `codeInfoTmp/` also adds the required `.gitignore` update when that scratch path was not already ignored.

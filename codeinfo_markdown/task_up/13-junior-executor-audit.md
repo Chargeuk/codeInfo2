@@ -33,7 +33,7 @@ Perform a final readability and execution audit so the resulting task list can b
 
 - Check whether a junior developer could execute each subtask without reading the whole story first.
 - Check whether any subtask still hides multiple decisions behind one checkbox.
-- Check whether the final validation task has exactly the two required initial lint and formatting subtasks plus a concrete, repository-evidenced list of every applicable full suite for every affected component.
+- Check whether the final validation task has the required repair-scope note first in both `Subtasks` and `Testing`, exactly the two required initial lint and formatting checklist items, and a concrete, repository-evidenced list of every applicable full suite for every affected component.
   </verification_loop>
 
 <output_contract>

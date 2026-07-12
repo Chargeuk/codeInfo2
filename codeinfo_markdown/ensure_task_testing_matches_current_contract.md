@@ -11,6 +11,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Keep testing proportional to the actual change surface.
 - Prefer updating review-created `__to_do__` tasks and newly added revalidation tasks first.
 - Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md` for every dedicated final task, regardless of its title or whether initial task-up, serious review task-up, or minor-fix-only task-up created it.
+- Ensure every dedicated final task begins both `Subtasks` and `Testing` with the shared contract's non-checkbox repair-scope note before any checklist item; repair or add the note without treating it as another subtask or testing step.
 - For runtime-contract changes touching `.env*`, `docker-compose*`, startup env loading, entrypoints, mounted-path mapping, or working-folder routing, do not accept healthchecks, env dumps, or contract-shape assertions alone as sufficient proof. Require preserved behavior proof or an explicit weak-proof note.
 - Do not let testing lock in a newly invented runtime contract unless the plan also proves the previously working user-visible/runtime behavior still holds or documents an explicit approved migration.
 - For newly added review-created `__to_do__` tasks, keep targeted task-local proof compact when a fresh final revalidation task explicitly owns full relevant regression proof for the current review-created findings block.

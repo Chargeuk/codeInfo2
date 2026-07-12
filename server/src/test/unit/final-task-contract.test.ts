@@ -26,6 +26,19 @@ describe('final task contract', () => {
       /Run the supported formatting command and fix issues\./,
     );
     assert.match(contract, /must contain exactly these two responsibilities/);
+    assert.match(
+      contract,
+      /Immediately below the final task's `Subtasks` heading/,
+    );
+    assert.match(
+      contract,
+      /Immediately below the final task's `Testing` heading/,
+    );
+    assert.match(contract, /Do not reopen an older task solely to own that repair/);
+    assert.match(
+      contract,
+      /Do not reopen older tasks solely because their implementation is implicated/,
+    );
     assert.match(contract, /every supported full automated test suite/);
     assert.match(contract, /End-to-end coverage is mandatory/);
     assert.match(contract, /Do not invent commands/);
@@ -82,7 +95,11 @@ describe('final task contract', () => {
     const minorRevalidation = await read(
       'codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md',
     );
-    assert.match(minorRevalidation, /exactly two bullets in this order/);
+    assert.match(minorRevalidation, /exactly two checklist bullets in this order/);
+    assert.match(
+      minorRevalidation,
+      /non-checkbox final-task repair-scope note/,
+    );
     assert.match(minorRevalidation, /every repository-supported full automated suite/);
     assert.match(minorRevalidation, /every supported end-to-end suite/);
 

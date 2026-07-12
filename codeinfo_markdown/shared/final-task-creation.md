@@ -5,11 +5,13 @@ Use this repository-agnostic contract whenever a task-up command or flow creates
 <final_task_shape>
 
 - The current closeout owner must be a dedicated final validation task after all substantive implementation tasks. Do not make the last implementation task double as the final validation task.
+- Immediately below the final task's `Subtasks` heading, before any checklist item, add this non-checkbox note: `Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.`
 - At creation time, its `Subtasks` section must contain exactly these two responsibilities, expanded only enough to name the repository-supported commands that were actually discovered:
   - `Run the supported lint command and fix issues.`
   - `Run the supported formatting command and fix issues.`
 - Do not pre-plan implementation, proof-authoring, documentation, investigation, evidence-retention, review bookkeeping, or test-execution subtasks in the final task. Those belong in earlier substantive tasks, `Testing`, optional `Manual Testing Guidance`, exit criteria, or implementation notes.
 - Keep lint and formatting out of the final task's `Testing` section; they are the final task's only two initial subtasks.
+- Immediately below the final task's `Testing` heading, before any repository group or checklist item, add this non-checkbox note: `Final-task repair scope: the whole approved story is in scope for failures found by these suites. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected full suite. Do not reopen older tasks solely because their implementation is implicated.`
 - The final task must remain `Task Status: __to_do__`, use the normal plan format, name one administrative `Repository Name`, name every proof-scope repository, application, service, workspace, package, or component, and depend on all earlier work needed for story closeout.
 - Creating or updating the final task does not complete the story or review cycle. The normal implementation and automated-proof loop must still complete its two subtasks and every testing item.
 
@@ -63,6 +65,7 @@ Use this repository-agnostic contract whenever a task-up command or flow creates
 
 - Identify the exact current closeout owner and explain whether it was created, reused, updated, or deliberately not created.
 - Confirm that the task was initially generated with exactly the two lint and formatting subtasks in that order.
+- Confirm that the required non-checkbox final-task repair-scope note appears first in both `Subtasks` and `Testing`, before any checklist items.
 - Confirm that its testing inventory names every affected repository and component and every supported full suite, including supported end-to-end suites.
 - Confirm that targeted-only commands, duplicate lint or formatting testing items, and speculative repository-specific commands are absent.
 - Confirm that exactly one closeout owner exists for the initial task list or active `review_cycle_id`.

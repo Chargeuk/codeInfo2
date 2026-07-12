@@ -41,7 +41,7 @@ Ensure `Subtasks` and `Testing` stay separated so implementation and proof-autho
 
 - Check that no task still hides wrapper or test execution commands inside `Subtasks` unless it is a harness or wrapper task.
 - Check that each moved execution command now has a realistic home in `Testing`.
-- Check that each task still has explicit proof-authoring subtasks naming the exact files, artifacts, screenshots, logs, or retained proof homes that later execution will support.
+- Check that each substantive task still has explicit proof-authoring subtasks naming the exact files, artifacts, screenshots, logs, or retained proof homes that later execution will support. Exclude the dedicated final validation task from this check.
 - Check that the final result still reads as one coherent plan rather than two disconnected lists of code work and tests.
   </verification_loop>
 

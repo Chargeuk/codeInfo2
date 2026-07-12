@@ -42,7 +42,7 @@ Scan the selected review-created tasks for high-risk invariants, missing prerequ
 
 <section_ownership_rules>
 
-- Put implementation, proof-authoring, documentation, config, harness, and prerequisite ownership in substantive tasks' `Subtasks`, never in the dedicated final task.
+- During initial task creation and enhancement, put implementation, proof-authoring, documentation, config, harness, and prerequisite ownership in substantive tasks' `Subtasks`; preserve the dedicated final task's bounded same-task repair exception for story-caused failures discovered during validation.
 - Keep `Testing` automated-only and wrapper-first.
 - Put optional browser, API, or manual-testing-agent follow-up only in `Manual Testing Guidance`.
 - Do not create manual-testing subtasks or testing checklist items.

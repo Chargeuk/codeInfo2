@@ -20,6 +20,9 @@ describe('final task contract', () => {
 
     assert.match(contract, /repository-agnostic contract/);
     assert.match(contract, /dedicated final validation task/);
+    assert.match(contract, /When newly created or reopened with new unchecked work/);
+    assert.match(contract, /Normal execution may promote it to `__in_progress__`/);
+    assert.doesNotMatch(contract, /final task must remain `Task Status: __to_do__`/);
     assert.match(contract, /run the supported lint command and fix issues\./);
     assert.match(
       contract,
@@ -83,10 +86,13 @@ describe('final task contract', () => {
     ) as { items: Array<{ markdownFile?: string }> };
     const initialFiles = initial.items.map((item) => item.markdownFile);
 
-    assert.ok(
-      initialFiles.indexOf('shared/final-task-creation.md') <
-        initialFiles.indexOf('task_up/04-generate.md'),
+    const sharedContractIndex = initialFiles.indexOf(
+      'shared/final-task-creation.md',
     );
+    const generateIndex = initialFiles.indexOf('task_up/04-generate.md');
+    assert.notEqual(sharedContractIndex, -1);
+    assert.notEqual(generateIndex, -1);
+    assert.ok(sharedContractIndex < generateIndex);
 
     const reviewCommands = [
       'codeinfo_agents/planning_agent/commands/task_up_review_tasks.json',
@@ -189,6 +195,13 @@ describe('final task contract', () => {
     assert.match(minorRevalidation, /Do not add a proof-authoring subtask/);
     assert.match(minorRevalidation, /Do not add.*automated testing placeholder/);
     assert.match(minorRevalidation, /omit the unavailable suite item and continue/);
+    assert.match(minorRevalidation, /affected repository or affected component/);
+    assert.doesNotMatch(minorRevalidation, /suite exists for the affected files/);
+    assert.match(minorRevalidation, /every validation item made stale/);
+    assert.match(
+      minorRevalidation,
+      /build, runtime, full-suite, shutdown, lint, and formatting items/,
+    );
     assert.match(minorRevalidation, /non-blocking `Implementation Notes` entry/);
     assert.match(minorRevalidation, /repository is missing or unreadable/);
     assert.doesNotMatch(
@@ -210,6 +223,19 @@ describe('final task contract', () => {
     assert.match(automatedProof, /whole approved story is repair scope/);
     assert.match(automatedProof, /same final task/);
     assert.match(automatedProof, /different numbered task only when/);
+
+    for (const repairPromptPath of [
+      'codeinfo_markdown/audit_after_automated_proof.md',
+      'codeinfo_markdown/deep_test_failure_repair.md',
+    ]) {
+      const repairPrompt = await read(repairPromptPath);
+      assert.match(repairPrompt, /every (?:affected )?validation item/);
+      assert.match(repairPrompt, /earliest stale step/);
+      assert.match(
+        repairPrompt,
+        /build, startup, full-suite, shutdown, lint, and formatting/,
+      );
+    }
 
     for (const flowPath of [
       'flows/task_and_implement_plan.json',
@@ -263,6 +289,28 @@ describe('final task contract', () => {
       reviewDisposition,
       /dedicated final task's per-repository lint and formatting checklist is the explicit exception/,
     );
+
+    const separationPrompt = await read(
+      'codeinfo_markdown/task_up/12-subtasks-and-testing-separation.md',
+    );
+    assert.match(separationPrompt, /each substantive task still has explicit proof-authoring/);
+    assert.match(separationPrompt, /Exclude the dedicated final validation task/);
+
+    const generationPrompt = await read(
+      'codeinfo_markdown/task_up/04-generate.md',
+    );
+    assert.match(generationPrompt, /Except for the dedicated final validation task/);
+    assert.match(generationPrompt, /end each non-final task's `Subtasks` section/);
+
+    const riskPrompt = await read(
+      'codeinfo_markdown/review_task_enhancement/02b-risk-and-prerequisite-scan.md',
+    );
+    assert.match(riskPrompt, /During initial task creation and enhancement/);
+    assert.match(riskPrompt, /bounded same-task repair exception/);
+
+    const finalizePrompt = await read('codeinfo_markdown/task_up/14-finalize.md');
+    assert.match(finalizePrompt, /supported lint and formatting subtasks/);
+    assert.doesNotMatch(finalizePrompt, /prettier or format-check/);
 
     for (const testingPrompt of [
       'codeinfo_markdown/task_up/09-proof-and-testing.md',

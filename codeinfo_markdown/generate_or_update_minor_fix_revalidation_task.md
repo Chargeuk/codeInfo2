@@ -69,7 +69,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe open legacy task for `review_cycle_id` backfill.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.
 - If the helper reports `needs_cycle_id_backfill`, backfill the current `review_cycle_id` into the selected task while updating it.
-- Preserve completed proof notes that remain true, but uncheck or rewrite every full-suite testing item made stale by new resolved minor findings or other later story-owned changes.
+- Preserve completed proof notes that remain true, but uncheck or rewrite every validation item made stale by new resolved minor findings or other later story-owned changes, including affected build, runtime, full-suite, shutdown, lint, and formatting items in both `Subtasks` and `Testing`.
 - Do not renumber existing tasks unless the plan already has a numbering collision that makes the new or updated task ambiguous.
 
 </idempotency_rules>
@@ -106,7 +106,7 @@ When no task is needed and no unresolved work remains:
 - If the canonical plan is missing or branch story scope has drifted, stop and say the current-plan handoff is stale and must be regenerated.
 - If state says final revalidation is needed but `resolved_minor_findings` is empty, do not create a task. Record a state note and report the contradiction.
 - If unresolved task-required, minor-batchable, or incomplete-review items remain, do not create the final minor-fix revalidation task. Leave routing to the task-up or minor-fix path.
-- If fresh repository evidence confirms that no repository-supported automated test suite exists for the affected files, omit the unavailable suite item and continue with every other supported build, runtime, lint, and formatting check. Do not add a proof-authoring subtask, automated testing placeholder, invented command, harness task, or blocker merely because no supported suite exists. A concise non-blocking `Implementation Notes` entry may record that no supported automated suite was found. If the repository is missing or unreadable, use the handoff failure rules above rather than treating unavailable evidence as proof that no suite exists.
+- If fresh repository evidence confirms that no repository-supported automated test suite exists for the affected repository or affected component, omit the unavailable suite item and continue with every other supported build, runtime, lint, and formatting check. Do not add a proof-authoring subtask, automated testing placeholder, invented command, harness task, or blocker merely because no supported suite exists. A concise non-blocking `Implementation Notes` entry may record that no supported automated suite was found. If the repository is missing or unreadable, use the handoff failure rules above rather than treating unavailable evidence as proof that no suite exists.
 - If the plan edit succeeds but commit fails, stop and report the failed commit command without pretending the task was committed.
 
 </failure_modes>

@@ -78,10 +78,10 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Do not put build or test execution commands in Subtasks unless the task is specifically creating or repairing a harness or wrapper.
 - Do not put automated test execution commands in `Subtasks`.
 - Do not put manual testing work in `Subtasks`.
-- End each task's `Subtasks` section with these two separate final subtasks in this order:
+- Except for the dedicated final validation task governed by `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`, end each non-final task's `Subtasks` section with these supported final subtasks in this order when their commands exist:
   - a lint subtask that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
-  - a prettier or format-check subtask that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
-- Lint or prettier fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
+  - a formatting subtask that names the exact repository-supported formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
+- Lint or formatting fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
   </task_shape_rules>
 
 <verification_loop>

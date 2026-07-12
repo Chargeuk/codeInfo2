@@ -265,6 +265,48 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("safe_to_exit_review_loop_without_tasking` remains false only because a blocker tied solely to a rejected finding was preserved", text)
         self.assertIn("no `incomplete_review_blocker` or `operationally_blocked_minor_finding` remains solely because a rejected finding used to justify it", text)
 
+    def test_actionable_review_findings_are_promoted_for_one_inline_attempt(self) -> None:
+        promote_text = read_text(
+            "codeinfo_markdown/promote_actionable_review_findings_to_minor_path.md"
+        )
+        fix_text = read_text("codeinfo_markdown/fix_next_minor_review_finding.md")
+        document_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
+
+        self.assertIn(
+            "after story-scope filtering and immediately before the Minor Review Fix Path",
+            promote_text,
+        )
+        self.assertIn(
+            "Move each current-story actionable entry that has not already received an inline attempt",
+            promote_text,
+        )
+        self.assertIn(
+            "initial classifier disposition was task-required", promote_text
+        )
+        self.assertIn(
+            "Do not promote any entry from `rejected_or_non_actionable_findings`",
+            promote_text,
+        )
+        self.assertIn(
+            "an inline attempt already occurred and ended in `reclassify_task_required`",
+            promote_text,
+        )
+        self.assertIn("internally create a one-shot resolution plan", fix_text)
+        self.assertIn(
+            "diagnose the failure, revise the plan or implementation, and retry",
+            fix_text,
+        )
+        self.assertIn(
+            "Do not stop merely because the first approach failed", fix_text
+        )
+        self.assertIn(
+            "attempted every safe bounded action it identified", document_text
+        )
+        self.assertIn(
+            "cannot promote the same durable follow-up into a repeat attempt",
+            document_text,
+        )
+
     def test_active_task_normalization_does_not_require_a_selected_task(self) -> None:
         text = read_text("codeinfo_markdown/normalize_inconsistent_active_task.md")
 

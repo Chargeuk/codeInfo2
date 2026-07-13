@@ -16,7 +16,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit the plan.
 - Interpret optional descriptive review metadata semantically when needed, but never infer or repair story/session/pass/HEAD/base identity.
 - If the handoff and artifacts still cannot provide the minimum context needed to review, produce a visible incomplete-review findings artifact or summary when enough path information exists, do not edit the plan, and do not claim that no findings exist.
-- If the handoff is usable directly or by safe inference, perform the actual review against the planned work and the branch diff for every repository in scope.
+- After the required identity fields have been validated exactly, use safe inference only for optional descriptive metadata and perform the actual review against the planned work and the branch diff for every repository in scope.
 - If the active plan explicitly names design-target assets intended as implementation references, identify whether design-conformance review is relevant and whether the active review context includes usable retained screenshots and named design assets. Leave screenshot-to-design mismatch finding generation to `"$CODEINFO_ROOT/codeinfo_markdown/review_visual_design_conformance.md"`.
 - If the active plan explicitly names design-target assets intended as implementation references, treat the current task's explicit subtasks and task-level requirements as the immediate visual-review contract first, then use the story plan or `Design Contract`, then paired design markdown, then the supporting visual asset as fallbacks when the task is silent.
 - This step MUST produce findings or a visible incomplete-review outcome only, and MUST NOT edit the plan yet.
@@ -65,15 +65,14 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
-- Read `codeInfoTmp/reviews/<story-number>-current-review.json` and identify the minimum usable review context either from named handoff fields or by safe inference from the handoff path, canonical `plan_path`, artifact filenames, artifact content, and current git state:
-  - the story identifier matches the story number derived from the canonical current-plan `plan_path` filename;
-  - the review pass identifier can be identified or safely inferred;
-  - the evidence artifact can be identified and exists;
-  - its `repos` entries, combined with current git state, identify the selected repositories, current branch names, and current local `HEAD` commits;
-  - each repository has either a stored `comparison_base_commit`, a stored `comparison_base_ref` or `resolved_base_branch` that can be resolved safely, or enough evidence summary detail to infer the review base without guessing.
-- Prefer each stored `comparison_base_commit` as the pinned base object for review diffs when it resolves to a commit object. If it is missing but `comparison_base_ref`, `resolved_base_branch`, or the evidence summary identifies the base clearly, resolve that base once, record the inference in the findings artifact, and use it for this pass.
+- Read `codeInfoTmp/reviews/<story-number>-current-review.json` and require the minimum review identity directly from its named fields:
+  - `story_id` exactly matches the canonical seven-digit story ID derived from the current-plan `plan_path` filename;
+  - `review_pass_id` is explicitly present and exactly matches the prepared review base;
+  - the evidence artifact is explicitly referenced and exists;
+  - every `repos[]` entry explicitly identifies its repository, current branch, `head_commit`, and `comparison_base_commit`.
+- Use each stored `comparison_base_commit` as the pinned base object for review diffs only when it resolves to a commit object. Never derive a missing comparison-base identity from `comparison_base_ref`, `resolved_base_branch`, evidence prose, artifact names, or current git state; produce a visible incomplete-review outcome instead.
 - For the current repository, prefer the prepared review-base artifact when it exists and preserve its `comparison_base_ref` and `comparison_base_commit` unchanged through this step.
-- Treat a stored or inferred `comparison_head_ref` as local `HEAD`. Review the local working branch against the stored or inferred comparison base, and do not compare `origin/<current-story-branch>` against the base.
+- Treat a stored `comparison_head_ref` as descriptive context only. Review the explicitly stored local `head_commit` against the explicitly stored comparison base, and do not compare `origin/<current-story-branch>` against the base.
 - Treat `remote_name`, `remote_fetch_status`, `resolved_base_source`, `local_fallback_reason`, `remote_fetch_error`, and `remote_fetch_exit_code` as useful evidence when present. Do not fail only because those fields are absent, older, or differently shaped; instead preserve or infer the relevant remote-vs-local fallback context when it affects confidence.
 - If `remote_fetch_error` is present, do not repeat raw error text into new artifacts unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.
 - If any repository used or appears to have used a local fallback base, preserve that fact in the findings artifact's residual-risk or rejected-risk notes so the review does not silently imply it used a fresh remote base.
@@ -90,17 +89,17 @@ Before doing findings work, validate all of the following:
 - every repository in scope is still on a branch whose story number matches the canonical plan filename;
 - every additional repository branch state was re-checked directly from git;
 - the current repository HEAD and each additional repository HEAD were re-checked directly from git;
-- the review handoff, after safe inference from referenced artifacts when needed, still describes the normalized current-plan scope and current repository state well enough to review.
+- the review handoff matches the prepared identity exactly and, after optional descriptive metadata is interpreted when needed, still describes the normalized current-plan scope well enough to review.
 
 If the current-plan checks fail, stop and say the current-plan handoff is stale and must be regenerated.
 
-If the review handoff cannot provide the minimum usable review context even after safe inference, do not ask for regeneration in a loop. Produce a visible incomplete-review outcome when possible, and do not claim that the review found no issues.
+If the review handoff cannot provide the required identity directly, or cannot provide the remaining minimum usable review context after descriptive-only inference, do not ask for regeneration in a loop. Produce a visible incomplete-review outcome when possible, and do not claim that the review found no issues.
 
 </validation_rules>
 
 <output_contract>
 
-When the minimum review context is available directly or by safe inference, write the findings to `codeInfoTmp/reviews/<review_pass_id>-findings.md`. When the minimum review context is not available but a safe artifact path can still be determined, write an incomplete-review findings artifact at that path instead and make clear that the review did not conclude no-findings.
+When the required identity is present directly and the remaining minimum review context is available, write the findings to `codeInfoTmp/reviews/<review_pass_id>-findings.md`. When the minimum review context is not available but a safe artifact path can still be determined, write an incomplete-review findings artifact at that path instead and make clear that the review did not conclude no-findings.
 
 The findings file or incomplete-review artifact MUST:
 
@@ -137,7 +136,7 @@ This findings file is a high-quality local review artifact for the active flow r
 - Confirm the current-plan handoff was normalized correctly.
 - Confirm the canonical plan and story branch still match the scope.
 - Confirm the review handoff still matches the current scope and HEAD commits.
-- Confirm the review handoff or safely inferred context identifies the local-HEAD-vs-resolved-base comparison for every repository and that any local fallback is carried into residual-risk notes.
+- Confirm the review handoff explicitly identifies the head and comparison-base commits for every repository and that any safely interpreted descriptive local-fallback context is carried into residual-risk notes.
 - Confirm the plan-based review was completed for every repository in scope.
 - Confirm the cross-repository integration pass was completed when required.
 - Confirm the generic engineering pass and the adversarial review were both completed.

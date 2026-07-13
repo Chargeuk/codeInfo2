@@ -186,6 +186,7 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY --from=open-code-review-build /out/ocr /usr/local/bin/ocr
 RUN ocr --version && \
     ocr agent prepare --help >/dev/null && \
+    ocr agent context read --help >/dev/null && \
     ocr agent validate-comments --help >/dev/null && \
     ocr agent report --help >/dev/null
 

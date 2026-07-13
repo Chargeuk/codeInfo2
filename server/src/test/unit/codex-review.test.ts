@@ -306,8 +306,12 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
     const customPrompt = String(codexCalls[0]?.args.at(-1));
     assert.match(
       customPrompt,
-      /refs\/codeinfo\/review-bases\/0000027-20260705T160455Z-7f3a1c2b\.\.\.HEAD/u,
+      new RegExp(
+        `refs/codeinfo/review-bases/0000027-20260705T160455Z-7f3a1c2b\\.\\.\\.${HEAD_SHA}`,
+        'u',
+      ),
     );
+    assert.doesNotMatch(customPrompt, /\.\.\.HEAD(?:\s|$)/u);
     assert.match(customPrompt, /ignore planning\/\*\*/u);
     assert.match(customPrompt, /Use only local Git and filesystem commands/u);
     assert.match(customPrompt, /Do not modify files, refs, commits, branches/u);
@@ -334,6 +338,7 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
       review_output_file: string;
       reasoning_effort: string | null;
       agent_type: string | null;
+      branched_from: string | null;
       remote_fetch_status: string;
       resolved_base_source: string;
       local_fallback_reason: string | null;
@@ -362,6 +367,7 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
     );
     assert.equal(pointer.reasoning_effort, 'high');
     assert.equal(pointer.agent_type, 'review_agent_heavy');
+    assert.equal(pointer.branched_from, 'main');
     assert.equal(pointer.remote_fetch_status, 'success');
     assert.equal(pointer.resolved_base_source, 'remote');
     assert.equal(pointer.local_fallback_reason, null);
@@ -560,6 +566,7 @@ test('runCodexReviewStep deletes the pinned review-base ref when review setup fa
     const setupError = Object.assign(new Error('mkdir failed'), {
       code: 'ENOSPC',
     });
+    let refCreated = false;
     let cleanupAttempted = false;
     const execFile = async (file: string, args: readonly string[]) => {
       if (file === 'git') {
@@ -592,6 +599,7 @@ test('runCodexReviewStep deletes the pinned review-base ref when review setup fa
               ) &&
               key.endsWith(` ${BASE_SHA}`)
             ) {
+              refCreated = true;
               return { stdout: '', stderr: '' };
             }
             if (
@@ -623,8 +631,9 @@ test('runCodexReviewStep deletes the pinned review-base ref when review setup fa
         {
           execFile,
           prepareReviewContext,
-          mkdir: async () => {
-            throw setupError;
+          mkdir: async (...args) => {
+            if (refCreated) throw setupError;
+            await fs.mkdir(...args);
           },
           now: () => new Date('2026-07-05T16:05:05.000Z'),
           randomHex: () => '6abc1234',
@@ -889,6 +898,7 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
     );
 
     const gitCalls: string[] = [];
+    const atomicRenames: Array<{ from: string; to: string }> = [];
     const codexCalls: Array<readonly string[]> = [];
     const execFile = async (file: string, args: readonly string[]) => {
       if (file === 'git') {
@@ -949,6 +959,10 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
       {
         execFile,
         prepareReviewContext,
+        rename: async (from, to) => {
+          atomicRenames.push({ from: String(from), to: String(to) });
+          await fs.rename(from, to);
+        },
         now: () => new Date('2026-07-05T16:21:00.000Z'),
         randomHex: () => '01020304',
       },
@@ -959,7 +973,6 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
       'branch --show-current',
       'rev-parse HEAD^{commit}',
       'rev-parse --show-toplevel',
-      'rev-parse --short HEAD^{commit}',
       'update-ref refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304 a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2',
       'update-ref -d refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304',
       'rev-parse --show-toplevel',
@@ -980,10 +993,24 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
     ]);
     assert.match(
       String(codexCalls[0]?.at(-1)),
-      /refs\/codeinfo\/review-bases\/0000027-20260705T162100Z-01020304\.\.\.HEAD/u,
+      new RegExp(
+        `refs/codeinfo/review-bases/0000027-20260705T162100Z-01020304\\.\\.\\.${HEAD_SHA}`,
+        'u',
+      ),
+    );
+    assert.equal(atomicRenames.length, 2);
+    assert.equal(
+      atomicRenames[0]?.to,
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review-base.json',
+      ),
     );
     assert.equal(result.pointer.comparison_base_ref, 'origin/main');
     assert.equal(result.pointer.resolved_base_source, 'remote');
+    assert.equal(result.pointer.branched_from, 'main');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

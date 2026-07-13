@@ -39,8 +39,64 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/classify_review_disposition.md"
         )
         self.assertIn("current-review-validation.json", merge_text)
+        for identity_field in (
+            "story_id",
+            "plan_path",
+            "review_session_id",
+            "review_pass_id",
+            "parent_execution_id",
+            "head_commit",
+            "comparison_base_commit",
+        ):
+            self.assertIn(identity_field, merge_text)
         self.assertIn("current-review-validation.json", classify_text)
         self.assertIn("review_session_id", classify_text)
+
+    def test_review_prompts_never_infer_machine_identity(self) -> None:
+        findings_text = read_text(
+            "codeinfo_markdown/code_review_findings/01-core.md"
+        )
+        for forbidden_inference in (
+            "Never derive a missing comparison-base identity",
+            "`review_pass_id` is explicitly present",
+            "explicitly identifies the head and comparison-base commits",
+        ):
+            self.assertIn(forbidden_inference, findings_text)
+
+        for prompt_path in (
+            "codeinfo_markdown/review_findings_saturation.md",
+            "codeinfo_markdown/review_blind_spot_challenge/01-core.md",
+        ):
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn(
+                    "Never infer, normalize, or repair an identity field or prepared base",
+                    text,
+                )
+                self.assertIn("descriptive remote/fallback context", text)
+
+    def test_repair_and_visual_prompts_require_complete_review_scope(self) -> None:
+        repair_text = read_text(
+            "codeinfo_markdown/repair_review_workflow_state.md"
+        )
+        self.assertIn(
+            "Before rebuilding review-disposition state from review artifacts",
+            repair_text,
+        )
+        self.assertIn("preserve the blocker", repair_text)
+
+        visual_text = read_text(
+            "codeinfo_markdown/review_visual_design_conformance.md"
+        )
+        for scope_field in (
+            "`repo_root`",
+            "`branch`",
+            "`branched_from`",
+            "`comparison_base_ref`",
+            "`review_context_sha256`",
+            "`review_excluded_paths`",
+        ):
+            self.assertIn(scope_field, visual_text)
 
     def test_open_code_review_and_merge_preserve_validated_session_lineage(self) -> None:
         review_text = read_text("codeinfo_markdown/run_open_code_review.md")

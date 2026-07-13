@@ -17,7 +17,7 @@ Do not edit the canonical plan, code, tests, or other review artifacts in this s
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first and derive the story number from its canonical `plan_path`.
 - Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and treat it as the canonical review handoff.
 - Read `codeInfoTmp/reviews/<story-number>-current-codex-review.json` from disk and treat it as the sole pointer to the current Codex review output for this review pass.
-- Read `codeInfoTmp/reviews/<story-number>-current-review-base.json` and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`. Require validation `status: passed` and exact equality across the prepared base, canonical handoff, and Codex pointer for canonical seven-digit story, plan, session, canonical pass, parent execution, HEAD, and comparison-base identity.
+- Read `codeInfoTmp/reviews/<story-number>-current-review-base.json` and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`. Require validation `status: passed` and exact equality across all four artifacts for `story_id`, `plan_path`, `review_session_id`, canonical `review_pass_id` / `canonical_review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit`.
 - Identity fields may not be inferred, normalized, sanitized, repaired, or selected from another artifact. On any mismatch, leave canonical findings unchanged and write only a blocker merge artifact.
 - Do not discover Codex review artifacts by timestamp, glob, or latest-file guessing.
 - Read the canonical `findings_file` referenced by the current review handoff before deciding what to merge.
@@ -99,7 +99,7 @@ Preserve all existing fields in both JSON handoff files unless this step explici
 
 - Confirm `current-plan.json` was read first.
 - Confirm the canonical current-review handoff was used as the only current-review pointer.
-- Confirm the server-owned post-join validation passed for this exact session.
+- Confirm the server-owned post-join validation passed and its complete identity tuple matches this exact prepared base, canonical handoff, and Codex pointer.
 - Confirm the Codex pointer file was used as the only Codex-review pointer.
 - Confirm the canonical findings artifact was read before any merge decision.
 - Confirm no latest-file or timestamp discovery was used.

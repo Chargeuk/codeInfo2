@@ -18,6 +18,7 @@ import {
   __resetProviderBootstrapStatusForTests,
   __setProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
+import { validateReviewArtifacts } from '../../flows/reviewArtifacts.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -686,6 +687,12 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
     assert.equal(pointer.model, 'gpt-5.4');
     assert.equal(pointer.reasoning_effort, 'medium');
     assert.equal(pointer.merged_into_canonical_findings, false);
+    const validation = await validateReviewArtifacts({
+      workingRepositoryPath: repoDir,
+      pointerKeys: ['current-codex-review'],
+    });
+    assert.equal(validation.status, 'passed');
+    assert.deepEqual(validation.errors, []);
   } finally {
     process.env.PATH = previousPath;
     await fs.rm(tmpDir, { recursive: true, force: true });

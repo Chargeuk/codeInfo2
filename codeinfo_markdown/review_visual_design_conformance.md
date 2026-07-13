@@ -32,7 +32,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 
 <critical_rules>
 
-- Require the current-review handoff to match the prepared review base exactly on canonical seven-digit story ID, plan, review session, review pass, parent execution, HEAD, and comparison base. Re-check the session before atomically updating the pointer; never overwrite a newer session.
+- Require the current-review handoff to match the prepared review base exactly on canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, `comparison_base_commit`, and every prepared-scope field: `repo_alias`, `repo_root`, `branch`, `branched_from`, `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, `comparison_rule`, `review_context_file`, `review_context_sha256`, `review_context_source_plan_sha256`, and `review_excluded_paths`. Re-check the session before atomically updating the pointer; never overwrite a newer session.
 
 - Use fresh disk reads and current git state, not conversational memory.
 - Re-read `codeInfoStatus/flow-state/current-plan.json` first and use only its `plan_path` and `additional_repositories` as the active review scope.

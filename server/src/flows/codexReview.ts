@@ -62,6 +62,7 @@ export type CodexReviewPointer = {
   repo_alias: 'current_repository';
   repo_root: string;
   branch: string;
+  branched_from: string | null;
   head_commit: string;
   model: string;
   reasoning_effort: CodexReviewReasoningEffort | null;
@@ -446,10 +447,11 @@ const loadOrPrepareReviewBase = async (
       review_context_source_plan_sha256: context.artifact.source_plan_sha256,
       review_excluded_paths: context.artifact.excluded_paths,
     };
-    await deps.writeFile(
-      prepared.artifactPath,
-      `${JSON.stringify(upgraded, null, 2)}\n`,
-    );
+    await atomicWriteJson(prepared.artifactPath, upgraded, {
+      mkdir: deps.mkdir,
+      rename: deps.rename,
+      writeFile: deps.writeFile,
+    });
     return { artifactPath: prepared.artifactPath, artifact: upgraded };
   }
 
@@ -520,10 +522,11 @@ const loadPreparedReviewContext = async (params: {
 const buildCodexReviewPrompt = (params: {
   context: PreparedReviewContext;
   pinnedBaseRef: string;
+  headCommit: string;
 }) =>
   [
-    `Perform a code review of the committed branch changes from the exact base ref ${params.pinnedBaseRef} to HEAD.`,
-    `Use ${params.pinnedBaseRef}...HEAD as the comparison range; do not select or infer a different base.`,
+    `Perform a code review of the committed branch changes from the exact base ref ${params.pinnedBaseRef} to the exact head commit ${params.headCommit}.`,
+    `Use ${params.pinnedBaseRef}...${params.headCommit} as the comparison range; do not select or infer a different base or head.`,
     'This is a read-only review. Do not modify files, refs, commits, branches, or other Git state.',
     'Use only local Git and filesystem commands in the selected repository. Do not use connected apps, remote repository search, MCP, browser, or web tools.',
     'Scope rule: ignore planning/**. Do not open, inspect, summarize, or report findings against files under planning/.',
@@ -680,13 +683,7 @@ export async function runCodexReviewStep(
     storyNumber,
     reviewState,
   });
-  const shortHead = await gitStdoutOrThrow(
-    repoRoot,
-    ['rev-parse', '--short', 'HEAD^{commit}'],
-    resolvedDeps,
-    'Unable to resolve short HEAD for codexReview.',
-    params.signal,
-  );
+  const shortHead = headCommit.slice(0, 10);
   const passTimestamp = formatUtcTimestamp(startedAt);
   const passSeed = sanitizePassSeed(canonicalReviewPassId);
   const codexReviewPassId = `${passSeed}-codex-${passTimestamp}-${shortHead}-${resolvedDeps.randomHex(
@@ -741,6 +738,7 @@ export async function runCodexReviewStep(
       buildCodexReviewPrompt({
         context: reviewContext,
         pinnedBaseRef: pinnedBaseRef.refName,
+        headCommit,
       }),
     );
     await resolvedDeps.execFile('codex', codexArgs, {
@@ -845,6 +843,7 @@ const buildPointer = (params: {
   repo_alias: 'current_repository',
   repo_root: params.repoRoot,
   branch: params.currentBranch,
+  branched_from: params.preparedBase.branched_from,
   head_commit: params.headCommit,
   model: params.modelId,
   reasoning_effort: params.reasoningEffort,

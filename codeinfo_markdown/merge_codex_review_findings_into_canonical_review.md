@@ -8,6 +8,7 @@ This step is an adjudication and artifact-reconciliation step. It may update onl
 - the `findings_file` referenced by that handoff
 - `codeInfoTmp/reviews/<story-number>-current-codex-review.json`
 - `codeInfoTmp/reviews/<codex_review_pass_id>-codex-review-merge.md`
+- `codeInfoTmp/reviews/<review_session_id>-codex-review-merge-skipped.md` when no Codex pass ID was published
 
 Do not edit the canonical plan, code, tests, or other review artifacts in this step.
 
@@ -19,6 +20,7 @@ Do not edit the canonical plan, code, tests, or other review artifacts in this s
 - Read `codeInfoTmp/reviews/<story-number>-current-codex-review.json` from disk and treat it as the sole pointer to the current Codex review output for this review pass.
 - Read `codeInfoTmp/reviews/<story-number>-current-review-base.json` and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`. Require the validation entry for `current-codex-review` to be usable and require exact equality across the prepared base, Codex pointer, validation identity, and canonical handoff for `story_id`, `plan_path`, `review_session_id`, canonical `review_pass_id` / `canonical_review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit`. The overall validation may be `partial` because another reviewer failed.
 - Identity fields may not be inferred, normalized, sanitized, repaired, or selected from another artifact. On any Codex mismatch, leave canonical findings unchanged, record the skipped Codex pass visibly, and finish this merge step without stopping later flow steps.
+- If `codex_review_pass_id` is missing, do not infer or invent it. Use the exact prepared `review_session_id` in the deterministic skipped-merge path, leave the unavailable Codex pointer unchanged, and do not add Codex merge fields to the canonical handoff.
 - Do not discover Codex review artifacts by timestamp, glob, or latest-file guessing.
 - Read the canonical `findings_file` referenced by the current review handoff before deciding what to merge.
 - Read the Codex review markdown referenced by `review_output_file` in the Codex pointer file before deciding what to merge.
@@ -51,7 +53,7 @@ Do not edit the canonical plan, code, tests, or other review artifacts in this s
 
 <output_contract>
 
-Write a merge artifact at `codeInfoTmp/reviews/<codex_review_pass_id>-codex-review-merge.md`.
+Write a merge artifact at `codeInfoTmp/reviews/<codex_review_pass_id>-codex-review-merge.md` when a usable pass ID exists. When no Codex pass ID was published, instead write `codeInfoTmp/reviews/<review_session_id>-codex-review-merge-skipped.md` with the validation failure and finish cleanly without updating either pointer.
 
 That merge artifact must include:
 

@@ -12,7 +12,6 @@ import { validateReviewArtifacts } from '../../flows/reviewArtifacts.js';
 const execFile = promisify(execFileCb);
 const BRANCH = 'feature/0000013-example';
 const PLAN_PATH = 'planning/0000013-example.md';
-const BASE = 'b'.repeat(40);
 const SESSION = '0000013-rs-20260713T102726Z-aaaaaaaa-c0ffee12';
 const PASS = '0000013-20260713T102726Z-aaaaaaaa-c0ffee12';
 const PLAN =
@@ -27,10 +26,56 @@ type FixtureOptions = {
   ocrBundleCount?: number;
   mainStatus?: string;
   omitMainRepos?: boolean;
+  additionalRepositoryPath?: string;
+  omitAdditionalMainRepo?: boolean;
   ocrBranch?: string;
+  divergedComparisonBase?: boolean;
+  ocrTargetFrom?: string;
+  commentsReviewedFiles?: number;
+  pointerTotalFiles?: number;
 };
 
-const initializeRepository = async (repoRoot: string): Promise<string> => {
+const initializeRepository = async (
+  repoRoot: string,
+  divergedComparisonBase = false,
+): Promise<{ base: string; head: string; mergeBase: string }> => {
+  await execFile('git', ['init', '-q', repoRoot]);
+  await execFile('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: repoRoot,
+  });
+  await execFile('git', ['config', 'user.name', 'Test User'], {
+    cwd: repoRoot,
+  });
+  await execFile('git', ['checkout', '-q', '-b', 'main'], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, PLAN_PATH), PLAN);
+  await execFile('git', ['add', PLAN_PATH], { cwd: repoRoot });
+  await execFile('git', ['commit', '-qm', 'test fixture'], { cwd: repoRoot });
+  const mergeBase = (
+    await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
+  ).stdout.trim();
+  await execFile('git', ['checkout', '-q', '-b', BRANCH], { cwd: repoRoot });
+  await fs.writeFile(path.join(repoRoot, 'changed.ts'), 'export const changed = true;\n');
+  await execFile('git', ['add', 'changed.ts'], { cwd: repoRoot });
+  await execFile('git', ['commit', '-qm', 'feature change'], { cwd: repoRoot });
+  const head = (
+    await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
+  ).stdout.trim();
+  let base = mergeBase;
+  if (divergedComparisonBase) {
+    await execFile('git', ['checkout', '-q', 'main'], { cwd: repoRoot });
+    await fs.writeFile(path.join(repoRoot, 'main-change.ts'), 'export const main = true;\n');
+    await execFile('git', ['add', 'main-change.ts'], { cwd: repoRoot });
+    await execFile('git', ['commit', '-qm', 'advance main'], { cwd: repoRoot });
+    base = (
+      await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
+    ).stdout.trim();
+    await execFile('git', ['checkout', '-q', BRANCH], { cwd: repoRoot });
+  }
+  return { base, head, mergeBase };
+};
+
+const initializeAdditionalRepository = async (repoRoot: string) => {
   await execFile('git', ['init', '-q', repoRoot]);
   await execFile('git', ['config', 'user.email', 'test@example.com'], {
     cwd: repoRoot,
@@ -39,17 +84,16 @@ const initializeRepository = async (repoRoot: string): Promise<string> => {
     cwd: repoRoot,
   });
   await execFile('git', ['checkout', '-q', '-b', BRANCH], { cwd: repoRoot });
-  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
-  await fs.writeFile(path.join(repoRoot, PLAN_PATH), PLAN);
-  await execFile('git', ['add', PLAN_PATH], { cwd: repoRoot });
-  await execFile('git', ['commit', '-qm', 'test fixture'], { cwd: repoRoot });
-  return (
-    await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
-  ).stdout.trim();
+  await fs.writeFile(path.join(repoRoot, 'additional.ts'), 'export const additional = true;\n');
+  await execFile('git', ['add', 'additional.ts'], { cwd: repoRoot });
+  await execFile('git', ['commit', '-qm', 'additional fixture'], { cwd: repoRoot });
 };
 
 const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
-  const head = await initializeRepository(repoRoot);
+  const { base, head, mergeBase } = await initializeRepository(
+    repoRoot,
+    options.divergedComparisonBase,
+  );
   const reviewDir = path.join(repoRoot, 'codeInfoTmp', 'reviews');
   await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
     recursive: true,
@@ -57,7 +101,16 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
   await fs.mkdir(reviewDir, { recursive: true });
   await fs.writeFile(
     path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
-    JSON.stringify({ plan_path: PLAN_PATH }),
+    JSON.stringify({
+      plan_path: PLAN_PATH,
+      ...(options.additionalRepositoryPath
+        ? {
+            additional_repositories: [
+              { path: options.additionalRepositoryPath },
+            ],
+          }
+        : {}),
+    }),
   );
 
   const sourcePlanSha256 = crypto
@@ -74,7 +127,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     review_session_id: SESSION,
     review_pass_id: PASS,
     head_commit: head,
-    comparison_base_commit: BASE,
+    comparison_base_commit: base,
     parent_execution_id: 'execution-13',
   };
   const scope = {
@@ -113,6 +166,24 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     comparison_rule: scope.comparison_rule,
     head_commit: identity.head_commit,
   };
+  const mainRepos: Array<Record<string, unknown>> = [currentRepository];
+  if (
+    options.additionalRepositoryPath &&
+    !options.omitAdditionalMainRepo
+  ) {
+    const additionalHead = (
+      await execFile('git', ['rev-parse', 'HEAD^{commit}'], {
+        cwd: options.additionalRepositoryPath,
+      })
+    ).stdout.trim();
+    mainRepos.push({
+      repo_alias: 'additional_repository_1',
+      repo_root: options.additionalRepositoryPath,
+      branch: BRANCH,
+      comparison_base_commit: additionalHead,
+      head_commit: additionalHead,
+    });
+  }
   await fs.writeFile(
     path.join(reviewDir, '0000013-current-review-context.json'),
     JSON.stringify({
@@ -154,7 +225,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       ...scope,
       evidence_file: 'codeInfoTmp/reviews/evidence.md',
       findings_file: 'codeInfoTmp/reviews/findings.md',
-      ...(options.omitMainRepos ? {} : { repos: [currentRepository] }),
+      ...(options.omitMainRepos ? {} : { repos: mainRepos }),
       status: options.mainStatus ?? 'completed',
     }),
   );
@@ -186,7 +257,10 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       JSON.stringify({
         schema_version: 'codex-review-comments/v1',
         bundle_id: bundleId,
-        summary: { files_reviewed: 1, issues_found: 0 },
+        summary: {
+          files_reviewed: options.commentsReviewedFiles ?? 1,
+          issues_found: 0,
+        },
         comments: [],
       }),
     );
@@ -215,7 +289,20 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     manifestBundles.push({
       schema_version: 'codex-review-bundle/v1',
       bundle_id: bundleId,
-      target: { base_sha: BASE, head_sha: head },
+      target: {
+        mode: 'range',
+        from: options.ocrTargetFrom ?? base,
+        to: head,
+        base_sha: mergeBase,
+        head_sha: head,
+        merge_base_sha: mergeBase,
+      },
+      summary: {
+        total_files: 1,
+        reviewable_files: 1,
+        excluded_files: 0,
+      },
+      files: [{ path: `changed-${index}.ts`, reviewable: true }],
     });
   }
   await fs.writeFile(
@@ -223,6 +310,12 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     JSON.stringify({
       schema_version: 'codex-review-manifest/v1',
       partial: invalidIndexes.size > 0,
+      summary: {
+        total_files: bundleCount,
+        reviewable_files: bundleCount,
+        excluded_files: 0,
+      },
+      skipped_files: [],
       bundles: manifestBundles,
     }),
   );
@@ -238,7 +331,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       manifest_path: 'codeInfoTmp/reviews/ocr-manifest.json',
       bundles,
       coverage: {
-        total_files: bundleCount,
+        total_files: options.pointerTotalFiles ?? bundleCount,
         reviewable_files: bundleCount,
         reviewed_files: bundleCount - invalidIndexes.size,
         excluded_files: 0,
@@ -278,6 +371,148 @@ test('validateReviewArtifacts accepts one coherent server-owned review session',
     assert.equal(result.validated_artifact_files.length, 8);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts accepts an OCR range whose merge-base predates the prepared base', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-diverged-base-'),
+  );
+  try {
+    await writeFixture(repoRoot, { divergedComparisonBase: true });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'passed');
+    assert.equal(result.pointer_results[0]?.usable, true);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects an OCR range prepared from another base', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-wrong-from-'),
+  );
+  try {
+    await writeFixture(repoRoot, { ocrTargetFrom: 'a'.repeat(40) });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.pointer_results[0]?.status, 'stale');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects OCR coverage that disagrees with the manifest', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-coverage-'),
+  );
+  try {
+    await writeFixture(repoRoot, { pointerTotalFiles: 99 });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /coverage does not match/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects a bundle that did not review every reviewable file', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-files-reviewed-'),
+  );
+  try {
+    await writeFixture(repoRoot, { commentsReviewedFiles: 0 });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /validated bundles/u);
+    assert.match(result.warnings.join('\n'), /reviewed-file coverage/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts accepts complete multi-repository main review scope', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+  );
+  const additionalRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-additional-repo-'),
+  );
+  try {
+    await initializeAdditionalRepository(additionalRoot);
+    await writeFixture(repoRoot, { additionalRepositoryPath: additionalRoot });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+    assert.equal(result.status, 'passed');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(additionalRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects a main review missing a declared repository', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+  );
+  const additionalRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-additional-repo-'),
+  );
+  try {
+    await initializeAdditionalRepository(additionalRoot);
+    await writeFixture(repoRoot, {
+      additionalRepositoryPath: additionalRoot,
+      omitAdditionalMainRepo: true,
+    });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /repositories declared/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(additionalRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects a main review after an additional repository advances', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+  );
+  const additionalRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-additional-repo-'),
+  );
+  try {
+    await initializeAdditionalRepository(additionalRoot);
+    await writeFixture(repoRoot, { additionalRepositoryPath: additionalRoot });
+    await fs.writeFile(path.join(additionalRoot, 'later.ts'), 'export const later = true;\n');
+    await execFile('git', ['add', 'later.ts'], { cwd: additionalRoot });
+    await execFile('git', ['commit', '-qm', 'advance additional'], {
+      cwd: additionalRoot,
+    });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /head_commit does not match/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(additionalRoot, { recursive: true, force: true });
   }
 });
 
@@ -387,8 +622,15 @@ test('validateReviewArtifacts creates a fallback merge target when main review f
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-artifacts-'),
   );
+  const additionalRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-additional-repo-'),
+  );
   try {
-    await writeFixture(repoRoot, { mainStatus: 'failed' });
+    await initializeAdditionalRepository(additionalRoot);
+    await writeFixture(repoRoot, {
+      mainStatus: 'failed',
+      additionalRepositoryPath: additionalRoot,
+    });
     const result = await validateReviewArtifacts({
       workingRepositoryPath: repoRoot,
       pointerKeys: ['current-review', 'current-codex-review'],
@@ -405,11 +647,24 @@ test('validateReviewArtifacts creates a fallback merge target when main review f
         ),
         'utf8',
       ),
-    ) as { status?: string; main_review_status?: string };
+    ) as {
+      status?: string;
+      main_review_status?: string;
+      declared_repository_scope?: string[];
+      unreviewed_repositories?: string[];
+    };
     assert.equal(fallbackPointer.status, 'partial');
     assert.equal(fallbackPointer.main_review_status, 'unavailable');
+    assert.deepEqual(fallbackPointer.declared_repository_scope, [
+      await fs.realpath(repoRoot),
+      await fs.realpath(additionalRoot),
+    ]);
+    assert.deepEqual(fallbackPointer.unreviewed_repositories, [
+      await fs.realpath(additionalRoot),
+    ]);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(additionalRoot, { recursive: true, force: true });
   }
 });
 

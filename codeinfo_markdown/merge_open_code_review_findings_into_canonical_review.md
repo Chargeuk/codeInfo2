@@ -7,7 +7,8 @@ This step may update only:
 - `codeInfoTmp/reviews/<story_id>-current-review.json`;
 - its referenced canonical `findings_file`;
 - `codeInfoTmp/reviews/<story_id>-current-open-code-review.json`;
-- `codeInfoTmp/reviews/<open_code_review_pass_id>-open-code-review-merge.md`.
+- `codeInfoTmp/reviews/<open_code_review_pass_id>-open-code-review-merge.md`; or
+- `codeInfoTmp/reviews/<review_session_id>-open-code-review-merge-skipped.md` when no OCR pass ID was published.
 
 <critical_rules>
 
@@ -18,6 +19,7 @@ This step may update only:
 - Treat OCR output as candidate findings, not automatically endorsed findings.
 - Preserve all existing canonical findings. Do not remove or rewrite them because OCR disagrees.
 - On a missing, malformed, stale, wholly invalid, or mismatched OCR pass, record the skipped pass visibly and finish this merge step without stopping later flow steps. Partial OCR is usable: exclude invalid bundles, merge valid bundle findings, and preserve the coverage warnings.
+- If `open_code_review_pass_id` is missing, do not infer or invent it. Use the exact prepared `review_session_id` in the deterministic skipped-merge path, leave the unavailable OCR pointer unchanged, and do not add OCR merge fields to the canonical handoff.
 - Re-read the prepared base and stable pointers immediately before publishing updates. Stop rather than overwriting artifacts owned by another session. Write JSON updates atomically.
 
 </critical_rules>
@@ -37,7 +39,7 @@ This step may update only:
 
 <output_contract>
 
-Always write `codeInfoTmp/reviews/<open_code_review_pass_id>-open-code-review-merge.md` containing the exact input paths, identity validation result, merged candidates, duplicates, rejected/deferred candidates, and reasons.
+When a usable OCR pass ID exists, write `codeInfoTmp/reviews/<open_code_review_pass_id>-open-code-review-merge.md` containing the exact input paths, identity validation result, merged candidates, duplicates, rejected/deferred candidates, and reasons. When no OCR pass ID was published, write `codeInfoTmp/reviews/<review_session_id>-open-code-review-merge-skipped.md` with the validation failure and finish cleanly without updating either pointer.
 
 Update the canonical handoff additively with:
 

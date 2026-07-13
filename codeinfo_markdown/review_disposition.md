@@ -4,7 +4,7 @@ Finish the current story review using ONLY the stored review handoff and the art
 
 <critical_rules>
 
-- Require the server-owned current-review validation artifact to match the exact story/session/pass/HEAD/base identity used by the disposition state. Accept `passed` or `partial`, use findings only from reviewer entries marked usable, and retain failed-review coverage as an incomplete-review warning. Never mix findings from stale or unvalidated reviewer entries.
+- Require the server-owned current-review validation artifact to match the exact story/session/pass/HEAD/base identity used by the disposition state. Accept `passed` or `partial` and use findings only from reviewer entries marked usable. When at least one trustworthy reviewer and the canonical findings basis remain usable, retain failed sibling-review coverage as a visible non-blocking coverage note rather than creating plan work. Use an incomplete-review follow-up only when no reviewer is usable or the surviving artifacts cannot provide a trustworthy review basis. Never mix findings from stale or unvalidated reviewer entries.
 
 - Do NOT rediscover review artifacts by timestamp.
 - First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path`, then extract repository paths from `additional_repositories`.

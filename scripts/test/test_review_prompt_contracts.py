@@ -115,6 +115,38 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("current-review-validation.json", merge_text)
         self.assertIn("Origin: open_code_review", merge_text)
 
+    def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
+        classify_text = read_text(
+            "codeinfo_markdown/classify_review_disposition.md"
+        )
+        disposition_text = read_text("codeinfo_markdown/review_disposition.md")
+
+        self.assertIn("non-blocking entry in `classification_notes`", classify_text)
+        self.assertIn(
+            "do not create an `incomplete_review_blockers` entry solely for that lost coverage",
+            classify_text,
+        )
+        self.assertIn("only when no reviewer is usable", classify_text)
+        self.assertIn("rather than creating plan work", disposition_text)
+
+    def test_missing_review_pass_ids_use_session_scoped_skip_artifacts(self) -> None:
+        codex_text = read_text(
+            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
+        )
+        ocr_text = read_text(
+            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
+        )
+
+        self.assertIn(
+            "<review_session_id>-codex-review-merge-skipped.md", codex_text
+        )
+        self.assertIn(
+            "<review_session_id>-open-code-review-merge-skipped.md", ocr_text
+        )
+        for text in (codex_text, ocr_text):
+            self.assertIn("do not infer or invent it", text)
+            self.assertIn("finish cleanly without updating either pointer", text)
+
     def test_core_findings_prompt_defines_scope_impact_taxonomy(self) -> None:
         text = read_text("codeinfo_markdown/code_review_findings/01-core.md")
         self.assertIn("Scope Impact", text)

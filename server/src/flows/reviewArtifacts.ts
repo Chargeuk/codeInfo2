@@ -216,20 +216,120 @@ const assertReviewScopeMatches = (
   }
 };
 
-const assertMainRepositoryScope = (
-  expected: PreparedReviewBase,
-  pointer: ReviewPointer,
-): void => {
+const readAdditionalRepositoryPaths = (currentPlan: ReviewPointer): string[] => {
+  const additional = currentPlan.additional_repositories;
+  if (additional === undefined) return [];
+  if (!Array.isArray(additional)) {
+    throw new Error('current-plan.additional_repositories must be an array.');
+  }
+  return additional.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(
+        `current-plan.additional_repositories[${index}] must be an object.`,
+      );
+    }
+    return nonEmptyString(
+      (entry as ReviewPointer).path,
+      `current-plan.additional_repositories[${index}].path`,
+    );
+  });
+};
+
+const resolveDeclaredRepositoryPaths = async (
+  repoRoot: string,
+  additionalRepositoryPaths: string[],
+): Promise<string[]> => {
+  const resolved = await Promise.all([
+    fs.realpath(repoRoot),
+    ...additionalRepositoryPaths.map((repositoryPath) =>
+      fs.realpath(path.resolve(repoRoot, repositoryPath)),
+    ),
+  ]);
+  return [...new Set(resolved)];
+};
+
+const assertAdditionalRepositoryScope = async (params: {
+  repositoryPath: string;
+  pointer: ReviewPointer;
+  signal?: AbortSignal;
+}): Promise<void> => {
+  const [branch, headCommit] = await Promise.all([
+    gitStdout(params.repositoryPath, ['branch', '--show-current'], params.signal),
+    gitStdout(
+      params.repositoryPath,
+      ['rev-parse', 'HEAD^{commit}'],
+      params.signal,
+    ),
+  ]);
+  if (params.pointer.branch !== branch) {
+    throw new Error(
+      `current-review repository ${params.repositoryPath} branch does not match Git.`,
+    );
+  }
+  if (params.pointer.head_commit !== headCommit) {
+    throw new Error(
+      `current-review repository ${params.repositoryPath} head_commit does not match Git.`,
+    );
+  }
+  const comparisonBaseCommit = nonEmptyString(
+    params.pointer.comparison_base_commit,
+    `current-review repository ${params.repositoryPath}.comparison_base_commit`,
+  );
+  await gitStdout(
+    params.repositoryPath,
+    ['rev-parse', '--verify', `${comparisonBaseCommit}^{commit}`],
+    params.signal,
+  );
+};
+
+const assertMainRepositoryScope = async (params: {
+  expected: PreparedReviewBase;
+  pointer: ReviewPointer;
+  repoRoot: string;
+  declaredRepositoryPaths: string[];
+  signal?: AbortSignal;
+}): Promise<void> => {
+  const { expected, pointer } = params;
   if (!Array.isArray(pointer.repos) || pointer.repos.length === 0) {
     throw new Error('current-review.repos must contain current_repository.');
   }
-  const currentRepository = pointer.repos.find(
-    (entry) =>
-      entry &&
-      typeof entry === 'object' &&
-      !Array.isArray(entry) &&
-      (entry as ReviewPointer).repo_alias === 'current_repository',
-  ) as ReviewPointer | undefined;
+  const repositoryEntries = await Promise.all(
+    pointer.repos.map(async (entry, index) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        throw new Error(`current-review.repos[${index}] is malformed.`);
+      }
+      const candidate = entry as ReviewPointer;
+      const repositoryRoot = nonEmptyString(
+        candidate.repo_root,
+        `current-review.repos[${index}].repo_root`,
+      );
+      return {
+        pointer: candidate,
+        realPath: await fs.realpath(repositoryRoot),
+      };
+    }),
+  );
+  const entriesByPath = new Map<string, ReviewPointer>();
+  for (const entry of repositoryEntries) {
+    if (entriesByPath.has(entry.realPath)) {
+      throw new Error(
+        `current-review.repos contains duplicate repository ${entry.realPath}.`,
+      );
+    }
+    entriesByPath.set(entry.realPath, entry.pointer);
+  }
+  if (
+    entriesByPath.size !== params.declaredRepositoryPaths.length ||
+    params.declaredRepositoryPaths.some(
+      (repositoryPath) => !entriesByPath.has(repositoryPath),
+    )
+  ) {
+    throw new Error(
+      'current-review.repos does not match the repositories declared by current-plan.',
+    );
+  }
+  const currentRepositoryPath = await fs.realpath(params.repoRoot);
+  const currentRepository = entriesByPath.get(currentRepositoryPath);
   if (!currentRepository) {
     throw new Error('current-review.repos is missing current_repository.');
   }
@@ -240,6 +340,17 @@ const assertMainRepositoryScope = (
       );
     }
   }
+  await Promise.all(
+    params.declaredRepositoryPaths
+      .filter((repositoryPath) => repositoryPath !== currentRepositoryPath)
+      .map((repositoryPath) =>
+        assertAdditionalRepositoryScope({
+          repositoryPath,
+          pointer: entriesByPath.get(repositoryPath)!,
+          signal: params.signal,
+        }),
+      ),
+  );
 };
 
 const integerField = (
@@ -266,6 +377,7 @@ const validateOcrArtifacts = async (params: {
   expected: PreparedReviewBase;
   validatedArtifactFiles: string[];
   warnings: string[];
+  signal?: AbortSignal;
 }): Promise<{ partial: boolean; usableBundleIds: string[] }> => {
   if (params.pointer.schema_version !== 'codeinfo-open-code-review/v1') {
     throw new Error('current-open-code-review has an unsupported schema.');
@@ -293,6 +405,54 @@ const validateOcrArtifacts = async (params: {
   if (typeof manifest.partial !== 'boolean') {
     throw new Error('OCR manifest partial flag is missing.');
   }
+  const manifestSummary = manifest.summary;
+  if (
+    !manifestSummary ||
+    typeof manifestSummary !== 'object' ||
+    Array.isArray(manifestSummary)
+  ) {
+    throw new Error('OCR manifest summary is missing.');
+  }
+  const manifestSummaryRecord = manifestSummary as ReviewPointer;
+  const manifestTotalFiles = integerField(
+    manifestSummaryRecord.total_files,
+    'OCR manifest summary.total_files',
+  );
+  const manifestReviewableFiles = integerField(
+    manifestSummaryRecord.reviewable_files,
+    'OCR manifest summary.reviewable_files',
+  );
+  const manifestExcludedFiles = integerField(
+    manifestSummaryRecord.excluded_files,
+    'OCR manifest summary.excluded_files',
+  );
+  if (
+    manifestReviewableFiles + manifestExcludedFiles !==
+    manifestTotalFiles
+  ) {
+    throw new Error('OCR manifest summary counts conflict.');
+  }
+  if (!Array.isArray(manifest.skipped_files)) {
+    throw new Error('OCR manifest skipped_files is missing.');
+  }
+  const expectedMergeBase = await gitStdout(
+    params.repoRoot,
+    [
+      'merge-base',
+      '--end-of-options',
+      params.expected.comparison_base_commit,
+      params.expected.head_commit,
+    ],
+    params.signal,
+  );
+  const manifestBundlesById = new Map<
+    string,
+    { reviewableFiles: number }
+  >();
+  const manifestFilePaths = new Set<string>();
+  let bundleTotalFiles = 0;
+  let bundleReviewableFiles = 0;
+  let bundleExcludedFiles = 0;
   const manifestBundleIds = manifest.bundles.map((bundle, index) => {
     if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) {
       throw new Error(`OCR manifest bundle ${index} is malformed.`);
@@ -308,13 +468,82 @@ const validateOcrArtifacts = async (params: {
     }
     const targetRecord = target as ReviewPointer;
     if (
-      targetRecord.base_sha !== params.expected.comparison_base_commit ||
+      targetRecord.mode !== 'range' ||
+      targetRecord.from !== params.expected.comparison_base_commit ||
+      targetRecord.to !== params.expected.head_commit ||
+      targetRecord.base_sha !== expectedMergeBase ||
+      targetRecord.merge_base_sha !== expectedMergeBase ||
       targetRecord.head_sha !== params.expected.head_commit
     ) {
       throw new Error(`OCR manifest bundle ${bundleId} is stale.`);
     }
+    const summary = candidate.summary;
+    if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
+      throw new Error(`OCR manifest bundle ${bundleId}.summary is malformed.`);
+    }
+    const summaryRecord = summary as ReviewPointer;
+    const totalFiles = integerField(
+      summaryRecord.total_files,
+      `OCR manifest bundle ${bundleId}.summary.total_files`,
+    );
+    const reviewableFiles = integerField(
+      summaryRecord.reviewable_files,
+      `OCR manifest bundle ${bundleId}.summary.reviewable_files`,
+    );
+    const excludedFiles = integerField(
+      summaryRecord.excluded_files,
+      `OCR manifest bundle ${bundleId}.summary.excluded_files`,
+    );
+    if (reviewableFiles + excludedFiles !== totalFiles) {
+      throw new Error(`OCR manifest bundle ${bundleId} summary conflicts.`);
+    }
+    if (!Array.isArray(candidate.files) || candidate.files.length !== totalFiles) {
+      throw new Error(`OCR manifest bundle ${bundleId} files conflict.`);
+    }
+    let actualReviewableFiles = 0;
+    for (const [fileIndex, file] of candidate.files.entries()) {
+      if (!file || typeof file !== 'object' || Array.isArray(file)) {
+        throw new Error(
+          `OCR manifest bundle ${bundleId}.files[${fileIndex}] is malformed.`,
+        );
+      }
+      const fileRecord = file as ReviewPointer;
+      const filePath = nonEmptyString(
+        fileRecord.path,
+        `OCR manifest bundle ${bundleId}.files[${fileIndex}].path`,
+      );
+      if (manifestFilePaths.has(filePath)) {
+        throw new Error(`OCR manifest contains duplicate file ${filePath}.`);
+      }
+      manifestFilePaths.add(filePath);
+      if (typeof fileRecord.reviewable !== 'boolean') {
+        throw new Error(
+          `OCR manifest bundle ${bundleId}.files[${fileIndex}].reviewable is missing.`,
+        );
+      }
+      if (fileRecord.reviewable) actualReviewableFiles += 1;
+    }
+    if (actualReviewableFiles !== reviewableFiles) {
+      throw new Error(
+        `OCR manifest bundle ${bundleId} reviewable file count conflicts.`,
+      );
+    }
+    if (manifestBundlesById.has(bundleId)) {
+      throw new Error(`OCR manifest contains duplicate bundle ${bundleId}.`);
+    }
+    manifestBundlesById.set(bundleId, { reviewableFiles });
+    bundleTotalFiles += totalFiles;
+    bundleReviewableFiles += reviewableFiles;
+    bundleExcludedFiles += excludedFiles;
     return bundleId;
   });
+  if (
+    bundleTotalFiles !== manifestTotalFiles ||
+    bundleReviewableFiles !== manifestReviewableFiles ||
+    bundleExcludedFiles !== manifestExcludedFiles
+  ) {
+    throw new Error('OCR manifest bundle summaries conflict with its summary.');
+  }
 
   if (!Array.isArray(params.pointer.bundles)) {
     throw new Error('current-open-code-review.bundles is missing.');
@@ -367,6 +596,23 @@ const validateOcrArtifacts = async (params: {
       ) {
         throw new Error('comments failed schema or identity validation');
       }
+      const commentsSummary = comments.summary;
+      if (
+        !commentsSummary ||
+        typeof commentsSummary !== 'object' ||
+        Array.isArray(commentsSummary)
+      ) {
+        throw new Error('comments summary is missing');
+      }
+      const reviewedFiles = integerField(
+        (commentsSummary as ReviewPointer).files_reviewed,
+        `OCR bundle ${bundleId}.comments.summary.files_reviewed`,
+      );
+      if (
+        reviewedFiles !== manifestBundlesById.get(bundleId)?.reviewableFiles
+      ) {
+        throw new Error('comments reviewed-file coverage does not match bundle');
+      }
       if (
         validation.schema_version !== 'codex-review-validation/v1' ||
         validation.bundle_id !== bundleId ||
@@ -417,11 +663,31 @@ const validateOcrArtifacts = async (params: {
     'current-open-code-review.coverage.failed_files',
   );
   if (
-    reviewableFiles > totalFiles ||
-    reviewedFiles > reviewableFiles ||
-    excludedFiles > totalFiles
+    totalFiles !== manifestTotalFiles ||
+    reviewableFiles !== manifestReviewableFiles ||
+    excludedFiles !== manifestExcludedFiles ||
+    skippedFiles !== manifest.skipped_files.length
   ) {
-    throw new Error('current-open-code-review.coverage counts conflict.');
+    throw new Error(
+      'current-open-code-review.coverage does not match the OCR manifest.',
+    );
+  }
+  const validatedReviewedFiles = usableBundleIds.reduce(
+    (total, bundleId) =>
+      total + (manifestBundlesById.get(bundleId)?.reviewableFiles ?? 0),
+    0,
+  );
+  const validatedFailedFiles = Math.max(
+    0,
+    reviewableFiles - validatedReviewedFiles - skippedFiles,
+  );
+  const reportedCoverageMatchesValidated =
+    reviewedFiles === validatedReviewedFiles &&
+    failedFiles === validatedFailedFiles;
+  if (!reportedCoverageMatchesValidated) {
+    params.warnings.push(
+      `OCR reported coverage did not match server-validated bundles; using ${validatedReviewedFiles}/${reviewableFiles} reviewed and ${validatedFailedFiles} failed.`,
+    );
   }
   if (
     params.pointer.overall_validation_status !== 'valid' &&
@@ -436,12 +702,24 @@ const validateOcrArtifacts = async (params: {
     params.pointer.partial === true ||
     manifest.partial === true ||
     usableBundleIds.length !== pointerBundleIds.length ||
-    reviewedFiles !== reviewableFiles ||
+    !reportedCoverageMatchesValidated ||
+    validatedReviewedFiles !== reviewableFiles ||
     skippedFiles > 0 ||
-    failedFiles > 0;
+    validatedFailedFiles > 0;
+  const expectedOverallStatus =
+    reviewableFiles > 0 && usableBundleIds.length === 0
+      ? 'invalid'
+      : partial
+        ? 'partial'
+        : 'valid';
+  if (params.pointer.overall_validation_status !== expectedOverallStatus) {
+    params.warnings.push(
+      `OCR overall validation status ${String(params.pointer.overall_validation_status)} conflicts with server-validated status ${expectedOverallStatus}; using ${expectedOverallStatus}.`,
+    );
+  }
   if (partial) {
     params.warnings.push(
-      `OCR coverage is partial: ${reviewedFiles}/${reviewableFiles} reviewable files, ${skippedFiles} skipped, ${failedFiles} failed.`,
+      `OCR coverage is partial: ${validatedReviewedFiles}/${reviewableFiles} reviewable files, ${skippedFiles} skipped, ${validatedFailedFiles} failed.`,
     );
   }
   if (reviewableFiles > 0 && usableBundleIds.length === 0) {
@@ -511,7 +789,19 @@ const createFallbackCanonicalFindings = async (params: {
   repoRoot: string;
   prepared: PreparedReviewBase;
   mainResult: ReviewPointerValidationResult;
+  declaredRepositoryPaths: string[];
 }): Promise<string> => {
+  const currentRepositoryPath = await fs.realpath(params.repoRoot);
+  const unreviewedRepositories = params.declaredRepositoryPaths.filter(
+    (repositoryPath) => repositoryPath !== currentRepositoryPath,
+  );
+  const coverageWarnings = [
+    ...params.mainResult.errors,
+    ...unreviewedRepositories.map(
+      (repositoryPath) =>
+        `Additional repository was not covered by the surviving Codex/OCR reviews: ${repositoryPath}`,
+    ),
+  ];
   const relativeFindingsPath = `codeInfoTmp/reviews/${params.prepared.review_session_id}-fallback-findings.md`;
   const findingsPath = path.join(params.repoRoot, relativeFindingsPath);
   await atomicWriteText(
@@ -523,7 +813,7 @@ const createFallbackCanonicalFindings = async (params: {
       '',
       '## Review coverage warnings',
       '',
-      ...params.mainResult.errors.map((error) => `- Main review: ${error}`),
+      ...coverageWarnings.map((error) => `- Main review: ${error}`),
       '',
     ].join('\n'),
   );
@@ -542,8 +832,10 @@ const createFallbackCanonicalFindings = async (params: {
       evidence_file: null,
       findings_file: relativeFindingsPath,
       repos: [currentRepository],
+      declared_repository_scope: params.declaredRepositoryPaths,
+      unreviewed_repositories: unreviewedRepositories,
       main_review_status: 'unavailable',
-      review_coverage_warnings: params.mainResult.errors,
+      review_coverage_warnings: coverageWarnings,
       status: 'partial',
     },
   );
@@ -568,6 +860,11 @@ export async function validateReviewArtifacts(params: {
     'current-plan.json',
   );
   const currentPlan = await readJsonObject(currentPlanPath);
+  const additionalRepositoryPaths = readAdditionalRepositoryPaths(currentPlan);
+  const declaredRepositoryPaths = await resolveDeclaredRepositoryPaths(
+    repoRoot,
+    additionalRepositoryPaths,
+  );
   const planPath =
     typeof currentPlan.plan_path === 'string' ? currentPlan.plan_path : '';
   const storyId = deriveCanonicalStoryId(planPath);
@@ -629,7 +926,13 @@ export async function validateReviewArtifacts(params: {
         );
       }
       if (pointerKey === 'current-review') {
-        assertMainRepositoryScope(prepared.artifact, pointer);
+        await assertMainRepositoryScope({
+          expected: prepared.artifact,
+          pointer,
+          repoRoot,
+          declaredRepositoryPaths,
+          signal: params.signal,
+        });
       }
       for (const field of referencedArtifactFields(pointerKey)) {
         const artifactPath = await resolveReviewArtifact({
@@ -648,6 +951,7 @@ export async function validateReviewArtifacts(params: {
           expected: prepared.artifact,
           validatedArtifactFiles: result.validated_artifact_files,
           warnings: result.warnings,
+          signal: params.signal,
         });
         result.usable_bundle_ids = ocr.usableBundleIds;
         result.status = ocr.partial ? 'partial' : 'passed';
@@ -695,6 +999,7 @@ export async function validateReviewArtifacts(params: {
       repoRoot,
       prepared: prepared.artifact,
       mainResult,
+      declaredRepositoryPaths,
     });
   }
 

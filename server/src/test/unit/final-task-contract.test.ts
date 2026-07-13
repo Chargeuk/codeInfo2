@@ -184,11 +184,18 @@ describe('final task contract', () => {
       'codeinfo_markdown/ensure_review_findings_became_tasks.md',
     );
     const supportedLifecycleInventory =
-      /its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted/g;
-    assert.equal(
-      [...reviewTaskUp.matchAll(supportedLifecycleInventory)].length,
-      3,
-    );
+      /its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted/;
+    for (const sectionName of [
+      'decision_rules',
+      'repair_rules',
+      'verification_loop',
+    ]) {
+      const section = reviewTaskUp.match(
+        new RegExp(`<${sectionName}>[\\s\\S]*?</${sectionName}>`),
+      )?.[0];
+      assert.ok(section, `missing ${sectionName} section`);
+      assert.match(section, supportedLifecycleInventory, sectionName);
+    }
     assert.doesNotMatch(
       reviewTaskUp,
       /lint, formatting, build, runtime, and full-suite validation/,

@@ -69,7 +69,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe open legacy task for `review_cycle_id` backfill.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.
 - If the helper reports `needs_cycle_id_backfill`, backfill the current `review_cycle_id` into the selected task while updating it.
-- Preserve completed proof notes that remain true, but uncheck or rewrite every validation item made stale by new resolved minor findings or other later story-owned changes, including affected build, runtime, full-suite, shutdown, lint, and formatting items in both `Subtasks` and `Testing`.
+- Preserve completed proof notes that remain true, but uncheck or rewrite every validation item made stale by new resolved minor findings or other later story-owned changes, including affected lint and formatting items in `Subtasks` and affected build, startup, full-suite, shutdown, lint, and formatting items in `Testing`.
 - Do not renumber existing tasks unless the plan already has a numbering collision that makes the new or updated task ambiguous.
 
 </idempotency_rules>

@@ -38,7 +38,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 <quality_contract>
 
 - Make every eligible review-created task concrete enough for a weak, junior, forgetful implementer who may read one subtask at a time.
-- Ensure each eligible substantive task has explicit ownership, clear subtasks, honest proof homes, and realistic wrapper-first testing. Ensure the dedicated final task instead retains only each worked-on repository's supported lint and formatting initial subtask types, omits unsupported commands independently, and gives each repository a full build, applicable startup, relevant full-suite, matching shutdown, supported lint, and supported formatting testing inventory.
+- Ensure each eligible substantive task has explicit ownership, clear subtasks, honest proof homes, and realistic wrapper-first testing. Ensure the dedicated final task instead retains only each worked-on repository's supported lint and formatting initial subtask types, omits unsupported commands independently, and gives each repository its discovered supported full build when available, applicable startup, every relevant full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting in its testing inventory.
 - Keep review-created tasks executable in order: no subtask may depend on a later `Testing` step to become runnable.
 - Keep `Testing` automated-only and place any optional manual-testing-agent scenarios only in `Manual Testing Guidance`.
 - Do not create manual testing subtasks or testing checklist items in these review-created tasks.

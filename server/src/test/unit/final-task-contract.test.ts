@@ -180,6 +180,30 @@ describe('final task contract', () => {
       }
     }
 
+    const reviewTaskUp = await read(
+      'codeinfo_markdown/ensure_review_findings_became_tasks.md',
+    );
+    assert.match(
+      reviewTaskUp,
+      /discovered supported full build when available, applicable startup, every relevant full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting/,
+    );
+    assert.doesNotMatch(
+      reviewTaskUp,
+      /lint, formatting, build, runtime, and full-suite validation/,
+    );
+
+    const reviewEnhancementContract = await read(
+      'codeinfo_markdown/review_task_enhancement/01-shared-contract.md',
+    );
+    assert.match(
+      reviewEnhancementContract,
+      /discovered supported full build when available, applicable startup, every relevant full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting/,
+    );
+    assert.doesNotMatch(
+      reviewEnhancementContract,
+      /gives each repository a full build, applicable startup, relevant full-suite/,
+    );
+
     const minorRevalidation = await read(
       'codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md',
     );
@@ -208,7 +232,11 @@ describe('final task contract', () => {
     assert.match(minorRevalidation, /every validation item made stale/);
     assert.match(
       minorRevalidation,
-      /build, runtime, full-suite, shutdown, lint, and formatting items/,
+      /affected lint and formatting items in `Subtasks` and affected build, startup, full-suite, shutdown, lint, and formatting items in `Testing`/,
+    );
+    assert.doesNotMatch(
+      minorRevalidation,
+      /build, runtime, full-suite, shutdown, lint, and formatting items in both `Subtasks` and `Testing`/,
     );
     assert.match(minorRevalidation, /non-blocking `Implementation Notes` entry/);
     assert.match(minorRevalidation, /repository is missing or unreadable/);
@@ -231,6 +259,14 @@ describe('final task contract', () => {
     assert.match(automatedProof, /whole approved story is repair scope/);
     assert.match(automatedProof, /same final task/);
     assert.match(automatedProof, /different numbered task only when/);
+    assert.match(
+      automatedProof,
+      /uncheck every affected validation item made stale including build, startup, full-suite, shutdown, lint, and formatting items/,
+    );
+    assert.doesNotMatch(
+      automatedProof,
+      /uncheck every suite and later lint or formatting item made stale/,
+    );
 
     for (const repairPromptPath of [
       'codeinfo_markdown/audit_after_automated_proof.md',

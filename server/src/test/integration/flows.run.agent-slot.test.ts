@@ -4,13 +4,15 @@ import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import type { LogEntry } from '@codeinfo2/common';
+
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
-import { query } from '../../logStore.js';
+import { subscribe } from '../../logStore.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
@@ -337,6 +339,12 @@ test('reset evicts one named agent slot and unused resets remain non-blocking', 
   setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   const calls: RecordedChatCall[] = [];
+  const observedResetLogs: LogEntry[] = [];
+  const unsubscribeFromLogs = subscribe((entry) => {
+    if (entry.message === 'flows.agent.reset') {
+      observedResetLogs.push(entry);
+    }
+  });
   let conversationId: string | undefined;
   try {
     const result = await startFlowRun({
@@ -383,8 +391,8 @@ test('reset evicts one named agent slot and unused resets remain non-blocking', 
     assert.ok(memoryConversations.has(alphaSecond.conversationId));
     assert.ok(memoryConversations.has(betaFirst.conversationId));
 
-    const resetLogs = query({ text: runConversationId }).filter(
-      (entry) => entry.message === 'flows.agent.reset',
+    const resetLogs = observedResetLogs.filter(
+      (entry) => entry.context?.conversationId === runConversationId,
     );
     assert.deepEqual(
       resetLogs.map((entry) => entry.context?.outcome),
@@ -395,6 +403,7 @@ test('reset evicts one named agent slot and unused resets remain non-blocking', 
       ['Unused reset remains non-blocking', 'Reset alpha', 'Reset alpha again'],
     );
   } finally {
+    unsubscribeFromLogs();
     if (conversationId) {
       memoryConversations.delete(conversationId);
       memoryTurns.delete(conversationId);

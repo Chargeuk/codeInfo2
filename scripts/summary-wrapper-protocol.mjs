@@ -197,6 +197,7 @@ export const runLoggedCommand = ({
   terminalSummaryPatterns = [],
   semanticProgressStallMs = DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS,
   terminalSummaryGraceMs = DEFAULT_SUMMARY_WRAPPER_TERMINAL_GRACE_MS,
+  progressWatchdogIntervalMs = 15_000,
 }) =>
   new Promise((resolve) => {
     if (phase) {
@@ -251,6 +252,9 @@ export const runLoggedCommand = ({
       if (kind === 'terminal_summary') {
         terminalSummaryLine = line;
         terminalSummaryAt = lastProgressAt;
+      } else {
+        terminalSummaryLine = '';
+        terminalSummaryAt = 0;
       }
     };
 
@@ -339,7 +343,7 @@ export const runLoggedCommand = ({
         ) {
           triggerWatchdog('semantic_progress_stalled', lastProgressLine);
         }
-      }, 15_000);
+      }, progressWatchdogIntervalMs);
       progressWatchdog.unref?.();
     }
 

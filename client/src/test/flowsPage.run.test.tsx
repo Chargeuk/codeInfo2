@@ -1558,7 +1558,7 @@ describe('Flows page run/resume controls', () => {
       if (flowListOrDetails) {
         return flowListOrDetails;
       }
-      if (target.includes('/conversations/') && target.includes('/turns')) {
+      if (target.includes('/conversations/flow-1/turns')) {
         return mockJsonResponse({
           items: [
             {
@@ -1573,6 +1573,9 @@ describe('Flows page run/resume controls', () => {
             },
           ],
         });
+      }
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
       }
       if (target.includes('/conversations')) {
         return mockJsonResponse({

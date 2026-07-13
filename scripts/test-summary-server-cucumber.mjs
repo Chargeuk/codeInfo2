@@ -155,6 +155,7 @@ const cucumberImportArgs = buildCucumberImportArgs(serverDir, featureArgs);
 const cucumberArgs = [
   ...featureArgs,
   ...cucumberImportArgs,
+  '--force-exit',
   '--tags',
   tagsExpression,
 ];

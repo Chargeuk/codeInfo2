@@ -187,11 +187,12 @@ test('flow turns include command metadata in snapshots and history', async () =>
   app.use((req, res, next) => continueInFlowScope(req, res, next));
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new SlowChat(),
         }),
+      ),
     }),
   );
   app.use(
@@ -347,7 +348,7 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
   app.use((req, res, next) => continueInFlowScope(req, res, next));
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new SlowChat(),
@@ -361,6 +362,7 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
   app.use(

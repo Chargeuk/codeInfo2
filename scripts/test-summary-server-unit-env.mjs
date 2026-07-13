@@ -28,6 +28,8 @@ export const buildServerUnitWrapperEnv = (
     CODEINFO_CODEX_AGENT_HOME: defaultLegacyAgentHome,
     CODEINFO_TEST_PROVIDER_HOME_ROOT:
       options.testProviderHomeRoot ?? baseEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT,
+    CODEINFO_TEST_TIMEOUT_MS:
+      baseEnv.CODEINFO_TEST_TIMEOUT_MS ?? options.defaultTestTimeoutMs,
     CODEINFO_LOG_FILE_PATH: '../logs/server-test.log',
     CODEINFO_CHROMA_URL: '',
     CODEINFO_MONGO_URI: '',

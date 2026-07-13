@@ -86,3 +86,21 @@ test('server unit summary wrapper injects the test provider-home root when reque
     '/tmp/server-unit-provider-homes',
   );
 });
+
+test('server unit summary wrapper applies an optional default test timeout', () => {
+  const wrapped = buildServerUnitWrapperEnv(
+    {},
+    { defaultTestTimeoutMs: '60000' },
+  );
+
+  assert.equal(wrapped.CODEINFO_TEST_TIMEOUT_MS, '60000');
+});
+
+test('server unit summary wrapper preserves an explicit test timeout', () => {
+  const wrapped = buildServerUnitWrapperEnv(
+    { CODEINFO_TEST_TIMEOUT_MS: '90000' },
+    { defaultTestTimeoutMs: '60000' },
+  );
+
+  assert.equal(wrapped.CODEINFO_TEST_TIMEOUT_MS, '90000');
+});

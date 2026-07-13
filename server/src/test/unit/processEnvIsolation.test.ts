@@ -94,3 +94,37 @@ test('out-of-scope scoped env helpers throw immediately', () => {
 
   beginScopedTestEnvIsolation();
 });
+
+test('new persistent test scopes do not inherit prior scoped values', () => {
+  const canary = 'DEV_PROCESS_ENV_FRESH_PERSISTENT_SCOPE_CANARY';
+  setScopedTestEnvValue(canary, 'prior');
+
+  beginScopedTestEnvIsolation({}, { persistentAcrossAsyncBoundaries: true });
+
+  assert.equal(process.env[canary], undefined);
+});
+
+test('closed detached callbacks cannot read a later test scope', async (t) => {
+  const canary = 'DEV_PROCESS_ENV_DETACHED_SCOPE_CANARY';
+  let releaseDetached: (() => void) | undefined;
+  let detachedRead: Promise<string | undefined> | undefined;
+
+  await t.test('captures the current scope', () => {
+    setScopedTestEnvValue(canary, 'closed');
+    const released = new Promise<void>((resolve) => {
+      releaseDetached = resolve;
+    });
+    detachedRead = (async () => {
+      await released;
+      return process.env[canary];
+    })();
+  });
+
+  await t.test('keeps the next scope isolated', async () => {
+    setScopedTestEnvValue(canary, 'current');
+    releaseDetached?.();
+
+    assert.equal(process.env[canary], 'current');
+    assert.equal(await detachedRead, undefined);
+  });
+});

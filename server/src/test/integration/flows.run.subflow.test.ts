@@ -1400,7 +1400,11 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       '0000027-current-codex-review.json',
     );
     await waitFor(() => existsSync(preparedBasePath));
-    await waitFor(() => existsSync(pointerPath));
+    await waitFor(
+      () => existsSync(pointerPath),
+      20_000,
+      () => describeConversationStateWithActiveSubflows(result.conversationId),
+    );
     assert.equal(existsSync(preparedBasePath), true);
     assert.equal(existsSync(pointerPath), true);
   } finally {
@@ -1924,7 +1928,15 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       'reviews',
       '0000027-current-codex-review.json',
     );
-    await waitFor(() => existsSync(pointerPath));
+    await waitFor(
+      () => existsSync(pointerPath),
+      20_000,
+      () =>
+        JSON.stringify({
+          state: describeConversationStateWithActiveSubflows(conversationId),
+          graph: describeConversationGraph(conversationId, 3),
+        }),
+    );
     const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
       model: string;
     };
@@ -2194,7 +2206,17 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       'reviews',
       '0000027-current-codex-review.json',
     );
-    await waitFor(() => existsSync(pointerPath));
+    await waitFor(
+      () => existsSync(pointerPath),
+      20_000,
+      () =>
+        JSON.stringify({
+          state: describeConversationStateWithActiveSubflows(
+            result.conversationId,
+          ),
+          graph: describeConversationGraph(result.conversationId, 3),
+        }),
+    );
     await waitForAssistantStatus(result.conversationId, 'ok');
     const preparedBase = JSON.parse(await fs.readFile(basePath, 'utf8')) as {
       comparison_base_ref?: string;

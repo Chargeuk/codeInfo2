@@ -66,10 +66,31 @@ const allocateScopeId = (): number => {
   return nextScopeId;
 };
 
-const getCurrentScopeId = (): number | undefined =>
-  storage.getStore()?.scopeId ??
-  scopeIdStorage.getStore() ??
-  ambientPersistentScopeId;
+const isNodeTestExecutionFrame = (): boolean => {
+  const stack = new Error().stack ?? '';
+  return (
+    stack.includes('TestHook.run') ||
+    stack.includes('runHook') ||
+    stack.includes('Test.runInAsyncScope') ||
+    stack.includes('Test.run') ||
+    stack.includes('startSubtestAfterBootstrap')
+  );
+};
+
+const getCurrentScopeId = (): number | undefined => {
+  const inheritedScopeId =
+    storage.getStore()?.scopeId ?? scopeIdStorage.getStore();
+  if (
+    inheritedScopeId !== undefined &&
+    ambientPersistentScopeId !== undefined &&
+    inheritedScopeId !== ambientPersistentScopeId &&
+    latestStores.get(inheritedScopeId)?.envScopeState?.open === false &&
+    isNodeTestExecutionFrame()
+  ) {
+    return ambientPersistentScopeId;
+  }
+  return inheritedScopeId ?? ambientPersistentScopeId;
+};
 
 export function getCurrentTestOverrideScopeId(): number | undefined {
   return getCurrentScopeId();
@@ -219,7 +240,7 @@ export function enterTestOverrideScope(
 export function enterPersistentTestOverrideScope(
   patch: TestOverridePatch,
 ): void {
-  const merged = buildPatchedStore(getCurrentStore(), patch, { newScope: true });
+  const merged = buildPatchedStore(undefined, patch, { newScope: true });
   latestStores.set(merged.scopeId, merged);
   persistentStores.set(merged.scopeId, merged);
   ambientPersistentScopeId = merged.scopeId;

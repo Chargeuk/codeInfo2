@@ -308,7 +308,7 @@ test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRu
   assert.equal(capturedModelId, 'gpt-5.4');
 });
 
-test('POST /flows/:flowName/run fails fast for codexReview-only flows when codex is unavailable', async () => {
+test('POST /flows/:flowName/run accepts codexReview-only flows and skips the review when codex is unavailable', async () => {
   const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpFlowsDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-codex-review-preflight-'),
@@ -381,7 +381,7 @@ test('POST /flows/:flowName/run fails fast for codexReview-only flows when codex
     const app = express();
     app.use(
       createFlowsRunRouter({
-        startFlowRun: (params) =>
+        startFlowRun: bindCurrentTestOverrides((params) =>
           startFlowRun({
             ...params,
             chatFactory: () => new MinimalChat(),
@@ -390,17 +390,28 @@ test('POST /flows/:flowName/run fails fast for codexReview-only flows when codex
               lockedModelId: null,
             }),
           }),
+        ),
       }),
     );
 
     const res = await supertest(app)
       .post('/flows/codex-review-only/run')
       .send({ working_folder: tmpRepoRoot })
-      .expect(503);
+      .expect(202);
 
-    assert.equal(res.body.error, 'provider_unavailable');
-    assert.equal(res.body.code, 'PROVIDER_UNAVAILABLE');
-    assert.match(String(res.body.reason), /codex unavailable for test/i);
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.providerId, 'codex');
+    assert.equal(res.body.modelId, 'gpt-5.4');
+    const conversationId = String(res.body.conversationId);
+    await waitForCondition(() =>
+      (memoryTurns.get(conversationId) ?? []).some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes('Codex review skipped.') &&
+          String(turn.content).includes('codex unavailable for test'),
+      ),
+    );
   } finally {
     if (prevFlowsDir === undefined) {
       clearScopedTestEnvValue('FLOWS_DIR');

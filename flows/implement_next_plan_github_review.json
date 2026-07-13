@@ -624,11 +624,18 @@
           ]
         },
         {
-          "type": "llm",
-          "label": "Write Review No-Findings Closeout",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "write_review_no_findings_closeout.md"
+          "type": "if",
+          "label": "Only Write No-Findings Closeout After A Clean GitHub Review",
+          "condition": "scripts/flow_control/check_github_review_should_write_no_findings_closeout.py",
+          "then": [
+            {
+              "type": "llm",
+              "label": "Write Review No-Findings Closeout",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "write_review_no_findings_closeout.md"
+            }
+          ]
         },
         {
           "type": "llm",

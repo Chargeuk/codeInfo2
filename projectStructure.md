@@ -53,6 +53,20 @@ Story notes:
 - The checked-in default implementation flows stay free of GitHub review steps, while the single copied opt-in Story 60 entrypoint lives in `flows/implement_next_plan_github_review.json` and alone carries the post-internal-review GitHub cycle. Actionable external findings close that execution's PR once before the outer implementation loop restarts internal review.
 - Proof ownership spans the new GitHub adapter and scratch unit suites, the existing flow schema and integration homes, the authored-flow cucumber feature, the browser `flows` e2e path, and the client disabled-selection guard that keeps non-runnable ingested GitHub variants from stealing the active runnable selection.
 
+## Story 0000060 self-recovery closeout ledger
+
+Added files:
+
+- `scripts/flow_control/check_github_review_should_write_no_findings_closeout.py` — direct flow gate that permits clean closeout only when an execution-scoped GitHub review completed and workflow state is clean.
+
+Updated lifecycle owners:
+
+- `server/src/flows/flowState.ts` and `server/src/flows/service.ts` — distinguish authored waits from review retries, rearm lock-contended wakes, clean matching scheduler ownership, skip unavailable pre-PR cycles, and retry failures after a PR is active.
+- `server/src/flows/githubReview.ts` — distinguish expected pre-fetch context from a lost fetched handoff and recover stale or legacy scratch recovery locks.
+- `flows/implement_next_plan_github_review.json` and `scripts/flow_control/story.py` — prevent skipped or unresolved review cycles from writing a no-findings closeout.
+- `codeInfoStatus/pr-summaries/0000060-pr-summary.md` — supplies bounded implementation, rationale, and proof context for generated reviewer-facing PR descriptions.
+- Focused proof lives in the existing wait-resume, GitHub adapter, GitHub scratch, flow-runtime, story-context, and Python flow-control test owners rather than a parallel test harness.
+
 ## Story 0000064 structural change ledger
 
 Added files:

@@ -1240,6 +1240,8 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
     activeSubflows: value.activeSubflows,
     legacyActiveSubflow: value.activeSubflow,
   });
+  const waitKind =
+    value.kind === 'review_retry' ? 'review_retry' : 'authored_wait';
 
   const githubReviewContext = isRecord(value.githubReviewContext)
     ? {
@@ -1282,10 +1284,26 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
               ),
             }
           : {}),
+        ...(value.githubReviewContext.phase === 'opened' ||
+        value.githubReviewContext.phase === 'fetched' ||
+        value.githubReviewContext.phase === 'skipped'
+          ? {
+              phase: value.githubReviewContext.phase as
+                | 'opened'
+                | 'fetched'
+                | 'skipped',
+            }
+          : {}),
+        ...(typeof value.githubReviewContext.retryAttempt === 'number' &&
+        Number.isInteger(value.githubReviewContext.retryAttempt) &&
+        value.githubReviewContext.retryAttempt >= 0
+          ? { retryAttempt: value.githubReviewContext.retryAttempt }
+          : {}),
       }
     : undefined;
 
   return {
+    kind: waitKind,
     executionId,
     stepPath,
     loopStack: Array.isArray(value.loopStack)
@@ -1469,6 +1487,24 @@ const clearScheduledFlowWait = (conversationId: string) => {
   if (!scheduled) return;
   scheduled.handle.cancel();
   scheduledFlowWaits.delete(conversationId);
+};
+
+const clearScheduledFlowWaitIfMatches = (
+  conversationId: string,
+  wait: Pick<FlowWaitState, 'executionId' | 'resumeAt' | 'stepPath'>,
+) => {
+  const scheduled = scheduledFlowWaits.get(conversationId);
+  if (
+    !scheduled ||
+    scheduled.executionId !== wait.executionId ||
+    scheduled.resumeAt !== wait.resumeAt ||
+    getStepPathKey(scheduled.stepPath) !== getStepPathKey(wait.stepPath)
+  ) {
+    return false;
+  }
+  scheduled.handle.cancel();
+  scheduledFlowWaits.delete(conversationId);
+  return true;
 };
 
 const rearmPersistedWaitRecoveryOwnership = async (params: {
@@ -1714,6 +1750,7 @@ const scheduledFlowWaits = new Map<
 >();
 
 const cloneFlowWaitState = (wait: FlowWaitState): FlowWaitState => ({
+  kind: wait.kind ?? 'authored_wait',
   executionId: wait.executionId,
   stepPath: [...wait.stepPath],
   loopStack: wait.loopStack.map((frame) => ({
@@ -3796,6 +3833,7 @@ const buildFlowResumeState = (params: {
     ...(params.wait
       ? {
           wait: {
+            kind: params.wait.kind ?? 'authored_wait',
             executionId: params.wait.executionId,
             stepPath: [...params.wait.stepPath],
             loopStack: params.wait.loopStack.map((frame) => ({
@@ -4271,11 +4309,34 @@ export const __readCurrentPlanStoryContextForTests = async (params: {
     const title =
       headingMatch?.[1]?.trim() ||
       path.basename(planPath, '.md').replace(/^\d+-/u, '').replace(/-/gu, ' ');
+    let implementationSummary: string[] = [];
+    if (storyNumber) {
+      const prSummaryPath = path.join(
+        workingRepositoryRoot,
+        'codeInfoStatus/pr-summaries',
+        `${storyNumber}-pr-summary.md`,
+      );
+      const prSummaryRaw = await fs
+        .readFile(prSummaryPath, 'utf8')
+        .catch(() => '');
+      const finalSummarySection =
+        (prSummaryRaw.split(/^## Final Summary\s*$/mu)[1] ?? '')
+          .split(/^##\s/mu)[0]
+          ?.trim() ?? '';
+      implementationSummary = [
+        ...finalSummarySection.matchAll(/^\d+\.\s+(.+)$/gmu),
+      ]
+        .map((match) => match[1]?.trim() ?? '')
+        .filter(Boolean)
+        .slice(0, 4)
+        .map((item) => item.slice(0, 600));
+    }
     return {
       workingRepositoryRoot,
       planPath,
       storyNumber,
       title,
+      ...(implementationSummary.length > 0 ? { implementationSummary } : {}),
     };
   } catch {
     return null;
@@ -4467,7 +4528,7 @@ const schedulePersistedWaitResume = (params: {
             conversationFound: Boolean(conversation),
             persistedFlowName: conversation?.flowName ?? null,
           });
-          clearScheduledFlowWait(params.conversationId);
+          clearScheduledFlowWaitIfMatches(params.conversationId, params.wait);
           return;
         }
         const persistedState = parseFlowResumeState(
@@ -4484,14 +4545,14 @@ const schedulePersistedWaitResume = (params: {
         });
         if (!persistedState || !persistedWait) {
           appendWaitWakeDiagnostic('wake_skipped_missing_wait_state');
-          clearScheduledFlowWait(params.conversationId);
+          clearScheduledFlowWaitIfMatches(params.conversationId, params.wait);
           return;
         }
         if (persistedWait.executionId !== params.wait.executionId) {
           appendWaitWakeDiagnostic('wake_skipped_execution_mismatch', {
             persistedExecutionId: persistedWait.executionId,
           });
-          clearScheduledFlowWait(params.conversationId);
+          clearScheduledFlowWaitIfMatches(params.conversationId, params.wait);
           return;
         }
         if (
@@ -4501,7 +4562,7 @@ const schedulePersistedWaitResume = (params: {
           appendWaitWakeDiagnostic('wake_skipped_step_path_mismatch', {
             persistedStepPath: persistedWait.stepPath,
           });
-          clearScheduledFlowWait(params.conversationId);
+          clearScheduledFlowWaitIfMatches(params.conversationId, params.wait);
           return;
         }
         const latestAssistantStatus =
@@ -4509,13 +4570,14 @@ const schedulePersistedWaitResume = (params: {
             params.conversationId,
           );
         if (
+          params.wait.kind !== 'review_retry' &&
           latestAssistantStatus &&
           isTerminalFlowStatus(latestAssistantStatus)
         ) {
           appendWaitWakeDiagnostic('wake_terminal_guard_skip', {
             latestAssistantStatus,
           });
-          clearScheduledFlowWait(params.conversationId);
+          clearScheduledFlowWaitIfMatches(params.conversationId, params.wait);
           return;
         }
         try {
@@ -4531,6 +4593,7 @@ const schedulePersistedWaitResume = (params: {
             source: params.source,
           });
           appendWaitWakeDiagnostic('wake_resume_dispatch_complete');
+          clearScheduledFlowWaitIfMatches(params.conversationId, params.wait);
         } catch (error) {
           if ((error as FlowRunError | undefined)?.code === 'RUN_IN_PROGRESS') {
             appendWaitWakeDiagnostic(
@@ -4544,7 +4607,14 @@ const schedulePersistedWaitResume = (params: {
               },
               'flows.wait.resume.skipped_run_in_progress',
             );
-            clearScheduledFlowWait(params.conversationId);
+            await rearmPersistedWaitRecoveryOwnership({
+              conversation,
+              persistedState,
+              persistedWait,
+              flowName: params.flowName,
+              source: params.source,
+              recoveryReason: 'A flow run still owned the conversation lock.',
+            });
             return;
           }
           appendWaitWakeDiagnostic('wake_resume_dispatch_failed', {
@@ -5614,6 +5684,7 @@ async function runFlowUnlocked(params: {
   let activeSubflows = cloneActiveSubflows(params.resumeState?.activeSubflows);
   let activeWait = params.resumeState?.wait
     ? {
+        kind: params.resumeState.wait.kind ?? 'authored_wait',
         executionId: params.resumeState.wait.executionId,
         stepPath: [...params.resumeState.wait.stepPath],
         loopStack: params.resumeState.wait.loopStack.map((frame) => ({
@@ -5757,6 +5828,9 @@ async function runFlowUnlocked(params: {
             activeGitHubReviewContext.handoffPath,
         }
       : {}),
+    ...(activeGitHubReviewContext?.phase === 'skipped'
+      ? { CODEINFO_GITHUB_REVIEW_SKIPPED: '1' }
+      : {}),
   });
   const appendGitHubReviewExecutionAuthority = (instruction: string) => {
     if (!activeGitHubReviewContext?.handoffPath) return instruction;
@@ -5775,6 +5849,71 @@ async function runFlowUnlocked(params: {
       codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
+  const recoverGitHubReviewFailure = async (
+    status: TurnStatus,
+  ): Promise<FlowStepOutcome> => {
+    if (
+      status === 'stopped' ||
+      !activeGitHubReviewContext?.executionId ||
+      activeGitHubReviewContext.phase === 'skipped'
+    ) {
+      return status;
+    }
+
+    const retryAttempt = (activeGitHubReviewContext.retryAttempt ?? 0) + 1;
+    const retryDelayMs = Math.min(
+      30_000 * 2 ** Math.min(retryAttempt - 1, 5),
+      15 * 60_000,
+    );
+    const resumeAt = flowWaitResumeDeps.now() + retryDelayMs;
+    activeGitHubReviewContext = {
+      ...activeGitHubReviewContext,
+      retryAttempt,
+    };
+    activeWait = {
+      kind: 'review_retry',
+      executionId: params.executionId,
+      stepPath: [...lastCompletedStepPath],
+      loopStack: loopStack.map((frame) => ({
+        loopStepPath: [...frame.loopStepPath],
+        iteration: frame.iteration,
+      })),
+      ...(activeSubflows && activeSubflows.length > 0
+        ? { activeSubflows: cloneActiveSubflows(activeSubflows) }
+        : {}),
+      ...(params.repositoryContext.workingRepositoryPath
+        ? { workingFolder: params.repositoryContext.workingRepositoryPath }
+        : {}),
+      ...(params.repositoryContext.flowSourceId
+        ? { sourceId: params.repositoryContext.flowSourceId }
+        : {}),
+      resumeAt,
+      githubReviewContext: { ...activeGitHubReviewContext },
+    };
+    await persistRuntimeResumeState(lastCompletedStepPath);
+    schedulePersistedWaitResume({
+      conversationId: params.conversationId,
+      flowName: params.flowName,
+      source: params.source,
+      wait: activeWait,
+    });
+    append({
+      level: 'warn',
+      message: 'flows.github.review_failure.recovery_scheduled',
+      timestamp: flowWaitResumeDeps.nowIso(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        retryAttempt,
+        retryDelayMs,
+        resumeAt,
+        stepPath: lastCompletedStepPath,
+        status,
+      },
+    });
+    return 'paused';
+  };
   const clearContinueBoundaryForActiveLoop = () => {
     if (!continueBoundaryLoopKey) return;
     const activeLoopFrame = loopStack[loopStack.length - 1];
@@ -6364,8 +6503,7 @@ async function runFlowUnlocked(params: {
       const result = await runFlowInstruction({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
-        instruction:
-          retryInstruction?.instruction ?? effectiveInstruction,
+        instruction: retryInstruction?.instruction ?? effectiveInstruction,
         agentType: instructionParams.agentType,
         identifier: instructionParams.identifier,
         agentConversationId: agentState.conversationId,
@@ -7025,9 +7163,24 @@ async function runFlowUnlocked(params: {
   const runWaitStep = async (
     step: FlowWaitStep,
     nextPath: number[],
-  ): Promise<'paused'> => {
+  ): Promise<'ok' | 'paused'> => {
+    if (activeGitHubReviewContext?.phase === 'skipped') {
+      append({
+        level: 'info',
+        message: 'flows.wait.skipped_after_github_review_skip',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          stepPath: nextPath,
+        },
+      });
+      return 'ok';
+    }
     const resumeAt = flowWaitResumeDeps.now() + step.seconds * 1000;
     activeWait = {
+      kind: 'authored_wait',
       executionId: params.executionId,
       stepPath: [...nextPath],
       loopStack: loopStack.map((frame) => ({
@@ -7095,6 +7248,12 @@ async function runFlowUnlocked(params: {
       : 'Active Story';
     const storyTitle = storyContext?.title ?? params.flowName;
     const title = `${storyLabel} review: ${storyTitle}`;
+    const implementationSummary = storyContext?.implementationSummary?.length
+      ? storyContext.implementationSummary.map((item) => `- ${item}`)
+      : [
+          `- This branch contains the current implementation pass for ${storyLabel.toLowerCase()} on \`${paramsForPr.branchName}\`.`,
+          `- The review request was generated by the opt-in GitHub review-cycle flow \`${params.flowName}\`.`,
+        ];
     const body = [
       `${storyLabel}: ${storyTitle}`,
       '',
@@ -7103,8 +7262,7 @@ async function runFlowUnlocked(params: {
       `Flow: ${params.flowName}`,
       '',
       'Implemented work summary:',
-      `- This branch contains the current implementation pass for ${storyLabel.toLowerCase()} on \`${paramsForPr.branchName}\`.`,
-      `- The review request was generated by the opt-in GitHub review-cycle flow \`${params.flowName}\`.`,
+      ...implementationSummary,
       '',
       'Reviewer instruction:',
       '- Please focus feedback on the active story scope and the implemented behavior on this branch.',
@@ -7190,6 +7348,14 @@ async function runFlowUnlocked(params: {
         message: warningMessage,
       });
     }
+  };
+
+  const markGitHubReviewCycleSkipped = () => {
+    activeGitHubReviewContext = {
+      executionId: params.executionId,
+      phase: 'skipped',
+      retryAttempt: 0,
+    };
   };
 
   const formatGitHubFailureDetail = (paramsForDetail: {
@@ -7336,18 +7502,18 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      return 'warning';
+      markGitHubReviewCycleSkipped();
+      return 'ok';
     }
     if (context.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during PR open: ${context.message}`,
-      );
-      await emitGitHubStepFailure({
+      const warningMessage = `GitHub review stage skipped during PR open after setup failed: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
-        message: context.message,
-        errorCode: context.reason,
+        message: warningMessage,
       });
-      return 'failed';
+      markGitHubReviewCycleSkipped();
+      return 'ok';
     }
     const pushResult = await pushBranchToExistingUpstream({
       repository: context.value.repository,
@@ -7370,18 +7536,18 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      return 'warning';
+      markGitHubReviewCycleSkipped();
+      return 'ok';
     }
     if (pushResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during PR open: ${pushResult.message}`,
-      );
-      await emitGitHubStepFailure({
+      const warningMessage = `GitHub review stage skipped during PR open after branch push failed: ${pushResult.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
-        message: pushResult.message,
-        errorCode: pushResult.reason,
+        message: warningMessage,
       });
-      return 'failed';
+      markGitHubReviewCycleSkipped();
+      return 'ok';
     }
     const { title, body } = await buildGitHubReviewPullRequestContent({
       repositoryFullName: context.value.repository.repositoryFullName,
@@ -7428,12 +7594,12 @@ async function runFlowUnlocked(params: {
         createFailure: createResult.createFailure,
       });
       await appendGitHubStagePlanNote(failureMessage);
-      await emitGitHubStepFailure({
+      await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
         message: failureMessage,
-        errorCode: createResult.reason,
       });
-      return 'failed';
+      markGitHubReviewCycleSkipped();
+      return 'ok';
     }
     if (createResult.createFailure) {
       const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage({
@@ -7474,15 +7640,14 @@ async function runFlowUnlocked(params: {
       executionId: params.executionId,
     });
     if (scratchOwnershipClaim.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during PR open: ${scratchOwnershipClaim.message}`,
-      );
-      await emitGitHubStepFailure({
+      const warningMessage = `GitHub review stage skipped after PR open because scratch ownership failed: ${scratchOwnershipClaim.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
-        message: scratchOwnershipClaim.message,
-        errorCode: scratchOwnershipClaim.reason,
+        message: warningMessage,
       });
-      return 'failed';
+      markGitHubReviewCycleSkipped();
+      return 'ok';
     }
     activeGitHubReviewContext = {
       executionId: params.executionId,
@@ -7494,6 +7659,8 @@ async function runFlowUnlocked(params: {
         scratchOwnershipClaim.value.story_number,
       ).selectorPath,
       handoffPath: scratchOwnershipClaim.value.handoff_path,
+      phase: 'opened',
+      retryAttempt: 0,
     };
     return 'ok';
   };
@@ -7568,6 +7735,7 @@ async function runFlowUnlocked(params: {
       executionId: activeGitHubReviewContext.executionId,
       handoffPath: canonicalScratchPaths.value.handoffPath,
       resumedPullRequestNumber: activeGitHubReviewContext.prNumber,
+      expectPersistedHandoff: activeGitHubReviewContext.phase === 'fetched',
     });
     if (reconciled.kind !== 'ok') {
       return reconciled;
@@ -7581,6 +7749,7 @@ async function runFlowUnlocked(params: {
   };
 
   const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> => {
+    if (activeGitHubReviewContext?.phase === 'skipped') return 'ok';
     const context = await resolveGitHubStepContext();
     if (context.kind === 'skip') {
       const warningMessage = `GitHub review stage skipped during review fetch: ${context.message}`;
@@ -7737,6 +7906,8 @@ async function runFlowUnlocked(params: {
       branchName: handoffReadResult.value.branch_name,
       selectorPath: canonicalScratchPaths.value.selectorPath,
       handoffPath,
+      phase: 'fetched',
+      retryAttempt: 0,
     };
     const materializedReviewInput = await materializeGitHubExternalReviewInput({
       handoff: handoffReadResult.value,
@@ -7776,6 +7947,7 @@ async function runFlowUnlocked(params: {
   };
 
   const runGitHubClosePrStep = async (): Promise<TurnStatus> => {
+    if (activeGitHubReviewContext?.phase === 'skipped') return 'ok';
     const context = await resolveGitHubStepContext();
     if (context.kind === 'skip') {
       const warningMessage = `GitHub review stage skipped during PR close: ${context.message}`;
@@ -9816,7 +9988,7 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.llm_step_state_advanced', {
@@ -9904,7 +10076,7 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -9939,7 +10111,7 @@ async function runFlowUnlocked(params: {
         });
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         if (!shouldContinue) {
           clearContinueBoundaryForActiveLoop();
@@ -10003,7 +10175,11 @@ async function runFlowUnlocked(params: {
         const outcome = await runIfStep(step, command, nextPath);
         if (outcome !== 'ok') {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return outcome;
+          return outcome === 'failed' ||
+            outcome === 'warning' ||
+            outcome === 'stopped'
+            ? await recoverGitHubReviewFailure(outcome)
+            : outcome;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10021,13 +10197,17 @@ async function runFlowUnlocked(params: {
           });
           return 'paused';
         }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        continue;
       }
 
       if (step.type === 'github_open_pr') {
         const status = await runGitHubOpenPrStep();
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10039,7 +10219,7 @@ async function runFlowUnlocked(params: {
         const status = await runGitHubFetchReviewsStep();
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10051,7 +10231,7 @@ async function runFlowUnlocked(params: {
         const status = await runGitHubClosePrStep();
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10098,7 +10278,7 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.command_step_state_advanced', {
@@ -10231,7 +10411,7 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10265,7 +10445,7 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10307,7 +10487,7 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.subflow_step_state_advanced', {
@@ -10400,7 +10580,7 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return await recoverGitHubReviewFailure(status);
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.reingest_step_state_advanced', {

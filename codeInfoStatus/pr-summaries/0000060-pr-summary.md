@@ -6,14 +6,14 @@
 
 ## Final Summary
 
-1. Story 60 adds flow-only `if`, script-driven yes/no branching, persisted timed `wait`, and thin GitHub PR open/fetch/close steps, then wires those capabilities into new opt-in GitHub review flow variants without changing the default flow entrypoints.
-2. These changes were needed so implementation flows can open a PR, wait, ingest outside GitHub review feedback, and route valid findings back through the repository’s existing repair patterns without manual stitching.
-3. The most complex logic is the long-running GitHub review state: the runtime now treats execution-scoped scratch and handoff files as the authority, rebuilds or validates those paths before re-reading them, and re-enters same-branch PR reconciliation when resumed state drifts.
-4. Reviewers should focus on `server/src/flows/service.ts`, `server/src/flows/githubReview.ts`, `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, and the `/flows` proof owners to confirm the resumed GitHub review authority, PR-selection bounds, and branch-exclusion proof surfaces still match the intended Story 60 contract. The curated manual-proof bundle under `codeInfoStatus/manual-proof/0000060/` is the repository-owned closeout snapshot for retained final manual-proof artifacts.
+1. Story 60 adds flow-only branching, persisted waits, and opt-in GitHub PR review cycles while preserving the default implementation entrypoints and the deliberate one-shot inline fix before task-up policy.
+2. The final lifecycle repair makes review automation self-recovering: pre-PR faults are recorded as skips that let the implementation flow continue, while failures after a PR is active persist bounded-backoff retry ownership at the exact unfinished step.
+3. Wait wakes now rearm after active-run lock contention and remove only their matching scheduler entry; GitHub handoff reconciliation distinguishes expected pre-fetch state from a genuinely lost fetched handoff, and stale recovery locks no longer block scratch updates permanently.
+4. Reviewer-facing PR text is sourced from this bounded story summary, and no-findings closeout is gated on a real completed clean GitHub context. Reviewers should focus on `server/src/flows/service.ts`, `server/src/flows/githubReview.ts`, the GitHub flow-control helpers, and their existing focused runtime tests.
 
 ## Review Status
 
-- The latest plan state records a clean closeout for review pass `0000060-20260630T055405Z-13e605da`.
-- All Story 60 tasks are complete, including the final review-created revalidation task and its broad automated plus manual proof notes.
-- The final review state on disk says the two bounded `should_fix` findings from the last pass were already resolved on the branch and were cleared as stale review state, leaving no unresolved review work.
-- Residual risk is limited to the already-recorded weak-proof note around injected startup/bootstrap outage behavior; the closeout does not claim exhaustive adversarial coverage beyond the inspected changed-hunk families, accepted proof matrix, and recorded final validation.
+- Task 38 completed the final self-recovery and truthfulness fixes found by the branch review.
+- Focused wait, GitHub adapter, scratch, runtime, PR-content, and Python flow-control proof all passed as recorded in the completed plan task.
+- The full parallel harness passed with client 904/904, server unit 2637/2637, cucumber 133/133, and e2e 77/77.
+- The full stress harness also passed with client 904/904, server unit 2637/2637, cucumber 133/133, and e2e 77/77.

@@ -1084,6 +1084,21 @@ test('github PR open generates reviewer-facing title and body from active story 
     'CODEINFO_PR_TOKEN=secret\n',
     'utf8',
   );
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/pr-summaries'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/pr-summaries/0000060-pr-summary.md'),
+    [
+      '## Final Summary',
+      '',
+      '1. Added persisted GitHub review waits and execution-scoped handoff ownership.',
+      '2. This was needed so outside review feedback can restart internal implementation safely.',
+      '3. Validated the server wrappers and the complete automated test surface.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
   await fs.writeFile(
     path.join(tempFlowsDir, 'github-open.json'),
     JSON.stringify(
@@ -1194,6 +1209,12 @@ test('github PR open generates reviewer-facing title and body from active story 
         'Story 0000060 review: Users can automate GitHub PR review cycles with conditional, script, and wait steps',
       );
       assert.match(body, /Implemented work summary:/);
+      assert.match(body, /Added persisted GitHub review waits/);
+      assert.match(
+        body,
+        /outside review feedback can restart internal implementation/,
+      );
+      assert.match(body, /complete automated test surface/);
       assert.match(
         body,
         /Do not request behavior changes outside the active story scope/,
@@ -4484,7 +4505,6 @@ test('conversation-only stop prevents nested command handoff from starting', asy
     await cleanupConversationRuntime(conversationId);
   });
 });
-
 test('no stale flow continuation resumes after confirmed stop', async () => {
   await withFlowServer(async ({ wsUrl }) => {
     const conversationId = 'flow-command-stop-no-resume';

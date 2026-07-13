@@ -127,7 +127,10 @@ test('failed execution-scoped scratch publish leaves the last valid selector-own
   const tempRepo = await createTempRepo();
   try {
     const selectorPath = buildSelectorPath(tempRepo.repoRoot);
-    const handoffPath = buildExecutionScopedHandoffPath(tempRepo.repoRoot, 'old');
+    const handoffPath = buildExecutionScopedHandoffPath(
+      tempRepo.repoRoot,
+      'old',
+    );
     await fs.mkdir(path.dirname(selectorPath), { recursive: true });
     const existing: GitHubCurrentReviewHandoff = {
       handoff_kind: GITHUB_REVIEW_HANDOFF_KIND,
@@ -221,7 +224,10 @@ test('malformed selector or partial handoff state is rejected instead of being r
       'utf8',
     );
     const selectorPath = buildSelectorPath(tempRepo.repoRoot);
-    const handoffPath = buildExecutionScopedHandoffPath(tempRepo.repoRoot, 'bad');
+    const handoffPath = buildExecutionScopedHandoffPath(
+      tempRepo.repoRoot,
+      'bad',
+    );
     await fs.mkdir(path.dirname(selectorPath), { recursive: true });
     await fs.writeFile(
       selectorPath,
@@ -413,8 +419,8 @@ test('idempotent replay of the same GitHub review plan note does not duplicate t
 
     const plan = await readTempPlan(tempRepo.repoRoot);
     assert.equal(
-      plan.match(/- Retry replay kept the same note authoritative\./g)?.length ??
-        0,
+      plan.match(/- Retry replay kept the same note authoritative\./g)
+        ?.length ?? 0,
       1,
     );
   } finally {
@@ -465,7 +471,7 @@ test('GitHub review plan-note append keeps task selection and duplicate-note gua
   }
 });
 
-test('GitHub review plan-note append recovers a lock left by a dead owner', async () => {
+test('GitHub review plan-note append recovers a dead owner and its stale legacy recovery directory', async () => {
   const tempRepo = await createTempRepo();
   try {
     const planPath = path.join(
@@ -481,6 +487,7 @@ test('GitHub review plan-note append recovers a lock left by a dead owner', asyn
       })}\n`,
       'utf8',
     );
+    await fs.mkdir(`${planPath}.lock.recovery`);
 
     const result = await appendGitHubReviewPlanNote({
       workingRepositoryRoot: tempRepo.repoRoot,
@@ -492,6 +499,7 @@ test('GitHub review plan-note append recovers a lock left by a dead owner', asyn
       /- Recovered after a dead lock owner\./u,
     );
     await assert.rejects(fs.stat(`${planPath}.lock`), /ENOENT/u);
+    await assert.rejects(fs.stat(`${planPath}.lock.recovery`), /ENOENT/u);
   } finally {
     await tempRepo.cleanup();
   }

@@ -130,3 +130,44 @@ When this story is complete, CodeInfo2 will be able to run a bounded external Gi
 30. [codeInfo2] - Revalidate the latest review-created repair block after the handoff-authority fix
    - Refresh the review summary so the newest review pass and cycle still point to one final revalidation owner and one backend-only proof map.
    - Run the compact broad backend proof path for this repair block, including compose build, server wrappers, helper proof, supported-stack smoke, lint, and format.
+
+31. [codeInfo2] - Restore authoritative loop-continue resume position under high-concurrency validation
+
+- Preserve the exact nested loop boundary across continue, resume, and concurrent validation paths.
+- Add focused loop-state proof before rerunning the server harness.
+
+32. [codeInfo2] - Add flow runtime-resolution stress diagnostics for intermittent startup stalls
+
+- Record bounded runtime-resolution and expected-next-step evidence when a flow appears stalled.
+- Prove the diagnostic path without changing normal flow behavior.
+
+33. [codeInfo2] - Propagate runtime-resolution stress diagnostics to sibling flow timeout suites
+
+- Reuse the same timeout evidence in related flow suites so intermittent failures identify the blocked boundary.
+- Re-run the affected flow wrappers under stress.
+
+34. [codeInfo2] - Isolate server-unit flow harness provider homes from shared repository chat configs
+
+- Give flow tests private provider homes so concurrently running suites cannot read or overwrite shared agent state.
+- Prove the affected runtime-resolution tests together.
+
+35. [codeInfo2] - Isolate server-unit wrapper defaults and remaining global environment leaks
+
+- Keep wrapper and test environment overrides scoped to their owning test execution.
+- Re-run the full server-unit harness to find and repair similar affected tests.
+
+36. [codeInfo2] - Fix flow-owned command runtime context and extend stress diagnostics
+
+- Preserve the worked-repository runtime context for flow-owned commands and expose the same bounded timeout evidence.
+- Prove command and stress paths with focused and broad server wrappers.
+
+37. [codeInfo2] - Preserve parallel and stress harness reliability
+
+- Add deterministic stack readiness and shutdown barriers so cucumber and e2e do not inherit changing Docker networks or old harness processes.
+- Validate lint, formatting, builds, the full parallel harness, and repeated stress runs.
+
+38. [codeInfo2] - Make GitHub review cycles self-recovering and truthful
+
+- Persist retry ownership for failures after a review PR is active, while recording pre-PR failures as skips that do not stop the outer implementation flow or claim clean review.
+- Rearm contested wait wakes, clean only matching scheduler entries, recover stale scratch locks, gate no-findings closeout, and populate PR text from the bounded story summary.
+- Prove wait, GitHub runtime, adapter, scratch, branch-gate, PR-content, build, lint, formatting, parallel, and stress surfaces.

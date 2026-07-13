@@ -2208,7 +2208,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
   }
 });
 
-test('github review runtime preserves producer-side token loader failures instead of rewriting them into skip warnings', async () => {
+test('github review runtime records producer-side token loader failures as skip warnings without stopping the flow', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     await fs.rm(path.join(repoRoot, '.env.local'), { force: true });
@@ -2243,36 +2243,29 @@ test('github review runtime preserves producer-side token loader failures instea
           .send({ conversationId, working_folder: repoRoot })
           .expect(202);
 
-        const final = await waitForLoopTerminalOutcome({
-          ws: wsUrl,
-          conversationId,
-          expectedStatus: 'failed',
-          timeoutMs: 4000,
-        });
-
-        assert.equal(final.status, 'failed');
-        assert.equal(final.errorCode, 'ENV_LOCAL_READ_FAILED');
-        assert.match(
-          final.errorMessage ?? '',
-          /(?:\.env\.local|EISDIR|permission denied)/u,
-        );
-
         const turns = await waitForTurns(
           conversationId,
           (items) =>
             items.some(
-              (turn) => turn.role === 'assistant' && turn.status === 'failed',
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.status === 'warning' &&
+                turn.content.includes('after setup failed'),
             ),
           4000,
         );
+        await waitForPredicate(
+          () => getActiveRunOwnership(conversationId) === null,
+          4000,
+          'Timed out waiting for skipped GitHub review flow to release ownership',
+        );
         assert.equal(
-          turns.some(
-            (turn) =>
-              turn.role === 'assistant' &&
-              turn.status === 'warning' &&
-              turn.content.includes('GitHub review stage skipped during PR open'),
-          ),
+          turns.some((turn) => turn.status === 'failed'),
           false,
+        );
+        assert.match(
+          turns.find((turn) => turn.status === 'warning')?.content ?? '',
+          /(?:\.env\.local|EISDIR|permission denied)/u,
         );
 
         await cleanupConversationRuntime(conversationId);
@@ -2779,6 +2772,7 @@ test('github review resume rejects a persisted and resumed PR identity mismatch'
                     'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
                   selectorPath,
                   handoffPath,
+                  phase: 'fetched',
                 },
               },
             },
@@ -2848,6 +2842,28 @@ test('github review resume rejects a persisted and resumed PR identity mismatch'
           ).length,
           1,
         );
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: {
+              wait?: {
+                kind?: string;
+                stepPath?: number[];
+                githubReviewContext?: { retryAttempt?: number };
+              };
+            };
+          };
+          return (
+            flowState.flow?.wait?.kind === 'review_retry' &&
+            flowState.flow.wait.githubReviewContext?.retryAttempt === 1
+          );
+        }, 4000, 'Timed out waiting for the failed review stage to persist retry ownership');
+        const retryWait = (
+          (memoryConversations.get(conversationId)?.flags ?? {}) as {
+            flow?: { wait?: { stepPath?: number[] } };
+          }
+        ).flow?.wait;
+        assert.deepEqual(retryWait?.stepPath, [0]);
 
         const updatedHandoff = await readGitHubReviewScratch({
           handoffPath,
@@ -3029,6 +3045,7 @@ test('github review resume verifies the exact resumed PR when the execution-scop
                     'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
                   selectorPath,
                   handoffPath,
+                  phase: 'fetched',
                 },
               },
             },
@@ -5358,7 +5375,6 @@ test('shared decision seam follows valid script-driven if branch through happy p
     { registerTmpDirAsRepo: true },
   );
 });
-
 test('shared decision seam follows valid script-driven break branch through happy path', async () => {
   await withFlowServer(
     () => 'ok',

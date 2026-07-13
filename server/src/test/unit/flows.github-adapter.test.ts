@@ -146,7 +146,6 @@ test('repo-local token reader keeps missing opt-in cases on skip and surfaces ma
     await tempRepo.cleanup();
   }
 });
-
 test('GitHub child-process env is scoped and does not mutate the base environment', () => {
   const baseEnv = { EXISTING: '1' } as NodeJS.ProcessEnv;
   const childEnv = buildGitHubChildProcessEnv({
@@ -691,7 +690,7 @@ test('resumed GitHub review reconciliation keeps the execution-owned persisted h
   }
 });
 
-test('resumed GitHub review reconciliation verifies the persisted resume PR number when its handoff is missing', async () => {
+test('resumed GitHub review reconciliation warns only when an expected materialized handoff is missing', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
@@ -710,6 +709,21 @@ test('resumed GitHub review reconciliation verifies the persisted resume PR numb
       }),
     });
 
+    const preFetchReconciled = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'missing',
+      handoffPath: path.join(
+        tempRepo.repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-missing-current.json',
+      ),
+      resumedPullRequestNumber: 44,
+    });
+    assert.equal(preFetchReconciled.kind, 'ok');
+    assert.equal(preFetchReconciled.value.number, 44);
+    assert.equal(preFetchReconciled.source, 'resumed_context');
+    assert.equal(preFetchReconciled.warnings.length, 0);
+
     const reconciled = await reconcileResumedGitHubReviewPullRequest({
       repository: baseRepositoryState(tempRepo.repoRoot),
       token: 'secret',
@@ -719,6 +733,7 @@ test('resumed GitHub review reconciliation verifies the persisted resume PR numb
         'codeInfoTmp/reviews/0000060-github-review-missing-current.json',
       ),
       resumedPullRequestNumber: 44,
+      expectPersistedHandoff: true,
     });
     assert.equal(reconciled.kind, 'ok');
     assert.equal(reconciled.value.number, 44);

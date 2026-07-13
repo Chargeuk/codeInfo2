@@ -318,7 +318,6 @@ test('startFlowRun backfills legacy executionId on resume', async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
-
 test('startFlowRun backfills legacy child executionId on resume', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-child-backfill-'),
@@ -756,6 +755,7 @@ test('startup recovery re-registers persisted waits through the normal startup p
   const conversationId = 'flow-wait-resume-backfill';
   const captured: string[] = [];
   const wakes: Array<() => void> = [];
+  let completedWakeCancellations = 0;
 
   class TrackingChat extends ChatInterface {
     async execute(
@@ -823,7 +823,11 @@ test('startup recovery re-registers persisted waits through the normal startup p
       __setFlowWaitResumeDepsForTests({
         scheduleWake: ({ onWake }) => {
           wakes.push(onWake);
-          return { cancel: () => {} };
+          return {
+            cancel: () => {
+              completedWakeCancellations += 1;
+            },
+          };
         },
       });
 
@@ -853,6 +857,7 @@ test('startup recovery re-registers persisted waits through the normal startup p
         undefined,
       );
       assert.equal(getFlowExecutionId(conversationId), executionId);
+      assert.equal(completedWakeCancellations, 1);
     });
   } finally {
     memoryConversations.delete(conversationId);
@@ -861,7 +866,7 @@ test('startup recovery re-registers persisted waits through the normal startup p
   }
 });
 
-test('wake-time preflight failure rearms persisted wait ownership instead of dropping the durable wait state', async () => {
+test('wake-time run ownership collision rearms persisted wait ownership instead of dropping the durable wait state', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-wait-resume-rearm-'),
   );
@@ -927,7 +932,9 @@ test('wake-time preflight failure rearms persisted wait ownership instead of dro
           return { cancel: () => {} };
         },
         resumeFlowRun: async () => {
-          throw new Error('simulated preflight failure');
+          throw Object.assign(new Error('simulated active run ownership'), {
+            code: 'RUN_IN_PROGRESS',
+          });
         },
       });
 

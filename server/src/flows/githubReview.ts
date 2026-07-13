@@ -312,7 +312,9 @@ export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
 export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
 export const MAX_GITHUB_REVIEW_SUBMISSIONS = 200;
 export const MAX_GITHUB_INLINE_REVIEW_COMMENTS = 200;
-const GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS = [0, 1_000, 2_000, 5_000, 10_000] as const;
+const GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS = [
+  0, 1_000, 2_000, 5_000, 10_000,
+] as const;
 const GITHUB_FILE_LOCK_TIMEOUT_MS = 30_000;
 const GITHUB_FILE_LOCK_STALE_MS = 5 * 60_000;
 
@@ -1051,11 +1053,12 @@ export const lookupLatestOpenPullRequest = async (params: {
   }
 };
 
-const buildMissingPullRequestLookupFailure = (): GitHubCommandFailureDetail => ({
-  reason: 'INVALID_GITHUB_RESPONSE',
-  message:
-    'GitHub pull request creation completed but no latest open pull request could be resolved for the current branch.',
-});
+const buildMissingPullRequestLookupFailure =
+  (): GitHubCommandFailureDetail => ({
+    reason: 'INVALID_GITHUB_RESPONSE',
+    message:
+      'GitHub pull request creation completed but no latest open pull request could be resolved for the current branch.',
+  });
 
 const buildGitHubFailureDetail = (params: {
   result: GitHubStepOutcome<GitHubPullRequestIdentity | null>;
@@ -1087,7 +1090,10 @@ const lookupLatestOpenPullRequestWithRetry = async (params: {
     }
 > => {
   const diagnostics: GitHubLookupRetryDiagnostic[] = [];
-  for (const [index, waitMs] of GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS.entries()) {
+  for (const [
+    index,
+    waitMs,
+  ] of GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS.entries()) {
     if (waitMs > 0) await githubReviewDeps.sleep(waitMs);
     const lookedUp = await lookupLatestOpenPullRequest({
       repository: params.repository,
@@ -1109,8 +1115,7 @@ const lookupLatestOpenPullRequestWithRetry = async (params: {
       ...failure,
     });
   }
-  const failure =
-    diagnostics.at(-1) ?? buildMissingPullRequestLookupFailure();
+  const failure = diagnostics.at(-1) ?? buildMissingPullRequestLookupFailure();
   return {
     kind: 'error',
     failure: {
@@ -1451,8 +1456,21 @@ const withExclusiveFileLock = async <T>(params: {
       if ((error as NodeJS.ErrnoException | undefined)?.code !== 'EEXIST') {
         throw error;
       }
+      const recoveryToken = randomUUID();
+      const recoveryLockContents = `${JSON.stringify({
+        pid: process.pid,
+        token: recoveryToken,
+        acquired_at: githubReviewDeps.nowIso(),
+      })}\n`;
       try {
-        await githubReviewDeps.mkdir(recoveryLockPath);
+        await githubReviewDeps.writeFile(
+          recoveryLockPath,
+          recoveryLockContents,
+          {
+            encoding: 'utf8',
+            flag: 'wx',
+          },
+        );
         try {
           const rawOwner = await githubReviewDeps
             .readFile(lockPath, 'utf8')
@@ -1492,16 +1510,74 @@ const withExclusiveFileLock = async <T>(params: {
             await githubReviewDeps.rm(lockPath, { force: true });
           }
         } finally {
+          const rawRecoveryOwner = await githubReviewDeps
+            .readFile(recoveryLockPath, 'utf8')
+            .catch(() => '');
+          let recoveryOwnerToken: string | undefined;
+          try {
+            const recoveryOwner = JSON.parse(rawRecoveryOwner) as {
+              token?: unknown;
+            };
+            recoveryOwnerToken =
+              typeof recoveryOwner.token === 'string'
+                ? recoveryOwner.token
+                : undefined;
+          } catch {
+            recoveryOwnerToken = undefined;
+          }
+          if (recoveryOwnerToken === recoveryToken) {
+            await githubReviewDeps.rm(recoveryLockPath, { force: true });
+          }
+        }
+      } catch (recoveryError) {
+        if (
+          (recoveryError as NodeJS.ErrnoException | undefined)?.code !==
+          'EEXIST'
+        ) {
+          throw recoveryError;
+        }
+        const rawRecoveryOwner = await githubReviewDeps
+          .readFile(recoveryLockPath, 'utf8')
+          .catch(() => '');
+        let recoveryOwner: { pid?: unknown; acquired_at?: unknown } | null =
+          null;
+        try {
+          recoveryOwner = JSON.parse(rawRecoveryOwner) as {
+            pid?: unknown;
+            acquired_at?: unknown;
+          };
+        } catch {
+          recoveryOwner = null;
+        }
+        const recoveryOwnerPid =
+          typeof recoveryOwner?.pid === 'number' &&
+          Number.isInteger(recoveryOwner.pid)
+            ? recoveryOwner.pid
+            : null;
+        const recoveryAcquiredAt =
+          typeof recoveryOwner?.acquired_at === 'string'
+            ? Date.parse(recoveryOwner.acquired_at)
+            : Number.NaN;
+        let recoveryOwnerAlive = false;
+        if (recoveryOwnerPid && recoveryOwnerPid > 0) {
+          try {
+            process.kill(recoveryOwnerPid, 0);
+            recoveryOwnerAlive = true;
+          } catch (ownerError) {
+            recoveryOwnerAlive =
+              (ownerError as NodeJS.ErrnoException | undefined)?.code ===
+              'EPERM';
+          }
+        }
+        const staleRecoveryLock =
+          !recoveryOwnerAlive ||
+          !Number.isFinite(recoveryAcquiredAt) ||
+          Date.now() - recoveryAcquiredAt > GITHUB_FILE_LOCK_STALE_MS;
+        if (staleRecoveryLock) {
           await githubReviewDeps.rm(recoveryLockPath, {
             force: true,
             recursive: true,
           });
-        }
-      } catch (recoveryError) {
-        if (
-          (recoveryError as NodeJS.ErrnoException | undefined)?.code !== 'EEXIST'
-        ) {
-          throw recoveryError;
         }
       }
       await sleep(25);
@@ -1524,7 +1600,9 @@ const withExclusiveFileLock = async <T>(params: {
       ownerToken = undefined;
     }
     if (ownerToken !== token) {
-      throw new Error(`File lock ownership changed before release: ${lockPath}.`);
+      throw new Error(
+        `File lock ownership changed before release: ${lockPath}.`,
+      );
     }
     await githubReviewDeps.rm(lockPath, { force: true });
   }
@@ -1753,9 +1831,13 @@ const validateGitHubReviewScratchSelectorRecord = (params: {
         'GitHub review selector plan_path must remain repository-root contained before filesystem access.',
     };
   }
-  const scratchPaths = buildGitHubReviewScratchPaths(repositoryRoot, storyNumber);
+  const scratchPaths = buildGitHubReviewScratchPaths(
+    repositoryRoot,
+    storyNumber,
+  );
   if (
-    path.resolve(params.selectorPath) !== path.resolve(scratchPaths.selectorPath)
+    path.resolve(params.selectorPath) !==
+    path.resolve(scratchPaths.selectorPath)
   ) {
     return {
       kind: 'error',
@@ -1801,7 +1883,10 @@ const updateJsonAtomically = async <T extends Record<string, unknown>>(params: {
         const current = await readJsonFile<T>(params.targetPath);
         if (current.kind !== 'ok') return current;
         const next = params.update(current.value);
-        await writeJsonAtomically({ targetPath: params.targetPath, value: next });
+        await writeJsonAtomically({
+          targetPath: params.targetPath,
+          value: next,
+        });
         return { kind: 'ok', value: next };
       },
     });
@@ -1834,9 +1919,7 @@ const appendUniqueImplementationNoteToTaskBlock = (params: {
   );
   const blockSuffix = params.targetBlock.slice(implIndex + implHeading.length);
   const bullet = `- ${params.note}`;
-  const existingBullets = blockSuffix
-    .split('\n')
-    .map((line) => line.trimEnd());
+  const existingBullets = blockSuffix.split('\n').map((line) => line.trimEnd());
   if (existingBullets.includes(bullet)) {
     return params.targetBlock;
   }
@@ -1926,10 +2009,14 @@ const appendImplementationNoteToPlan = async (params: {
           note: params.note,
         });
         const taskMatchIndex = taskMatch?.index ?? 0;
-        const leadingMatchOffset = (matchedBlock?.length ?? 0) - targetBlock.length;
+        const leadingMatchOffset =
+          (matchedBlock?.length ?? 0) - targetBlock.length;
         const targetStart = taskMatchIndex + leadingMatchOffset;
         const nextPlan = `${planRaw.slice(0, targetStart)}${nextBlock}${planRaw.slice(targetStart + targetBlock.length)}`;
-        await writeTextAtomically({ targetPath: planFullPath, value: nextPlan });
+        await writeTextAtomically({
+          targetPath: planFullPath,
+          value: nextPlan,
+        });
       },
     });
     return { kind: 'ok', value: null };
@@ -2285,6 +2372,7 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
   executionId: string;
   handoffPath: string;
   resumedPullRequestNumber: number;
+  expectPersistedHandoff?: boolean;
 }): Promise<GitHubResumedPullRequestResolution> => {
   const persistedHandoff = await readGitHubReviewScratch({
     handoffPath: params.handoffPath,
@@ -2292,6 +2380,9 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
   });
   const missingHandoffWarning =
     'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime verified the pull request number preserved in the resumed execution context.';
+  const missingHandoffWarnings = params.expectPersistedHandoff
+    ? [missingHandoffWarning]
+    : [];
   if (
     persistedHandoff.kind !== 'ok' &&
     /ENOENT|no such file or directory/i.test(persistedHandoff.message)
@@ -2308,7 +2399,7 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
         message: resumedPullRequest.message,
         stderr: resumedPullRequest.stderr,
         exitCode: resumedPullRequest.exitCode,
-        warnings: [missingHandoffWarning],
+        warnings: missingHandoffWarnings,
       };
     }
     if (
@@ -2319,13 +2410,13 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
         kind: 'error',
         reason: 'SCRATCH_INVALID',
         message: `Resumed pull request #${String(params.resumedPullRequestNumber)} targets head branch ${resumedPullRequest.value.headRefName}, which does not match the execution upstream branch ${params.repository.upstreamBranch}.`,
-        warnings: [missingHandoffWarning],
+        warnings: missingHandoffWarnings,
       };
     }
     return {
       kind: 'ok',
       value: resumedPullRequest.value,
-      warnings: [missingHandoffWarning],
+      warnings: missingHandoffWarnings,
       source: 'resumed_context',
     };
   }

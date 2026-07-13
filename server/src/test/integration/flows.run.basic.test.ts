@@ -2099,7 +2099,6 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
     },
   );
 });
-
 test('github review skip publishes completed-with-warning and records a durable plan note', async () => {
   const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
   const repoRoot = await createGitHubReviewRepoFixture();
@@ -2160,7 +2159,7 @@ test('github review skip publishes completed-with-warning and records a durable 
   }
 });
 
-test('github review open PR logs retry diagnostics and emits one final failure when post-create reconciliation exhausts all lookup attempts', async () => {
+test('github review open PR logs retry diagnostics and skips safely when post-create reconciliation exhausts all lookup attempts', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-flow-'),
   );
@@ -2267,7 +2266,7 @@ test('github review open PR logs retry diagnostics and emits one final failure w
       conversationId,
       (turns) =>
         turns.some(
-          (turn) => turn.role === 'assistant' && turn.status === 'failed',
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
         ),
       4000,
     );
@@ -2278,7 +2277,7 @@ test('github review open PR logs retry diagnostics and emits one final failure w
     const warningTurns = assistantTurns.filter(
       (turn) => turn.status === 'warning',
     );
-    assert.equal(warningTurns.length, 0);
+    assert.equal(warningTurns.length, 1);
     const retryLogs = query({
       text: 'flows.github.open_pr.lookup_retry_failed',
     }).filter(
@@ -2289,10 +2288,18 @@ test('github review open PR logs retry diagnostics and emits one final failure w
       [0, 1000, 2000, 5000],
     );
 
-    const failedTurn = assistantTurns.find((turn) => turn.status === 'failed');
-    assert.ok(failedTurn);
-    assert.match(failedTurn.content, /Final lookup failure 5 after 10s/i);
-    assert.match(failedTurn.content, /stderr: lookup attempt 5 failed/i);
+    assert.equal(
+      assistantTurns.some((turn) => turn.status === 'failed'),
+      false,
+    );
+    assert.match(
+      warningTurns[0]?.content ?? '',
+      /Final lookup failure 5 after 10s/i,
+    );
+    assert.match(
+      warningTurns[0]?.content ?? '',
+      /stderr: lookup attempt 5 failed/i,
+    );
 
     const planRaw = await fs.readFile(
       path.join(

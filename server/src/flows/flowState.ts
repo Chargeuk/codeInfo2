@@ -29,6 +29,7 @@ export type FlowActiveSubflow = {
 };
 
 export type FlowWaitState = {
+  kind?: 'authored_wait' | 'review_retry';
   executionId: string;
   stepPath: number[];
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
@@ -43,6 +44,8 @@ export type FlowWaitState = {
     branchName?: string;
     selectorPath?: string;
     handoffPath?: string;
+    phase?: 'opened' | 'fetched' | 'skipped';
+    retryAttempt?: number;
   };
 };
 

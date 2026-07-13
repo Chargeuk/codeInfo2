@@ -3204,3 +3204,58 @@ Final Story 60 validation exposed intermittent failures caused by concurrent har
 - Subtask 4 complete: made the canonical parallel wrapper prepare and reuse Cucumber and E2E dependencies before fan-out, retained standalone setup and teardown behavior, and gave each Playwright run an isolated artifact location while leaving `codeinfo:local` untouched.
 - Subtask 5 complete: `npm run lint` passed after the harness implementation.
 - Subtask 6 complete: `npm run format:check` passed after the harness implementation.
+
+### Task 38. Make GitHub Review Cycles Self-Recovering And Truthful
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 37`
+- Task Status: `__done__`
+- Git Commits: this commit
+
+#### Overview
+
+The final branch review found bounded Story 60 lifecycle gaps in automatic review recovery, wait wake ownership, pre-fetch handoff truthfulness, review-flow branching, scratch locking, PR context, and closeout documentation. This task repairs those seams without changing the deliberate rule that every actionable GitHub finding receives one safe inline attempt before task-up is considered.
+
+#### Task Exit Criteria
+
+- [x] Review-stage transport, state, and agent failures recover or skip safely without terminating the outer implementation flow or claiming a clean review.
+- [x] Persisted waits retain automatic wake ownership across lock contention and release completed scheduler state without disturbing a newer wait.
+- [x] GitHub review handoff, branching, scratch locking, and PR context remain truthful across fresh, resumed, clean, and findings-present paths.
+- [x] Story documentation and the complete automated surface reflect and prove the repaired behavior.
+
+#### Subtasks
+
+1. [x] Add a narrow persisted recovery path for review-stage failures while preserving one-shot inline finding attempts and truthful unresolved state.
+2. [x] Rearm wait wakes after `RUN_IN_PROGRESS` and remove only identity-matching completed scheduler entries.
+3. [x] Distinguish expected pre-fetch handoff state from lost materialized state and recover stale scratch recovery locks.
+4. [x] Gate no-findings closeout correctly and generate reviewer-facing PR content from bounded current-story implementation context.
+5. [x] Add focused regression coverage for the repaired runtime and flow composition seams.
+6. [x] Refresh the Story 60 simple story, PR summary, design notes, and structural ledger.
+
+#### Testing
+
+1. [x] Run the focused server-unit wrappers for wait resume, GitHub runtime, GitHub adapter, GitHub scratch, and PR-content proof owners.
+2. [x] Run the focused flow-control Python tests for GitHub handoff and review branching helpers.
+3. [x] Run `npm run build:summary:server` from the repository root.
+4. [x] Run `npm run build:summary:client` from the repository root.
+5. [x] Run `npm run lint` from the repository root.
+6. [x] Run `npm run format:check` from the repository root.
+7. [x] Run `npm run test:summary:all:parallel` from the repository root.
+8. [x] Run `npm run test:summary:all:stress` from the repository root.
+
+#### Implementation Notes
+
+- Task created from the final branch review using bounded plan helpers; no whole-plan read was performed.
+- Added persisted review-retry waits with bounded backoff, made pre-open failures record a truthful skip, and preserved the deliberate one-shot finding workflow.
+- Rearmed wait ownership after `RUN_IN_PROGRESS` and made completed or stale callbacks clear only their own scheduler identity.
+- Distinguished pre-fetch PR context from a genuinely lost fetched handoff and replaced the unrecoverable legacy recovery directory with stale-aware recovery ownership.
+- Gated no-findings closeout on a completed clean GitHub context and sourced PR review text from the bounded current-story summary.
+- `npm run build:summary:server` passed after tightening parsed review-phase typing.
+- The focused story, review, and GitHub-feedback flow-control Python suites passed: 18 tests.
+- Extended the existing wait, GitHub adapter, scratch, runtime, PR-content, and flow-control owners to prove lock contention, matching cleanup, review retry, skip behavior, handoff phases, stale recovery locks, and truthful closeout.
+- Refreshed the simple story through Task 38 and aligned the PR summary, design contract, and structural ledger with the final self-recovery behavior.
+- Focused server wrappers passed for wait resume (10/10), GitHub runtime loops (40/40), adapter (13/13), scratch (13/13), PR content (1/1), and the adjacent basic runtime suite (33/33).
+- Final server build rerun passed; the client build and typecheck passed with only the existing Vite large-chunk advisory.
+- `npm run lint` and `npm run format:check` both passed.
+- `npm run test:summary:all:parallel` passed: client 904/904, server unit 2637/2637, cucumber 133/133, and e2e 77/77.
+- `npm run test:summary:all:stress` passed: client 904/904 in 346.518s, server unit 2637/2637 in 453.297s, cucumber 133/133 in 188.062s, and e2e 77/77 in 169.131s.

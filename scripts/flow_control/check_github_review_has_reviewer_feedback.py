@@ -85,6 +85,9 @@ def _load_execution_scoped_handoff(
 
 
 def main() -> int:
+    if os.environ.get("CODEINFO_GITHUB_REVIEW_SKIPPED") == "1":
+        print(json.dumps({"answer": "no"}))
+        return 0
     repo_root = Path.cwd()
     current_plan_path = repo_root / "codeInfoStatus/flow-state/current-plan.json"
     current_plan = _read_json(current_plan_path)

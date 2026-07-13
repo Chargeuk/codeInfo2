@@ -303,6 +303,17 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
         self.assertIn("Expecting property name enclosed in double quotes", result.stderr)
         self.assertNotIn("ownership contract", result.stderr)
 
+    def test_skipped_review_returns_no_without_requiring_scratch_state(self) -> None:
+        repo = self.make_repo()
+
+        result = self.run_helper(
+            repo,
+            env_overrides={"CODEINFO_GITHUB_REVIEW_SKIPPED": "1"},
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"answer": "no"})
+
 
 if __name__ == "__main__":
     unittest.main()

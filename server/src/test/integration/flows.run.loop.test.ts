@@ -15,7 +15,10 @@ import {
   getActiveRunOwnership,
   releaseConversationLock,
 } from '../../agents/runLock.js';
-import { prepareFlowOwnedAgentExecution } from '../../agents/service.js';
+import {
+  __setAgentServiceDepsForTests,
+  prepareFlowOwnedAgentExecution,
+} from '../../agents/service.js';
 import {
   cleanupInflight,
   getInflight,
@@ -4333,6 +4336,38 @@ test(
     assert.equal(successProviderId, 'codex');
   },
 );
+
+test('deterministic runtime resolution ignores an ambient LM Studio URL', async () => {
+  const configPath = path.join(
+    repoRoot,
+    'codeinfo_agents/coding_agent/config.toml',
+  );
+  let lmstudioClientFactoryCalls = 0;
+
+  await runWithTestEnvOverrides(
+    { CODEINFO_LMSTUDIO_BASE_URL: 'ws://127.0.0.1:1234' },
+    async () => {
+      await withDeterministicCodexAvailabilityBootstrap(async () => {
+        __setAgentServiceDepsForTests({
+          lmstudioClientFactory: () => {
+            lmstudioClientFactoryCalls += 1;
+            throw new Error('unexpected LM Studio client creation');
+          },
+        });
+        const result = await prepareFlowOwnedAgentExecution({
+          agentName: 'coding_agent',
+          configPath,
+          source: 'REST',
+          allowFallback: false,
+        });
+
+        assert.equal(result.executionProviderId, 'codex');
+      });
+    },
+  );
+
+  assert.equal(lmstudioClientFactoryCalls, 0);
+});
 
 test('aborted flow step is not retried', async () => {
   let outerBreakAttempts = 0;

@@ -99,6 +99,7 @@ const buildDeterministicBootstrapOverrides = (
         buildDeterministicCodexCapabilities(options.models),
       getMcpStatus: async () => ({ available: true }),
       resolveCopilotReadiness,
+      getLmStudioBaseUrl: () => undefined,
     },
   };
 };

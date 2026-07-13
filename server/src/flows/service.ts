@@ -2291,7 +2291,18 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   allowFallback?: boolean;
   diagnosticsContext?: Record<string, unknown>;
 }) => {
-  appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_entry', {
+  let latestRuntimeDiagnostic:
+    | { message: string; context: Record<string, unknown> }
+    | undefined;
+  const emitRuntimeDiagnostic = (
+    message: string,
+    context: Record<string, unknown>,
+  ) => {
+    latestRuntimeDiagnostic = { message, context };
+    appendFlowRuntimeDiagnostic(message, context);
+  };
+
+  emitRuntimeDiagnostic('flows.test.runtime_resolution_entry', {
     ...(params.diagnosticsContext ?? {}),
     agentName: params.agentName,
     configPath: params.configPath,
@@ -2306,7 +2317,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
     timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
   });
   try {
-    appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_prepare_begin', {
+    emitRuntimeDiagnostic('flows.test.runtime_resolution_prepare_begin', {
       ...(params.diagnosticsContext ?? {}),
       agentName: params.agentName,
       source: params.source ?? null,
@@ -2327,13 +2338,13 @@ const resolveFlowAgentRuntimeExecution = async (params: {
         pinnedEndpointId: params.pinnedEndpointId ?? undefined,
         allowFallback: params.allowFallback ?? true,
         diagnostics: {
-          emit: appendFlowRuntimeDiagnostic,
+          emit: emitRuntimeDiagnostic,
           baseContext: params.diagnosticsContext,
         },
       }),
       timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
       onTimeout: () => {
-        appendFlowRuntimeDiagnostic('flows.test.runtime_resolution_timeout', {
+        const timeoutDiagnostic = {
           ...(params.diagnosticsContext ?? {}),
           agentName: params.agentName,
           configPath: params.configPath,
@@ -2345,7 +2356,16 @@ const resolveFlowAgentRuntimeExecution = async (params: {
           pinnedRequestedProviderId: params.pinnedRequestedProviderId ?? null,
           pinnedEndpointId: params.pinnedEndpointId ?? null,
           timeoutMs: FLOW_RUNTIME_RESOLUTION_TIMEOUT_MS,
-        });
+          latestRuntimeDiagnostic: latestRuntimeDiagnostic ?? null,
+        };
+        appendFlowRuntimeDiagnostic(
+          'flows.test.runtime_resolution_timeout',
+          timeoutDiagnostic,
+        );
+        console.error(
+          'flows.test.runtime_resolution_timeout_diagnostic',
+          JSON.stringify(timeoutDiagnostic),
+        );
       },
       timeoutErrorFactory: () =>
         toFlowRunError(

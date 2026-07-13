@@ -105,6 +105,7 @@ import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
   enterTestOverrideScope,
+  getCurrentTestOverrideScopeId,
   getScopedAgentServiceDepsOverride,
   getScopedEnvValue,
   hasActiveTestOverrideScope,
@@ -583,22 +584,51 @@ async function persistDirectAgentConversation(params: {
   return persisted;
 }
 
-async function collectDirectAgentProviderStates(): Promise<
-  Record<ChatProviderId, DirectAgentProviderState>
-> {
+async function collectDirectAgentProviderStates(
+  diagnostics?: RuntimePreparationDiagnostics,
+): Promise<Record<ChatProviderId, DirectAgentProviderState>> {
+  const startedAt = Date.now();
+  const emit = (operation: string, phase: 'begin' | 'complete' | 'failed') =>
+    diagnostics?.emit(
+      `flows.test.runtime_resolution_provider_states_${operation}_${phase}`,
+      {
+        ...(diagnostics.baseContext ?? {}),
+        elapsedMs: Date.now() - startedAt,
+        testOverrideScopeId: getCurrentTestOverrideScopeId() ?? null,
+      },
+    );
+  const traceAsync = <T>(
+    operation: string,
+    run: () => Promise<T>,
+  ): Promise<T> => {
+    if (!diagnostics) {
+      return run();
+    }
+    emit(operation, 'begin');
+    const promise = run();
+    void promise.then(
+      () => emit(operation, 'complete'),
+      () => emit(operation, 'failed'),
+    );
+    return promise;
+  };
   const deps = getEffectiveAgentServiceDeps();
   const codexDetection = deps.getCodexDetection();
-  const codexCapabilities = await deps.resolveCodexCapabilities({
-    consumer: 'chat_validation',
-  });
-  const mcp = await deps.getMcpStatus();
-  const [copilotReadiness, lmstudioState] = await Promise.all([
-    deps.resolveCopilotReadiness({
-      env: process.env,
-      toolsAvailable: mcp.available,
-      toolsReason: mcp.reason,
+  const codexCapabilities = await traceAsync('codex_capabilities', () =>
+    deps.resolveCodexCapabilities({
+      consumer: 'chat_validation',
     }),
-    (async (): Promise<DirectAgentProviderState> => {
+  );
+  const mcp = await traceAsync('mcp_status', deps.getMcpStatus);
+  const [copilotReadiness, lmstudioState] = await Promise.all([
+    traceAsync('copilot_readiness', () =>
+      deps.resolveCopilotReadiness({
+        env: process.env,
+        toolsAvailable: mcp.available,
+        toolsReason: mcp.reason,
+      }),
+    ),
+    traceAsync('lmstudio', async (): Promise<DirectAgentProviderState> => {
       const baseUrl = deps.getLmStudioBaseUrl()?.trim();
       if (!baseUrl || !BASE_URL_REGEX.test(baseUrl)) {
         return {
@@ -631,7 +661,7 @@ async function collectDirectAgentProviderStates(): Promise<
           reason: (error as Error)?.message ?? 'lmstudio unavailable',
         };
       }
-    })(),
+    }),
   ]);
 
   return {
@@ -884,10 +914,11 @@ async function prepareDirectAgentExecution(params: {
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_availability_begin',
   );
+  const effectiveAgentServiceDeps = getEffectiveAgentServiceDeps();
   const availabilityContext =
-    await getEffectiveAgentServiceDeps().createAgentAvailabilityContext();
+    await effectiveAgentServiceDeps.createAgentAvailabilityContext();
   const availability =
-    await getEffectiveAgentServiceDeps().evaluateAgentAvailability({
+    await effectiveAgentServiceDeps.evaluateAgentAvailability({
       agentName: params.agentName,
       configPath: params.configPath,
       entrypoint: 'agents.service',
@@ -904,7 +935,9 @@ async function prepareDirectAgentExecution(params: {
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_provider_states_begin',
   );
-  const providerStates = await collectDirectAgentProviderStates();
+  const providerStates = await collectDirectAgentProviderStates(
+    agentRuntimeDiagnosticsEnabled ? params.diagnostics : undefined,
+  );
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_provider_states_complete',
     {

@@ -301,6 +301,30 @@ describe('final task contract', () => {
     );
     assert.match(generationPrompt, /Except for the dedicated final validation task/);
     assert.match(generationPrompt, /end each non-final task's `Subtasks` section/);
+    assert.match(
+      generationPrompt,
+      /Each substantive implementation task must belong to exactly one repository/,
+    );
+    assert.match(
+      generationPrompt,
+      /dedicated final validation task is the exception.*one administrative `Repository Name`.*every proof-scope repository/,
+    );
+    assert.match(
+      generationPrompt,
+      /do not split the dedicated final validation task by repository/,
+    );
+
+    const minorRevalidation = await read(
+      'codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md',
+    );
+    assert.match(
+      minorRevalidation,
+      /no repository-supported automated test suite.*continue with every other supported full build, applicable startup, matching shutdown, lint, and formatting check in that order/,
+    );
+    assert.doesNotMatch(
+      minorRevalidation,
+      /continue with every other supported build, runtime, lint, and formatting check/,
+    );
 
     const riskPrompt = await read(
       'codeinfo_markdown/review_task_enhancement/02b-risk-and-prerequisite-scan.md',

@@ -26,8 +26,8 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - If the story already has tasks, rewrite them where needed so they match the tasking rules below.
 - Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`: after all substantive implementation tasks, append one dedicated final validation task with the required repair-scope note at the top of both `Subtasks` and `Testing`; only each worked-on repository's independently discovered supported lint and formatting items in `Subtasks`; and its discovered full build, applicable startup, relevant full suites, matching shutdown, supported lint, and supported formatting in `Testing`, omitting unsupported commands.
 - Each task must implement exactly one primary seam that can be tested as a coherent unit.
-- Each task must belong to exactly one repository.
-- If the story spans multiple repositories, split provider-repository and consumer-repository work into separate tasks and make the sequencing explicit.
+- Each substantive implementation task must belong to exactly one repository. The dedicated final validation task is the exception: it keeps one administrative `Repository Name` while covering every proof-scope repository identified by the story.
+- If the story spans multiple repositories, split provider-repository and consumer-repository substantive implementation work into separate tasks and make the sequencing explicit; do not split the dedicated final validation task by repository.
 - Add explicit task dependencies whenever a task relies on another task's output, contract, harness, migration, or shared library change.
 - Keep prerequisite work earlier than downstream tasks that depend on it.
 - Add cleanup or removal tasks when the story replaces or supersedes existing behavior.

@@ -694,7 +694,7 @@ test('codex chat uses chat runtime config file for inherited behavior keys while
       message: 'Use runtime config',
     });
     assert.equal(response.status, 202);
-    const deadline = Date.now() + 3000;
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(3000);
     while (!capturedOptions && Date.now() < deadline) {
       await sleep(25);
     }
@@ -794,7 +794,7 @@ test('chat route overlays codex reasoning summary and verbosity into runtime con
       }),
     )
     .expect(202);
-  const deadline = Date.now() + 3000;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(3000);
   while (!capturedOptions && Date.now() < deadline) {
     await sleep(25);
   }

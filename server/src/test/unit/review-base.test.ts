@@ -8,6 +8,7 @@ import {
   prepareReviewBase,
   readPreparedReviewBase,
 } from '../../flows/reviewBase.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const HEAD_SHA = 'd30c1246d30c1246d30c1246d30c1246d30c1246';
 const BASE_SHA = 'a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2';
@@ -956,7 +957,7 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
         now: () => new Date('2026-07-05T16:32:00.000Z'),
       },
     );
-    const deadline = Date.now() + 1000;
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
     while (!fetchSignal && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }

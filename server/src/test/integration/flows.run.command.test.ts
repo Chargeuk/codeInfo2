@@ -3576,7 +3576,8 @@ test('cancellation during flow-owned command reingest stops later items and late
       flowServiceDeps: {
         runReingestRepository: async () => {
           markStarted();
-          const runTokenDeadline = Date.now() + 1000;
+          const runTokenDeadline =
+            Date.now() + resolveConfiguredTestTimeoutMs(1000);
           while (!runToken && Date.now() < runTokenDeadline) {
             runToken =
               getActiveRunOwnership(conversationId)?.runToken ?? runToken;
@@ -4565,7 +4566,7 @@ test('stop-near-complete flow aligns final status with persisted turns and emits
       chatFactory: () =>
         new CompleteThenPauseChat({
           onComplete: async () => {
-            const deadline = Date.now() + 5000;
+            const deadline = Date.now() + resolveConfiguredTestTimeoutMs(5000);
             while (!flowInflightId && Date.now() < deadline) {
               await delay(10);
               flowInflightId = getInflight(conversationId)?.inflightId ?? null;

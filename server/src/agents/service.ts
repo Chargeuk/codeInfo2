@@ -586,6 +586,7 @@ async function persistDirectAgentConversation(params: {
 
 async function collectDirectAgentProviderStates(
   diagnostics?: RuntimePreparationDiagnostics,
+  deps: AgentServiceDeps = getEffectiveAgentServiceDeps(),
 ): Promise<Record<ChatProviderId, DirectAgentProviderState>> {
   const startedAt = Date.now();
   const emit = (operation: string, phase: 'begin' | 'complete' | 'failed') =>
@@ -612,7 +613,6 @@ async function collectDirectAgentProviderStates(
     );
     return promise;
   };
-  const deps = getEffectiveAgentServiceDeps();
   const codexDetection = deps.getCodexDetection();
   const codexCapabilities = await traceAsync('codex_capabilities', () =>
     deps.resolveCodexCapabilities({
@@ -841,24 +841,27 @@ function resolveProviderModelForExecution(params: {
   return null;
 }
 
-async function prepareDirectAgentExecution(params: {
-  agentName: string;
-  configPath: string;
-  workingFolder?: string;
-  defaultRepositoryRoot?: string;
-  source: 'REST' | 'MCP';
-  surface:
-    | 'agents.run'
-    | 'agents.commands.run'
-    | 'mcp.agents.run'
-    | 'flows.run';
-  pinnedProviderId?: ConversationProvider;
-  pinnedModelId?: string;
-  pinnedRequestedProviderId?: string;
-  pinnedEndpointId?: string | null;
-  allowFallback: boolean;
-  diagnostics?: RuntimePreparationDiagnostics;
-}): Promise<DirectAgentPreparedExecution> {
+async function prepareDirectAgentExecution(
+  params: {
+    agentName: string;
+    configPath: string;
+    workingFolder?: string;
+    defaultRepositoryRoot?: string;
+    source: 'REST' | 'MCP';
+    surface:
+      | 'agents.run'
+      | 'agents.commands.run'
+      | 'mcp.agents.run'
+      | 'flows.run';
+    pinnedProviderId?: ConversationProvider;
+    pinnedModelId?: string;
+    pinnedRequestedProviderId?: string;
+    pinnedEndpointId?: string | null;
+    allowFallback: boolean;
+    diagnostics?: RuntimePreparationDiagnostics;
+  },
+  deps: AgentServiceDeps = getEffectiveAgentServiceDeps(),
+): Promise<DirectAgentPreparedExecution> {
   const emitPreparationDiagnostic = (
     message: string,
     context: Record<string, unknown> = {},
@@ -914,16 +917,13 @@ async function prepareDirectAgentExecution(params: {
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_availability_begin',
   );
-  const effectiveAgentServiceDeps = getEffectiveAgentServiceDeps();
-  const availabilityContext =
-    await effectiveAgentServiceDeps.createAgentAvailabilityContext();
-  const availability =
-    await effectiveAgentServiceDeps.evaluateAgentAvailability({
-      agentName: params.agentName,
-      configPath: params.configPath,
-      entrypoint: 'agents.service',
-      context: availabilityContext,
-    });
+  const availabilityContext = await deps.createAgentAvailabilityContext();
+  const availability = await deps.evaluateAgentAvailability({
+    agentName: params.agentName,
+    configPath: params.configPath,
+    entrypoint: 'agents.service',
+    context: availabilityContext,
+  });
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_availability_complete',
     {
@@ -937,6 +937,7 @@ async function prepareDirectAgentExecution(params: {
   );
   const providerStates = await collectDirectAgentProviderStates(
     agentRuntimeDiagnosticsEnabled ? params.diagnostics : undefined,
+    deps,
   );
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_provider_states_complete',
@@ -2154,6 +2155,7 @@ export async function startAgentInstruction(
     throw err;
   }
 
+  const agentServiceDepsSnapshot = getEffectiveAgentServiceDeps();
   void (async () => {
     try {
       appendAgentRuntimeDiagnostic(
@@ -2168,19 +2170,22 @@ export async function startAgentInstruction(
           workingFolder: params.working_folder ?? null,
         },
       );
-      await runAgentInstructionUnlocked({
-        ...params,
-        conversationId,
-        mustExist,
-        startPathWasNewConversation,
-        inflightId,
-        // Intentionally omit any request-bound signal; cancellation happens only
-        // via explicit WS cancel_inflight.
-        signal: undefined,
-        runToken,
-        cleanupInflightFn: params.cleanupInflightFn,
-        releaseConversationLockFn: params.releaseConversationLockFn,
-      });
+      await runAgentInstructionUnlockedWithDeps(
+        {
+          ...params,
+          conversationId,
+          mustExist,
+          startPathWasNewConversation,
+          inflightId,
+          // Intentionally omit any request-bound signal; cancellation happens only
+          // via explicit WS cancel_inflight.
+          signal: undefined,
+          runToken,
+          cleanupInflightFn: params.cleanupInflightFn,
+          releaseConversationLockFn: params.releaseConversationLockFn,
+        },
+        agentServiceDepsSnapshot,
+      );
       appendAgentRuntimeDiagnostic(
         'agents.test.start_instruction.background_complete',
         {
@@ -2678,6 +2683,7 @@ export async function startAgentCommand(params: {
       },
     );
 
+    const agentServiceDepsSnapshot = getEffectiveAgentServiceDeps();
     void (async () => {
       try {
         appendAgentRuntimeDiagnostic(
@@ -2713,7 +2719,7 @@ export async function startAgentCommand(params: {
           conversationId,
           sourceId: resolution.selectedRepositoryPath,
           listIngestedRepositories:
-            getEffectiveAgentServiceDeps().listIngestedRepositories,
+            agentServiceDepsSnapshot.listIngestedRepositories,
           working_folder: effectiveWorkingFolder,
           signal: undefined,
           source: params.source,
@@ -2749,10 +2755,13 @@ export async function startAgentCommand(params: {
             });
           },
           runAgentInstructionUnlocked: (runParams) =>
-            runAgentInstructionUnlocked({
-              ...runParams,
-              chatFactory: params.chatFactory,
-            }),
+            runAgentInstructionUnlockedWithDeps(
+              {
+                ...runParams,
+                chatFactory: params.chatFactory,
+              },
+              agentServiceDepsSnapshot,
+            ),
           lockAlreadyHeld: true,
           runToken,
         });
@@ -2917,6 +2926,7 @@ export async function runAgentCommand(params: {
     workingFolder: effectiveWorkingFolder,
   });
 
+  const agentServiceDepsSnapshot = getEffectiveAgentServiceDeps();
   const result = await runAgentCommandRunner({
     agentName: params.agentName,
     agentHome: agent.home,
@@ -2926,8 +2936,7 @@ export async function runAgentCommand(params: {
     startStep,
     conversationId,
     sourceId: resolution.selectedRepositoryPath,
-    listIngestedRepositories:
-      getEffectiveAgentServiceDeps().listIngestedRepositories,
+    listIngestedRepositories: agentServiceDepsSnapshot.listIngestedRepositories,
     working_folder: effectiveWorkingFolder,
     signal: params.signal,
     source: params.source,
@@ -2935,10 +2944,13 @@ export async function runAgentCommand(params: {
     lookupSummary: resolution.lookupSummary,
     runtimeLookupSummary: resolution.runtimeLookupSummary,
     runAgentInstructionUnlocked: (runParams) =>
-      runAgentInstructionUnlocked({
-        ...runParams,
-        chatFactory: params.chatFactory,
-      }),
+      runAgentInstructionUnlockedWithDeps(
+        {
+          ...runParams,
+          chatFactory: params.chatFactory,
+        },
+        agentServiceDepsSnapshot,
+      ),
   });
   const conversation = await getConversation(conversationId);
   return {
@@ -2949,7 +2961,7 @@ export async function runAgentCommand(params: {
   };
 }
 
-export async function runAgentInstructionUnlocked(params: {
+export type RunAgentInstructionUnlockedParams = {
   agentName: string;
   instruction: string;
   working_folder?: string;
@@ -2966,7 +2978,12 @@ export async function runAgentInstructionUnlocked(params: {
   runToken?: string;
   cleanupInflightFn?: InstructionRuntimeCleanupFn;
   releaseConversationLockFn?: InstructionReleaseLockFn;
-}): Promise<RunAgentInstructionResult> {
+};
+
+async function runAgentInstructionUnlockedWithDeps(
+  params: RunAgentInstructionUnlockedParams,
+  agentServiceDepsSnapshot: AgentServiceDeps,
+): Promise<RunAgentInstructionResult> {
   const managesInstructionLifecycle =
     !params.command && typeof params.runToken === 'string';
   const cleanupInflightFn = params.cleanupInflightFn ?? cleanupInflight;
@@ -3072,19 +3089,22 @@ export async function runAgentInstructionUnlocked(params: {
       (typeof existingConversation?.flags?.workingFolder === 'string'
         ? existingConversation.flags.workingFolder
         : undefined);
-    const preparedExecution = await prepareDirectAgentExecution({
-      agentName: params.agentName,
-      configPath: agent.configPath,
-      workingFolder: effectiveWorkingFolder,
-      source: params.source,
-      surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
-      pinnedProviderId: existingConversation?.provider,
-      pinnedModelId: existingConversation?.model,
-      pinnedRequestedProviderId:
-        getSavedRequestedProviderId(existingConversation),
-      pinnedEndpointId: existingConversation?.flags?.endpointId,
-      allowFallback: !existingConversation,
-    });
+    const preparedExecution = await prepareDirectAgentExecution(
+      {
+        agentName: params.agentName,
+        configPath: agent.configPath,
+        workingFolder: effectiveWorkingFolder,
+        source: params.source,
+        surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
+        pinnedProviderId: existingConversation?.provider,
+        pinnedModelId: existingConversation?.model,
+        pinnedRequestedProviderId:
+          getSavedRequestedProviderId(existingConversation),
+        pinnedEndpointId: existingConversation?.flags?.endpointId,
+        allowFallback: !existingConversation,
+      },
+      agentServiceDepsSnapshot,
+    );
     const executionProviderId = preparedExecution.executionProviderId;
     const modelId = preparedExecution.modelId;
     const title =
@@ -3358,6 +3378,15 @@ export async function runAgentInstructionUnlocked(params: {
     finalizeInstructionRuntime();
     throw err;
   }
+}
+
+export async function runAgentInstructionUnlocked(
+  params: RunAgentInstructionUnlockedParams,
+): Promise<RunAgentInstructionResult> {
+  return await runAgentInstructionUnlockedWithDeps(
+    params,
+    getEffectiveAgentServiceDeps(),
+  );
 }
 
 export type AgentCommandSummary = {

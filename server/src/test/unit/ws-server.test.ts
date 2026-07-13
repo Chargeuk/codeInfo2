@@ -637,7 +637,7 @@ test('WS conversation-only cancel preserves pending stop when only run ownership
         sendJson(ws, { type: 'subscribe_conversation', conversationId });
         await new Promise((resolve) => setTimeout(resolve, 10));
         sendJson(ws, { type: 'cancel_inflight', conversationId });
-        const deadline = Date.now() + 1000;
+        const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
         while (Date.now() < deadline) {
             const pending = getPendingConversationCancel(conversationId);
             if (pending) {
@@ -843,7 +843,7 @@ test('WS conversation-only cancel keeps pending stop across aborted inflight cle
         sendJson(ws, { type: 'subscribe_conversation', conversationId });
         await new Promise((resolve) => setTimeout(resolve, 10));
         sendJson(ws, { type: 'cancel_inflight', conversationId });
-        const deadline = Date.now() + 1000;
+        const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
         while (!inflight.abortController.signal.aborted && Date.now() < deadline) {
             await new Promise((resolve) => setTimeout(resolve, 10));
         }

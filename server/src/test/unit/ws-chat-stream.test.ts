@@ -776,7 +776,7 @@ test('conversation-only stop during startup race still finishes chat as stopped'
                 message: 'Hello',
             }),
         });
-        const deadline = Date.now() + 3000;
+        const deadline = Date.now() + resolveConfiguredTestTimeoutMs(3000);
         while (Date.now() < deadline) {
             if (getInflight(conversationId))
                 break;
@@ -888,7 +888,7 @@ test('unsubscribe_conversation does not cancel run; turns still persist', async 
             timeoutMs: 5000,
         });
         sendJson(ws, { type: 'unsubscribe_conversation', conversationId });
-        const deadline = Date.now() + 5000;
+        const deadline = Date.now() + resolveConfiguredTestTimeoutMs(5000);
         while (Date.now() < deadline) {
             const turns = getMemoryTurns(conversationId);
             if (turns.some((t) => t.role === 'assistant' && (t.content ?? '').length)) {

@@ -5,6 +5,7 @@ import { __setQueueRuntimeOpsForTest, __setRunProcessorForTest, __setRunSchedule
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import { createQueueRequest, createTempRepo, installQueueRuntimeTestHooks, setupIngestChromaMocks, waitForQueueManagedTerminalStatus, waitForNextTurn, } from './ingest-queue-runtime.helpers.js';
 installQueueRuntimeTestHooks();
 test('queue pump immediately promotes the oldest eligible queue item when the ingest lock is idle', async () => {
@@ -164,7 +165,7 @@ test('queue promotion rejects missing start_ingest requestPayload.name before di
             startedPaths.push(input.path);
             release(runId);
         });
-        const validScheduledDeadline = Date.now() + 1000;
+        const validScheduledDeadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
         while (Date.now() < validScheduledDeadline && scheduledRuns.length < 1) {
             await waitForNextTurn();
         }

@@ -7,14 +7,15 @@ Perform a final readability and execution audit so the resulting task list can b
 - Rewrite vague subtasks rather than merely commenting that they are vague.
 - Preserve valid technical detail while improving clarity and sequencing.
 - Do not remove necessary repository ownership, proof, or edge-case detail.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Treat the dedicated final task's deliberately minimal supported-lint-and-formatting-only subtask types per repository as valid rather than expanding it for implementation detail or adding placeholders for unsupported commands.
   </instruction_priority>
 
 <junior_executor_rules>
 
-- Re-read the active plan from disk before editing.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md` and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before editing.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
-- For each task and subtask, check whether it clearly says:
+- For each substantive task and subtask, check whether it clearly says:
   - what file, seam, or runtime surface to touch;
   - what output to produce;
   - what invariant or requirement it supports;
@@ -32,7 +33,7 @@ Perform a final readability and execution audit so the resulting task list can b
 
 - Check whether a junior developer could execute each subtask without reading the whole story first.
 - Check whether any subtask still hides multiple decisions behind one checkbox.
-- Check whether the final validation task still reads like an executable checklist rather than a vague summary.
+- Check whether the final validation task has the required repair-scope note first in both `Subtasks` and `Testing`; only each worked-on repository's supported lint and formatting items in `Subtasks`, with unsupported commands omitted; and a concrete repository-evidenced build, applicable startup, full-suite, matching shutdown, supported lint, and supported formatting sequence in `Testing`.
   </verification_loop>
 
 <output_contract>

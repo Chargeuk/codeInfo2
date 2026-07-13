@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import express from 'express';
 import supertest from 'supertest';
@@ -18,6 +20,10 @@ import {
   memoryTurns,
   updateMemoryConversationWorkingFolder,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import {
   __resetFlowServiceDepsForTests,
   __setFlowServiceDepsForTests,
@@ -55,6 +61,8 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
+
+const execFile = promisify(execFileCb);
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -112,6 +120,7 @@ afterEach(() => {
   memoryTurns.clear();
   setWorkingFolderStatForTests(undefined);
   resetStore();
+  __resetProviderBootstrapStatusForTests();
 });
 
 const fixturesDir = path.resolve(
@@ -164,13 +173,15 @@ async function waitForCondition(
 const describeConversationState = (conversationId: string): string =>
   JSON.stringify({
     flags: memoryConversations.get(conversationId)?.flags ?? null,
-    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
-      role: turn.role,
-      status: turn.status,
-      content: turn.content,
-      provider: turn.provider,
-      model: turn.model,
-    })),
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        provider: turn.provider,
+        model: turn.model,
+      })),
   });
 
 test('POST /flows/:flowName/run validates working_folder', async () => {
@@ -247,6 +258,158 @@ test('POST /flows/:flowName/run rejects resumeStepPath without conversationId be
     'resumeStepPath requires an existing conversationId',
   );
   assert.equal(startCalls, 0);
+});
+
+test('POST /flows/:flowName/run rejects non-string codexReviewModelId before startFlowRun begins', async () => {
+  let startCalls = 0;
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: async () => {
+        startCalls += 1;
+        throw new Error('startFlowRun should not be reached');
+      },
+    }),
+  );
+
+  const res = await supertest(app)
+    .post('/flows/codex_review/run')
+    .send({ codexReviewModelId: 123 });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'invalid_request');
+  assert.equal(res.body.message, 'codexReviewModelId must be a string');
+  assert.equal(startCalls, 0);
+});
+
+test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRun', async () => {
+  let capturedModelId: string | undefined;
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: async (params) => {
+        capturedModelId = params.codexReviewModelId;
+        return {
+          flowName: params.flowName,
+          conversationId: 'flow-codex-review',
+          inflightId: 'flow-codex-review-inflight',
+          providerId: 'codex',
+          modelId: 'gpt-5.4',
+        };
+      },
+    }),
+  );
+
+  const res = await supertest(app)
+    .post('/flows/codex_review/run')
+    .send({ codexReviewModelId: 'gpt-5.4' });
+
+  assert.equal(res.status, 202);
+  assert.equal(capturedModelId, 'gpt-5.4');
+});
+
+test('POST /flows/:flowName/run fails fast for codexReview-only flows when codex is unavailable', async () => {
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const tmpFlowsDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-codex-review-preflight-'),
+  );
+  const tmpRepoRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-codex-review-preflight-repo-'),
+  );
+
+  setScopedTestEnvValue('FLOWS_DIR', tmpFlowsDir);
+
+  try {
+    await fs.mkdir(path.join(tmpRepoRoot, 'planning'), { recursive: true });
+    await fs.mkdir(path.join(tmpRepoRoot, 'codeInfoStatus', 'flow-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(tmpRepoRoot, 'planning', '0000027-codex-review.md'),
+      '# Story 27\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(
+        tmpRepoRoot,
+        'codeInfoStatus',
+        'flow-state',
+        'current-plan.json',
+      ),
+      JSON.stringify({
+        plan_path: 'planning/0000027-codex-review.md',
+        branched_from: 'main',
+      }),
+      'utf8',
+    );
+    await execFile('git', ['init', '-b', 'main'], { cwd: tmpRepoRoot });
+    await execFile('git', ['config', 'user.email', 'codex@example.com'], {
+      cwd: tmpRepoRoot,
+    });
+    await execFile('git', ['config', 'user.name', 'Codex Test'], {
+      cwd: tmpRepoRoot,
+    });
+    await execFile('git', ['add', '.'], { cwd: tmpRepoRoot });
+    await execFile('git', ['commit', '-m', 'init'], { cwd: tmpRepoRoot });
+    await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
+      cwd: tmpRepoRoot,
+    });
+    await fs.writeFile(
+      path.join(tmpFlowsDir, 'codex-review-only.json'),
+      JSON.stringify({
+        steps: [
+          {
+            type: 'codexReview',
+            label: 'Run Codex Review',
+            outputKey: 'current-codex-review',
+            basePolicy: 'branched_from_or_default_if_merged',
+            modelSource: 'flow_request_or_step',
+            model: 'gpt-5.4',
+            reasoningEffort: 'medium',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    __setProviderBootstrapStatusForTests('codex', {
+      healthy: false,
+      reason: 'codex unavailable for test',
+      warnings: [],
+    });
+
+    const app = express();
+    app.use(
+      createFlowsRunRouter({
+        startFlowRun: (params) =>
+          startFlowRun({
+            ...params,
+            chatFactory: () => new MinimalChat(),
+            listIngestedRepositories: async () => ({
+              repos: [buildRepoEntry(tmpRepoRoot)],
+              lockedModelId: null,
+            }),
+          }),
+      }),
+    );
+
+    const res = await supertest(app)
+      .post('/flows/codex-review-only/run')
+      .send({ working_folder: tmpRepoRoot })
+      .expect(503);
+
+    assert.equal(res.body.error, 'provider_unavailable');
+    assert.equal(res.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(String(res.body.reason), /codex unavailable for test/i);
+  } finally {
+    if (prevFlowsDir === undefined) {
+      clearScopedTestEnvValue('FLOWS_DIR');
+    } else {
+      setScopedTestEnvValue('FLOWS_DIR', prevFlowsDir);
+    }
+    await fs.rm(tmpFlowsDir, { recursive: true, force: true });
+    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
+  }
 });
 
 test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {
@@ -496,7 +659,8 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
                     repos: [buildRepoEntry(workingFolder)],
                     lockedModelId: null,
                   }),
-                })),
+                }),
+              ),
             }),
           );
 
@@ -837,7 +1001,10 @@ test('validated working_folder also drives dedicated flow reingest target workin
                 ...params,
                 chatFactory: () => new MinimalChat(),
                 listIngestedRepositories: async () => ({
-                  repos: [buildRepoEntry(sourceRoot), buildRepoEntry(workingFolder)],
+                  repos: [
+                    buildRepoEntry(sourceRoot),
+                    buildRepoEntry(workingFolder),
+                  ],
                   lockedModelId: null,
                 }),
               }),
@@ -864,9 +1031,11 @@ test('validated working_folder also drives dedicated flow reingest target workin
             JSON.stringify({
               calls,
               conversationFlags:
-                memoryConversations.get('flow-working-folder-reingest')?.flags ??
-                null,
-              recentTurns: (memoryTurns.get('flow-working-folder-reingest') ?? [])
+                memoryConversations.get('flow-working-folder-reingest')
+                  ?.flags ?? null,
+              recentTurns: (
+                memoryTurns.get('flow-working-folder-reingest') ?? []
+              )
                 .slice(-8)
                 .map((turn) => ({
                   role: turn.role,

@@ -52,9 +52,7 @@ import {
   type ChatDefaultProvider,
   type RuntimeProviderSelectionPath,
 } from '../config/chatDefaults.js';
-import {
-  applyCodexOpenAiCompatEndpointToRuntimeConfig,
-} from '../config/codexConfig.js';
+import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../config/codexConfig.js';
 import { type OpenAiCompatEndpointConfig } from '../config/openaiCompatEndpoints.js';
 import {
   RuntimeConfigResolutionError,
@@ -321,8 +319,9 @@ const agentServiceDeps: AgentServiceDeps = {
 };
 
 const getEffectiveAgentServiceDeps = (): AgentServiceDeps => {
-  const scoped =
-    getScopedAgentServiceDepsOverride() as Partial<AgentServiceDeps> | undefined;
+  const scoped = getScopedAgentServiceDepsOverride() as
+    | Partial<AgentServiceDeps>
+    | undefined;
   if (!scoped) {
     return agentServiceDeps;
   }
@@ -559,20 +558,20 @@ async function persistDirectAgentConversation(params: {
       lastMessageAt: now,
     });
   } else {
-  const metaOutcome = await updateConversationMeta({
-    conversationId: params.conversationId,
-    provider: params.providerId,
-    model: params.modelId,
-    flags,
-    replaceFlags: true,
-    lastMessageAt: now,
-  });
-  if (metaOutcome.outcome === 'not_found') {
-    throw toRunAgentError('CONVERSATION_ARCHIVED');
-  }
-  if (metaOutcome.outcome === 'retry_exhausted') {
-    throw new Error('agent conversation metadata update exhausted');
-  }
+    const metaOutcome = await updateConversationMeta({
+      conversationId: params.conversationId,
+      provider: params.providerId,
+      model: params.modelId,
+      flags,
+      replaceFlags: true,
+      lastMessageAt: now,
+    });
+    if (metaOutcome.outcome === 'not_found') {
+      throw toRunAgentError('CONVERSATION_ARCHIVED');
+    }
+    if (metaOutcome.outcome === 'retry_exhausted') {
+      throw new Error('agent conversation metadata update exhausted');
+    }
   }
 
   const persisted = (await ConversationModel.findById(params.conversationId)
@@ -882,15 +881,18 @@ async function prepareDirectAgentExecution(params: {
     );
     throw error;
   }
-  emitPreparationDiagnostic('flows.test.runtime_resolution_prepare_availability_begin');
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_availability_begin',
+  );
   const availabilityContext =
     await getEffectiveAgentServiceDeps().createAgentAvailabilityContext();
-  const availability = await getEffectiveAgentServiceDeps().evaluateAgentAvailability({
-    agentName: params.agentName,
-    configPath: params.configPath,
-    entrypoint: 'agents.service',
-    context: availabilityContext,
-  });
+  const availability =
+    await getEffectiveAgentServiceDeps().evaluateAgentAvailability({
+      agentName: params.agentName,
+      configPath: params.configPath,
+      entrypoint: 'agents.service',
+      context: availabilityContext,
+    });
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_availability_complete',
     {
@@ -899,7 +901,9 @@ async function prepareDirectAgentExecution(params: {
       disabledReason: availability.disabledReason?.message ?? null,
     },
   );
-  emitPreparationDiagnostic('flows.test.runtime_resolution_prepare_provider_states_begin');
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_provider_states_begin',
+  );
   const providerStates = await collectDirectAgentProviderStates();
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_provider_states_complete',
@@ -937,14 +941,17 @@ async function prepareDirectAgentExecution(params: {
       lmstudioReason: runtimeProviderStates.lmstudio.reason ?? null,
     },
   );
-  emitPreparationDiagnostic('flows.test.runtime_resolution_prepare_execution_context_begin');
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_execution_context_begin',
+  );
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
   });
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_execution_context_complete',
     {
-      workingDirectoryOverride: executionContext.workingDirectoryOverride ?? null,
+      workingDirectoryOverride:
+        executionContext.workingDirectoryOverride ?? null,
       selectedRepositoryPath:
         executionContext.repositoryMetadata.selectedRepositoryPath ?? null,
       defaultExecutionRoot:
@@ -962,12 +969,13 @@ async function prepareDirectAgentExecution(params: {
         pinned: true,
       },
     );
-    const providerRuntimeResolution = await resolveProviderRuntimeConfigForExecution({
-      configPath: params.configPath,
-      providerId: params.pinnedProviderId,
-      source: params.source,
-      surface: params.surface,
-    });
+    const providerRuntimeResolution =
+      await resolveProviderRuntimeConfigForExecution({
+        configPath: params.configPath,
+        providerId: params.pinnedProviderId,
+        source: params.source,
+        surface: params.surface,
+      });
     emitPreparationDiagnostic(
       'flows.test.runtime_resolution_prepare_provider_runtime_config_complete',
       {
@@ -1291,7 +1299,8 @@ async function prepareDirectAgentExecution(params: {
     if (runtimeSelection.unavailable) {
       if (
         params.pinnedEndpointId &&
-        providerRuntimeResolution.endpoint?.endpointId === params.pinnedEndpointId
+        providerRuntimeResolution.endpoint?.endpointId ===
+          params.pinnedEndpointId
       ) {
         throw toRunAgentError(
           'PROVIDER_UNAVAILABLE',
@@ -1390,8 +1399,11 @@ async function prepareDirectAgentExecution(params: {
       configuredRequestedProvider,
       invalidProviderReason: invalidProviderReason ?? null,
       lastRuntimeConfigFailure:
-        lastRuntimeConfigFailure === undefined ? null : lastRuntimeConfigFailure,
-      requestedProviderReason: providerStates[configuredRequestedProvider]?.reason ?? null,
+        lastRuntimeConfigFailure === undefined
+          ? null
+          : lastRuntimeConfigFailure,
+      requestedProviderReason:
+        providerStates[configuredRequestedProvider]?.reason ?? null,
     },
   );
   if (invalidProviderReason) {
@@ -2023,7 +2035,7 @@ export async function startAgentInstruction(
     },
   });
 
-  let modelId = 'gpt-5.1-codex-max';
+  let modelId = 'gpt-5.6-sol';
   let providerId: ChatProviderId = 'codex';
   let warnings: string[] = [];
   let startPathWasNewConversation = false;
@@ -2111,15 +2123,18 @@ export async function startAgentInstruction(
 
   void (async () => {
     try {
-      appendAgentRuntimeDiagnostic('agents.test.start_instruction.background_entered', {
-        agentName: params.agentName,
-        conversationId,
-        inflightId,
-        source: params.source,
-        runToken,
-        startPathWasNewConversation,
-        workingFolder: params.working_folder ?? null,
-      });
+      appendAgentRuntimeDiagnostic(
+        'agents.test.start_instruction.background_entered',
+        {
+          agentName: params.agentName,
+          conversationId,
+          inflightId,
+          source: params.source,
+          runToken,
+          startPathWasNewConversation,
+          workingFolder: params.working_folder ?? null,
+        },
+      );
       await runAgentInstructionUnlocked({
         ...params,
         conversationId,
@@ -2133,23 +2148,29 @@ export async function startAgentInstruction(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      appendAgentRuntimeDiagnostic('agents.test.start_instruction.background_complete', {
-        agentName: params.agentName,
-        conversationId,
-        inflightId,
-        source: params.source,
-        runToken,
-      });
+      appendAgentRuntimeDiagnostic(
+        'agents.test.start_instruction.background_complete',
+        {
+          agentName: params.agentName,
+          conversationId,
+          inflightId,
+          source: params.source,
+          runToken,
+        },
+      );
     } catch (err) {
-      appendAgentRuntimeDiagnostic('agents.test.start_instruction.background_failed', {
-        agentName: params.agentName,
-        conversationId,
-        inflightId,
-        source: params.source,
-        runToken,
-        error:
-          err instanceof Error ? err.message : String(err ?? 'unknown error'),
-      });
+      appendAgentRuntimeDiagnostic(
+        'agents.test.start_instruction.background_failed',
+        {
+          agentName: params.agentName,
+          conversationId,
+          inflightId,
+          source: params.source,
+          runToken,
+          error:
+            err instanceof Error ? err.message : String(err ?? 'unknown error'),
+        },
+      );
       baseLogger.error(
         { agentName: params.agentName, conversationId, inflightId, err },
         'agents run failed (background)',
@@ -2237,7 +2258,7 @@ function isSafeAgentCommandName(raw: string): boolean {
   return true;
 }
 
-const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.1-codex-max';
+const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.6-sol';
 
 const loadKnownRepositoryPathsStateForAgentRuns = async () =>
   await getEffectiveAgentServiceDeps()
@@ -2490,7 +2511,7 @@ export async function startAgentCommand(params: {
   const { runToken } = ownership;
 
   let backgroundScheduled = false;
-  let modelId = 'gpt-5.1-codex-max';
+  let modelId = 'gpt-5.6-sol';
   let providerId: ChatProviderId = 'codex';
   let warnings: string[] = [];
 
@@ -2610,29 +2631,35 @@ export async function startAgentCommand(params: {
       selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
       workingFolder: effectiveWorkingFolder ?? null,
     });
-    appendAgentRuntimeDiagnostic('agents.test.start_command.background_scheduled', {
-      agentName: params.agentName,
-      commandName,
-      conversationId,
-      source: params.source,
-      runToken,
-      startStep,
-      selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
-      workingFolder: effectiveWorkingFolder ?? null,
-    });
+    appendAgentRuntimeDiagnostic(
+      'agents.test.start_command.background_scheduled',
+      {
+        agentName: params.agentName,
+        commandName,
+        conversationId,
+        source: params.source,
+        runToken,
+        startStep,
+        selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+        workingFolder: effectiveWorkingFolder ?? null,
+      },
+    );
 
     void (async () => {
       try {
-        appendAgentRuntimeDiagnostic('agents.test.start_command.background_entered', {
-          agentName: params.agentName,
-          commandName,
-          conversationId,
-          source: params.source,
-          runToken,
-          startStep,
-          selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
-          workingFolder: effectiveWorkingFolder ?? null,
-        });
+        appendAgentRuntimeDiagnostic(
+          'agents.test.start_command.background_entered',
+          {
+            agentName: params.agentName,
+            commandName,
+            conversationId,
+            source: params.source,
+            runToken,
+            startStep,
+            selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+            workingFolder: effectiveWorkingFolder ?? null,
+          },
+        );
         appendAgentRuntimeDiagnostic('agents.test.start_command.runner_begin', {
           agentName: params.agentName,
           commandName,
@@ -2661,18 +2688,21 @@ export async function startAgentCommand(params: {
           lookupSummary: resolution.lookupSummary,
           runtimeLookupSummary: resolution.runtimeLookupSummary,
           onPrestartFailure: async (failure) => {
-            appendAgentRuntimeDiagnostic('agents.test.start_command.prestart_failure', {
-              agentName: params.agentName,
-              commandName,
-              conversationId,
-              source: params.source,
-              runToken,
-              startStep,
-              stepIndex: failure.command.stepIndex,
-              totalSteps: failure.command.totalSteps,
-              errorCode: failure.errorCode ?? null,
-              message: failure.message,
-            });
+            appendAgentRuntimeDiagnostic(
+              'agents.test.start_command.prestart_failure',
+              {
+                agentName: params.agentName,
+                commandName,
+                conversationId,
+                source: params.source,
+                runToken,
+                startStep,
+                stepIndex: failure.command.stepIndex,
+                totalSteps: failure.command.totalSteps,
+                errorCode: failure.errorCode ?? null,
+                message: failure.message,
+              },
+            );
             await emitFailedAgentCommandStep({
               conversationId,
               inflightId: crypto.randomUUID(),
@@ -2689,29 +2719,37 @@ export async function startAgentCommand(params: {
             runAgentInstructionUnlocked({
               ...runParams,
               chatFactory: params.chatFactory,
-          }),
+            }),
           lockAlreadyHeld: true,
           runToken,
         });
-        appendAgentRuntimeDiagnostic('agents.test.start_command.runner_complete', {
-          agentName: params.agentName,
-          commandName,
-          conversationId,
-          source: params.source,
-          runToken,
-          startStep,
-        });
+        appendAgentRuntimeDiagnostic(
+          'agents.test.start_command.runner_complete',
+          {
+            agentName: params.agentName,
+            commandName,
+            conversationId,
+            source: params.source,
+            runToken,
+            startStep,
+          },
+        );
       } catch (err) {
-        appendAgentRuntimeDiagnostic('agents.test.start_command.runner_failed', {
-          agentName: params.agentName,
-          commandName,
-          conversationId,
-          source: params.source,
-          runToken,
-          startStep,
-          error:
-            err instanceof Error ? err.message : String(err ?? 'unknown error'),
-        });
+        appendAgentRuntimeDiagnostic(
+          'agents.test.start_command.runner_failed',
+          {
+            agentName: params.agentName,
+            commandName,
+            conversationId,
+            source: params.source,
+            runToken,
+            startStep,
+            error:
+              err instanceof Error
+                ? err.message
+                : String(err ?? 'unknown error'),
+          },
+        );
         baseLogger.error(
           { agentName: params.agentName, commandName, conversationId, err },
           'agents command run failed (background)',

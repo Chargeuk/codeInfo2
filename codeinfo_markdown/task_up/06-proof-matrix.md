@@ -8,13 +8,14 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 - Keep the matrix lightweight, but do not allow proof to remain implied.
 - Preserve the repository-specific task structure already created in earlier steps.
 - Do not replace wrapper-first testing with narrow execution commands.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Earlier substantive tasks own proof authoring; the dedicated final task owns each worked-on repository's build, runtime lifecycle, full-suite, shutdown, supported lint, and supported formatting execution and must retain only supported per-repository lint and formatting as its initial subtask types, omitting unsupported commands.
   </instruction_priority>
 
 <proof_matrix_rules>
 
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
-- For each task, identify every acceptance path, important edge case, and meaningful failure mode that task is responsible for.
+- For each substantive implementation task, identify every acceptance path, important edge case, and meaningful failure mode that task is responsible for. For the dedicated final validation task, verify the story-wide worked-on repository, build, runtime, full-suite, shutdown, supported lint, and supported formatting inventory instead of adding proof-matrix subtasks.
 - Treat invalid env/config inputs, blank or whitespace-only inputs, out-of-range numeric values, and large-input scale behavior as proof obligations whenever the task changes constrained config parsing or large-repository query/filter logic.
 - Treat partial or in-progress state, cleanup ownership, reader/writer compatibility, and stale-vs-live state handling as proof obligations whenever the task changes persisted artifacts, caches, locks, files, or collections.
 - Treat cancel, retry, teardown, crash-recovery, and destructive-cleanup ordering as proof obligations whenever the task changes lifecycle-sensitive orchestration.
@@ -33,7 +34,7 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
   4. the proof owner;
   5. the later screenshot views that manual proof must capture and compare.
 - If design-driven visual sources exist for the same surface, require the visual proof map to say whether the owned visual invariant came from an explicit task override, the story plan or `Design Contract`, paired design markdown, the visual asset, or a combination, and follow that same precedence order when they differ.
-- If `Design Contract Present` is true and the task is the final task in the story, require that visual proof map to cover the full set of implemented frontend surfaces that the story owns, not only the final task's smallest local seam.
+- If `Design Contract Present` is true, keep the story-wide visual proof map in the earlier design-driven tasks or optional final-task `Manual Testing Guidance`; do not add it as a final-task subtask.
 - Do not allow grouped proof instructions like “update these tests” unless each file and invariant is still listed separately in the task.
 - When one task changes multiple proof files, use separate numbered subtasks or clearly separated proof bullets so a reviewer can see which file proves which invariant.
 - Keep wrapper commands in the `Testing` section. Keep exact test-file references in subtasks.

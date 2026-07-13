@@ -1,11 +1,11 @@
+codeinfo_provider = "codex"
 model_reasoning_effort = "high"
-model = "rdtand/Qwen3.6-35B-A3B-PrismaQuant-4.75bit-vllm"
+model = "gpt-5.6-luna"
 codeinfo_openai_endpoint = "http://192.168.1.3:8011/v1|responses,completions"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-personality = "friendly"
-model_auto_compact_token_limit=180000
-web_search_mode = "live" 
+personality = "pragmatic"
+web_search_mode = "live"
 
 [features]
 view_image_tool = true
@@ -13,7 +13,7 @@ view_image_tool = true
 [mcp_servers]
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
 

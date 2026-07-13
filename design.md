@@ -37,6 +37,18 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Supported GitHub review-cycle skip paths finish as completed-with-warning instead of pretending a clean external review occurred. The current supported reasons are missing `.env.local`, malformed `.env.local`, missing token key, blank token value, missing upstream branch, missing trustworthy base branch, upstream push failure, and PR creation failure.
 - GitHub review scratch remains separate from the existing external-review ingest path. Story 60 writes transient handoff and raw review artifacts under `codeInfoTmp/reviews/`, preserves safe replacement semantics for the story-local handoff file, filters out PR-author feedback before classification, and replaces stale scratch with the fresh fetch before later review disposition reads it back.
 
+## Story 0000064 bounded review-plan context
+
+- Review subflows consume the complete story contract without loading the complete plan Markdown into an agent thread.
+- `scripts/plan_sections.py --profile review-evidence` provides repository scope, requested story sections, a compact task index, and the final task's proof-owning sections for the evidence gate.
+- `scripts/plan_sections.py --profile review-findings` provides story scope plus content-free task and heading indexes. Findings, saturation, and blind-spot agents expand only tasks relevant to a changed file, repository, finding, or behavior seam.
+- Task indexes expose ownership, affected repositories, finding IDs, checklist state, available section names, and exact task ranges without including unrequested task prose.
+- Reachability policy follows parent flows, subflows, agent command JSON stacks, direct Markdown, and recursively linked shared Markdown so command-owned prompts cannot bypass the bounded-read contract.
+- Multi-pass review task enhancement reruns `review-tasking` before each mutation and again for final verification, so every pass receives fresh state without reopening the plan. Workflow-state fallback checks only plan readability and repository validity when the primary status helper cannot run.
+- `review-scope` and `review-tasking` include Description alongside Acceptance Criteria and Out Of Scope, allowing later classification and task-repair stages to preserve story intent as well as its explicit boundaries.
+- Policy matching covers selected and referenced plan wording, content-from-disk variants, and the existing canonical, active, exact, whole, full, complete, and entire-plan forms while allowing explicit prohibitions and helper-internal parsing.
+- `implement_next_plan`, `task_and_implement_plan`, and `improve_task_implement_plan` share one canonical execution, review, and closeout suffix. Their prefixes remain purpose-specific for implementation-only, task-and-implement, and improve-task-and-implement entry paths.
+
 ## Story 0000057 final provider-neutral runtime closeout
 
 - Story `0000057` finishes the migration from provider-specific agent assumptions to one shared provider-neutral execution contract for direct agents, commands, flow-owned agent execution, and MCP `code_info` grounding.
@@ -2782,6 +2794,7 @@ flowchart LR
   - `llm`: `{ type, label?, agentType, identifier, messages: { role: 'user', content: string[] }[] }` or `{ type, label?, agentType, identifier, markdownFile }`.
   - `break`: `{ type, label?, agentType, identifier, question, breakOn: 'yes' | 'no' }`.
   - `command`: `{ type, label?, agentType, identifier, commandName }`.
+  - `reset`: `{ type, label?, agentType, identifier }`.
   - `reingest`: `{ type, label?, sourceId }`.
 - All objects are `.strict()` and use trimmed non-empty strings; unknown keys or empty/whitespace-only values fail validation.
 - Story 45 schema rules for new flow shapes:
@@ -2840,8 +2853,20 @@ flowchart TD
 - Flow runs create a conversation titled `customTitle` when provided (fallback `Flow: <name>`) and set `flowName` for sidebar filtering.
 - Per-agent flow conversations use `${customTitle} (<identifier>)` when provided (fallback `Flow: <name> (<identifier>)`) and remain agent-only (no `flowName`).
 - Resume requests never rename existing flow or per-agent conversation titles; `customTitle` applies only on creation.
-- Core execution supports `llm`, `startLoop`, `break`, and `command` steps; unsupported step types return `400 { error: "invalid_request" }`.
+- Core execution supports `llm`, `startLoop`, `break`, `continue`, `command`, `reset`, `prepareReviewBase`, `codexReview`, `subflow`, and `reingest` steps; unsupported step types return `400 { error: "invalid_request" }`.
 - `startLoop` executes its nested steps repeatedly, tracking a loop stack with `loopStepPath` and iteration count; `break` exits only the nearest loop.
+- `reset` targets the execution-local agent slot keyed by `agentType:identifier`. It removes that slot from runtime and persisted resume state without deleting or archiving the old child conversation, so the next agent-backed step for the same key resolves current runtime configuration and creates a new child conversation and provider thread.
+- Resetting a slot that has not been used, or resetting the same slot repeatedly, is an observable successful no-op. The step logs `flows.agent.reset` with outcome `reset` or `already_absent`, persists its completed step path immediately, and continues the flow without making a model call.
+
+```json
+{
+  "type": "reset",
+  "label": "Reset planner context",
+  "agentType": "planning_agent",
+  "identifier": "planner"
+}
+```
+
 - `break` asks the configured agent to answer JSON `{ "answer": "yes" | "no" }` and fails the step (turn_final status `failed`) if the response is invalid.
 - Break parsing uses a strict-first strategy order in `parseBreakAnswer`: direct JSON body parse, then fenced `json` block extraction, then balanced JSON-object scanning.
 - Schema gating remains exact for break answers: only `{ "answer": "yes" | "no" }` is accepted; extra keys or unsupported values are rejected deterministically.
@@ -3612,7 +3637,7 @@ sequenceDiagram
 - Missing-file creation stays non-destructive:
   - missing `codex/config.toml` -> write the canonical in-code template with exclusive create semantics
   - existing `codex/config.toml` -> short-circuit without overwrite
-- The canonical base template keeps server-port substitution, uses `model = "gpt-5.3-codex"`, and seeds Context7 in the no-key stdio form only.
+- The canonical base template keeps server-port substitution, uses `model = "gpt-5.6-sol"`, and seeds Context7 in the no-key stdio form only.
 - Bootstrap observability now emits `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP` with `outcome=seeded|existing`, `template_source=in_code`, and `success=true` on the success paths used during startup.
 
 ```mermaid

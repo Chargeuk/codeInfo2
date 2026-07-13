@@ -8,6 +8,7 @@ Audit the planned proof files so changed or reused tests still claim and prove t
 - Treat misleading proof as a tasking defect, not a cosmetic issue.
 - Keep the audit focused on proof semantics, not general test style.
 - Do not remove valid proof; rename or rewrite it when semantics drift.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Repair proof semantics in the owning substantive tasks; do not add proof-maintenance subtasks to the dedicated final task.
   </instruction_priority>
 
 <test_semantics_rules>
@@ -15,7 +16,7 @@ Audit the planned proof files so changed or reused tests still claim and prove t
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For every changed or newly referenced proof file, check whether the test title, inline description, and assertions still describe the same invariant after the planned implementation changes.
-- If an existing test would become misleading, add an explicit subtask to rename it, split it, or rewrite it.
+- If an existing test would become misleading, add an explicit subtask to the owning substantive task to rename it, split it, or rewrite it.
 - Do not allow a task to rely on a proof file whose title claims one behavior while its assertions only verify adjacent behavior.
 - Do not allow a task to rely on separate adjacent assertions when the claim is an ordering, interleaving, post-transition recomputation, producer-consumer propagation, or cleanup-before-success invariant. Require the planned proof to assert the exact combined scenario.
 - When a planned proof file is reused for a new behavior, make the new invariant explicit in the task instead of assuming the old test name is “close enough”.

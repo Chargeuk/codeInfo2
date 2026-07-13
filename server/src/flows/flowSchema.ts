@@ -59,6 +59,30 @@ export type FlowCommandStep = {
   commandName: string;
 };
 
+export type FlowResetStep = {
+  type: 'reset';
+  label?: string;
+  agentType: string;
+  identifier: string;
+};
+
+export type FlowPrepareReviewBaseStep = {
+  type: 'prepareReviewBase';
+  label?: string;
+  outputKey: string;
+  basePolicy?: 'branched_from_or_default_if_merged';
+};
+
+export type FlowCodexReviewStep = {
+  type: 'codexReview';
+  label?: string;
+  outputKey: string;
+  basePolicy?: 'branched_from_or_default_if_merged';
+  modelSource?: 'flow_request_or_step';
+  model?: string;
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+};
+
 export type FlowSubflowStep = {
   type: 'subflow';
   label?: string;
@@ -112,6 +136,9 @@ export type FlowStep =
   | FlowBreakStep
   | FlowContinueStep
   | FlowCommandStep
+  | FlowResetStep
+  | FlowPrepareReviewBaseStep
+  | FlowCodexReviewStep
   | FlowSubflowStep
   | FlowReingestStep
   | FlowIfStep
@@ -182,6 +209,38 @@ const FlowCommandStepSchema = z
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
     commandName: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowResetStepSchema = z
+  .object({
+    type: z.literal('reset'),
+    label: trimmedNonEmptyString.optional(),
+    agentType: trimmedNonEmptyString,
+    identifier: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowPrepareReviewBaseStepSchema = z
+  .object({
+    type: z.literal('prepareReviewBase'),
+    label: trimmedNonEmptyString.optional(),
+    outputKey: trimmedNonEmptyString,
+    basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
+  })
+  .strict();
+
+const FlowCodexReviewStepSchema = z
+  .object({
+    type: z.literal('codexReview'),
+    label: trimmedNonEmptyString.optional(),
+    outputKey: trimmedNonEmptyString,
+    basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
+    modelSource: z.literal('flow_request_or_step').optional(),
+    model: trimmedNonEmptyString.optional(),
+    reasoningEffort: z
+      .enum(['minimal', 'low', 'medium', 'high', 'xhigh'])
+      .optional(),
   })
   .strict();
 
@@ -292,6 +351,9 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowContinueStepSchema,
     FlowCommandStepSchema,
+    FlowResetStepSchema,
+    FlowPrepareReviewBaseStepSchema,
+    FlowCodexReviewStepSchema,
     FlowSubflowStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,

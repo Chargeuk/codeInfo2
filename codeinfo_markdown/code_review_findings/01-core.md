@@ -6,7 +6,9 @@ Continue the current story review using ONLY the stored review handoff, perform 
 
 - Do NOT discover the latest review artifact by timestamp.
 - Use fresh disk reads and current git state, not conversational memory.
-- Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and determine the canonical `plan_path`, then extract repository paths from `additional_repositories` and re-open the exact relative `plan_path` from disk.
+- Re-read `codeInfoStatus/flow-state/current-plan.json`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-findings`. Use its repository scope, story contract, available headings, and compact task index as the initial plan context.
+- When a changed file, finding, repository, or behavior seam needs detailed task requirements, use the task index to run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --task-number <number> --section Overview --section "Task Exit Criteria" --section Subtasks --section Testing`. Request another named section only when that review decision genuinely requires it.
+- After deriving the shared story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When it exists, treat it as the authoritative current-repository comparison contract for this pass and do not re-fetch or recompute the current repository base branch.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - Then re-read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, derived from the shared story number.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit the plan.
@@ -68,6 +70,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
   - its `repos` entries, combined with current git state, identify the selected repositories, current branch names, and current local `HEAD` commits;
   - each repository has either a stored `comparison_base_commit`, a stored `comparison_base_ref` or `resolved_base_branch` that can be resolved safely, or enough evidence summary detail to infer the review base without guessing.
 - Prefer each stored `comparison_base_commit` as the pinned base object for review diffs when it resolves to a commit object. If it is missing but `comparison_base_ref`, `resolved_base_branch`, or the evidence summary identifies the base clearly, resolve that base once, record the inference in the findings artifact, and use it for this pass.
+- For the current repository, prefer the prepared review-base artifact when it exists and preserve its `comparison_base_ref` and `comparison_base_commit` unchanged through this step.
 - Treat a stored or inferred `comparison_head_ref` as local `HEAD`. Review the local working branch against the stored or inferred comparison base, and do not compare `origin/<current-story-branch>` against the base.
 - Treat `remote_name`, `remote_fetch_status`, `resolved_base_source`, `local_fallback_reason`, `remote_fetch_error`, and `remote_fetch_exit_code` as useful evidence when present. Do not fail only because those fields are absent, older, or differently shaped; instead preserve or infer the relevant remote-vs-local fallback context when it affects confidence.
 - If `remote_fetch_error` is present, do not repeat raw error text into new artifacts unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.

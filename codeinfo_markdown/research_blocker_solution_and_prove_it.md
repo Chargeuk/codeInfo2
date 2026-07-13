@@ -7,7 +7,7 @@ Research the current blocker, prove the best technical solution, and record that
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
-Re-open the exact plan file from disk before checking for blockers.
+Load a fresh bounded blocker-repair packet before checking for blockers.
 If the current implementation does not contain a blocker, state that and stop.
 If the current implementation contains a blocker, you MUST research and prove the solution before work continues.
 Write the proven blocker answer into the implementation notes marked as `**BLOCKING ANSWER**`.
@@ -19,7 +19,7 @@ Write the proven blocker answer into the implementation notes marked as `**BLOCK
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
-- Re-open the exact relative `plan_path` from disk before checking for blockers or implementation notes, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current` before checking blockers or implementation notes.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </scope_rules>
@@ -111,7 +111,7 @@ Return a concise summary that includes:
 
 Before finishing:
 
-- confirm you re-read the plan from disk;
+- confirm you used a fresh bounded blocker-repair packet;
 - confirm the blocker was identified from current implementation notes rather than memory;
 - confirm repository precedents and external precedents were gathered when relevant;
 - confirm the chosen solution was proved rather than merely suggested;

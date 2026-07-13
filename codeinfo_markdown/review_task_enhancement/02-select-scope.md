@@ -12,7 +12,7 @@ Identify exactly which newly added review-created `__to_do__` tasks are eligible
 
 <selection_rules>
 
-- Re-read `codeInfoStatus/flow-state/current-plan.json` and re-open the exact `plan_path` from disk before doing selection.
+- Re-read `codeInfoStatus/flow-state/current-plan.json`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before doing selection.
 - Identify the current selected story file and inspect its current working-tree diff against `HEAD`.
 - Use that diff to find newly added `__to_do__` review-fix sections appended by the immediately preceding `review_disposition` pass.
 - Eligible tasks must satisfy all of the following unless the plan file proves a tighter equivalent:

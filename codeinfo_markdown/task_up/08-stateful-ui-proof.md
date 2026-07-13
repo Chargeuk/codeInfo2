@@ -8,13 +8,14 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 - Run this pass only where the story affects UI state, mode switches, restored fields, or any client-visible state machine.
 - If the story has no such surface, leave the plan unchanged and record that this pass is not applicable.
 - Prefer concrete state transitions over generic UX wording.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Put stateful-UI implementation and proof-authoring subtasks in substantive tasks, not in the dedicated final task.
   </instruction_priority>
 
 <stateful_ui_rules>
 
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
-- For each affected task, check whether a user can move between contradictory states such as:
+- For each affected substantive task, check whether a user can move between contradictory states such as:
   - create vs reuse;
   - run vs resume;
   - new item vs selected old item;

@@ -27,7 +27,7 @@ Before checking for blockers, the agent must:
 
 1. Read `codeInfoStatus/flow-state/current-plan.json`.
 2. Resolve the stored `plan_path`.
-3. Re-open that exact plan file from disk.
+3. Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md` and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task-number <selected-task-number>`.
 4. Select the relevant task exactly as the calling prompt defines it:
    - highest `__in_progress__` task
    - highest `__in_progress__` or `__done__` task
@@ -66,10 +66,10 @@ Use the parser output, not narrative judgment.
 - If the selected task reports one or more `live_blockers`, the blocker answer is `yes`.
 - If the selected task reports zero `live_blockers`, the blocker answer is `no`.
 - If no task matches the requested selector, answer according to the calling prompt's fallback rule.
-- If the parser cannot be used under the manual-fallback rule above, manually re-create only the same selector or explicit task-number choice requested by the calling prompt from the reopened plan on disk.
+- If the parser cannot be used under the manual-fallback rule above, use `rg -n --max-count` plus one exact `sed -n` range to recreate only the same selector or explicit task-number choice requested by the calling prompt.
 - In that permitted manual fallback, treat a blocker as present only when the selected task section contains a markdown list item whose line begins exactly `- **BLOCKER**`.
 - During manual fallback, ignore inline prose mentions of `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, ignore `**RESOLVED ISSUE**`, and ignore blocker text outside the selected task section.
-- If the parser fails and the selected task still cannot be identified safely from the reopened plan, stop and report that blocker status could not be determined from the failed parser path.
+- If the parser fails and the selected task still cannot be identified safely from that bounded fallback, stop and report that blocker status could not be determined.
 
 ## Output Requirements For Prompt Authors
 

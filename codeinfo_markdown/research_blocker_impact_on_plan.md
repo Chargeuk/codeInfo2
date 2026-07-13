@@ -6,8 +6,8 @@ Decide whether the current blocker proves that the plan itself is wrong or incom
 
 Read the stored current-plan handoff and use only that scope for this step.
 Use the same current-task context and blocker-owner conclusion from the immediately preceding blocker-solution step rather than re-reading `current-task.json` again in this same planning-agent pass.
-Re-open the exact plan file from disk before deciding whether the blocker changes the plan.
-Read the selected task's latest `**BLOCKING ANSWER**` from the reopened plan and extract any blocker-family and ownership conclusion before deciding whether to repair the plan.
+Load fresh bounded blocker and story-scope packets before deciding whether the blocker changes the plan.
+Read the selected task's latest `**BLOCKING ANSWER**` from the bounded blocker-repair packet and extract any blocker-family and ownership conclusion before deciding whether to repair the plan.
 If there is no blocker, or there was a blocker but no plan repair is needed, state that explicitly.
 If the blocker proves the plan is wrong or incomplete, repair the story before work continues.
 
@@ -18,7 +18,7 @@ If the blocker proves the plan is wrong or incomplete, repair the story before w
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
-- Re-open the exact relative `plan_path` from disk before deciding whether the blocker changes the plan, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current` and `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile story-scope` before deciding whether the blocker changes the plan.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </scope_rules>
@@ -37,7 +37,7 @@ If the blocker proves the plan is wrong or incomplete, repair the story before w
 
 <blocker_family_rehydration_rules>
 
-- After reopening the plan, find the selected task's latest `**BLOCKING ANSWER**` implementation note when one exists.
+- In the bounded blocker-repair packet, find the selected task's latest `**BLOCKING ANSWER**` implementation note when one exists.
 - Extract these conclusions from that note before applying decision or handoff rules:
   - blocker family;
   - whether the current task owns the blocker;
@@ -195,7 +195,7 @@ Return a concise summary that includes:
 
 Before finishing:
 
-- confirm you re-read the plan from disk;
+- confirm you used fresh bounded blocker and story-scope packets;
 - confirm the blocker's plan impact was judged from current plan state rather than memory;
 - confirm any missing prerequisite, task split, renumbering, or testing-gate changes were applied consistently;
 - confirm any prerequisite handoff was encoded in task status so the next real owner is the one the implementation loop will actually pick;

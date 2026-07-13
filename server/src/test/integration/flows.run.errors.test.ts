@@ -87,13 +87,15 @@ const waitFor = async (
 const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
   JSON.stringify({
     conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
-    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
-      role: turn.role,
-      status: turn.status,
-      content: turn.content,
-      runtime: turn.runtime,
-      command: turn.command,
-    })),
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        runtime: turn.runtime,
+        command: turn.command,
+      })),
     runtimeLogs: query({ text: 'flows.test.' }, 120)
       .filter(
         (entry) =>
@@ -178,7 +180,8 @@ const makeApp = () => {
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
-        })),
+        }),
+      ),
     }),
   );
   return app;
@@ -225,8 +228,7 @@ const withAgentRuntimeEnv = async (
         ...(params.compatEndpoints === undefined
           ? {}
           : {
-              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
-                params.compatEndpoints,
+              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: params.compatEndpoints,
             }),
       },
     },
@@ -501,7 +503,8 @@ async function withFlowHarness(
                         lockedModelId: null,
                       })
                     : undefined,
-                })),
+                }),
+              ),
             }),
           );
           const httpServer = http.createServer(app);
@@ -617,7 +620,9 @@ const waitForFlowFinal = async (params: {
     const latestAssistantTurn = getLatestAssistantTurn(params.conversationId);
     throw new Error(
       [
-        error instanceof Error ? error.message : 'Timed out waiting for flow final',
+        error instanceof Error
+          ? error.message
+          : 'Timed out waiting for flow final',
         `latestAssistantTurn=${JSON.stringify(
           latestAssistantTurn
             ? {
@@ -642,7 +647,9 @@ test('POST /flows/:flowName/run returns 404 for missing flow file', async () => 
 
   try {
     await withFlowFixtureEnv(tmpDir, async () => {
-      const res = await supertest(makeApp()).post('/flows/missing/run').send({});
+      const res = await supertest(makeApp())
+        .post('/flows/missing/run')
+        .send({});
       assert.equal(res.status, 404);
       assert.equal(res.body.error, 'not_found');
     });
@@ -2585,7 +2592,7 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
-    assert.equal(result.modelId, 'gpt-5.1-codex-max');
+    assert.equal(result.modelId, 'gpt-5.6-sol');
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -2596,9 +2603,9 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       result.conversationId,
       (items) => items.length >= 2,
     );
-    assert.equal(conversation?.model, 'gpt-5.1-codex-max');
-    assert.equal(turns[0]?.model, 'gpt-5.1-codex-max');
-    assert.equal(turns[1]?.model, 'gpt-5.1-codex-max');
+    assert.equal(conversation?.model, 'gpt-5.6-sol');
+    assert.equal(turns[0]?.model, 'gpt-5.6-sol');
+    assert.equal(turns[1]?.model, 'gpt-5.6-sol');
   });
 });
 

@@ -46,7 +46,7 @@ FROM node:22.21.1-slim AS runtime
 ARG HOME
 ARG CODEINFO_RUNTIME_UID=1000
 ARG CODEINFO_RUNTIME_GID=1000
-ARG GH_VERSION=2.95.0
+ARG GH_VERSION=2.94.0
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
 ARG CODEINFO_PIP_TRUSTED_HOST
@@ -76,14 +76,23 @@ RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com \
   $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
 
-# Add GitHub CLI's official GPG key and apt repository so the runtime can pin
-# a modern gh build with the flags Story 60's GitHub-review flow uses.
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    | dd of=/etc/apt/keyrings/githubcli-archive-keyring.gpg && \
-    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-RUN echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+# Install the pinned GitHub CLI release directly. The package repository can
+# lag behind releases, while Story 60 requires a modern `gh api --slurp`.
+RUN set -eu; \
+    GH_ARCH="$(dpkg --print-architecture)"; \
+    case "${GH_ARCH}" in \
+      amd64|arm64) ;; \
+      *) echo "Unsupported GitHub CLI architecture: ${GH_ARCH}" >&2; exit 1 ;; \
+    esac; \
+    GH_ARCHIVE="gh_${GH_VERSION}_linux_${GH_ARCH}"; \
+    curl -fsSL \
+      "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${GH_ARCHIVE}.tar.gz" \
+      -o /tmp/gh.tar.gz; \
+    tar -xzf /tmp/gh.tar.gz -C /tmp; \
+    install -m 0755 "/tmp/${GH_ARCHIVE}/bin/gh" /usr/local/bin/gh; \
+    rm -rf /tmp/gh.tar.gz "/tmp/${GH_ARCHIVE}"; \
+    gh --version; \
+    gh api --help | grep -q -- --slurp
 
 # Install Docker CLI + Compose plugin
 RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
@@ -94,12 +103,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     set -eu; \
     apt-get update; \
-    GH_APT_VERSION="$(apt-cache madison gh | awk '$3 ~ /^'"${GH_VERSION}"'([.-]|$)/ { print $3; exit }')"; \
-    test -n "${GH_APT_VERSION}"; \
     apt-get install -y \
     curl \
     git \
-    "gh=${GH_APT_VERSION}" \
     git-lfs \
     jq \
     netcat-openbsd \

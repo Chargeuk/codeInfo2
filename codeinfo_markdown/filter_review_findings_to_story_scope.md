@@ -8,7 +8,7 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
-- Re-open the exact canonical plan from disk before filtering any finding, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before filtering any finding.
 - Read `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"` and follow it strictly.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk using explicit shell reads such as `cat`, `sed`, or `rg` whenever review-handoff context is needed. Read the `findings_file` referenced by that handoff from disk before relying on its review evidence.
 - Use the stored review handoff plus the artifacts it references only when needed to verify whether a finding is in scope. Do not rediscover review artifacts by timestamp.
@@ -23,7 +23,7 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 
 1. Read `codeInfoStatus/flow-state/current-plan.json` from disk and extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
 2. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no edits and treat this step as a clean skip for the current pass.
-3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
+3. Use the fresh bounded review-scope packet for the exact relative `plan_path`.
 4. If the canonical plan is missing, unreadable, or unusable, make no edits and treat this step as a clean skip for the current pass.
 5. Verify the current repository branch story number matches the story number in the selected plan filename. If it does not match, make no edits and treat this step as a clean skip for the current pass.
 6. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and treat it as the only actionable-routing input for this step.
@@ -60,6 +60,10 @@ Reject a finding if any of the following are true.
    - the story's new code;
    - a regression the story caused in existing code;
    - a missing feature, requirement, proof item, or testing item that the story explicitly needs.
+   - Being in the same changed file is not enough by itself.
+   - Being in the same subsystem is not enough by itself.
+   - Being nearby, adjacent, or generally related behavior is not enough by itself.
+   - A finding in pre-existing code is only in scope if the story changed that exact behavior seam, or the canonical plan explicitly requires preserving or restoring that seam.
 7. The finding would change user-facing behavior that was not explicitly requested by the story or later explicitly approved by the user.
 8. The finding is really asking for a cleaner design, broader compatibility, refactor, hardening, portability improvement, polish improvement, or general product improvement that the story did not request.
 9. The reviewer's suggested fix is out of scope, even if the underlying observation is generally reasonable, and there is no narrower in-scope version of the finding to preserve.
@@ -78,6 +82,18 @@ Reject a finding if any of the following are true.
 
 </required_non_rejection_rule>
 
+<authoritative_findings_rule>
+
+- Only findings with stable IDs in the canonical actionable review state may create immediate implementation scope in the current story.
+- Challenge notes, saturation notes, evidence notes, or other review prose may surface potentially real issues, but they are advisory only until they are materialized into the canonical findings state with a stable ID and final disposition basis.
+- Being mentioned in the same review cycle is not enough by itself.
+- Being present in a challenge, saturation, or evidence artifact is not enough by itself.
+- If a secondary review artifact appears to promote an extra issue that is not yet canonicalized, implementation must not start from that prose alone.
+- Instead, preserve or create a single artifact-reconciliation blocker or explicit follow-up capture note, and stop scope expansion there until the canonical findings state is reconciled.
+- This rule must prevent silent scope expansion, but must not require the issue to be ignored forever merely because it first appeared in a secondary review artifact.
+
+</authoritative_findings_rule>
+
 <ambiguity_rules>
 
 - If scope is ambiguous, prefer rejection over scope expansion.
@@ -86,6 +102,14 @@ Reject a finding if any of the following are true.
 - If evidence is incomplete even though the core routing inputs are present and usable, and the remaining authoritative evidence still does not prove in-scope status, move the finding to `rejected_or_non_actionable_findings` and explain that in-scope status was not proven.
 
 </ambiguity_rules>
+
+<follow_up_capture_rule>
+
+- When rejecting a finding as pre-existing, broader than story scope, or otherwise non-actionable for the current story, state whether it should be ignored for this story only or captured as separate follow-up work outside the current story.
+- Rejected issues must not remain alive as review-loop blockers, task-up candidates, or actionable findings just because they might still deserve later follow-up.
+- If the issue may still deserve later follow-up, that follow-up must be recorded separately from the current story's actionable findings and must not silently preserve implementation scope in the current story.
+
+</follow_up_capture_rule>
 
 <full_state_coherence_rules>
 
@@ -176,7 +200,7 @@ Never leave the state in a shape where:
 <verification_loop>
 
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
-- Confirm the exact canonical plan was re-opened from disk before filtering findings.
+- Confirm a fresh bounded review-scope packet was loaded before filtering findings.
 - Confirm `story_behavior_lock.md` was read and applied.
 - Confirm that if `current-plan.json`, the canonical plan, or `review-disposition-state.json` was missing or unusable, the step made no edits and clean-skipped the current pass.
 - Confirm that if the current branch story number did not match the selected plan filename, the step made no edits and clean-skipped the current pass.

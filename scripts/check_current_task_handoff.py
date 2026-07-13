@@ -90,9 +90,10 @@ def get_current_task_handoff_status(
     *,
     handoff: str = "codeInfoStatus/flow-state/current-plan.json",
     current_task: str = "codeInfoStatus/flow-state/current-task.json",
+    repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
     try:
-        scope = load_plan_scope(handoff=handoff)
+        scope = load_plan_scope(handoff=handoff, repo_root=repo_root)
     except ScopeResolutionError as exc:
         return build_result(
             handoff_path=Path(handoff),
@@ -141,7 +142,7 @@ def get_current_task_handoff_status(
 
     try:
         status = plan_status.get_plan_status(
-            handoff=handoff,
+            plan=scope["plan_path"],
             selector="active",
             include_tasks=True,
         )

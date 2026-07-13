@@ -1,28 +1,20 @@
 codeinfo_provider = "codex"
-model = "gpt-5.4"
 model_reasoning_effort = "medium"
+model = "gpt-5.6-luna"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-personality = "friendly"
-model_auto_compact_token_limit=190000
+personality = "pragmatic"
 web_search_mode = "disabled"
+web_search = "disabled"
 
 [features]
-view_image_tool = true
+view_image_tool = false
+view_image = false
 
 [mcp_servers]
-[mcp_servers.context7]
-args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
-command = 'npx'
-startup_timeout_sec = 20.0
-
-[mcp_servers.deepwiki]
-url = "https://mcp.deepwiki.com/mcp"
-startup_timeout_sec = 20.0
-
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
 

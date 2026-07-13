@@ -5,6 +5,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 <instruction_priority>
 
 - Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md"` for the dedicated final task's generic worked-on-repository discovery, supported per-repository lint and formatting subtask shape, and build/runtime/full-suite/shutdown/lint/formatting testing lifecycle.
 - Make proof paths realistic, runnable, and wrapper-first where possible.
 - Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence.
 - Keep testing proportional to the actual change surface.
@@ -25,8 +26,9 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Manual Playwright, browser, or agent-driven validation does not belong in `Testing`; place optional later guidance in `Manual Testing Guidance` instead.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
+- For the dedicated final task, inventory every repository, application, service, workspace, package, or component changed across the whole story. For each worked-on repository, list its discovered full build, applicable startup, every relevant full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting in that order. Discover lint and formatting independently, omit unsupported commands, and do not use targeted filters.
 - When automated proof needs alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams, keep that enablement in test-only harnesses, fixtures, support code, or test configuration rather than in shipped production behavior.
-- For each affected repository or project, define proof in this order when applicable:
+- For each non-final task's affected repository or project, define proof in this order when applicable:
   1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
   2. run the relevant automated tests;
   3. if the automated proof path itself requires a running system or services, start only the runnable system or required services needed for that automated proof path;
@@ -60,10 +62,11 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - that paired design markdown is canonical only relative to the supporting visual asset when paired markdown and visual design assets such as `*.png` or `*.svg` both exist for the same surface.
 - If `Design Contract Present` is true and the task is the final task in the story, its `Manual Testing Guidance` must request screenshots for all implemented frontend surfaces across the whole story that can honestly be observed, along with the design assets those screenshots should later be compared against.
 - When the final task re-covers the relevant visual surfaces in their current final state, its Manual Testing Guidance should treat those screenshots as the primary closeout screenshots for durable story proof. Earlier task screenshots should be retained in durable proof only when they remain uniquely necessary.
-- End each task's `Testing` section with these two separate final steps in this order:
+- Except for the dedicated final validation task, end each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
   - a prettier or format-check step that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
 - Lint or prettier fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
+- In the dedicated final task, supported lint and formatting are the only two permitted initial subtask types. For each worked-on repository, generate its supported lint item followed by its supported formatting item, omitting either item independently when that command does not exist. Repeat the supported commands at the end of that repository's `Testing` group after shutdown.
 - When the final task in the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, its `Manual Testing Guidance` must include story-specific startup and access guidance for the later `manual_testing_agent` pass.
 - When the story includes a `Story Manual Testing Guidance` section above `# Tasks`, ensure the relevant story QA or final validation task explicitly covers any applicable story-level manual-proof expectations from that section.
 - When `Design Contract Present` is true, ensure the final story-validation task explicitly carries forward the story-wide screenshot capture and design-comparison expectations even if earlier design-driven tasks already had narrower task-level guidance.
@@ -84,10 +87,9 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 <coverage_rules>
 
-- For back-end systems, plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
-- For front-end systems, plan automated unit tests plus automated Playwright end-to-end tests where supported.
-- For systems where a back end is paired with a front end, keep automated browser proof in `Testing` and put any optional manual-testing-agent browser scenarios in `Manual Testing Guidance`.
-- If any of those expected harnesses are missing for the system being changed, add the harness work early in the story before later tasks rely on them.
+- Discover test categories from each participating repository rather than assuming back-end, front-end, Cucumber, Testcontainers, Playwright, or any other framework. Include every supported full unit, integration, contract, behavior, component, system, end-to-end, or equivalent suite that exists for an affected surface.
+- Keep automated browser or system proof in `Testing` when the repository defines it as a supported suite, and put optional agent-driven manual scenarios in `Manual Testing Guidance`.
+- If a story requires a proof category whose harness is missing, add the harness work to an earlier substantive task before the final task relies on it. Do not add harness-authoring subtasks to the final task.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.
 - When a task changes query/filter/bulk-selector logic in a large-repository or large-file path, ensure the proof covers the bounded strategy directly rather than only the small happy-path case.
@@ -97,7 +99,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - When a task changes ordering-sensitive lifecycle behavior, ensure the proof covers the exact transition ordering in one scenario, not only adjacent before-state and after-state assertions.
 - When a task changes async coordination helpers or test-support utilities that register shared waiters, listeners, callbacks, subscriptions, or queue entries, ensure the proof covers timeout, rejection, cancellation, or early-return cleanup rather than only the successful resolution path.
 - When a task changes fallback or precedence helpers that may compare stale persisted hints against fresh observed values, ensure the proof covers both the degraded-history path and the later successful path.
-- Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
+- Add explicit test-authoring subtasks to the owning substantive tasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case. Do not add them to the dedicated final validation task.
 - Explicit proof-authoring subtasks should describe creation or update of proof-owning files, screenshots, logs, or artifacts that are part of the implementation work.
 - Do not create subtasks that depend on the results of those later automated testing steps.
 - Do not turn routine `Implementation notes` refreshes into standalone subtasks.
@@ -118,7 +120,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 <verification_loop>
 
 - Before finishing this pass, check whether each task's exit criteria can actually be proved by its testing steps.
-- Check whether each task's implementation subtasks name the exact proof files that must be added or updated, instead of leaving the proof implied by only wrapper commands.
+- Check whether each substantive task's implementation subtasks name the exact proof files that must be added or updated. For the dedicated final task, check its worked-on repository, build, runtime, full-suite, shutdown, supported lint, and supported formatting inventory instead of expecting proof-authoring subtasks.
 - Check whether broad wrapper, Compose, Docker, browser, or runtime proof has an explicit task-owned versus shared-baseline ownership boundary.
 - Check whether manual/runtime guidance has enough current env, mount, port, seed, and artifact facts to avoid stale-handoff blockers.
 - Check whether the necessary runtime, harness, dependencies, scripts, and repos will exist by the point each proof step is reached.
@@ -128,7 +130,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether each subtask is specific enough for a weak developer to execute without guessing file targets, commands, documentation, or expected outcomes.
 - Check whether mode-specific or stateful UI behavior has explicit proof for contradictory mixed states such as create-vs-reuse, run-vs-resume, and disabled or hidden field submission.
 - Check whether required lint, format, and static-analysis subtasks are explicit, separate, and placed at the end of the subtask list when the repository workflow expects them there.
-- Check whether each `Testing` section ends with explicit separate lint and prettier or format-check steps in that order.
+- Check whether each non-final task's `Testing` section ends with its repository's supported lint and prettier or format-check steps in that order, omitting unsupported commands, and whether the dedicated final task keeps only supported lint and formatting item types in `Subtasks` and repeats those supported commands after shutdown at the end of each repository's `Testing` group.
 - Check whether any planned auth or login test-enablement seam stays in test-owned harnesses or configuration rather than in the shipped production path.
 - Check whether any automated screenshot or browser artifact path points only to ignored artifact storage rather than tracked repository files.
 - Check whether any task that writes manual-testing proof artifacts into `codeInfoTmp/` also includes the required `.gitignore` update when that scratch path was not already ignored.

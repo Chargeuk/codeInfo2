@@ -10,8 +10,8 @@ This step runs only after a separate loop preflight has already decided the task
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, when it exists and is valid enough to supply current review-cycle context.
-- Re-open the exact canonical plan from disk immediately before making any decision, using explicit shell reads such as `sed`, `cat`, or `rg`.
-- After making any repair edit, re-open the exact canonical plan from disk again before deciding the repair is complete.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md` and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` immediately before making any decision.
+- After making any repair edit, rerun the same bounded review-tasking query before deciding the repair is complete.
 - Do not answer from conversational memory, prior loop passes, earlier summaries, or an earlier snapshot when the plan can be re-read from disk now.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"` strictly.
 - Do not rediscover the story, review cycle, or review-created task block by timestamp alone.
@@ -24,7 +24,7 @@ This step runs only after a separate loop preflight has already decided the task
 
 1. Read `codeInfoStatus/flow-state/current-plan.json` from disk and extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
 2. If `current-plan.json` is missing, unreadable, malformed, or does not name a usable canonical `plan_path`, make no plan edits and stop. The loop preflight should normally have already exited before this step ran.
-3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
+3. Use the fresh bounded review-tasking packet for the exact relative `plan_path`.
 4. If the canonical plan is missing, unreadable, or unusable, make no plan edits and stop. The loop preflight should normally have already exited before this step ran.
 5. Verify the current repository branch story number matches the story number in the selected plan filename. If it does not match, make no plan edits and stop. The loop preflight should normally have already exited before this step ran.
 6. Treat `review-disposition-state.json` and `codeInfoTmp/reviews/<story-number>-current-review.json` as review-cycle identification aids, not as substitutes for the canonical plan.
@@ -105,7 +105,7 @@ Repair or narrow any review-created task content that fails one or more of these
 <repair_rules>
 
 - Default to repairing review-created tasks in place rather than rejecting the whole block.
-- Re-read the canonical plan and the review-cycle identification inputs from disk again immediately before editing. If the context became unusable after the loop preflight and before this repair step, make no plan edits and stop.
+- Rerun the bounded review-tasking query and reread the review-cycle identification inputs immediately before editing. If the context became unusable after the loop preflight and before this repair step, make no plan edits and stop.
 - If a section mixes valid in-scope work with out-of-scope work, keep the valid core and rewrite the section narrowly so it stays within story scope.
 - Keep newly added review-created tasks concrete and executable by a junior developer.
 - Preserve durable finding coverage in `Addresses Findings` or equivalent wording.
@@ -144,8 +144,8 @@ Repair or narrow any review-created task content that fails one or more of these
 
 - Confirm `current-plan.json` was read from disk first.
 - Confirm `review-disposition-state.json` was read from disk after `current-plan.json` when it existed and was usable.
-- Confirm the exact canonical `plan_path` was re-opened from disk using `sed`, `cat`, or `rg` immediately before making scope judgments.
-- Confirm the canonical plan was re-opened from disk again after any repair edits.
+- Confirm a fresh bounded review-tasking packet was loaded immediately before making scope judgments.
+- Confirm the bounded review-tasking packet was regenerated after any repair edits.
 - Confirm only the current review cycle's newly added or updated review-created task block was substantively rewritten.
 - Confirm that if the context became unusable after the loop preflight and before or during this repair step, the step made no plan edits and did not claim to re-verify the current review-created block.
 - Confirm the stop condition matched the actual path taken: repaired in-scope block on a normal pass, or no-edit exit because the context changed after preflight.

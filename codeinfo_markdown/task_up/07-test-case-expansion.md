@@ -8,6 +8,7 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 - Make proof-authoring work explicit in `Subtasks`.
 - Prefer one proof obligation per proof subtask when that keeps the work honest and reviewable.
 - Keep proof-authoring work explicit in `Subtasks`, but do not require executed proof output for subtask completion.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Expand proof-authoring subtasks only in substantive tasks; never add them to the dedicated final validation task.
   </instruction_priority>
 
 <test_case_expansion_rules>
@@ -16,7 +17,7 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 - Do not answer from conversational memory or an earlier snapshot when the plan can be re-read from disk now.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
-- For each acceptance path, important edge case, error path, recovery path, and mixed-state path, add or refine a proof-authoring subtask that names the exact proof file or artifact to create or edit.
+- For each acceptance path, important edge case, error path, recovery path, and mixed-state path, add or refine a proof-authoring subtask in the owning substantive task that names the exact proof file or artifact to create or edit. Do not place this work in the dedicated final validation task.
 - When a task changes env/config parsing, add separate proof subtasks for blank input, whitespace-only input, out-of-range values, and the accepted in-range path whenever those behaviors affect correctness.
 - When a task changes query/filter/bulk-selector logic in a large-repository or large-file path, add a proof subtask that explicitly verifies the implementation uses a bounded strategy rather than one unbounded request or filter.
 - When a task changes reader/writer behavior over a persisted artifact, add proof subtasks for partial-state tolerance, stale-state cleanup ownership, and reader/writer compatibility whenever those behaviors affect correctness.

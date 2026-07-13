@@ -9,6 +9,11 @@
     {
       "type": "message",
       "role": "user",
+      "markdownFile": "shared/final-task-creation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
       "markdownFile": "task_up/02-preflight.md"
     },
     {

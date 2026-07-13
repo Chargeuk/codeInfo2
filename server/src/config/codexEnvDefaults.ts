@@ -38,11 +38,14 @@ const DEFAULT_CODEX_DEFAULTS: CodexDefaults = {
 };
 
 const DEFAULT_CODEX_MODEL_LIST = [
-  'gpt-5.1-codex-max',
-  'gpt-5.1-codex-mini',
-  'gpt-5.1',
-  'gpt-5.2',
-  'gpt-5.2-codex',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.3-codex',
+  'gpt-5.3-codex-spark',
 ];
 
 const parseEnumEnv = <T extends string>(

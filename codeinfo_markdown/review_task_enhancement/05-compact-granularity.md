@@ -8,13 +8,14 @@ Make selected review-created tasks concrete and executable without expanding the
 - Preserve selected review-created task identities, grouping, and `Addresses Findings` coverage.
 - Prefer compact first-class patch tasks over one-checkbox-per-file decomposition.
 - Compactness must not hide ownership, sequencing, file targets, proof homes, or stopping rules.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Exclude the dedicated final task from subtask compaction or expansion and preserve only each worked-on repository's supported lint and formatting initial subtask types, omitting either unsupported command independently.
 
 </instruction_priority>
 
 <compact_granularity_rules>
 
-- Re-read the selected plan from disk before editing.
-- Preserve grouped review-fix tasks that share repository ownership, repair seam, root cause, and proof story.
+- Immediately before editing, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content.
+- Preserve grouped substantive review-fix tasks that share repository ownership, repair seam, root cause, and proof story.
 - Keep one compact implementation subtask when several nearby files must change together to express one coherent fix. Name the files or surfaces inline inside that subtask.
 - Keep one compact proof-authoring subtask when one proof file or proof surface can honestly cover several related assertions. List the assertions inline inside that subtask.
 - Split a subtask only when one of these boundaries is present:

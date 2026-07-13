@@ -5,7 +5,9 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 <critical_rules>
 
 - Use fresh disk reads and current git state, not conversational memory.
-- Re-read `codeInfoStatus/flow-state/current-plan.json` first, derive the canonical `plan_path`, and re-open that exact plan from disk.
+- Re-read `codeInfoStatus/flow-state/current-plan.json`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-findings` for fresh story scope and the compact task index.
+- When a challenge depends on a task-specific promise, request only that task's relevant named sections with `plan_sections.py --task-number <number>`.
+- After deriving the story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When it exists, preserve that artifact's current-repository comparison metadata as authoritative context for this challenge.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and use only the artifacts referenced there.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
 - Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the evidence, findings, optional saturation artifact, current-plan handoff, and direct git state to infer the safest usable meaning.
@@ -19,13 +21,13 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 
 Read all of the following from disk:
 
-- the canonical plan from `plan_path`;
+- the bounded review-findings packet for the canonical `plan_path`;
 - the current review handoff;
 - the evidence artifact referenced by that handoff;
 - the findings artifact referenced by that handoff.
 - the saturation artifact referenced by that handoff when `saturation_file` is present.
 
-Prefer the review handoff's stored local-HEAD-vs-resolved-base comparison metadata, including `comparison_base_commit`, as already resolved evidence. If some metadata is absent, infer only what is needed from the evidence artifact and git state, record that inference in the challenge artifact when it affects confidence, and do not replace local `HEAD` with `origin/<current-story-branch>`. If any repository used or appears to have used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the challenge artifact when it affects the blind-spot conclusion.
+Prefer the review handoff's stored local-HEAD-vs-resolved-base comparison metadata, including `comparison_base_commit`, as already resolved evidence. When the prepared current-repository review-base artifact exists, preserve it as the authoritative source for the current repository. If some metadata is absent, infer only what is needed from the evidence artifact and git state, record that inference in the challenge artifact when it affects confidence, and do not replace local `HEAD` with `origin/<current-story-branch>`. If any repository used or appears to have used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the challenge artifact when it affects the blind-spot conclusion.
 
 Do not repeatedly rerun or ask to regenerate review artifacts solely to satisfy handoff formatting. Make one best-effort interpretation from the existing handoff, referenced artifacts, and git state.
 

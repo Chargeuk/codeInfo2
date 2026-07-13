@@ -7,7 +7,7 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
-- Re-open the exact relative `plan_path` from disk before doing anything else, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current` before doing anything else.
 - Use fresh disk reads and current git state, not conversational memory.
 - If `current-task.json` does not clearly resolve one task for this loop pass, stop and say the task handoff must be regenerated before deep implementation repair continues.
 - Do not rediscover a different story or a different task independently.
@@ -19,7 +19,7 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 
 1. Read `current-plan.json` from disk.
 2. Read `current-task.json` from disk and determine the exact bound task.
-3. Re-open the exact `plan_path` from disk and re-read the bound task's full text, especially `Subtasks`, `Task Exit Criteria`, and `Implementation Notes`.
+3. Use the fresh bounded blocker-repair packet for the bound task, especially `Subtasks`, `Task Exit Criteria`, and `Implementation Notes`.
 4. Run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <bound-task-number>`.
 5. If there is no live blocker for that bound task, stop immediately, make no edits, and do not append any implementation note.
 6. If there is a live blocker but it is clearly not an implementation-local blocker for the bound task, stop immediately, preserve the blocker unchanged, and do not append a no-op note.
@@ -115,7 +115,7 @@ Return a concise summary that includes:
 
 <verification_loop>
 
-- confirm you re-read the plan from disk;
+- confirm you used a fresh bounded blocker-repair packet;
 - confirm you re-read `current-task.json` from disk and used the bound task from it;
 - confirm you used `selected_task.live_blockers` as the blocker source of truth;
 - confirm you made no edits and appended no note when no applicable live blocker existed;

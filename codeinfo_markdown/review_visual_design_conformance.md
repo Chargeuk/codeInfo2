@@ -34,7 +34,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 
 - Use fresh disk reads and current git state, not conversational memory.
 - Re-read `codeInfoStatus/flow-state/current-plan.json` first and use only its `plan_path` and `additional_repositories` as the active review scope.
-- Re-open the exact canonical plan from disk before judging whether `Design Contract Present` is true.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before judging whether `Design Contract Present` is true. Request only a named task design packet when the review state identifies an owning task.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and infer the current findings artifact from it.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
 - If the review handoff cannot identify a usable findings artifact, stop with a concise no-op result and do not mutate review artifacts.

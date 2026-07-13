@@ -5,6 +5,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 <instruction_priority>
 
 - Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md"` and verify the applicable initial-task-up final-task rules explicitly.
 - Use fresh disk reads for the final pass.
 - Keep the final task list concrete, traceable, and in scope.
 - Prefer one coherent commit over many small commits.
@@ -14,7 +15,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 
 - Re-read the active plan from disk before finalizing.
 - Check that every Acceptance Criterion, important Description requirement, and explicit Out Of Scope boundary is correctly represented by the final task list.
-- Check that each task, subtask, testing step, and final validation step names exactly one repository and does not mix repositories.
+- Check that each substantive implementation task and subtask names exactly one implementation repository. Allow the dedicated final task to have one administrative `Repository Name` while grouping full-suite testing across every proof-scope repository and affected component.
 - Check that the plan's `Additional Repositories` section exactly matches every non-current repository that the final tasks will change.
 - Check that no task has drifted beyond the story's intended scope.
 - Check that every task is specific enough for a junior developer and does not depend on hidden senior knowledge.
@@ -31,9 +32,13 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that the highest-risk invariants identified during tasking have explicit task and proof ownership, especially ordering-sensitive lifecycle boundaries, producer-consumer contracts, and default-path reachability.
 - Check that broad wrapper, Compose, Docker, browser, or runtime proof has a visible task-owned versus shared-baseline ownership boundary.
 - Check that manual-testing guidance, when present, is backed by current runtime facts rather than stale assumptions about env, mounted paths, ports, seed/setup, or artifact destinations.
-- Check that each task ends with separate lint and prettier or format-check subtasks in that order.
-- Check that each `Testing` section ends with separate lint and prettier or format-check steps in that order.
-- Check the final task in the story.
+- Check that each task ends with its repository's supported lint and formatting subtasks in that order, omitting either item when the command does not exist.
+- Check that each non-final `Testing` section ends with its repository's supported lint and formatting steps in that order, omitting unsupported commands. Check that the dedicated final task keeps only each worked-on repository's supported lint and formatting item types in `Subtasks`, omits either unsupported command independently, and repeats every supported command after shutdown at the end of that repository's `Testing` group.
+- Identify the exact dedicated final validation task that is the current story closeout owner.
+- Check that its initially generated `Subtasks` section contains each worked-on repository's supported lint command followed by its supported formatting command, grouped by repository, with either unsupported command omitted independently and no other pre-planned subtask types.
+- Check that `Subtasks` and `Testing` each begin with the required non-checkbox final-task repair-scope note before any checklist item, explicitly allowing story-caused repairs to remain in this task without reopening older tasks solely because their code is implicated.
+- Check that its `Testing` groups every worked-on repository separately and lists that repository's discovered full build, applicable startup, every relevant full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting in that order, omitting unsupported commands and using no targeted filters.
+- Check that initial task-up produced exactly one final story closeout owner and that a later review-created tail is allowed to supersede it with one fresh review-cycle final revalidation task rather than rewriting history.
 - Check that any task writing manual-testing proof artifacts into `codeInfoTmp/` also adds the required `.gitignore` update when that scratch path was not already ignored.
 - Check that any task-level manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and states that those artifacts must not be committed.
 - If it has a runnable, browser-visible, or otherwise externally observable manual-proof surface, verify that its `Manual Testing Guidance` includes:

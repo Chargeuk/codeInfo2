@@ -6,7 +6,8 @@ Start the multi-step review sequence for the current story by gathering evidence
 
 - Use fresh disk reads and current git state, not conversational memory.
 - Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and treat it as the SOLE source of review scope for this flow.
-- Resolve the active `plan_path` and extract repository paths from `additional_repositories`, then re-open that exact relative `plan_path` from disk before continuing.
+- Resolve the active `plan_path`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-evidence`. Use its repository scope, story contract, task index, and final-task proof packet before continuing.
+- After deriving the story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When that artifact exists, treat it as the authoritative current-repository comparison contract for this flow. Do not re-fetch or re-resolve the current repository base branch once that artifact has been loaded.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it.
 - Use ONLY the current repository plus the repository paths extracted from `additional_repositories`. Do not invent additional repositories or plan files.
@@ -61,6 +62,8 @@ If any of those checks fail, stop and say the current-plan handoff is stale and 
 
 For each repository in review scope, resolve the review base branch using this order:
 
+0. For the current repository only, if `codeInfoTmp/reviews/<story-number>-current-review-base.json` exists, use its stored `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional sanitized `remote_fetch_error`, optional `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule` exactly as written. Treat that artifact as the sole source of truth for current-repository comparison context, and do not run another `git fetch` or recompute mergedness for that repository in this step.
+
 1. The review comparison is always the local working branch against the resolved base: use local `HEAD` as the comparison head and never compare `origin/<current-story-branch>` against the base.
 2. Use `remote_name: "origin"` for this flow. Do not select a different remote unless a future prompt explicitly defines a remote-selection policy.
 3. First attempt to refresh the repository's `origin` remote, for example with `git -C <repo_root> fetch --prune origin`. If `origin` is missing or fetch fails, continue with local fallback resolution and record the exact failure reason.
@@ -91,10 +94,10 @@ When `remote_fetch_status` is `fetch_failed`, the handoff may include `remote_fe
 
 <step_order>
 
-1. Re-read the canonical plan from disk.
+1. Rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-evidence` so the bounded review contract is fresh.
 2. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and re-check each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
-3. Inspect each repository in review scope using the local `HEAD` against its resolved comparison base, preferring a remote-tracking base ref and using local fallback only when recorded by the base-branch rules.
-4. Extract the Description, Acceptance Criteria, Out of Scope, and final completed tasks from the canonical plan.
+3. Inspect each repository in review scope using the local `HEAD` against its resolved comparison base. For the current repository, prefer the stored prepared-base artifact when present. For additional repositories, continue to prefer a remote-tracking base ref and use local fallback only when recorded by the base-branch rules.
+4. Extract the Description, Acceptance Criteria, Out of Scope, and final-task proof details from the bounded review-evidence packet.
 5. Inspect `git -C <repo_root> diff --name-status <comparison_base_commit>...HEAD` plus recent local branch commits for every repository in scope, using direct git commands such as `git log --oneline -3` or `git -C <repo_root> log --oneline -3`. Do not substitute `origin/<current-story-branch>` for local `HEAD`, and do not let a moving remote-tracking ref change the comparison after `comparison_base_commit` has been recorded.
 6. Group changed files by repository, then within each repository group them into:
    - planned implementation files;
@@ -162,7 +165,7 @@ The handoff file MUST contain at least:
   - `comparison_rule`
   - `head_commit`
 
-Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the canonical plan already defines a clearer repository name.
+Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the bounded review-evidence packet already defines a clearer repository name.
 
 This handoff file is the ONLY review file the next step may use. Do not rely on timestamps or `latest file` discovery. Treat the handoff file as transient workflow state, not as a repository deliverable.
 

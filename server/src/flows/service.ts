@@ -368,6 +368,8 @@ type FlowWaitResumeDeps = {
     resumeAt: number;
     onWake: () => void;
   }) => ScheduledWaitHandle;
+  loadConversation: typeof getConversation;
+  loadLatestAssistantStatus: typeof latestAssistantStatusForConversation;
   resumeFlowRun: (params: {
     flowName: string;
     conversationId: string;
@@ -1685,6 +1687,8 @@ const defaultFlowWaitResumeDeps: FlowWaitResumeDeps = {
       cancel: () => clearTimeout(timeout),
     };
   },
+  loadConversation: getConversation,
+  loadLatestAssistantStatus: latestAssistantStatusForConversation,
   resumeFlowRun: async (params) =>
     await startFlowRun({
       flowName: params.flowName,
@@ -4189,6 +4193,30 @@ export const parseContinueAnswer = (content: string) =>
 export const parseIfAnswer = (content: string) =>
   parseFlowDecisionAnswer('if', content);
 
+export const parseScriptFlowDecisionAnswer = (
+  kind: FlowDecisionKind,
+  content: string,
+): BreakParseSuccess | BreakParseFailure => {
+  const candidate = content.trim();
+  const parsed = tryParseFlowDecisionCandidate(kind, candidate);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      message: parsed.message,
+      attempts: [{ strategy: 'strict', candidateCount: 1 }],
+      reasonCode:
+        parsed.errorKind === 'schema' ? 'INVALID_SCHEMA' : 'NO_VALID_CANDIDATE',
+    };
+  }
+  return {
+    ok: true,
+    answer: parsed.answer,
+    normalizedContent: JSON.stringify({ answer: parsed.answer }),
+    attempts: [{ strategy: 'strict', candidateCount: 1 }],
+    reasonCode: 'ANSWER_FOUND',
+  };
+};
+
 /**
  * Story 60: Shared decision-evaluation launcher.
  * Called by if, break, and continue steps to evaluate a condition
@@ -4316,6 +4344,7 @@ const _evaluateScriptDecision = async (params: {
       exitCode: number | null;
       signal: NodeJS.Signals | null;
       timedOut: boolean;
+      outputLimitExceeded: boolean;
     }>((resolve, reject) => {
       const child = spawn('python3', [realScriptPath], {
         cwd: params.workingRepositoryRoot,
@@ -4324,15 +4353,25 @@ const _evaluateScriptDecision = async (params: {
       let stdout = '';
       let stderr = '';
       let timedOut = false;
+      let outputLimitExceeded = false;
+      const maxOutputLength = 64 * 1024;
       const timeoutHandle = setTimeout(() => {
         timedOut = true;
         child.kill('SIGKILL');
       }, params.timeoutMs);
       child.stdout.on('data', (data: Buffer) => {
         stdout += data.toString();
+        if (stdout.length > maxOutputLength) {
+          outputLimitExceeded = true;
+          child.kill('SIGKILL');
+        }
       });
       child.stderr.on('data', (data: Buffer) => {
         stderr += data.toString();
+        if (stderr.length > maxOutputLength) {
+          outputLimitExceeded = true;
+          child.kill('SIGKILL');
+        }
       });
       child.on('error', (error) => {
         clearTimeout(timeoutHandle);
@@ -4346,6 +4385,7 @@ const _evaluateScriptDecision = async (params: {
           exitCode,
           signal,
           timedOut,
+          outputLimitExceeded,
         });
       });
     });
@@ -4354,6 +4394,13 @@ const _evaluateScriptDecision = async (params: {
       return {
         ok: false,
         reason: `Script timed out after ${params.timeoutMs}ms: ${normalizedScriptPath}`,
+      };
+    }
+
+    if (result.outputLimitExceeded) {
+      return {
+        ok: false,
+        reason: `Script output exceeded 65536 bytes: ${normalizedScriptPath}`,
       };
     }
 
@@ -4368,7 +4415,10 @@ const _evaluateScriptDecision = async (params: {
       };
     }
 
-    const parsed = parseFlowDecisionAnswer(params.kind, result.stdout.trim());
+    const parsed = parseScriptFlowDecisionAnswer(
+      params.kind,
+      result.stdout.trim(),
+    );
     if (!parsed.ok) {
       return {
         ok: false,
@@ -4409,7 +4459,9 @@ const schedulePersistedWaitResume = (params: {
     onWake: () => {
       void (async () => {
         appendWaitWakeDiagnostic('wake_begin');
-        const conversation = await getConversation(params.conversationId);
+        const conversation = await flowWaitResumeDeps.loadConversation(
+          params.conversationId,
+        );
         if (!conversation || conversation.flowName !== params.flowName) {
           appendWaitWakeDiagnostic('wake_skipped_conversation_mismatch', {
             conversationFound: Boolean(conversation),
@@ -4453,7 +4505,9 @@ const schedulePersistedWaitResume = (params: {
           return;
         }
         const latestAssistantStatus =
-          await latestAssistantStatusForConversation(params.conversationId);
+          await flowWaitResumeDeps.loadLatestAssistantStatus(
+            params.conversationId,
+          );
         if (
           latestAssistantStatus &&
           isTerminalFlowStatus(latestAssistantStatus)
@@ -4554,7 +4608,28 @@ const schedulePersistedWaitResume = (params: {
             'flows.wait.resume.failed',
           );
         }
-      })();
+      })().catch((error) => {
+        const recoveryReason =
+          error instanceof Error ? error.message : String(error);
+        appendWaitWakeDiagnostic('wake_preflight_failed_rearm', {
+          recoveryReason,
+        });
+        baseLogger.warn(
+          {
+            conversationId: params.conversationId,
+            flowName: params.flowName,
+            error,
+          },
+          'flows.wait.wake_preflight_failed_rearm',
+        );
+        schedulePersistedWaitResume({
+          ...params,
+          wait: {
+            ...cloneFlowWaitState(params.wait),
+            resumeAt: flowWaitResumeDeps.now() + 1_000,
+          },
+        });
+      });
     },
   });
   scheduledFlowWaits.set(params.conversationId, {
@@ -5655,8 +5730,37 @@ async function runFlowUnlocked(params: {
   const cleanupInflightFn = params.cleanupInflightFn ?? cleanupInflight;
   const releaseConversationLockFn =
     params.releaseConversationLockFn ?? releaseConversationLock;
-  const flowEnvOverrides: NodeJS.ProcessEnv = {
+  const buildFlowEnvOverrides = (): NodeJS.ProcessEnv => ({
     CODEINFO_ROOT: params.repositoryContext.codeInfo2Root,
+    ...(activeGitHubReviewContext?.executionId
+      ? {
+          CODEINFO_GITHUB_REVIEW_EXECUTION_ID:
+            activeGitHubReviewContext.executionId,
+        }
+      : {}),
+    ...(typeof activeGitHubReviewContext?.prNumber === 'number'
+      ? {
+          CODEINFO_GITHUB_REVIEW_PR_NUMBER: String(
+            activeGitHubReviewContext.prNumber,
+          ),
+        }
+      : {}),
+    ...(activeGitHubReviewContext?.selectorPath
+      ? {
+          CODEINFO_GITHUB_REVIEW_SELECTOR_PATH:
+            activeGitHubReviewContext.selectorPath,
+        }
+      : {}),
+    ...(activeGitHubReviewContext?.handoffPath
+      ? {
+          CODEINFO_GITHUB_REVIEW_HANDOFF_PATH:
+            activeGitHubReviewContext.handoffPath,
+        }
+      : {}),
+  });
+  const appendGitHubReviewExecutionAuthority = (instruction: string) => {
+    if (!activeGitHubReviewContext?.handoffPath) return instruction;
+    return `${instruction}\n\n<github_review_execution_authority>\nThis flow is processing execution-scoped GitHub review state. Read the exact handoff path from \`CODEINFO_GITHUB_REVIEW_HANDOFF_PATH\`. It overrides any instruction that derives a story-global \`<story-number>-current-review.json\` path. Read the fetched feedback from that handoff's \`external_review_input_file\`, preserve the existing GitHub identity fields, and write any review artifact references back to that same execution-scoped handoff. Do not read or overwrite another execution's generic or latest review handoff.\n</github_review_execution_authority>`;
   };
   const persistRuntimeResumeState = async (stepPath: number[]) =>
     persistFlowResumeState({
@@ -6109,6 +6213,9 @@ async function runFlowUnlocked(params: {
     command?: TurnCommandMetadata;
     runtime?: TurnRuntimeMetadata;
   }): Promise<FlowInstructionResult> => {
+    const effectiveInstruction = appendGitHubReviewExecutionAuthority(
+      instructionParams.instruction,
+    );
     const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
       throw toFlowRunError(
@@ -6136,8 +6243,8 @@ async function runFlowUnlocked(params: {
       hadAgentState: Boolean(existingAgentState),
       existingAgentConversationId: existingAgentState?.conversationId ?? null,
       existingThreadId: existingAgentState?.threadId ?? null,
-      instructionLength: instructionParams.instruction.length,
-      instructionPreview: instructionParams.instruction.slice(0, 120),
+      instructionLength: effectiveInstruction.length,
+      instructionPreview: effectiveInstruction.slice(0, 120),
     });
 
     const effectiveInstructionWorkingFolder =
@@ -6230,7 +6337,7 @@ async function runFlowUnlocked(params: {
       const retryInstruction =
         attempt > 1
           ? formatRetryInstruction({
-              originalInstruction: instructionParams.instruction,
+              originalInstruction: effectiveInstruction,
               previousError,
             })
           : null;
@@ -6258,7 +6365,7 @@ async function runFlowUnlocked(params: {
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction:
-          retryInstruction?.instruction ?? instructionParams.instruction,
+          retryInstruction?.instruction ?? effectiveInstruction,
         agentType: instructionParams.agentType,
         identifier: instructionParams.identifier,
         agentConversationId: agentState.conversationId,
@@ -6270,7 +6377,7 @@ async function runFlowUnlocked(params: {
         systemPrompt,
         workingDirectoryOverride:
           runtime.workingDirectoryOverride ?? params.workingDirectoryOverride,
-        envOverrides: flowEnvOverrides,
+        envOverrides: buildFlowEnvOverrides(),
         source: params.source,
         chatFactory: params.chatFactory,
         deferFinal: true,
@@ -6650,31 +6757,7 @@ async function runFlowUnlocked(params: {
         timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
         env: {
           ...process.env,
-          ...(activeGitHubReviewContext?.executionId
-            ? {
-                CODEINFO_GITHUB_REVIEW_EXECUTION_ID:
-                  activeGitHubReviewContext.executionId,
-              }
-            : {}),
-          ...(typeof activeGitHubReviewContext?.prNumber === 'number'
-            ? {
-                CODEINFO_GITHUB_REVIEW_PR_NUMBER: String(
-                  activeGitHubReviewContext.prNumber,
-                ),
-              }
-            : {}),
-          ...(activeGitHubReviewContext?.selectorPath
-            ? {
-                CODEINFO_GITHUB_REVIEW_SELECTOR_PATH:
-                  activeGitHubReviewContext.selectorPath,
-              }
-            : {}),
-          ...(activeGitHubReviewContext?.handoffPath
-            ? {
-                CODEINFO_GITHUB_REVIEW_HANDOFF_PATH:
-                  activeGitHubReviewContext.handoffPath,
-              }
-            : {}),
+          ...buildFlowEnvOverrides(),
         },
       });
       if (!evaluated.ok) {
@@ -7302,7 +7385,7 @@ async function runFlowUnlocked(params: {
     }
     const { title, body } = await buildGitHubReviewPullRequestContent({
       repositoryFullName: context.value.repository.repositoryFullName,
-      branchName: context.value.repository.currentBranch,
+      branchName: context.value.repository.upstreamBranch,
     });
     const createResult = await createPullRequest({
       repository: context.value.repository,
@@ -7316,6 +7399,7 @@ async function runFlowUnlocked(params: {
         : createResult.lookupDiagnostics.slice(0, -1);
     for (const diagnostic of warningDiagnostics) {
       const warningMessage = buildGitHubLookupRetryWarningMessage(diagnostic);
+      await appendGitHubStagePlanNote(warningMessage);
       append({
         level: 'warn',
         message: 'flows.github.open_pr.lookup_retry_failed',
@@ -7330,10 +7414,6 @@ async function runFlowUnlocked(params: {
           stderr: diagnostic.stderr,
           exitCode: diagnostic.exitCode,
         },
-      });
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: warningMessage,
       });
     }
     if (createResult.kind !== 'ok') {
@@ -7375,10 +7455,6 @@ async function runFlowUnlocked(params: {
           exitCode: createResult.createFailure.exitCode,
         },
       });
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: recoveredCreateWarning,
-      });
     }
     append({
       level: 'info',
@@ -7388,7 +7464,7 @@ async function runFlowUnlocked(params: {
       context: {
         flowName: params.flowName,
         repository: context.value.repository.repositoryFullName,
-        branch: context.value.repository.currentBranch,
+        branch: context.value.repository.upstreamBranch,
         prNumber: createResult.value.number,
         prUrl: createResult.value.url,
       },
@@ -7476,62 +7552,12 @@ async function runFlowUnlocked(params: {
         warnings: [],
       } as const;
     }
-
-    const persistedHandoff = await readGitHubReviewScratch({
-      handoffPath: canonicalScratchPaths.value.handoffPath,
-      expectedExecutionId: activeGitHubReviewContext.executionId,
-    });
-    if (
-      persistedHandoff.kind !== 'ok' &&
-      /ENOENT|no such file or directory/i.test(persistedHandoff.message)
-    ) {
-      const latestOpenPullRequest = await lookupLatestOpenPullRequest({
-        repository: params.repository,
-        token: params.token,
-      });
-      if (latestOpenPullRequest.kind !== 'ok') {
-        return {
-          kind: latestOpenPullRequest.kind,
-          reason: latestOpenPullRequest.reason,
-          message: latestOpenPullRequest.message,
-          stderr: latestOpenPullRequest.stderr,
-          exitCode: latestOpenPullRequest.exitCode,
-          warnings: [
-            'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.',
-          ],
-        } as const;
-      }
-      if (!latestOpenPullRequest.value) {
-        return {
-          kind: 'error',
-          reason: 'SCRATCH_INVALID',
-          message:
-            'Resumed GitHub review execution lost its execution-scoped handoff and no latest open pull request was available for the current branch.',
-          warnings: [
-            'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.',
-          ],
-        } as const;
-      }
-      activeGitHubReviewContext.selectorPath =
-        canonicalScratchPaths.value.selectorPath;
-      activeGitHubReviewContext.handoffPath =
-        canonicalScratchPaths.value.handoffPath;
-      activeGitHubReviewContext.prNumber = latestOpenPullRequest.value.number;
-      return {
-        kind: 'ok',
-        value: latestOpenPullRequest.value,
-        warnings: [
-          'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.',
-        ],
-      } as const;
-    }
-    if (persistedHandoff.kind !== 'ok') {
+    if (typeof activeGitHubReviewContext.prNumber !== 'number') {
       return {
         kind: 'error',
-        reason: persistedHandoff.reason,
-        message: persistedHandoff.message,
-        stderr: persistedHandoff.stderr,
-        exitCode: persistedHandoff.exitCode,
+        reason: 'SCRATCH_INVALID',
+        message:
+          'Resumed GitHub review execution is missing its authoritative pull request number.',
         warnings: [],
       } as const;
     }
@@ -7541,10 +7567,7 @@ async function runFlowUnlocked(params: {
       token: params.token,
       executionId: activeGitHubReviewContext.executionId,
       handoffPath: canonicalScratchPaths.value.handoffPath,
-      resumedPullRequestNumber:
-        typeof activeGitHubReviewContext.prNumber === 'number'
-          ? activeGitHubReviewContext.prNumber
-          : persistedHandoff.value.pull_request.number,
+      resumedPullRequestNumber: activeGitHubReviewContext.prNumber,
     });
     if (reconciled.kind !== 'ok') {
       return reconciled;
@@ -7623,7 +7646,7 @@ async function runFlowUnlocked(params: {
         context: {
           flowName: params.flowName,
           repository: context.value.repository.repositoryFullName,
-          branch: context.value.repository.currentBranch,
+          branch: context.value.repository.upstreamBranch,
         },
       });
       await emitGitHubStepWarning({
@@ -7737,7 +7760,7 @@ async function runFlowUnlocked(params: {
       context: {
         flowName: params.flowName,
         repository: context.value.repository.repositoryFullName,
-        branch: context.value.repository.currentBranch,
+        branch: context.value.repository.upstreamBranch,
         prNumber: pullRequestResult.value.number,
         reviewCount: reviewArtifactResult.value.reviews.length,
         reviewCommentCount: reviewArtifactResult.value.reviewComments.length,
@@ -7840,10 +7863,11 @@ async function runFlowUnlocked(params: {
       context: {
         flowName: params.flowName,
         repository: context.value.repository.repositoryFullName,
-        branch: context.value.repository.currentBranch,
+        branch: context.value.repository.upstreamBranch,
         prNumber: pullRequestResult.value.number,
       },
     });
+    activeGitHubReviewContext = undefined;
     return 'ok';
   };
 

@@ -1276,7 +1276,7 @@ test('github review bounded corpus scratch replacement stays authoritative befor
   }
 });
 
-test('checked-in GitHub review flow variant keeps clean ordering and closes PRs only inside findings repair paths', async () => {
+test('checked-in GitHub review flow is opt-in, runs after internal completion, and closes once before restart', async () => {
   const variant = JSON.parse(
     await fs.readFile(
       path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
@@ -1311,20 +1311,53 @@ test('checked-in GitHub review flow variant keeps clean ordering and closes PRs 
     (step) => step.type === 'github_fetch_reviews',
   );
   const ifIndex = flattened.findIndex((step) => step.type === 'if');
+  const internalCompletionIndex = flattened.findIndex(
+    (step) => step.label === 'Check for completion',
+  );
   const closeLabels = flattened
     .filter((step) => step.type === 'github_close_pr')
     .map((step) => step.label);
 
   assert.ok(openIndex > -1);
+  assert.ok(internalCompletionIndex > -1);
+  assert.ok(openIndex > internalCompletionIndex);
   assert.ok(waitIndex > openIndex);
   assert.ok(fetchIndex > waitIndex);
   assert.ok(ifIndex > fetchIndex);
   assert.deepEqual(closeLabels, [
-    'Close GitHub Review Pull Request Before Minor Fix Loopback',
-    'Close GitHub Review Pull Request Before Task-Up Loopback',
+    'Close GitHub Review Pull Request Before Internal Review Restart',
   ]);
   assert.ok(
     flattened.some((step) => step.commandName === 'external_review_findings'),
+  );
+  assert.ok(
+    flattened.some(
+      (step) => step.markdownFile === 'classify_pr_review_disposition.md',
+    ),
+  );
+
+  for (const defaultFlowName of [
+    'implement_next_plan.json',
+    'improve_task_implement_plan.json',
+    'task_and_implement_plan.json',
+  ]) {
+    const defaultFlow = await fs.readFile(
+      path.join(repoRoot, 'flows', defaultFlowName),
+      'utf8',
+    );
+    assert.doesNotMatch(
+      defaultFlow,
+      /github_(?:open_pr|fetch_reviews|close_pr)/u,
+    );
+  }
+  await assert.rejects(
+    fs.stat(
+      path.join(
+        repoRoot,
+        'flows/implement_next_plan_github_review_test.json',
+      ),
+    ),
+    /ENOENT/u,
   );
 });
 
@@ -1957,9 +1990,13 @@ test('github review runtime keeps the newer execution selector authoritative aft
       },
       sleep: async () => {},
     });
+    const capturedInstructions: string[] = [];
 
     await withFlowServer(
-      () => 'ok',
+      (message) => {
+        capturedInstructions.push(message);
+        return 'ok';
+      },
       async ({ baseUrl, wsUrl, tmpDir }) => {
         const conversationId = 'github-review-runtime-conv';
         sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
@@ -1975,8 +2012,25 @@ test('github review runtime keeps the newer execution selector authoritative aft
                   label: 'Open GitHub Review Pull Request',
                 },
                 {
+                  type: 'wait',
+                  label: 'Wait For External GitHub Review Feedback',
+                  seconds: 60,
+                },
+                {
                   type: 'github_fetch_reviews',
                   label: 'Fetch GitHub Review Feedback',
+                },
+                {
+                  type: 'llm',
+                  label: 'Inspect External Review Evidence',
+                  agentType: 'review_agent',
+                  identifier: 'reviewer',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Inspect the external review evidence.'],
+                    },
+                  ],
                 },
               ],
             },
@@ -1989,6 +2043,33 @@ test('github review runtime keeps the newer execution selector authoritative aft
         await supertest(baseUrl)
           .post('/flows/github-review-runtime/run')
           .send({ conversationId, working_folder: repoRoot })
+          .expect(202);
+
+        await waitForPredicate(() => {
+          const flowState = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: { stepPath?: number[] } };
+          };
+          return (
+            Array.isArray(flowState.flow?.wait?.stepPath) &&
+            flowState.flow.wait.stepPath[0] === 1
+          );
+        }, 4000, 'Timed out waiting for recovered PR creation to reach its wait');
+        const turnsBeforeWake = memoryTurns.get(conversationId) ?? [];
+        assert.equal(
+          turnsBeforeWake.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'warning',
+          ),
+          false,
+        );
+        await waitForRuntimeCleanup(conversationId);
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [1],
+          })
           .expect(202);
 
         const selectorPath = path.join(
@@ -2031,7 +2112,14 @@ test('github review runtime keeps the newer execution selector authoritative aft
           await delay(25);
         }
 
-        assert.ok(handoff);
+        assert.ok(
+          handoff,
+          JSON.stringify({
+            turns: memoryTurns.get(conversationId) ?? [],
+            flags: memoryConversations.get(conversationId)?.flags ?? null,
+            capturedInstructions,
+          }),
+        );
         assert.equal(handoff.handoff_kind, 'github-review-handoff-v1');
         assert.ok(handoff.execution_id);
         assert.equal(handoff.pull_request.number, 45);
@@ -2041,10 +2129,27 @@ test('github review runtime keeps the newer execution selector authoritative aft
         );
         assert.match(externalInput, /Please revisit the retry wording\./);
         assert.doesNotMatch(externalInput, /stale input/);
+        await waitForTurns(
+          conversationId,
+          (turns) =>
+            turns.some(
+              (turn) => turn.role === 'assistant' && turn.status === 'ok',
+            ),
+          4000,
+        );
+        assert.ok(
+          capturedInstructions.some(
+            (instruction) =>
+              instruction.includes('execution-scoped GitHub review state') &&
+              instruction.includes('external_review_input_file'),
+          ),
+          JSON.stringify(capturedInstructions),
+        );
 
         const reclaimAttempt = await writeGitHubReviewScratch({
           repository: {
             workingRepositoryRoot: repoRoot,
+            repositoryHost: 'github.com',
             repositoryOwner: 'example',
             repositoryName: 'repo',
             repositoryFullName: 'example/repo',
@@ -2481,7 +2586,7 @@ test('github review resume keeps execution-scoped fetch and close authority even
   }
 });
 
-test('github review resume warns on PR mismatch and adopts a same-branch newer PR for fetch and close', async () => {
+test('github review resume rejects a persisted and resumed PR identity mismatch', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     const selectorPath = path.join(
@@ -2721,63 +2826,38 @@ test('github review resume warns on PR mismatch and adopts a same-branch newer P
           })
           .expect(202);
 
-        const warningTurns = await waitForTurns(
+        const failedTurns = await waitForTurns(
           conversationId,
           (items) =>
             items.some(
               (turn) =>
                 turn.role === 'assistant' &&
-                turn.status === 'warning' &&
+                turn.status === 'failed' &&
                 turn.content.includes(
-                  'Resumed GitHub review execution expected persisted pull request #77',
+                  'owns persisted pull request #77',
                 ),
             ),
           4000,
         );
         assert.equal(
-          warningTurns.filter(
+          failedTurns.filter(
             (turn) =>
               turn.role === 'assistant' &&
-              turn.status === 'warning' &&
-              turn.content.includes('Adopting newer pull request #79'),
+              turn.status === 'failed' &&
+              turn.content.includes('resumed execution context carried #78'),
           ).length,
           1,
         );
-
-        const started = Date.now();
-        while (Date.now() - started < 4000) {
-          const currentHandoff = await readGitHubReviewScratch({
-            handoffPath,
-            expectedExecutionId: 'exec-mismatch',
-          });
-          if (
-            currentHandoff.kind === 'ok' &&
-            currentHandoff.value.pull_request.number === 79 &&
-            currentHandoff.value.filtered_review_count === 1 &&
-            currentHandoff.value.filtered_review_comment_count === 1 &&
-            commandLog.some((entry) => entry.includes('gh pr close 79 --repo'))
-          ) {
-            break;
-          }
-          await delay(25);
-        }
 
         const updatedHandoff = await readGitHubReviewScratch({
           handoffPath,
           expectedExecutionId: 'exec-mismatch',
         });
         assert.equal(updatedHandoff.kind, 'ok');
-        assert.equal(updatedHandoff.value.pull_request.number, 79);
-        assert.equal(updatedHandoff.value.filtered_review_count, 1);
-        assert.equal(updatedHandoff.value.filtered_review_comment_count, 1);
-        assert.ok(
-          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
-        );
-        assert.ok(
-          commandLog.some((entry) => entry.includes('/pulls/79/reviews?')),
-        );
-        assert.ok(
-          commandLog.some((entry) => entry.includes('gh pr close 79 --repo')),
+        assert.equal(updatedHandoff.value.pull_request.number, 77);
+        assert.equal(
+          commandLog.some((entry) => entry.startsWith('gh ')),
+          false,
         );
 
         await cleanupConversationRuntime(conversationId);
@@ -2791,7 +2871,7 @@ test('github review resume warns on PR mismatch and adopts a same-branch newer P
   }
 });
 
-test('github review resume re-enters same-branch authority before stale PR fallback when the execution-scoped handoff is missing', async () => {
+test('github review resume verifies the exact resumed PR when the execution-scoped handoff is missing', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     const selectorPath = path.join(
@@ -2858,26 +2938,21 @@ test('github review resume re-enters same-branch authority before stale PR fallb
         }
         if (params.command === 'gh') {
           const endpoint = params.args.at(-1) ?? '';
-          if (endpoint.includes('/pulls?state=open&head=')) {
+          if (endpoint.endsWith('/pulls/78')) {
             return {
               exitCode: 0,
-              stdout: JSON.stringify([
-                [
-                  {
-                    number: 79,
-                    html_url: 'https://github.com/example/repo/pull/79',
-                    head: {
-                      ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
-                    },
-                    base: { ref: 'main' },
-                    created_at: '2026-06-28T19:00:00Z',
-                  },
-                ],
-              ]),
+              stdout: JSON.stringify({
+                number: 78,
+                html_url: 'https://github.com/example/repo/pull/78',
+                head: {
+                  ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                },
+                base: { ref: 'main' },
+              }),
               stderr: '',
             };
           }
-          if (endpoint.includes('/pulls/79/reviews?')) {
+          if (endpoint.includes('/pulls/78/reviews?')) {
             return {
               exitCode: 0,
               stdout: JSON.stringify([
@@ -2885,7 +2960,7 @@ test('github review resume re-enters same-branch authority before stale PR fallb
                   {
                     id: 401,
                     user: { login: 'reviewer' },
-                    body: 'Use the latest branch PR.',
+                    body: 'Use the exact resumed PR.',
                     state: 'COMMENTED',
                     submitted_at: '2026-06-28T19:20:00Z',
                   },
@@ -2894,7 +2969,7 @@ test('github review resume re-enters same-branch authority before stale PR fallb
               stderr: '',
             };
           }
-          if (endpoint.includes('/pulls/79/comments?')) {
+          if (endpoint.includes('/pulls/78/comments?')) {
             return {
               exitCode: 0,
               stdout: JSON.stringify([
@@ -2902,7 +2977,7 @@ test('github review resume re-enters same-branch authority before stale PR fallb
                   {
                     id: 402,
                     user: { login: 'reviewer' },
-                    body: 'Inline on the recovered PR.',
+                    body: 'Inline on the exact resumed PR.',
                     path: 'server/src/flows/service.ts',
                     line: 1,
                     created_at: '2026-06-28T19:21:00Z',
@@ -2912,7 +2987,7 @@ test('github review resume re-enters same-branch authority before stale PR fallb
               stderr: '',
             };
           }
-          if (joined === 'pr close 79 --repo example/repo') {
+          if (joined === 'pr close 78 --repo example/repo') {
             return { exitCode: 0, stdout: '', stderr: '' };
           }
         }
@@ -3030,10 +3105,10 @@ test('github review resume re-enters same-branch authority before stale PR fallb
           });
           if (
             currentHandoff.kind === 'ok' &&
-            currentHandoff.value.pull_request.number === 79 &&
+            currentHandoff.value.pull_request.number === 78 &&
             currentHandoff.value.filtered_review_count === 1 &&
             currentHandoff.value.filtered_review_comment_count === 1 &&
-            commandLog.some((entry) => entry.includes('gh pr close 79 --repo'))
+            commandLog.some((entry) => entry.includes('gh pr close 78 --repo'))
           ) {
             break;
           }
@@ -3045,18 +3120,18 @@ test('github review resume re-enters same-branch authority before stale PR fallb
           expectedExecutionId: 'exec-missing',
         });
         assert.equal(updatedHandoff.kind, 'ok');
-        assert.equal(updatedHandoff.value.pull_request.number, 79);
+        assert.equal(updatedHandoff.value.pull_request.number, 78);
         assert.equal(updatedHandoff.value.filtered_review_count, 1);
         assert.equal(updatedHandoff.value.filtered_review_comment_count, 1);
         assert.ok(
-          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
+          commandLog.some((entry) => entry.includes('/pulls/78')),
         );
         assert.equal(
-          commandLog.some((entry) => entry.includes('/pulls/78')),
+          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
           false,
         );
         assert.ok(
-          commandLog.some((entry) => entry.includes('gh pr close 79 --repo')),
+          commandLog.some((entry) => entry.includes('gh pr close 78 --repo')),
         );
 
         await cleanupConversationRuntime(conversationId);

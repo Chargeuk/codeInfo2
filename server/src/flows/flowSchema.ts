@@ -313,12 +313,13 @@ const FlowIfStepSchema = z
     }
   });
 
-// Story 60: wait step schema – positive integer only
+// Story 60: wait step schema – positive whole seconds within one safe Node timer.
+export const MAX_FLOW_WAIT_SECONDS = 2_147_483;
 const FlowWaitStepSchema = z
   .object({
     type: z.literal('wait'),
     label: trimmedNonEmptyString.optional(),
-    seconds: z.number().int().positive(),
+    seconds: z.number().int().positive().max(MAX_FLOW_WAIT_SECONDS),
   })
   .strict();
 

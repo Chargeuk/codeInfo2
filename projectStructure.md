@@ -50,7 +50,7 @@ Story notes:
 
 - Story 60 adds a flow-only orchestration layer for one opt-in GitHub PR review cycle: authored `if` branching, persisted `wait` in whole seconds, and thin `github_open_pr`, `github_fetch_reviews`, and `github_close_pr` steps.
 - The new runtime seams are centered in `server/src/flows/flowSchema.ts`, `server/src/flows/service.ts`, and `server/src/flows/githubReview.ts`. They now own shared AI-or-script flow decisions, persisted wait-resume state, repository-local `.env.local` token reads, explicit PR lookup, and safe GitHub review scratch replacement under `codeInfoTmp/reviews/`.
-- The checked-in default implementation flow stays in `flows/implement_next_plan.json`, while the copied opt-in Story 60 entrypoint lives in `flows/implement_next_plan_github_review.json` and alone carries the GitHub review-cycle path.
+- The checked-in default implementation flows stay free of GitHub review steps, while the single copied opt-in Story 60 entrypoint lives in `flows/implement_next_plan_github_review.json` and alone carries the post-internal-review GitHub cycle. Actionable external findings close that execution's PR once before the outer implementation loop restarts internal review.
 - Proof ownership spans the new GitHub adapter and scratch unit suites, the existing flow schema and integration homes, the authored-flow cucumber feature, the browser `flows` e2e path, and the client disabled-selection guard that keeps non-runnable ingested GitHub variants from stealing the active runnable selection.
 
 ## Story 0000064 structural change ledger

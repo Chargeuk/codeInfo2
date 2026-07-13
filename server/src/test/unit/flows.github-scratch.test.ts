@@ -99,6 +99,7 @@ const readTempPlan = async (repoRoot: string) =>
 
 const buildRepositoryState = (repoRoot: string): GitHubRepositoryState => ({
   workingRepositoryRoot: repoRoot,
+  repositoryHost: 'github.com',
   repositoryOwner: 'example',
   repositoryName: 'repo',
   repositoryFullName: 'example/repo',
@@ -444,6 +445,7 @@ test('GitHub review plan-note append keeps task selection and duplicate-note gua
     ],
   });
   try {
+    const before = await readTempPlan(tempRepo.repoRoot);
     const result = await appendGitHubReviewPlanNote({
       workingRepositoryRoot: tempRepo.repoRoot,
       note: 'Existing note.',
@@ -451,12 +453,45 @@ test('GitHub review plan-note append keeps task selection and duplicate-note gua
     assert.equal(result.kind, 'ok');
 
     const plan = await readTempPlan(tempRepo.repoRoot);
+    assert.equal(plan, before);
     assert.equal(plan.match(/- Existing note\./g)?.length ?? 0, 1);
     assert.equal(plan.match(/- Other task note\./g)?.length ?? 0, 1);
     assert.match(
       plan,
       /### Task 4\. Different Task[\s\S]*- Other task note\.[\s\S]*### Task 5\. Final Story Validation And Close-Out[\s\S]*- Existing note\./,
     );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('GitHub review plan-note append recovers a lock left by a dead owner', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const planPath = path.join(
+      tempRepo.repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    );
+    await fs.writeFile(
+      `${planPath}.lock`,
+      `${JSON.stringify({
+        pid: 2_147_483_647,
+        token: 'dead-owner',
+        acquired_at: new Date().toISOString(),
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await appendGitHubReviewPlanNote({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      note: 'Recovered after a dead lock owner.',
+    });
+    assert.equal(result.kind, 'ok');
+    assert.match(
+      await readTempPlan(tempRepo.repoRoot),
+      /- Recovered after a dead lock owner\./u,
+    );
+    await assert.rejects(fs.stat(`${planPath}.lock`), /ENOENT/u);
   } finally {
     await tempRepo.cleanup();
   }

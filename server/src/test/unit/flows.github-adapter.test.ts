@@ -60,6 +60,7 @@ const baseRepositoryState = (
   workingRepositoryRoot: string,
 ): GitHubRepositoryState => ({
   workingRepositoryRoot,
+  repositoryHost: 'github.com',
   repositoryOwner: 'example',
   repositoryName: 'repo',
   repositoryFullName: 'example/repo',
@@ -99,12 +100,27 @@ test('repo-local token reader keeps missing opt-in cases on skip and surfaces ma
     assert.equal(blankToken.kind, 'skip');
     assert.equal(blankToken.reason, 'BLANK_TOKEN');
 
-    await fs.writeFile(path.join(tempRepo.repoRoot, '.env.local'), 'BROKEN\n');
+    await fs.writeFile(
+      path.join(tempRepo.repoRoot, '.env.local'),
+      'export OTHER=value\nNOTE="line one\nline two"\nCODEINFO_PR_TOKEN=secret-token\n',
+    );
+    const supportedDotenvSyntax = await readWorkedRepositoryGitHubToken({
+      workingRepositoryRoot: tempRepo.repoRoot,
+    });
+    assert.equal(supportedDotenvSyntax.kind, 'ok');
+    assert.equal(supportedDotenvSyntax.value.token, 'secret-token');
+
+    await fs.writeFile(
+      path.join(tempRepo.repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN ghp_supersecret\n',
+    );
     const malformed = await readWorkedRepositoryGitHubToken({
       workingRepositoryRoot: tempRepo.repoRoot,
     });
     assert.equal(malformed.kind, 'error');
     assert.equal(malformed.reason, 'ENV_LOCAL_INVALID');
+    assert.doesNotMatch(malformed.message, /ghp_supersecret/u);
+    assert.match(malformed.message, /line 1/u);
 
     await fs.rm(path.join(tempRepo.repoRoot, '.env.local'), { force: true });
     await fs.mkdir(path.join(tempRepo.repoRoot, '.env.local'));
@@ -257,6 +273,46 @@ test('repository-state resolution reports missing story-owned base branch and up
   }
 });
 
+test('repository-state resolution rejects non-GitHub upstream hosts', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        if (joined === 'branch --show-current') {
+          return { exitCode: 0, stdout: 'feature/0000060-demo\n', stderr: '' };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'deadbeef\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return {
+            exitCode: 0,
+            stdout: 'origin/feature/0000060-demo\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'git@gitlab.com:example/repo.git\n',
+            stderr: '',
+          };
+        }
+        throw new Error(`Unexpected command: ${joined}`);
+      },
+    });
+
+    const resolved = await resolveGitHubRepositoryState({
+      workingRepositoryRoot: tempRepo.repoRoot,
+    });
+    assert.equal(resolved.kind, 'error');
+    assert.equal(resolved.reason, 'GIT_REMOTE_INVALID');
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('GitHub PR creation keeps lower-layer runtime failures as errors and preserves lookup retry diagnostics when reconciliation cannot prove a PR exists', async () => {
   const tempRepo = await createTempRepo();
   try {
@@ -319,11 +375,70 @@ test('GitHub PR creation keeps lower-layer runtime failures as errors and preser
       body: 'body',
     });
     assert.equal(nonZeroExit.kind, 'error');
-    assert.equal(nonZeroExit.reason, 'INVALID_GITHUB_RESPONSE');
-    assert.equal(nonZeroExit.createFailure?.reason, 'GITHUB_CLI_FAILED');
-    assert.equal(nonZeroExit.createFailure?.stderr, 'gh api failed');
-    assert.equal(nonZeroExit.lookupDiagnostics.length, 5);
-    assert.deepEqual(sleepCalls, [30000, 60000, 90000, 120000, 150000]);
+    assert.equal(nonZeroExit.reason, 'GITHUB_CLI_FAILED');
+    assert.equal(nonZeroExit.stderr, 'gh api failed');
+    assert.equal(nonZeroExit.lookupDiagnostics.length, 0);
+    assert.deepEqual(sleepCalls, []);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('GitHub PR creation uses the remote upstream branch when its local name differs', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const seenArgs: string[][] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        seenArgs.push(params.args);
+        if (params.args[0] === 'pr') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo/pull/45\n',
+            stderr: '',
+          };
+        }
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            {
+              number: 45,
+              html_url: 'https://github.com/example/repo/pull/45',
+              created_at: '2026-07-13T12:00:00Z',
+              head: { ref: 'feature/remote-review' },
+              base: { ref: 'main' },
+            },
+          ]),
+          stderr: '',
+        };
+      },
+    });
+    const repository = {
+      ...baseRepositoryState(tempRepo.repoRoot),
+      currentBranch: 'local-review',
+      upstreamBranch: 'feature/remote-review',
+    };
+    const created = await createPullRequest({
+      repository,
+      token: 'secret',
+      title: 'Story review',
+      body: 'body',
+    });
+    assert.equal(created.kind, 'ok');
+    const createArgs = seenArgs.find(
+      (args) => args[0] === 'pr' && args[1] === 'create',
+    );
+    assert.equal(createArgs?.[createArgs.indexOf('--head') + 1], 'feature/remote-review');
+    assert.ok(
+      seenArgs.some((args) => {
+        const endpoint = args.at(-1);
+        return (
+          endpoint !== undefined &&
+          new URL(`https://example.test/${endpoint}`).searchParams.get('head') ===
+            'example:feature/remote-review'
+        );
+      }),
+    );
   } finally {
     await tempRepo.cleanup();
   }
@@ -467,7 +582,7 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
       replayResolved.lookupDiagnostics.map((diagnostic) => diagnostic.stderr),
       ['lookup attempt 1 failed', 'lookup attempt 2 failed'],
     );
-    assert.deepEqual(retrySleepCalls, [30000, 60000, 90000]);
+    assert.deepEqual(retrySleepCalls, [1000, 2000]);
 
     const ambiguousSleepCalls: number[] = [];
     __setGitHubReviewDepsForTests({
@@ -509,13 +624,13 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
       'connection dropped after create',
     );
     assert.deepEqual(createFailureRecovered.lookupDiagnostics, []);
-    assert.deepEqual(ambiguousSleepCalls, [30000]);
+    assert.deepEqual(ambiguousSleepCalls, []);
   } finally {
     await tempRepo.cleanup();
   }
 });
 
-test('resumed GitHub review reconciliation warns and keeps the persisted handoff PR when the latest open branch PR still matches it', async () => {
+test('resumed GitHub review reconciliation keeps the execution-owned persisted handoff PR without latest-open discovery', async () => {
   const tempRepo = await createTempRepo();
   try {
     const reviewsDir = path.join(tempRepo.repoRoot, 'codeInfoTmp/reviews');
@@ -554,25 +669,10 @@ test('resumed GitHub review reconciliation warns and keeps the persisted handoff
       ),
       'utf8',
     );
-    const latestPullPage = JSON.stringify([
-      {
-        number: 45,
-        html_url: 'https://github.com/example/repo/pull/45',
-        title: 'latest pull request',
-        created_at: '2026-06-24T10:00:00Z',
-        head: {
-          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
-        },
-        base: { ref: 'main' },
-        user: { login: 'review-bot' },
-      },
-    ]);
     __setGitHubReviewDepsForTests({
-      runCommand: async () => ({
-        exitCode: 0,
-        stdout: latestPullPage,
-        stderr: '',
-      }),
+      runCommand: async () => {
+        throw new Error('latest-open lookup must not run');
+      },
     });
 
     const reconciled = await reconcileResumedGitHubReviewPullRequest({
@@ -580,37 +680,32 @@ test('resumed GitHub review reconciliation warns and keeps the persisted handoff
       token: 'secret',
       executionId: 'exec-1',
       handoffPath,
-      resumedPullRequestNumber: 44,
+      resumedPullRequestNumber: 45,
     });
     assert.equal(reconciled.kind, 'ok');
     assert.equal(reconciled.value.number, 45);
     assert.equal(reconciled.source, 'persisted_handoff');
-    assert.equal(reconciled.warnings.length, 1);
-    assert.match(reconciled.warnings[0] ?? '', /keeping pull request #45/i);
+    assert.equal(reconciled.warnings.length, 0);
   } finally {
     await tempRepo.cleanup();
   }
 });
 
-test('resumed GitHub review reconciliation re-enters latest-open authority when the execution-scoped handoff is missing', async () => {
+test('resumed GitHub review reconciliation verifies the persisted resume PR number when its handoff is missing', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
       runCommand: async () => ({
         exitCode: 0,
-        stdout: JSON.stringify([
-          [
-            {
-              number: 46,
-              html_url: 'https://github.com/example/repo/pull/46',
-              head: {
-                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
-              },
-              base: { ref: 'main' },
-              created_at: '2026-06-28T10:00:00Z',
-            },
-          ],
-        ]),
+        stdout: JSON.stringify({
+          number: 44,
+          html_url: 'https://github.com/example/repo/pull/44',
+          head: {
+            ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          },
+          base: { ref: 'main' },
+          created_at: '2026-06-28T10:00:00Z',
+        }),
         stderr: '',
       }),
     });
@@ -626,8 +721,8 @@ test('resumed GitHub review reconciliation re-enters latest-open authority when 
       resumedPullRequestNumber: 44,
     });
     assert.equal(reconciled.kind, 'ok');
-    assert.equal(reconciled.value.number, 46);
-    assert.equal(reconciled.source, 'latest_open_pull_request');
+    assert.equal(reconciled.value.number, 44);
+    assert.equal(reconciled.source, 'resumed_context');
     assert.equal(reconciled.warnings.length, 1);
     assert.match(
       reconciled.warnings[0] ?? '',
@@ -638,7 +733,7 @@ test('resumed GitHub review reconciliation re-enters latest-open authority when 
   }
 });
 
-test('resumed GitHub review reconciliation adopts a newer branch PR and rejects older branch PRs', async () => {
+test('resumed GitHub review reconciliation rejects every PR-number mismatch instead of adopting another run', async () => {
   const tempRepo = await createTempRepo();
   try {
     const reviewsDir = path.join(tempRepo.repoRoot, 'codeInfoTmp/reviews');
@@ -698,21 +793,16 @@ test('resumed GitHub review reconciliation adopts a newer branch PR and rejects 
       }),
     });
 
-    const adopted = await reconcileResumedGitHubReviewPullRequest({
+    const newerContext = await reconcileResumedGitHubReviewPullRequest({
       repository: baseRepositoryState(tempRepo.repoRoot),
       token: 'secret',
       executionId: 'exec-2',
       handoffPath,
       resumedPullRequestNumber: 44,
     });
-    assert.equal(adopted.kind, 'ok');
-    assert.equal(adopted.value.number, 46);
-    assert.equal(adopted.source, 'latest_open_pull_request');
-    assert.equal(adopted.warnings.length, 1);
-    assert.match(
-      adopted.warnings[0] ?? '',
-      /adopting newer pull request #46/i,
-    );
+    assert.equal(newerContext.kind, 'error');
+    assert.equal(newerContext.reason, 'SCRATCH_INVALID');
+    assert.match(newerContext.message, /will not adopt another pull request/i);
 
     __setGitHubReviewDepsForTests({
       runCommand: async () => ({
@@ -743,11 +833,8 @@ test('resumed GitHub review reconciliation adopts a newer branch PR and rejects 
     });
     assert.equal(rejected.kind, 'error');
     assert.equal(rejected.reason, 'SCRATCH_INVALID');
-    assert.equal(rejected.warnings.length, 1);
-    assert.match(
-      rejected.message,
-      /older than the persisted expected pull request #45/i,
-    );
+    assert.equal(rejected.warnings.length, 0);
+    assert.match(rejected.message, /will not adopt another pull request/i);
   } finally {
     await tempRepo.cleanup();
   }

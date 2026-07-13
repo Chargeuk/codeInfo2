@@ -21,7 +21,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
   - script answers must resolve to exactly `{"answer":"yes"}` or `{"answer":"no"}`;
   - missing files, paths that escape the worked repository root, malformed JSON, extra top-level keys, non-zero exits, timeouts, or any non-`yes`/`no` answer are hard step failures rather than silent fallbacks.
 - Story 60 keeps the flow-control seams thin and composable on purpose. `github_open_pr`, `github_fetch_reviews`, and `github_close_pr` are transport primitives, while branching and loopback policy remains authored in the copied flow definition instead of being hidden inside the GitHub adapter.
-- The shipped opt-in flow entrypoint is `flows/implement_next_plan_github_review.json`. The existing default `flows/implement_next_plan.json` remains the preserved non-GitHub path.
+- The shipped opt-in flow entrypoint is `flows/implement_next_plan_github_review.json`. Existing default implementation flows remain preserved non-GitHub paths. The opt-in variant starts GitHub review only after its internal implementation and review loop reports completion; actionable external findings close that execution's PR once and return the story to internal review and revalidation.
 
 ## Story 0000060 persisted wait and GitHub review lifecycle
 
@@ -34,8 +34,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
   - the token is mapped only to `GH_TOKEN` for the child `gh` invocation;
   - the token is not loaded through `server/.env.local`, not promoted into long-lived server process env, and not written into a persisted `gh` credential store.
 - The minimum documented fine-grained token contract for this story is repository `Pull requests` permission at `write`, because PR open and close need write access while review and inline-comment retrieval needs read access.
-- Supported GitHub review-cycle skip paths finish as completed-with-warning instead of pretending a clean external review occurred. The current supported reasons are missing `.env.local`, malformed `.env.local`, missing token key, blank token value, missing upstream branch, missing trustworthy base branch, upstream push failure, and PR creation failure.
-- GitHub review scratch remains separate from the existing external-review ingest path. Story 60 writes transient handoff and raw review artifacts under `codeInfoTmp/reviews/`, preserves safe replacement semantics for the story-local handoff file, filters out PR-author feedback before classification, and replaces stale scratch with the fresh fetch before later review disposition reads it back.
+- Supported GitHub review-cycle opt-out paths finish as completed-with-warning instead of pretending a clean external review occurred. The approved reasons are missing `.env.local`, missing or blank token value, missing upstream branch, missing trustworthy base branch, and upstream push failure. Malformed token assignments, unreadable credential files, unsupported remote hosts, and real `gh` execution or PR-creation faults remain hard failures.
+- GitHub review scratch remains separate from the existing external-review ingest path. Story 60 writes transient execution-scoped handoffs, external-review input, and raw review artifacts under `codeInfoTmp/reviews/`; every resumed command reads the exact handoff named by `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH`, so overlapping runs cannot substitute a generic or newer run's PR and feedback.
 
 ## Story 0000064 bounded review-plan context
 

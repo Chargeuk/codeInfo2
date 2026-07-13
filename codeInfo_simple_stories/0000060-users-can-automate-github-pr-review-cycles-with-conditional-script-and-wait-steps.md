@@ -6,7 +6,7 @@
 2. Flow authors can use a dedicated `if` step, a persisted wait step, and script-driven yes or no decisions without changing agent command JSON.
 3. The GitHub review loop can safely skip PR review when repository-local credentials are missing, and it reports that outcome as completed with warning instead of pretending a clean review happened.
 4. Paused, resumed, retried, and overlapping review runs keep truthful per-run state so stale review data, stale wait state, or stale branch hints do not leak into the active cycle.
-5. Existing default flow entrypoints keep their current behavior unless an operator intentionally selects one of the new copied GitHub-review variants.
+5. Existing default flow entrypoints keep their current behavior unless an operator intentionally selects the copied GitHub-review variant.
 6. The final closeout path revalidates the repaired runtime, review, transcript, and supported-stack behavior through the repository's normal automated proof paths.
 
 # Description

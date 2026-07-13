@@ -163,3 +163,46 @@ test('an active lock is respected before stale-owner recovery', async () => {
     await fs.rm(parent, { recursive: true, force: true });
   }
 });
+
+test('two stale-lock waiters acquire serially without deleting the new owner', async () => {
+  const parent = await fs.mkdtemp(path.join(tmpdir(), 'codeinfo-lock-test-'));
+  const lockPath = path.join(parent, 'lock');
+  await fs.mkdir(lockPath);
+  await fs.writeFile(
+    path.join(lockPath, 'owner.json'),
+    JSON.stringify({ pid: 999_999, token: 'stale' }),
+  );
+  const acquire = () =>
+    acquireTestDockerLock({
+      lockPath,
+      timeoutMs: 2_000,
+      intervalMs: 1,
+      pidAlive: (pid) => pid === process.pid,
+      sleep: async () => await new Promise((resolve) => setImmediate(resolve)),
+    });
+
+  try {
+    const contenders = [acquire(), acquire()];
+    const first = await Promise.race(
+      contenders.map(async (promise, index) => ({
+        index,
+        lock: await promise,
+      })),
+    );
+    const firstOwner = JSON.parse(
+      await fs.readFile(path.join(lockPath, 'owner.json'), 'utf8'),
+    );
+    assert.equal(firstOwner.token, first.lock.token);
+
+    await first.lock.release();
+    const second = await contenders[first.index === 0 ? 1 : 0];
+    assert.notEqual(second.token, first.lock.token);
+    const secondOwner = JSON.parse(
+      await fs.readFile(path.join(lockPath, 'owner.json'), 'utf8'),
+    );
+    assert.equal(secondOwner.token, second.token);
+    await second.release();
+  } finally {
+    await fs.rm(parent, { recursive: true, force: true });
+  }
+});

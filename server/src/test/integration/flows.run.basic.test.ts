@@ -2160,7 +2160,7 @@ test('github review skip publishes completed-with-warning and records a durable 
   }
 });
 
-test('github review open PR emits retry warnings and a final aggregated failure when post-create reconciliation exhausts all lookup attempts', async () => {
+test('github review open PR logs retry diagnostics and emits one final failure when post-create reconciliation exhausts all lookup attempts', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-flow-'),
   );
@@ -2278,19 +2278,20 @@ test('github review open PR emits retry warnings and a final aggregated failure 
     const warningTurns = assistantTurns.filter(
       (turn) => turn.status === 'warning',
     );
-    assert.equal(warningTurns.length, 4);
-    assert.match(
-      warningTurns[0]?.content ?? '',
-      /lookup retry 1 after waiting 30s/i,
+    assert.equal(warningTurns.length, 0);
+    const retryLogs = query({
+      text: 'flows.github.open_pr.lookup_retry_failed',
+    }).filter(
+      (entry) => entry.context?.flowName === 'github-open-pr-retry-failure',
     );
-    assert.match(
-      warningTurns[3]?.content ?? '',
-      /lookup retry 4 after waiting 120s/i,
+    assert.deepEqual(
+      retryLogs.map((entry) => entry.context?.waitMs),
+      [0, 1000, 2000, 5000],
     );
 
     const failedTurn = assistantTurns.find((turn) => turn.status === 'failed');
     assert.ok(failedTurn);
-    assert.match(failedTurn.content, /Final lookup failure 5 after 150s/i);
+    assert.match(failedTurn.content, /Final lookup failure 5 after 10s/i);
     assert.match(failedTurn.content, /stderr: lookup attempt 5 failed/i);
 
     const planRaw = await fs.readFile(
@@ -2301,15 +2302,15 @@ test('github review open PR emits retry warnings and a final aggregated failure 
       'utf8',
     );
     assert.match(planRaw, /GitHub review stage failed during PR open\./);
-    assert.match(planRaw, /Lookup retry warning 4 after 120s:/);
-    assert.match(planRaw, /Final lookup failure 5 after 150s:/);
+    assert.match(planRaw, /Lookup retry warning 4 after 5s:/);
+    assert.match(planRaw, /Final lookup failure 5 after 10s:/);
   } finally {
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 
-test('github review open PR surfaces recovered gh pr create ambiguity as a warning while the run still continues', async () => {
+test('github review open PR records recovered gh pr create ambiguity without a terminal warning turn', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-ambiguous-flow-'),
   );
@@ -2423,32 +2424,13 @@ test('github review open PR surfaces recovered gh pr create ambiguity as a warni
       }),
     });
 
-    await waitForTurns(
-      conversationId,
-      (turns) =>
-        turns.some(
-          (turn) =>
-            turn.role === 'assistant' &&
-            turn.status === 'warning' &&
-            /connection dropped after create/i.test(turn.content),
-        ),
-      4000,
-    );
-    const warningTurn = getLatestAssistantTurn(conversationId);
-    assert.ok(warningTurn);
-    assert.equal(warningTurn.status, 'warning');
-    assert.match(
-      warningTurn.content,
-      /gh pr create reported a failure before reconciliation/i,
-    );
-    assert.match(warningTurn.content, /pull request #45/i);
-
     await waitForConversationUnlocked(conversationId);
     const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
       (turn) => turn.role === 'assistant',
     );
-    assert.ok(
+    assert.equal(
       assistantTurns.some((turn) => turn.status === 'warning'),
+      false,
     );
     assert.equal(
       assistantTurns.some((turn) => turn.status === 'failed'),

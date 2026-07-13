@@ -456,10 +456,17 @@
                 },
                 {
                   "type": "llm",
-                  "label": "Classify Review Disposition",
+                  "label": "Classify PR Review Disposition",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "markdownFile": "classify_review_disposition.md"
+                  "markdownFile": "classify_pr_review_disposition.md"
+                },
+                {
+                  "type": "llm",
+                  "label": "Filter PR Review Findings To Story Scope",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "filter_review_findings_to_story_scope.md"
                 },
                 {
                   "type": "startLoop",
@@ -477,10 +484,6 @@
                       "identifier": "loop_controller",
                       "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
-                    },
-                    {
-                      "type": "github_close_pr",
-                      "label": "Close GitHub Review Pull Request Before Minor Fix Loopback"
                     },
                     {
                       "type": "llm",
@@ -522,10 +525,6 @@
                       "identifier": "loop_controller",
                       "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_task_up_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
-                    },
-                    {
-                      "type": "github_close_pr",
-                      "label": "Close GitHub Review Pull Request Before Task-Up Loopback"
                     },
                     {
                       "type": "llm",
@@ -603,15 +602,26 @@
                   "breakOn": "yes"
                 }
               ]
+            },
+            {
+              "type": "llm",
+              "label": "Generate Or Update Final Revalidation Task For PR Fixes",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "generate_or_update_pr_fix_revalidation_task.md"
+            },
+            {
+              "type": "if",
+              "label": "Close PR When External Review Created New Work",
+              "condition": "scripts/flow_control/check_review_should_exit_to_main_loop.py",
+              "then": [
+                {
+                  "type": "github_close_pr",
+                  "label": "Close GitHub Review Pull Request Before Internal Review Restart"
+                }
+              ]
             }
           ]
-        },
-        {
-          "type": "llm",
-          "label": "Generate Or Update Final Revalidation Task For Minor Fixes",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "generate_or_update_minor_fix_revalidation_task.md"
         },
         {
           "type": "llm",

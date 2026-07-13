@@ -3141,6 +3141,45 @@ test('shared decision seam fails hard for timeout script output', async () => {
   );
 });
 
+test('shared decision seam fails hard when script output exceeds its limit', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'output-limit-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-output-limit.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const result = await supertest(baseUrl)
+        .post('/flows/output-limit-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /output exceeded 65536 bytes/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
 test('wait resume fails clearly when persisted wait execution identity no longer matches the resumed flow execution', async () => {
   await withFlowHarness(
     async ({ tmpDir }) => {
@@ -3275,6 +3314,53 @@ test('wait wake does not resume after the flow has already reached a terminal st
         1,
         `Wake should not resume a terminal flow | ${describeRelevantFlowRuntimeLogs(conversationId)}`,
       );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('wait wake rearms after a transient conversation-read failure', async () => {
+  await withFlowHarness(
+    async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'wait-preflight-rearm',
+        steps: [makeLlmStep(), { type: 'wait', seconds: 60 }, makeLlmStep()],
+      });
+
+      const conversationId = 'wait-preflight-rearm-conversation';
+      const wakes: Array<() => void> = [];
+      let failPreflight = true;
+      let resumeCalls = 0;
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: ({ onWake }) => {
+          wakes.push(onWake);
+          return { cancel: () => {} };
+        },
+        loadConversation: async (id) => {
+          if (failPreflight) throw new Error('temporary database outage');
+          return memoryConversations.get(id) ?? null;
+        },
+        loadLatestAssistantStatus: async () => null,
+        resumeFlowRun: async () => {
+          resumeCalls += 1;
+        },
+      });
+
+      await startFlowRun({
+        flowName: 'wait-preflight-rearm',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+      await waitFor(() => wakes.length === 1);
+      wakes[0]?.();
+      await waitFor(() => wakes.length === 2);
+      assert.equal(resumeCalls, 0);
+
+      failPreflight = false;
+      wakes[1]?.();
+      await waitFor(() => resumeCalls === 1);
     },
     { registerTmpDirAsRepo: true },
   );

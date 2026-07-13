@@ -4,7 +4,10 @@ import path from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseFlowFile } from '../../flows/flowSchema.js';
+import {
+  MAX_FLOW_WAIT_SECONDS,
+  parseFlowFile,
+} from '../../flows/flowSchema.js';
 import { query, resetStore } from '../../logStore.js';
 
 describe('flow schema (v1)', () => {
@@ -1731,6 +1734,26 @@ describe('flow schema (v1)', () => {
     });
     const parsed = parseFlowFile(json);
     assert.equal(parsed.ok, false);
+  });
+
+  test('wait-step schema bounds seconds to one safe Node timer', () => {
+    resetStore();
+    assert.equal(
+      parseFlowFile(
+        JSON.stringify({
+          steps: [{ type: 'wait', seconds: MAX_FLOW_WAIT_SECONDS }],
+        }),
+      ).ok,
+      true,
+    );
+    assert.equal(
+      parseFlowFile(
+        JSON.stringify({
+          steps: [{ type: 'wait', seconds: MAX_FLOW_WAIT_SECONDS + 1 }],
+        }),
+      ).ok,
+      false,
+    );
   });
 
   // Story 60: GitHub PR step schema tests (subtask 11)

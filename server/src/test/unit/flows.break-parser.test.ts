@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseBreakAnswer, parseContinueAnswer, parseIfAnswer } from '../../flows/service.js';
+import {
+  parseBreakAnswer,
+  parseContinueAnswer,
+  parseIfAnswer,
+  parseScriptFlowDecisionAnswer,
+} from '../../flows/service.js';
 
 const runDecisionParserSuite = (params: {
   kind: 'break' | 'continue' | 'if';
@@ -96,6 +101,23 @@ runDecisionParserSuite({
   label: 'Break',
   parse: parseBreakAnswer,
 });
+
+for (const kind of ['break', 'continue', 'if'] as const) {
+  test(`${kind} script decisions require one exact JSON object`, () => {
+    const accepted = parseScriptFlowDecisionAnswer(kind, '{"answer":"yes"}\n');
+    assert.equal(accepted.ok, true);
+
+    for (const ambiguous of [
+      'debug {"answer":"yes"}',
+      '```json\n{"answer":"yes"}\n```',
+      '{"answer":"yes"}\n{"answer":"no"}',
+      '{"answer":"yes","extra":true}',
+    ]) {
+      const rejected = parseScriptFlowDecisionAnswer(kind, ambiguous);
+      assert.equal(rejected.ok, false, ambiguous);
+    }
+  });
+}
 
 runDecisionParserSuite({
   kind: 'continue',

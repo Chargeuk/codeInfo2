@@ -208,6 +208,7 @@ export const acquireTestDockerLock = async ({
 } = {}) => {
   const token = randomUUID();
   const ownerPath = path.join(lockPath, 'owner.json');
+  const recoveryPath = `${lockPath}.recovery`;
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
@@ -252,7 +253,28 @@ export const acquireTestDockerLock = async ({
     }
 
     if (!owner || !pidAlive(owner.pid)) {
-      await fs.rm(lockPath, { recursive: true, force: true });
+      try {
+        await fs.mkdir(recoveryPath);
+      } catch (error) {
+        if (error?.code !== 'EEXIST') throw error;
+        await sleep(intervalMs);
+        continue;
+      }
+      try {
+        let currentOwner = null;
+        try {
+          currentOwner = JSON.parse(await fs.readFile(ownerPath, 'utf8'));
+        } catch (error) {
+          if (error?.code !== 'ENOENT' && error?.name !== 'SyntaxError') {
+            throw error;
+          }
+        }
+        if (!currentOwner || !pidAlive(currentOwner.pid)) {
+          await fs.rm(lockPath, { recursive: true, force: true });
+        }
+      } finally {
+        await fs.rm(recoveryPath, { recursive: true, force: true });
+      }
       continue;
     }
 

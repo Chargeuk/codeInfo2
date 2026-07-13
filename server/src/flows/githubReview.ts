@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -42,6 +43,7 @@ export type GitHubRepoToken = {
 
 export type GitHubRepositoryState = {
   workingRepositoryRoot: string;
+  repositoryHost: string;
   repositoryOwner: string;
   repositoryName: string;
   repositoryFullName: string;
@@ -192,7 +194,7 @@ export type GitHubResumedPullRequestResolution =
       kind: 'ok';
       value: GitHubPullRequestIdentity;
       warnings: string[];
-      source: 'persisted_handoff' | 'latest_open_pull_request';
+      source: 'persisted_handoff' | 'resumed_context';
     }
   | {
       kind: 'error';
@@ -310,9 +312,9 @@ export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
 export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
 export const MAX_GITHUB_REVIEW_SUBMISSIONS = 200;
 export const MAX_GITHUB_INLINE_REVIEW_COMMENTS = 200;
-const GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS = [
-  30_000, 60_000, 90_000, 120_000, 150_000,
-] as const;
+const GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS = [0, 1_000, 2_000, 5_000, 10_000] as const;
+const GITHUB_FILE_LOCK_TIMEOUT_MS = 30_000;
+const GITHUB_FILE_LOCK_STALE_MS = 5 * 60_000;
 
 const buildTempPath = (targetPath: string) =>
   `${targetPath}.${process.pid}.${Date.now().toString(36)}.tmp`;
@@ -548,19 +550,31 @@ const fetchBoundedPaginatedEntries = async <T>(params: {
 
 const parseRepoFromRemoteUrl = (
   remoteUrl: string,
-): { owner: string; name: string } | null => {
+): { host: string; owner: string; name: string } | null => {
+  const normalizeGitHubHost = (host: string) => {
+    const normalized = host.toLowerCase();
+    if (normalized === 'github.com' || normalized === 'ssh.github.com') {
+      return 'github.com';
+    }
+    if (normalized === 'ghe.com') return normalized;
+    return null;
+  };
   const trimmed = remoteUrl.trim();
   const sshMatch = trimmed.match(
-    /^(?:ssh:\/\/)?git@[^:/]+[:/]([^/]+)\/([^/]+?)(?:\.git)?$/u,
+    /^(?:ssh:\/\/)?git@([^:/]+)[:/]([^/]+)\/([^/]+?)(?:\.git)?$/u,
   );
   if (sshMatch) {
-    return { owner: sshMatch[1], name: sshMatch[2] };
+    const host = normalizeGitHubHost(sshMatch[1]);
+    if (!host) return null;
+    return { host, owner: sshMatch[2], name: sshMatch[3] };
   }
   const httpsMatch = trimmed.match(
-    /^https?:\/\/[^/]+\/([^/]+)\/([^/]+?)(?:\.git)?$/u,
+    /^https?:\/\/([^/]+)\/([^/]+)\/([^/]+?)(?:\.git)?$/u,
   );
   if (httpsMatch) {
-    return { owner: httpsMatch[1], name: httpsMatch[2] };
+    const host = normalizeGitHubHost(httpsMatch[1]);
+    if (!host) return null;
+    return { host, owner: httpsMatch[2], name: httpsMatch[3] };
   }
   return null;
 };
@@ -640,20 +654,17 @@ const readCurrentPlanContext = async (
 const parseEnvLocalForGitHubToken = (
   raw: string,
 ): GitHubStepOutcome<GitHubRepoToken> => {
-  const malformedLine = raw
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .find(
-      (line) =>
-        line.length > 0 &&
-        !line.startsWith('#') &&
-        !/^[A-Za-z_][A-Za-z0-9_]*\s*=.*$/u.test(line),
-    );
-  if (malformedLine) {
+  const tokenLines = raw.split(/\r?\n/u);
+  const malformedTokenLineIndex = tokenLines.findIndex(
+    (line) =>
+      /^\s*(?:export\s+)?CODEINFO_PR_TOKEN\b/u.test(line) &&
+      !/^\s*(?:export\s+)?CODEINFO_PR_TOKEN\s*=/u.test(line),
+  );
+  if (malformedTokenLineIndex >= 0) {
     return {
       kind: 'error',
       reason: 'ENV_LOCAL_INVALID',
-      message: `.env.local contains an invalid line: ${malformedLine}`,
+      message: `.env.local contains an invalid CODEINFO_PR_TOKEN assignment on line ${String(malformedTokenLineIndex + 1)}.`,
     };
   }
 
@@ -890,6 +901,7 @@ export const resolveGitHubRepositoryState = async (params: {
     kind: 'ok',
     value: {
       workingRepositoryRoot: params.workingRepositoryRoot,
+      repositoryHost: parsedRemote.host,
       repositoryOwner: parsedRemote.owner,
       repositoryName: parsedRemote.name,
       repositoryFullName: `${parsedRemote.owner}/${parsedRemote.name}`,
@@ -997,7 +1009,7 @@ export const lookupLatestOpenPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
 }): Promise<GitHubStepOutcome<GitHubPullRequestIdentity | null>> => {
-  const endpoint = `repos/${params.repository.repositoryFullName}/pulls?state=open&head=${params.repository.repositoryOwner}:${encodeURIComponent(params.repository.currentBranch)}&sort=created&direction=desc`;
+  const endpoint = `repos/${params.repository.repositoryFullName}/pulls?state=open&head=${params.repository.repositoryOwner}:${encodeURIComponent(params.repository.upstreamBranch)}&sort=created&direction=desc`;
   const perPage = 100;
   let page = 1;
   let latestPullRequest: GitHubPullRequestIdentity | null = null;
@@ -1076,7 +1088,7 @@ const lookupLatestOpenPullRequestWithRetry = async (params: {
 > => {
   const diagnostics: GitHubLookupRetryDiagnostic[] = [];
   for (const [index, waitMs] of GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS.entries()) {
-    await githubReviewDeps.sleep(waitMs);
+    if (waitMs > 0) await githubReviewDeps.sleep(waitMs);
     const lookedUp = await lookupLatestOpenPullRequest({
       repository: params.repository,
       token: params.token,
@@ -1111,6 +1123,18 @@ const lookupLatestOpenPullRequestWithRetry = async (params: {
   };
 };
 
+const shouldReconcileFailedPullRequestCreate = (
+  failure: GitHubStepOutcome<CommandResult>,
+) => {
+  if (failure.kind !== 'error' || failure.reason !== 'GITHUB_CLI_FAILED') {
+    return false;
+  }
+  const detail = `${failure.message}\n${failure.stderr ?? ''}`.toLowerCase();
+  return /already exists|timed? out|timeout|network|connection|unexpected eof|temporar|\b50[234]\b/u.test(
+    detail,
+  );
+};
+
 export const createPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
@@ -1130,13 +1154,13 @@ export const createPullRequest = async (params: {
       '--body',
       params.body,
       '--head',
-      params.repository.currentBranch,
+      params.repository.upstreamBranch,
       '--base',
       params.repository.baseBranch,
     ],
   });
   if (createResult.kind !== 'ok') {
-    if (createResult.reason === 'GITHUB_CLI_FAILED') {
+    if (shouldReconcileFailedPullRequestCreate(createResult)) {
       const reconciled = await lookupLatestOpenPullRequestWithRetry({
         repository: params.repository,
         token: params.token,
@@ -1401,32 +1425,108 @@ const withExclusiveFileLock = async <T>(params: {
   action: () => Promise<T>;
 }): Promise<T> => {
   const lockPath = buildLockPath(params.targetPath);
+  const recoveryLockPath = `${lockPath}.recovery`;
+  const token = randomUUID();
   const lockContents = JSON.stringify(
     {
       pid: process.pid,
+      token,
       acquired_at: githubReviewDeps.nowIso(),
     },
     null,
     2,
   );
-  for (;;) {
+  const startedAt = Date.now();
+  let acquired = false;
+  await githubReviewDeps.mkdir(path.dirname(lockPath), { recursive: true });
+  while (Date.now() - startedAt < GITHUB_FILE_LOCK_TIMEOUT_MS) {
     try {
       await githubReviewDeps.writeFile(lockPath, `${lockContents}\n`, {
         encoding: 'utf8',
         flag: 'wx',
       });
+      acquired = true;
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException | undefined)?.code !== 'EEXIST') {
         throw error;
       }
-      await sleep(10);
+      try {
+        await githubReviewDeps.mkdir(recoveryLockPath);
+        try {
+          const rawOwner = await githubReviewDeps
+            .readFile(lockPath, 'utf8')
+            .catch(() => '');
+          let owner: { pid?: unknown; acquired_at?: unknown } | null = null;
+          try {
+            owner = JSON.parse(rawOwner) as {
+              pid?: unknown;
+              acquired_at?: unknown;
+            };
+          } catch {
+            owner = null;
+          }
+          const ownerPid =
+            typeof owner?.pid === 'number' && Number.isInteger(owner.pid)
+              ? owner.pid
+              : null;
+          const acquiredAt =
+            typeof owner?.acquired_at === 'string'
+              ? Date.parse(owner.acquired_at)
+              : Number.NaN;
+          let ownerAlive = false;
+          if (ownerPid && ownerPid > 0) {
+            try {
+              process.kill(ownerPid, 0);
+              ownerAlive = true;
+            } catch (ownerError) {
+              ownerAlive =
+                (ownerError as NodeJS.ErrnoException | undefined)?.code ===
+                'EPERM';
+            }
+          }
+          const staleByAge =
+            !Number.isFinite(acquiredAt) ||
+            Date.now() - acquiredAt > GITHUB_FILE_LOCK_STALE_MS;
+          if (!ownerAlive || staleByAge) {
+            await githubReviewDeps.rm(lockPath, { force: true });
+          }
+        } finally {
+          await githubReviewDeps.rm(recoveryLockPath, {
+            force: true,
+            recursive: true,
+          });
+        }
+      } catch (recoveryError) {
+        if (
+          (recoveryError as NodeJS.ErrnoException | undefined)?.code !== 'EEXIST'
+        ) {
+          throw recoveryError;
+        }
+      }
+      await sleep(25);
     }
+  }
+  if (!acquired) {
+    throw new Error(`Timed out waiting for the file lock at ${lockPath}.`);
   }
   try {
     return await params.action();
   } finally {
-    await githubReviewDeps.rm(lockPath, { force: true, recursive: true });
+    const ownerRaw = await githubReviewDeps
+      .readFile(lockPath, 'utf8')
+      .catch(() => '');
+    let ownerToken: string | undefined;
+    try {
+      const owner = JSON.parse(ownerRaw) as { token?: unknown };
+      ownerToken = typeof owner.token === 'string' ? owner.token : undefined;
+    } catch {
+      ownerToken = undefined;
+    }
+    if (ownerToken !== token) {
+      throw new Error(`File lock ownership changed before release: ${lockPath}.`);
+    }
+    await githubReviewDeps.rm(lockPath, { force: true });
   }
 };
 
@@ -1814,7 +1914,8 @@ const appendImplementationNoteToPlan = async (params: {
             )
           : null;
         const taskMatch = taskHeading ? planRaw.match(taskHeading) : null;
-        const targetBlock = taskMatch?.[1]?.replace(/^\n/, '');
+        const matchedBlock = taskMatch?.[1];
+        const targetBlock = matchedBlock?.replace(/^\n/, '');
         if (!targetBlock) {
           throw new Error(
             'The active plan task could not be resolved for GitHub review note append.',
@@ -1825,7 +1926,9 @@ const appendImplementationNoteToPlan = async (params: {
           note: params.note,
         });
         const taskMatchIndex = taskMatch?.index ?? 0;
-        const nextPlan = `${planRaw.slice(0, taskMatchIndex)}${nextBlock}${planRaw.slice(taskMatchIndex + targetBlock.length)}`;
+        const leadingMatchOffset = (matchedBlock?.length ?? 0) - targetBlock.length;
+        const targetStart = taskMatchIndex + leadingMatchOffset;
+        const nextPlan = `${planRaw.slice(0, targetStart)}${nextBlock}${planRaw.slice(targetStart + targetBlock.length)}`;
         await writeTextAtomically({ targetPath: planFullPath, value: nextPlan });
       },
     });
@@ -2030,7 +2133,7 @@ export const claimGitHubReviewScratchOwnership = async (params: {
     plan_path: planContext.value.planPath,
     story_number: planContext.value.storyNumber,
     repository_root: params.repository.workingRepositoryRoot,
-    branch_name: params.repository.currentBranch,
+    branch_name: params.repository.upstreamBranch,
     handoff_path: scratchPaths.buildExecutionScopedHandoffPath(
       params.executionId,
     ),
@@ -2086,7 +2189,7 @@ export const writeGitHubReviewScratch = async (params: {
       plan_path: planContext.value.planPath,
       story_number: planContext.value.storyNumber,
       repository_root: params.repository.workingRepositoryRoot,
-      branch_name: params.repository.currentBranch,
+      branch_name: params.repository.upstreamBranch,
       head_sha: params.repository.headSha,
       pull_request: params.pullRequest,
       raw_review_artifact_path: rawArtifactPath,
@@ -2126,7 +2229,7 @@ export const writeGitHubReviewScratch = async (params: {
         plan_path: planContext.value.planPath,
         story_number: planContext.value.storyNumber,
         repository_root: params.repository.workingRepositoryRoot,
-        branch_name: params.repository.currentBranch,
+        branch_name: params.repository.upstreamBranch,
         handoff_path: handoffPath,
       } satisfies GitHubReviewScratchSelector,
     });
@@ -2188,39 +2291,42 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
     expectedExecutionId: params.executionId,
   });
   const missingHandoffWarning =
-    'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime re-entered same-branch latest-open pull request reconciliation before any persisted pull request hint could be reused.';
+    'Resumed GitHub review execution lost its execution-scoped handoff, so the runtime verified the pull request number preserved in the resumed execution context.';
   if (
     persistedHandoff.kind !== 'ok' &&
     /ENOENT|no such file or directory/i.test(persistedHandoff.message)
   ) {
-    const latestOpenPullRequest = await lookupLatestOpenPullRequest({
+    const resumedPullRequest = await lookupPullRequestByNumber({
       repository: params.repository,
       token: params.token,
+      pullRequestNumber: params.resumedPullRequestNumber,
     });
-    if (latestOpenPullRequest.kind !== 'ok') {
+    if (resumedPullRequest.kind !== 'ok') {
       return {
         kind: 'error',
-        reason: latestOpenPullRequest.reason,
-        message: latestOpenPullRequest.message,
-        stderr: latestOpenPullRequest.stderr,
-        exitCode: latestOpenPullRequest.exitCode,
+        reason: resumedPullRequest.reason,
+        message: resumedPullRequest.message,
+        stderr: resumedPullRequest.stderr,
+        exitCode: resumedPullRequest.exitCode,
         warnings: [missingHandoffWarning],
       };
     }
-    if (!latestOpenPullRequest.value) {
+    if (
+      resumedPullRequest.value.headRefName.trim() !==
+      params.repository.upstreamBranch.trim()
+    ) {
       return {
         kind: 'error',
         reason: 'SCRATCH_INVALID',
-        message:
-          'Resumed GitHub review execution lost its execution-scoped handoff and no latest open pull request was available for the current branch.',
+        message: `Resumed pull request #${String(params.resumedPullRequestNumber)} targets head branch ${resumedPullRequest.value.headRefName}, which does not match the execution upstream branch ${params.repository.upstreamBranch}.`,
         warnings: [missingHandoffWarning],
       };
     }
     return {
       kind: 'ok',
-      value: latestOpenPullRequest.value,
+      value: resumedPullRequest.value,
       warnings: [missingHandoffWarning],
-      source: 'latest_open_pull_request',
+      source: 'resumed_context',
     };
   }
   if (persistedHandoff.kind !== 'ok') {
@@ -2235,80 +2341,35 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
   }
 
   const expectedPullRequest = persistedHandoff.value.pull_request;
-  if (expectedPullRequest.number === params.resumedPullRequestNumber) {
-    return {
-      kind: 'ok',
-      value: expectedPullRequest,
-      warnings: [],
-      source: 'persisted_handoff',
-    };
-  }
-
-  const mismatchPrefix = `Resumed GitHub review execution expected persisted pull request #${String(expectedPullRequest.number)}, but the resumed execution context carried #${String(params.resumedPullRequestNumber)}. Checking the latest open pull request for ${params.repository.repositoryFullName} on branch ${params.repository.currentBranch}.`;
-  const latestOpenPullRequest = await lookupLatestOpenPullRequest({
-    repository: params.repository,
-    token: params.token,
-  });
-  if (latestOpenPullRequest.kind !== 'ok') {
-    return {
-      kind: 'error',
-      reason: latestOpenPullRequest.reason,
-      message: `${mismatchPrefix}\nLatest-open pull request lookup failed: ${latestOpenPullRequest.message}`,
-      stderr: latestOpenPullRequest.stderr,
-      exitCode: latestOpenPullRequest.exitCode,
-      warnings: [mismatchPrefix],
-    };
-  }
-
-  if (!latestOpenPullRequest.value) {
-    return {
-      kind: 'error',
-      reason: 'SCRATCH_INVALID',
-      message: `${mismatchPrefix}\nNo latest open pull request was available for the branch, so the resumed execution could not be reconciled safely.`,
-      warnings: [mismatchPrefix],
-    };
-  }
-
-  const latestPullRequest = latestOpenPullRequest.value;
   if (
-    latestPullRequest.headRefName.trim() !==
-    params.repository.currentBranch.trim()
+    path.resolve(persistedHandoff.value.repository_root) !==
+      path.resolve(params.repository.workingRepositoryRoot) ||
+    persistedHandoff.value.branch_name.trim() !==
+      params.repository.upstreamBranch.trim() ||
+    expectedPullRequest.headRefName.trim() !==
+      params.repository.upstreamBranch.trim()
   ) {
     return {
       kind: 'error',
       reason: 'SCRATCH_INVALID',
-      message: `${mismatchPrefix}\nLatest open pull request #${String(latestPullRequest.number)} targets head branch ${latestPullRequest.headRefName}, which does not match the resumed branch ${params.repository.currentBranch}.`,
-      warnings: [mismatchPrefix],
+      message:
+        'Resumed GitHub review handoff does not match the active repository root or upstream branch.',
+      warnings: [],
     };
   }
-
-  if (latestPullRequest.number < expectedPullRequest.number) {
+  if (expectedPullRequest.number !== params.resumedPullRequestNumber) {
     return {
       kind: 'error',
       reason: 'SCRATCH_INVALID',
-      message: `${mismatchPrefix}\nLatest open pull request #${String(latestPullRequest.number)} is older than the persisted expected pull request #${String(expectedPullRequest.number)}, so the resumed execution cannot switch safely.`,
-      warnings: [mismatchPrefix],
+      message: `Resumed GitHub review execution owns persisted pull request #${String(expectedPullRequest.number)}, but its resumed execution context carried #${String(params.resumedPullRequestNumber)}. The execution will not adopt another pull request.`,
+      warnings: [],
     };
   }
-
-  if (latestPullRequest.number === expectedPullRequest.number) {
-    return {
-      kind: 'ok',
-      value: expectedPullRequest,
-      warnings: [
-        `${mismatchPrefix}\nRecovered by keeping pull request #${String(expectedPullRequest.number)} because the latest open pull request on the branch still matches the persisted handoff.`,
-      ],
-      source: 'persisted_handoff',
-    };
-  }
-
   return {
     kind: 'ok',
-    value: latestPullRequest,
-    warnings: [
-      `${mismatchPrefix}\nAdopting newer pull request #${String(latestPullRequest.number)} because it is later than the persisted expected pull request #${String(expectedPullRequest.number)} on the same branch.`,
-    ],
-    source: 'latest_open_pull_request',
+    value: expectedPullRequest,
+    warnings: [],
+    source: 'persisted_handoff',
   };
 };
 

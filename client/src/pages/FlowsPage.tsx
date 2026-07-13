@@ -1415,6 +1415,7 @@ export default function FlowsPage() {
 
       if (isNewConversation) {
         setLaunchConversationId(nextConversationId);
+        resetTurns();
         setConversation(nextConversationId, { clearMessages: true });
         setActiveConversationId(nextConversationId);
       }
@@ -1526,6 +1527,7 @@ export default function FlowsPage() {
       messages,
       persistenceUnavailable,
       refreshConversations,
+      resetTurns,
       resumeStepPath,
       selectedFlow,
       selectedFlowDetails,

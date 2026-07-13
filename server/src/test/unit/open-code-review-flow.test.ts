@@ -27,7 +27,7 @@ test('standalone Open Code Review flow uses the Codex-backed review agent', () =
     {
       type: 'llm',
       label: 'Run Standalone Open Code Review',
-      agentType: 'review_agent',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       markdownFile: 'run_open_code_review.md',
     },
@@ -44,7 +44,7 @@ test('production Open Code Review flow reuses the parent-prepared session', () =
     {
       type: 'llm',
       label: 'Run Session-Bound Open Code Review',
-      agentType: 'review_agent',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       markdownFile: 'run_open_code_review.md',
     },
@@ -110,13 +110,15 @@ test('server image builds the exact Codex-enabled OCR fork and gates its command
   assert.doesNotMatch(globalPackages, /@alibaba-group\/open-code-review/u);
 });
 
-test('main proof catalog supplies a review-only Codex agent without checked-in auth', () => {
-  const agentRoot = 'manual_testing/codeinfo_agents/review_agent';
+test('main proof catalog supplies the heavy review-only Codex agent without checked-in auth', () => {
+  const agentRoot = 'manual_testing/codeinfo_agents/review_agent_heavy';
   const config = readRepoFile(`${agentRoot}/config.toml`);
   const systemPrompt = readRepoFile(`${agentRoot}/system_prompt.txt`);
   const manualTestingIgnore = readRepoFile('manual_testing/.gitignore');
 
   assert.match(config, /codeinfo_provider = "codex"/u);
+  assert.match(config, /model = "gpt-5\.6-sol"/u);
+  assert.match(config, /model_reasoning_effort = "high"/u);
   assert.match(config, /approval_policy = "never"/u);
   assert.match(systemPrompt, /Do not edit source, commit, push/u);
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);

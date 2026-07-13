@@ -692,6 +692,113 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
+test('codexReview resolves model and reasoning effort from its configured agent', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-agent-profile-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const agentsHome = path.join(tmpDir, 'codeinfo_agents');
+  const agentHome = path.join(agentsHome, 'review_agent_heavy');
+  const previousPath = process.env.PATH;
+  const previousPreferredAgentHome = process.env.CODEINFO_AGENT_HOME;
+  process.env.FLOWS_DIR = tmpDir;
+
+  resetDeterministicCodexAvailabilityBootstrap();
+  installDeterministicCodexAvailabilityBootstrap({
+    models: [
+      {
+        model: 'gpt-5.6-sol',
+        supportedReasoningEfforts: ['high', 'xhigh'],
+        defaultReasoningEffort: 'high',
+      },
+    ],
+  });
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.mkdir(binDir, { recursive: true });
+    await fs.mkdir(agentHome, { recursive: true });
+    process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ''}`;
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      [
+        'codeinfo_provider = "codex"',
+        'model = "gpt-5.6-sol"',
+        'model_reasoning_effort = "xhigh"',
+        'approval_policy = "never"',
+        'sandbox_mode = "danger-full-access"',
+      ].join('\n'),
+      'utf8',
+    );
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'agent-backed-codex-review',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Agent-Backed Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step_or_agent',
+          agentType: 'review_agent_heavy',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'agent-backed-codex-review',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(result.modelId, 'gpt-5.6-sol');
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const pointer = JSON.parse(
+      await fs.readFile(codexReviewPointerPath(repoDir), 'utf8'),
+    ) as {
+      model?: string;
+      reasoning_effort?: string | null;
+      agent_type?: string | null;
+    };
+    assert.equal(pointer.model, 'gpt-5.6-sol');
+    assert.equal(pointer.reasoning_effort, 'xhigh');
+    assert.equal(pointer.agent_type, 'review_agent_heavy');
+  } finally {
+    process.env.PATH = previousPath;
+    if (previousPreferredAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousPreferredAgentHome;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resume skips validating a completed codexReview step when resuming at the next step', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-codex-review-resume-validation-'),
@@ -2186,7 +2293,7 @@ test('codexReview steps skip cleanly when no review model can be resolved and la
           turn.status === 'ok' &&
           String(turn.content).includes('Codex review skipped.') &&
           String(turn.content).includes(
-            'codexReview requires codexReviewModelId or a model on the flow step.',
+            'codexReview requires codexReviewModelId, a model on the flow step, or a model from its configured agent.',
           ),
       ),
       true,

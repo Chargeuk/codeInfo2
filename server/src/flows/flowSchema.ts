@@ -79,7 +79,8 @@ export type FlowCodexReviewStep = {
   label?: string;
   outputKey: string;
   basePolicy?: 'branched_from_or_default_if_merged';
-  modelSource?: 'flow_request_or_step';
+  modelSource?: 'flow_request_or_step' | 'flow_request_or_step_or_agent';
+  agentType?: string;
   model?: string;
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 };
@@ -204,13 +205,40 @@ const FlowCodexReviewStepSchema = z
     label: trimmedNonEmptyString.optional(),
     outputKey: trimmedNonEmptyString,
     basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
-    modelSource: z.literal('flow_request_or_step').optional(),
+    modelSource: z
+      .enum(['flow_request_or_step', 'flow_request_or_step_or_agent'])
+      .optional(),
+    agentType: trimmedNonEmptyString.optional(),
     model: trimmedNonEmptyString.optional(),
     reasoningEffort: z
       .enum(['minimal', 'low', 'medium', 'high', 'xhigh'])
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      value.modelSource === 'flow_request_or_step_or_agent' &&
+      !value.agentType
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['agentType'],
+        message:
+          'agentType is required when modelSource is flow_request_or_step_or_agent',
+      });
+    }
+    if (
+      value.agentType &&
+      value.modelSource !== 'flow_request_or_step_or_agent'
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['modelSource'],
+        message:
+          'modelSource must be flow_request_or_step_or_agent when agentType is set',
+      });
+    }
+  });
 
 const FlowValidateReviewArtifactsStepSchema = z
   .object({

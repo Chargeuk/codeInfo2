@@ -4,7 +4,7 @@
     {
       "type": "llm",
       "label": "Run Session-Bound Open Code Review",
-      "agentType": "review_agent",
+      "agentType": "review_agent_heavy",
       "identifier": "ocr_reviewer",
       "markdownFile": "run_open_code_review.md"
     }

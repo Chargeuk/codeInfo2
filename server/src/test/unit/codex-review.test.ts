@@ -7,6 +7,7 @@ import test from 'node:test';
 
 import {
   resolveCodexReviewModel,
+  resolveCodexReviewReasoningEffort,
   runCodexReviewStep,
 } from '../../flows/codexReview.js';
 
@@ -84,11 +85,12 @@ const prepareReviewContext = async (params: {
   return { artifactPath, artifact };
 };
 
-test('resolveCodexReviewModel prefers explicit request model over step default', () => {
+test('resolveCodexReviewModel uses request, step, then agent precedence', () => {
   assert.equal(
     resolveCodexReviewModel({
       requestedModelId: 'gpt-5.4',
       stepModelId: 'gpt-5.4-mini',
+      agentModelId: 'gpt-5.6-sol',
     }),
     'gpt-5.4',
   );
@@ -96,6 +98,7 @@ test('resolveCodexReviewModel prefers explicit request model over step default',
     resolveCodexReviewModel({
       requestedModelId: undefined,
       stepModelId: 'gpt-5.4-mini',
+      agentModelId: 'gpt-5.6-sol',
     }),
     'gpt-5.4-mini',
   );
@@ -103,8 +106,33 @@ test('resolveCodexReviewModel prefers explicit request model over step default',
     resolveCodexReviewModel({
       requestedModelId: undefined,
       stepModelId: undefined,
+      agentModelId: 'gpt-5.6-sol',
+    }),
+    'gpt-5.6-sol',
+  );
+  assert.equal(
+    resolveCodexReviewModel({
+      requestedModelId: undefined,
+      stepModelId: undefined,
+      agentModelId: undefined,
     }),
     null,
+  );
+});
+
+test('resolveCodexReviewReasoningEffort prefers the step over the agent', () => {
+  assert.equal(
+    resolveCodexReviewReasoningEffort({
+      stepReasoningEffort: 'xhigh',
+      agentReasoningEffort: 'high',
+    }),
+    'xhigh',
+  );
+  assert.equal(
+    resolveCodexReviewReasoningEffort({
+      agentReasoningEffort: 'high',
+    }),
+    'high',
   );
 });
 
@@ -242,6 +270,7 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
         workingRepositoryPath: repoRoot,
         outputKey: 'current-codex-review',
         modelId: 'gpt-5.4',
+        agentType: 'review_agent_heavy',
         reasoningEffort: 'high',
         signal: controller.signal,
       },
@@ -304,6 +333,7 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
       codex_review_pass_id: string;
       review_output_file: string;
       reasoning_effort: string | null;
+      agent_type: string | null;
       remote_fetch_status: string;
       resolved_base_source: string;
       local_fallback_reason: string | null;
@@ -331,6 +361,7 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
       '0000027-rp-20260705T150000Z-abcd1234',
     );
     assert.equal(pointer.reasoning_effort, 'high');
+    assert.equal(pointer.agent_type, 'review_agent_heavy');
     assert.equal(pointer.remote_fetch_status, 'success');
     assert.equal(pointer.resolved_base_source, 'remote');
     assert.equal(pointer.local_fallback_reason, null);

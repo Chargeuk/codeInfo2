@@ -117,7 +117,9 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
 import {
   clearCodexReviewPointerFile,
   resolveCodexReviewModel,
+  resolveCodexReviewReasoningEffort,
   runCodexReviewStep,
+  type CodexReviewReasoningEffort,
 } from './codexReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
@@ -1633,6 +1635,90 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   }
 };
 
+const CODEX_REVIEW_REASONING_EFFORTS = new Set<CodexReviewReasoningEffort>([
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+]);
+
+const resolveCodexReviewAgentProfile = async (params: {
+  step: FlowCodexReviewStep;
+  agentByName: Map<string, { configPath: string }>;
+  workingFolder?: string;
+  defaultRepositoryRoot?: string;
+  source: 'REST' | 'MCP';
+}): Promise<{
+  agentType?: string;
+  modelId?: string;
+  reasoningEffort?: CodexReviewReasoningEffort;
+  warnings: string[];
+}> => {
+  if (params.step.modelSource !== 'flow_request_or_step_or_agent') {
+    return { warnings: [] };
+  }
+
+  const agentType = params.step.agentType;
+  if (!agentType) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      'codexReview requires agentType when modelSource is flow_request_or_step_or_agent.',
+    );
+  }
+
+  const validatedAgentType = validateRepositoryBackedAgentType(agentType);
+  if (!validatedAgentType.ok) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `Flow agent "${agentType}" ${validatedAgentType.message}.`,
+    );
+  }
+
+  const agent = params.agentByName.get(agentType);
+  if (!agent) {
+    throw toFlowRunError('AGENT_NOT_FOUND', `Agent ${agentType} not found`);
+  }
+
+  const prepared = await resolveFlowAgentRuntimeExecution({
+    agentName: agentType,
+    configPath: agent.configPath,
+    workingFolder: params.workingFolder,
+    defaultRepositoryRoot: params.defaultRepositoryRoot,
+    source: params.source,
+    allowFallback: false,
+  });
+  if (prepared.providerId !== 'codex') {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `codexReview agent ${agentType} must resolve to the codex provider.`,
+    );
+  }
+
+  const configuredReasoningEffort =
+    prepared.runtimeConfig?.model_reasoning_effort;
+  if (
+    configuredReasoningEffort !== undefined &&
+    !CODEX_REVIEW_REASONING_EFFORTS.has(
+      configuredReasoningEffort as CodexReviewReasoningEffort,
+    )
+  ) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `codexReview agent ${agentType} has unsupported model_reasoning_effort "${configuredReasoningEffort}".`,
+    );
+  }
+
+  return {
+    agentType,
+    modelId: prepared.modelId,
+    reasoningEffort: configuredReasoningEffort as
+      | CodexReviewReasoningEffort
+      | undefined,
+    warnings: prepared.warnings ?? [],
+  };
+};
+
 const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
   const runtimeState: FlowExecutionRuntimeState = new Map();
   if (!resumeState) return runtimeState;
@@ -1716,7 +1802,7 @@ const buildFlowCommandMetadata = (params: {
     totalSteps: params.totalSteps,
     loopDepth: params.loopDepth,
     label,
-    ...('agentType' in params.step
+    ...('agentType' in params.step && 'identifier' in params.step
       ? {
           agentType: params.step.agentType,
           identifier: params.step.identifier,
@@ -5597,15 +5683,27 @@ async function runFlowUnlocked(params: {
     step: FlowCodexReviewStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
-    const resolvedModelId = resolveCodexReviewModel({
-      requestedModelId: params.codexReviewModelId,
-      stepModelId: step.model,
-    });
-    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
     const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
       params.repositoryContext,
     );
+    const agentProfile = await resolveCodexReviewAgentProfile({
+      step,
+      agentByName,
+      workingFolder: reviewRepositoryPath,
+      defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
+      source: params.source,
+    });
+    const resolvedModelId = resolveCodexReviewModel({
+      requestedModelId: params.codexReviewModelId,
+      stepModelId: step.model,
+      agentModelId: agentProfile.modelId,
+    });
+    const resolvedReasoningEffort = resolveCodexReviewReasoningEffort({
+      stepReasoningEffort: step.reasoningEffort,
+      agentReasoningEffort: agentProfile.reasoningEffort,
+    });
+    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
     const clearStaleCodexReviewPointer = async () => {
       if (reviewRepositoryPath) {
         try {
@@ -5656,7 +5754,7 @@ async function runFlowUnlocked(params: {
     }
     if (!resolvedModelId) {
       return emitSkippedCodexReviewStep(
-        'codexReview requires codexReviewModelId or a model on the flow step.',
+        'codexReview requires codexReviewModelId, a model on the flow step, or a model from its configured agent.',
       );
     }
 
@@ -5724,7 +5822,8 @@ async function runFlowUnlocked(params: {
         workingRepositoryPath: reviewRepositoryPath,
         outputKey: step.outputKey,
         modelId: resolvedModelId,
-        reasoningEffort: step.reasoningEffort,
+        reasoningEffort: resolvedReasoningEffort,
+        agentType: agentProfile.agentType,
         basePolicy: step.basePolicy,
         signal: inflightSignal,
       });
@@ -5747,6 +5846,9 @@ async function runFlowUnlocked(params: {
         response: [
           'Codex review completed.',
           `Model: ${result.modelId}`,
+          ...(agentProfile.agentType
+            ? [`Agent type: ${agentProfile.agentType}`]
+            : []),
           ...(result.reasoningEffort
             ? [`Reasoning effort: ${result.reasoningEffort}`]
             : []),
@@ -6725,14 +6827,31 @@ export async function startFlowRun(
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
     } else if (firstCodexReviewStep) {
+      const agentProfile = await resolveCodexReviewAgentProfile({
+        step: firstCodexReviewStep,
+        agentByName,
+        workingFolder: effectiveWorkingFolder,
+        defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
+        source: params.source,
+      });
       const resolvedModelId = resolveCodexReviewModel({
         requestedModelId: effectiveCodexReviewModelId,
         stepModelId: firstCodexReviewStep.model,
+        agentModelId: agentProfile.modelId,
       });
       const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+      if (!codexBootstrapStatus.healthy) {
+        throw toFlowRunError(
+          'PROVIDER_UNAVAILABLE',
+          codexBootstrapStatus.reason ?? 'codex unavailable',
+        );
+      }
       modelId = resolvedModelId ?? FALLBACK_MODEL_ID;
       providerId = 'codex';
-      startupWarnings = codexBootstrapStatus.warnings;
+      startupWarnings = [
+        ...agentProfile.warnings,
+        ...codexBootstrapStatus.warnings,
+      ];
     }
 
     const codeInfo2Root = codeInfo2RootForRun();

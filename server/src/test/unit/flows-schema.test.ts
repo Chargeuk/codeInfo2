@@ -162,14 +162,47 @@ describe('flow schema (v1)', () => {
           label: 'Run Codex Review',
           outputKey: 'current-codex-review',
           basePolicy: 'branched_from_or_default_if_merged',
-          modelSource: 'flow_request_or_step',
-          reasoningEffort: 'high',
+          modelSource: 'flow_request_or_step_or_agent',
+          agentType: 'review_agent_heavy',
         },
       ],
     });
 
     const parsed = parseFlowFile(json);
     assert.equal(parsed.ok, true);
+  });
+
+  test('agent-backed codexReview requires an agentType', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'codexReview',
+            outputKey: 'current-codex-review',
+            modelSource: 'flow_request_or_step_or_agent',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
+  test('codexReview agentType requires agent-backed modelSource', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'codexReview',
+            outputKey: 'current-codex-review',
+            modelSource: 'flow_request_or_step',
+            agentType: 'review_agent_heavy',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
   });
 
   test('valid prepareReviewBase step parses as ok: true', () => {

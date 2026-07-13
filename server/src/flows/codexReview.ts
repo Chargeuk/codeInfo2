@@ -30,12 +30,15 @@ import {
 
 export type FlowCodexReviewBasePolicy = FlowReviewBasePolicy;
 
-export type FlowCodexReviewModelSource = 'flow_request_or_step';
+export type FlowCodexReviewModelSource =
+  | 'flow_request_or_step'
+  | 'flow_request_or_step_or_agent';
 
 export type FlowCodexReviewStepConfig = {
   outputKey: string;
   basePolicy?: FlowCodexReviewBasePolicy;
   modelSource?: FlowCodexReviewModelSource;
+  agentType?: string;
   model?: string;
   reasoningEffort?: CodexReviewReasoningEffort;
 };
@@ -62,6 +65,7 @@ export type CodexReviewPointer = {
   head_commit: string;
   model: string;
   reasoning_effort: CodexReviewReasoningEffort | null;
+  agent_type: string | null;
   logical_base_branch: string;
   resolved_base_branch: string;
   resolved_base_source: 'remote' | 'local_fallback';
@@ -565,11 +569,21 @@ const createPinnedReviewBaseRef = async (params: {
 export function resolveCodexReviewModel(params: {
   requestedModelId?: string;
   stepModelId?: string;
+  agentModelId?: string;
 }): string | null {
   const requested = normalizeOptionalString(params.requestedModelId);
   if (requested) return requested;
   const stepModel = normalizeOptionalString(params.stepModelId);
-  return stepModel ?? null;
+  if (stepModel) return stepModel;
+  const agentModel = normalizeOptionalString(params.agentModelId);
+  return agentModel ?? null;
+}
+
+export function resolveCodexReviewReasoningEffort(params: {
+  stepReasoningEffort?: CodexReviewReasoningEffort;
+  agentReasoningEffort?: CodexReviewReasoningEffort;
+}): CodexReviewReasoningEffort | undefined {
+  return params.stepReasoningEffort ?? params.agentReasoningEffort;
 }
 
 export async function runCodexReviewStep(
@@ -577,6 +591,7 @@ export async function runCodexReviewStep(
     workingRepositoryPath: string;
     outputKey: string;
     modelId: string;
+    agentType?: string;
     reasoningEffort?: CodexReviewReasoningEffort;
     basePolicy?: FlowCodexReviewBasePolicy;
     signal?: AbortSignal;
@@ -760,6 +775,7 @@ export async function runCodexReviewStep(
     currentBranch,
     headCommit,
     modelId: params.modelId,
+    agentType: params.agentType,
     reasoningEffort: params.reasoningEffort ?? null,
     reviewCycleId,
     canonicalReviewPassId,
@@ -808,6 +824,7 @@ const buildPointer = (params: {
   currentBranch: string;
   headCommit: string;
   modelId: string;
+  agentType?: string;
   reasoningEffort: CodexReviewReasoningEffort | null;
   reviewCycleId: string | null;
   canonicalReviewPassId: string;
@@ -831,6 +848,7 @@ const buildPointer = (params: {
   head_commit: params.headCommit,
   model: params.modelId,
   reasoning_effort: params.reasoningEffort,
+  agent_type: params.agentType ?? null,
   logical_base_branch: params.preparedBase.logical_base_branch,
   resolved_base_branch: params.preparedBase.resolved_base_branch,
   resolved_base_source: params.preparedBase.resolved_base_source,

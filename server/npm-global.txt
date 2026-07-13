@@ -1,5 +1,4 @@
 @openai/codex
-@alibaba-group/open-code-review@1.7.7
 @github/copilot
 mcp-remote
 @upstash/context7-mcp

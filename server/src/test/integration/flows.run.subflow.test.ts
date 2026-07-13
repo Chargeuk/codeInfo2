@@ -706,6 +706,7 @@ afterEach(async () => {
 
 test('subflow step launches a child flow, waits for completion, and uses the generated child title', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-ok-'));
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   try {
     await writeFlowFile({
@@ -2553,6 +2554,7 @@ test('parallel subflow waits for every child and continues best-effort when one 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-fail-'),
   );
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   try {
     await writeFlowFile({
@@ -2740,6 +2742,7 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
 
 test('subflow step keeps the parent flow running when a single child fails', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-fail-'));
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   try {
     await writeFlowFile({
@@ -2788,6 +2791,7 @@ test('subflow waits for the full child flow and still continues best-effort afte
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-fail-later-'),
   );
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   try {
     await writeFlowFile({
@@ -2851,6 +2855,7 @@ test('subflow continues best-effort when the child crashes after a prior success
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stale-ok-crash-'),
   );
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   try {
     await writeFlowFile({
@@ -2909,6 +2914,7 @@ test('subflow keeps the parent running when child flows reference each other rec
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-recursive-cycle-'),
   );
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   try {
     await writeFlowFile({

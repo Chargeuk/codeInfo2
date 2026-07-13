@@ -7,7 +7,16 @@ import type { EnqueueIngestRequestResult } from '../../ingest/requestQueue.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 const noopLog = () => undefined;
-const runWithNodeTestEnv = async <T>(fn: () => Promise<T>): Promise<T> => await runWithTestEnvOverrides({ NODE_ENV: 'test' }, fn);
+const runWithNodeTestEnv = async <T>(fn: () => Promise<T>): Promise<T> =>
+    await runWithTestEnvOverrides({ NODE_ENV: 'test' }, async () => {
+        __resetIngestJobsForTest();
+        try {
+            return await fn();
+        }
+        finally {
+            __resetIngestJobsForTest();
+        }
+    });
 function useMicrotaskTimeoutMock() {
     mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
         void Promise.resolve().then(callback);

@@ -166,6 +166,7 @@ beforeEach(() => {
   env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
+  env.set('COPILOT_GITHUB_TOKEN', undefined);
 });
 afterEach(async () => {
   env.restore();

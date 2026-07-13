@@ -359,7 +359,7 @@ export function beginScopedTestEnvIsolation(
     }
     return;
   }
-  enterTestOverrideScope(patch);
+  enterTestOverrideScope(patch, { newScope: true });
   const scopeId = getCurrentTestOverrideScopeId();
   if (scopeId !== undefined) {
     state.closedScopeIds.delete(scopeId);

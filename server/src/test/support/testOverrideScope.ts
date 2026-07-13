@@ -203,8 +203,11 @@ export function hasPersistentTestOverrideScope(): boolean {
   return getPersistentStoreForCurrentScope() !== undefined;
 }
 
-export function enterTestOverrideScope(patch: TestOverridePatch): void {
-  const merged = buildPatchedStore(getCurrentStore(), patch);
+export function enterTestOverrideScope(
+  patch: TestOverridePatch,
+  options?: { newScope?: boolean },
+): void {
+  const merged = buildPatchedStore(getCurrentStore(), patch, options);
   latestStores.set(merged.scopeId, merged);
   if (persistentStores.has(merged.scopeId)) {
     persistentStores.set(merged.scopeId, merged);
@@ -238,7 +241,7 @@ export async function runWithTestOverrides<T>(
   patch: TestOverridePatch,
   fn: () => Promise<T>,
 ): Promise<T> {
-  const merged = buildPatchedStore(getCurrentStore(), patch);
+  const merged = buildPatchedStore(getCurrentStore(), patch, { newScope: true });
   latestStores.set(merged.scopeId, merged);
   return await scopeIdStorage.run(merged.scopeId, () => storage.run(merged, fn));
 }

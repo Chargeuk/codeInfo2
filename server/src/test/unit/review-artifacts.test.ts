@@ -539,6 +539,40 @@ test('validateReviewArtifacts rejects an OCR manifest that differs from the serv
   }
 });
 
+test('validateReviewArtifacts rejects altered OCR evidence that retains the canonical manifest id', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-ocr-evidence-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const manifestPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      'ocr-manifest.json',
+    );
+    const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as {
+      manifest_id: string;
+      bundles: Array<{ files: Array<{ patch: string }> }>;
+    };
+    const originalManifestId = manifest.manifest_id;
+
+    manifest.bundles[0]!.files[0]!.patch =
+      '@@ -1 +1 @@\n-original evidence\n+altered evidence\n';
+    assert.equal(manifest.manifest_id, originalManifestId);
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /server-generated Git diff/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('validateReviewArtifacts rejects a reviewable planning file even in an otherwise canonical manifest', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-artifacts-ocr-planning-'),

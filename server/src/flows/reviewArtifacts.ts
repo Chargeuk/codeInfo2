@@ -3,7 +3,7 @@ import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
+import { isDeepStrictEqual, promisify } from 'node:util';
 
 import { resolveWorkingFolderWorkingDirectory } from '../workingFolders/executionContext.js';
 import {
@@ -592,7 +592,10 @@ const validateOcrArtifacts = async (params: {
       canonicalManifest.manifest_id,
       'server-generated OCR manifest manifest_id',
     );
-    if (manifestId !== canonicalManifestId) {
+    if (
+      manifestId !== canonicalManifestId ||
+      !isDeepStrictEqual(manifest, canonicalManifest)
+    ) {
       throw new Error(
         'OCR manifest does not match the server-generated Git diff and exclusions.',
       );

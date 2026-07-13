@@ -114,6 +114,10 @@ class ReviewPromptContractTests(unittest.TestCase):
             self.assertIn(required, merge_text)
         self.assertIn("current-review-validation.json", merge_text)
         self.assertIn("Origin: open_code_review", merge_text)
+        self.assertIn("independently regenerate the exact manifest", review_text)
+        self.assertIn("later joined-review validation artifact", review_text)
+        self.assertIn("only OCR candidate-finding source", merge_text)
+        self.assertIn("coverage and navigation context only", merge_text)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(

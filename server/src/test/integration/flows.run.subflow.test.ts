@@ -2558,6 +2558,70 @@ test('validateReviewArtifacts records stale child evidence and continues the par
     ) as { status?: string; errors?: string[] };
     assert.equal(blocker.status, 'partial');
     assert.match(blocker.errors?.join('\n') ?? '', /review_session_id/u);
+
+    await Promise.all([
+      fs.writeFile(
+        path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+        JSON.stringify({
+          plan_path: identity.plan_path,
+          additional_repositories: { path: '/missing/repository' },
+        }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-codex-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          canonical_review_pass_id: identity.review_pass_id,
+          codex_review_pass_id: `${identity.review_pass_id}-codex`,
+          review_output_file: 'codeInfoTmp/reviews/codex.md',
+          status: 'completed',
+        }),
+      ),
+    ]);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'validate-malformed-additional-scope',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-review', 'current-codex-review'],
+        },
+        llmStep('runs after malformed additional scope'),
+      ],
+    });
+    const malformedResult = await startFlowRun({
+      flowName: 'validate-malformed-additional-scope',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() =>
+      executions.includes('runs after malformed additional scope'),
+    );
+    await waitForAssistantStatus(malformedResult.conversationId, 'ok');
+    const malformedValidation = JSON.parse(
+      await fs.readFile(
+        path.join(reviewDir, '0000027-current-review-validation.json'),
+        'utf8',
+      ),
+    ) as {
+      status?: string;
+      errors?: string[];
+      fallback_findings_file?: string;
+    };
+    assert.equal(malformedValidation.status, 'partial');
+    assert.match(
+      malformedValidation.errors?.join('\n') ?? '',
+      /must be an array/u,
+    );
+    assert.ok(malformedValidation.fallback_findings_file);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

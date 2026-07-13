@@ -56,6 +56,8 @@ ocr agent validate-comments --repo <repo-root> --bundle <pass-dir>/bundle-manife
 ocr agent report --repo <repo-root> --bundle <pass-dir>/bundle-manifest.json --comments <comments.json> --validation <validation.json> --format markdown --output <report.md>
 ```
 
+These agent-produced validation and report artifacts are provisional. The server will independently regenerate the exact manifest with the pinned commits and `planning/**` exclusion, rerun comment validation, and rerender every candidate report. Do not describe a bundle as server-validated or usable until the later joined-review validation artifact lists its `bundle_id` in `usable_bundle_ids`.
+
 ## Aggregate and publish the result
 
 Create `<pass-dir>/open-code-review.md` containing:

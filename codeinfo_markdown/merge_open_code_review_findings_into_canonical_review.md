@@ -16,6 +16,7 @@ This step may update only:
 - Read the prepared review base, current-review handoff, current-open-code-review pointer, and `codeInfoTmp/reviews/<story_id>-current-review-validation.json` from their exact stable paths. Never use glob, timestamp, latest-file, or alternate-prefix discovery.
 - Require the validation entry for `current-open-code-review` to be usable and require exact equality across all four artifacts for `story_id`, `plan_path`, `review_session_id`, canonical `review_pass_id` / `canonical_review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit`. The overall validation may be `partial` because another reviewer or OCR bundle failed.
 - Require the OCR pointer to report completed execution and a usable repository-relative `review_output_file` inside `codeInfoTmp/reviews`. Accept `passed` or `partial` OCR validation and use only the bundle IDs listed as usable by the server-owned validation result.
+- Treat the server-rerendered, byte-matched per-bundle reports for `usable_bundle_ids` as the only OCR candidate-finding source. The aggregate OCR Markdown is coverage and navigation context only; it must not independently introduce a finding.
 - Treat OCR output as candidate findings, not automatically endorsed findings.
 - Preserve all existing canonical findings. Do not remove or rewrite them because OCR disagrees.
 - On a missing, malformed, stale, wholly invalid, or mismatched OCR pass, record the skipped pass visibly and finish this merge step without stopping later flow steps. Partial OCR is usable: exclude invalid bundles, merge valid bundle findings, and preserve the coverage warnings.
@@ -27,7 +28,7 @@ This step may update only:
 <merge_rules>
 
 1. Read the canonical findings artifact before making any decision.
-2. Read the exact OCR Markdown referenced by `review_output_file` plus the reports for bundle IDs marked usable by server validation.
+2. Read the exact OCR Markdown referenced by `review_output_file` as coverage context, then read the byte-matched reports for bundle IDs marked usable by server validation as the sole candidate-finding inputs.
 3. Parse findings only from those validated bundles. Coverage notes, failed-bundle diagnostics, residual uncertainty, excluded planning files, and `No findings.` are not findings.
 4. For every candidate, determine whether it is new, equivalent to an existing main/Codex finding, unsupported, non-actionable, or outside the story.
 5. Keep the canonical finding when OCR restates the same root cause and record the OCR candidate as a duplicate.

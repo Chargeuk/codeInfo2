@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import { validateReviewArtifacts } from '../../flows/reviewArtifacts.js';
+import { validateReviewArtifacts as validateReviewArtifactsRaw } from '../../flows/reviewArtifacts.js';
 
 const execFile = promisify(execFileCb);
 const BRANCH = 'feature/0000013-example';
@@ -27,6 +27,8 @@ type FixtureOptions = {
   mainStatus?: string;
   omitMainRepos?: boolean;
   additionalRepositoryPath?: string;
+  additionalBaseMode?: 'correct' | 'head';
+  additionalRepositoriesValue?: unknown;
   omitAdditionalMainRepo?: boolean;
   ocrBranch?: string;
   divergedComparisonBase?: boolean;
@@ -34,6 +36,50 @@ type FixtureOptions = {
   commentsReviewedFiles?: number;
   pointerTotalFiles?: number;
 };
+
+const argumentValue = (args: string[], flag: string): string => {
+  const index = args.indexOf(flag);
+  assert.notEqual(index, -1, `missing ${flag} in OCR command`);
+  const value = args[index + 1];
+  assert.ok(value, `missing ${flag} value in OCR command`);
+  return value;
+};
+
+const runFixtureOcrCommand = async (params: { args: string[] }) => {
+  const outputPath = argumentValue(params.args, '--output');
+  const repoRoot = argumentValue(params.args, '--repo');
+  const reviewDir = path.join(repoRoot, 'codeInfoTmp', 'reviews');
+  const command = params.args.slice(0, 2).join(' ');
+  if (command === 'agent prepare') {
+    assert.equal(argumentValue(params.args, '--exclude'), 'planning/**');
+    await fs.copyFile(
+      path.join(reviewDir, 'ocr-canonical-manifest.json'),
+      outputPath,
+    );
+    return;
+  }
+  const commentsPath = argumentValue(params.args, '--comments');
+  const match = path.basename(commentsPath).match(/ocr-comments-(\d+)\.json/u);
+  assert.ok(match, `unexpected comments path ${commentsPath}`);
+  const index = match[1];
+  if (command === 'agent validate-comments') {
+    await fs.copyFile(
+      path.join(reviewDir, `ocr-canonical-validation-${index}.json`),
+      outputPath,
+    );
+    return;
+  }
+  assert.equal(command, 'agent report');
+  await fs.copyFile(
+    path.join(reviewDir, `ocr-canonical-report-${index}.md`),
+    outputPath,
+  );
+};
+
+const validateReviewArtifacts = (
+  params: Parameters<typeof validateReviewArtifactsRaw>[0],
+) =>
+  validateReviewArtifactsRaw(params, { runOcrCommand: runFixtureOcrCommand });
 
 const initializeRepository = async (
   repoRoot: string,
@@ -55,7 +101,10 @@ const initializeRepository = async (
     await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
   ).stdout.trim();
   await execFile('git', ['checkout', '-q', '-b', BRANCH], { cwd: repoRoot });
-  await fs.writeFile(path.join(repoRoot, 'changed.ts'), 'export const changed = true;\n');
+  await fs.writeFile(
+    path.join(repoRoot, 'changed.ts'),
+    'export const changed = true;\n',
+  );
   await execFile('git', ['add', 'changed.ts'], { cwd: repoRoot });
   await execFile('git', ['commit', '-qm', 'feature change'], { cwd: repoRoot });
   const head = (
@@ -64,7 +113,10 @@ const initializeRepository = async (
   let base = mergeBase;
   if (divergedComparisonBase) {
     await execFile('git', ['checkout', '-q', 'main'], { cwd: repoRoot });
-    await fs.writeFile(path.join(repoRoot, 'main-change.ts'), 'export const main = true;\n');
+    await fs.writeFile(
+      path.join(repoRoot, 'main-change.ts'),
+      'export const main = true;\n',
+    );
     await execFile('git', ['add', 'main-change.ts'], { cwd: repoRoot });
     await execFile('git', ['commit', '-qm', 'advance main'], { cwd: repoRoot });
     base = (
@@ -75,7 +127,9 @@ const initializeRepository = async (
   return { base, head, mergeBase };
 };
 
-const initializeAdditionalRepository = async (repoRoot: string) => {
+const initializeAdditionalRepository = async (
+  repoRoot: string,
+): Promise<{ base: string; head: string }> => {
   await execFile('git', ['init', '-q', repoRoot]);
   await execFile('git', ['config', 'user.email', 'test@example.com'], {
     cwd: repoRoot,
@@ -83,10 +137,31 @@ const initializeAdditionalRepository = async (repoRoot: string) => {
   await execFile('git', ['config', 'user.name', 'Test User'], {
     cwd: repoRoot,
   });
+  await execFile('git', ['checkout', '-q', '-b', 'main'], { cwd: repoRoot });
+  await fs.writeFile(
+    path.join(repoRoot, 'base.ts'),
+    'export const base = true;\n',
+  );
+  await execFile('git', ['add', 'base.ts'], { cwd: repoRoot });
+  await execFile('git', ['commit', '-qm', 'additional base'], {
+    cwd: repoRoot,
+  });
+  const base = (
+    await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
+  ).stdout.trim();
   await execFile('git', ['checkout', '-q', '-b', BRANCH], { cwd: repoRoot });
-  await fs.writeFile(path.join(repoRoot, 'additional.ts'), 'export const additional = true;\n');
+  await fs.writeFile(
+    path.join(repoRoot, 'additional.ts'),
+    'export const additional = true;\n',
+  );
   await execFile('git', ['add', 'additional.ts'], { cwd: repoRoot });
-  await execFile('git', ['commit', '-qm', 'additional fixture'], { cwd: repoRoot });
+  await execFile('git', ['commit', '-qm', 'additional fixture'], {
+    cwd: repoRoot,
+  });
+  const head = (
+    await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
+  ).stdout.trim();
+  return { base, head };
 };
 
 const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
@@ -103,13 +178,15 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
     JSON.stringify({
       plan_path: PLAN_PATH,
-      ...(options.additionalRepositoryPath
-        ? {
-            additional_repositories: [
-              { path: options.additionalRepositoryPath },
-            ],
-          }
-        : {}),
+      ...(options.additionalRepositoriesValue !== undefined
+        ? { additional_repositories: options.additionalRepositoriesValue }
+        : options.additionalRepositoryPath
+          ? {
+              additional_repositories: [
+                { path: options.additionalRepositoryPath },
+              ],
+            }
+          : {}),
     }),
   );
 
@@ -167,12 +244,14 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     head_commit: identity.head_commit,
   };
   const mainRepos: Array<Record<string, unknown>> = [currentRepository];
-  if (
-    options.additionalRepositoryPath &&
-    !options.omitAdditionalMainRepo
-  ) {
+  if (options.additionalRepositoryPath && !options.omitAdditionalMainRepo) {
     const additionalHead = (
       await execFile('git', ['rev-parse', 'HEAD^{commit}'], {
+        cwd: options.additionalRepositoryPath,
+      })
+    ).stdout.trim();
+    const additionalBase = (
+      await execFile('git', ['rev-parse', 'main^{commit}'], {
         cwd: options.additionalRepositoryPath,
       })
     ).stdout.trim();
@@ -180,7 +259,17 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       repo_alias: 'additional_repository_1',
       repo_root: options.additionalRepositoryPath,
       branch: BRANCH,
-      comparison_base_commit: additionalHead,
+      logical_base_branch: 'main',
+      resolved_base_branch: 'main',
+      resolved_base_source: 'local_fallback',
+      remote_name: 'origin',
+      remote_fetch_status: 'missing_remote',
+      local_fallback_reason: 'missing_remote',
+      comparison_base_ref: 'main',
+      comparison_base_commit:
+        options.additionalBaseMode === 'head' ? additionalHead : additionalBase,
+      comparison_head_ref: 'HEAD',
+      comparison_rule: 'local_head_vs_resolved_base',
       head_commit: additionalHead,
     });
   }
@@ -264,22 +353,33 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
         comments: [],
       }),
     );
-    await fs.writeFile(
-      path.join(reviewDir, validationFile),
-      JSON.stringify({
-        schema_version: 'codex-review-validation/v1',
-        bundle_id: bundleId,
-        valid: !invalidIndexes.has(index),
-        errors: invalidIndexes.has(index) ? [{ code: 'stale_bundle' }] : [],
-        warnings: [],
-      }),
-    );
+    const validation = {
+      schema_version: 'codex-review-validation/v1',
+      bundle_id: bundleId,
+      valid: !invalidIndexes.has(index),
+      errors: invalidIndexes.has(index)
+        ? [{ code: 'stale_bundle', message: 'stale' }]
+        : [],
+      warnings: [],
+    };
+    await Promise.all([
+      fs.writeFile(
+        path.join(reviewDir, validationFile),
+        JSON.stringify(validation),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, `ocr-canonical-validation-${index}.json`),
+        JSON.stringify(validation),
+      ),
+    ]);
+    const report = `# OCR bundle report\n\n- Bundle: ${bundleId}\n`;
     if (!missingReportIndexes.has(index)) {
-      await fs.writeFile(
-        path.join(reviewDir, reportFile),
-        '# OCR bundle report\n',
-      );
+      await fs.writeFile(path.join(reviewDir, reportFile), report);
     }
+    await fs.writeFile(
+      path.join(reviewDir, `ocr-canonical-report-${index}.md`),
+      report,
+    );
     bundles.push({
       bundle_id: bundleId,
       comments_path: `codeInfoTmp/reviews/${commentsFile}`,
@@ -296,29 +396,49 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
         base_sha: mergeBase,
         head_sha: head,
         merge_base_sha: mergeBase,
+        diff_sha256: `sha256:${'d'.repeat(64)}`,
       },
       summary: {
         total_files: 1,
         reviewable_files: 1,
         excluded_files: 0,
       },
-      files: [{ path: `changed-${index}.ts`, reviewable: true }],
+      files: [
+        {
+          path: `changed-${index}.ts`,
+          reviewable: true,
+          patch: '@@ -0,0 +1 @@\n+change',
+          hunks: [],
+        },
+      ],
     });
   }
-  await fs.writeFile(
-    path.join(reviewDir, 'ocr-manifest.json'),
-    JSON.stringify({
-      schema_version: 'codex-review-manifest/v1',
-      partial: invalidIndexes.size > 0,
-      summary: {
-        total_files: bundleCount,
-        reviewable_files: bundleCount,
-        excluded_files: 0,
-      },
-      skipped_files: [],
-      bundles: manifestBundles,
-    }),
-  );
+  const manifest = {
+    schema_version: 'codex-review-manifest/v1',
+    manifest_id: `sha256:${'a'.repeat(64)}`,
+    root: repoRoot,
+    target_hash: `sha256:${'d'.repeat(64)}`,
+    batch_strategy: 'diff',
+    batch_size: 1,
+    partial: invalidIndexes.size > 0,
+    summary: {
+      total_files: bundleCount,
+      reviewable_files: bundleCount,
+      excluded_files: 0,
+    },
+    skipped_files: [],
+    bundles: manifestBundles,
+  };
+  await Promise.all([
+    fs.writeFile(
+      path.join(reviewDir, 'ocr-manifest.json'),
+      JSON.stringify(manifest),
+    ),
+    fs.writeFile(
+      path.join(reviewDir, 'ocr-canonical-manifest.json'),
+      JSON.stringify(manifest),
+    ),
+  ]);
   await fs.writeFile(
     path.join(reviewDir, '0000013-current-open-code-review.json'),
     JSON.stringify({
@@ -386,6 +506,111 @@ test('validateReviewArtifacts accepts an OCR range whose merge-base predates the
     });
     assert.equal(result.status, 'passed');
     assert.equal(result.pointer_results[0]?.usable, true);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects an OCR manifest that differs from the server-generated diff', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-ocr-manifest-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const manifestPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      'ocr-manifest.json',
+    );
+    const manifest = JSON.parse(
+      await fs.readFile(manifestPath, 'utf8'),
+    ) as Record<string, unknown>;
+    manifest.manifest_id = `sha256:${'b'.repeat(64)}`;
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /server-generated Git diff/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects a reviewable planning file even in an otherwise canonical manifest', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-ocr-planning-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const reviewDir = path.join(repoRoot, 'codeInfoTmp', 'reviews');
+    for (const name of ['ocr-manifest.json', 'ocr-canonical-manifest.json']) {
+      const manifestPath = path.join(reviewDir, name);
+      const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as {
+        bundles: Array<{ files: Array<{ path: string }> }>;
+      };
+      manifest.bundles[0]!.files[0]!.path = 'planning/large-plan.md';
+      await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    }
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /planning file/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects an agent validation that disagrees with fresh OCR validation', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-ocr-validation-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const canonicalValidationPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      'ocr-canonical-validation-0.json',
+    );
+    const validation = JSON.parse(
+      await fs.readFile(canonicalValidationPath, 'utf8'),
+    ) as Record<string, unknown>;
+    validation.valid = false;
+    validation.errors = [{ code: 'unknown_path', message: 'changed comments' }];
+    await fs.writeFile(canonicalValidationPath, JSON.stringify(validation));
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /no usable validated bundles/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects a report that is not the deterministic bundle report', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-ocr-report-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp', 'reviews', 'ocr-report-0.md'),
+      '# Report from another bundle\n',
+    );
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /no usable validated bundles/u);
+    assert.match(result.warnings.join('\n'), /server-rendered bundle report/u);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -464,6 +689,107 @@ test('validateReviewArtifacts accepts complete multi-repository main review scop
   }
 });
 
+test('validateReviewArtifacts rejects an additional repository whose base is its reviewed HEAD', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+  );
+  const additionalRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-additional-repo-'),
+  );
+  try {
+    await initializeAdditionalRepository(additionalRoot);
+    await writeFixture(repoRoot, {
+      additionalRepositoryPath: additionalRoot,
+      additionalBaseMode: 'head',
+    });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /comparison_base_commit/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(additionalRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts keeps sibling reviews usable when additional scope is malformed', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+  );
+  try {
+    await writeFixture(repoRoot, {
+      additionalRepositoriesValue: { path: '/missing/repository' },
+    });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review', 'current-codex-review'],
+    });
+    assert.equal(result.status, 'partial');
+    assert.equal(
+      result.pointer_results.find(
+        (entry) => entry.pointer_key === 'current-codex-review',
+      )?.usable,
+      true,
+    );
+    assert.match(result.errors.join('\n'), /must be an array/u);
+    assert.ok(result.fallback_findings_file);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts maps an additional repository host path before validation', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+  );
+  const pathRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-path-map-'),
+  );
+  const hostRoot = path.join(pathRoot, 'host');
+  const executionRoot = path.join(pathRoot, 'execution');
+  const hostAdditionalRoot = path.join(hostRoot, 'additional');
+  const mappedAdditionalRoot = path.join(executionRoot, 'additional');
+  const previousHostIngest = process.env.CODEINFO_HOST_INGEST_DIR;
+  const previousWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  try {
+    await fs.mkdir(hostRoot, { recursive: true });
+    await fs.mkdir(executionRoot, { recursive: true });
+    await initializeAdditionalRepository(mappedAdditionalRoot);
+    await writeFixture(repoRoot, {
+      additionalRepositoryPath: mappedAdditionalRoot,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: PLAN_PATH,
+        additional_repositories: [{ path: hostAdditionalRoot }],
+      }),
+    );
+    process.env.CODEINFO_HOST_INGEST_DIR = hostRoot;
+    process.env.CODEINFO_CODEX_WORKDIR = executionRoot;
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+    assert.equal(result.status, 'passed');
+  } finally {
+    if (previousHostIngest === undefined) {
+      delete process.env.CODEINFO_HOST_INGEST_DIR;
+    } else {
+      process.env.CODEINFO_HOST_INGEST_DIR = previousHostIngest;
+    }
+    if (previousWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = previousWorkdir;
+    }
+    await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(pathRoot, { recursive: true, force: true });
+  }
+});
+
 test('validateReviewArtifacts rejects a main review missing a declared repository', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
@@ -499,7 +825,10 @@ test('validateReviewArtifacts rejects a main review after an additional reposito
   try {
     await initializeAdditionalRepository(additionalRoot);
     await writeFixture(repoRoot, { additionalRepositoryPath: additionalRoot });
-    await fs.writeFile(path.join(additionalRoot, 'later.ts'), 'export const later = true;\n');
+    await fs.writeFile(
+      path.join(additionalRoot, 'later.ts'),
+      'export const later = true;\n',
+    );
     await execFile('git', ['add', 'later.ts'], { cwd: additionalRoot });
     await execFile('git', ['commit', '-qm', 'advance additional'], {
       cwd: additionalRoot,

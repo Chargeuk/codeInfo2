@@ -151,6 +151,8 @@ The handoff file MUST contain at least:
 - `review_pass_id`
 - `parent_execution_id`
 - top-level `head_commit` and `comparison_base_commit` copied exactly from the prepared review base
+- top-level `repo_alias`, `repo_root`, `branch`, `branched_from`, `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule` copied exactly from the prepared review base
+- top-level `review_context_file`, `review_context_sha256`, `review_context_source_plan_sha256`, and `review_excluded_paths` copied exactly from the prepared review base
 - `evidence_file`
 - `findings_file` set to `null`
 - a `repos` array where each entry contains at least:

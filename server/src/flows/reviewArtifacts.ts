@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   readPreparedReviewBase,
   resolveReviewRepositoryRoot,
+  type PreparedReviewBase,
 } from './reviewBase.js';
 import {
   assertReviewIdentityMatches,
@@ -84,6 +85,48 @@ const pointerIdentity = (
     canonicalPassField: pointerKey !== 'current-review',
   });
 
+const REVIEW_SCOPE_FIELDS = [
+  'repo_alias',
+  'repo_root',
+  'branch',
+  'branched_from',
+  'logical_base_branch',
+  'resolved_base_branch',
+  'resolved_base_source',
+  'remote_name',
+  'remote_fetch_status',
+  'remote_fetch_error',
+  'remote_fetch_exit_code',
+  'local_fallback_reason',
+  'comparison_base_ref',
+  'comparison_head_ref',
+  'comparison_rule',
+  'review_context_file',
+  'review_context_sha256',
+  'review_context_source_plan_sha256',
+  'review_excluded_paths',
+] as const satisfies readonly (keyof PreparedReviewBase)[];
+
+const valuesEqual = (expected: unknown, actual: unknown): boolean =>
+  Array.isArray(expected) && Array.isArray(actual)
+    ? expected.length === actual.length &&
+      expected.every((value, index) => value === actual[index])
+    : expected === actual;
+
+const assertReviewScopeMatches = (
+  expected: PreparedReviewBase,
+  pointer: ReviewPointer,
+  pointerKey: string,
+): void => {
+  for (const field of REVIEW_SCOPE_FIELDS) {
+    if (!valuesEqual(expected[field], pointer[field])) {
+      throw new Error(
+        `${pointerKey}.${field} does not match the prepared review scope.`,
+      );
+    }
+  }
+};
+
 export async function validateReviewArtifacts(params: {
   workingRepositoryPath: string;
   pointerKeys: string[];
@@ -132,6 +175,7 @@ export async function validateReviewArtifacts(params: {
         pointerIdentity(pointer, pointerKey),
         pointerKey,
       );
+      assertReviewScopeMatches(prepared.artifact, pointer, pointerKey);
       const status = pointer.status;
       if (
         status === 'pending' ||

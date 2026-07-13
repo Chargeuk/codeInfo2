@@ -20,6 +20,26 @@ const identity = {
   comparison_base_commit: BASE,
   parent_execution_id: 'execution-13',
 };
+const scope = {
+  repo_alias: 'current_repository',
+  repo_root: '',
+  branch: 'feature/0000013-example',
+  branched_from: 'main',
+  logical_base_branch: 'main',
+  resolved_base_branch: 'main',
+  resolved_base_source: 'remote',
+  remote_name: 'origin',
+  remote_fetch_status: 'success',
+  local_fallback_reason: null,
+  comparison_base_ref: 'origin/main',
+  comparison_head_ref: 'HEAD',
+  comparison_rule: 'local_head_vs_resolved_base',
+  review_context_file:
+    'codeInfoTmp/reviews/0000013-current-review-context.json',
+  review_context_sha256: 'c'.repeat(64),
+  review_context_source_plan_sha256: 'd'.repeat(64),
+  review_excluded_paths: ['planning/**'],
+};
 
 const writeFixture = async (
   repoRoot: string,
@@ -37,7 +57,12 @@ const writeFixture = async (
   );
   await fs.writeFile(
     path.join(reviewDir, '0000013-current-review-base.json'),
-    JSON.stringify({ ...identity, status: 'completed' }),
+    JSON.stringify({
+      ...identity,
+      ...scope,
+      repo_root: repoRoot,
+      status: 'completed',
+    }),
   );
   await fs.writeFile(path.join(reviewDir, 'evidence.md'), '# Evidence\n');
   await fs.writeFile(path.join(reviewDir, 'findings.md'), '# Findings\n');
@@ -47,6 +72,8 @@ const writeFixture = async (
     path.join(reviewDir, '0000013-current-review.json'),
     JSON.stringify({
       ...identity,
+      ...scope,
+      repo_root: repoRoot,
       evidence_file: 'codeInfoTmp/reviews/evidence.md',
       findings_file: 'codeInfoTmp/reviews/findings.md',
       status: 'completed',
@@ -56,6 +83,8 @@ const writeFixture = async (
     path.join(reviewDir, '0000013-current-codex-review.json'),
     JSON.stringify({
       ...identity,
+      ...scope,
+      repo_root: repoRoot,
       review_session_id: codexSession,
       canonical_review_pass_id: identity.review_pass_id,
       review_output_file: 'codeInfoTmp/reviews/codex.md',
@@ -66,6 +95,8 @@ const writeFixture = async (
     path.join(reviewDir, '0000013-current-open-code-review.json'),
     JSON.stringify({
       ...identity,
+      ...scope,
+      repo_root: repoRoot,
       schema_version: 'codeinfo-open-code-review/v1',
       canonical_review_pass_id: identity.review_pass_id,
       review_output_file: 'codeInfoTmp/reviews/ocr.md',
@@ -152,6 +183,52 @@ test('validateReviewArtifacts requires OCR coverage to be valid and non-partial'
       }),
       /non-partial OCR result/u,
     );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts blocks a pointer with mismatched prepared scope', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-'),
+  );
+  try {
+    await execFile('git', ['init', '-q', repoRoot]);
+    await writeFixture(repoRoot);
+    const pointerPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      '0000013-current-open-code-review.json',
+    );
+    const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
+      branch: string;
+      review_context_sha256: string;
+    };
+    pointer.branch = 'feature/0000013-other-scope';
+    pointer.review_context_sha256 = 'e'.repeat(64);
+    await fs.writeFile(pointerPath, JSON.stringify(pointer));
+
+    await assert.rejects(
+      validateReviewArtifacts({
+        workingRepositoryPath: repoRoot,
+        pointerKeys: ['current-open-code-review'],
+      }),
+      /prepared review scope/u,
+    );
+    const blocker = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000013-current-review-validation.json',
+        ),
+        'utf8',
+      ),
+    ) as { status: string; errors: string[] };
+    assert.equal(blocker.status, 'blocked');
+    assert.match(blocker.errors.join('\n'), /\.branch/u);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

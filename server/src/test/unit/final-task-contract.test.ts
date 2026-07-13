@@ -69,6 +69,14 @@ describe('final task contract', () => {
     assert.match(contract, /omit that suite item and continue/);
     assert.match(
       contract,
+      /no supported automated test suite.*continue with every other supported full build, applicable startup, matching shutdown, lint, and formatting check in that order/,
+    );
+    assert.doesNotMatch(
+      contract,
+      /continue with every other supported build, runtime, lint, and formatting check/,
+    );
+    assert.match(
+      contract,
       /Do not invent a test command, placeholder, harness, proof-authoring subtask, or blocker/,
     );
     assert.match(contract, /missing, unreadable, or otherwise cannot be inspected/);
@@ -312,6 +320,26 @@ describe('final task contract', () => {
     assert.match(
       generationPrompt,
       /do not split the dedicated final validation task by repository/,
+    );
+    assert.match(
+      generationPrompt,
+      /Each substantive implementation task must implement exactly one primary seam/,
+    );
+    assert.match(
+      generationPrompt,
+      /Add explicit proof-authoring subtasks to substantive implementation tasks whenever/,
+    );
+    assert.match(
+      generationPrompt,
+      /each Acceptance Criterion.*named proof-authoring subtasks in its owning substantive task/,
+    );
+    assert.doesNotMatch(
+      generationPrompt,
+      /- Each task must implement exactly one primary seam/,
+    );
+    assert.doesNotMatch(
+      generationPrompt,
+      /- Add explicit proof-authoring subtasks whenever/,
     );
 
     const minorRevalidation = await read(

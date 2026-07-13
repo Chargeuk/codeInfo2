@@ -456,8 +456,7 @@ async function resolveBaseComparison(params: {
       remoteFetchStatus,
       ...(remoteFetchError ? { remoteFetchError } : {}),
       ...(remoteFetchExitCode !== undefined ? { remoteFetchExitCode } : {}),
-      localFallbackReason:
-        remoteFetchStatus === 'success' ? null : remoteFetchStatus,
+      localFallbackReason: null,
       comparisonBaseRef: preferredRemoteRef,
       comparisonBaseCommit,
     };

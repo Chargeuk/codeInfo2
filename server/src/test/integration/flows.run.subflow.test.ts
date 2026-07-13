@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
+import crypto from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -2386,7 +2387,7 @@ exit 1
   }
 });
 
-test('validateReviewArtifacts stops the parent before later steps when a child session is stale', async () => {
+test('validateReviewArtifacts records stale child evidence and continues the parent', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-review-artifacts-validation-'),
   );
@@ -2409,20 +2410,97 @@ test('validateReviewArtifacts stops the parent before later steps when a child s
       head_commit: headCommit,
       comparison_base_commit: headCommit,
     };
+    const contextMarkdown = [
+      '## Description\n\nReview the intended behavior.',
+      '## Acceptance Criteria\n\n- The review completes.',
+      '## Out Of Scope\n\n- Planning file review.',
+    ].join('\n\n');
+    const scope = {
+      repo_alias: 'current_repository',
+      repo_root: repoDir,
+      branch: 'feature/0000027-codex-review',
+      branched_from: 'main',
+      logical_base_branch: 'main',
+      resolved_base_branch: 'main',
+      resolved_base_source: 'local_fallback',
+      remote_name: 'origin',
+      remote_fetch_status: 'missing_remote',
+      local_fallback_reason: 'missing_remote',
+      comparison_base_ref: 'main',
+      comparison_head_ref: 'HEAD',
+      comparison_rule: 'local_head_vs_resolved_base',
+      review_context_file:
+        'codeInfoTmp/reviews/0000027-current-review-context.json',
+      review_context_sha256: crypto
+        .createHash('sha256')
+        .update(contextMarkdown)
+        .digest('hex'),
+      review_context_source_plan_sha256: crypto
+        .createHash('sha256')
+        .update(REVIEW_PLAN_MARKDOWN)
+        .digest('hex'),
+      review_excluded_paths: ['planning/**'],
+    };
+    const currentRepository = {
+      repo_alias: scope.repo_alias,
+      repo_root: scope.repo_root,
+      branch: scope.branch,
+      logical_base_branch: scope.logical_base_branch,
+      resolved_base_branch: scope.resolved_base_branch,
+      resolved_base_source: scope.resolved_base_source,
+      remote_name: scope.remote_name,
+      remote_fetch_status: scope.remote_fetch_status,
+      local_fallback_reason: scope.local_fallback_reason,
+      comparison_base_ref: scope.comparison_base_ref,
+      comparison_base_commit: identity.comparison_base_commit,
+      comparison_head_ref: scope.comparison_head_ref,
+      comparison_rule: scope.comparison_rule,
+      head_commit: identity.head_commit,
+    };
     await Promise.all([
       fs.writeFile(path.join(reviewDir, 'evidence.md'), '# Evidence\n'),
       fs.writeFile(path.join(reviewDir, 'findings.md'), '# Findings\n'),
       fs.writeFile(path.join(reviewDir, 'codex.md'), '# Codex\n'),
       fs.writeFile(
+        path.join(reviewDir, '0000027-current-review-context.json'),
+        JSON.stringify({
+          schema_version: 'codeinfo-review-context/v1',
+          story_id: identity.story_id,
+          plan_path: identity.plan_path,
+          branch: scope.branch,
+          source_plan_sha256: scope.review_context_source_plan_sha256,
+          context_sha256: scope.review_context_sha256,
+          sections: {
+            overview: {
+              source_heading: 'Description',
+              markdown: '## Description\n\nReview the intended behavior.',
+            },
+            acceptance_criteria: {
+              source_heading: 'Acceptance Criteria',
+              markdown: '## Acceptance Criteria\n\n- The review completes.',
+            },
+            out_of_scope: {
+              source_heading: 'Out Of Scope',
+              markdown: '## Out Of Scope\n\n- Planning file review.',
+            },
+          },
+          excluded_paths: ['planning/**'],
+          warnings: [],
+          status: 'completed',
+        }),
+      ),
+      fs.writeFile(
         path.join(reviewDir, '0000027-current-review-base.json'),
-        JSON.stringify({ ...identity, status: 'completed' }),
+        JSON.stringify({ ...identity, ...scope, status: 'completed' }),
       ),
       fs.writeFile(
         path.join(reviewDir, '0000027-current-review.json'),
         JSON.stringify({
           ...identity,
+          ...scope,
           evidence_file: 'codeInfoTmp/reviews/evidence.md',
           findings_file: 'codeInfoTmp/reviews/findings.md',
+          repos: [currentRepository],
           status: 'completed',
         }),
       ),
@@ -2430,6 +2508,7 @@ test('validateReviewArtifacts stops the parent before later steps when a child s
         path.join(reviewDir, '0000027-current-codex-review.json'),
         JSON.stringify({
           ...identity,
+          ...scope,
           review_session_id: '0000027-rs-20260703T175948Z-f2f7904eb-stale',
           canonical_review_pass_id: identity.review_pass_id,
           review_output_file: 'codeInfoTmp/reviews/codex.md',
@@ -2446,7 +2525,7 @@ test('validateReviewArtifacts stops the parent before later steps when a child s
           label: 'Validate Joined Review Artifacts',
           pointerKeys: ['current-review', 'current-codex-review'],
         },
-        llmStep('must not run after stale review validation'),
+        llmStep('runs after stale review validation'),
       ],
     });
 
@@ -2463,10 +2542,13 @@ test('validateReviewArtifacts stops the parent before later steps when a child s
       }),
     });
 
-    await waitForAssistantStatus(result.conversationId, 'failed');
+    await waitFor(() =>
+      executions.includes('runs after stale review validation'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
     assert.equal(
-      executions.includes('must not run after stale review validation'),
-      false,
+      executions.includes('runs after stale review validation'),
+      true,
     );
     const blocker = JSON.parse(
       await fs.readFile(
@@ -2474,7 +2556,7 @@ test('validateReviewArtifacts stops the parent before later steps when a child s
         'utf8',
       ),
     ) as { status?: string; errors?: string[] };
-    assert.equal(blocker.status, 'blocked');
+    assert.equal(blocker.status, 'partial');
     assert.match(blocker.errors?.join('\n') ?? '', /review_session_id/u);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

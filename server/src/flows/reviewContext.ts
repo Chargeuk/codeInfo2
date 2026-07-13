@@ -1,4 +1,5 @@
 import { execFile as execFileCb } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +52,16 @@ type ExecFileLike = (
 type ReviewContextDeps = {
   execFile: ExecFileLike;
   readFile: typeof fs.readFile;
+};
+
+export type PreparedReviewContextReference = {
+  story_id: string;
+  plan_path: string;
+  branch: string;
+  review_context_file: string;
+  review_context_sha256: string;
+  review_context_source_plan_sha256: string;
+  review_excluded_paths: string[];
 };
 
 const defaultDeps: ReviewContextDeps = {
@@ -131,6 +142,64 @@ export const formatPreparedReviewContext = (context: PreparedReviewContext) =>
   ]
     .filter((item): item is string => Boolean(item))
     .join('\n\n');
+
+export async function loadPreparedReviewContext(params: {
+  repoRoot: string;
+  preparedBase: PreparedReviewContextReference;
+  readFile?: typeof fs.readFile;
+}): Promise<PreparedReviewContext> {
+  const readFile = params.readFile ?? fs.readFile;
+  const expectedPath = resolvePreparedReviewContextPath(
+    params.repoRoot,
+    params.preparedBase.story_id,
+  );
+  if (
+    params.preparedBase.review_context_file !==
+    path.relative(params.repoRoot, expectedPath).split(path.sep).join('/')
+  ) {
+    throw new Error(
+      'Prepared review base references an unexpected context path.',
+    );
+  }
+  const context = parsePreparedReviewContext(
+    JSON.parse(await readFile(expectedPath, 'utf8')),
+  );
+  const resolvedPlanPath = path.resolve(
+    params.repoRoot,
+    params.preparedBase.plan_path,
+  );
+  const planRelative = path.relative(params.repoRoot, resolvedPlanPath);
+  if (
+    planRelative === '..' ||
+    planRelative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(planRelative)
+  ) {
+    throw new Error('Prepared review plan path escapes the repository.');
+  }
+  const currentPlanSha256 = crypto
+    .createHash('sha256')
+    .update(await readFile(resolvedPlanPath))
+    .digest('hex');
+  const currentContextSha256 = crypto
+    .createHash('sha256')
+    .update(formatPreparedReviewContext(context))
+    .digest('hex');
+  if (
+    context.story_id !== params.preparedBase.story_id ||
+    context.plan_path !== params.preparedBase.plan_path ||
+    context.branch !== params.preparedBase.branch ||
+    context.context_sha256 !== params.preparedBase.review_context_sha256 ||
+    context.source_plan_sha256 !==
+      params.preparedBase.review_context_source_plan_sha256 ||
+    context.source_plan_sha256 !== currentPlanSha256 ||
+    context.context_sha256 !== currentContextSha256 ||
+    JSON.stringify(context.excluded_paths) !==
+      JSON.stringify(params.preparedBase.review_excluded_paths)
+  ) {
+    throw new Error('Prepared review context is stale or mismatched.');
+  }
+  return context;
+}
 
 export async function prepareReviewContext(
   params: {

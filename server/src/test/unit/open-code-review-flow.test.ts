@@ -72,6 +72,7 @@ test('standalone Open Code Review prompt locks the host-agent safety contract', 
     'current-open-code-review.json',
     'context hash',
     '/app/logs/open-code-review',
+    'Publishing a partial pointer is required',
     'Do not merge findings into canonical review state.',
   ]) {
     assert.match(
@@ -122,5 +123,36 @@ test('main proof catalog supplies the heavy review-only Codex agent without chec
   assert.match(config, /model_reasoning_effort = "high"/u);
   assert.match(config, /approval_policy = "never"/u);
   assert.match(systemPrompt, /Do not edit source, commit, push/u);
+  assert.match(systemPrompt, /do not call `code_info`/u);
+  assert.match(systemPrompt, /continue with the usable pinned evidence/u);
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
+});
+
+test('source heavy review agent yields to pinned OCR evidence', () => {
+  const systemPrompt = readRepoFile(
+    'codeinfo_agents/review_agent_heavy/system_prompt.txt',
+  );
+
+  assert.match(systemPrompt, /pinned review evidence/u);
+  assert.match(systemPrompt, /do not call `code_info`/u);
+  assert.match(systemPrompt, /continue with the usable evidence/u);
+});
+
+test('review merge and disposition prompts keep partial review evidence moving', () => {
+  const codexMerge = readRepoFile(
+    'codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md',
+  );
+  const ocrMerge = readRepoFile(
+    'codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md',
+  );
+  const classify = readRepoFile(
+    'codeinfo_markdown/classify_review_disposition.md',
+  );
+
+  assert.match(codexMerge, /overall validation may be `partial`/u);
+  assert.match(codexMerge, /server-owned fallback findings file/u);
+  assert.match(ocrMerge, /Accept `passed` or `partial` OCR validation/u);
+  assert.match(ocrMerge, /use only the bundle IDs listed as usable/u);
+  assert.match(classify, /continue classifying trustworthy findings/u);
+  assert.match(classify, /do not claim there were no findings/u);
 });

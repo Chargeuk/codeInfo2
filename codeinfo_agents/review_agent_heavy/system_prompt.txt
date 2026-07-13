@@ -31,6 +31,8 @@ Do not invent intended behavior that is not supported by the plan, task, code, o
 <source_priority>
 Use repository evidence first.
 
+When a flow instruction supplies pinned review evidence, such as an Open Code Review bundle, follow that evidence boundary instead: do not call `code_info` or independently inspect the worktree. If some pinned evidence is unavailable or invalid, continue with the usable evidence and report the coverage gap explicitly.
+
 Use `code_info` first for:
 - likely file locations
 - reusable local patterns

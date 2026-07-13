@@ -86,12 +86,12 @@ Record the final per-repository `resolved_base_branch`, `resolved_base_source`, 
 
 - `success`: the final `comparison_base_ref` is a remote-tracking ref from `origin`, such as `origin/main`.
 - `missing_remote`: `origin` does not exist or is unavailable, so the final `comparison_base_ref` had to use a local fallback.
-- `fetch_failed`: an attempted fetch from `origin` failed while resolving the final `comparison_base_ref`, so the final base had to use a local fallback.
+- `fetch_failed`: an attempted refresh from `origin` failed while resolving the final `comparison_base_ref`. An existing remote-tracking ref may still be used; otherwise the final base uses a local fallback.
 - `missing_remote_ref`: `origin` exists, but the remote-tracking ref corresponding to the final logical base does not exist after inspection, so the final `comparison_base_ref` had to use a local fallback.
 
 When `remote_fetch_status` is `fetch_failed`, the handoff may include `remote_fetch_error` only as a short categorized or sanitized summary of the fetch failure, plus `remote_fetch_exit_code` when available. Do not store raw `git fetch` stderr in the JSON handoff. Any `remote_fetch_error` value must redact URL credentials, userinfo, access tokens, and query strings before inclusion. For every other `remote_fetch_status`, omit both `remote_fetch_error` and `remote_fetch_exit_code`; record any non-failing diagnostic details in the evidence summary instead of the JSON handoff.
 
-`resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. When `resolved_base_source` is `remote`, `remote_fetch_status` must be `success`, `comparison_base_ref` must be the remote-tracking ref used for review, and `local_fallback_reason` must be `null`. When `resolved_base_source` is `local_fallback`, `remote_fetch_status` must be one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` must be the local branch or ref used for review, and `local_fallback_reason` must exactly match `remote_fetch_status` so the flow can continue without human interpretation. If `remote_fetch_status` is `fetch_failed` and `remote_fetch_error` is present, it must satisfy the sanitization requirements above. `comparison_base_ref` must match `resolved_base_branch`, `comparison_base_commit` must be the full commit object ID that `comparison_base_ref` resolved to when the evidence step selected the base, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
+`resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, including a cached remote-tracking ref that remains available after a failed refresh, and `local_fallback` when a local branch or ref is used because no usable remote-tracking ref is available. When `resolved_base_source` is `remote`, `remote_fetch_status` may be `success` or `fetch_failed`, `comparison_base_ref` must be the remote-tracking ref used for review, and `local_fallback_reason` must be `null`. When `resolved_base_source` is `local_fallback`, `remote_fetch_status` must be one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` must be the local branch or ref used for review, and `local_fallback_reason` must exactly match `remote_fetch_status` so the flow can continue without human interpretation. If `remote_fetch_status` is `fetch_failed` and `remote_fetch_error` is present, it must satisfy the sanitization requirements above. `comparison_base_ref` must match `resolved_base_branch`, `comparison_base_commit` must be the full commit object ID that `comparison_base_ref` resolved to when the evidence step selected the base, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
 
 </base_branch_rules>
 
@@ -166,7 +166,7 @@ The handoff file MUST contain at least:
   - `remote_fetch_status`
   - optional sanitized `remote_fetch_error` only when `remote_fetch_status` is `fetch_failed` and a safe summary is available
   - optional `remote_fetch_exit_code` only when `remote_fetch_status` is `fetch_failed` and an exit code is available
-  - `local_fallback_reason`, set to `null` for `remote_fetch_status: success` and otherwise exactly matching `remote_fetch_status`
+  - `local_fallback_reason`, set to `null` whenever `resolved_base_source` is `remote` and otherwise exactly matching `remote_fetch_status`
   - `comparison_base_ref`
   - `comparison_base_commit`
   - `comparison_head_ref`

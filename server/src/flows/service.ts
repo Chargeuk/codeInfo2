@@ -5931,9 +5931,15 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         instruction,
         response: [
-          'Validated joined review artifacts.',
+          result.status === 'passed'
+            ? 'Validated all joined review artifacts.'
+            : `Joined review validation completed with status ${result.status}; continuing with usable review evidence.`,
           `Review session: ${result.review_session_id}`,
           `Pointers: ${result.pointer_files.join(', ')}`,
+          ...result.pointer_results.map(
+            (pointer) =>
+              `${pointer.pointer_key}: ${pointer.status}${pointer.errors.length > 0 ? ` (${pointer.errors.join(' | ')})` : ''}`,
+          ),
         ].join('\n'),
         modelId: params.modelId,
         providerId: params.providerId,

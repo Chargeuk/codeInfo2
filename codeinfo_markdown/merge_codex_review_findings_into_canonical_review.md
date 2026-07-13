@@ -17,8 +17,8 @@ Do not edit the canonical plan, code, tests, or other review artifacts in this s
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first and derive the story number from its canonical `plan_path`.
 - Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and treat it as the canonical review handoff.
 - Read `codeInfoTmp/reviews/<story-number>-current-codex-review.json` from disk and treat it as the sole pointer to the current Codex review output for this review pass.
-- Read `codeInfoTmp/reviews/<story-number>-current-review-base.json` and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`. Require validation `status: passed` and exact equality across all four artifacts for `story_id`, `plan_path`, `review_session_id`, canonical `review_pass_id` / `canonical_review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit`.
-- Identity fields may not be inferred, normalized, sanitized, repaired, or selected from another artifact. On any mismatch, leave canonical findings unchanged and write only a blocker merge artifact.
+- Read `codeInfoTmp/reviews/<story-number>-current-review-base.json` and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`. Require the validation entry for `current-codex-review` to be usable and require exact equality across the prepared base, Codex pointer, validation identity, and canonical handoff for `story_id`, `plan_path`, `review_session_id`, canonical `review_pass_id` / `canonical_review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit`. The overall validation may be `partial` because another reviewer failed.
+- Identity fields may not be inferred, normalized, sanitized, repaired, or selected from another artifact. On any Codex mismatch, leave canonical findings unchanged, record the skipped Codex pass visibly, and finish this merge step without stopping later flow steps.
 - Do not discover Codex review artifacts by timestamp, glob, or latest-file guessing.
 - Read the canonical `findings_file` referenced by the current review handoff before deciding what to merge.
 - Read the Codex review markdown referenced by `review_output_file` in the Codex pointer file before deciding what to merge.
@@ -31,9 +31,9 @@ Do not edit the canonical plan, code, tests, or other review artifacts in this s
 
 <merge_rules>
 
-1. Confirm that the canonical review handoff has a usable `findings_file`.
+1. Confirm that the canonical review handoff has a usable `findings_file`. A server-owned fallback findings file is valid when the main reviewer was unavailable.
 2. Confirm that the Codex pointer file has a usable `codex_review_pass_id` and `review_output_file`.
-3. If either required file is missing, unreadable, malformed, or unusable, write a visible merge artifact explaining the blocker and stop without mutating the canonical findings artifact.
+3. If either required file is missing, unreadable, malformed, or unusable, write a visible merge artifact explaining the skipped Codex pass and finish cleanly without mutating the canonical findings artifact.
 4. Parse the Codex review markdown into candidate issues.
 5. For each Codex candidate issue:
    - determine whether it is materially equivalent to an existing canonical finding;
@@ -99,7 +99,7 @@ Preserve all existing fields in both JSON handoff files unless this step explici
 
 - Confirm `current-plan.json` was read first.
 - Confirm the canonical current-review handoff was used as the only current-review pointer.
-- Confirm the server-owned post-join validation passed and its complete identity tuple matches this exact prepared base, canonical handoff, and Codex pointer.
+- Confirm the server-owned post-join validation marks the Codex entry usable and its complete identity tuple matches this exact prepared base, canonical handoff, and Codex pointer.
 - Confirm the Codex pointer file was used as the only Codex-review pointer.
 - Confirm the canonical findings artifact was read before any merge decision.
 - Confirm no latest-file or timestamp discovery was used.

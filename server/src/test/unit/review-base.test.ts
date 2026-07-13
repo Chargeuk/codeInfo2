@@ -321,7 +321,7 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
 
     assert.equal(result.artifact.resolved_base_source, 'remote');
     assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
-    assert.equal(result.artifact.local_fallback_reason, 'fetch_failed');
+    assert.equal(result.artifact.local_fallback_reason, null);
     assert.equal(result.artifact.comparison_base_ref, 'origin/main');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
@@ -562,7 +562,7 @@ test('prepareReviewBase uses cached origin HEAD when fetch fails', async () => {
     assert.equal(result.artifact.resolved_base_branch, 'trunk');
     assert.equal(result.artifact.resolved_base_source, 'remote');
     assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
-    assert.equal(result.artifact.local_fallback_reason, 'fetch_failed');
+    assert.equal(result.artifact.local_fallback_reason, null);
     assert.equal(result.artifact.comparison_base_ref, 'origin/trunk');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
@@ -652,7 +652,7 @@ test('prepareReviewBase falls back to branched_from when origin HEAD is unavaila
     assert.equal(result.artifact.resolved_base_branch, 'trunk');
     assert.equal(result.artifact.resolved_base_source, 'remote');
     assert.equal(result.artifact.remote_fetch_status, 'fetch_failed');
-    assert.equal(result.artifact.local_fallback_reason, 'fetch_failed');
+    assert.equal(result.artifact.local_fallback_reason, null);
     assert.equal(result.artifact.comparison_base_ref, 'origin/trunk');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });

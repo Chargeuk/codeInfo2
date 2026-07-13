@@ -128,6 +128,9 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 - The review-fetch implementation paginates GitHub list responses so it does not silently truncate larger review sets at the first page.
 - When a fresh GitHub fetch succeeds for the current story and branch, later reader steps consume that fresh fetched state only. Older transient review scratch from a prior cycle may be replaced, but it must not remain the active classification input for the new cycle.
 - Automated tests cover the new schema shapes, runtime behavior, persisted wait behavior, Python decision execution path, GitHub step wiring, and the review-loop composition points touched by this story.
+- The canonical parallel and stress wrappers must run the complete automated test surface reliably without cross-test environment, provider, filesystem, timing, or Docker lifecycle interference.
+- Test-only isolation, readiness, lifecycle ownership, wait hardening, and diagnostic changes required to achieve that reliability are explicitly within Story 60 scope and must be retained.
+- Parallel and stress execution must not change production behavior, disturb the local development stack, or leave test-owned Docker resources running after completion.
 
 ### Out Of Scope
 
@@ -3153,3 +3156,51 @@ The first post-isolation `npm run test:summary:all:stress` recurrence exposed fo
 - Subtask 2 complete: added high-signal `flows.test.wait_wake_runtime` checkpoints for scheduled wake begin, persisted-state guard exits, terminal-state skips, resume dispatch begin/complete, and resume dispatch failures, and extended `flows.test.resume_state_saved` with active subflow conversation ids plus agent-conversation keys so missing child tracking is attributable on the next recurrence.
 - Subtask 3 complete: hardened the stress-facing test diagnostics by expanding `flows.run.errors.test.ts` timeout output with parent turns, runtime-resolution logs, and runtime-config logs, and by making `flows.run.loop.test.ts` include the full parent runtime snapshot when an expected remembered agent conversation is missing.
 - Subtask 4 complete: focused wrapper validation passed for `flows.run.command`, `flows.run.errors`, `flows.run.subflow`, and a clean rerun of `flows.run.loop` after one unrelated stop-cleanup recurrence; `npm run build:summary:server`, `npm run lint`, and `npm run format:check` also passed for the Task 36 surface.
+
+### Task 37. Preserve Parallel And Stress Harness Reliability
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 36`
+- Task Status: `__done__`
+- Git Commits: `9967d735`, `5b62062a`, `a4e947f7`, `5ca14c6a`, `23ea58d3`
+
+#### Overview
+
+Final Story 60 validation exposed intermittent failures caused by concurrent harnesses sharing process environment, provider homes, runtime probes, asynchronous observation budgets, and Docker lifecycle resources. This task records the test-only isolation and lifecycle work needed to keep the flow-based GitHub review cycle continuously usable and provable on this branch without changing production flow behavior or disturbing the local development stack.
+
+#### Task Exit Criteria
+
+- [x] Concurrent server-unit work cannot inherit another test's environment, provider-home, or deterministic runtime-probe ownership.
+- [x] Stress-sensitive tests observe asynchronous product outcomes with bounded diagnostics and budgets that remain reliable under expected parallel CPU contention.
+- [x] Cucumber and E2E Docker dependencies are ready before browser or scenario work begins, remain stable during execution, and are verifiably removed afterward.
+- [x] Standalone, canonical parallel, and repeated stress wrapper validation pass without altering production behavior or the local development stack.
+
+#### Subtasks
+
+1. [x] Isolate concurrent server-unit environment, provider-home, runtime-resolution, and deterministic LM Studio probe ownership while preserving detached-callback and lingering-worker behavior.
+2. [x] Harden stress-sensitive asynchronous test observation points and shared client wait budgets so expected product events remain observable under parallel CPU contention.
+3. [x] Add a test-only Docker lifecycle helper with deterministic Compose project ownership, cross-process locking, dependency readiness checks, safe cleanup boundaries, and verified teardown.
+4. [x] Integrate prepared Cucumber and E2E infrastructure into the canonical parallel wrapper, preserve self-contained standalone wrappers, and isolate per-run Playwright artifacts without touching `codeinfo:local`.
+5. [x] Run repository lint for the completed parallel and stress harness surface and fix all findings.
+6. [x] Run repository prettier or format validation for the completed parallel and stress harness surface and fix all findings.
+
+#### Testing
+
+1. [x] Run `node --test scripts/test-docker-harness-lifecycle.test.mjs` from the repository root; all 8 lifecycle-helper tests pass.
+2. [x] Run `npm run test:summary:server:cucumber`; all 133 Cucumber scenarios pass with standalone lifecycle ownership.
+3. [x] Run `npm run test:summary:e2e`; all 77 E2E tests pass with standalone lifecycle ownership.
+4. [x] Run `npm run test:summary:all:parallel`; the complete 3,742-test automated surface passes.
+5. [x] Run `npm run test:summary:all:stress` three consecutive times; all 3,742 tests pass on every run without network-change, Docker-conflict, readiness, teardown, or resource-leak failures.
+6. [x] Run `npm run build:summary:server` from the repository root; the server build passes.
+7. [x] Run `npm run build:summary:client` from the repository root; client typecheck and build pass with only the existing chunk-size warning.
+8. [x] Run `npm run lint` from the repository root for the Task 37 surface and fix any issues found, using `npm run lint:fix` before manual cleanup when possible.
+9. [x] Run `npm run format:check` from the repository root for the Task 37 surface and fix any issues found, using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Subtask 1 complete: added execution ownership and scoped lookup rules for concurrent server-unit environment, provider-home, and deterministic runtime probes without reopening the earlier detached-callback or lingering-worker regressions.
+- Subtask 2 complete: strengthened only the stress-sensitive test observation seams and aligned client asynchronous waits with the suite's existing contention budget, leaving product timing behavior unchanged.
+- Subtask 3 complete: introduced a test-only lifecycle helper that serializes Docker network mutation, assigns deterministic harness ownership, waits for required services, restricts cleanup to an explicit allowlist, and verifies owned resources are gone.
+- Subtask 4 complete: made the canonical parallel wrapper prepare and reuse Cucumber and E2E dependencies before fan-out, retained standalone setup and teardown behavior, and gave each Playwright run an isolated artifact location while leaving `codeinfo:local` untouched.
+- Subtask 5 complete: `npm run lint` passed after the harness implementation.
+- Subtask 6 complete: `npm run format:check` passed after the harness implementation.

@@ -2622,6 +2622,93 @@ test('validateReviewArtifacts records stale child evidence and continues the par
       /must be an array/u,
     );
     assert.ok(malformedValidation.fallback_findings_file);
+
+    const staleSession =
+      '0000027-rs-20260703T175948Z-f2f7904eb-all-reviewers-stale';
+    await Promise.all([
+      fs.writeFile(
+        path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+        JSON.stringify({ plan_path: identity.plan_path }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          review_session_id: staleSession,
+          evidence_file: 'codeInfoTmp/reviews/evidence.md',
+          findings_file: 'codeInfoTmp/reviews/findings.md',
+          repos: [currentRepository],
+          status: 'completed',
+        }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-codex-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          review_session_id: staleSession,
+          canonical_review_pass_id: identity.review_pass_id,
+          codex_review_pass_id: `${identity.review_pass_id}-codex`,
+          review_output_file: 'codeInfoTmp/reviews/codex.md',
+          status: 'completed',
+        }),
+      ),
+    ]);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'validate-blocked-review-session',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-review', 'current-codex-review'],
+        },
+        llmStep('runs after blocked review validation'),
+      ],
+    });
+    const blockedResult = await startFlowRun({
+      flowName: 'validate-blocked-review-session',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() =>
+      executions.includes('runs after blocked review validation'),
+    );
+    await waitForAssistantStatus(blockedResult.conversationId, 'ok');
+    const blockedValidation = JSON.parse(
+      await fs.readFile(
+        path.join(reviewDir, '0000027-current-review-validation.json'),
+        'utf8',
+      ),
+    ) as { status?: string };
+    assert.equal(blockedValidation.status, 'blocked');
+    const blockedTurns = memoryTurns.get(blockedResult.conversationId) ?? [];
+    assert.equal(
+      blockedTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes(
+            'continuing without usable review evidence',
+          ),
+      ),
+      true,
+    );
+    assert.equal(
+      blockedTurns.some((turn) =>
+        String(turn.content).includes(
+          'continuing with usable review evidence',
+        ),
+      ),
+      false,
+    );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

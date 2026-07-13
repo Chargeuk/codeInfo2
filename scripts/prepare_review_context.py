@@ -44,12 +44,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def _git_branch(repo_root: Path) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo_root), "branch", "--show-current"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "branch", "--show-current"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise SystemExit(f"current branch could not be resolved: {exc}") from exc
     branch = result.stdout.strip()
     if not branch:
         raise SystemExit("current branch could not be resolved")

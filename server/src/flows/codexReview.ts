@@ -669,7 +669,7 @@ export async function runCodexReviewStep(
       '--disable',
       'apps',
       '--sandbox',
-      'danger-full-access',
+      'workspace-write',
       '-C',
       repoRoot,
       '-m',

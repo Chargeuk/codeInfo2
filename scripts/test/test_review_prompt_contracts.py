@@ -151,6 +151,23 @@ class ReviewPromptContractTests(unittest.TestCase):
             self.assertIn("do not infer or invent it", text)
             self.assertIn("finish cleanly without updating either pointer", text)
 
+    def test_codex_identity_mismatches_use_session_scoped_skip_artifacts(self) -> None:
+        text = read_text(
+            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
+        )
+
+        self.assertIn(
+            "present `codex_review_pass_id` with any identity-tuple mismatch",
+            text,
+        )
+        self.assertIn(
+            "<review_session_id>-codex-review-merge-skipped.md", text
+        )
+        self.assertIn(
+            "leave the canonical handoff and Codex pointer unchanged", text
+        )
+        self.assertIn("continue later flow steps", text)
+
     def test_core_findings_prompt_defines_scope_impact_taxonomy(self) -> None:
         text = read_text("codeinfo_markdown/code_review_findings/01-core.md")
         self.assertIn("Scope Impact", text)

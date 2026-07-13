@@ -3,7 +3,7 @@ ARG OPEN_CODE_REVIEW_REPOSITORY=https://github.com/Chargeuk/open-code-review.git
 ARG OPEN_CODE_REVIEW_REF=codex/fix-codex-owned-review
 ARG OPEN_CODE_REVIEW_COMMIT=a93c4868a4b8b3adfb20895a1e0c3a95333b3ae9
 
-FROM golang:1.25.5-bookworm AS open-code-review-build
+FROM golang:1.25.12-bookworm AS open-code-review-build
 ARG OPEN_CODE_REVIEW_REPOSITORY
 ARG OPEN_CODE_REVIEW_REF
 ARG OPEN_CODE_REVIEW_COMMIT

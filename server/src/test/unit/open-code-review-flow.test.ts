@@ -104,6 +104,10 @@ test('server image builds the exact Codex-enabled OCR fork and gates its command
     dockerfile,
     /OPEN_CODE_REVIEW_COMMIT=a93c4868a4b8b3adfb20895a1e0c3a95333b3ae9/u,
   );
+  assert.match(
+    dockerfile,
+    /FROM golang:1\.25\.12-bookworm AS open-code-review-build/u,
+  );
   assert.match(dockerfile, /ocr agent prepare --help/u);
   assert.match(dockerfile, /ocr agent context read --help/u);
   assert.match(dockerfile, /ocr agent validate-comments --help/u);
@@ -122,6 +126,7 @@ test('main proof catalog supplies the heavy review-only Codex agent without chec
   assert.match(config, /model = "gpt-5\.6-sol"/u);
   assert.match(config, /model_reasoning_effort = "high"/u);
   assert.match(config, /approval_policy = "never"/u);
+  assert.match(config, /sandbox_mode = "workspace-write"/u);
   assert.match(systemPrompt, /Do not edit source, commit, push/u);
   assert.match(systemPrompt, /do not call `code_info`/u);
   assert.match(systemPrompt, /continue with the usable pinned evidence/u);
@@ -129,10 +134,12 @@ test('main proof catalog supplies the heavy review-only Codex agent without chec
 });
 
 test('source heavy review agent yields to pinned OCR evidence', () => {
+  const config = readRepoFile('codeinfo_agents/review_agent_heavy/config.toml');
   const systemPrompt = readRepoFile(
     'codeinfo_agents/review_agent_heavy/system_prompt.txt',
   );
 
+  assert.match(config, /sandbox_mode = "workspace-write"/u);
   assert.match(systemPrompt, /pinned review evidence/u);
   assert.match(systemPrompt, /do not call `code_info`/u);
   assert.match(systemPrompt, /continue with the usable evidence/u);

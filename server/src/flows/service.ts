@@ -5933,7 +5933,9 @@ async function runFlowUnlocked(params: {
         response: [
           result.status === 'passed'
             ? 'Validated all joined review artifacts.'
-            : `Joined review validation completed with status ${result.status}; continuing with usable review evidence.`,
+            : result.status === 'partial'
+              ? 'Joined review validation completed with status partial; continuing with usable review evidence.'
+              : 'Joined review validation completed with status blocked; continuing without usable review evidence.',
           `Review session: ${result.review_session_id}`,
           `Pointers: ${result.pointer_files.join(', ')}`,
           ...result.pointer_results.map(

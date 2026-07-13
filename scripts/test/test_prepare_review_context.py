@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -153,6 +155,47 @@ class PrepareReviewContextTests(unittest.TestCase):
                 repo_root=repo,
                 branch="feature/0000123-review-context",
             )
+
+    def test_git_branch_returns_the_current_branch(self) -> None:
+        repo = self.make_repo()
+
+        with mock.patch.object(
+            prepare_review_context.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                args=["git"], returncode=0, stdout="feature/0000123-review-context\n"
+            ),
+        ):
+            self.assertEqual(
+                prepare_review_context._git_branch(repo),
+                "feature/0000123-review-context",
+            )
+
+    def test_git_branch_reports_git_command_failures(self) -> None:
+        repo = self.make_repo()
+
+        with mock.patch.object(
+            prepare_review_context.subprocess,
+            "run",
+            side_effect=subprocess.CalledProcessError(128, ["git"]),
+        ):
+            with self.assertRaisesRegex(
+                SystemExit, "current branch could not be resolved"
+            ):
+                prepare_review_context._git_branch(repo)
+
+    def test_git_branch_reports_when_git_is_unavailable(self) -> None:
+        repo = self.make_repo()
+
+        with mock.patch.object(
+            prepare_review_context.subprocess,
+            "run",
+            side_effect=FileNotFoundError("git not found"),
+        ):
+            with self.assertRaisesRegex(
+                SystemExit, "current branch could not be resolved"
+            ):
+                prepare_review_context._git_branch(repo)
 
 
 if __name__ == "__main__":

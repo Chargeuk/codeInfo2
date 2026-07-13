@@ -9,6 +9,7 @@ Scan the selected review-created tasks for high-risk invariants, missing prerequ
 - Use fresh disk reads and current git state, not conversational memory.
 - Do not retask the whole story or broaden scope to older unrelated tasks.
 - Treat missing risk ownership as a tasking defect to repair before subtask granularity and proof-matrix passes run.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. Keep risk and prerequisite implementation work on substantive review tasks; for the dedicated final task, update only its worked-on repository, build, runtime, full-suite, shutdown, supported lint, and supported formatting inventory while preserving supported per-repository lint and formatting as its only permitted initial subtask types and omitting unsupported commands.
 
 </instruction_priority>
 
@@ -16,7 +17,7 @@ Scan the selected review-created tasks for high-risk invariants, missing prerequ
 
 - Immediately before editing, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking`, and use only its fresh bounded task selection and section content.
 - Keep the selected review-created task identities stable. Do not delete, absorb, merge away, split, repackage, or renumber selected tasks in a way that changes which tasks are in scope for later enhancement passes. Only make minimal ordering or dependency repairs that preserve selected task identity.
-- For each selected task that touches lifecycle, persistence, cross-contract behavior, default-entrypoint behavior, runtime proof, or broad wrappers, identify the highest-risk invariant that could still fail after a happy-path proof.
+- For each selected substantive task that touches lifecycle, persistence, cross-contract behavior, default-entrypoint behavior, runtime proof, or broad wrappers, identify the highest-risk invariant that could still fail after a happy-path proof.
 - When a selected task changes create, admission, waiting, running, success, no-op, error, cancel, retry, cleanup, startup recovery, or dependency-outage behavior, ensure the task owns an exact ordering or interleaving proof when adjacent before/after proof would not prove the real invariant.
 - When a selected task changes shared errors, payloads, persisted shapes, log markers, schema, OpenAPI, documentation-visible contracts, transport wrappers, or response construction, ensure the task names the producer, each meaningful consumer, and the proof home for propagation through the default or wrapper path when caller-visible behavior depends on it.
 - When a selected task changes selectors, launchers, wrappers, startup paths, CI routing, feature flags, harness registration, or default commands, ensure it proves the changed behavior is reachable through the normal default path rather than only a targeted or manual route.
@@ -41,7 +42,7 @@ Scan the selected review-created tasks for high-risk invariants, missing prerequ
 
 <section_ownership_rules>
 
-- Put implementation, proof-authoring, documentation, config, harness, and prerequisite ownership in `Subtasks`.
+- During initial task creation and enhancement, put implementation, proof-authoring, documentation, config, harness, and prerequisite ownership in substantive tasks' `Subtasks`; preserve the dedicated final task's bounded same-task repair exception for story-caused failures discovered during validation.
 - Keep `Testing` automated-only and wrapper-first.
 - Put optional browser, API, or manual-testing-agent follow-up only in `Manual Testing Guidance`.
 - Do not create manual-testing subtasks or testing checklist items.

@@ -66,7 +66,8 @@ Explain the implementation gotchas for the currently active task using the store
 - When the previous loop iteration involved normalization or planner repair, explicitly confirm the bound task is still the true next executable owner after those edits, not a still-blocked task sitting ahead of a newly inserted prerequisite.
 - If the active task has already gone through repeated implementation passes while the same subtasks remain unchecked, call that out explicitly.
 - In that repeated-pass state, tell the coding agent that the next implementation pass must either complete at least one of the remaining subtasks or raise a live `**BLOCKER**`; another partial no-closure pass is not an honest outcome.
-- If the active task is the final task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes`, explicitly call out that it is the closing proof step for the current minor-fix cycle and that a later clean review pass is expected to close that cycle rather than create another final revalidation task.
+- If the active task is the dedicated final validation or revalidation task, read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`, call out that the whole approved story is available for same-task repair, and explain that story-caused failures should be fixed and fully re-tested here rather than automatically creating another numbered task.
+- If that final task closes an inline-minor review cycle, also state that a later clean review pass is expected to close the cycle rather than create another final revalidation task.
 - If the active task is a bounded diagnostic or derivation task, explicitly remind the coding agent of its stopping rule.
 - If the task's bounded search has already exhausted or the remaining work would widen the task ad hoc, tell the coding agent to raise a live `**BLOCKER**` rather than extending the task informally.
 

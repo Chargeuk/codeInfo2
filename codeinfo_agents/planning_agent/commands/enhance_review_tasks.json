@@ -9,6 +9,11 @@
     {
       "type": "message",
       "role": "user",
+      "markdownFile": "shared/final-task-creation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
       "markdownFile": "review_task_enhancement/02-select-scope.md"
     },
     {

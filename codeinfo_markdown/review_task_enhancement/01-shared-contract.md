@@ -31,13 +31,14 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Do not merge, delete, absorb, or renumber selected review-created tasks in a way that changes which tasks are in scope for later enhancement passes.
 - Do not absorb selected review-created work into older pre-existing story tasks.
 - Preserve and improve any existing `Addresses Findings` coverage in the selected review-created tasks instead of removing or weakening it.
+- Treat the dedicated final revalidation task as a special selected task governed by `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`; do not apply substantive-task subtask expansion rules to it.
 
 </scope_contract>
 
 <quality_contract>
 
 - Make every eligible review-created task concrete enough for a weak, junior, forgetful implementer who may read one subtask at a time.
-- Ensure each eligible task has explicit ownership, clear subtasks, honest proof homes, and realistic wrapper-first testing.
+- Ensure each eligible substantive task has explicit ownership, clear subtasks, honest proof homes, and realistic wrapper-first testing. Ensure the dedicated final task instead retains only each worked-on repository's supported lint and formatting initial subtask types, omits unsupported commands independently, and gives each repository its discovered supported full build when available, applicable startup, every relevant full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting in its testing inventory.
 - Keep review-created tasks executable in order: no subtask may depend on a later `Testing` step to become runnable.
 - Keep `Testing` automated-only and place any optional manual-testing-agent scenarios only in `Manual Testing Guidance`.
 - Do not create manual testing subtasks or testing checklist items in these review-created tasks.
@@ -47,9 +48,9 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Keep alternate auth, seeded identities, mocked providers, bypassed 2FA, and similar test-enablement seams in test-only harnesses, fixtures, support code, or test configuration.
 - Keep automated screenshots and similar generated proof artifacts in ignored artifact locations rather than tracked repository files.
 - When Manual Testing Guidance mentions Playwright MCP screenshots, do not imply that Playwright MCP writes directly into the target repository. State that screenshots are first captured with a relative staging path in the Playwright output directory, then transferred into the target repository artifact destination. For the codeInfo2 local harness workflow, any Playwright MCP artifact saved under `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime will appear at `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host, so review-created guidance should normally direct the later manual tester there first and should not imply that the app-under-test stack automatically owns the screenshot files. `CODEINFO_ROOT` is the harness root and may expose staging paths such as `$CODEINFO_ROOT/playwright-output-local`, but it is not the target artifact root unless the active plan is in the harness repository. If runtime handoff JSON is needed for artifact source, fallback runtime, or destination details, instruct the later reader to inspect that JSON for the needed information by meaning rather than by exact property names. If screenshot transfer is still blocked, direct the later manual tester to record the limitation honestly rather than treating it as a reason to halt the proof loop. When review-created final visual revalidation tasks mention screenshots, they should request screenshots representing the current final state of the story-owned visual surfaces they re-cover, treat earlier screenshots as scratch proof by default, and preserve earlier screenshots in durable closeout only when they still provide uniquely necessary proof.
-- Subtasks may name proof-owning files, markers, fixtures, harness surfaces, or screenshot path conventions to prepare, but they must not require the later generated artifact itself for completion.
+- Substantive-task subtasks may name proof-owning files, markers, fixtures, harness surfaces, or screenshot path conventions to prepare, but they must not require the later generated artifact itself for completion. Keep such preparation out of the dedicated final task.
 - Do not encode `Implementation notes` refreshes after testing as standalone subtasks.
-- If final close-out needs retained proof homes, adjudication notes, or artifact-existence confirmations, place those expectations in `Task Exit Criteria`, `Testing`, or a bounded final validation task description rather than as post-testing subtasks.
+- If final close-out needs retained proof homes, adjudication notes, or artifact-existence confirmations, place those expectations in `Task Exit Criteria` or the dedicated final task description rather than as post-testing subtasks or extra final-task `Testing` items. Keep final-task `Testing` limited to the shared contract's per-repository build, runtime, full-suite, shutdown, supported lint, and supported formatting lifecycle.
 - Treat vague review-fix wording as a defect to rewrite, not something to leave for later.
 - If a review finding is still too unclear for concrete repair tasking, convert it into a bounded diagnostic task with an explicit stopping rule rather than a vague “investigate” task.
 

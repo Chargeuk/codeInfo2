@@ -41,6 +41,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 - Audit the coding agent's implementation and automated-proof work on the current task honestly.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. When auditing the dedicated final task, prefer keeping story-caused remaining work on that same task and preserve its full-suite closeout ownership.
 - Audit for story-caused preserved-behavior regressions and other out-of-scope user-facing behavior drift even when automated proof is green.
 - If the implementation-plus-proof pass changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, first decide whether that drift was introduced by the current story or merely discovered during this story.
 - Make that provenance decision from repository evidence. Treat the drift as story-caused when the current story changed the same surface, contract, or files and there is no honest evidence that the same behavior already existed before those story-owned edits. Treat it as merely discovered only when repository evidence shows the same behavior already existed before the story's edits or the affected surface is unrelated to the story-owned changes.
@@ -59,6 +60,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - If the only remaining reason the task is not acceptable is a story-caused preserved-behavior regression, add explicit unchecked remaining work and preserve the task as `__in_progress__` without adding a blocker solely for that regression.
 - If the only remaining concern is merely discovered out-of-scope user-facing behavior drift, record that drift honestly without adding a blocker solely for that drift.
 - If real unchecked checklist items still remain after normalization and no live standalone `**BLOCKER**` exists, treat that as an invalid end state for the just-worked proof pass and add a blocker rather than preserving it as ordinary `__in_progress__`.
+- For the dedicated final task, when real story-caused work remains, add a concrete bounded repair subtask to this same task when needed, uncheck every validation item made stale by the repair, and rerun from the earliest stale step, including affected build, startup, full-suite, shutdown, lint, and formatting items. Keep the task `__in_progress__`. Do not create or recommend another numbered task unless the shared final-task contract's ownership, sequencing, architecture, authority, or scope-expansion exception applies.
 - If prose notes, exit-criteria text, or other non-checklist text still claim remaining work after all subtasks and testing are checked and no live standalone `**BLOCKER**` remains, treat that as invalid task shape rather than as a reason to keep the task open.
 - In that invalid task-shape case, either:
   - mark the task `__done__` if current repository evidence shows the prose-only remainder is already satisfied or is not an honest remaining gate; or

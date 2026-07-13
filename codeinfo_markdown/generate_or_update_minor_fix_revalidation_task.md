@@ -10,6 +10,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` before deciding whether to edit the plan.
+- Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`, especially its minor-fix-only eligibility, identity, and duplicate-prevention rules.
 - Run `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` before deciding whether an existing final minor-fix revalidation task should be reused or reopened.
 - Treat the helper's `review_cycle_id` match as the primary identity for the task. Use task order only as a sanity check, not as the identity rule.
 - Treat `review_cycle_id` as the stable machine identity for the current review loop, using the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
@@ -35,23 +36,24 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Only create or update this task when minor fixes were made in the just-finished review cycle, no serious task-up work remains, and `minor_fix_revalidation_cycle_closed` is not true.
 - If `final_revalidation_owned_by_task_up_path` is true, do not create or update the special inline-minor final revalidation task. The cycle already has one shared final revalidation owner.
 - The task title must be `Re-Validate Story <story-number> After Inline Minor Review Fixes` unless an existing equivalent final minor-fix revalidation task already uses a compatible title.
-- The task must stay as exactly one final revalidation task even when the resolved minor fixes span multiple repositories.
+- The task must stay as exactly one dedicated final revalidation task even when the whole story or resolved minor fixes span multiple repositories.
 - The task status must be `__to_do__`.
 - The task must include exactly one `Repository Name` field so it still fits the normal task format, but that field is administrative ownership only for this special final revalidation task.
-- The task section order must be: `Repository Name`, `Affected Repositories`, `Addresses Findings`, `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance`.
+- The task section order must be: `Repository Name`, `Affected Repositories`, `Affected Applications Or Components`, `Addresses Findings`, `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance`.
 - The task must include an `Affected Repositories` section naming every repository represented in `resolved_minor_findings`.
+- Expand `Affected Repositories` and `Affected Applications Or Components` from the whole approved story and its actual story-owned changes, not only from `resolved_minor_findings`, so final proof covers every application or component changed before or during the review cycle.
 - If more than one repository is named in `Affected Repositories`, the task body must explicitly say that validation scope is driven by `Affected Repositories`, not by `Repository Name` alone.
 - The task must include an `Addresses Findings` section naming every `resolved_minor_findings` ID, summary, repository, and resolution commit from the state.
-- The task must include `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance` only if useful.
-- The task must include the exact line `- Review Task Role: \`final_minor_fix_revalidation\``in`Implementation Notes` so the helper script can recognize it on later passes.
-- The task must include the exact line `- Review Cycle Id: \`<review_cycle_id>\``in`Implementation Notes` so the helper script can bind the task to the active review cycle.
-- `Subtasks` must describe implementation-free proof preparation only, such as re-reading the `## Minor Review Fixes` section and verifying resolved finding coverage. Keep `Subtasks` scoped to owner-side preparation only; do not use them to assign code changes or extra cross-repository implementation work. Do not put runnable commands in `Subtasks`.
-- `Testing` must contain automated wrapper-level proof only. Use repository guidance, `AGENTS.md`, `Affected Repositories`, and the resolved findings' changed files to choose the broadest relevant wrapper proof that is honest for final story confidence across every affected repository.
-- When more than one repository appears in `Affected Repositories`, group the testing steps by repository so each repository's wrappers and validation scope are obvious.
+- The task must include `Subtasks`, `Testing`, and `Implementation Notes`; include optional `Manual Testing Guidance` only when useful.
+- The task must include the exact line `- Review Task Role: \`final_minor_fix_revalidation\`` in `Implementation Notes` so the helper script can recognize it on later passes.
+- The task must include the exact line `- Review Cycle Id: \`<review_cycle_id>\`` in `Implementation Notes` so the helper script can bind the task to the active review cycle.
+- At creation time, `Subtasks` must begin with the shared contract's non-checkbox final-task repair-scope note and then contain only supported lint and formatting checklist-item types per worked-on repository in this order: when available, run that repository's supported lint command and fix issues; then, when available, run that repository's supported formatting command and fix issues. Discover the commands independently, omit an unsupported item without inventing a replacement, group the discovered commands by repository, and do not add another initial subtask type.
+- `Testing` must begin with the shared contract's non-checkbox final-task repair-scope note. For each worked-on repository, list its discovered full build, applicable startup, every repository-supported full automated suite for its affected applications or components including every supported end-to-end suite, matching shutdown, supported lint, and supported formatting in that order. Discover lint and formatting independently, omit unsupported commands, and use no targeting filters.
+- Group testing steps first by repository and then by application or component so the build, runtime lifecycle, every full suite, and ownership are obvious.
 - Do not add manual-testing-only work to `Subtasks` or `Testing`.
-- Do not add subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output.
+- Do not add pre-planned subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output. A later failure-repair pass may add a bounded story-level repair subtask to this same final task only under the runtime exception in the shared final-task contract.
 - The task must explain that inline minor fixes were already made and documented, and this task owns final proof before story closure.
-- This final task owns the broad story-level confidence check after inline minor fixes. It may include broader automated proof across affected repositories and any required manual testing that would be too broad for the inline minor-fix step.
+- This final task owns the whole story's full-suite confidence check after inline minor fixes, not merely proof local to the fixed findings.
 - Do not treat the inline minor-fix step as responsible for full end-to-end story validation. Its job is bounded repair plus bounded local proof only.
 
 </generation_rules>
@@ -59,7 +61,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 <idempotency_rules>
 
 - Before appending a new task, use the JSON output from `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` as the source of truth for whether an existing unfinished or finished task already marks itself as the final revalidation task for inline minor review fixes in the current `review_cycle_id`.
-- If such a task exists, update that task's finding coverage, affected repositories, subtasks, and testing obligations instead of adding a new task.
+- If such a task exists, update that task's finding coverage, affected repositories, affected applications or components, supported per-repository lint and formatting checklist, and build/runtime/full-suite/shutdown/lint/formatting testing obligations instead of adding a new task.
 - Do not append a second final minor-fix revalidation task for the same story and same `review_cycle_id`.
 - If the helper reports duplicate current-cycle tasks, do not update either task yet. Repair the plan so only one task remains for that `review_cycle_id`, then rerun the helper.
 - If the helper reports a non-current-cycle historical task, do not reopen it for the current cycle.
@@ -67,7 +69,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe open legacy task for `review_cycle_id` backfill.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.
 - If the helper reports `needs_cycle_id_backfill`, backfill the current `review_cycle_id` into the selected task while updating it.
-- Preserve completed proof notes that remain true, but uncheck or rewrite any testing item whose proof is no longer honest after adding new resolved minor findings.
+- Preserve completed proof notes that remain true, but uncheck or rewrite every validation item made stale by new resolved minor findings or other later story-owned changes, including affected lint and formatting items in `Subtasks` and affected build, startup, full-suite, shutdown, lint, and formatting items in `Testing`.
 - Do not renumber existing tasks unless the plan already has a numbering collision that makes the new or updated task ambiguous.
 
 </idempotency_rules>
@@ -104,7 +106,7 @@ When no task is needed and no unresolved work remains:
 - If the canonical plan is missing or branch story scope has drifted, stop and say the current-plan handoff is stale and must be regenerated.
 - If state says final revalidation is needed but `resolved_minor_findings` is empty, do not create a task. Record a state note and report the contradiction.
 - If unresolved task-required, minor-batchable, or incomplete-review items remain, do not create the final minor-fix revalidation task. Leave routing to the task-up or minor-fix path.
-- If no repository-supported automated proof can be identified for the affected files, create a bounded proof-authoring subtask and an automated testing placeholder only when it remains concrete; otherwise stop and report that the final revalidation task cannot be generated honestly.
+- If fresh repository evidence confirms that no repository-supported automated test suite exists for the affected repository or affected component, omit the unavailable suite item and continue with every other supported full build, applicable startup, matching shutdown, lint, and formatting check in that order. Do not add a proof-authoring subtask, automated testing placeholder, invented command, harness task, or blocker merely because no supported suite exists. A concise non-blocking `Implementation Notes` entry may record that no supported automated suite was found. If the repository is missing or unreadable, use the handoff failure rules above rather than treating unavailable evidence as proof that no suite exists.
 - If the plan edit succeeds but commit fails, stop and report the failed commit command without pretending the task was committed.
 
 </failure_modes>
@@ -128,11 +130,11 @@ When no task is needed and no unresolved work remains:
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
 - Confirm this step did not imply the review cycle was complete merely because the final revalidation task was created.
 - Confirm the selected or created task carries the same `review_cycle_id` as `review-disposition-state.json`.
-- Confirm the task has an `Affected Repositories` section that covers every repository represented in `resolved_minor_findings`.
+- Confirm the task has an `Affected Repositories` and `Affected Applications Or Components` inventory covering the whole story and every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
-- Confirm `Subtasks` stayed owner-scoped and implementation-free even when `Testing` spans multiple repositories.
-- Confirm `Testing` is grouped clearly enough that every affected repository's wrapper and proof scope is easy to identify.
-- Confirm runnable commands live only in `Testing`.
+- Confirm `Subtasks` and `Testing` each begin with the required non-checkbox repair-scope note, and that the initially generated `Subtasks` checklist contains each repository's supported lint bullet followed by its supported formatting bullet, with either unsupported command omitted independently, grouped by repository, and no other initial subtask types.
+- Confirm `Testing` is grouped clearly enough that every worked-on repository's full build, applicable startup, complete relevant full-suite inventory including every supported end-to-end suite, matching shutdown, supported lint, and supported formatting are easy to identify in that order and use no targeted filters.
+- Confirm unsupported lint and formatting commands are omitted rather than invented in both `Subtasks` and `Testing`.
 - Confirm no manual-testing work was added to `Subtasks` or `Testing`.
 - Confirm a non-last selected task was treated only as a layout warning rather than as proof of wrong identity when the `review_cycle_id` matched.
 - Confirm the state file is valid JSON after updating.

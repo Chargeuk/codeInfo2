@@ -24,9 +24,10 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 
 - If the story has no tasks, create them.
 - If the story already has tasks, rewrite them where needed so they match the tasking rules below.
-- Each task must implement exactly one primary seam that can be tested as a coherent unit.
-- Each task must belong to exactly one repository.
-- If the story spans multiple repositories, split provider-repository and consumer-repository work into separate tasks and make the sequencing explicit.
+- Follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`: after all substantive implementation tasks, append one dedicated final validation task with the required repair-scope note at the top of both `Subtasks` and `Testing`; only each worked-on repository's independently discovered supported lint and formatting items in `Subtasks`; and its discovered full build, applicable startup, relevant full suites, matching shutdown, supported lint, and supported formatting in `Testing`, omitting unsupported commands.
+- Each substantive implementation task must implement exactly one primary seam that can be tested as a coherent unit.
+- Each substantive implementation task must belong to exactly one repository. The dedicated final validation task is the exception: it keeps one administrative `Repository Name` while covering every proof-scope repository identified by the story.
+- If the story spans multiple repositories, split provider-repository and consumer-repository substantive implementation work into separate tasks and make the sequencing explicit; do not split the dedicated final validation task by repository.
 - Add explicit task dependencies whenever a task relies on another task's output, contract, harness, migration, or shared library change.
 - Keep prerequisite work earlier than downstream tasks that depend on it.
 - Add cleanup or removal tasks when the story replaces or supersedes existing behavior.
@@ -59,34 +60,34 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Use the current `plan_format.md` structure.
 - Every task must name its repository.
 - Every task must include a concise Overview and a concrete Task Exit Criteria section.
-- Every task must include a requirement-to-proof map in its subtasks: for each implemented acceptance path, name the exact code surface and the exact proof-owning file(s) or prepared proof surface(s) that will need to change. Do not require the later generated proof output itself for subtask completion.
+- Except for the dedicated final validation task, every task must include a requirement-to-proof map in its subtasks: for each implemented acceptance path, name the exact code surface and the exact proof-owning file(s) or prepared proof surface(s) that will need to change. Do not require the later generated proof output itself for subtask completion. The final task consumes the proof prepared by earlier tasks and must not duplicate those proof-authoring subtasks.
 - `Documentation Locations` must reference external docs, MCP docs, official URLs, or installed library code. Local repo files to inspect or change belong in Subtasks, not in Documentation Locations.
 - Subtasks must name the relevant local files, folders, classes, functions, commands, configs, or runtime assets to inspect or update.
 - Each subtask must be understandable in isolation for a very weak, junior, forgetful developer who may read only that one subtask and may not reliably cross-reference the rest of the plan.
 - Repeat critical context, documentation references, commands, and expected outcomes inside a subtask when omitting them would force the implementer to infer missing information from other sections.
 - Each documentation file update belongs in its own subtask.
 - Each task should be detailed enough for a junior developer who may only read the current task and its subtasks.
-- Add explicit proof-authoring subtasks whenever code must be written or updated to prove a requirement, edge case, error path, recovery path, or mixed-state path. Those subtasks must name the exact test file(s), fixtures, markers, harness files, or prepared proof surfaces to create or edit.
+- Add explicit proof-authoring subtasks to substantive implementation tasks whenever code must be written or updated to prove a requirement, edge case, error path, recovery path, or mixed-state path. Those subtasks must name the exact test file(s), fixtures, markers, harness files, or prepared proof surfaces to create or edit.
 - If `Design Contract Present` is true, add a short `Visual Invariants` subsection or equivalent task wording for each design-driven task that lists the concrete required visual matches and any allowed implementation flex.
 - When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, write those visual invariants from the markdown first and use the visual asset only to preserve the intended visual direction when the markdown is silent.
 - When a current task intentionally restates or narrows a design requirement, carry that restated requirement directly into the task wording so implementers, testers, and reviewers can follow the task without guessing from lower-level design sources.
-- If `Design Contract Present` is true, ensure the final task in the story carries `Manual Testing Guidance` that asks for screenshots covering the full implemented frontend for the story, not just the final task's narrow local seam.
+- If `Design Contract Present` is true, ensure the dedicated final task carries `Manual Testing Guidance` that asks for screenshots covering the full implemented frontend for the story. Keep that optional guidance outside `Subtasks` and `Testing`.
 - Do not make a subtask's completion depend on executed test output, later screenshots, later logs, or later manual validation.
 - When a changed behavior could leave an existing test title misleading, add an explicit subtask to rename or rewrite that proof so the stated invariant still matches the assertions.
 - When a UI surface changes enablement, visibility, mode gating, or create-vs-reuse behavior, add an explicit subtask for stale-state handling and proof that disabled or hidden state is either cleared or excluded from submission.
 - Do not put build or test execution commands in Subtasks unless the task is specifically creating or repairing a harness or wrapper.
 - Do not put automated test execution commands in `Subtasks`.
 - Do not put manual testing work in `Subtasks`.
-- End each task's `Subtasks` section with these two separate final subtasks in this order:
+- Except for the dedicated final validation task governed by `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`, end each non-final task's `Subtasks` section with these supported final subtasks in this order when their commands exist:
   - a lint subtask that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
-  - a prettier or format-check subtask that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
-- Lint or prettier fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
+  - a formatting subtask that names the exact repository-supported formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
+- Lint or formatting fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
   </task_shape_rules>
 
 <verification_loop>
 
 - Treat this pass as incomplete until every Acceptance Criterion, important Description requirement, and explicit Out Of Scope boundary has a plausible place in the task list or is explicitly marked out of scope by the story itself.
-- Treat this pass as incomplete until each Acceptance Criterion, edge case, and meaningful failure mode has both implementation subtasks and named proof-authoring subtasks, even though the later Testing section may still execute only broad wrapper commands.
+- Treat this pass as incomplete until each Acceptance Criterion, edge case, and meaningful failure mode is covered by both implementation subtasks and named proof-authoring subtasks in its owning substantive task, even though the later Testing section may still execute only broad wrapper commands.
 - Treat this pass as incomplete until the highest-risk invariants from the research pass have explicit implementation and proof homes, or are explicitly out of scope.
 - Treat this pass as incomplete when a planned proof could pass by proving adjacent behavior while the exact ordering, propagation, default-path, or producer-consumer invariant remains untested.
 - Treat this pass as incomplete until no generated subtask depends on future automated or manual proof output in order to become executable.

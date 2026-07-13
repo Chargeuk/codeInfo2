@@ -102,7 +102,7 @@ test('server image builds the exact Codex-enabled OCR fork and gates its command
   );
   assert.match(
     dockerfile,
-    /OPEN_CODE_REVIEW_COMMIT=49df19810a5ef02ac07c308a5d4982fd50cb19d8/u,
+    /OPEN_CODE_REVIEW_COMMIT=a93c4868a4b8b3adfb20895a1e0c3a95333b3ae9/u,
   );
   assert.match(dockerfile, /ocr agent prepare --help/u);
   assert.match(dockerfile, /ocr agent context read --help/u);

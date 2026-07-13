@@ -1310,7 +1310,15 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
   const fetchIndex = flattened.findIndex(
     (step) => step.type === 'github_fetch_reviews',
   );
-  const ifIndex = flattened.findIndex((step) => step.type === 'if');
+  const waitGateIndex = flattened.findIndex(
+    (step) =>
+      step.label === 'Only Wait When The GitHub Review Cycle Is Active',
+  );
+  const dispositionIfIndex = flattened.findIndex(
+    (step) =>
+      step.label ===
+      'Only Enter External Review Disposition When Reviewer Feedback Exists',
+  );
   const internalCompletionIndex = flattened.findIndex(
     (step) => step.label === 'Check for completion',
   );
@@ -1321,9 +1329,10 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
   assert.ok(openIndex > -1);
   assert.ok(internalCompletionIndex > -1);
   assert.ok(openIndex > internalCompletionIndex);
-  assert.ok(waitIndex > openIndex);
+  assert.ok(waitGateIndex > openIndex);
+  assert.ok(waitIndex > waitGateIndex);
   assert.ok(fetchIndex > waitIndex);
-  assert.ok(ifIndex > fetchIndex);
+  assert.ok(dispositionIfIndex > fetchIndex);
   assert.deepEqual(closeLabels, [
     'Close GitHub Review Pull Request Before Internal Review Restart',
   ]);

@@ -1140,6 +1140,23 @@ const shouldReconcileFailedPullRequestCreate = (
   );
 };
 
+const parseCreatedPullRequestIdentity = (params: {
+  stdout: string;
+  repository: GitHubRepositoryState;
+}): GitHubPullRequestIdentity | null => {
+  const urls = params.stdout.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/gu);
+  const url = urls?.at(-1)?.replace(/[),.;]+$/u, '');
+  if (!url) return null;
+  const number = Number(url.match(/\/pull\/(\d+)$/u)?.[1]);
+  if (!Number.isInteger(number) || number <= 0) return null;
+  return {
+    number,
+    url,
+    headRefName: params.repository.upstreamBranch,
+    baseRefName: params.repository.baseBranch,
+  };
+};
+
 export const createPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
@@ -1203,11 +1220,22 @@ export const createPullRequest = async (params: {
       lookupDiagnostics: [],
     };
   }
+  const createdPullRequest = parseCreatedPullRequestIdentity({
+    stdout: createResult.value.stdout,
+    repository: params.repository,
+  });
   const lookedUp = await lookupLatestOpenPullRequestWithRetry({
     repository: params.repository,
     token: params.token,
   });
   if (lookedUp.kind !== 'ok') {
+    if (createdPullRequest) {
+      return {
+        kind: 'ok',
+        value: createdPullRequest,
+        lookupDiagnostics: lookedUp.diagnostics,
+      };
+    }
     return {
       kind: 'error',
       reason: lookedUp.failure.reason,
@@ -2226,9 +2254,14 @@ export const claimGitHubReviewScratchOwnership = async (params: {
     ),
   };
   try {
-    await writeJsonAtomically({
+    await withExclusiveFileLock({
       targetPath: scratchPaths.selectorPath,
-      value: selector,
+      action: async () => {
+        await writeJsonAtomically({
+          targetPath: scratchPaths.selectorPath,
+          value: selector,
+        });
+      },
     });
     return { kind: 'ok', value: selector };
   } catch (error) {
@@ -2285,41 +2318,47 @@ export const writeGitHubReviewScratch = async (params: {
       targetPath: handoffPath,
       value: handoff,
     });
-    const selectorResult = await readJsonFile<Record<string, unknown>>(
-      scratchPaths.selectorPath,
-    );
-    if (selectorResult.kind === 'ok') {
-      const validatedSelector = validateGitHubReviewScratchSelectorRecord({
-        selectorPath: scratchPaths.selectorPath,
-        record: selectorResult.value,
-      });
-      if (
-        validatedSelector.kind === 'ok' &&
-        validatedSelector.value.execution_id !== params.executionId
-      ) {
-        if (params.preserveForeignSelectorOwnership) {
-          return { kind: 'ok', value: handoff };
-        }
-        return {
-          kind: 'error',
-          reason: 'SCRATCH_INVALID',
-          message:
-            'GitHub review selector already belongs to a newer or foreign flow execution and cannot be reclaimed by this run.',
-        };
-      }
-    }
-    await writeJsonAtomically({
+    const selectorPublishResult = await withExclusiveFileLock({
       targetPath: scratchPaths.selectorPath,
-      value: {
-        selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
-        execution_id: params.executionId,
-        plan_path: planContext.value.planPath,
-        story_number: planContext.value.storyNumber,
-        repository_root: params.repository.workingRepositoryRoot,
-        branch_name: params.repository.upstreamBranch,
-        handoff_path: handoffPath,
-      } satisfies GitHubReviewScratchSelector,
+      action: async (): Promise<'published' | 'preserved'> => {
+        const selectorResult = await readJsonFile<Record<string, unknown>>(
+          scratchPaths.selectorPath,
+        );
+        if (selectorResult.kind === 'ok') {
+          const validatedSelector = validateGitHubReviewScratchSelectorRecord({
+            selectorPath: scratchPaths.selectorPath,
+            record: selectorResult.value,
+          });
+          if (
+            validatedSelector.kind === 'ok' &&
+            validatedSelector.value.execution_id !== params.executionId
+          ) {
+            if (params.preserveForeignSelectorOwnership) {
+              return 'preserved';
+            }
+            throw new Error(
+              'GitHub review selector already belongs to a newer or foreign flow execution and cannot be reclaimed by this run.',
+            );
+          }
+        }
+        await writeJsonAtomically({
+          targetPath: scratchPaths.selectorPath,
+          value: {
+            selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+            execution_id: params.executionId,
+            plan_path: planContext.value.planPath,
+            story_number: planContext.value.storyNumber,
+            repository_root: params.repository.workingRepositoryRoot,
+            branch_name: params.repository.upstreamBranch,
+            handoff_path: handoffPath,
+          } satisfies GitHubReviewScratchSelector,
+        });
+        return 'published';
+      },
     });
+    if (selectorPublishResult === 'preserved') {
+      return { kind: 'ok', value: handoff };
+    }
     return { kind: 'ok', value: handoff };
   } catch (error) {
     return {

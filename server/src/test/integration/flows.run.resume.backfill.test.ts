@@ -20,6 +20,7 @@ import {
   resumePendingFlowWaitsForStartup,
   startFlowRun,
 } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query } from '../../logStore.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
@@ -102,6 +103,33 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../',
 );
+
+const listSingleRepository = async (repositoryPath: string) => ({
+  repos: [
+    {
+      id: path.basename(repositoryPath),
+      description: null,
+      containerPath: repositoryPath,
+      hostPath: repositoryPath,
+      lastIngestAt: null,
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'model',
+      embeddingDimensions: 768,
+      model: 'model',
+      modelId: 'model',
+      lock: {
+        embeddingProvider: 'lmstudio',
+        embeddingModel: 'model',
+        embeddingDimensions: 768,
+        lockedModelId: 'model',
+        modelId: 'model',
+      },
+      counts: { files: 0, chunks: 0, embedded: 0 },
+      lastError: null,
+    } satisfies RepoEntry,
+  ],
+  lockedModelId: null,
+});
 
 const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
   await withIsolatedProviderHomeTestEnv(
@@ -195,6 +223,59 @@ const writeWaitResumeFlow = async (dir: string) => {
   await fs.writeFile(
     path.join(dir, 'wait-resume.json'),
     JSON.stringify(flow, null, 2),
+  );
+};
+
+const writeConditionalWaitResumeFlow = async (dir: string) => {
+  await fs.mkdir(path.join(dir, 'scripts'), { recursive: true });
+  await fs.writeFile(
+    path.join(dir, 'scripts', 'select-then.py'),
+    'import json\nprint(json.dumps({"answer": "yes"}))\n',
+  );
+  await fs.writeFile(
+    path.join(dir, 'conditional-wait-resume.json'),
+    JSON.stringify(
+      {
+        description: 'Conditional wait resume flow',
+        steps: [
+          {
+            type: 'if',
+            label: 'Choose the original branch',
+            condition: 'scripts/select-then.py',
+            then: [
+              { type: 'wait', label: 'Wait in then branch', seconds: 60 },
+              {
+                type: 'llm',
+                label: 'Resume original branch',
+                agentType: 'coding_agent',
+                identifier: 'resume-test',
+                messages: [
+                  { role: 'user', content: ['Original branch resumed'] },
+                ],
+              },
+            ],
+            else: [
+              {
+                type: 'llm',
+                label: 'Wrong branch',
+                agentType: 'coding_agent',
+                identifier: 'resume-test',
+                messages: [{ role: 'user', content: ['Wrong branch ran'] }],
+              },
+            ],
+          },
+          {
+            type: 'llm',
+            label: 'After conditional',
+            agentType: 'coding_agent',
+            identifier: 'resume-test',
+            messages: [{ role: 'user', content: ['After conditional'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
   );
 };
 
@@ -866,7 +947,234 @@ test('startup recovery re-registers persisted waits through the normal startup p
   }
 });
 
-test('wake-time run ownership collision rearms persisted wait ownership instead of dropping the durable wait state', async () => {
+test('persisted waits resume the originally selected conditional branch without re-evaluating it', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-conditional-wait-resume-'),
+  );
+  await writeConditionalWaitResumeFlow(tmpDir);
+  const conversationId = 'flow-conditional-wait-resume';
+  const captured: string[] = [];
+  const wakes: Array<() => void> = [];
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  const chatFactory = () => new TrackingChat();
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => {} };
+    },
+    resumeFlowRun: async (resumeParams) =>
+      await startFlowRun({
+        ...resumeParams,
+        chatFactory,
+        listIngestedRepositories: async () =>
+          await listSingleRepository(tmpDir),
+      }),
+  });
+
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'conditional-wait-resume',
+        conversationId,
+        source: 'REST',
+        working_folder: tmpDir,
+        chatFactory,
+        listIngestedRepositories: async () =>
+          await listSingleRepository(tmpDir),
+      });
+      await waitFor(
+        () => Boolean(getPersistedWaitState(conversationId)),
+        5000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      assert.deepEqual(getPersistedWaitState(conversationId)?.stepPath, [
+        0, 0, 0,
+      ]);
+
+      await fs.rm(path.join(tmpDir, 'scripts', 'select-then.py'));
+      const wake = wakes.shift();
+      assert.ok(wake);
+      wake();
+
+      await waitFor(
+        () => captured.includes('After conditional'),
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      assert.deepEqual(captured, [
+        'Original branch resumed',
+        'After conditional',
+      ]);
+    });
+  } finally {
+    const flow = memoryConversations.get(conversationId)?.flags?.flow as
+      | { agentConversations?: Record<string, string> }
+      | undefined;
+    for (const childConversationId of Object.values(
+      flow?.agentConversations ?? {},
+    )) {
+      memoryConversations.delete(childConversationId);
+      memoryTurns.delete(childConversationId);
+    }
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('exhausted GitHub review recovery records a terminal warning and continues later flow steps', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-github-recovery-exhausted-'),
+  );
+  const conversationId = 'flow-github-recovery-exhausted';
+  const captured: string[] = [];
+  await fs.writeFile(
+    path.join(tmpDir, 'github-recovery-exhausted.json'),
+    JSON.stringify(
+      {
+        description: 'Exhaust GitHub recovery and continue',
+        steps: [
+          { type: 'wait', label: 'Completed review wait', seconds: 60 },
+          { type: 'github_fetch_reviews', label: 'Fetch review' },
+          {
+            type: 'llm',
+            label: 'Continue after review warning',
+            agentType: 'coding_agent',
+            identifier: 'resume-test',
+            messages: [{ role: 'user', content: ['Continued after review'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: github-recovery-exhausted',
+    flowName: 'github-recovery-exhausted',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'github-recovery-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {},
+        agentThreads: {},
+        workingFolder: tmpDir,
+        githubReviewContext: {
+          executionId: 'github-recovery-execution',
+          prNumber: 206,
+          storyNumber: '0000060',
+          phase: 'opened',
+          retryAttempt: 3,
+        },
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'github-recovery-exhausted',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        working_folder: tmpDir,
+        chatFactory: () => new TrackingChat(),
+        listIngestedRepositories: async () =>
+          await listSingleRepository(tmpDir),
+      });
+      await waitFor(
+        () => captured.some((message) => message.startsWith('Continued after review')),
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      await waitFor(
+        () => getLatestAssistantTurn(conversationId)?.status === 'warning',
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      assert.match(
+        getLatestAssistantTurn(conversationId)?.content ?? '',
+        /Flow completed with warning:/,
+      );
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            wait?: unknown;
+            githubReviewContext?: { phase?: string; retryAttempt?: number };
+          }
+        | undefined;
+      assert.equal(flow?.wait, undefined);
+      assert.equal(flow?.githubReviewContext?.phase, 'skipped');
+      assert.equal(flow?.githubReviewContext?.retryAttempt, 4);
+    });
+  } finally {
+    const flow = memoryConversations.get(conversationId)?.flags?.flow as
+      | { agentConversations?: Record<string, string> }
+      | undefined;
+    for (const childConversationId of Object.values(
+      flow?.agentConversations ?? {},
+    )) {
+      memoryConversations.delete(childConversationId);
+      memoryTurns.delete(childConversationId);
+    }
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('wake-time run ownership collision does not restore wait state after the active run advances it', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-wait-resume-rearm-'),
   );
@@ -922,8 +1230,6 @@ test('wake-time run ownership collision rearms persisted wait ownership instead 
       const initialWait = getPersistedWaitState(conversationId);
       assert.ok(initialWait);
       assert.equal(typeof initialWait.resumeAt, 'number');
-      const initialResumeAt = initialWait.resumeAt as number;
-
       __setFlowWaitResumeDepsForTests({
         now: () => 1_700_000_001_000,
         nowIso: () => '2026-06-27T20:00:01.000Z',
@@ -932,6 +1238,18 @@ test('wake-time run ownership collision rearms persisted wait ownership instead 
           return { cancel: () => {} };
         },
         resumeFlowRun: async () => {
+          const conversation = memoryConversations.get(conversationId);
+          assert.ok(conversation);
+          const flow: Record<string, unknown> = {
+            ...((conversation.flags?.flow ?? {}) as Record<string, unknown>),
+            stepPath: [2],
+          };
+          delete flow.wait;
+          memoryConversations.set(conversationId, {
+            ...conversation,
+            flags: { ...(conversation.flags ?? {}), flow },
+            updatedAt: new Date(),
+          });
           throw Object.assign(new Error('simulated active run ownership'), {
             code: 'RUN_IN_PROGRESS',
           });
@@ -944,22 +1262,16 @@ test('wake-time run ownership collision rearms persisted wait ownership instead 
       initialWake();
 
       await waitFor(
-        () => (getPersistedWaitState(conversationId)?.resumeAt ?? 0) > initialResumeAt,
-        10000,
-        50,
-        () => describeResumeBackfillState(conversationId),
-      );
-      await waitFor(
         () => wakes.length > 0,
         10000,
         50,
         () => describeResumeBackfillState(conversationId),
       );
-      const rearmedWait = getPersistedWaitState(conversationId);
-      assert.ok(rearmedWait);
-      assert.equal(rearmedWait.executionId, initialWait.executionId);
-      assert.deepEqual(rearmedWait.stepPath, initialWait.stepPath);
-      assert.ok((rearmedWait.resumeAt ?? 0) > initialResumeAt);
+      assert.equal(getPersistedWaitState(conversationId), undefined);
+      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+        | { stepPath?: number[] }
+        | undefined;
+      assert.deepEqual(flowState?.stepPath, [2]);
     });
   } finally {
     memoryConversations.delete(conversationId);

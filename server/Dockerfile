@@ -76,8 +76,8 @@ RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com \
   $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
 
-# Install the pinned GitHub CLI release directly. The package repository can
-# lag behind releases, while Story 60 requires a modern `gh api --slurp`.
+# Install the pinned GitHub CLI release directly so builds do not depend on the
+# package repository's release lag.
 RUN set -eu; \
     GH_ARCH="$(dpkg --print-architecture)"; \
     case "${GH_ARCH}" in \
@@ -91,8 +91,7 @@ RUN set -eu; \
     tar -xzf /tmp/gh.tar.gz -C /tmp; \
     install -m 0755 "/tmp/${GH_ARCHIVE}/bin/gh" /usr/local/bin/gh; \
     rm -rf /tmp/gh.tar.gz "/tmp/${GH_ARCHIVE}"; \
-    gh --version; \
-    gh api --help | grep -q -- --slurp
+    gh --version
 
 # Install Docker CLI + Compose plugin
 RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
@@ -134,7 +133,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     tzdata \
     chromium; \
     gh --version; \
-    gh api --help | grep -q -- --slurp; \
     rm -rf /var/lib/apt/lists/*
 
 # Debian installs fd-find as fdfind; provide fd for tooling expectations.

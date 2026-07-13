@@ -28,6 +28,18 @@ export type FlowActiveSubflow = {
   title?: string;
 };
 
+export type FlowGitHubReviewContext = {
+  executionId?: string;
+  prNumber?: number;
+  storyNumber?: string;
+  branchName?: string;
+  selectorPath?: string;
+  handoffPath?: string;
+  phase?: 'opened' | 'fetched' | 'skipped';
+  retryAttempt?: number;
+  warningMessage?: string;
+};
+
 export type FlowWaitState = {
   kind?: 'authored_wait' | 'review_retry';
   executionId: string;
@@ -37,16 +49,7 @@ export type FlowWaitState = {
   workingFolder?: string;
   sourceId?: string;
   resumeAt: number;
-  githubReviewContext?: {
-    executionId?: string;
-    prNumber?: number;
-    storyNumber?: string;
-    branchName?: string;
-    selectorPath?: string;
-    handoffPath?: string;
-    phase?: 'opened' | 'fetched' | 'skipped';
-    retryAttempt?: number;
-  };
+  githubReviewContext?: FlowGitHubReviewContext;
 };
 
 export type FlowResumeState = {
@@ -65,6 +68,7 @@ export type FlowResumeState = {
   agentRequestedProviders?: Record<string, string>;
   agentEndpointIds?: Record<string, string>;
   wait?: FlowWaitState;
+  githubReviewContext?: FlowGitHubReviewContext;
   retryOwnershipPending?: FreshRunRetryOwnershipPending;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion;
 };

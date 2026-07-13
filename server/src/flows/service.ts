@@ -198,6 +198,7 @@ import {
 } from './flowSchema.js';
 import type {
   FlowActiveSubflow,
+  FlowGitHubReviewContext,
   FlowPendingLoopControl,
   FlowResumeState,
   FlowWaitState,
@@ -1227,6 +1228,46 @@ const normalizeActiveSubflows = (params: {
   return legacyActiveSubflow ? [legacyActiveSubflow] : [];
 };
 
+const parseFlowGitHubReviewContext = (
+  value: unknown,
+): FlowGitHubReviewContext | undefined => {
+  if (!isRecord(value)) return undefined;
+  const context: FlowGitHubReviewContext = {
+    ...(normalizeOptionalString(value.executionId)
+      ? { executionId: normalizeOptionalString(value.executionId) }
+      : {}),
+    ...(typeof value.prNumber === 'number' && Number.isFinite(value.prNumber)
+      ? { prNumber: value.prNumber }
+      : {}),
+    ...(normalizeOptionalString(value.storyNumber)
+      ? { storyNumber: normalizeOptionalString(value.storyNumber) }
+      : {}),
+    ...(normalizeOptionalString(value.branchName)
+      ? { branchName: normalizeOptionalString(value.branchName) }
+      : {}),
+    ...(normalizeOptionalString(value.selectorPath)
+      ? { selectorPath: normalizeOptionalString(value.selectorPath) }
+      : {}),
+    ...(normalizeOptionalString(value.handoffPath)
+      ? { handoffPath: normalizeOptionalString(value.handoffPath) }
+      : {}),
+    ...(value.phase === 'opened' ||
+    value.phase === 'fetched' ||
+    value.phase === 'skipped'
+      ? { phase: value.phase }
+      : {}),
+    ...(typeof value.retryAttempt === 'number' &&
+    Number.isInteger(value.retryAttempt) &&
+    value.retryAttempt >= 0
+      ? { retryAttempt: value.retryAttempt }
+      : {}),
+    ...(normalizeOptionalString(value.warningMessage)
+      ? { warningMessage: normalizeOptionalString(value.warningMessage) }
+      : {}),
+  };
+  return Object.keys(context).length > 0 ? context : undefined;
+};
+
 const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
   if (!isRecord(value)) return null;
   const executionId = normalizeOptionalString(value.executionId);
@@ -1243,64 +1284,9 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
   const waitKind =
     value.kind === 'review_retry' ? 'review_retry' : 'authored_wait';
 
-  const githubReviewContext = isRecord(value.githubReviewContext)
-    ? {
-        ...(normalizeOptionalString(value.githubReviewContext.executionId)
-          ? {
-              executionId: normalizeOptionalString(
-                value.githubReviewContext.executionId,
-              ),
-            }
-          : {}),
-        ...(typeof value.githubReviewContext.prNumber === 'number' &&
-        Number.isFinite(value.githubReviewContext.prNumber)
-          ? { prNumber: value.githubReviewContext.prNumber }
-          : {}),
-        ...(normalizeOptionalString(value.githubReviewContext.storyNumber)
-          ? {
-              storyNumber: normalizeOptionalString(
-                value.githubReviewContext.storyNumber,
-              ),
-            }
-          : {}),
-        ...(normalizeOptionalString(value.githubReviewContext.branchName)
-          ? {
-              branchName: normalizeOptionalString(
-                value.githubReviewContext.branchName,
-              ),
-            }
-          : {}),
-        ...(normalizeOptionalString(value.githubReviewContext.selectorPath)
-          ? {
-              selectorPath: normalizeOptionalString(
-                value.githubReviewContext.selectorPath,
-              ),
-            }
-          : {}),
-        ...(normalizeOptionalString(value.githubReviewContext.handoffPath)
-          ? {
-              handoffPath: normalizeOptionalString(
-                value.githubReviewContext.handoffPath,
-              ),
-            }
-          : {}),
-        ...(value.githubReviewContext.phase === 'opened' ||
-        value.githubReviewContext.phase === 'fetched' ||
-        value.githubReviewContext.phase === 'skipped'
-          ? {
-              phase: value.githubReviewContext.phase as
-                | 'opened'
-                | 'fetched'
-                | 'skipped',
-            }
-          : {}),
-        ...(typeof value.githubReviewContext.retryAttempt === 'number' &&
-        Number.isInteger(value.githubReviewContext.retryAttempt) &&
-        value.githubReviewContext.retryAttempt >= 0
-          ? { retryAttempt: value.githubReviewContext.retryAttempt }
-          : {}),
-      }
-    : undefined;
+  const githubReviewContext = parseFlowGitHubReviewContext(
+    value.githubReviewContext,
+  );
 
   return {
     kind: waitKind,
@@ -1398,6 +1384,9 @@ const parseFlowResumeState = (
     flow.retryOwnershipCompletion,
   );
   const wait = parseFlowWaitState(flow.wait);
+  const githubReviewContext = parseFlowGitHubReviewContext(
+    flow.githubReviewContext,
+  );
   const activeSubflows = normalizeActiveSubflows({
     activeSubflows: flow.activeSubflows,
     legacyActiveSubflow: (flow as { activeSubflow?: unknown }).activeSubflow,
@@ -1442,6 +1431,7 @@ const parseFlowResumeState = (
       : {}),
     ...(Object.keys(agentEndpointIds).length > 0 ? { agentEndpointIds } : {}),
     ...(wait ? { wait } : {}),
+    ...(githubReviewContext ? { githubReviewContext } : {}),
     ...(retryOwnershipPending ? { retryOwnershipPending } : {}),
     ...(retryOwnershipCompletion ? { retryOwnershipCompletion } : {}),
   };
@@ -3775,6 +3765,7 @@ const buildFlowResumeState = (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   wait?: FlowWaitState;
+  githubReviewContext?: FlowGitHubReviewContext;
   activeSubflows?: FlowResumeState['activeSubflows'];
   codexReviewModelId?: string;
   workingFolder?: string;
@@ -3863,6 +3854,9 @@ const buildFlowResumeState = (params: {
           },
         }
       : {}),
+    ...(params.githubReviewContext
+      ? { githubReviewContext: { ...params.githubReviewContext } }
+      : {}),
     ...(params.codexReviewModelId
       ? { codexReviewModelId: params.codexReviewModelId }
       : {}),
@@ -3909,6 +3903,7 @@ const persistFlowResumeState = async (params: {
   loopStack: LoopFrame[];
   pendingLoopControl?: FlowPendingLoopControl | null;
   wait?: FlowWaitState;
+  githubReviewContext?: FlowGitHubReviewContext;
   activeSubflows?: FlowResumeState['activeSubflows'];
   codexReviewModelId?: string;
   workingFolder?: string;
@@ -3922,6 +3917,7 @@ const persistFlowResumeState = async (params: {
     loopStack: params.loopStack,
     pendingLoopControl: params.pendingLoopControl,
     wait: params.wait,
+    githubReviewContext: params.githubReviewContext,
     activeSubflows: params.activeSubflows,
     codexReviewModelId: params.codexReviewModelId,
     workingFolder: params.workingFolder,
@@ -4024,6 +4020,7 @@ type FlowDecisionKind = 'break' | 'continue' | 'if';
 const MAX_BREAK_PARSE_SCAN_LENGTH = 20_000;
 const MAX_BREAK_PARSE_CANDIDATES = 100;
 const FLOW_DECISION_SCRIPT_TIMEOUT_MS = 1000;
+const GITHUB_REVIEW_RECOVERY_MAX_ATTEMPTS = 3;
 
 const getFlowDecisionLabel = (kind: FlowDecisionKind) =>
   kind === 'break' ? 'Break' : kind === 'continue' ? 'Continue' : 'If';
@@ -4607,13 +4604,14 @@ const schedulePersistedWaitResume = (params: {
               },
               'flows.wait.resume.skipped_run_in_progress',
             );
-            await rearmPersistedWaitRecoveryOwnership({
-              conversation,
-              persistedState,
-              persistedWait,
+            schedulePersistedWaitResume({
+              conversationId: params.conversationId,
               flowName: params.flowName,
               source: params.source,
-              recoveryReason: 'A flow run still owned the conversation lock.',
+              wait: {
+                ...cloneFlowWaitState(persistedWait),
+                resumeAt: flowWaitResumeDeps.now() + 1_000,
+              },
             });
             return;
           }
@@ -4884,15 +4882,43 @@ const findImmediateResumeBoundaryStep = (
     return undefined;
   }
   if (rest.length > 0) {
-    if (resumedStep.type !== 'startLoop') {
+    const nested = getNestedResumeSteps(resumedStep, rest);
+    if (!nested) {
       return undefined;
     }
-    return findImmediateResumeBoundaryStep(resumedStep.steps, rest);
+    return findImmediateResumeBoundaryStep(
+      nested.steps,
+      nested.resumeStepPath,
+    );
   }
   if (resumedStep.type === 'startLoop') {
     return findImmediateResumeBoundaryStep(resumedStep.steps, null);
   }
   return steps[stepIndex + 1];
+};
+
+const FLOW_IF_THEN_RESUME_INDEX = 0;
+const FLOW_IF_ELSE_RESUME_INDEX = 1;
+
+const getNestedResumeSteps = (
+  step: FlowStep,
+  nestedPath: number[],
+): { steps: FlowStep[]; resumeStepPath: number[] } | null => {
+  if (step.type === 'startLoop') {
+    return { steps: step.steps, resumeStepPath: nestedPath };
+  }
+  if (step.type !== 'if' || nestedPath.length < 2) {
+    return null;
+  }
+
+  const [branchIndex, ...branchResumePath] = nestedPath;
+  if (branchIndex === FLOW_IF_THEN_RESUME_INDEX) {
+    return { steps: step.then, resumeStepPath: branchResumePath };
+  }
+  if (branchIndex === FLOW_IF_ELSE_RESUME_INDEX && step.else) {
+    return { steps: step.else, resumeStepPath: branchResumePath };
+  }
+  return null;
 };
 
 const stepRequiresProviderBootstrap = (step: FlowStep | undefined): boolean => {
@@ -4942,12 +4968,16 @@ const findRuntimeIdentityStep = (
         resumeIndex = undefined;
         continue;
       }
-      if (step.type !== 'startLoop') {
+      const nestedResume = getNestedResumeSteps(
+        step,
+        resumePathRemaining.slice(1),
+      );
+      if (!nestedResume) {
         return undefined;
       }
       const nested = findRuntimeIdentityStep(
-        step.steps,
-        resumePathRemaining.slice(1),
+        nestedResume.steps,
+        nestedResume.resumeStepPath,
       );
       if (nested) {
         return nested;
@@ -5023,12 +5053,16 @@ const findRuntimeCodexReviewStep = (
         resumeIndex = undefined;
         continue;
       }
-      if (step.type !== 'startLoop') {
+      const nestedResume = getNestedResumeSteps(
+        step,
+        resumePathRemaining.slice(1),
+      );
+      if (!nestedResume) {
         return undefined;
       }
       const nested = findRuntimeCodexReviewStep(
-        step.steps,
-        resumePathRemaining.slice(1),
+        nestedResume.steps,
+        nestedResume.resumeStepPath,
       );
       if (nested) {
         return nested;
@@ -5083,20 +5117,24 @@ const validateCommandSteps = async (params: {
         resumeIndex = undefined;
         continue;
       }
-      if (step.type !== 'startLoop') {
+      const nestedResume = getNestedResumeSteps(
+        step,
+        resumePathRemaining.slice(1),
+      );
+      if (!nestedResume) {
         throw toFlowRunError(
           'INVALID_REQUEST',
-          'resumeStepPath must reference loop steps for nested indices',
+          'resumeStepPath must reference loop or conditional branch steps for nested indices',
         );
       }
       await validateCommandSteps({
         flowName: params.flowName,
-        steps: step.steps,
+        steps: nestedResume.steps,
         flowsRoot: params.flowsRoot,
         sourceId: params.sourceId,
         agentByName: params.agentByName,
         repositoryContext: params.repositoryContext,
-        resumeStepPath: resumePathRemaining.slice(1),
+        resumeStepPath: nestedResume.resumeStepPath,
         visited,
       });
       resumePathRemaining = null;
@@ -5217,19 +5255,23 @@ const validateCodexReviewSteps = async (params: {
         resumeIndex = undefined;
         continue;
       }
-      if (step.type !== 'startLoop') {
+      const nestedResume = getNestedResumeSteps(
+        step,
+        resumePathRemaining.slice(1),
+      );
+      if (!nestedResume) {
         throw toFlowRunError(
           'INVALID_REQUEST',
-          'resumeStepPath must reference loop steps for nested indices',
+          'resumeStepPath must reference loop or conditional branch steps for nested indices',
         );
       }
       await validateCodexReviewSteps({
         flowName: params.flowName,
-        steps: step.steps,
+        steps: nestedResume.steps,
         flowsRoot: params.flowsRoot,
         sourceId: params.sourceId,
         codexReviewModelId: params.codexReviewModelId,
-        resumeStepPath: resumePathRemaining.slice(1),
+        resumeStepPath: nestedResume.resumeStepPath,
         visited,
       });
       resumePathRemaining = null;
@@ -5261,9 +5303,12 @@ const validateResumeStepPath = (
   steps: FlowStep[],
   resumeStepPath: number[],
 ): void => {
-  let currentSteps = steps;
-  for (let index = 0; index < resumeStepPath.length; index += 1) {
-    const stepIndex = resumeStepPath[index];
+  if (resumeStepPath.length === 0) return;
+  const validateNestedPath = (
+    currentSteps: FlowStep[],
+    currentPath: number[],
+  ): void => {
+    const [stepIndex, ...rest] = currentPath;
     if (!Number.isInteger(stepIndex) || stepIndex < 0) {
       throw toFlowRunError(
         'INVALID_REQUEST',
@@ -5275,17 +5320,21 @@ const validateResumeStepPath = (
     if (!step) {
       throw toFlowRunError('INVALID_REQUEST', 'resumeStepPath out of range');
     }
-
-    if (index < resumeStepPath.length - 1) {
-      if (step.type !== 'startLoop') {
-        throw toFlowRunError(
-          'INVALID_REQUEST',
-          'resumeStepPath must reference loop steps for nested indices',
-        );
-      }
-      currentSteps = step.steps;
+    if (rest.length === 0) {
+      return;
     }
-  }
+
+    const nestedResume = getNestedResumeSteps(step, rest);
+    if (!nestedResume) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'resumeStepPath must reference loop or conditional branch steps for nested indices',
+      );
+    }
+    validateNestedPath(nestedResume.steps, nestedResume.resumeStepPath);
+  };
+
+  validateNestedPath(steps, resumeStepPath);
 };
 
 const validateResumeAgentConversations = async (
@@ -5715,9 +5764,12 @@ async function runFlowUnlocked(params: {
           : {}),
       }
     : undefined;
-  let activeGitHubReviewContext = params.resumeState?.wait?.githubReviewContext
+  let activeGitHubReviewContext =
+    params.resumeState?.githubReviewContext ??
+    params.resumeState?.wait?.githubReviewContext
     ? {
-        ...params.resumeState.wait.githubReviewContext,
+        ...(params.resumeState.githubReviewContext ??
+          params.resumeState.wait?.githubReviewContext),
       }
     : undefined;
   const normalizeActiveGitHubReviewScratchAuthority = () => {
@@ -5845,6 +5897,7 @@ async function runFlowUnlocked(params: {
       loopStack,
       pendingLoopControl,
       wait: activeWait,
+      githubReviewContext: activeGitHubReviewContext,
       activeSubflows,
       codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -5861,6 +5914,39 @@ async function runFlowUnlocked(params: {
     }
 
     const retryAttempt = (activeGitHubReviewContext.retryAttempt ?? 0) + 1;
+    if (retryAttempt > GITHUB_REVIEW_RECOVERY_MAX_ATTEMPTS) {
+      const warningMessage =
+        activeGitHubReviewContext.warningMessage ??
+        `GitHub review recovery exhausted ${String(GITHUB_REVIEW_RECOVERY_MAX_ATTEMPTS)} attempts at step ${lastCompletedStepPath.join('.') || 'start'} with status ${status}${typeof activeGitHubReviewContext.prNumber === 'number' ? ` for pull request #${String(activeGitHubReviewContext.prNumber)}` : ''}. The flow will continue without further external review processing.`;
+      activeGitHubReviewContext = {
+        ...activeGitHubReviewContext,
+        phase: 'skipped',
+        retryAttempt,
+        warningMessage,
+      };
+      activeWait = undefined;
+      await appendGitHubStagePlanNote(warningMessage);
+      await emitGitHubStepWarning({
+        instruction: 'GitHub review recovery',
+        message: warningMessage,
+      });
+      append({
+        level: 'warn',
+        message: 'flows.github.review_failure.recovery_exhausted',
+        timestamp: flowWaitResumeDeps.nowIso(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          retryAttempt,
+          maxAttempts: GITHUB_REVIEW_RECOVERY_MAX_ATTEMPTS,
+          stepPath: lastCompletedStepPath,
+          status,
+          prNumber: activeGitHubReviewContext.prNumber ?? null,
+        },
+      });
+      return 'ok';
+    }
     const retryDelayMs = Math.min(
       30_000 * 2 ** Math.min(retryAttempt - 1, 5),
       15 * 60_000,
@@ -5934,6 +6020,17 @@ async function runFlowUnlocked(params: {
     );
     pendingLoopControl = null;
     continueBoundaryLoopKey = null;
+  };
+  const recoverGitHubReviewStepFailure = async (
+    status: TurnStatus,
+    nextPath: number[],
+  ): Promise<FlowStepOutcome | null> => {
+    const recoveryOutcome = await recoverGitHubReviewFailure(status);
+    if (recoveryOutcome !== 'ok') return recoveryOutcome;
+    lastCompletedStepPath = nextPath;
+    clearContinueBoundaryForActiveLoop();
+    await persistRuntimeResumeState(lastCompletedStepPath);
+    return null;
   };
   const stopAfterSuccessfulStepIfPendingCancel = async (stepParams: {
     checkpoint: string;
@@ -7087,7 +7184,35 @@ async function runFlowUnlocked(params: {
     step: FlowIfStep,
     command: TurnCommandMetadata,
     nextPath: number[],
+    resumeBranchPath?: number[] | null,
   ): Promise<FlowStepOutcome> => {
+    if (resumeBranchPath && resumeBranchPath.length > 0) {
+      const nestedResume = getNestedResumeSteps(step, resumeBranchPath);
+      if (!nestedResume) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'resumeStepPath contains an invalid conditional branch path',
+        );
+      }
+      const branchIndex = resumeBranchPath[0];
+      await validateCommandSteps({
+        flowName: params.flowName,
+        steps: nestedResume.steps,
+        flowsRoot: params.repositoryContext.flowSourceId
+          ? path.resolve(params.repositoryContext.flowSourceId, 'flows')
+          : flowsDirForRun(),
+        sourceId: params.repositoryContext.flowSourceId,
+        agentByName,
+        repositoryContext: params.repositoryContext,
+        resumeStepPath: nestedResume.resumeStepPath,
+      });
+      return runSteps(
+        nestedResume.steps,
+        [...nextPath, branchIndex],
+        nestedResume.resumeStepPath,
+      );
+    }
+
     const result = await runSharedDecisionStep({
       kind: 'if',
       decisionInput: step.condition,
@@ -7157,27 +7282,17 @@ async function runFlowUnlocked(params: {
       return 'failed';
     }
 
-    return runSteps(branch, nextPath, null);
+    const branchIndex =
+      result.answer === 'yes'
+        ? FLOW_IF_THEN_RESUME_INDEX
+        : FLOW_IF_ELSE_RESUME_INDEX;
+    return runSteps(branch, [...nextPath, branchIndex], null);
   };
 
   const runWaitStep = async (
     step: FlowWaitStep,
     nextPath: number[],
   ): Promise<'ok' | 'paused'> => {
-    if (activeGitHubReviewContext?.phase === 'skipped') {
-      append({
-        level: 'info',
-        message: 'flows.wait.skipped_after_github_review_skip',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          conversationId: params.conversationId,
-          stepPath: nextPath,
-        },
-      });
-      return 'ok';
-    }
     const resumeAt = flowWaitResumeDeps.now() + step.seconds * 1000;
     activeWait = {
       kind: 'authored_wait',
@@ -7350,11 +7465,12 @@ async function runFlowUnlocked(params: {
     }
   };
 
-  const markGitHubReviewCycleSkipped = () => {
+  const markGitHubReviewCycleSkipped = (warningMessage: string) => {
     activeGitHubReviewContext = {
       executionId: params.executionId,
       phase: 'skipped',
       retryAttempt: 0,
+      warningMessage,
     };
   };
 
@@ -7502,7 +7618,11 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      markGitHubReviewCycleSkipped();
+      if (activeGitHubReviewContext?.prNumber) {
+        activeGitHubReviewContext.warningMessage = warningMessage;
+        return 'warning';
+      }
+      markGitHubReviewCycleSkipped(warningMessage);
       return 'ok';
     }
     if (context.kind !== 'ok') {
@@ -7512,7 +7632,43 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      markGitHubReviewCycleSkipped();
+      if (activeGitHubReviewContext?.prNumber) {
+        activeGitHubReviewContext.warningMessage = warningMessage;
+        return 'warning';
+      }
+      markGitHubReviewCycleSkipped(warningMessage);
+      return 'ok';
+    }
+    if (
+      activeGitHubReviewContext?.phase === 'opened' &&
+      typeof activeGitHubReviewContext.prNumber === 'number' &&
+      !activeGitHubReviewContext.storyNumber
+    ) {
+      const scratchOwnershipClaim = await claimGitHubReviewScratchOwnership({
+        repository: context.value.repository,
+        executionId: params.executionId,
+      });
+      if (scratchOwnershipClaim.kind !== 'ok') {
+        const warningMessage = `GitHub review stage could not restore scratch ownership for pull request #${String(activeGitHubReviewContext.prNumber)}: ${scratchOwnershipClaim.message}`;
+        await appendGitHubStagePlanNote(warningMessage);
+        await emitGitHubStepWarning({
+          instruction: 'GitHub open PR step',
+          message: warningMessage,
+        });
+        activeGitHubReviewContext.warningMessage = warningMessage;
+        return 'warning';
+      }
+      activeGitHubReviewContext = {
+        ...activeGitHubReviewContext,
+        storyNumber: scratchOwnershipClaim.value.story_number,
+        branchName: scratchOwnershipClaim.value.branch_name,
+        selectorPath: buildGitHubReviewScratchPaths(
+          context.value.repository.workingRepositoryRoot,
+          scratchOwnershipClaim.value.story_number,
+        ).selectorPath,
+        handoffPath: scratchOwnershipClaim.value.handoff_path,
+        retryAttempt: 0,
+      };
       return 'ok';
     }
     const pushResult = await pushBranchToExistingUpstream({
@@ -7536,7 +7692,7 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      markGitHubReviewCycleSkipped();
+      markGitHubReviewCycleSkipped(warningMessage);
       return 'ok';
     }
     if (pushResult.kind !== 'ok') {
@@ -7546,7 +7702,7 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      markGitHubReviewCycleSkipped();
+      markGitHubReviewCycleSkipped(warningMessage);
       return 'ok';
     }
     const { title, body } = await buildGitHubReviewPullRequestContent({
@@ -7598,7 +7754,7 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub open PR step',
         message: failureMessage,
       });
-      markGitHubReviewCycleSkipped();
+      markGitHubReviewCycleSkipped(failureMessage);
       return 'ok';
     }
     if (createResult.createFailure) {
@@ -7635,19 +7791,26 @@ async function runFlowUnlocked(params: {
         prUrl: createResult.value.url,
       },
     });
+    activeGitHubReviewContext = {
+      executionId: params.executionId,
+      prNumber: createResult.value.number,
+      branchName: context.value.repository.upstreamBranch,
+      phase: 'opened',
+      retryAttempt: 0,
+    };
     const scratchOwnershipClaim = await claimGitHubReviewScratchOwnership({
       repository: context.value.repository,
       executionId: params.executionId,
     });
     if (scratchOwnershipClaim.kind !== 'ok') {
-      const warningMessage = `GitHub review stage skipped after PR open because scratch ownership failed: ${scratchOwnershipClaim.message}`;
+      const warningMessage = `GitHub review stage could not persist scratch ownership after opening pull request #${String(createResult.value.number)}: ${scratchOwnershipClaim.message}`;
       await appendGitHubStagePlanNote(warningMessage);
       await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
         message: warningMessage,
       });
-      markGitHubReviewCycleSkipped();
-      return 'ok';
+      activeGitHubReviewContext.warningMessage = warningMessage;
+      return 'warning';
     }
     activeGitHubReviewContext = {
       executionId: params.executionId,
@@ -9932,17 +10095,28 @@ async function runFlowUnlocked(params: {
           resumeIndex = undefined;
           continue;
         }
-        if (step.type !== 'startLoop') {
-          throw toFlowRunError(
-            'INVALID_REQUEST',
-            'resumeStepPath must reference loop steps for nested indices',
-          );
-        }
-        const outcome = await runStartLoopStep(
-          step,
-          nextPath,
-          resumePathRemaining.slice(1),
-        );
+        const nestedResumePath = resumePathRemaining.slice(1);
+        const outcome =
+          step.type === 'startLoop'
+            ? await runStartLoopStep(step, nextPath, nestedResumePath)
+            : step.type === 'if'
+              ? await runIfStep(
+                  step,
+                  buildFlowCommandMetadata({
+                    step,
+                    stepIndex: index + 1,
+                    totalSteps: steps.length,
+                    loopDepth: loopStack.length,
+                  }),
+                  nextPath,
+                  nestedResumePath,
+                )
+              : (() => {
+                  throw toFlowRunError(
+                    'INVALID_REQUEST',
+                    'resumeStepPath must reference loop or conditional branch steps for nested indices',
+                  );
+                })();
         resumePathRemaining = null;
         resumeIndex = undefined;
         if (outcome !== 'ok') return outcome;
@@ -9988,7 +10162,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.llm_step_state_advanced', {
@@ -10076,7 +10255,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10111,7 +10295,12 @@ async function runFlowUnlocked(params: {
         });
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         if (!shouldContinue) {
           clearContinueBoundaryForActiveLoop();
@@ -10175,11 +10364,19 @@ async function runFlowUnlocked(params: {
         const outcome = await runIfStep(step, command, nextPath);
         if (outcome !== 'ok') {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return outcome === 'failed' ||
-            outcome === 'warning' ||
-            outcome === 'stopped'
-            ? await recoverGitHubReviewFailure(outcome)
-            : outcome;
+          if (
+            outcome !== 'failed' &&
+            outcome !== 'warning' &&
+            outcome !== 'stopped'
+          ) {
+            return outcome;
+          }
+          const recovery = await recoverGitHubReviewStepFailure(
+            outcome,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10207,7 +10404,12 @@ async function runFlowUnlocked(params: {
         const status = await runGitHubOpenPrStep();
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10219,7 +10421,12 @@ async function runFlowUnlocked(params: {
         const status = await runGitHubFetchReviewsStep();
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10231,7 +10438,12 @@ async function runFlowUnlocked(params: {
         const status = await runGitHubClosePrStep();
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10278,7 +10490,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.command_step_state_advanced', {
@@ -10411,7 +10628,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10445,7 +10667,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
@@ -10487,7 +10714,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.subflow_step_state_advanced', {
@@ -10580,7 +10812,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return await recoverGitHubReviewFailure(status);
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+          );
+          if (recovery) return recovery;
+          continue;
         }
         lastCompletedStepPath = nextPath;
         appendFlowRuntimeDiagnostic('flows.test.reingest_step_state_advanced', {
@@ -10671,6 +10908,17 @@ async function runFlowUnlocked(params: {
         detail: `outcome=${outcome}`,
       });
       return 'failed';
+    }
+    if (activeGitHubReviewContext?.phase === 'skipped') {
+      const latestAssistantStatus = await latestAssistantStatusForConversation(
+        params.conversationId,
+      );
+      if (latestAssistantStatus !== 'warning') {
+        await emitGitHubStepWarning({
+          instruction: 'GitHub review cycle completion',
+          message: `Flow completed with warning: ${activeGitHubReviewContext.warningMessage ?? 'The optional GitHub review cycle was skipped after it could not complete safely.'}`,
+        });
+      }
     }
     params.onStopUnwindCheckpoint?.({
       checkpoint: 'runFlowUnlocked.return.ok',

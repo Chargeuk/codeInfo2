@@ -800,6 +800,77 @@ test('execution-scoped handoff refresh can preserve a newer selector owner while
   }
 });
 
+test('an older handoff publish cannot overwrite a newer selector claim during the read-write race', async () => {
+  const tempRepo = await createTempRepo();
+  const selectorPath = buildSelectorPath(tempRepo.repoRoot);
+  const oldHandoffPath = buildExecutionScopedHandoffPath(
+    tempRepo.repoRoot,
+    'old-racing',
+  );
+  let releaseOldHandoff!: () => void;
+  const oldHandoffMayContinue = new Promise<void>((resolve) => {
+    releaseOldHandoff = resolve;
+  });
+  let signalOldHandoffReached!: () => void;
+  const oldHandoffReached = new Promise<void>((resolve) => {
+    signalOldHandoffReached = resolve;
+  });
+
+  __setGitHubReviewDepsForTests({
+    rename: async (fromPath, toPath) => {
+      if (toPath === oldHandoffPath) {
+        signalOldHandoffReached();
+        await oldHandoffMayContinue;
+      }
+      await fs.rename(fromPath, toPath);
+    },
+  });
+
+  try {
+    const oldWrite = writeGitHubReviewScratch({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'old-racing',
+      pullRequest: {
+        number: 77,
+        url: 'https://github.com/example/repo/pull/77',
+        headRefName: 'feature/0000060-demo',
+        baseRefName: 'main',
+      },
+      artifact: {
+        repository: { owner: 'example', name: 'repo' },
+        pullRequest: {
+          number: 77,
+          url: 'https://github.com/example/repo/pull/77',
+          headRefName: 'feature/0000060-demo',
+          baseRefName: 'main',
+        },
+        fetchedAt: '2026-06-27T18:00:00Z',
+        reviews: [],
+        reviewComments: [],
+      },
+      preserveForeignSelectorOwnership: true,
+    });
+
+    await oldHandoffReached;
+    const newerClaim = await claimGitHubReviewScratchOwnership({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'new-racing',
+    });
+    assert.equal(newerClaim.kind, 'ok');
+    releaseOldHandoff();
+    const oldResult = await oldWrite;
+    assert.equal(oldResult.kind, 'ok');
+
+    const selector = JSON.parse(
+      await fs.readFile(selectorPath, 'utf8'),
+    ) as GitHubReviewScratchSelector;
+    assert.equal(selector.execution_id, 'new-racing');
+  } finally {
+    releaseOldHandoff();
+    await tempRepo.cleanup();
+  }
+});
+
 test('resumed scratch path reconstruction rejects drifted persisted selector and handoff hints before any reread', async () => {
   const tempRepo = await createTempRepo();
   try {

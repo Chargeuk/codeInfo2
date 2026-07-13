@@ -135,6 +135,44 @@ test('a stale lock is replaced and released by its new owner', async () => {
   }
 });
 
+test('a stale recovery owner is reclaimed without waiting for lock timeout', async () => {
+  const parent = await fs.mkdtemp(path.join(tmpdir(), 'codeinfo-lock-test-'));
+  const lockPath = path.join(parent, 'lock');
+  const recoveryPath = `${lockPath}.recovery`;
+  await fs.mkdir(lockPath);
+  await fs.writeFile(
+    path.join(lockPath, 'owner.json'),
+    JSON.stringify({ pid: 999_998, token: 'stale-lock' }),
+  );
+  await fs.writeFile(
+    recoveryPath,
+    JSON.stringify({
+      pid: 999_999,
+      token: 'stale-recovery',
+      startedAt: new Date().toISOString(),
+    }),
+  );
+  let sleeps = 0;
+
+  try {
+    const lock = await acquireTestDockerLock({
+      lockPath,
+      timeoutMs: 100,
+      intervalMs: 1,
+      pidAlive: () => false,
+      sleep: async () => {
+        sleeps += 1;
+      },
+    });
+    assert.equal(sleeps, 0);
+    assert.notEqual(lock.token, 'stale-lock');
+    await lock.release();
+    await assert.rejects(fs.access(recoveryPath), { code: 'ENOENT' });
+  } finally {
+    await fs.rm(parent, { recursive: true, force: true });
+  }
+});
+
 test('an active lock is respected before stale-owner recovery', async () => {
   const parent = await fs.mkdtemp(path.join(tmpdir(), 'codeinfo-lock-test-'));
   const lockPath = path.join(parent, 'lock');

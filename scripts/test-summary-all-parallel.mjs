@@ -76,9 +76,9 @@ Shared worker budget:
   - server:unit weight 12
   - client weight 3
   - e2e weight 3
-  - server:unit uses the computed shared budget directly and runs with
-    CODEINFO_TEST_TIMEOUT_MS=60000 so the concurrent server-unit leg gets a
-    larger absolute wait budget beside client, cucumber, and e2e
+  - server:unit defaults to one worker during the normal parallel run and uses
+    CODEINFO_TEST_TIMEOUT_MS=60000 so it remains isolated beside client,
+    cucumber, and e2e
   - set CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY to override the
     server:unit concurrency for stress or diagnosis runs
 `);

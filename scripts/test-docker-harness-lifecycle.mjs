@@ -205,6 +205,7 @@ export const acquireTestDockerLock = async ({
   sleep = wait,
   pidAlive = isProcessAlive,
   onWait,
+  recoveryStaleMs = 30_000,
 } = {}) => {
   const token = randomUUID();
   const ownerPath = path.join(lockPath, 'owner.json');
@@ -253,10 +254,36 @@ export const acquireTestDockerLock = async ({
     }
 
     if (!owner || !pidAlive(owner.pid)) {
+      const recoveryToken = randomUUID();
       try {
-        await fs.mkdir(recoveryPath);
+        await fs.writeFile(
+          recoveryPath,
+          `${JSON.stringify({ pid: process.pid, token: recoveryToken, startedAt: new Date().toISOString() })}\n`,
+          { encoding: 'utf8', flag: 'wx' },
+        );
       } catch (error) {
         if (error?.code !== 'EEXIST') throw error;
+        let recoveryOwner = null;
+        try {
+          recoveryOwner = JSON.parse(await fs.readFile(recoveryPath, 'utf8'));
+        } catch (readError) {
+          if (
+            readError?.code !== 'ENOENT' &&
+            readError?.name !== 'SyntaxError'
+          ) {
+            throw readError;
+          }
+        }
+        const recoveryStartedAt = Date.parse(recoveryOwner?.startedAt ?? '');
+        if (
+          !recoveryOwner ||
+          !pidAlive(recoveryOwner.pid) ||
+          !Number.isFinite(recoveryStartedAt) ||
+          Date.now() - recoveryStartedAt > recoveryStaleMs
+        ) {
+          await fs.rm(recoveryPath, { force: true });
+          continue;
+        }
         await sleep(intervalMs);
         continue;
       }
@@ -273,7 +300,17 @@ export const acquireTestDockerLock = async ({
           await fs.rm(lockPath, { recursive: true, force: true });
         }
       } finally {
-        await fs.rm(recoveryPath, { recursive: true, force: true });
+        let recoveryOwner = null;
+        try {
+          recoveryOwner = JSON.parse(await fs.readFile(recoveryPath, 'utf8'));
+        } catch (error) {
+          if (error?.code !== 'ENOENT' && error?.name !== 'SyntaxError') {
+            throw error;
+          }
+        }
+        if (recoveryOwner?.token === recoveryToken) {
+          await fs.rm(recoveryPath, { force: true });
+        }
       }
       continue;
     }

@@ -34,6 +34,7 @@ import {
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
 import {
+  __resetFlowWaitResumeDepsForTests,
   __getPersistedFreshRunRetryOwnershipCompletionForTests,
   __resetFreshRunRetryOwnershipCompletionForTests,
   startFlowRun,
@@ -382,6 +383,7 @@ afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetFreshRunRetryOwnershipCompletionForTests();
   __resetGitHubReviewDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
   await providerHomes?.cleanup();
   providerHomes = null;
 });
@@ -2099,7 +2101,7 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
     },
   );
 });
-test('github review skip publishes completed-with-warning and records a durable plan note', async () => {
+test('github review skip publishes a warning, records a durable plan note, and preserves a later authored wait', async () => {
   const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
   const repoRoot = await createGitHubReviewRepoFixture();
   enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
@@ -2109,7 +2111,10 @@ test('github review skip publishes completed-with-warning and records a durable 
     await writeFlowFile({
       flowsRoot: tempFlowsDir,
       flowName: 'github-skip',
-      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+      steps: [
+        { type: 'github_open_pr', label: 'Open PR' },
+        { type: 'wait', label: 'Unrelated authored wait', seconds: 60 },
+      ],
     });
 
     await startFlowRun({
@@ -2153,13 +2158,17 @@ test('github review skip publishes completed-with-warning and records a durable 
       warningTurn.content,
       /GitHub review stage skipped during PR open:/,
     );
+    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+      | { wait?: { stepPath?: number[] } }
+      | undefined;
+    assert.deepEqual(flowState?.wait?.stepPath, [1]);
   } finally {
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 
-test('github review open PR logs retry diagnostics and skips safely when post-create reconciliation exhausts all lookup attempts', async () => {
+test('github review open PR keeps the created identity when post-create reconciliation exhausts all lookup attempts', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-flow-'),
   );
@@ -2262,14 +2271,7 @@ test('github review open PR logs retry diagnostics and skips safely when post-cr
       }),
     });
 
-    await waitForTurns(
-      conversationId,
-      (turns) =>
-        turns.some(
-          (turn) => turn.role === 'assistant' && turn.status === 'warning',
-        ),
-      4000,
-    );
+    await waitForConversationUnlocked(conversationId);
 
     const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
       (turn) => turn.role === 'assistant',
@@ -2277,7 +2279,7 @@ test('github review open PR logs retry diagnostics and skips safely when post-cr
     const warningTurns = assistantTurns.filter(
       (turn) => turn.status === 'warning',
     );
-    assert.equal(warningTurns.length, 1);
+    assert.equal(warningTurns.length, 0);
     const retryLogs = query({
       text: 'flows.github.open_pr.lookup_retry_failed',
     }).filter(
@@ -2285,21 +2287,23 @@ test('github review open PR logs retry diagnostics and skips safely when post-cr
     );
     assert.deepEqual(
       retryLogs.map((entry) => entry.context?.waitMs),
-      [0, 1000, 2000, 5000],
+      [0, 1000, 2000, 5000, 10000],
     );
 
     assert.equal(
       assistantTurns.some((turn) => turn.status === 'failed'),
       false,
     );
-    assert.match(
-      warningTurns[0]?.content ?? '',
-      /Final lookup failure 5 after 10s/i,
-    );
-    assert.match(
-      warningTurns[0]?.content ?? '',
-      /stderr: lookup attempt 5 failed/i,
-    );
+    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+      | {
+          githubReviewContext?: {
+            prNumber?: number;
+            phase?: string;
+          };
+        }
+      | undefined;
+    assert.equal(flowState?.githubReviewContext?.prNumber, 206);
+    assert.equal(flowState?.githubReviewContext?.phase, 'opened');
 
     const planRaw = await fs.readFile(
       path.join(
@@ -2308,9 +2312,12 @@ test('github review open PR logs retry diagnostics and skips safely when post-cr
       ),
       'utf8',
     );
-    assert.match(planRaw, /GitHub review stage failed during PR open\./);
-    assert.match(planRaw, /Lookup retry warning 4 after 5s:/);
-    assert.match(planRaw, /Final lookup failure 5 after 10s:/);
+    assert.doesNotMatch(planRaw, /GitHub review stage failed during PR open\./);
+    assert.match(
+      planRaw,
+      /GitHub review stage warning during PR open lookup retry 5 after waiting 10s:/,
+    );
+    assert.match(planRaw, /stderr: lookup attempt 5 failed/i);
   } finally {
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });

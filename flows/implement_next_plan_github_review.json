@@ -397,9 +397,16 @@
           "label": "Open GitHub Review Pull Request"
         },
         {
-          "type": "wait",
-          "label": "Wait For External GitHub Review Feedback",
-          "seconds": 900
+          "type": "if",
+          "label": "Only Wait When The GitHub Review Cycle Is Active",
+          "condition": "scripts/flow_control/check_github_review_cycle_active.py",
+          "then": [
+            {
+              "type": "wait",
+              "label": "Wait For External GitHub Review Feedback",
+              "seconds": 900
+            }
+          ]
         },
         {
           "type": "github_fetch_reviews",

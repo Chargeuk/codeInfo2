@@ -183,13 +183,19 @@ describe('final task contract', () => {
     const reviewTaskUp = await read(
       'codeinfo_markdown/ensure_review_findings_became_tasks.md',
     );
-    assert.match(
-      reviewTaskUp,
-      /discovered supported full build when available, applicable startup, every relevant full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting/,
+    const supportedLifecycleInventory =
+      /its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted/g;
+    assert.equal(
+      [...reviewTaskUp.matchAll(supportedLifecycleInventory)].length,
+      3,
     );
     assert.doesNotMatch(
       reviewTaskUp,
       /lint, formatting, build, runtime, and full-suite validation/,
+    );
+    assert.doesNotMatch(
+      reviewTaskUp,
+      /a discovered full build, applicable startup, relevant full-suite/,
     );
 
     const reviewEnhancementContract = await read(

@@ -1079,6 +1079,65 @@ test('prepareReviewBase consumes a pending cancel before starting review-base gi
   }
 });
 
+test('validateReviewArtifacts consumes a pending cancel without publishing or running later steps', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-validation-pending-cancel-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-validation-stop',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-codex-review', 'current-open-code-review'],
+        },
+        llmStep('must not run after stopped review validation'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'review-validation-stop',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({ conversationId, runToken });
+      },
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'stopped');
+    assert.equal(
+      executions.includes('must not run after stopped review validation'),
+      false,
+    );
+    assert.equal(
+      existsSync(
+        path.join(
+          repoDir,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-review-validation.json',
+        ),
+      ),
+      false,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('sourceId-only launches support prepareReviewBase and codexReview without working_folder', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-sourceid-review-steps-'),

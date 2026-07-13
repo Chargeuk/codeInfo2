@@ -5921,11 +5921,69 @@ async function runFlowUnlocked(params: {
       });
       return 'failed';
     }
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+      command,
+    });
+    const inflightSignal = inflightState.abortController.signal;
+    const consumePendingValidationStop = () => {
+      if (!params.runToken) return false;
+      const boundPending = bindPendingConversationCancelToInflight({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      if (!boundPending.ok) {
+        return false;
+      }
+
+      const aborted = abortInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+      if (!aborted.ok) return false;
+
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      return true;
+    };
+    if (consumePendingValidationStop()) {
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'stopped';
+    }
     try {
       const result = await validateReviewArtifacts({
         workingRepositoryPath: reviewRepositoryPath,
         pointerKeys: step.pointerKeys,
+        signal: inflightSignal,
       });
+      if (inflightSignal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5950,6 +6008,21 @@ async function runFlowUnlocked(params: {
       });
       return 'ok';
     } catch (error) {
+      if (
+        inflightSignal.aborted ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,

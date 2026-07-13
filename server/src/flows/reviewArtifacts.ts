@@ -1193,6 +1193,7 @@ export async function validateReviewArtifacts(
 
   const pointerResults: ReviewPointerValidationResult[] = [];
   for (const pointerKey of params.pointerKeys) {
+    params.signal?.throwIfAborted();
     const pointerPath = buildReviewArtifactPath({
       repoRoot,
       storyId,
@@ -1295,12 +1296,14 @@ export async function validateReviewArtifacts(
     !mainResult.usable &&
     usableResults.some((result) => result.pointer_key !== 'current-review')
   ) {
+    params.signal?.throwIfAborted();
     fallbackFindingsFile = await createFallbackCanonicalFindings({
       repoRoot,
       prepared: prepared.artifact,
       mainResult,
       declaredRepositoryScope,
     });
+    params.signal?.throwIfAborted();
   }
 
   const result: ReviewArtifactsValidationResult = {
@@ -1332,6 +1335,7 @@ export async function validateReviewArtifacts(
     'reviews',
     `${expected.review_session_id}-review-artifacts-validation.json`,
   );
+  params.signal?.throwIfAborted();
   await Promise.all([
     atomicWriteJson(stablePath, result),
     atomicWriteJson(versionedPath, result),

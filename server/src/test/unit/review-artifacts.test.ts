@@ -494,6 +494,65 @@ test('validateReviewArtifacts accepts one coherent server-owned review session',
   }
 });
 
+test('validateReviewArtifacts forwards cancellation to OCR and does not publish validation artifacts', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-abort-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const controller = new AbortController();
+    let observedSignal: AbortSignal | undefined;
+
+    await assert.rejects(
+      validateReviewArtifactsRaw(
+        {
+          workingRepositoryPath: repoRoot,
+          pointerKeys: ['current-open-code-review'],
+          signal: controller.signal,
+        },
+        {
+          runOcrCommand: async ({ signal }) => {
+            observedSignal = signal;
+            controller.abort();
+            signal?.throwIfAborted();
+          },
+        },
+      ),
+      (error: unknown) =>
+        typeof error === 'object' &&
+        error !== null &&
+        'name' in error &&
+        error.name === 'AbortError',
+    );
+
+    assert.equal(observedSignal, controller.signal);
+    await assert.rejects(
+      fs.access(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000013-current-review-validation.json',
+        ),
+      ),
+      { code: 'ENOENT' },
+    );
+    await assert.rejects(
+      fs.access(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          `${SESSION}-review-artifacts-validation.json`,
+        ),
+      ),
+      { code: 'ENOENT' },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('validateReviewArtifacts accepts an OCR range whose merge-base predates the prepared base', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-artifacts-diverged-base-'),

@@ -220,5 +220,5 @@ describe('Codex approval policy flag payloads', () => {
     await ensureAgentFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('approval-policy-select');
     await waitFor(() => expect(resetSelect).toHaveTextContent(/on request/i));
-  }, 10000);
+  });
 });

@@ -1460,7 +1460,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(
       screen.getByRole('combobox', { name: /sandbox mode/i }),
     ).toHaveTextContent(/workspace write/i);
-  }, 10000);
+  });
 
   it('clears hidden Codex draft values immediately when switching to Copilot', async () => {
     const user = userEvent.setup();
@@ -1741,7 +1741,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(
       screen.getByRole('combobox', { name: /sandbox mode/i }),
     ).toHaveTextContent(/workspace write/i);
-  }, 10000);
+  });
 
   it('keeps Provider/Model selects visible when models are empty', async () => {
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {

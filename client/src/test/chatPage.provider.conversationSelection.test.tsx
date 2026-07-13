@@ -817,7 +817,7 @@ describe('Chat shared shell conversation selection', () => {
     expect(
       screen.queryByRole('combobox', { name: /tool access/i }),
     ).not.toBeInTheDocument();
-  }, 10000);
+  });
 
   it('reloads LM Studio models and replaces a persisted Codex model label when the next-send provider changes after a stale LM Studio default response', async () => {
     const user = userEvent.setup();

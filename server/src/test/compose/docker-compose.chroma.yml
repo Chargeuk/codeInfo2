@@ -13,7 +13,7 @@ services:
     networks:
       - internal_docker
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v2/heartbeat']
+      test: ['CMD-SHELL', "grep -q '00000000:1F40' /proc/net/tcp"]
       interval: 5s
       timeout: 3s
       retries: 10

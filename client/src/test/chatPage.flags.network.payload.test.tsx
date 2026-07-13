@@ -216,5 +216,5 @@ describe('Codex network access flag payloads', () => {
     await ensureAgentFlagsPanelExpanded();
     const resetSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(resetSwitch).toBeChecked());
-  }, 10000);
+  });
 });

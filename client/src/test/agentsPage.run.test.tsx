@@ -1364,7 +1364,7 @@ describe('Agents page - run', () => {
     // New conversation action removed from Agents info; skip UI new-conversation path.
     // Instead, assert that reuse behavior worked for the selected conversation above.
     // Creating a new conversation is handled outside the Agents composer (Chat conversation controls).
-  }, 10000);
+  });
 
   it('preserves run state transitions for standard Send path', async () => {
     const user = userEvent.setup();
@@ -1457,5 +1457,5 @@ describe('Agents page - run', () => {
 
     await waitFor(() => expect(sendButton).toBeEnabled());
     expect(screen.queryByTestId('agents-run-error')).toBeNull();
-  }, 10000);
+  });
 });

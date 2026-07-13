@@ -3,11 +3,22 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runCommandsInParallel } from './test-summary-parallel-runner.mjs';
+import {
+  runCommand,
+  runCommandsInParallel,
+} from './test-summary-parallel-runner.mjs';
 import {
   allocateWeightedParallelBudget,
   formatWorkerSummaryLine,
 } from './test-parallelism.mjs';
+import {
+  TEST_DOCKER_TARGETS,
+  acquireTestDockerLock,
+  createComposeCommand,
+  listComposeProjectResources,
+  waitForHttpReadiness,
+  waitForProjectRemoval,
+} from './test-docker-harness-lifecycle.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -148,48 +159,137 @@ if (prebuild.exitCode !== 0) {
   process.exit(prebuild.exitCode);
 }
 
-const results = await runCommandsInParallel([
-  {
-    label: 'client',
-    cmd: 'npm',
-    args: [
-      'run',
-      'test:summary:client',
-      '--',
-      '--max-workers',
-      String(sharedParallelBudget.workerCounts.client),
-    ],
-    cwd: rootDir,
-    env: process.env,
-  },
-  {
-    label: 'server:unit',
-    cmd: 'npm',
-    args: ['run', 'test:summary:server:unit', '--', '--skip-build'],
-    cwd: rootDir,
-    env: {
-      ...process.env,
-      CODEINFO_SERVER_UNIT_CONCURRENCY: String(serverUnitConcurrency),
-      CODEINFO_TEST_TIMEOUT_MS: '60000',
-    },
-  },
-  {
-    label: 'server:cucumber',
-    cmd: 'npm',
-    args: ['run', 'test:summary:server:cucumber', '--', '--skip-build'],
-    cwd: rootDir,
-    env: process.env,
-  },
-  {
-    label: 'e2e',
-    cmd: 'npm',
-    args: ['run', 'test:summary:e2e', '--', '--skip-compose-build'],
-    cwd: rootDir,
-    env: {
-      ...process.env,
-      PLAYWRIGHT_WORKERS: String(sharedParallelBudget.workerCounts.e2e),
-    },
-  },
-]);
+const runLifecycleCommand = async (target, action) => {
+  const command = createComposeCommand({ rootDir, target, action });
+  const result = await runCommand({
+    ...command,
+    label: `${target}:compose:${action}`,
+  });
+  if (result.code !== 0) {
+    throw new Error(
+      `${target} Compose ${action} failed with exit code ${result.code}`,
+    );
+  }
+};
 
-process.exit(results.exitCode);
+const verifyProjectRemoved = async (target) => {
+  await waitForProjectRemoval({
+    projectName: TEST_DOCKER_TARGETS[target].projectName,
+    listResources: listComposeProjectResources,
+  });
+};
+
+const startedTargets = new Set();
+let dockerLock = null;
+let testsExitCode = 1;
+let lifecycleFailed = false;
+
+try {
+  dockerLock = await acquireTestDockerLock({
+    onWait: (owner) => {
+      console.log(
+        `[all:parallel] waiting_for_test_docker_lock owner_pid=${owner.pid}`,
+      );
+    },
+  });
+
+  for (const target of ['cucumber', 'e2e']) {
+    await runLifecycleCommand(target, 'down');
+    await verifyProjectRemoved(target);
+    startedTargets.add(target);
+    await runLifecycleCommand(target, 'up');
+    await waitForHttpReadiness({
+      urls: TEST_DOCKER_TARGETS[target].readyUrls,
+      onAttempt: ({ pending }) => {
+        if (pending.length > 0) {
+          console.log(
+            `[all:parallel] ${target}_readiness_pending=${pending.join(',')}`,
+          );
+        }
+      },
+    });
+    console.log(`[all:parallel] ${target}_infrastructure=ready`);
+  }
+
+  const results = await runCommandsInParallel([
+    {
+      label: 'client',
+      cmd: 'npm',
+      args: [
+        'run',
+        'test:summary:client',
+        '--',
+        '--max-workers',
+        String(sharedParallelBudget.workerCounts.client),
+      ],
+      cwd: rootDir,
+      env: process.env,
+    },
+    {
+      label: 'server:unit',
+      cmd: 'npm',
+      args: ['run', 'test:summary:server:unit', '--', '--skip-build'],
+      cwd: rootDir,
+      env: {
+        ...process.env,
+        CODEINFO_SERVER_UNIT_CONCURRENCY: String(serverUnitConcurrency),
+        CODEINFO_TEST_TIMEOUT_MS: '60000',
+      },
+    },
+    {
+      label: 'server:cucumber',
+      cmd: 'npm',
+      args: [
+        'run',
+        'test:summary:server:cucumber',
+        '--',
+        '--skip-build',
+        '--reuse-compose',
+      ],
+      cwd: rootDir,
+      env: process.env,
+    },
+    {
+      label: 'e2e',
+      cmd: 'npm',
+      args: [
+        'run',
+        'test:summary:e2e',
+        '--',
+        '--skip-compose-build',
+        '--reuse-compose',
+      ],
+      cwd: rootDir,
+      env: {
+        ...process.env,
+        PLAYWRIGHT_WORKERS: String(sharedParallelBudget.workerCounts.e2e),
+      },
+    },
+  ]);
+  testsExitCode = results.exitCode;
+} catch (error) {
+  lifecycleFailed = true;
+  console.error(
+    `[all:parallel] Docker lifecycle failed: ${
+      error instanceof Error ? error.stack : String(error)
+    }`,
+  );
+} finally {
+  for (const target of [...startedTargets].reverse()) {
+    try {
+      await runLifecycleCommand(target, 'down');
+      await verifyProjectRemoved(target);
+      console.log(`[all:parallel] ${target}_infrastructure=removed`);
+    } catch (error) {
+      lifecycleFailed = true;
+      console.error(
+        `[all:parallel] ${target} teardown failed: ${
+          error instanceof Error ? error.stack : String(error)
+        }`,
+      );
+    }
+  }
+  await dockerLock?.release();
+}
+
+process.exit(lifecycleFailed ? 1 : testsExitCode);

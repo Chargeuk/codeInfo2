@@ -803,7 +803,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
           | undefined
       )?.modelReasoningEffort,
     ).toBe('turbo-max');
-  }, 10000);
+  });
 
   it('logs deterministic T17 error and omits invalid reasoning payload when capabilities are empty', async () => {
     const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});

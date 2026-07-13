@@ -27,7 +27,7 @@ const resolvePlaywrightWorkers = () => {
 
 export default defineConfig({
   testDir: 'e2e',
-  outputDir: 'playwright-output',
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR ?? 'playwright-output',
   workers: resolvePlaywrightWorkers(),
   reporter: 'list',
   use: {

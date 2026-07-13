@@ -1,6 +1,7 @@
 import { TextDecoder, TextEncoder } from 'util';
 import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
 import {
   asFetchImplementation,
   getFetchMock,
@@ -17,6 +18,12 @@ import {
   installClientTestEnvGlobals,
   installClientTestProcessEnvIsolation,
 } from './support/processEnvIsolation';
+
+// The full stress harness deliberately saturates the host with server workers.
+// Keep Testing Library's polling budget aligned with the existing explicit
+// five-second waits so scheduled React effects are not limited by its one-second
+// default while the test host is under that load.
+configure({ asyncUtilTimeout: 5_000 });
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.

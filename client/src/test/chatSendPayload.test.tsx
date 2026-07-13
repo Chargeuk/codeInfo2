@@ -1181,4 +1181,4 @@ test('chat send payload omits hidden incompatible Codex values after switching t
   expect(submittedBody).not.toHaveProperty('modelReasoningEffort');
   expect(submittedBody).not.toHaveProperty('networkAccessEnabled');
   expect(submittedBody).not.toHaveProperty('webSearchEnabled');
-}, 10000);
+});

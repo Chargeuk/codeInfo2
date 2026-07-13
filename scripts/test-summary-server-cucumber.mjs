@@ -17,6 +17,14 @@ import {
   buildCucumberImportArgs,
   normalizeServerPath,
 } from './test-summary-server-cucumber-imports.mjs';
+import {
+  TEST_DOCKER_TARGETS,
+  acquireTestDockerLock,
+  createComposeCommand,
+  listComposeProjectResources,
+  waitForHttpReadiness,
+  waitForProjectRemoval,
+} from './test-docker-harness-lifecycle.mjs';
 
 const wrapper = createSummaryWrapperRun({
   wrapperName: 'server:cucumber',
@@ -57,6 +65,12 @@ const wrapper = createSummaryWrapperRun({
       description:
         'Reuse an existing server build instead of running npm run build --workspace server first.',
     },
+    {
+      name: 'reuse-compose',
+      type: 'boolean',
+      description:
+        'Use the already-ready Cucumber Compose project owned by the all-tests wrapper.',
+    },
   ],
   examples: [
     'node scripts/test-summary-server-cucumber.mjs --help',
@@ -85,6 +99,7 @@ const options = {
   features: parsedArgs.values.feature ?? [],
   scenario: parsedArgs.values.scenario ?? undefined,
   skipBuild: parsedArgs.values['skip-build'] ?? false,
+  reuseCompose: parsedArgs.values['reuse-compose'] ?? false,
 };
 
 const parseCucumberScenarioCounts = (output) => {
@@ -166,10 +181,8 @@ if (options.scenario) {
 const cucumberEnv = {
   ...process.env,
   CODEINFO_LOG_FILE_PATH: '../logs/server-cucumber.log',
-  // Match the server-unit wrapper's isolation contract so cucumber uses its
-  // scenario-owned containers instead of reusing ambient host services.
-  CODEINFO_CHROMA_URL: '',
-  CODEINFO_MONGO_URI: '',
+  // Use only the wrapper-owned Compose services, never ambient host services.
+  ...TEST_DOCKER_TARGETS.cucumber.env,
   CODEINFO_PLAYWRIGHT_MCP_URL:
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL ?? 'http://localhost:8932/mcp',
   TS_NODE_FILES: 'true',
@@ -187,27 +200,95 @@ let exitCode = buildResult.code;
 let output = buildResult.output;
 let cucumberForcedReason = '';
 let cucumberLastProgressLine = '';
-if (buildResult.code === 0) {
-  const cucumberResult = await runLoggedCommand({
-    cmd: 'cucumber-js',
-    args: cucumberArgs,
-    cwd: serverDir,
-    env: cucumberEnv,
+let setupFailed = false;
+let teardownFailed = false;
+let dockerLock = null;
+const cucumberDocker = TEST_DOCKER_TARGETS.cucumber;
+
+const runCompose = async (action) => {
+  const command = createComposeCommand({
+    rootDir: wrapper.rootDir,
+    target: 'cucumber',
+    action,
+  });
+  return runLoggedCommand({
+    ...command,
     logStream: wrapper.logStream,
     protocol: wrapper.protocol,
-    phase: 'test',
-    semanticProgressPatterns: [
-      /^[ \t]*[✖✔][ \t]+/,
-      /^\d+\s+scenarios?\s+\(/i,
-      /^\d+\s+steps?\s+\(/i,
-    ],
-    terminalSummaryPatterns: [/^\d+\s+scenarios?\s+\(/i, /^\d+\s+steps?\s+\(/i],
-    terminalSummaryGraceMs: CUCUMBER_TERMINAL_SUMMARY_GRACE_MS,
+    phase: `compose_${action}`,
   });
-  output += cucumberResult.output;
-  exitCode = cucumberResult.code;
-  cucumberForcedReason = cucumberResult.forcedReason ?? '';
-  cucumberLastProgressLine = cucumberResult.lastProgressLine ?? '';
+};
+
+try {
+  if (buildResult.code === 0 && !options.reuseCompose) {
+    dockerLock = await acquireTestDockerLock();
+    const downResult = await runCompose('down');
+    if (downResult.code !== 0) {
+      setupFailed = true;
+    } else {
+      await waitForProjectRemoval({
+        projectName: cucumberDocker.projectName,
+        listResources: listComposeProjectResources,
+      });
+      const upResult = await runCompose('up');
+      if (upResult.code !== 0) {
+        setupFailed = true;
+      } else {
+        await waitForHttpReadiness({ urls: cucumberDocker.readyUrls });
+      }
+    }
+  }
+
+  if (buildResult.code === 0 && !setupFailed) {
+    const cucumberResult = await runLoggedCommand({
+      cmd: 'cucumber-js',
+      args: cucumberArgs,
+      cwd: serverDir,
+      env: cucumberEnv,
+      logStream: wrapper.logStream,
+      protocol: wrapper.protocol,
+      phase: 'test',
+      semanticProgressPatterns: [
+        /^[ \t]*[✖✔][ \t]+/,
+        /^\d+\s+scenarios?\s+\(/i,
+        /^\d+\s+steps?\s+\(/i,
+      ],
+      terminalSummaryPatterns: [
+        /^\d+\s+scenarios?\s+\(/i,
+        /^\d+\s+steps?\s+\(/i,
+      ],
+      terminalSummaryGraceMs: CUCUMBER_TERMINAL_SUMMARY_GRACE_MS,
+    });
+    output += cucumberResult.output;
+    exitCode = cucumberResult.code;
+    cucumberForcedReason = cucumberResult.forcedReason ?? '';
+    cucumberLastProgressLine = cucumberResult.lastProgressLine ?? '';
+  } else if (setupFailed) {
+    exitCode = 1;
+  }
+} catch (error) {
+  setupFailed = true;
+  exitCode = 1;
+  const message = error instanceof Error ? error.stack : String(error);
+  wrapper.appendLogSection('Cucumber Docker lifecycle failure', message);
+} finally {
+  if (!options.reuseCompose && dockerLock) {
+    const downResult = await runCompose('down');
+    teardownFailed = downResult.code !== 0;
+    try {
+      await waitForProjectRemoval({
+        projectName: cucumberDocker.projectName,
+        listResources: listComposeProjectResources,
+      });
+    } catch (error) {
+      teardownFailed = true;
+      wrapper.appendLogSection(
+        'Cucumber Docker teardown verification failure',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    await dockerLock.release();
+  }
 }
 
 await wrapper.closeLog();
@@ -230,16 +311,19 @@ const { scenariosTotal, scenariosPassed, scenariosFailed } =
 const failingNames = parseFailureNames(output);
 const status = exitCode === 0 ? 'passed' : 'failed';
 const ambiguousCounts = status === 'passed' && scenariosTotal === 0;
-const finalReason =
-  cucumberForcedReason === 'terminal_summary_without_close'
-    ? 'terminal_summary_without_close'
-    : cucumberForcedReason === 'semantic_progress_stalled'
-      ? 'semantic_progress_stalled'
-      : status === 'passed'
-        ? ambiguousCounts
-          ? 'ambiguous_counts'
-          : 'clean_success'
-        : 'test_failed';
+const finalReason = setupFailed
+  ? 'compose_setup_failed'
+  : teardownFailed
+    ? 'compose_teardown_failed'
+    : cucumberForcedReason === 'terminal_summary_without_close'
+      ? 'terminal_summary_without_close'
+      : cucumberForcedReason === 'semantic_progress_stalled'
+        ? 'semantic_progress_stalled'
+        : status === 'passed'
+          ? ambiguousCounts
+            ? 'ambiguous_counts'
+            : 'clean_success'
+          : 'test_failed';
 
 console.log(`[server:cucumber] tests run: ${scenariosTotal}`);
 console.log(`[server:cucumber] passed: ${scenariosPassed}`);
@@ -252,7 +336,7 @@ if (failingNames.length > 0) {
 }
 
 wrapper.protocol.emitFinal({
-  status,
+  status: teardownFailed ? 'failed' : status,
   ambiguousCounts,
   reason: finalReason,
   extraFields:
@@ -262,4 +346,4 @@ wrapper.protocol.emitFinal({
       : {},
 });
 
-process.exit(exitCode);
+process.exit(exitCode === 0 && !teardownFailed ? 0 : 1);

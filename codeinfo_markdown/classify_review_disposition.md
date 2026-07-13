@@ -6,6 +6,9 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 <critical_rules>
 
+- Read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json` before classification. Continue only when validation passed for the exact canonical seven-digit story, plan, review session, review pass, parent execution, HEAD, and comparison base recorded by the canonical handoff.
+- Never infer, normalize, repair, or substitute machine identity fields. On mismatch, write only an incomplete/blocker disposition retaining the expected session and mismatch reason; do not classify mixed findings.
+
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before classifying the review.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
@@ -125,8 +128,13 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 {
   "schema_version": 1,
   "generated_at_utc": "<ISO-8601 UTC timestamp>",
+  "story_id": "<exact seven-digit story ID from the validated review session>",
   "story_number": "<story number from plan_path>",
   "plan_path": "<canonical plan path>",
+  "review_session_id": "<validated server-owned review session ID>",
+  "parent_execution_id": "<validated parent flow execution ID>",
+  "head_commit": "<validated full current repository HEAD>",
+  "comparison_base_commit": "<validated full current repository comparison base>",
   "review_cycle_id": "<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>",
   "review_handoff_path": "codeInfoTmp/reviews/<story-number>-current-review.json",
   "review_pass_id": "<review pass id or null>",

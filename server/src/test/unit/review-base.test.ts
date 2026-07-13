@@ -11,6 +11,44 @@ import {
 
 const HEAD_SHA = 'd30c1246d30c1246d30c1246d30c1246d30c1246';
 const BASE_SHA = 'a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2';
+const CONTEXT_SHA = 'c'.repeat(64);
+const PLAN_SHA = 'd'.repeat(64);
+
+const prepareReviewContext = async (params: {
+  repoRoot: string;
+  storyNumber: string;
+  planPath: string;
+  branch: string;
+}) => ({
+  artifactPath: path.join(
+    params.repoRoot,
+    'codeInfoTmp',
+    'reviews',
+    `${params.storyNumber}-current-review-context.json`,
+  ),
+  artifact: {
+    schema_version: 'codeinfo-review-context/v1' as const,
+    story_id: params.storyNumber,
+    plan_path: params.planPath,
+    branch: params.branch,
+    source_plan_sha256: PLAN_SHA,
+    context_sha256: CONTEXT_SHA,
+    sections: {
+      overview: {
+        source_heading: 'Overview',
+        markdown: '## Overview\n\nStory.',
+      },
+      acceptance_criteria: {
+        source_heading: 'Acceptance Criteria',
+        markdown: '## Acceptance Criteria\n\n- Works.',
+      },
+      out_of_scope: null,
+    },
+    excluded_paths: ['planning/**'],
+    warnings: [],
+    status: 'completed' as const,
+  },
+});
 
 test('prepareReviewBase writes a stable current-review-base artifact', async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'review-base-'));
@@ -61,10 +99,14 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       {
         workingRepositoryPath: repoRoot,
         outputKey: 'current-review-base',
+        parentExecutionId: 'execution-27',
+        initializeReviewPointers: true,
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:30:00.000Z'),
+        randomHex: () => 'c0ffee12',
       },
     );
 
@@ -73,9 +115,25 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       '0000027-current-review-base.json',
     );
     assert.equal(result.artifact.story_id, '0000027');
+    assert.equal(result.artifact.parent_execution_id, 'execution-27');
+    assert.equal(
+      result.artifact.review_session_id,
+      '0000027-rs-20260705T163000Z-d30c1246d3-c0ffee12',
+    );
+    assert.equal(
+      result.artifact.review_pass_id,
+      '0000027-20260705T163000Z-d30c1246d3-c0ffee12',
+    );
     assert.equal(result.artifact.comparison_base_ref, 'origin/main');
     assert.equal(result.artifact.comparison_base_commit, BASE_SHA);
     assert.equal(result.artifact.remote_fetch_status, 'success');
+    assert.equal(
+      result.artifact.review_context_file,
+      'codeInfoTmp/reviews/0000027-current-review-context.json',
+    );
+    assert.equal(result.artifact.review_context_sha256, CONTEXT_SHA);
+    assert.equal(result.artifact.review_context_source_plan_sha256, PLAN_SHA);
+    assert.deepEqual(result.artifact.review_excluded_paths, ['planning/**']);
 
     const loaded = await readPreparedReviewBase(
       {
@@ -85,10 +143,44 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       },
       {
         execFile,
+        prepareReviewContext,
       },
     );
     assert.ok(loaded);
     assert.equal(loaded?.artifact.comparison_base_ref, 'origin/main');
+
+    const pendingMain = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-review.json',
+        ),
+        'utf8',
+      ),
+    ) as { review_session_id: string; status: string };
+    const pendingCodex = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-codex-review.json',
+        ),
+        'utf8',
+      ),
+    ) as { canonical_review_pass_id: string; status: string };
+    assert.equal(
+      pendingMain.review_session_id,
+      result.artifact.review_session_id,
+    );
+    assert.equal(pendingMain.status, 'preparing');
+    assert.equal(
+      pendingCodex.canonical_review_pass_id,
+      result.artifact.review_pass_id,
+    );
+    assert.equal(pendingCodex.status, 'pending');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -150,6 +242,7 @@ test('prepareReviewBase resolves the git toplevel before reading flow-state file
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:30:30.000Z'),
       },
     );
@@ -221,6 +314,7 @@ test('prepareReviewBase uses a cached remote-tracking ref when fetch fails', asy
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:00.000Z'),
       },
     );
@@ -293,6 +387,7 @@ test('prepareReviewBase redacts credentials from persisted remote fetch errors',
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:30.000Z'),
       },
     );
@@ -369,6 +464,7 @@ test('prepareReviewBase redacts query-string secrets from persisted remote fetch
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:35.000Z'),
       },
     );
@@ -457,6 +553,7 @@ test('prepareReviewBase uses cached origin HEAD when fetch fails', async () => {
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:15.000Z'),
       },
     );
@@ -546,6 +643,7 @@ test('prepareReviewBase falls back to branched_from when origin HEAD is unavaila
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:20.000Z'),
       },
     );
@@ -626,6 +724,7 @@ test('prepareReviewBase prefers a nonstandard branched_from before generic defau
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:25.000Z'),
       },
     );
@@ -712,6 +811,7 @@ test('prepareReviewBase still uses cached remote parent refs after fetch failure
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:30.000Z'),
       },
     );
@@ -788,6 +888,7 @@ test('prepareReviewBase falls back to the default branch when HEAD no longer des
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:35.000Z'),
       },
     );
@@ -872,6 +973,7 @@ test('prepareReviewBase does not treat a feature branched_from as the default-br
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:31:40.000Z'),
       },
     );
@@ -953,6 +1055,7 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
       },
       {
         execFile,
+        prepareReviewContext,
         now: () => new Date('2026-07-05T16:32:00.000Z'),
       },
     );

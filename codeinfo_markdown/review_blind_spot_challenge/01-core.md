@@ -9,8 +9,10 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 - When a challenge depends on a task-specific promise, request only that task's relevant named sections with `plan_sections.py --task-number <number>`.
 - After deriving the story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When it exists, preserve that artifact's current-repository comparison metadata as authoritative context for this challenge.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and use only the artifacts referenced there.
+- Require exact equality with the prepared base for canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit`. Never infer or normalize these identity fields.
+- Re-check the active session before atomically updating the stable pointer. Stop rather than overwriting a newer session.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
-- Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the evidence, findings, optional saturation artifact, current-plan handoff, and direct git state to infer the safest usable meaning.
+- Interpret optional descriptive metadata semantically when needed, but never infer or repair story/session/pass/HEAD/base identity.
 - If the review handoff cannot provide the minimum usable findings/rejected-risk context and repository scope even after safe inference, write a visible incomplete challenge outcome when enough path information exists and do not ask for repeated regeneration.
 - This step does not edit the canonical plan.
 - This step does not replace the findings pass. It either strengthens confidence in a no-findings conclusion or produces late findings that the disposition step must honor.

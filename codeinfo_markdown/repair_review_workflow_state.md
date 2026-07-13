@@ -4,6 +4,8 @@ Repair broken review-loop flow state for the current story so review exit routin
 
 <critical_rules>
 
+- Treat canonical seven-digit story ID, review session, review pass, parent execution, HEAD, and comparison base as non-inferable identity. Do not guess between alternate prefixes or latest artifacts. Preserve a blocker state unless one exact server-validated session can be selected deliberately.
+
 - Run `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` before making any repair decision, and use its JSON output as the source of truth for what needs repair when it returns usable output.
 - Only if manual fallback is required may you inspect `codeInfoStatus/flow-state/current-plan.json` or `codeInfoStatus/flow-state/review-disposition-state.json` directly to determine repair state.
 - Perform a manual fallback only if `story_workflow_status.py` is missing, unreadable, cannot be invoked because Python is unavailable, exits before producing usable JSON, or returns empty or malformed output.

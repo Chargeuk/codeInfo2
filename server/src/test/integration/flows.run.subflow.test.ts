@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -252,6 +252,21 @@ const subflowStep = (label: string, ...flowNames: string[]) => ({
   flowNames,
 });
 
+const REVIEW_PLAN_MARKDOWN = `# Story 27
+
+## Description
+
+Review the intended behavior.
+
+## Acceptance Criteria
+
+- The review completes.
+
+## Out Of Scope
+
+- Planning file review.
+`;
+
 const writeExecutable = async (filePath: string, content: string) => {
   await fs.writeFile(filePath, content, 'utf8');
   await fs.chmod(filePath, 0o755);
@@ -260,8 +275,7 @@ const writeExecutable = async (filePath: string, content: string) => {
 const codexReviewPointerPath = (
   repoDir: string,
   outputKey = 'current-codex-review',
-) =>
-  path.join(repoDir, 'codeInfoTmp', 'reviews', `0000027-${outputKey}.json`);
+) => path.join(repoDir, 'codeInfoTmp', 'reviews', `0000027-${outputKey}.json`);
 
 const initializeCodexReviewRepo = async (repoDir: string) => {
   await fs.mkdir(repoDir, { recursive: true });
@@ -276,10 +290,14 @@ const initializeCodexReviewRepo = async (repoDir: string) => {
   await fs.mkdir(path.join(repoDir, 'codeInfoStatus', 'flow-state'), {
     recursive: true,
   });
-  await fs.writeFile(path.join(repoDir, '.gitignore'), 'codeInfoTmp/\n', 'utf8');
+  await fs.writeFile(
+    path.join(repoDir, '.gitignore'),
+    'codeInfoTmp/\n',
+    'utf8',
+  );
   await fs.writeFile(
     path.join(repoDir, 'planning', '0000027-codex-review.md'),
-    '# Story 27\n',
+    REVIEW_PLAN_MARKDOWN,
     'utf8',
   );
   await fs.writeFile(
@@ -585,7 +603,7 @@ test('subflow forwards codexReviewModelId into child flows so codex_review can r
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -601,7 +619,6 @@ test('subflow forwards codexReviewModelId into child flows so codex_review can r
     await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
       cwd: repoDir,
     });
-
     await writeExecutable(
       path.join(binDir, 'codex'),
       `#!/usr/bin/env bash
@@ -773,7 +790,7 @@ test('codexReview ignores a stale pending cancel that belongs to a different run
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -883,7 +900,7 @@ test('prepareReviewBase consumes a pending cancel before starting review-base gi
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -982,7 +999,7 @@ test('sourceId-only launches support prepareReviewBase and codexReview without w
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1117,7 +1134,7 @@ test('local review-git flows fail instead of silently targeting the harness repo
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1302,7 +1319,9 @@ test('parent flows continue best-effort when child codexReview model requirement
         lockedModelId: null,
       }),
     });
-    await waitFor(() => executions.includes('parent after child codex model skip'));
+    await waitFor(() =>
+      executions.includes('parent after child codex model skip'),
+    );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -1352,7 +1371,9 @@ test('parent flows continue best-effort when child command steps are invalid', a
         lockedModelId: null,
       }),
     });
-    await waitFor(() => executions.includes('parent after child command failure'));
+    await waitFor(() =>
+      executions.includes('parent after child command failure'),
+    );
     const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
       assistantTurns.some(
@@ -1482,7 +1503,7 @@ test('resumed flows reuse persisted codexReviewModelId for pending codexReview s
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1579,7 +1600,17 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       'reviews',
       '0000027-current-codex-review.json',
     );
-    await waitFor(() => existsSync(pointerPath));
+    await waitFor(() => {
+      if (!existsSync(pointerPath)) return false;
+      try {
+        return (
+          (JSON.parse(readFileSync(pointerPath, 'utf8')) as { status?: string })
+            .status === 'completed'
+        );
+      } catch {
+        return false;
+      }
+    });
     const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
       model: string;
     };
@@ -1747,7 +1778,7 @@ test('prepareReviewBase can precede a parallel review subflow batch on the share
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1780,6 +1811,25 @@ done
 mkdir -p "$(dirname "$out")"
 printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
 `,
+    );
+
+    await fs.mkdir(path.join(repoDir, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(
+        repoDir,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        review_pass_id: '0000027-20260703T175948Z-f2f7904eb-stale',
+        head_commit: 'f'.repeat(40),
+        status: 'completed',
+      }),
+      'utf8',
     );
 
     await writeFlowFile({
@@ -1846,21 +1896,47 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       'reviews',
       '0000027-current-codex-review.json',
     );
-    await waitFor(() => existsSync(pointerPath));
+    await waitFor(() => {
+      if (!existsSync(pointerPath)) return false;
+      try {
+        return (
+          (JSON.parse(readFileSync(pointerPath, 'utf8')) as { status?: string })
+            .status === 'completed'
+        );
+      } catch {
+        return false;
+      }
+    });
     await waitForAssistantStatus(result.conversationId, 'ok');
     const preparedBase = JSON.parse(await fs.readFile(basePath, 'utf8')) as {
       comparison_base_ref?: string;
+      review_session_id?: string;
+      review_pass_id?: string;
     };
     const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
       comparison_base_ref?: string;
       model?: string;
       reasoning_effort?: string | null;
+      review_session_id?: string;
+      canonical_review_pass_id?: string;
     };
 
     assert.equal(preparedBase.comparison_base_ref, 'main');
     assert.equal(pointer.comparison_base_ref, 'main');
     assert.equal(pointer.model, 'gpt-5.4');
     assert.equal(pointer.reasoning_effort, 'medium');
+    assert.equal(pointer.review_session_id, preparedBase.review_session_id);
+    assert.equal(pointer.canonical_review_pass_id, preparedBase.review_pass_id);
+    assert.notEqual(
+      pointer.canonical_review_pass_id,
+      '0000027-20260703T175948Z-f2f7904eb-stale',
+    );
+    assert.equal(
+      (await fs.readdir(path.dirname(pointerPath))).some((name) =>
+        name.startsWith('13-'),
+      ),
+      false,
+    );
   } finally {
     process.env.PATH = previousPath;
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -1899,7 +1975,7 @@ test('parent step after a successful codexReview gets a fresh inflight id', asyn
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -2037,7 +2113,9 @@ test('codexReview steps skip cleanly when Codex is unavailable and later parent 
       }),
     });
 
-    await waitFor(() => executions.includes('parent after skipped codex review'));
+    await waitFor(() =>
+      executions.includes('parent after skipped codex review'),
+    );
     assert.equal(existsSync(pointerPath), false);
     const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
@@ -2173,7 +2251,9 @@ exit 1
       }),
     });
 
-    await waitFor(() => executions.includes('parent after failed codex review'));
+    await waitFor(() =>
+      executions.includes('parent after failed codex review'),
+    );
     assert.equal(existsSync(pointerPath), false);
     const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
@@ -2188,6 +2268,101 @@ exit 1
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     process.env.PATH = previousPath;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts stops the parent before later steps when a child session is stale', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-artifacts-validation-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    const headCommit = (
+      await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoDir })
+    ).stdout.trim();
+    const reviewDir = path.join(repoDir, 'codeInfoTmp', 'reviews');
+    await fs.mkdir(reviewDir, { recursive: true });
+    const identity = {
+      story_id: '0000027',
+      plan_path: 'planning/0000027-codex-review.md',
+      review_session_id: '0000027-rs-20260713T102726Z-d30c1246-session',
+      review_pass_id: '0000027-20260713T102726Z-d30c1246-session',
+      parent_execution_id: 'parent-execution-27',
+      head_commit: headCommit,
+      comparison_base_commit: headCommit,
+    };
+    await Promise.all([
+      fs.writeFile(path.join(reviewDir, 'evidence.md'), '# Evidence\n'),
+      fs.writeFile(path.join(reviewDir, 'findings.md'), '# Findings\n'),
+      fs.writeFile(path.join(reviewDir, 'codex.md'), '# Codex\n'),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-review-base.json'),
+        JSON.stringify({ ...identity, status: 'completed' }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-review.json'),
+        JSON.stringify({
+          ...identity,
+          evidence_file: 'codeInfoTmp/reviews/evidence.md',
+          findings_file: 'codeInfoTmp/reviews/findings.md',
+          status: 'completed',
+        }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-codex-review.json'),
+        JSON.stringify({
+          ...identity,
+          review_session_id: '0000027-rs-20260703T175948Z-f2f7904eb-stale',
+          canonical_review_pass_id: identity.review_pass_id,
+          review_output_file: 'codeInfoTmp/reviews/codex.md',
+          status: 'completed',
+        }),
+      ),
+    ]);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'validate-stale-review-session',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-review', 'current-codex-review'],
+        },
+        llmStep('must not run after stale review validation'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'validate-stale-review-session',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'failed');
+    assert.equal(
+      executions.includes('must not run after stale review validation'),
+      false,
+    );
+    const blocker = JSON.parse(
+      await fs.readFile(
+        path.join(reviewDir, '0000027-current-review-validation.json'),
+        'utf8',
+      ),
+    ) as { status?: string; errors?: string[] };
+    assert.equal(blocker.status, 'blocked');
+    assert.match(blocker.errors?.join('\n') ?? '', /review_session_id/u);
+  } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -2488,7 +2663,9 @@ test('subflow waits for the full child flow and still continues best-effort afte
       false,
     );
 
-    await waitFor(() => executions.includes('parent after later child failure'));
+    await waitFor(() =>
+      executions.includes('parent after later child failure'),
+    );
     const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
       assistantTurns.some(
@@ -2596,7 +2773,9 @@ test('subflow keeps the parent running when child flows reference each other rec
         }),
     });
 
-    await waitFor(() => executions.includes('parent after recursive child failure'));
+    await waitFor(() =>
+      executions.includes('parent after recursive child failure'),
+    );
     await waitForAssistantStatus(result.conversationId, 'ok');
 
     const childConversation = findChildFlowConversation({
@@ -3441,7 +3620,10 @@ test('resume tolerates stale subflows that have no active child run or terminal 
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    const finalAssistant = await waitForAssistantStatus(
+      parentConversationId,
+      'ok',
+    );
     assert.match(
       String(finalAssistant?.content ?? ''),
       /best effort: 0 succeeded, 1 failed/u,
@@ -3533,7 +3715,10 @@ test('resume tolerates stale legacy activeSubflow state that has no active child
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    const finalAssistant = await waitForAssistantStatus(
+      parentConversationId,
+      'ok',
+    );
     assert.match(
       String(finalAssistant?.content ?? ''),
       /best effort: 0 succeeded, 1 failed/u,
@@ -3632,7 +3817,10 @@ test('resume tolerates stale remembered subflows before launching missing parall
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    const finalAssistant = await waitForAssistantStatus(parentConversationId, 'ok');
+    const finalAssistant = await waitForAssistantStatus(
+      parentConversationId,
+      'ok',
+    );
     assert.match(
       String(finalAssistant?.content ?? ''),
       /best effort: 1 succeeded, 1 failed/u,

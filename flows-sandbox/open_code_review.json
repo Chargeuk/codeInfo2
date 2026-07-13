@@ -1,0 +1,18 @@
+{
+  "description": "Run a standalone Codex-owned Open Code Review without changing canonical review workflow state.",
+  "steps": [
+    {
+      "type": "prepareReviewBase",
+      "label": "Prepare Shared Review Base And Context",
+      "outputKey": "current-review-base",
+      "basePolicy": "branched_from_or_default_if_merged"
+    },
+    {
+      "type": "llm",
+      "label": "Run Standalone Open Code Review",
+      "agentType": "review_agent",
+      "identifier": "ocr_reviewer",
+      "markdownFile": "run_open_code_review.md"
+    }
+  ]
+}

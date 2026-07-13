@@ -8,6 +8,9 @@ Start the multi-step review sequence for the current story by gathering evidence
 - Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and treat it as the SOLE source of review scope for this flow.
 - Resolve the active `plan_path`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-evidence`. Use its repository scope, story contract, task index, and final-task proof packet before continuing.
 - After deriving the story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When that artifact exists, treat it as the authoritative current-repository comparison contract for this flow. Do not re-fetch or re-resolve the current repository base branch once that artifact has been loaded.
+- The prepared review base is also the server-owned review-session contract. Require its exact seven-digit `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `plan_path`, full `head_commit`, and `comparison_base_commit`. The bounded helper's `story_id` must match it exactly. Never use numeric `story_number` in an artifact path or generate a replacement session/pass ID.
+- Never infer, normalize, repair, or substitute story/session/pass/HEAD/base identity.
+- Before publishing the stable current-review handoff, re-read the prepared base and require the complete identity tuple to remain unchanged. Write the handoff atomically. If the active session changed, stop without overwriting the newer pointer.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it.
 - Use ONLY the current repository plus the repository paths extracted from `additional_repositories`. Do not invent additional repositories or plan files.
@@ -121,7 +124,7 @@ When `remote_fetch_status` is `fetch_failed`, the handoff may include `remote_fe
 13. Treat the hygiene sweep as first-class evidence even when the affected files are support files or formatting-only spillover.
 14. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
 15. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
-16. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+16. Use the exact `review_pass_id` and `review_session_id` minted by the prepared review base. Do not generate or sanitize a replacement identity.
 17. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, optional fetch-failed-only sanitized remote fetch errors, optional fetch-failed-only exit codes, local fallback reasons, comparison base refs, pinned comparison base commit IDs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
 18. When a `Runtime Contract Preservation Matrix` is required, include at least one concrete preserved-behavior proof source or one explicit weak-proof note for each affected behavior, such as startup, folder browsing, working-folder persistence, or default-path reachability.
 
@@ -144,7 +147,10 @@ The handoff file MUST contain at least:
 
 - `story_id`
 - `plan_path`
+- `review_session_id`
 - `review_pass_id`
+- `parent_execution_id`
+- top-level `head_commit` and `comparison_base_commit` copied exactly from the prepared review base
 - `evidence_file`
 - `findings_file` set to `null`
 - a `repos` array where each entry contains at least:
@@ -164,6 +170,8 @@ The handoff file MUST contain at least:
   - `comparison_head_ref`
   - `comparison_rule`
   - `head_commit`
+
+Set `status` to `completed`. Preserve the exact server-owned identity tuple, use the seven-digit `story_id` in the stable pointer path, and write the JSON atomically.
 
 Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the bounded review-evidence packet already defines a clearer repository name.
 

@@ -1,0 +1,12 @@
+{
+  "description": "Run Open Code Review against the active server-owned review session.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Run Session-Bound Open Code Review",
+      "agentType": "review_agent",
+      "identifier": "ocr_reviewer",
+      "markdownFile": "run_open_code_review.md"
+    }
+  ]
+}

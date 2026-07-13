@@ -17,6 +17,8 @@ Do not edit the canonical plan, code, tests, or other review artifacts in this s
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first and derive the story number from its canonical `plan_path`.
 - Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and treat it as the canonical review handoff.
 - Read `codeInfoTmp/reviews/<story-number>-current-codex-review.json` from disk and treat it as the sole pointer to the current Codex review output for this review pass.
+- Read `codeInfoTmp/reviews/<story-number>-current-review-base.json` and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`. Require validation `status: passed` and exact equality across the prepared base, canonical handoff, and Codex pointer for canonical seven-digit story, plan, session, canonical pass, parent execution, HEAD, and comparison-base identity.
+- Identity fields may not be inferred, normalized, sanitized, repaired, or selected from another artifact. On any mismatch, leave canonical findings unchanged and write only a blocker merge artifact.
 - Do not discover Codex review artifacts by timestamp, glob, or latest-file guessing.
 - Read the canonical `findings_file` referenced by the current review handoff before deciding what to merge.
 - Read the Codex review markdown referenced by `review_output_file` in the Codex pointer file before deciding what to merge.
@@ -97,6 +99,7 @@ Preserve all existing fields in both JSON handoff files unless this step explici
 
 - Confirm `current-plan.json` was read first.
 - Confirm the canonical current-review handoff was used as the only current-review pointer.
+- Confirm the server-owned post-join validation passed for this exact session.
 - Confirm the Codex pointer file was used as the only Codex-review pointer.
 - Confirm the canonical findings artifact was read before any merge decision.
 - Confirm no latest-file or timestamp discovery was used.

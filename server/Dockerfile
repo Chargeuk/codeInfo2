@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 ARG OPEN_CODE_REVIEW_REPOSITORY=https://github.com/Chargeuk/open-code-review.git
 ARG OPEN_CODE_REVIEW_REF=codex/fix-codex-owned-review
-ARG OPEN_CODE_REVIEW_COMMIT=7c2bf4a33435d5e2e3bf0d5845a16bccc252fbfe
+ARG OPEN_CODE_REVIEW_COMMIT=49df19810a5ef02ac07c308a5d4982fd50cb19d8
 
 FROM golang:1.25.5-bookworm AS open-code-review-build
 ARG OPEN_CODE_REVIEW_REPOSITORY
@@ -218,6 +218,7 @@ COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
 COPY AGENTS.md /app/AGENTS.md
 COPY planning /app/planning
+COPY scripts /app/scripts
 COPY codex_agents /app/codex_agents
 RUN cp -R /app/codex_agents /app/codeinfo_agents
 COPY flows /app/flows

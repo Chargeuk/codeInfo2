@@ -71,6 +71,7 @@ export type FlowPrepareReviewBaseStep = {
   label?: string;
   outputKey: string;
   basePolicy?: 'branched_from_or_default_if_merged';
+  initializeReviewPointers?: boolean;
 };
 
 export type FlowCodexReviewStep = {
@@ -81,6 +82,12 @@ export type FlowCodexReviewStep = {
   modelSource?: 'flow_request_or_step';
   model?: string;
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+};
+
+export type FlowValidateReviewArtifactsStep = {
+  type: 'validateReviewArtifacts';
+  label?: string;
+  pointerKeys: string[];
 };
 
 export type FlowSubflowStep = {
@@ -103,6 +110,7 @@ export type FlowStep =
   | FlowResetStep
   | FlowPrepareReviewBaseStep
   | FlowCodexReviewStep
+  | FlowValidateReviewArtifactsStep
   | FlowSubflowStep
   | FlowReingestStep;
 
@@ -186,6 +194,7 @@ const FlowPrepareReviewBaseStepSchema = z
     label: trimmedNonEmptyString.optional(),
     outputKey: trimmedNonEmptyString,
     basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
+    initializeReviewPointers: z.boolean().optional(),
   })
   .strict();
 
@@ -202,6 +211,27 @@ const FlowCodexReviewStepSchema = z
       .optional(),
   })
   .strict();
+
+const FlowValidateReviewArtifactsStepSchema = z
+  .object({
+    type: z.literal('validateReviewArtifacts'),
+    label: trimmedNonEmptyString.optional(),
+    pointerKeys: z.array(trimmedNonEmptyString).min(2),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.pointerKeys.forEach((pointerKey, index) => {
+      if (seen.has(pointerKey)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['pointerKeys', index],
+          message: `Duplicate review pointer key "${pointerKey}" is not allowed.`,
+        });
+      }
+      seen.add(pointerKey);
+    });
+  });
 
 const FlowSubflowStepSchema = z
   .object({
@@ -259,6 +289,7 @@ function flowStepUnionSchema() {
     FlowResetStepSchema,
     FlowPrepareReviewBaseStepSchema,
     FlowCodexReviewStepSchema,
+    FlowValidateReviewArtifactsStepSchema,
     FlowSubflowStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,

@@ -133,6 +133,7 @@ import {
   type FlowResetStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
+  type FlowValidateReviewArtifactsStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
@@ -154,6 +155,7 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
+import { validateReviewArtifacts } from './reviewArtifacts.js';
 import { prepareReviewBase } from './reviewBase.js';
 import type {
   FlowAgentState,
@@ -1699,6 +1701,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowResetStep
     | FlowPrepareReviewBaseStep
     | FlowCodexReviewStep
+    | FlowValidateReviewArtifactsStep
     | FlowSubflowStep
     | FlowReingestStep;
   stepIndex: number;
@@ -5525,6 +5528,8 @@ async function runFlowUnlocked(params: {
         workingRepositoryPath: reviewRepositoryPath,
         outputKey: step.outputKey,
         basePolicy: step.basePolicy,
+        parentExecutionId: params.executionId,
+        initializeReviewPointers: step.initializeReviewPointers,
         signal: inflightSignal,
       });
       if (inflightSignal.aborted) {
@@ -5754,6 +5759,10 @@ async function runFlowUnlocked(params: {
       });
       return 'ok';
     } catch (error) {
+      await clearCodexReviewPointerFile({
+        workingRepositoryPath: reviewRepositoryPath,
+        outputKey: step.outputKey,
+      }).catch(() => undefined);
       if (
         inflightSignal.aborted ||
         (error instanceof Error && error.name === 'AbortError')
@@ -5784,6 +5793,68 @@ async function runFlowUnlocked(params: {
         command,
       });
       return 'ok';
+    }
+  };
+
+  const runValidateReviewArtifactsStep = async (
+    step: FlowValidateReviewArtifactsStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    const instruction = 'Validate joined review artifacts';
+    if (!reviewRepositoryPath) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message:
+          'validateReviewArtifacts requires a resolved working repository path.',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+    try {
+      const result = await validateReviewArtifacts({
+        workingRepositoryPath: reviewRepositoryPath,
+        pointerKeys: step.pointerKeys,
+      });
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: [
+          'Validated joined review artifacts.',
+          `Review session: ${result.review_session_id}`,
+          `Pointers: ${result.pointer_files.join(', ')}`,
+        ].join('\n'),
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'ok';
+    } catch (error) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'validateReviewArtifacts failed unexpectedly.',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
     }
   };
 
@@ -6301,6 +6372,40 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.codexReview',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (step.type === 'validateReviewArtifacts') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            reviewPointerKeys: [...step.pointerKeys],
+          },
+        });
+        const status = await runValidateReviewArtifactsStep(step, command);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.validateReviewArtifacts',
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });

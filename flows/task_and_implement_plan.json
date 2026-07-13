@@ -503,12 +503,18 @@
               "type": "prepareReviewBase",
               "label": "Prepare Shared Review Base",
               "outputKey": "current-review-base",
-              "basePolicy": "branched_from_or_default_if_merged"
+              "basePolicy": "branched_from_or_default_if_merged",
+              "initializeReviewPointers": true
             },
             {
               "type": "subflow",
               "label": "Run Parallel Review Artifact Flows",
               "flowNames": ["review_artifacts_main", "codex_review"]
+            },
+            {
+              "type": "validateReviewArtifacts",
+              "label": "Validate Joined Review Artifacts",
+              "pointerKeys": ["current-review", "current-codex-review"]
             },
             {
               "type": "reset",

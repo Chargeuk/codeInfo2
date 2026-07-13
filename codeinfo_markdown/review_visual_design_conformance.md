@@ -32,6 +32,8 @@ If either the design assets or the screenshots cannot be found honestly from dis
 
 <critical_rules>
 
+- Require the current-review handoff to match the prepared review base exactly on canonical seven-digit story ID, plan, review session, review pass, parent execution, HEAD, and comparison base. Re-check the session before atomically updating the pointer; never overwrite a newer session.
+
 - Use fresh disk reads and current git state, not conversational memory.
 - Re-read `codeInfoStatus/flow-state/current-plan.json` first and use only its `plan_path` and `additional_repositories` as the active review scope.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before judging whether `Design Contract Present` is true. Request only a named task design packet when the review state identifies an owning task.

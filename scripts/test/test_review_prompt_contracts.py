@@ -17,6 +17,48 @@ def read_text(relative_path: str) -> str:
 
 
 class ReviewPromptContractTests(unittest.TestCase):
+    def test_internal_review_prompts_bind_to_server_owned_identity(self) -> None:
+        prompt_paths = (
+            "codeinfo_markdown/review_evidence_gate/01-core.md",
+            "codeinfo_markdown/code_review_findings/01-core.md",
+            "codeinfo_markdown/review_findings_saturation.md",
+            "codeinfo_markdown/review_blind_spot_challenge/01-core.md",
+        )
+        for prompt_path in prompt_paths:
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn("review_session_id", text)
+                self.assertIn("parent_execution_id", text)
+                self.assertIn("seven-digit", text)
+                self.assertRegex(text, r"(?i)(never|may not|do not).*infer")
+
+        merge_text = read_text(
+            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
+        )
+        classify_text = read_text(
+            "codeinfo_markdown/classify_review_disposition.md"
+        )
+        self.assertIn("current-review-validation.json", merge_text)
+        self.assertIn("current-review-validation.json", classify_text)
+        self.assertIn("review_session_id", classify_text)
+
+    def test_open_code_review_and_merge_preserve_validated_session_lineage(self) -> None:
+        review_text = read_text("codeinfo_markdown/run_open_code_review.md")
+        merge_text = read_text(
+            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
+        )
+        for required in (
+            "review_session_id",
+            "canonical_review_pass_id",
+            "parent_execution_id",
+            "planning/**",
+            "current-open-code-review.json",
+        ):
+            self.assertIn(required, review_text)
+            self.assertIn(required, merge_text)
+        self.assertIn("current-review-validation.json", merge_text)
+        self.assertIn("Origin: open_code_review", merge_text)
+
     def test_core_findings_prompt_defines_scope_impact_taxonomy(self) -> None:
         text = read_text("codeinfo_markdown/code_review_findings/01-core.md")
         self.assertIn("Scope Impact", text)

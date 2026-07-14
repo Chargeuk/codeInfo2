@@ -16,7 +16,7 @@ const trimmedNonEmptyString = z
   .transform((value) => value.trim())
   .refine((value) => value.length > 0);
 
-const isFlowDecisionScriptPath = (value: string): boolean => {
+export const isFlowDecisionScriptPath = (value: string): boolean => {
   const trimmed = value.trim();
   if (!trimmed.endsWith('.py') || path.isAbsolute(trimmed)) {
     return false;
@@ -47,8 +47,8 @@ export type FlowLlmStep = {
 export type FlowBreakStep = {
   type: 'break';
   label?: string;
-  agentType: string;
-  identifier: string;
+  agentType?: string;
+  identifier?: string;
   question: string;
   breakOn: 'yes' | 'no';
 };
@@ -56,8 +56,8 @@ export type FlowBreakStep = {
 export type FlowContinueStep = {
   type: 'continue';
   label?: string;
-  agentType: string;
-  identifier: string;
+  agentType?: string;
+  identifier?: string;
   question: string;
   continueOn: 'yes' | 'no';
 };
@@ -206,23 +206,58 @@ const FlowBreakStepSchema = z
   .object({
     type: z.literal('break'),
     label: trimmedNonEmptyString.optional(),
-    agentType: trimmedNonEmptyString,
-    identifier: trimmedNonEmptyString,
+    agentType: trimmedNonEmptyString.optional(),
+    identifier: trimmedNonEmptyString.optional(),
     question: trimmedNonEmptyString,
     breakOn: z.union([z.literal('yes'), z.literal('no')]),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasAgentType = typeof value.agentType === 'string';
+    const hasIdentifier = typeof value.identifier === 'string';
+    if (hasAgentType !== hasIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'break steps must provide both agentType and identifier together.',
+      });
+    }
+    if (!isFlowDecisionScriptPath(value.question) && !hasAgentType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'break steps that use the AI decision path must provide agentType and identifier.',
+      });
+    }
+  });
 
 const FlowContinueStepSchema = z
   .object({
     type: z.literal('continue'),
     label: trimmedNonEmptyString.optional(),
-    agentType: trimmedNonEmptyString,
-    identifier: trimmedNonEmptyString,
+    agentType: trimmedNonEmptyString.optional(),
+    identifier: trimmedNonEmptyString.optional(),
     question: trimmedNonEmptyString,
     continueOn: z.union([z.literal('yes'), z.literal('no')]),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasAgentType = typeof value.agentType === 'string';
+    const hasIdentifier = typeof value.identifier === 'string';
+    if (hasAgentType !== hasIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'continue steps must provide both agentType and identifier together.',
+      });
+    }
+    if (!isFlowDecisionScriptPath(value.question) && !hasAgentType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'continue steps that use the AI decision path must provide agentType and identifier.',
+      });
+    }
+  });
 
 const FlowCommandStepSchema = z
   .object({

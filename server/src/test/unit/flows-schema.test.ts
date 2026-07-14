@@ -1312,13 +1312,13 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('break requires agentType, identifier, question, and breakOn', () => {
+  test('AI-backed break requires agentType and identifier', () => {
     const json = JSON.stringify({
       steps: [
         {
           type: 'break',
+          question: 'Should the loop stop?',
           agentType: 'planning_agent',
-          identifier: 'loop',
           breakOn: 'yes',
         },
       ],
@@ -1328,13 +1328,13 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('continue requires agentType, identifier, question, and continueOn', () => {
+  test('AI-backed continue requires agentType and identifier', () => {
     const json = JSON.stringify({
       steps: [
         {
           type: 'continue',
+          question: 'Should the loop continue?',
           agentType: 'planning_agent',
-          identifier: 'loop',
           continueOn: 'yes',
         },
       ],
@@ -1342,6 +1342,27 @@ describe('flow schema (v1)', () => {
 
     const parsed = parseFlowFile(json);
     assert.equal(parsed.ok, false);
+  });
+
+  test('script-backed break and continue decisions do not require an AI agent', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'break',
+            question: 'flow-control/decision-yes.py',
+            breakOn: 'yes',
+          },
+          {
+            type: 'continue',
+            question: 'flow-control/decision-no.py',
+            continueOn: 'no',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
   });
 
   test('command requires agentType, identifier, and commandName', () => {

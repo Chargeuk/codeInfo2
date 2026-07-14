@@ -5049,7 +5049,10 @@ const collectDirectFlowAgentTypes = (
       (step.type === 'break' || step.type === 'continue') &&
       !isFlowDecisionScriptPath(step.question)
     ) {
-      names.add(step.agentType);
+      const agentType = step.agentType;
+      if (agentType) {
+        names.add(agentType);
+      }
       continue;
     }
     if (step.type === 'if') {

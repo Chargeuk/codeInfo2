@@ -23,7 +23,12 @@ import {
 import { append } from '../logStore.js';
 import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
-import { parseFlowFile, type FlowFile, type FlowStep } from './flowSchema.js';
+import {
+  isFlowDecisionScriptPath,
+  parseFlowFile,
+  type FlowFile,
+  type FlowStep,
+} from './flowSchema.js';
 import {
   buildRepositoryCandidateOrder,
   normalizeRepositoryCandidateLabel,
@@ -231,10 +236,17 @@ const collectAgentTypes = (params: {
   for (const step of params.steps) {
     switch (step.type) {
       case 'llm':
-      case 'break':
-      case 'continue':
       case 'command':
         names.add(step.agentType);
+        break;
+      case 'break':
+      case 'continue':
+        if (
+          step.agentType?.trim() &&
+          !isFlowDecisionScriptPath(step.question)
+        ) {
+          names.add(step.agentType);
+        }
         break;
       case 'if':
         if (step.agentType?.trim()) {

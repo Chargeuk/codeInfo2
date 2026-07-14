@@ -1,0 +1,90 @@
+{
+  "description": "Classify and durably record the already-generated current review artifacts without invoking reviewers again.",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Review Decision Recording Loop",
+      "steps": [
+        {
+          "type": "reset",
+          "label": "Reset planner for current review disposition pass",
+          "agentType": "planning_agent",
+          "identifier": "planner"
+        },
+        {
+          "type": "reset",
+          "label": "Reset lite planner for current review disposition pass",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite"
+        },
+        {
+          "type": "llm",
+          "label": "Load planner review context",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "load_planner_review_context.md"
+        },
+        {
+          "type": "llm",
+          "label": "Load lite planner review context",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
+          "markdownFile": "load_lite_planner_review_context.md"
+        },
+        {
+          "type": "llm",
+          "label": "Classify Review Disposition",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "classify_review_disposition.md"
+        },
+        {
+          "type": "llm",
+          "label": "Filter Review Findings To Story Scope",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "filter_review_findings_to_story_scope.md"
+        },
+        {
+          "type": "llm",
+          "label": "Promote Actionable Review Findings To Minor Path",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "promote_actionable_review_findings_to_minor_path.md"
+        },
+        {
+          "type": "llm",
+          "label": "Record Review Issue Decisions In Plan",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "continueOnFailure": true,
+          "markdownFile": "record_review_issue_decisions_in_plan.md"
+        },
+        {
+          "type": "llm",
+          "label": "Verify Review Issue Decisions Were Recorded",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "continueOnFailure": true,
+          "markdownFile": "verify_review_issue_decisions_recorded.md"
+        },
+        {
+          "type": "continue",
+          "label": "Retry Review Decisions Against Current Artifacts Unless Ready",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_decisions_need_retry.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+          "continueOn": "yes"
+        },
+        {
+          "type": "break",
+          "label": "Exit Review Decision Recording Loop When Ready",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Reply with the following exact JSON only: {\"answer\":\"yes\"}",
+          "breakOn": "yes"
+        }
+      ]
+    }
+  ]
+}

@@ -2975,6 +2975,76 @@ test('shared decision seam fails hard for an untracked script entrypoint', async
   );
 });
 
+test('shared decision seam rejects a tracked script symlink to an untracked target', async (t) => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const targetPath = path.join(
+        tmpDir,
+        'flow-control',
+        'decision-untracked-target.py',
+      );
+      const linkPath = path.join(
+        tmpDir,
+        'flow-control',
+        'decision-tracked-link.py',
+      );
+      await fs.writeFile(targetPath, 'print(\'{"answer":"yes"}\')\n', 'utf8');
+      try {
+        await fs.symlink('decision-untracked-target.py', linkPath);
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+            String((error as NodeJS.ErrnoException).code),
+          )
+        ) {
+          t.skip('symlink creation is not permitted in this environment');
+        }
+        throw error;
+      }
+      await execFileAsync(
+        'git',
+        ['add', 'flow-control/decision-tracked-link.py'],
+        { cwd: tmpDir },
+      );
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'tracked-symlink-untracked-target-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-tracked-link.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const result = await supertest(baseUrl)
+        .post('/flows/tracked-symlink-untracked-target-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /must be Git-tracked/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
 test('shared decision seam rejects script symlinks that escape the worked repository root', async (t) => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {

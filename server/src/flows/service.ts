@@ -4515,6 +4515,10 @@ const _evaluateScriptDecision = async (params: {
       reason: `Script path must resolve inside the worked repository root: ${params.scriptPath}`,
     };
   }
+  const resolvedScriptRelativePath = path.relative(
+    realWorkingRepositoryRoot,
+    realScriptPath,
+  );
   let fileContent: string;
   try {
     fileContent = await fs.readFile(realScriptPath, 'utf8');
@@ -4535,7 +4539,7 @@ const _evaluateScriptDecision = async (params: {
         'ls-files',
         '--error-unmatch',
         '--',
-        normalizedScriptPath,
+        resolvedScriptRelativePath,
       ],
       { windowsHide: true },
     );

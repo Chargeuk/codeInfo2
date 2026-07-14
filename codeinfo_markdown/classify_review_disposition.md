@@ -142,6 +142,13 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "findings_file": "<path or null>",
   "saturation_file": "<path or null>",
   "challenge_file": "<path or null>",
+  "review_decision_recording": {
+    "review_pass_id": "<exact current review pass id>",
+    "outcome": "pending",
+    "accepted_count": 0,
+    "ignored_count": 0,
+    "plan_commit_sha": null
+  },
   "repositories": [
     {
       "name": "<repo alias or path label>",
@@ -260,6 +267,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
 - `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no operationally blocked minor findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
+- Initialize `review_decision_recording` for every newly classified pass with the exact current `review_pass_id`, `outcome: "pending"`, zero counts, and `plan_commit_sha: null`. Never carry a recording outcome from an earlier pass into the current pass. The recorder and verifier own replacing this pending value before downstream review work begins.
 
 </state_field_rules>
 

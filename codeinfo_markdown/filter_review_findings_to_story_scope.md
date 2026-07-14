@@ -117,6 +117,7 @@ Reject a finding if any of the following are true.
 - After filtering findings, recompute every derived field in `review-disposition-state.json` that depends on finding buckets or review-loop closure state.
 - Do not leave stale booleans, stale counts, or stale loop-routing flags behind after moving, rejecting, or narrowing findings.
 - Preserve same-cycle fields that this step does not own semantically, but verify that any preserved field still remains consistent with the filtered findings state.
+- Preserve the classifier's current-pass `review_decision_recording` object unchanged. It must remain `pending` until the later recorder or verifier replaces it; this filtering step must never remove it or claim recording succeeded.
 
 At minimum, after any filtering change, recompute or revalidate all of the following:
 

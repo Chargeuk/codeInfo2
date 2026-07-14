@@ -1,8 +1,8 @@
 # Goal
 
-Preserve the external-review-specific adjudication trail after the generic review loop has finished its task routing.
+Preserve the external-review-specific adjudication trail after the external evidence, findings, saturation, and challenge artifacts are complete and before generic classification, plan recording, or implementation begins.
 
-This step is bookkeeping only. It must not create tasks, fix code, or change the generic review disposition state.
+This step is pre-routing bookkeeping only. It must not create tasks, fix code, or change the generic review disposition state. Its ordering ensures rejected and non-adopted external comments are available when the structured plan block is written.
 
 <critical_rules>
 
@@ -18,6 +18,7 @@ This step is bookkeeping only. It must not create tasks, fix code, or change the
 - Do not perform manual testing in this step.
 - If tracked files are changed, commit them before finishing this step.
 - Do not push.
+- Treat every bookkeeping limitation as recoverable flow input: make the safest bounded update available, report normally, and let generic classification continue from the existing validated artifacts. Do not deliberately fail the turn solely because this optional preservation step could not improve the trail.
 
 </critical_rules>
 
@@ -30,17 +31,17 @@ This step is bookkeeping only. It must not create tasks, fix code, or change the
   - comments rejected because they are invalid or unproven;
   - comments whose underlying issue was adopted as an endorsed finding but whose suggested remedy was rejected as out-of-scope for the story.
 - Keep the findings artifact local-only. Do not try to force it into tracked repository history.
-- If the canonical plan already contains a review-created `Code Review Findings` block or a `Post-Implementation Code Review` closeout for the current `review_pass_id`, add or repair one concise sentence stating that the outcome came from ingested external review comments and that the detailed accepted/rejected comment trail remains in the local review artifacts for this pass.
+- If the canonical plan already contains the structured `Code Review Findings` block or a `Post-Implementation Code Review` closeout for the current `review_pass_id`, add or repair one concise sentence stating that the outcome came from ingested external review comments. Keep the plan's accepted and ignored issue summaries intact, and state that the full comment-level adjudication trail remains in the local review artifacts for this pass.
 - Preserve local-fallback review-base context when it materially affects review confidence for the external pass.
 
 </adjudication_rules>
 
 <failure_modes>
 
-- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
+- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, make no changes and report normally that the current-plan handoff must be regenerated.
 - If the review handoff is missing, unreadable, or does not describe an external review ingestion pass clearly enough, make no changes and report that the external adjudication step was skipped.
 - If the findings artifact is missing or unreadable, make no artifact edits and report the limitation honestly.
-- If tracked plan edits succeed but commit fails, stop and report the failed commit command without pretending the bookkeeping change was committed.
+- If tracked plan edits succeed but commit fails, leave the honest edit in place and report the failed commit normally without pretending the bookkeeping change was committed.
 
 </failure_modes>
 

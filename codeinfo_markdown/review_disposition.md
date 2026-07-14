@@ -28,7 +28,7 @@ Finish the current story review using ONLY the stored review handoff and the art
 - Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
 - Do not reopen the story or create review-fix tasks solely from a finding whose exact `Scope Impact` is `cleanup_preference`, unless the review artifacts show a reproduced current-head failure, the active story explicitly asked for the cleanup, or the user explicitly approved that scope expansion.
 - If `Scope Impact` is missing, malformed, or unrecognized, treat it as `unknown_scope_impact`, continue disposition normally, and do not suppress the finding on that basis alone.
-- This is the only review step allowed to mutate plans.
+- In orchestrated review loops, `record_review_issue_decisions_in_plan.md` owns the pre-implementation `## Code Review Findings` decision block, and task-up owns any numbered review-created tasks that follow it. When this legacy standalone disposition prompt is invoked directly, it must apply that same recorder contract rather than create the retired terse findings summary.
 - This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
 
 </critical_rules>
@@ -78,9 +78,9 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 <disposition_rules>
 
 1. If any `must_fix` or `should_fix` findings exist, reopen the story in the canonical plan.
-2. Add a `Code Review Findings` summary section to the physical END of the canonical plan file.
-3. Add explicit follow-up tasks using the same structure as previous tasks immediately AFTER the newly added `Code Review Findings` so they form one contiguous appended block at the end of the file.
-4. Add a fresh full re-test/final validation task immediately after those review-fix tasks so the story must be revalidated against the acceptance criteria and the full current review-created findings block for this `review_pass_id`.
+2. Read and follow `$CODEINFO_ROOT/codeinfo_markdown/record_review_issue_decisions_in_plan.md`. Require exactly one structured `Code Review Findings` section for the current `review_pass_id`; reuse the pre-recorded block when it exists, or recover it once using that contract when a standalone or interrupted execution omitted it.
+3. Only when this legacy standalone prompt is invoked directly and routed `must_fix` or `should_fix` findings exist, add explicit follow-up tasks using the same structure as previous tasks immediately AFTER the existing current-pass `Code Review Findings` block so they form one contiguous appended block at the end of the file. In orchestrated review loops, leave task creation to task-up. For an ignored-only pass, preserve the structured findings block without creating tasks. Never append the retired terse summary format or a second findings block for the same pass.
+4. In that same standalone findings-present case, add a fresh full re-test/final validation task immediately after those review-fix tasks, so the story must be revalidated against the acceptance criteria and the full current review-created findings block for this `review_pass_id`.
 5. Update numbering and cross-references if needed.
 6. Every new review-fix task MUST name exactly one repository using `Repository Name`.
 7. For cross-repository findings, keep the work in the one canonical plan but split it into repository-specific tasks and make sequencing explicit.
@@ -108,7 +108,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 22. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
 23. If an `optional_simplification` is deferred, record it in a short review note instead of reopening.
 24. This `optional_simplification` rule does not permit reopening an allowed support file for anything other than spelling, grammar, or wording corrections.
-25. If there are no findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
+25. If there are no accepted or ignored current-pass findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
     - the branch-vs-base checks performed across all repositories in scope;
     - whether each repository reviewed local `HEAD` against a remote-tracking review base or a local fallback, including the fallback reason when available;
     - the stored or inferred `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule` for every repository in scope;
@@ -133,7 +133,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 32. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
 33. Determine the review outcome primarily from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the findings artifact, trust the artifact and record the mismatch in the disposition notes.
 34. When the findings artifact communicates actionable `must_fix` or `should_fix` findings, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
-    - a new `Code Review Findings` section for the current `review_pass_id`;
+    - exactly one structured `Code Review Findings` section for the current `review_pass_id`, recorded before implementation with review identity, comparison context, accepted findings, and ignored-for-this-story findings;
     - at least one new review-created `Task Status: __to_do__` task that responds to the endorsed findings;
     - durable finding-to-task coverage inside those review-created tasks;
     - a fresh final re-test or revalidation task after those new review-fix tasks.
@@ -141,8 +141,8 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 36. Before finalizing a findings-present plan, explicitly check whether any adjacent new review-created tasks inside the appended review-created block should be merged because they share repository ownership plus a repair seam, root cause, contract or lifecycle surface, prerequisite chain, or coherent proof story, even when they need multiple proof files. Also check whether any tiny low-risk cleanup-only tasks inside that same block should be absorbed into another new review-created task or grouped into one cleanup task instead of remaining separate.
 37. Before finalizing any merged or grouped review-created task, check that the combined task still has one clear stopping point, one coherent proof story, and no finding that was grouped only because it shares a repository or likely implementer.
 38. Do not repair fragmentation by absorbing work into pre-existing non-review-created story tasks. Keep the findings response self-contained inside the new appended review-created block.
-39. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
-40. When the findings artifact communicates no actionable findings after a complete review, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
+39. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Repair a missing current-pass findings block through `record_review_issue_decisions_in_plan.md`; never recreate the retired terse summary or duplicate an existing pass block. Do not leave a findings-present review pass encoded only in review artifacts.
+40. When a complete review produced ignored current-pass findings but no accepted findings, verify that the structured `Code Review Findings` block contains `- None.` under `Accepted`, records every current-pass ignored decision, and does not create implementation tasks solely for those ignored findings. Use the `Post-Implementation Code Review` path only when the complete review produced no accepted or ignored current-pass findings at all.
 41. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 42. If the findings artifact is missing, unreadable, or ambiguous even after safe inference from the handoff and referenced artifacts, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review. Do not create a no-findings close-out in that case.
 43. If a runtime-config or local-stack cleanup whose exact `Scope Impact` is `cleanup_preference` would change known-working behavior and the artifacts do not prove a current defect, do not convert that cleanup into a review-created task. Preserve it as non-actionable or leave it for explicit user-approved follow-up instead.
@@ -176,9 +176,10 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 <output_contract>
 
 - Produce the correct plan mutations for the findings outcome:
-  - reopen the canonical plan and add review-fix tasks when `must_fix` or `should_fix` findings exist;
+  - preserve or create exactly one structured current-pass findings decision block, then reopen the canonical plan and add review-fix tasks when `must_fix` or `should_fix` findings exist;
   - reopen or defer localized `optional_simplification` findings according to the rules above;
-  - append `Post-Implementation Code Review` when there are no findings;
+  - preserve the structured decision block without creating tasks when the pass has ignored findings only;
+  - append `Post-Implementation Code Review` when there are no accepted or ignored current-pass findings;
   - add a bounded incomplete-review follow-up task when the review outcome remains unclear after safe inference.
 - If this review mutates plans, commit only the resulting plan and code changes. Do not include the scratch review artifacts in the commit history.
 - Do not finish this step while the stored review handoff and the canonical plan disagree about whether actionable findings exist, unless the handoff outcome remains unclear after safe inference and the plan now records a bounded incomplete-review follow-up task.
@@ -198,7 +199,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 - Confirm the no-findings path, if used, carried forward sibling-scan or checked-defect-family reasoning from the saturation artifact when present, or from the findings artifact when the saturation artifact was absent.
 - Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.
 - Confirm scratch review artifacts are treated as local-only workflow files, the current-plan handoff is not mistaken for the review handoff, and the review handoff remains transient workflow state rather than a commit-worthy repository artifact.
-- Confirm that a findings-present pass left new review-created `__to_do__` tasks plus a final revalidation task in the plan, or that a no-findings pass left the required `Post-Implementation Code Review` section for the current `review_pass_id`.
+- Confirm that an accepted-findings pass left exactly one structured current-pass `Code Review Findings` block plus the required fix ownership and revalidation, that an ignored-only pass left exactly one structured decision block without tasks created for ignored findings, or that a genuine no-candidate pass left the required `Post-Implementation Code Review` section for the current `review_pass_id`.
 - Confirm that the fresh final revalidation task explicitly states that it revalidates the whole story plus the current review-created findings block for this `review_pass_id`, has only each worked-on repository's supported lint and formatting initial subtask types with unsupported commands omitted, and owns each such repository's full build, applicable startup, every relevant full suite, matching shutdown, supported lint, and supported formatting testing sequence.
 - Confirm that any findings-present pass kept `Testing` automated-only, used `Manual Testing Guidance` only as optional non-blocking guidance, and did not create subtasks that depend on future automated or manual proof output.
 - If the active plan explicitly names design-target assets intended as implementation references, confirm that any visual mismatch findings or comparison-proof gaps were either turned into review-created tasks or explicitly ruled out by direct screenshot-to-design comparison evidence when both the named design assets and usable retained screenshots existed.

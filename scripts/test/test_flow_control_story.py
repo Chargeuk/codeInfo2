@@ -101,6 +101,7 @@ class FlowControlPromptContractTests(unittest.TestCase):
         "Exit Minor-Fix Path Unless Minor Findings Remain",
         "Exit Minor-Fix Path After Sync Unless Another Minor Finding Remains",
         "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
+        "Restart Review Pass Unless Issue Decisions Are Ready",
         "Exit Review Loop After Serious Review Work Was Tasked Up",
         "Exit Review Loop When No Further Minor Rerun Is Needed",
     }

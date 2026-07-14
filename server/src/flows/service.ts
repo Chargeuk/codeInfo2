@@ -4427,6 +4427,15 @@ export const __readCurrentPlanStoryContextForTests = async (params: {
     const title =
       headingMatch?.[1]?.trim() ||
       path.basename(planPath, '.md').replace(/^\d+-/u, '').replace(/-/gu, ' ');
+    const storyRationale = (planRaw.split(/^### Description\s*$/mu)[1] ?? '')
+      .split(/^###\s/mu)[0]
+      ?.split(/\n\s*\n/u)
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(' ')
+      .replace(/\s+/gu, ' ')
+      .trim()
+      .slice(0, 1200);
     let implementationSummary: string[] = [];
     if (storyNumber) {
       const prSummaryPath = path.join(
@@ -4454,6 +4463,7 @@ export const __readCurrentPlanStoryContextForTests = async (params: {
       planPath,
       storyNumber,
       title,
+      ...(storyRationale ? { storyRationale } : {}),
       ...(implementationSummary.length > 0 ? { implementationSummary } : {}),
     };
   } catch {
@@ -7617,6 +7627,9 @@ async function runFlowUnlocked(params: {
       `Repository: ${paramsForPr.repositoryFullName}`,
       `Branch: ${paramsForPr.branchName}`,
       `Flow: ${params.flowName}`,
+      ...(storyContext?.storyRationale
+        ? ['', 'Story rationale:', `- ${storyContext.storyRationale}`]
+        : []),
       '',
       'Implemented work summary:',
       ...implementationSummary,

@@ -350,6 +350,12 @@ const createGitHubReviewRepoFixture = async (taskNumber = 4) => {
     [
       '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
       '',
+      '### Description',
+      '',
+      'This story adds generated GitHub review PRs so external feedback can assess bounded workflow changes.',
+      '',
+      'The implementation uses thin flow primitives and preserves unrelated workflow behavior.',
+      '',
       '### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints',
       '',
       '- Task Status: `__in_progress__`',
@@ -1084,21 +1090,6 @@ test('github PR open generates reviewer-facing title and body from active story 
     'CODEINFO_PR_TOKEN=secret\n',
     'utf8',
   );
-  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/pr-summaries'), {
-    recursive: true,
-  });
-  await fs.writeFile(
-    path.join(repoRoot, 'codeInfoStatus/pr-summaries/0000060-pr-summary.md'),
-    [
-      '## Final Summary',
-      '',
-      '1. Added persisted GitHub review waits and execution-scoped handoff ownership.',
-      '2. This was needed so outside review feedback can restart internal implementation safely.',
-      '3. Validated the server wrappers and the complete automated test surface.',
-      '',
-    ].join('\n'),
-    'utf8',
-  );
   await fs.writeFile(
     path.join(tempFlowsDir, 'github-open.json'),
     JSON.stringify(
@@ -1209,12 +1200,11 @@ test('github PR open generates reviewer-facing title and body from active story 
         'Story 0000060 review: Users can automate GitHub PR review cycles with conditional, script, and wait steps',
       );
       assert.match(body, /Implemented work summary:/);
-      assert.match(body, /Added persisted GitHub review waits/);
       assert.match(
         body,
-        /outside review feedback can restart internal implementation/,
+        /Story rationale:\n- This story adds generated GitHub review PRs so external feedback can assess bounded workflow changes\. The implementation uses thin flow primitives and preserves unrelated workflow behavior\./,
       );
-      assert.match(body, /complete automated test surface/);
+      assert.match(body, /current implementation pass for story 0000060/i);
       assert.match(
         body,
         /Do not request behavior changes outside the active story scope/,

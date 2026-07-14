@@ -2101,6 +2101,60 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
     },
   );
 });
+
+test('ingested flows execute with the agent configuration that made them discoverable', async () => {
+  await withMarkdownFlowHarness(
+    async ({
+      tempRoot,
+      buildRepoEntry,
+      writeFlowFile,
+      runFlow,
+    }) => {
+      const sourceRepo = path.join(tempRoot, 'repo-agent-owner');
+      const flowName = 'repository-agent-flow';
+      const conversationId = 'flow-repository-agent-owner';
+      const agentHome = path.join(
+        sourceRepo,
+        'codeinfo_agents',
+        'repository_agent',
+      );
+      await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+      await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+      await fs.writeFile(
+        path.join(agentHome, 'config.toml'),
+        ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+        'utf8',
+      );
+      await writeFlowFile({
+        flowsRoot: path.join(sourceRepo, 'flows'),
+        flowName,
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'repository_agent',
+            identifier: 'owner',
+            messages: [
+              { role: 'user', content: ['use the owning agent home'] },
+            ],
+          },
+        ],
+      });
+
+      const { messages } = await runFlow({
+        flowName,
+        conversationId,
+        sourceId: sourceRepo,
+        listedRepos: [buildRepoEntry(sourceRepo)],
+        turnsPredicate: (turns) =>
+          turns.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'ok',
+          ),
+      });
+
+      assert.deepEqual(messages, ['use the owning agent home']);
+    },
+  );
+});
 test('github review skip publishes a warning, records a durable plan note, and preserves a later authored wait', async () => {
   const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
   const repoRoot = await createGitHubReviewRepoFixture();

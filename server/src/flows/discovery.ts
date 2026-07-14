@@ -294,7 +294,7 @@ const collectFlowWarnings = async (params: {
   return warnings.size > 0 ? [...warnings] : undefined;
 };
 
-const resolveFlowAgentForDiscovery = async (params: {
+export const resolveFlowAgentForDiscovery = async (params: {
   agentName: string;
   discoveredAgentsByName: Map<
     string,

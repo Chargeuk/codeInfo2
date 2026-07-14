@@ -244,6 +244,7 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
+import { resolveFlowAgentForDiscovery } from './discovery.js';
 import { validateReviewArtifacts } from './reviewArtifacts.js';
 import { prepareReviewBase } from './reviewBase.js';
 import type {
@@ -5025,6 +5026,37 @@ const findFirstAgentStep = (
   return undefined;
 };
 
+const collectDirectFlowAgentTypes = (
+  steps: FlowStep[],
+  names = new Set<string>(),
+): Set<string> => {
+  for (const step of steps) {
+    if (step.type === 'llm' || step.type === 'command') {
+      names.add(step.agentType);
+      continue;
+    }
+    if (
+      (step.type === 'break' || step.type === 'continue') &&
+      !isFlowDecisionScriptPath(step.question)
+    ) {
+      names.add(step.agentType);
+      continue;
+    }
+    if (step.type === 'if') {
+      if (step.agentType && !isFlowDecisionScriptPath(step.condition)) {
+        names.add(step.agentType);
+      }
+      collectDirectFlowAgentTypes(step.then, names);
+      if (step.else) collectDirectFlowAgentTypes(step.else, names);
+      continue;
+    }
+    if (step.type === 'startLoop') {
+      collectDirectFlowAgentTypes(step.steps, names);
+    }
+  }
+  return names;
+};
+
 const findImmediateResumeBoundaryStep = (
   steps: FlowStep[],
   resumeStepPath?: number[] | null,
@@ -5849,6 +5881,7 @@ async function runFlowUnlocked(params: {
   flow: FlowFile;
   flowPath: string[];
   repositoryContext: FlowCommandRepositoryContext;
+  agentByName: Map<string, Awaited<ReturnType<typeof discoverAgents>>[number]>;
   conversationId: string;
   executionId: string;
   inflightId: string;
@@ -5870,8 +5903,7 @@ async function runFlowUnlocked(params: {
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
 }): Promise<'ok' | 'paused' | 'stopped' | 'failed'> {
-  const discovered = await discoverAgents();
-  const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
+  const agentByName = params.agentByName;
   const runtimeState = hydrateFlowAgentState(params.resumeState ?? null);
 
   const loopStack: LoopFrame[] = [];
@@ -11525,6 +11557,9 @@ export async function startFlowRun(
   let providerId: ConversationProvider = 'codex';
   let resumeState: FlowResumeState | null = null;
   let repositoryContext: FlowCommandRepositoryContext | null = null;
+  let flowAgentByName:
+    | Map<string, Awaited<ReturnType<typeof discoverAgents>>[number]>
+    | null = null;
   let executionId: string = crypto.randomUUID();
   let startupWarnings: string[] = [];
   let childExecutionBackfills: string[] = [];
@@ -11669,8 +11704,53 @@ export async function startFlowRun(
     const flowRunDefaultRepositoryRoot = effectiveWorkingFolder
       ? flowDefaultRepositoryRoot
       : undefined;
+    const codeInfo2Root = codeInfo2RootForRun();
+    repositoryContext = {
+      flowName,
+      workingRepositoryPath: effectiveWorkingFolder,
+      defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
+      flowSourceId: sourceRepo?.containerPath
+        ? path.resolve(sourceRepo.containerPath)
+        : sourceId
+          ? path.resolve(sourceId)
+          : undefined,
+      flowSourceLabel: sourceRepo
+        ? normalizeSourceLabel({
+            sourceId: sourceRepo.containerPath,
+            sourceLabel: sourceRepo.id,
+          })
+        : sourceId
+          ? normalizeSourceLabel({ sourceId })
+          : undefined,
+      codeInfo2Root,
+      listIngestedRepositories: listRepos,
+      repos: listedRepos.map((repo) => ({
+        sourceId: path.resolve(repo.containerPath),
+        sourceLabel: normalizeSourceLabel({
+          sourceId: repo.containerPath,
+          sourceLabel: repo.id,
+        }),
+      })),
+    };
     const discovered = await discoverAgents();
-    const agentByName = new Map(discovered.map((item) => [item.name, item]));
+    flowAgentByName = new Map(discovered.map((item) => [item.name, item]));
+    for (const agentName of collectDirectFlowAgentTypes(flow.steps)) {
+      const resolved = await resolveFlowAgentForDiscovery({
+        agentName,
+        discoveredAgentsByName: flowAgentByName,
+        flowSourceId: repositoryContext.flowSourceId,
+        flowSourceLabel: repositoryContext.flowSourceLabel,
+        codeInfo2Root: repositoryContext.codeInfo2Root,
+        repos: repositoryContext.repos,
+      });
+      if (!resolved.ok) continue;
+      flowAgentByName.set(agentName, {
+        name: agentName,
+        home: path.dirname(resolved.configPath),
+        configPath: resolved.configPath,
+        warnings: resolved.warnings,
+      });
+    }
     if (firstAgentStep) {
       const firstAgentType = firstAgentStep.agentType;
       if (!firstAgentType) {
@@ -11687,7 +11767,7 @@ export async function startFlowRun(
           `Flow agent "${firstAgentType}" ${validatedAgentType.message}.`,
         );
       }
-      const agent = agentByName.get(firstAgentType);
+      const agent = flowAgentByName.get(firstAgentType);
       if (!agent) {
         throw toFlowRunError(
           'AGENT_NOT_FOUND',
@@ -11728,7 +11808,7 @@ export async function startFlowRun(
     } else if (firstCodexReviewStep) {
       const agentProfile = await resolveCodexReviewAgentProfile({
         step: firstCodexReviewStep,
-        agentByName,
+        agentByName: flowAgentByName,
         workingFolder: effectiveWorkingFolder,
         defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
         source: params.source,
@@ -11759,34 +11839,6 @@ export async function startFlowRun(
       });
     }
 
-    const codeInfo2Root = codeInfo2RootForRun();
-    repositoryContext = {
-      flowName,
-      workingRepositoryPath: effectiveWorkingFolder,
-      defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
-      flowSourceId: sourceRepo?.containerPath
-        ? path.resolve(sourceRepo.containerPath)
-        : sourceId
-          ? path.resolve(sourceId)
-          : undefined,
-      flowSourceLabel: sourceRepo
-        ? normalizeSourceLabel({
-            sourceId: sourceRepo.containerPath,
-            sourceLabel: sourceRepo.id,
-          })
-        : sourceId
-          ? normalizeSourceLabel({ sourceId })
-          : undefined,
-      codeInfo2Root,
-      listIngestedRepositories: listRepos,
-      repos: listedRepos.map((repo) => ({
-        sourceId: path.resolve(repo.containerPath),
-        sourceLabel: normalizeSourceLabel({
-          sourceId: repo.containerPath,
-          sourceLabel: repo.id,
-        }),
-      })),
-    };
     appendFlowRuntimeDiagnostic('flows.test.start.repository_context_ready', {
       flowName,
       conversationId,
@@ -11813,7 +11865,7 @@ export async function startFlowRun(
       steps: flow.steps,
       flowsRoot,
       sourceId,
-      agentByName,
+      agentByName: flowAgentByName,
       repositoryContext,
       resumeStepPath: effectiveResumeStepPath,
     });
@@ -12043,6 +12095,12 @@ export async function startFlowRun(
           'Flow command repository context unavailable',
         );
       }
+      if (!flowAgentByName) {
+        throw toFlowRunError(
+          'COMMAND_INVALID',
+          'Flow agent resolution context unavailable',
+        );
+      }
       const workingDirectoryOverride = (
         await resolveSharedExecutionContext({
           workingFolder: params.working_folder,
@@ -12072,6 +12130,7 @@ export async function startFlowRun(
         flow,
         flowPath,
         repositoryContext,
+        agentByName: flowAgentByName,
         conversationId,
         executionId,
         inflightId,

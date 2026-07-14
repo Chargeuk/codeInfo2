@@ -291,7 +291,7 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 
 ### Task 10. Run full automated, lint, format, and manual closeout proof
 
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 
 #### Subtasks
 
@@ -309,7 +309,7 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 2. [x] Run the repository Prettier/format command and `npm run format:check`.
 3. [x] Run `npm run build:summary:server` and `npm run build:summary:client`.
 4. [x] Run `npm run test:summary:all:parallel`.
-5. [x] Run the supported main-stack manual proof sequence and stop it with `npm run compose:down`.
+5. [ ] Run the supported main-stack manual proof sequence and stop it with `npm run compose:down`.
 
 #### Implementation Notes
 

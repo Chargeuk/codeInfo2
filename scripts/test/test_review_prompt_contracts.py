@@ -17,6 +17,157 @@ def read_text(relative_path: str) -> str:
 
 
 class ReviewPromptContractTests(unittest.TestCase):
+    def test_internal_review_prompts_bind_to_server_owned_identity(self) -> None:
+        prompt_paths = (
+            "codeinfo_markdown/review_evidence_gate/01-core.md",
+            "codeinfo_markdown/code_review_findings/01-core.md",
+            "codeinfo_markdown/review_findings_saturation.md",
+            "codeinfo_markdown/review_blind_spot_challenge/01-core.md",
+        )
+        for prompt_path in prompt_paths:
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn("review_session_id", text)
+                self.assertIn("parent_execution_id", text)
+                self.assertIn("seven-digit", text)
+                self.assertRegex(text, r"(?i)(never|may not|do not).*infer")
+
+        merge_text = read_text(
+            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
+        )
+        classify_text = read_text(
+            "codeinfo_markdown/classify_review_disposition.md"
+        )
+        self.assertIn("current-review-validation.json", merge_text)
+        for identity_field in (
+            "story_id",
+            "plan_path",
+            "review_session_id",
+            "review_pass_id",
+            "parent_execution_id",
+            "head_commit",
+            "comparison_base_commit",
+        ):
+            self.assertIn(identity_field, merge_text)
+        self.assertIn("current-review-validation.json", classify_text)
+        self.assertIn("review_session_id", classify_text)
+
+    def test_review_prompts_never_infer_machine_identity(self) -> None:
+        findings_text = read_text(
+            "codeinfo_markdown/code_review_findings/01-core.md"
+        )
+        for forbidden_inference in (
+            "Never derive a missing comparison-base identity",
+            "`review_pass_id` is explicitly present",
+            "explicitly identifies the head and comparison-base commits",
+        ):
+            self.assertIn(forbidden_inference, findings_text)
+
+        for prompt_path in (
+            "codeinfo_markdown/review_findings_saturation.md",
+            "codeinfo_markdown/review_blind_spot_challenge/01-core.md",
+        ):
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn(
+                    "Never infer, normalize, or repair an identity field or prepared base",
+                    text,
+                )
+                self.assertIn("descriptive remote/fallback context", text)
+
+    def test_repair_and_visual_prompts_require_complete_review_scope(self) -> None:
+        repair_text = read_text(
+            "codeinfo_markdown/repair_review_workflow_state.md"
+        )
+        self.assertIn(
+            "Before rebuilding review-disposition state from review artifacts",
+            repair_text,
+        )
+        self.assertIn("preserve the blocker", repair_text)
+
+        visual_text = read_text(
+            "codeinfo_markdown/review_visual_design_conformance.md"
+        )
+        for scope_field in (
+            "`repo_root`",
+            "`branch`",
+            "`branched_from`",
+            "`comparison_base_ref`",
+            "`review_context_sha256`",
+            "`review_excluded_paths`",
+        ):
+            self.assertIn(scope_field, visual_text)
+
+    def test_open_code_review_and_merge_preserve_validated_session_lineage(self) -> None:
+        review_text = read_text("codeinfo_markdown/run_open_code_review.md")
+        merge_text = read_text(
+            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
+        )
+        for required in (
+            "review_session_id",
+            "canonical_review_pass_id",
+            "parent_execution_id",
+            "planning/**",
+            "current-open-code-review.json",
+        ):
+            self.assertIn(required, review_text)
+            self.assertIn(required, merge_text)
+        self.assertIn("current-review-validation.json", merge_text)
+        self.assertIn("Origin: open_code_review", merge_text)
+        self.assertIn("independently regenerate the exact manifest", review_text)
+        self.assertIn("later joined-review validation artifact", review_text)
+        self.assertIn("only OCR candidate-finding source", merge_text)
+        self.assertIn("coverage and navigation context only", merge_text)
+
+    def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
+        classify_text = read_text(
+            "codeinfo_markdown/classify_review_disposition.md"
+        )
+        disposition_text = read_text("codeinfo_markdown/review_disposition.md")
+
+        self.assertIn("non-blocking entry in `classification_notes`", classify_text)
+        self.assertIn(
+            "do not create an `incomplete_review_blockers` entry solely for that lost coverage",
+            classify_text,
+        )
+        self.assertIn("only when no reviewer is usable", classify_text)
+        self.assertIn("rather than creating plan work", disposition_text)
+
+    def test_missing_review_pass_ids_use_session_scoped_skip_artifacts(self) -> None:
+        codex_text = read_text(
+            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
+        )
+        ocr_text = read_text(
+            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
+        )
+
+        self.assertIn(
+            "<review_session_id>-codex-review-merge-skipped.md", codex_text
+        )
+        self.assertIn(
+            "<review_session_id>-open-code-review-merge-skipped.md", ocr_text
+        )
+        for text in (codex_text, ocr_text):
+            self.assertIn("do not infer or invent it", text)
+            self.assertIn("finish cleanly without updating either pointer", text)
+
+    def test_codex_identity_mismatches_use_session_scoped_skip_artifacts(self) -> None:
+        text = read_text(
+            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
+        )
+
+        self.assertIn(
+            "present `codex_review_pass_id` with any identity-tuple mismatch",
+            text,
+        )
+        self.assertIn(
+            "<review_session_id>-codex-review-merge-skipped.md", text
+        )
+        self.assertIn(
+            "leave the canonical handoff and Codex pointer unchanged", text
+        )
+        self.assertIn("continue later flow steps", text)
+
     def test_core_findings_prompt_defines_scope_impact_taxonomy(self) -> None:
         text = read_text("codeinfo_markdown/code_review_findings/01-core.md")
         self.assertIn("Scope Impact", text)

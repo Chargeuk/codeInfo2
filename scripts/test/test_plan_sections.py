@@ -134,6 +134,8 @@ class PlanSectionsTests(unittest.TestCase):
         )
 
         self.assertTrue(output["content_complete"])
+        self.assertEqual(output["story_id"], "0000123")
+        self.assertEqual(output["story_number"], 123)
         self.assertEqual([task["number"] for task in output["tasks"]], [1])
         markdown = json.dumps(output["tasks"])
         self.assertIn("Implement the bounded feature", markdown)

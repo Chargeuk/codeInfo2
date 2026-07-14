@@ -117,7 +117,9 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
 import {
   clearCodexReviewPointerFile,
   resolveCodexReviewModel,
+  resolveCodexReviewReasoningEffort,
   runCodexReviewStep,
+  type CodexReviewReasoningEffort,
 } from './codexReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
@@ -133,6 +135,7 @@ import {
   type FlowResetStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
+  type FlowValidateReviewArtifactsStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
@@ -154,6 +157,7 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
+import { validateReviewArtifacts } from './reviewArtifacts.js';
 import { prepareReviewBase } from './reviewBase.js';
 import type {
   FlowAgentState,
@@ -1631,6 +1635,90 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   }
 };
 
+const CODEX_REVIEW_REASONING_EFFORTS = new Set<CodexReviewReasoningEffort>([
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+]);
+
+const resolveCodexReviewAgentProfile = async (params: {
+  step: FlowCodexReviewStep;
+  agentByName: Map<string, { configPath: string }>;
+  workingFolder?: string;
+  defaultRepositoryRoot?: string;
+  source: 'REST' | 'MCP';
+}): Promise<{
+  agentType?: string;
+  modelId?: string;
+  reasoningEffort?: CodexReviewReasoningEffort;
+  warnings: string[];
+}> => {
+  if (params.step.modelSource !== 'flow_request_or_step_or_agent') {
+    return { warnings: [] };
+  }
+
+  const agentType = params.step.agentType;
+  if (!agentType) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      'codexReview requires agentType when modelSource is flow_request_or_step_or_agent.',
+    );
+  }
+
+  const validatedAgentType = validateRepositoryBackedAgentType(agentType);
+  if (!validatedAgentType.ok) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `Flow agent "${agentType}" ${validatedAgentType.message}.`,
+    );
+  }
+
+  const agent = params.agentByName.get(agentType);
+  if (!agent) {
+    throw toFlowRunError('AGENT_NOT_FOUND', `Agent ${agentType} not found`);
+  }
+
+  const prepared = await resolveFlowAgentRuntimeExecution({
+    agentName: agentType,
+    configPath: agent.configPath,
+    workingFolder: params.workingFolder,
+    defaultRepositoryRoot: params.defaultRepositoryRoot,
+    source: params.source,
+    allowFallback: false,
+  });
+  if (prepared.providerId !== 'codex') {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `codexReview agent ${agentType} must resolve to the codex provider.`,
+    );
+  }
+
+  const configuredReasoningEffort =
+    prepared.runtimeConfig?.model_reasoning_effort;
+  if (
+    configuredReasoningEffort !== undefined &&
+    !CODEX_REVIEW_REASONING_EFFORTS.has(
+      configuredReasoningEffort as CodexReviewReasoningEffort,
+    )
+  ) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `codexReview agent ${agentType} has unsupported model_reasoning_effort "${configuredReasoningEffort}".`,
+    );
+  }
+
+  return {
+    agentType,
+    modelId: prepared.modelId,
+    reasoningEffort: configuredReasoningEffort as
+      | CodexReviewReasoningEffort
+      | undefined,
+    warnings: prepared.warnings ?? [],
+  };
+};
+
 const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
   const runtimeState: FlowExecutionRuntimeState = new Map();
   if (!resumeState) return runtimeState;
@@ -1699,6 +1787,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowResetStep
     | FlowPrepareReviewBaseStep
     | FlowCodexReviewStep
+    | FlowValidateReviewArtifactsStep
     | FlowSubflowStep
     | FlowReingestStep;
   stepIndex: number;
@@ -1713,7 +1802,7 @@ const buildFlowCommandMetadata = (params: {
     totalSteps: params.totalSteps,
     loopDepth: params.loopDepth,
     label,
-    ...('agentType' in params.step
+    ...('agentType' in params.step && 'identifier' in params.step
       ? {
           agentType: params.step.agentType,
           identifier: params.step.identifier,
@@ -5525,6 +5614,8 @@ async function runFlowUnlocked(params: {
         workingRepositoryPath: reviewRepositoryPath,
         outputKey: step.outputKey,
         basePolicy: step.basePolicy,
+        parentExecutionId: params.executionId,
+        initializeReviewPointers: step.initializeReviewPointers,
         signal: inflightSignal,
       });
       if (inflightSignal.aborted) {
@@ -5592,15 +5683,27 @@ async function runFlowUnlocked(params: {
     step: FlowCodexReviewStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
-    const resolvedModelId = resolveCodexReviewModel({
-      requestedModelId: params.codexReviewModelId,
-      stepModelId: step.model,
-    });
-    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
     const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
       params.repositoryContext,
     );
+    const agentProfile = await resolveCodexReviewAgentProfile({
+      step,
+      agentByName,
+      workingFolder: reviewRepositoryPath,
+      defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
+      source: params.source,
+    });
+    const resolvedModelId = resolveCodexReviewModel({
+      requestedModelId: params.codexReviewModelId,
+      stepModelId: step.model,
+      agentModelId: agentProfile.modelId,
+    });
+    const resolvedReasoningEffort = resolveCodexReviewReasoningEffort({
+      stepReasoningEffort: step.reasoningEffort,
+      agentReasoningEffort: agentProfile.reasoningEffort,
+    });
+    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
     const clearStaleCodexReviewPointer = async () => {
       if (reviewRepositoryPath) {
         try {
@@ -5651,7 +5754,7 @@ async function runFlowUnlocked(params: {
     }
     if (!resolvedModelId) {
       return emitSkippedCodexReviewStep(
-        'codexReview requires codexReviewModelId or a model on the flow step.',
+        'codexReview requires codexReviewModelId, a model on the flow step, or a model from its configured agent.',
       );
     }
 
@@ -5719,7 +5822,8 @@ async function runFlowUnlocked(params: {
         workingRepositoryPath: reviewRepositoryPath,
         outputKey: step.outputKey,
         modelId: resolvedModelId,
-        reasoningEffort: step.reasoningEffort,
+        reasoningEffort: resolvedReasoningEffort,
+        agentType: agentProfile.agentType,
         basePolicy: step.basePolicy,
         signal: inflightSignal,
       });
@@ -5742,6 +5846,9 @@ async function runFlowUnlocked(params: {
         response: [
           'Codex review completed.',
           `Model: ${result.modelId}`,
+          ...(agentProfile.agentType
+            ? [`Agent type: ${agentProfile.agentType}`]
+            : []),
           ...(result.reasoningEffort
             ? [`Reasoning effort: ${result.reasoningEffort}`]
             : []),
@@ -5754,6 +5861,10 @@ async function runFlowUnlocked(params: {
       });
       return 'ok';
     } catch (error) {
+      await clearCodexReviewPointerFile({
+        workingRepositoryPath: reviewRepositoryPath,
+        outputKey: step.outputKey,
+      }).catch(() => undefined);
       if (
         inflightSignal.aborted ||
         (error instanceof Error && error.name === 'AbortError')
@@ -5784,6 +5895,149 @@ async function runFlowUnlocked(params: {
         command,
       });
       return 'ok';
+    }
+  };
+
+  const runValidateReviewArtifactsStep = async (
+    step: FlowValidateReviewArtifactsStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    const instruction = 'Validate joined review artifacts';
+    if (!reviewRepositoryPath) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message:
+          'validateReviewArtifacts requires a resolved working repository path.',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+      command,
+    });
+    const inflightSignal = inflightState.abortController.signal;
+    const consumePendingValidationStop = () => {
+      if (!params.runToken) return false;
+      const boundPending = bindPendingConversationCancelToInflight({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      if (!boundPending.ok) {
+        return false;
+      }
+
+      const aborted = abortInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+      if (!aborted.ok) return false;
+
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      return true;
+    };
+    if (consumePendingValidationStop()) {
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'stopped';
+    }
+    try {
+      const result = await validateReviewArtifacts({
+        workingRepositoryPath: reviewRepositoryPath,
+        pointerKeys: step.pointerKeys,
+        signal: inflightSignal,
+      });
+      if (inflightSignal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: [
+          result.status === 'passed'
+            ? 'Validated all joined review artifacts.'
+            : result.status === 'partial'
+              ? 'Joined review validation completed with status partial; continuing with usable review evidence.'
+              : 'Joined review validation completed with status blocked; continuing without usable review evidence.',
+          `Review session: ${result.review_session_id}`,
+          `Pointers: ${result.pointer_files.join(', ')}`,
+          ...result.pointer_results.map(
+            (pointer) =>
+              `${pointer.pointer_key}: ${pointer.status}${pointer.errors.length > 0 ? ` (${pointer.errors.join(' | ')})` : ''}`,
+          ),
+        ].join('\n'),
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'ok';
+    } catch (error) {
+      if (
+        inflightSignal.aborted ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'validateReviewArtifacts failed unexpectedly.',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
     }
   };
 
@@ -6314,6 +6568,40 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'validateReviewArtifacts') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            reviewPointerKeys: [...step.pointerKeys],
+          },
+        });
+        const status = await runValidateReviewArtifactsStep(step, command);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.validateReviewArtifacts',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
       if (step.type === 'subflow') {
         const command = buildFlowCommandMetadata({
           step,
@@ -6620,14 +6908,31 @@ export async function startFlowRun(
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
     } else if (firstCodexReviewStep) {
+      const agentProfile = await resolveCodexReviewAgentProfile({
+        step: firstCodexReviewStep,
+        agentByName,
+        workingFolder: effectiveWorkingFolder,
+        defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
+        source: params.source,
+      });
       const resolvedModelId = resolveCodexReviewModel({
         requestedModelId: effectiveCodexReviewModelId,
         stepModelId: firstCodexReviewStep.model,
+        agentModelId: agentProfile.modelId,
       });
       const codexBootstrapStatus = getProviderBootstrapStatus('codex');
+      if (!codexBootstrapStatus.healthy) {
+        throw toFlowRunError(
+          'PROVIDER_UNAVAILABLE',
+          codexBootstrapStatus.reason ?? 'codex unavailable',
+        );
+      }
       modelId = resolvedModelId ?? FALLBACK_MODEL_ID;
       providerId = 'codex';
-      startupWarnings = codexBootstrapStatus.warnings;
+      startupWarnings = [
+        ...agentProfile.warnings,
+        ...codexBootstrapStatus.warnings,
+      ];
     }
 
     const codeInfo2Root = codeInfo2RootForRun();

@@ -15,6 +15,20 @@ import flow_state_utils
 
 
 class FlowStateUtilsTests(unittest.TestCase):
+    def test_canonical_story_id_preserves_padding_for_artifact_identity(self) -> None:
+        self.assertEqual(
+            flow_state_utils.canonical_story_id_from_plan_name(
+                "0000013-example.md"
+            ),
+            "0000013",
+        )
+        self.assertIsNone(
+            flow_state_utils.canonical_story_id_from_plan_name("13-example.md")
+        )
+        self.assertEqual(
+            flow_state_utils.normalize_story_number_token("0000013"), "13"
+        )
+
     def test_branch_matches_story_with_exact_story_number(self) -> None:
         self.assertTrue(
             flow_state_utils.branch_matches_story(

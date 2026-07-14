@@ -10,7 +10,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from flow_state_utils import ScopeResolutionError, load_plan_scope, story_number_from_plan_name
+from flow_state_utils import (
+    ScopeResolutionError,
+    canonical_story_id_from_plan_name,
+    load_plan_scope,
+    story_number_from_plan_name,
+)
 
 
 TASK_HEADING_RE = re.compile(r"^### Task (\d+)\.\s*(.*)$")
@@ -207,6 +212,7 @@ def build_status(plan_path_raw: str, resolved_plan: Path, task_number: int | Non
     return {
         "plan_path": plan_path_raw,
         "resolved_plan_path": str(resolved_plan),
+        "story_id": canonical_story_id_from_plan_name(resolved_plan.name),
         "story_number": int(story_number) if story_number is not None else None,
         "requested_task_number": task_number,
         "story_guidance": story_guidance,

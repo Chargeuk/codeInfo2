@@ -569,6 +569,7 @@ def build_plan_sections(
     output: dict[str, Any] = {
         "plan_path": relative_plan,
         "resolved_plan_path": str(plan_path),
+        "story_id": plan_status.story_id_from_path(plan_path),
         "story_number": plan_status.story_number_from_path(plan_path),
         "query": {
             "profile": profile,

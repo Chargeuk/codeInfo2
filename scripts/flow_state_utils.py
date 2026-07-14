@@ -11,6 +11,7 @@ from typing import Any
 
 
 STORY_NUMBER_RE = re.compile(r"^(\d+)-")
+CANONICAL_STORY_ID_RE = re.compile(r"^(\d{7})-")
 BRANCH_STORY_NUMBER_RE = re.compile(r"^(\d+)(?:-|$)")
 REVIEW_CYCLE_ID_RE = re.compile(
     r"^(?P<story>\d+)-rc-\d{8}T\d{6}Z-[0-9a-f]{8}$"
@@ -53,7 +54,16 @@ def story_number_from_plan_name(plan_name: str) -> str | None:
     return match.group(1)
 
 
+def canonical_story_id_from_plan_name(plan_name: str) -> str | None:
+    """Return the exact padded artifact identity from a canonical plan name."""
+    match = CANONICAL_STORY_ID_RE.match(plan_name)
+    if not match:
+        return None
+    return match.group(1)
+
+
 def normalize_story_number_token(story_number: str | None) -> str | None:
+    """Normalize only for comparisons; never use this value in artifact paths."""
     if story_number is None:
         return None
     normalized = story_number.lstrip("0")
@@ -135,6 +145,7 @@ def load_plan_scope(
         "handoff_path": str(handoff_path),
         "plan_path": str(plan_path),
         "plan_path_raw": plan_path_raw,
+        "story_id": canonical_story_id_from_plan_name(plan_path.name),
         "story_number": story_number,
         "additional_repositories": additional_repositories,
     }

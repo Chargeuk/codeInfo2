@@ -133,6 +133,7 @@ class PlanStatusTests(unittest.TestCase):
 
         status = plan_status.get_plan_status(plan=plan_path, selector="active")
 
+        self.assertEqual(status["story_id"], "0000123")
         self.assertEqual(status["story_number"], 123)
         self.assertEqual(status["highest_in_progress_task"]["number"], 2)
         self.assertEqual(status["highest_done_or_in_progress_task"]["number"], 2)

@@ -26,6 +26,8 @@ Every review target must be represented by a distinct checked-out working-tree p
 - Target-local artifacts cannot overwrite or validate against another target's identity.
 - A canonical story-level review-set manifest records every expected job, pointer, validation result, coverage state, and cross-repository outcome.
 - Post-wave work validates, deduplicates, and aggregates findings without running a second full cross-repository diff review.
+- Every wave-mode consumer receives server-owned per-review usability and identity validation for each target-local result; legacy `current-review-validation.json` requirements remain only on the legacy non-wave path.
+- A completed review wave with accepted or ignored current-pass decisions reaches one durable `## Code Review Findings` plan block instead of retrying because an upstream validation artifact was never produced.
 - Multi-target review cannot produce a clean no-findings closeout when cross-repository coverage is missing or invalid.
 - Parent cancellation reaches every active wave child, and resume reattaches without duplicate launches.
 - Flow progress and child titles distinguish repeated child flow names by target alias and show wave counts.
@@ -58,6 +60,7 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 - Run the cross-repository reviewer concurrently with target-local reviewers and remove the need for a later full integration review.
 - Treat a multi-target missing or invalid cross-repository result as incomplete mandatory coverage, while preserving usable target-local findings.
 - Retain existing best-effort child execution semantics; validation and disposition determine whether coverage is sufficient to close cleanly.
+- Keep wave-mode validation authoritative and server-owned: enrich the review-set/wave artifacts with per-job usability rather than weakening merge, classification, or decision-recording identity gates, and use the legacy joined-validation artifact only when no review-set manifest exists.
 
 ## Implementation Ideas
 
@@ -324,3 +327,49 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 - Implementation-only audit confirmed all seven implementation subtasks remain complete and found no story-caused preserved-behavior regression in the reviewed story-owned surfaces; the latest handoff deliberately reopened Task 10 and left the supported main-stack manual-proof item unchecked for the subsequent proof pass. The canonical task parser reports no live blocker, so no implementation repair or blocker was added during this audit.
 - Implementation-plus-automated-proof audit confirmed the seven implementation subtasks and four automated testing items remain complete, with no story-caused preserved-behavior regression identified. The supported main-stack manual-proof item is still genuinely open before closeout, so Task 10 remains `__in_progress__` and the completion gate is recorded as a live blocker for the next manual-testing pass.
 - Planner normalization reconciled the stale manual-proof checkbox with the recorded main-stack proof evidence, retired the completion-gate blocker, and marked Task 10 `__done__`; no executable work remained for the overnight implementation loop.
+
+### Task 11. Repair wave validation publication and target-pointer identity preservation
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+1. [ ] Define one server-owned wave validation schema that records exact story, wave, parent execution, target, session, pass, HEAD, comparison-base, pointer, artifact, and usability results for every expected target-local job.
+2. [ ] Validate each target's main, Codex, and Open Code artifacts against its prepared target base without relying on an additional repository's ambient `current-plan.json`, including server-owned OCR bundle validation and usable bundle IDs.
+3. [ ] Prevent the main review evidence writer from dropping `review_wave_id`, `target_id`, `plan_host_root`, or any prepared session identity when it publishes `current-review.json`; reject or safely republish an incomplete pointer before the child is counted as usable.
+4. [ ] Enrich the finalized review-set and matching wave-validation artifacts with per-job validation results, aggregate findings only from validated completed or partial jobs, and keep `closeout_allowed` false for missing, stale, failed, invalid, or unvalidated mandatory coverage.
+5. [ ] Update wave-mode merge, context, classification, filtering, promotion, decision-recording, task-up, retry, and no-findings consumers to use the authoritative review-set/wave validation entries; retain `current-review-validation.json` only for the legacy no-review-set path.
+6. [ ] Apply the repaired production contract consistently to `task_and_implement_plan.json`, `implement_next_plan.json`, and `improve_task_implement_plan.json` without changing ordinary static `subflow` behavior.
+
+#### Testing
+
+1. [ ] Add unit coverage proving initialized target pointers retain exact wave/target identity through main handoff publication and that missing or changed identity is unusable.
+2. [ ] Add wave-validation unit coverage for usable main, Codex, and OCR entries, partial sibling coverage, OCR bundle usability, additional-repository targets without local plan handoffs, and false-clean prevention.
+3. [ ] Run the targeted server unit wrapper for the review base, review artifacts, review set, and review-wave validation test files.
+4. [ ] Run the server build summary wrapper.
+
+#### Implementation Notes
+
+### Task 12. Prove the production review loop records validated decisions in the story plan
+
+- Task Status: `__to_do__`
+
+#### Subtasks
+
+1. [ ] Add a production-flow contract test that walks every reachable wave-mode review consumer and fails when a required server-owned artifact or validation field has no upstream producer.
+2. [ ] Add a deterministic one-target integration regression that executes the production prepare-targets, prepare-set, mixed-wave, validation, classification, and decision-recording path with accepted and ignored fixture findings.
+3. [ ] Assert the regression publishes four terminal wave jobs, keeps the main pointer current for the exact wave, marks each usable reviewer with server-owned validation, and writes exactly one committed `## Code Review Findings` block with `review_decision_recording.outcome` set to `recorded`.
+4. [ ] Extend the regression to prove a second pass refreshes wave/session identity without duplicating the plan block and that deliberately missing validation produces `retry_required` without an unsafe plan edit.
+5. [ ] Add a multi-target integration or Cucumber case proving validated target ownership and cross-repository coverage survive aggregation and reach downstream tasking without consulting plan-host-only pointers.
+6. [ ] Reconcile documentation and all touched contracts, then record the repaired one-target review-loop proof in this task's implementation notes.
+
+#### Testing
+
+1. [ ] Run the targeted production-flow contract and integration regression tests.
+2. [ ] Run the targeted review-wave Cucumber scenarios.
+3. [ ] Run `npm run test:summary:server:parallel` and `npm run build:summary:server`.
+4. [ ] Run `npm run test:summary:all:parallel`.
+5. [ ] Run `npm run lint`, the repository formatting command, and `npm run format:check`.
+6. [ ] Run supported main-stack one-target manual proof through durable plan decision recording, then stop the stack with `npm run compose:down`.
+
+#### Implementation Notes

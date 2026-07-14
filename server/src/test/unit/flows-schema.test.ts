@@ -36,38 +36,6 @@ describe('flow schema (v1)', () => {
     return flattened;
   };
 
-  const withoutImplementOnlyOcrReview = (steps: FlowStep[]): FlowStep[] =>
-    steps.flatMap((step) => {
-      if (
-        step.markdownFile ===
-        'merge_open_code_review_findings_into_canonical_review.md'
-      ) {
-        return [];
-      }
-      return [
-        {
-          ...step,
-          ...(Array.isArray(step.steps)
-            ? { steps: withoutImplementOnlyOcrReview(step.steps) }
-            : {}),
-          ...(Array.isArray(step.flowNames)
-            ? {
-                flowNames: step.flowNames.filter(
-                  (flowName) => flowName !== 'open_code_review',
-                ),
-              }
-            : {}),
-          ...(Array.isArray(step.pointerKeys)
-            ? {
-                pointerKeys: step.pointerKeys.filter(
-                  (pointerKey) => pointerKey !== 'current-open-code-review',
-                ),
-              }
-            : {}),
-        },
-      ];
-    });
-
   const assertOrdered = (
     labels: Array<string | undefined>,
     before: string,
@@ -388,9 +356,7 @@ describe('flow schema (v1)', () => {
       -1,
       `${canonicalPath} should define the story loop`,
     );
-    const canonicalSuffix = withoutImplementOnlyOcrReview(
-      canonicalSteps.slice(canonicalLoopIndex),
-    );
+    const canonicalSuffix = canonicalSteps.slice(canonicalLoopIndex);
     const staleOrientationLabels = [
       'Heavy Coder Use Next Plan',
       'Lite Coder Use Next Plan',
@@ -582,9 +548,7 @@ describe('flow schema (v1)', () => {
           )
           .filter((marker): marker is string => typeof marker === 'string');
         const expectedReviewFanout =
-          flowFile.relativePath === 'flows/implement_next_plan.json'
-            ? 'review_artifacts_main,codex_review,open_code_review'
-            : 'review_artifacts_main,codex_review';
+          'review_artifacts_main,codex_review,open_code_review';
         assert.ok(
           subflowMarkers.includes(expectedReviewFanout),
           `${flowFile.relativePath} should launch its expected parallel review child flows`,

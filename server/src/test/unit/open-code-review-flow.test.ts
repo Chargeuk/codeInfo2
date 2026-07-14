@@ -126,7 +126,7 @@ test('main proof catalog supplies the heavy review-only Codex agent without chec
   assert.match(config, /model = "gpt-5\.6-sol"/u);
   assert.match(config, /model_reasoning_effort = "high"/u);
   assert.match(config, /approval_policy = "never"/u);
-  assert.match(config, /sandbox_mode = "workspace-write"/u);
+  assert.match(config, /sandbox_mode = "danger-full-access"/u);
   assert.match(systemPrompt, /Do not edit source, commit, push/u);
   assert.match(systemPrompt, /do not call `code_info`/u);
   assert.match(systemPrompt, /continue with the usable pinned evidence/u);
@@ -139,7 +139,7 @@ test('source heavy review agent yields to pinned OCR evidence', () => {
     'codeinfo_agents/review_agent_heavy/system_prompt.txt',
   );
 
-  assert.match(config, /sandbox_mode = "workspace-write"/u);
+  assert.match(config, /sandbox_mode = "danger-full-access"/u);
   assert.match(systemPrompt, /pinned review evidence/u);
   assert.match(systemPrompt, /do not call `code_info`/u);
   assert.match(systemPrompt, /continue with the usable evidence/u);

@@ -1,0 +1,141 @@
+{
+  "description": "Converge fast Codex and OpenCode reviews for at most five passes, run the slow main review once, drain inline fixes, and task up serious findings once.",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Fast Review Convergence Loop",
+      "steps": [
+        {
+          "type": "prepareReviewBase",
+          "label": "Prepare Fast Review Base",
+          "outputKey": "current-review-base",
+          "basePolicy": "branched_from_or_default_if_merged",
+          "initializeReviewPointers": true
+        },
+        {
+          "type": "subflow",
+          "label": "Run Fast Review Artifact Flows",
+          "flowNames": ["codex_review", "open_code_review"]
+        },
+        {
+          "type": "validateReviewArtifacts",
+          "label": "Validate Fast Review Artifacts",
+          "pointerKeys": [
+            "current-review",
+            "current-codex-review",
+            "current-open-code-review"
+          ]
+        },
+        {
+          "type": "reset",
+          "label": "Reset planner before merging fast review findings",
+          "agentType": "planning_agent",
+          "identifier": "planner"
+        },
+        {
+          "type": "llm",
+          "label": "Load planner context before merging fast review findings",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "load_planner_review_context.md"
+        },
+        {
+          "type": "llm",
+          "label": "Merge Codex Review Findings Into Canonical Review",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "merge_codex_review_findings_into_canonical_review.md"
+        },
+        {
+          "type": "llm",
+          "label": "Merge Open Code Review Findings Into Canonical Review",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "merge_open_code_review_findings_into_canonical_review.md"
+        },
+        {
+          "type": "subflow",
+          "label": "Disposition Fast Review Artifacts",
+          "flowNames": ["review_disposition_current_artifacts"]
+        },
+        {
+          "type": "llm",
+          "label": "Record Fast Review Pass Outcome",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
+          "markdownFile": "record_fast_review_pass_outcome.md"
+        },
+        {
+          "type": "subflow",
+          "label": "Resolve Fast Review Minor Findings",
+          "flowNames": ["minor_review_fix_path"]
+        },
+        {
+          "type": "break",
+          "label": "Exit Fast Review Phase When Converged Or Fifth Pass Was Drained",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_fast_review_phase_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+          "breakOn": "yes"
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Advance Review Cycle To Slow Phase",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "markdownFile": "advance_review_cycle_to_slow_phase.md"
+    },
+    {
+      "type": "prepareReviewBase",
+      "label": "Prepare Slow Review Base",
+      "outputKey": "current-review-base",
+      "basePolicy": "branched_from_or_default_if_merged",
+      "initializeReviewPointers": true
+    },
+    {
+      "type": "subflow",
+      "label": "Run Slow Review Artifact Flow",
+      "flowNames": ["review_artifacts_main"]
+    },
+    {
+      "type": "validateReviewArtifacts",
+      "label": "Validate Slow Review Artifact",
+      "pointerKeys": [
+        "current-review",
+        "current-codex-review",
+        "current-open-code-review"
+      ]
+    },
+    {
+      "type": "subflow",
+      "label": "Disposition Slow Review Artifact",
+      "flowNames": ["review_disposition_current_artifacts"]
+    },
+    {
+      "type": "subflow",
+      "label": "Resolve Slow Review Minor Findings",
+      "flowNames": ["minor_review_fix_path"]
+    },
+    {
+      "type": "llm",
+      "label": "Finalize Two-Phase Review Disposition",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "markdownFile": "finalize_two_phase_review_disposition.md"
+    },
+    {
+      "type": "subflow",
+      "label": "Task Up Combined Review Findings",
+      "flowNames": ["review_task_up_path"]
+    },
+    {
+      "type": "llm",
+      "label": "Repair Workflow State If Needed",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "markdownFile": "repair_review_workflow_state.md"
+    }
+  ]
+}

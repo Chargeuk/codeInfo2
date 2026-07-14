@@ -47,6 +47,11 @@ def _review_context(payload: dict[str, Any] | None) -> dict[str, Any]:
         "review_created_tasks_added_or_updated": payload.get(
             "review_created_tasks_added_or_updated"
         ),
+        "review_phase": payload.get("review_phase"),
+        "fast_review_pass_count": payload.get("fast_review_pass_count"),
+        "fast_current_pass_minor_count_before_fix": payload.get(
+            "fast_current_pass_minor_count_before_fix"
+        ),
         "review_pass_id": payload.get("review_pass_id"),
     }
 
@@ -440,3 +445,44 @@ def check_review_task_up_path_clear() -> DecisionOutcome:
     if payload.get("needs_task_up_path") is True:
         return no("task_up_path_still_needed", **_review_context(payload))
     return yes("task_up_path_clear", **_review_context(payload))
+
+
+def check_fast_review_phase_complete() -> DecisionOutcome:
+    payload, _path, error = _load_review_state()
+    if error:
+        return no("fast_review_state_unreadable", error=error)
+
+    if payload.get("review_phase") != "fast":
+        return no("fast_review_phase_not_active", **_review_context(payload))
+
+    pass_count = payload.get("fast_review_pass_count")
+    entry_minor_count = payload.get("fast_current_pass_minor_count_before_fix")
+    reviewed_pass_ids = payload.get("fast_reviewed_pass_ids")
+    if (
+        not isinstance(pass_count, int)
+        or isinstance(pass_count, bool)
+        or pass_count < 1
+        or pass_count > 5
+        or not isinstance(entry_minor_count, int)
+        or isinstance(entry_minor_count, bool)
+        or entry_minor_count < 0
+        or not isinstance(reviewed_pass_ids, list)
+        or len(reviewed_pass_ids) != pass_count
+        or any(
+            not isinstance(review_pass_id, str) or not review_pass_id.strip()
+            for review_pass_id in reviewed_pass_ids
+        )
+        or len(set(reviewed_pass_ids)) != len(reviewed_pass_ids)
+    ):
+        return no("fast_review_counter_state_invalid", **_review_context(payload))
+
+    if payload.get("needs_minor_fix_path") is True:
+        return no("fast_review_minor_findings_not_drained", **_review_context(payload))
+
+    if entry_minor_count == 0:
+        return yes("fast_review_converged_without_minor_findings", **_review_context(payload))
+
+    if pass_count >= 5:
+        return yes("fast_review_fifth_pass_drained", **_review_context(payload))
+
+    return no("fast_review_requires_another_pass", **_review_context(payload))

@@ -1,15 +1,27 @@
 import { execFile as execFileCb } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+
+import {
+  prepareReviewContext,
+  type PrepareReviewContextResult,
+} from './reviewContext.js';
+import {
+  atomicWriteJson,
+  buildReviewArtifactPath,
+  createReviewIdentity,
+  deriveCanonicalStoryId,
+  type ReviewIdentity,
+} from './reviewIdentity.js';
 
 const execFile = promisify(execFileCb);
 
 export type FlowReviewBasePolicy = 'branched_from_or_default_if_merged';
 
-export type PreparedReviewBase = {
-  story_id: string;
-  plan_path: string;
+export type PreparedReviewBase = ReviewIdentity & {
+  schema_version: 2;
   branched_from: string | null;
   repo_alias: 'current_repository';
   repo_root: string;
@@ -35,6 +47,10 @@ export type PreparedReviewBase = {
   comparison_base_commit: string;
   comparison_head_ref: 'HEAD';
   comparison_rule: 'local_head_vs_resolved_base';
+  review_context_file: string;
+  review_context_sha256: string;
+  review_context_source_plan_sha256: string;
+  review_excluded_paths: string[];
   status: 'completed';
   started_at: string;
   completed_at: string;
@@ -68,8 +84,17 @@ type ReviewBaseDeps = {
   execFile: ExecFileLike;
   readFile: typeof fs.readFile;
   writeFile: typeof fs.writeFile;
+  rename: typeof fs.rename;
   mkdir: typeof fs.mkdir;
+  prepareReviewContext: (params: {
+    repoRoot: string;
+    storyNumber: string;
+    planPath: string;
+    branch: string;
+    signal?: AbortSignal;
+  }) => Promise<PrepareReviewContextResult>;
   now: () => Date;
+  randomHex: (bytes: number) => string;
 };
 
 type GitCommandResult =
@@ -102,14 +127,16 @@ const defaultDeps: ReviewBaseDeps = {
     execFile(file, args, { encoding: 'utf8', ...options }),
   readFile: fs.readFile,
   writeFile: fs.writeFile,
+  rename: fs.rename,
   mkdir: fs.mkdir,
+  prepareReviewContext: (params) => prepareReviewContext(params),
   now: () => new Date(),
+  randomHex: (bytes) => crypto.randomBytes(bytes).toString('hex'),
 };
 
 const GIT_PROCESS_TIMEOUT_MS = 120_000;
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM';
 const SAFE_OUTPUT_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
-const STORY_NUMBER_PATTERN = /^(\d{7})-/;
 const BRANCH_STORY_PATTERN = /(\d{7})/;
 
 const normalizeOptionalString = (value: unknown): string | undefined =>
@@ -117,18 +144,11 @@ const normalizeOptionalString = (value: unknown): string | undefined =>
     ? value.trim()
     : undefined;
 
-const deriveStoryNumberFromPlanPath = (planPath: string): string => {
-  const match = path.basename(planPath).match(STORY_NUMBER_PATTERN);
-  if (!match) {
-    throw new Error(
-      `Current plan path "${planPath}" does not encode a 7-digit story number.`,
-    );
-  }
-  return match[1];
-};
-
 const deriveBranchStoryNumber = (branchName: string): string | undefined =>
   branchName.match(BRANCH_STORY_PATTERN)?.[1];
+
+const toPosixRelative = (repoRoot: string, absolutePath: string) =>
+  path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 
 const sanitizeGitError = (value: string) =>
   value
@@ -436,8 +456,7 @@ async function resolveBaseComparison(params: {
       remoteFetchStatus,
       ...(remoteFetchError ? { remoteFetchError } : {}),
       ...(remoteFetchExitCode !== undefined ? { remoteFetchExitCode } : {}),
-      localFallbackReason:
-        remoteFetchStatus === 'success' ? null : remoteFetchStatus,
+      localFallbackReason: null,
       comparisonBaseRef: preferredRemoteRef,
       comparisonBaseCommit,
     };
@@ -527,6 +546,8 @@ export async function prepareReviewBase(
     workingRepositoryPath: string;
     outputKey: string;
     basePolicy?: FlowReviewBasePolicy;
+    parentExecutionId?: string;
+    initializeReviewPointers?: boolean;
     signal?: AbortSignal;
   },
   deps?: Partial<ReviewBaseDeps>,
@@ -562,7 +583,7 @@ export async function prepareReviewBase(
     throw new Error('current-plan.json lacked a usable plan_path.');
   }
 
-  const storyNumber = deriveStoryNumberFromPlanPath(planPath);
+  const storyNumber = deriveCanonicalStoryId(planPath);
   const currentBranch = await gitStdoutOrThrow(
     repoRoot,
     ['branch', '--show-current'],
@@ -594,6 +615,13 @@ export async function prepareReviewBase(
     deps: resolvedDeps,
     signal: params.signal,
   });
+  const reviewContext = await resolvedDeps.prepareReviewContext({
+    repoRoot,
+    storyNumber,
+    planPath,
+    branch: currentBranch,
+    signal: params.signal,
+  });
 
   const reviewDir = path.join(repoRoot, 'codeInfoTmp', 'reviews');
   await resolvedDeps.mkdir(reviewDir, { recursive: true });
@@ -603,9 +631,20 @@ export async function prepareReviewBase(
     outputKey,
   );
 
+  const identity = createReviewIdentity({
+    planPath,
+    headCommit,
+    comparisonBaseCommit: baseResolution.comparisonBaseCommit,
+    parentExecutionId:
+      params.parentExecutionId ??
+      `standalone-${startedAt.getTime()}-${resolvedDeps.randomHex(4)}`,
+    now: startedAt,
+    randomHex: resolvedDeps.randomHex(4),
+  });
+
   const artifact: PreparedReviewBase = {
-    story_id: storyNumber,
-    plan_path: planPath,
+    schema_version: 2,
+    ...identity,
     branched_from: currentPlanBranchedFrom,
     repo_alias: 'current_repository',
     repo_root: repoRoot,
@@ -627,15 +666,84 @@ export async function prepareReviewBase(
     comparison_base_commit: baseResolution.comparisonBaseCommit,
     comparison_head_ref: 'HEAD',
     comparison_rule: 'local_head_vs_resolved_base',
+    review_context_file: toPosixRelative(repoRoot, reviewContext.artifactPath),
+    review_context_sha256: reviewContext.artifact.context_sha256,
+    review_context_source_plan_sha256:
+      reviewContext.artifact.source_plan_sha256,
+    review_excluded_paths: reviewContext.artifact.excluded_paths,
     status: 'completed',
     started_at: startedAtIso,
     completed_at: resolvedDeps.now().toISOString(),
   };
 
-  await resolvedDeps.writeFile(
-    artifactPath,
-    `${JSON.stringify(artifact, null, 2)}\n`,
-  );
+  const atomicDeps = {
+    mkdir: resolvedDeps.mkdir,
+    rename: resolvedDeps.rename,
+    writeFile: resolvedDeps.writeFile,
+  };
+  await atomicWriteJson(artifactPath, artifact, atomicDeps);
+
+  const sharedPointerIdentity = {
+    schema_version: 2,
+    ...identity,
+    branch: currentBranch,
+    comparison_head_ref: 'HEAD' as const,
+    comparison_rule: 'local_head_vs_resolved_base' as const,
+    review_context_file: artifact.review_context_file,
+    review_context_sha256: artifact.review_context_sha256,
+    review_context_source_plan_sha256:
+      artifact.review_context_source_plan_sha256,
+    review_excluded_paths: artifact.review_excluded_paths,
+  };
+  if (params.initializeReviewPointers) {
+    await Promise.all([
+      atomicWriteJson(
+        buildReviewArtifactPath({
+          repoRoot,
+          storyId: storyNumber,
+          outputKey: 'current-review',
+        }),
+        {
+          ...sharedPointerIdentity,
+          evidence_file: null,
+          findings_file: null,
+          repos: [],
+          status: 'preparing',
+        },
+        atomicDeps,
+      ),
+      atomicWriteJson(
+        buildReviewArtifactPath({
+          repoRoot,
+          storyId: storyNumber,
+          outputKey: 'current-codex-review',
+        }),
+        {
+          ...sharedPointerIdentity,
+          canonical_review_pass_id: identity.review_pass_id,
+          codex_review_pass_id: null,
+          review_output_file: null,
+          status: 'pending',
+        },
+        atomicDeps,
+      ),
+      atomicWriteJson(
+        buildReviewArtifactPath({
+          repoRoot,
+          storyId: storyNumber,
+          outputKey: 'current-open-code-review',
+        }),
+        {
+          ...sharedPointerIdentity,
+          canonical_review_pass_id: identity.review_pass_id,
+          open_code_review_pass_id: null,
+          review_output_file: null,
+          status: 'pending',
+        },
+        atomicDeps,
+      ),
+    ]);
+  }
 
   return { artifactPath, artifact };
 }

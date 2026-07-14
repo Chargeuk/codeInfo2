@@ -71,6 +71,7 @@ export type FlowPrepareReviewBaseStep = {
   label?: string;
   outputKey: string;
   basePolicy?: 'branched_from_or_default_if_merged';
+  initializeReviewPointers?: boolean;
 };
 
 export type FlowCodexReviewStep = {
@@ -78,9 +79,16 @@ export type FlowCodexReviewStep = {
   label?: string;
   outputKey: string;
   basePolicy?: 'branched_from_or_default_if_merged';
-  modelSource?: 'flow_request_or_step';
+  modelSource?: 'flow_request_or_step' | 'flow_request_or_step_or_agent';
+  agentType?: string;
   model?: string;
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+};
+
+export type FlowValidateReviewArtifactsStep = {
+  type: 'validateReviewArtifacts';
+  label?: string;
+  pointerKeys: string[];
 };
 
 export type FlowSubflowStep = {
@@ -103,6 +111,7 @@ export type FlowStep =
   | FlowResetStep
   | FlowPrepareReviewBaseStep
   | FlowCodexReviewStep
+  | FlowValidateReviewArtifactsStep
   | FlowSubflowStep
   | FlowReingestStep;
 
@@ -186,6 +195,7 @@ const FlowPrepareReviewBaseStepSchema = z
     label: trimmedNonEmptyString.optional(),
     outputKey: trimmedNonEmptyString,
     basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
+    initializeReviewPointers: z.boolean().optional(),
   })
   .strict();
 
@@ -195,13 +205,61 @@ const FlowCodexReviewStepSchema = z
     label: trimmedNonEmptyString.optional(),
     outputKey: trimmedNonEmptyString,
     basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
-    modelSource: z.literal('flow_request_or_step').optional(),
+    modelSource: z
+      .enum(['flow_request_or_step', 'flow_request_or_step_or_agent'])
+      .optional(),
+    agentType: trimmedNonEmptyString.optional(),
     model: trimmedNonEmptyString.optional(),
     reasoningEffort: z
       .enum(['minimal', 'low', 'medium', 'high', 'xhigh'])
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      value.modelSource === 'flow_request_or_step_or_agent' &&
+      !value.agentType
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['agentType'],
+        message:
+          'agentType is required when modelSource is flow_request_or_step_or_agent',
+      });
+    }
+    if (
+      value.agentType &&
+      value.modelSource !== 'flow_request_or_step_or_agent'
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['modelSource'],
+        message:
+          'modelSource must be flow_request_or_step_or_agent when agentType is set',
+      });
+    }
+  });
+
+const FlowValidateReviewArtifactsStepSchema = z
+  .object({
+    type: z.literal('validateReviewArtifacts'),
+    label: trimmedNonEmptyString.optional(),
+    pointerKeys: z.array(trimmedNonEmptyString).min(2),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.pointerKeys.forEach((pointerKey, index) => {
+      if (seen.has(pointerKey)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['pointerKeys', index],
+          message: `Duplicate review pointer key "${pointerKey}" is not allowed.`,
+        });
+      }
+      seen.add(pointerKey);
+    });
+  });
 
 const FlowSubflowStepSchema = z
   .object({
@@ -259,6 +317,7 @@ function flowStepUnionSchema() {
     FlowResetStepSchema,
     FlowPrepareReviewBaseStepSchema,
     FlowCodexReviewStepSchema,
+    FlowValidateReviewArtifactsStepSchema,
     FlowSubflowStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,

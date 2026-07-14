@@ -17,6 +17,7 @@ SECTION_HEADING_RE = re.compile(r"^####\s+(.*)$")
 CHECKBOX_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s+\[([ xX])\]\s+")
 LIVE_BLOCKER_RE = re.compile(r"^- \*\*BLOCKER\*\*(?:\s|$)")
 STORY_NUMBER_RE = re.compile(r"^(\d+)-")
+CANONICAL_STORY_ID_RE = re.compile(r"^(\d{7})-")
 
 
 def parse_args() -> argparse.Namespace:
@@ -92,6 +93,13 @@ def story_number_from_path(plan_path: Path) -> int | None:
     if not match:
         return None
     return int(match.group(1))
+
+
+def story_id_from_path(plan_path: Path) -> str | None:
+    match = CANONICAL_STORY_ID_RE.match(plan_path.name)
+    if not match:
+        return None
+    return match.group(1)
 
 
 def parse_plan(plan_path: Path) -> list[dict[str, Any]]:
@@ -254,6 +262,7 @@ def build_output(
     return {
         "handoff_path": str(handoff_path) if handoff_path else None,
         "plan_path": str(plan_path),
+        "story_id": story_id_from_path(plan_path),
         "story_number": story_number_from_path(plan_path),
         "selector": selector,
         "task_number_arg": explicit_task_number,

@@ -6,6 +6,9 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 <critical_rules>
 
+- Read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json` before classification. Accept overall `passed` or `partial` validation for the exact canonical seven-digit story, plan, review session, review pass, parent execution, HEAD, and comparison base recorded by the canonical handoff. Classify findings only from reviewer entries marked usable.
+- Never infer, normalize, repair, or substitute machine identity fields. When at least one reviewer remains usable, record failed, missing, partial, or stale sibling-reviewer coverage as a non-blocking entry in `classification_notes`, continue classifying trustworthy findings, and do not create an `incomplete_review_blockers` entry solely for that lost coverage. Use `incomplete_review_blockers` only when no reviewer is usable or the surviving artifacts do not provide a trustworthy canonical review basis. When no reviewer is usable, do not claim there were no findings.
+
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before classifying the review.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
@@ -67,7 +70,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
   - an explicit user-approved scope expansion for that cleanup.
 - When a finding would alter a known-working runtime contract such as env loading, compose ownership, startup paths, mounted-path mapping, or working-folder selection, do not route it into task-up or minor-fix solely for portability neatness when its normalized `Scope Impact` is `cleanup_preference`. If the current head is not proven broken, preserve it as rejected or non-actionable and record the reason in `classification_notes`.
 - When the normalized `Scope Impact` is `unknown_scope_impact`, do not suppress, defer, or discard the finding on that basis alone. Continue using severity, repository ownership, boundedness, and evidence quality to decide whether it is actionable.
-- Treat incomplete-review outcomes, missing required artifacts, unreadable artifacts, stale scope, or ambiguous review basis as `incomplete_review_blockers`.
+- Treat missing required artifacts, unreadable artifacts, stale scope, or an ambiguous review basis as `incomplete_review_blockers` only when the condition prevents honest classification from every usable reviewer. A failed or partial sibling reviewer is a non-blocking coverage note when another reviewer and the canonical findings basis remain usable.
 - When the findings artifact and handoff counts disagree, trust the findings artifact and record the mismatch in `classification_notes`.
 - Do not classify a finding as current-story actionable solely because a user-facing behavior change would make the code, contract, proof, or automation cleaner.
 - If a finding identifies a pre-existing bug, awkward workflow, inconsistency, limitation, or surprising product behavior that is not explicitly part of the story's approved behavior changes, do not treat that alone as current-story implementation scope.
@@ -125,8 +128,13 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 {
   "schema_version": 1,
   "generated_at_utc": "<ISO-8601 UTC timestamp>",
+  "story_id": "<exact seven-digit story ID from the validated review session>",
   "story_number": "<story number from plan_path>",
   "plan_path": "<canonical plan path>",
+  "review_session_id": "<validated server-owned review session ID>",
+  "parent_execution_id": "<validated parent flow execution ID>",
+  "head_commit": "<validated full current repository HEAD>",
+  "comparison_base_commit": "<validated full current repository comparison base>",
   "review_cycle_id": "<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>",
   "review_handoff_path": "codeInfoTmp/reviews/<story-number>-current-review.json",
   "review_pass_id": "<review pass id or null>",

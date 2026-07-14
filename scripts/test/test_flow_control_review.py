@@ -344,6 +344,48 @@ class FlowControlReviewTests(unittest.TestCase):
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "review_decisions_ready")
 
+    def test_review_decisions_retry_when_ignored_finding_id_is_duplicated(
+        self,
+    ) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [{"id": "ignored-1"}],
+            }
+        )
+        duplicate_issue = """
+
+#### 2. Duplicate out-of-scope suggestion
+
+- Finding ID or Review reference: `ignored-1`
+- Description: This repeats an earlier ignored entry.
+- Example: One rejected suggestion appears twice in the plan.
+- Why ignored: The recorder incorrectly duplicated it.
+"""
+        self.write_plan_handoff(
+            repo, plan_text=self.ignored_only_review_block() + duplicate_issue
+        )
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 0,
+                "ignored_count": 2,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "ignored_review_finding_ids_not_unique"
+        )
+
     def test_review_decisions_retry_for_incomplete_issue_details(self) -> None:
         repo = self.make_repo(
             review_state={

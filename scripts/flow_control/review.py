@@ -358,6 +358,12 @@ def check_review_decisions_need_retry() -> DecisionOutcome:
         return yes(
             "accepted_review_findings_mismatch_with_plan", **_review_context(payload)
         )
+    if len(ignored_ids) != len(set(ignored_ids)) or len(
+        block_details["ignored_ids"]
+    ) != len(set(block_details["ignored_ids"])):
+        return yes(
+            "ignored_review_finding_ids_not_unique", **_review_context(payload)
+        )
     if not set(ignored_ids).issubset(set(block_details["ignored_ids"])):
         return yes(
             "ignored_review_findings_missing_from_plan", **_review_context(payload)

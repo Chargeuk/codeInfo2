@@ -631,6 +631,10 @@ class ReviewPromptContractTests(unittest.TestCase):
             "For an ignored-only pass, preserve the structured findings block without creating tasks",
             disposition_text,
         )
+        self.assertIn(
+            "immediately after those review-fix tasks, so the story must be revalidated",
+            disposition_text,
+        )
         self.assertIn("accepted and ignored external-review decisions", external_text)
 
     def test_active_task_normalization_does_not_require_a_selected_task(self) -> None:

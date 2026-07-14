@@ -28,6 +28,9 @@ type FixtureOptions = {
   omitMainRepos?: boolean;
   additionalRepositoryPath?: string;
   additionalBaseMode?: 'correct' | 'head';
+  additionalComparisonBaseRef?: string;
+  additionalResolvedBaseBranch?: string;
+  additionalResolvedBaseSource?: 'remote' | 'local_fallback';
   additionalRepositoriesValue?: unknown;
   omitAdditionalMainRepo?: boolean;
   ocrBranch?: string;
@@ -245,6 +248,8 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
   };
   const mainRepos: Array<Record<string, unknown>> = [currentRepository];
   if (options.additionalRepositoryPath && !options.omitAdditionalMainRepo) {
+    const additionalResolvedBaseSource =
+      options.additionalResolvedBaseSource ?? 'local_fallback';
     const additionalHead = (
       await execFile('git', ['rev-parse', 'HEAD^{commit}'], {
         cwd: options.additionalRepositoryPath,
@@ -260,12 +265,14 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       repo_root: options.additionalRepositoryPath,
       branch: BRANCH,
       logical_base_branch: 'main',
-      resolved_base_branch: 'main',
-      resolved_base_source: 'local_fallback',
+      resolved_base_branch: options.additionalResolvedBaseBranch ?? 'main',
+      resolved_base_source: additionalResolvedBaseSource,
       remote_name: 'origin',
-      remote_fetch_status: 'missing_remote',
-      local_fallback_reason: 'missing_remote',
-      comparison_base_ref: 'main',
+      remote_fetch_status:
+        additionalResolvedBaseSource === 'remote' ? 'success' : 'missing_remote',
+      local_fallback_reason:
+        additionalResolvedBaseSource === 'remote' ? null : 'missing_remote',
+      comparison_base_ref: options.additionalComparisonBaseRef ?? 'main',
       comparison_base_commit:
         options.additionalBaseMode === 'head' ? additionalHead : additionalBase,
       comparison_head_ref: 'HEAD',
@@ -781,6 +788,74 @@ test('validateReviewArtifacts accepts complete multi-repository main review scop
     await fs.rm(additionalRoot, { recursive: true, force: true });
   }
 });
+
+test('validateReviewArtifacts accepts a remote base for an additional repository', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+  );
+  const additionalRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-additional-repo-'),
+  );
+  try {
+    const { base } = await initializeAdditionalRepository(additionalRoot);
+    await execFile(
+      'git',
+      ['update-ref', 'refs/remotes/origin/main', base],
+      { cwd: additionalRoot },
+    );
+    await writeFixture(repoRoot, {
+      additionalRepositoryPath: additionalRoot,
+      additionalComparisonBaseRef: 'origin/main',
+      additionalResolvedBaseSource: 'remote',
+    });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+    assert.equal(result.status, 'passed');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(additionalRoot, { recursive: true, force: true });
+  }
+});
+
+for (const comparisonBaseRef of [
+  `origin/${BRANCH}`,
+  `refs/remotes/origin/${BRANCH}`,
+]) {
+  test(`validateReviewArtifacts rejects reviewed-branch remote base ${comparisonBaseRef}`, async () => {
+    const repoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'review-artifacts-main-repo-'),
+    );
+    const additionalRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'review-artifacts-additional-repo-'),
+    );
+    try {
+      const { head } = await initializeAdditionalRepository(additionalRoot);
+      await execFile(
+        'git',
+        ['update-ref', `refs/remotes/origin/${BRANCH}`, head],
+        { cwd: additionalRoot },
+      );
+      await writeFixture(repoRoot, {
+        additionalRepositoryPath: additionalRoot,
+        additionalBaseMode: 'head',
+        additionalComparisonBaseRef: comparisonBaseRef,
+        additionalResolvedBaseBranch: BRANCH,
+        additionalResolvedBaseSource: 'remote',
+      });
+      const result = await validateReviewArtifacts({
+        workingRepositoryPath: repoRoot,
+        pointerKeys: ['current-review'],
+      });
+      assert.equal(result.status, 'blocked');
+      assert.match(result.errors.join('\n'), /points at the reviewed branch/u);
+    } finally {
+      await fs.rm(repoRoot, { recursive: true, force: true });
+      await fs.rm(additionalRoot, { recursive: true, force: true });
+    }
+  });
+}
 
 test('validateReviewArtifacts rejects an additional repository whose base is its reviewed HEAD', async () => {
   const repoRoot = await fs.mkdtemp(

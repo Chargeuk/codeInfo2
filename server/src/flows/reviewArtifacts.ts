@@ -360,7 +360,7 @@ const assertAdditionalRepositoryScope = async (params: {
     params.pointer.resolved_base_source,
     `current-review repository ${params.repositoryPath}.resolved_base_source`,
   );
-  nonEmptyString(
+  const remoteName = nonEmptyString(
     params.pointer.remote_name,
     `current-review repository ${params.repositoryPath}.remote_name`,
   );
@@ -397,18 +397,31 @@ const assertAdditionalRepositoryScope = async (params: {
       `current-review repository ${params.repositoryPath} local fallback metadata is invalid.`,
     );
   }
-  if (comparisonBaseRef !== resolvedBaseBranch) {
-    throw new Error(
-      `current-review repository ${params.repositoryPath} comparison_base_ref does not match resolved_base_branch.`,
-    );
-  }
-  if (
-    comparisonBaseRef === 'HEAD' ||
-    comparisonBaseRef === branch ||
-    comparisonBaseRef === `refs/heads/${branch}`
-  ) {
+  const reviewedBranchRefs = new Set([
+    'HEAD',
+    branch,
+    `refs/heads/${branch}`,
+    `${remoteName}/${branch}`,
+    `refs/remotes/${remoteName}/${branch}`,
+  ]);
+  if (reviewedBranchRefs.has(comparisonBaseRef)) {
     throw new Error(
       `current-review repository ${params.repositoryPath} comparison_base_ref points at the reviewed branch.`,
+    );
+  }
+  const resolvedBaseRefs =
+    resolvedBaseSource === 'remote'
+      ? new Set([
+          `${remoteName}/${resolvedBaseBranch}`,
+          `refs/remotes/${remoteName}/${resolvedBaseBranch}`,
+        ])
+      : new Set([
+          resolvedBaseBranch,
+          `refs/heads/${resolvedBaseBranch}`,
+        ]);
+  if (!resolvedBaseRefs.has(comparisonBaseRef)) {
+    throw new Error(
+      `current-review repository ${params.repositoryPath} comparison_base_ref does not match resolved_base_branch.`,
     );
   }
   if (params.pointer.comparison_head_ref !== 'HEAD') {

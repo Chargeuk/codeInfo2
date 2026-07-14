@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 
 import { append } from '../logStore.js';
@@ -14,6 +15,15 @@ const trimmedNonEmptyString = z
   .string()
   .transform((value) => value.trim())
   .refine((value) => value.length > 0);
+
+const isFlowDecisionScriptPath = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed.endsWith('.py') || path.isAbsolute(trimmed)) {
+    return false;
+  }
+  const normalized = path.normalize(trimmed);
+  return normalized !== '..' && !normalized.startsWith(`..${path.sep}`);
+};
 
 export type FlowMessage = {
   role: 'user';
@@ -371,6 +381,13 @@ const FlowIfStepSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'if steps must provide both agentType and identifier together.',
+      });
+    }
+    if (!isFlowDecisionScriptPath(value.condition) && !hasAgentType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'if steps that use the AI decision path must provide agentType and identifier.',
       });
     }
   });

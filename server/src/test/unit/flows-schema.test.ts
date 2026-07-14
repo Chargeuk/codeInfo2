@@ -1857,6 +1857,8 @@ describe('flow schema (v1)', () => {
         {
           type: 'if',
           label: 'Check condition',
+          agentType: 'planning_agent',
+          identifier: 'main',
           condition: 'has_review_feedback',
           then: [
             {
@@ -1883,6 +1885,8 @@ describe('flow schema (v1)', () => {
       steps: [
         {
           type: 'if',
+          agentType: 'planning_agent',
+          identifier: 'main',
           condition: 'has_review_feedback',
           then: [
             {
@@ -1916,6 +1920,8 @@ describe('flow schema (v1)', () => {
       steps: [
         {
           type: 'if',
+          agentType: 'planning_agent',
+          identifier: 'main',
           condition: 'needs_loop',
           then: [
             {
@@ -2004,6 +2010,23 @@ describe('flow schema (v1)', () => {
       ],
     });
     const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('if-step schema requires an AI decision agent when condition is not a script', () => {
+    resetStore();
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            condition: 'has_review_feedback',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+
     assert.equal(parsed.ok, false);
   });
 

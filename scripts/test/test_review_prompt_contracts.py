@@ -486,6 +486,9 @@ class ReviewPromptContractTests(unittest.TestCase):
         external_text = read_text(
             "codeinfo_markdown/external_review_disposition.md"
         )
+        external_trail_text = read_text(
+            "codeinfo_markdown/preserve_external_review_adjudication_trail.md"
+        )
 
         for identity_field in (
             "story_id",
@@ -576,11 +579,30 @@ class ReviewPromptContractTests(unittest.TestCase):
             verify_text,
         )
         self.assertIn("Never append a duplicate current-pass block", verify_text)
+        self.assertIn("deterministic pre-fix gate", verify_text)
+        self.assertIn("`needs_review_rerun_before_close` to true", record_text)
+        self.assertIn("preserve every finding queue and `needs_task_up_path`", record_text)
+        self.assertIn("Do not add an `incomplete_review_blockers` entry", record_text)
+        self.assertIn("do not deliberately return a failed turn", record_text)
+        self.assertNotIn("If committing fails, stop", record_text)
         self.assertIn(
-            "If that block exists, do not append or repair a `Post-Implementation Code Review` section for the same pass",
+            "If that block exists, it is the durable outcome for this pass, including ignored-only decisions: do not append or repair a `Post-Implementation Code Review` section for the same pass",
             closeout_text,
         )
         self.assertIn("ignored-only decisions", closeout_text)
+        self.assertIn("remove only that duplicate legacy section", closeout_text)
+        self.assertIn("Confirm exactly one conditional outcome", closeout_text)
+        self.assertNotIn(
+            "When the review has ended cleanly, append or repair", closeout_text
+        )
+        self.assertNotIn(
+            "Confirm the plan now has exactly one `Post-Implementation Code Review` section",
+            closeout_text,
+        )
+        self.assertIn(
+            "before generic classification, plan recording, or implementation begins",
+            external_trail_text,
+        )
         self.assertIn("record_review_issue_decisions_in_plan.md", disposition_text)
         self.assertIn("retired terse findings summary", disposition_text)
         self.assertIn("ignored findings only", disposition_text)

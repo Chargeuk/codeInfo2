@@ -23,7 +23,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 
 <clean_closeout_rules>
 
-- Before applying the ordinary clean-closeout checks, inspect the bounded plan packet for a structured `## Code Review Findings` block whose `Review pass` metadata value matches the active `review_pass_id`. If that block exists, do not append or repair a `Post-Implementation Code Review` section for the same pass. The structured block is the durable closeout for accepted, ignored, or ignored-only decisions, even when no implementation work remains.
+- Before applying the ordinary clean-closeout checks, inspect the bounded plan packet for a structured `## Code Review Findings` block whose `Review pass` metadata value matches the active `review_pass_id`. If that block exists, it is the durable outcome for this pass, including ignored-only decisions: do not append or repair a `Post-Implementation Code Review` section for the same pass. If a same-pass legacy closeout already exists, remove only that duplicate legacy section; preserve every historical review-pass section unchanged. Commit that narrow removal when it changes the plan, then finish this step.
 - If any of these remain true, make no plan change and report that the review is not ready for clean closeout:
   - `unresolved_task_required_findings` is non-empty;
   - `unresolved_minor_batchable_findings` is non-empty;
@@ -38,7 +38,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
   - `minor_fix_revalidation_cycle_closed` is false while the canonical plan still contains an unfinished task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes`.
 - If the review handoff or findings artifact is missing or cannot be interpreted safely enough to support a no-findings closeout, make no plan change and report that the closeout cannot yet be written honestly.
 - Do not treat `needs_final_minor_fix_revalidation_task = false` as proof that the review cycle is complete. It only means the final minor-fix revalidation task no longer needs to be created.
-- When the review has ended cleanly, append or repair a `Post-Implementation Code Review` section for the current `review_pass_id`.
+- Only when no structured current-pass findings block exists and the complete review produced no accepted, ignored, rejected, or non-adopted current-pass candidates, append or repair a `Post-Implementation Code Review` section for the current `review_pass_id`.
 - If the section already exists for this `review_pass_id`, update it instead of appending a duplicate.
 - The closeout must state:
   - the branch-vs-base checks performed across every repository in scope;
@@ -66,7 +66,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 
 <output_contract>
 
-- Write or repair only the durable no-findings review closeout in the canonical plan.
+- Write or repair only the durable no-candidate review closeout in the canonical plan, or remove only a same-pass legacy closeout that duplicates the structured findings block.
 - Make no plan change when the review is not yet in a truly clean state.
 - Commit tracked plan changes when the closeout section was added or updated.
 - Report whether the closeout was added, updated, or skipped, and why.
@@ -82,7 +82,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 - Confirm no fresh review-created work remained from the current review cycle.
 - Confirm no unfinished task-up-owned final revalidation task remained for the current review cycle.
 - Confirm the canonical plan did not still contain an unfinished `Re-Validate Story <story-number> After Inline Minor Review Fixes` task when the closeout was written.
-- Confirm the plan now has exactly one `Post-Implementation Code Review` section for the current `review_pass_id`.
+- Confirm exactly one conditional outcome: a structured current-pass findings block exists and no same-pass `Post-Implementation Code Review` section remains, or a genuine no-candidate pass has exactly one `Post-Implementation Code Review` section for the current `review_pass_id`.
 - Confirm the closeout preserves the stored or safely inferred comparison metadata for every repository in scope.
 - Confirm the closeout records residual risk honestly instead of implying stronger proof than the artifacts support.
 - Confirm no tasks were created or reopened in this step.

@@ -1,8 +1,8 @@
 # Goal
 
-Preserve the external-review-specific adjudication trail after the generic review loop has finished its task routing.
+Preserve the external-review-specific adjudication trail after the external evidence, findings, saturation, and challenge artifacts are complete and before generic classification, plan recording, or implementation begins.
 
-This step is bookkeeping only. It must not create tasks, fix code, or change the generic review disposition state.
+This step is pre-routing bookkeeping only. It must not create tasks, fix code, or change the generic review disposition state. Its ordering ensures rejected and non-adopted external comments are available when the structured plan block is written.
 
 <critical_rules>
 

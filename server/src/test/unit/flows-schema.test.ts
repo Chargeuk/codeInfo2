@@ -18,6 +18,7 @@ describe('flow schema (v1)', () => {
     label?: string;
     agentType?: string;
     identifier?: string;
+    continueOnFailure?: boolean;
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
@@ -942,9 +943,8 @@ describe('flow schema (v1)', () => {
     for (const flowFile of flowFiles) {
       const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      const markers = flattenSteps(parsed.steps ?? []).map(
-        (step) => step.markdownFile,
-      );
+      const flattened = flattenSteps(parsed.steps ?? []);
+      const markers = flattened.map((step) => step.markdownFile);
       const classifyIndex = markers.indexOf('classify_review_disposition.md');
       const filterIndex = markers.indexOf(
         'filter_review_findings_to_story_scope.md',
@@ -982,6 +982,26 @@ describe('flow schema (v1)', () => {
         `${flowFile} should verify review issue decisions`,
       );
       assert.notEqual(fixIndex, -1, `${flowFile} should attempt inline fixes`);
+      const recordStep = flattened.find(
+        (step) =>
+          step.type === 'llm' &&
+          step.markdownFile === 'record_review_issue_decisions_in_plan.md',
+      );
+      const verifyStep = flattened.find(
+        (step) =>
+          step.type === 'llm' &&
+          step.markdownFile === 'verify_review_issue_decisions_recorded.md',
+      );
+      assert.equal(
+        recordStep?.type === 'llm' ? recordStep.continueOnFailure : undefined,
+        true,
+        `${flowFile} should tolerate an exhausted recorder failure`,
+      );
+      assert.equal(
+        verifyStep?.type === 'llm' ? verifyStep.continueOnFailure : undefined,
+        true,
+        `${flowFile} should tolerate an exhausted verifier failure`,
+      );
       assert.ok(
         classifyIndex < filterIndex &&
           filterIndex < promoteIndex &&
@@ -991,6 +1011,34 @@ describe('flow schema (v1)', () => {
         `${flowFile} should classify, filter, promote, record and verify decisions, and then attempt findings`,
       );
     }
+  });
+
+  test('external adjudication is preserved before classification and plan recording', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/ingest_external_review_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const markers = flattenSteps(parsed.steps ?? []).map(
+      (step) => step.markdownFile,
+    );
+    const preserveIndexes = markers
+      .map((marker, index) =>
+        marker === 'preserve_external_review_adjudication_trail.md'
+          ? index
+          : -1,
+      )
+      .filter((index) => index >= 0);
+    const classifyIndex = markers.indexOf('classify_review_disposition.md');
+    const recordIndex = markers.indexOf(
+      'record_review_issue_decisions_in_plan.md',
+    );
+
+    assert.deepEqual(preserveIndexes.length, 1);
+    assert.ok(
+      preserveIndexes[0]! < classifyIndex && classifyIndex < recordIndex,
+      'external adjudication should be complete before classification and recording',
+    );
   });
 
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {
@@ -1033,44 +1081,6 @@ describe('flow schema (v1)', () => {
         `${flowFile} should generate final minor revalidation before clean closeout`,
       );
     }
-  });
-
-  test('external review flow preserves adjudication trail after clean closeout', async () => {
-    const raw = await fs.readFile(
-      path.join(repoRoot, 'flows/ingest_external_review_plan.json'),
-      'utf8',
-    );
-    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    assert.ok(
-      Array.isArray(parsed.steps),
-      'flows/ingest_external_review_plan.json should define steps',
-    );
-
-    const markers = flattenSteps(parsed.steps ?? []).map((step) =>
-      step.type === 'llm' ? step.markdownFile : undefined,
-    );
-
-    const closeoutIndex = markers.indexOf(
-      'write_review_no_findings_closeout.md',
-    );
-    const adjudicationIndex = markers.indexOf(
-      'preserve_external_review_adjudication_trail.md',
-    );
-
-    assert.notEqual(
-      closeoutIndex,
-      -1,
-      'flows/ingest_external_review_plan.json should include clean review closeout',
-    );
-    assert.notEqual(
-      adjudicationIndex,
-      -1,
-      'flows/ingest_external_review_plan.json should preserve the external adjudication trail',
-    );
-    assert.ok(
-      closeoutIndex < adjudicationIndex,
-      'flows/ingest_external_review_plan.json should preserve the external adjudication trail after clean closeout',
-    );
   });
 
   test('unknown keys are rejected (strict), including reingest extras', () => {
@@ -1337,6 +1347,46 @@ describe('flow schema (v1)', () => {
       identifier: 'main',
       markdownFile: 'architecture/review.md',
     });
+  });
+
+  test('llm steps accept an optional boolean continueOnFailure flag', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          continueOnFailure: true,
+          markdownFile: 'architecture/review.md',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(
+      parsed.flow.steps[0]?.type === 'llm'
+        ? parsed.flow.steps[0].continueOnFailure
+        : undefined,
+      true,
+    );
+  });
+
+  test('llm steps reject a non-boolean continueOnFailure flag', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          continueOnFailure: 'yes',
+          markdownFile: 'architecture/review.md',
+        },
+      ],
+    });
+
+    assert.equal(parseFlowFile(json).ok, false);
   });
 
   test('reingest steps parse with sourceId', () => {

@@ -63,6 +63,13 @@
         },
         {
           "type": "llm",
+          "label": "Preserve External Review Adjudication Trail",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "preserve_external_review_adjudication_trail.md"
+        },
+        {
+          "type": "llm",
           "label": "Classify Review Disposition",
           "agentType": "planning_agent",
           "identifier": "planner",
@@ -87,6 +94,7 @@
           "label": "Record Review Issue Decisions In Plan",
           "agentType": "planning_agent",
           "identifier": "planner",
+          "continueOnFailure": true,
           "markdownFile": "record_review_issue_decisions_in_plan.md"
         },
         {
@@ -94,6 +102,7 @@
           "label": "Verify Review Issue Decisions Were Recorded",
           "agentType": "planning_agent",
           "identifier": "planner",
+          "continueOnFailure": true,
           "markdownFile": "verify_review_issue_decisions_recorded.md"
         },
         {
@@ -227,13 +236,6 @@
       "agentType": "planning_agent",
       "identifier": "planner",
       "markdownFile": "write_review_no_findings_closeout.md"
-    },
-    {
-      "type": "llm",
-      "label": "Preserve External Review Adjudication Trail",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "preserve_external_review_adjudication_trail.md"
     },
     {
       "type": "llm",

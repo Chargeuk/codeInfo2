@@ -547,6 +547,7 @@
               "label": "Record Review Issue Decisions In Plan",
               "agentType": "planning_agent",
               "identifier": "planner",
+              "continueOnFailure": true,
               "markdownFile": "record_review_issue_decisions_in_plan.md"
             },
             {
@@ -554,6 +555,7 @@
               "label": "Verify Review Issue Decisions Were Recorded",
               "agentType": "planning_agent",
               "identifier": "planner",
+              "continueOnFailure": true,
               "markdownFile": "verify_review_issue_decisions_recorded.md"
             },
             {

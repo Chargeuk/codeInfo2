@@ -14,10 +14,10 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 - Require the review handoff and review disposition state to agree on every machine identity field they both own for the validated current review, including the exact canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit` when those fields are present in both sources. Never infer, normalize, repair, or substitute a conflicting machine identity field.
 - Treat missing optional comparison-description metadata as recoverable when the required handoff/state identity agrees. Use the validated handoff value when available and add a concise confidence note when the omission materially limits the description. A genuine identity conflict still requires a safe no-edit result, but must not be reported as a clean no-findings outcome.
 - Use `review-disposition-state.json` as the sole source of actionable accepted-versus-rejected routing. Also preserve explicitly rejected or non-adopted current-pass review candidates from the validated findings, challenge, saturation, and external-review artifacts under `Ignored for This Story`; those artifact entries are decision-recording inputs only and must never be promoted into actionable routing by this step.
-- Do not reclassify findings, edit review artifacts, change flow-state routing, create tasks, implement fixes, run proof, or push.
+- Do not reclassify findings, edit review artifacts, change finding queues or task-up routing, create tasks, implement fixes, run proof, or push. The narrow retry bookkeeping below may set rerun/clean-exit flags without changing finding ownership.
 - Do not describe an `incomplete_review_blockers` entry as accepted or ignored. It is incomplete review state, not a decided issue.
 - Do not invent findings, titles, descriptions, examples, evidence, comparison metadata, or decision reasons.
-- Treat the canonical plan as the only tracked file this step may edit. Treat review handoffs, findings artifacts, and disposition state as transient workflow inputs that must not be committed.
+- Treat the canonical plan as the only tracked file this step may edit. Treat review handoffs, findings artifacts, and disposition state as transient workflow inputs that must not be committed. Update disposition state only for the narrow retry bookkeeping described below; never use that recovery note to reclassify or task up a finding.
 
 </critical_rules>
 
@@ -31,7 +31,7 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 - Do not pull preserved resolved, rejected, blocked, or historical findings from an earlier review pass into the current block merely because they remain in durable story state.
 - Match state entries to the current findings artifact by stable finding ID. For an artifact-only ignored candidate, preserve its existing source reference when one exists; otherwise identify it by its numbered presentation title and provenance rather than inventing a workflow finding ID. When an entry cannot be tied safely to the current pass, omit it from the decision lists and record a concise non-fabricated confidence note only when the remaining validated identity still permits an honest plan update.
 - If no accepted or ignored current-pass findings or explicitly rejected current-pass artifact candidates exist, make no plan edit. Leave the genuine no-findings closeout to its existing workflow path.
-- If accepted or ignored findings exist but the exact current-pass identity cannot be validated, make no plan edit and report the identity mismatch.
+- If accepted or ignored findings exist but the exact current-pass identity cannot be validated, make no plan edit. Append one deduplicated `classification_notes` entry describing the mismatch, set `needs_review_rerun_before_close` to true and `safe_to_exit_review_loop_without_tasking` to false, and preserve every finding queue and `needs_task_up_path` unchanged. Do not add an `incomplete_review_blockers` entry, because that would bypass the required one-shot attempt. Report a retry-required result normally so the autonomous flow can continue to its deterministic pre-fix gate.
 
 </current_pass_rules>
 
@@ -99,14 +99,14 @@ Write one block with this shape:
 - If the plan changed, commit only the canonical plan using the repository's required story commit convention and body requirements.
 - Do not include `codeInfoStatus/**`, `codeInfoTmp/**`, review artifacts, or unrelated working-tree changes in the commit.
 - If no plan change was needed, do not create an empty commit.
-- If committing fails, stop and report the failure without claiming the decision record is durable.
+- If committing fails, leave the validated plan edit in place for the verifier to retry, append one deduplicated retry note to disposition-state `classification_notes`, set `needs_review_rerun_before_close` to true and `safe_to_exit_review_loop_without_tasking` to false, and report the non-durable result normally. Do not claim a commit exists, do not task up the findings, and do not deliberately return a failed turn solely because this commit attempt failed.
 - Do not push.
 
 </commit_rules>
 
 <output_contract>
 
-- Finish with either one durable, structured current-pass `## Code Review Findings` block committed before implementation begins, or a clean no-edit result because no current-pass accepted or ignored findings exist.
+- Finish with exactly one of three honest outcomes: one durable structured current-pass `## Code Review Findings` block committed before implementation begins; a clean no-edit result because no current-pass accepted or ignored findings exist; or an explicit retry-required result whose disposition state prevents clean exit and whose missing/incomplete block will keep the deterministic minor-fix gate closed.
 - Report the plan path, review pass ID, accepted count, ignored count, whether the block was created, replaced, updated, or unchanged, and the plan commit SHA when a commit was created.
 
 </output_contract>
@@ -116,6 +116,7 @@ Write one block with this shape:
 - Confirm `current-plan.json` was read before review state and review artifacts.
 - Confirm `current-plan.json` supplied only plan selection and repository scope, and that the handoff/state machine identities did not conflict.
 - Confirm classification and promotion were not changed.
+- Confirm any identity or commit recovery updated only retry bookkeeping, preserved every finding queue and `needs_task_up_path`, and did not create an incomplete-review blocker or bypass the one-shot path.
 - Confirm every listed issue belongs to the current review pass and exactly one category.
 - Confirm every issue has a numbered title, a stable finding ID or existing review reference, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
 - Confirm accepted and ignored categories both exist, including `- None.` when applicable.

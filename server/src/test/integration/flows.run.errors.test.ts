@@ -857,6 +857,72 @@ test('later markdown-backed llm failures preserve AGENT_NOT_FOUND after flow sta
   });
 });
 
+test('continueOnFailure lets a later llm step run after a terminal llm failure', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
+    const conversationId = 'flow-llm-failure-continues';
+    const flowName = 'llm-failure-continues';
+
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        makeLlmStep(),
+        {
+          type: 'llm',
+          agentType: 'missing_agent',
+          identifier: 'missing',
+          continueOnFailure: true,
+          messages: [{ role: 'user', content: ['tolerated failure'] }],
+        },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          messages: [{ role: 'user', content: ['after tolerated failure'] }],
+        },
+      ],
+    });
+
+    subscribeConversation(ws, conversationId);
+    await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('after tolerated failure'),
+        ) &&
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            turn.content.includes('Agent missing_agent not found'),
+        ),
+    );
+
+    assert.equal(
+      turns.some(
+        (turn) =>
+          turn.role === 'user' &&
+          turn.content.includes('after tolerated failure'),
+      ),
+      true,
+    );
+    assert.equal(
+      query({ text: 'flows.run.llm_failure_continued' }).some(
+        (entry) => entry.context?.flowName === flowName,
+      ),
+      true,
+    );
+  });
+});
+
 test('dedicated flow reingest terminal error remains non-fatal to later steps', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({

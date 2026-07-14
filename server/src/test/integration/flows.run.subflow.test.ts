@@ -1023,7 +1023,7 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
   }
 });
 
-test('codexReview resolves model and reasoning effort from its configured agent', async () => {
+test('conditional branches discover agent and Codex-review runtime profiles', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-codex-review-agent-profile-'),
   );
@@ -1050,6 +1050,7 @@ test('codexReview resolves model and reasoning effort from its configured agent'
     await initializeCodexReviewRepo(repoDir);
     await fs.mkdir(binDir, { recursive: true });
     await fs.mkdir(agentHome, { recursive: true });
+    await fs.mkdir(path.join(repoDir, 'scripts'), { recursive: true });
     setScopedTestEnvValue(
       'PATH',
       `${binDir}${path.delimiter}${previousPath ?? ''}`,
@@ -1066,6 +1067,17 @@ test('codexReview resolves model and reasoning effort from its configured agent'
       ].join('\n'),
       'utf8',
     );
+    await fs.writeFile(
+      path.join(repoDir, 'scripts', 'choose-branch.py'),
+      'print(\'{"answer":"yes"}\')\n',
+      'utf8',
+    );
+    await execFile('git', ['add', 'scripts/choose-branch.py'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['commit', '-m', 'add branch decision'], {
+      cwd: repoDir,
+    });
     await writeExecutable(
       path.join(binDir, 'codex'),
       `#!/usr/bin/env bash
@@ -1085,21 +1097,32 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
     );
     await writeFlowFile({
       tmpDir,
-      flowName: 'agent-backed-codex-review',
+      flowName: 'conditional-agent-discovery',
       steps: [
         {
-          type: 'codexReview',
-          label: 'Run Agent-Backed Codex Review',
-          outputKey: 'current-codex-review',
-          basePolicy: 'branched_from_or_default_if_merged',
-          modelSource: 'flow_request_or_step_or_agent',
-          agentType: 'review_agent_heavy',
+          type: 'if',
+          condition: 'scripts/choose-branch.py',
+          then: [
+            {
+              type: 'llm',
+              label: 'Run Agent From Then Branch',
+              agentType: 'review_agent_heavy',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Agent discovery from then branch'],
+                },
+              ],
+            },
+          ],
+          else: [{ type: 'wait', seconds: 1 }],
         },
       ],
     });
 
-    const result = await startFlowRun({
-      flowName: 'agent-backed-codex-review',
+    const thenResult = await startFlowRun({
+      flowName: 'conditional-agent-discovery',
       source: 'REST',
       working_folder: repoDir,
       chatFactory: () => new SubflowChat(25),
@@ -1109,8 +1132,49 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       }),
     });
 
-    assert.equal(result.modelId, 'gpt-5.6-sol');
-    await waitForAssistantStatus(result.conversationId, 'ok');
+    assert.equal(thenResult.modelId, 'gpt-5.6-sol');
+    await waitForAssistantStatus(thenResult.conversationId, 'ok');
+
+    await fs.writeFile(
+      path.join(repoDir, 'scripts', 'choose-branch.py'),
+      'print(\'{"answer":"no"}\')\n',
+      'utf8',
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'conditional-codex-review-discovery',
+      steps: [
+        {
+          type: 'if',
+          condition: 'scripts/choose-branch.py',
+          then: [{ type: 'wait', seconds: 1 }],
+          else: [
+            {
+              type: 'codexReview',
+              label: 'Run Agent-Backed Codex Review',
+              outputKey: 'current-codex-review',
+              basePolicy: 'branched_from_or_default_if_merged',
+              modelSource: 'flow_request_or_step_or_agent',
+              agentType: 'review_agent_heavy',
+            },
+          ],
+        },
+      ],
+    });
+
+    const elseResult = await startFlowRun({
+      flowName: 'conditional-codex-review-discovery',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(elseResult.modelId, 'gpt-5.6-sol');
+    await waitForAssistantStatus(elseResult.conversationId, 'ok');
 
     const pointer = JSON.parse(
       await fs.readFile(codexReviewPointerPath(repoDir), 'utf8'),

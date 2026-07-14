@@ -5026,6 +5026,12 @@ const findFirstAgentStep = (
       ) {
         return step;
       }
+      const thenStep = findFirstAgentStep(step.then);
+      if (thenStep) return thenStep;
+      if (step.else) {
+        const elseStep = findFirstAgentStep(step.else);
+        if (elseStep) return elseStep;
+      }
       continue;
     }
     if (step.type === 'startLoop') {
@@ -5223,6 +5229,15 @@ const findFirstCodexReviewStep = (
   for (const step of steps) {
     if (step.type === 'codexReview') {
       return step;
+    }
+    if (step.type === 'if') {
+      const thenStep = findFirstCodexReviewStep(step.then);
+      if (thenStep) return thenStep;
+      if (step.else) {
+        const elseStep = findFirstCodexReviewStep(step.else);
+        if (elseStep) return elseStep;
+      }
+      continue;
     }
     if (step.type === 'startLoop') {
       const nested = findFirstCodexReviewStep(step.steps);

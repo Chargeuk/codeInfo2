@@ -2066,8 +2066,9 @@ export const filterGitHubReviewFeedback = (params: {
   const prAuthor = normalizeTrimmedString(
     params.artifact.pullRequest.authorLogin,
   );
+  if (!prAuthor) return [];
   const isReviewerAuthored = (login: string) =>
-    !prAuthor || login.trim().toLowerCase() !== prAuthor.toLowerCase();
+    login.trim().toLowerCase() !== prAuthor.toLowerCase();
 
   const submissions: GitHubReviewFeedbackEntry[] = params.artifact.reviews
     .filter(

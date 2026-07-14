@@ -11,6 +11,7 @@ import {
   buildGitHubChildProcessEnv,
   createPullRequest,
   fetchPullRequestReviews,
+  filterGitHubReviewFeedback,
   lookupLatestOpenPullRequest,
   MAX_GITHUB_INLINE_REVIEW_COMMENTS,
   MAX_GITHUB_REVIEW_SUBMISSIONS,
@@ -896,6 +897,39 @@ test('review fetch preserves paginated review submissions and inline review comm
   } finally {
     await tempRepo.cleanup();
   }
+});
+
+test('review feedback filtering requires a canonical PR author before accepting feedback', () => {
+  const feedback = filterGitHubReviewFeedback({
+    artifact: {
+      repository: { owner: 'example', name: 'repo' },
+      pullRequest: {
+        number: 45,
+        url: 'https://github.com/example/repo/pull/45',
+        headRefName:
+          'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        baseRefName: 'main',
+      },
+      fetchedAt: '2026-07-14T19:45:00.000Z',
+      reviews: [
+        {
+          id: 1,
+          user: { login: 'pull-request-author' },
+          body: 'Author follow-up',
+          state: 'COMMENTED',
+        },
+        {
+          id: 2,
+          user: { login: 'external-reviewer' },
+          body: 'External review',
+          state: 'COMMENTED',
+        },
+      ],
+      reviewComments: [],
+    },
+  });
+
+  assert.deepEqual(feedback, []);
 });
 
 test('review fetch keeps one bounded producer corpus while paginated materialization stays page-local', async () => {

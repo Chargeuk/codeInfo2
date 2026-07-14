@@ -3335,3 +3335,37 @@ The final branch review found bounded Story 60 lifecycle gaps in automatic revie
 ### Ignored for This Story
 
 - None.
+
+## Code Review Findings
+
+- Review pass: `0000060-20260714T201549Z-7192cbffa1-415a21ab`
+- Review cycle: `0000060-rc-20260714T211735Z-280b5c53`
+- Comparison context: local `HEAD` `7192cbffa1c889411fb6d0ccad36e48fdbbb0df6` versus resolved base `origin/main@038a0264ff35e020f5394d33b79c413e891d155f` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Confidence note: the main reviewer entry was unavailable and the Open Code Review entry was stale, but the Codex reviewer was passed and usable. The accepted entries below are the three provenance-labelled Codex findings in the canonical current-pass findings artifact; no current-pass ignored candidates were recorded.
+
+### Accepted
+
+#### 1. Script-backed break and continue steps still require an AI agent
+
+- Finding ID: `codex-review-scripted-break-continue-agent-discovery`
+- Description: Script-backed `break` and `continue` steps still require `agentType` and `identifier`, and discovery checks that agent even when the condition uses a direct Python script.
+- Example: A valid direct-Python flow can be disabled when the unused agent or provider is unavailable.
+- Why accepted: Story 60 explicitly requires direct Python decision paths for `break` and `continue`; the disposition state identifies this as a bounded current-repository schema and discovery repair.
+
+#### 2. Conditional branches are omitted from subflow and Codex-review discovery
+
+- Finding ID: `codex-review-conditional-discovery-branches`
+- Description: The discovery traversals recurse through `startLoop` but do not recurse through `if.then` and `if.else` branches.
+- Example: A missing or invalid subflow inside a conditional can remain undisclosed until runtime, and a conditional `codexReview` step can omit its Codex availability warning.
+- Why accepted: Story 60 introduces the conditional flow runtime, and the disposition state identifies a bounded repair to the existing discovery traversals and focused coverage.
+
+#### 3. A tracked symlink can execute an untracked decision script
+
+- Finding ID: `codex-review-untracked-decision-symlink`
+- Description: Script containment and execution use the resolved target, but Git tracking is checked against the original symlink path.
+- Example: A tracked `decision.py` symlink pointing to an untracked file inside the repository can pass validation and execute that untracked target.
+- Why accepted: Story 60 explicitly requires a checked-in repository-relative Python entrypoint; the disposition state identifies one bounded service validation seam and focused regression proof.
+
+### Ignored for This Story
+
+- None.

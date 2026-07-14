@@ -3209,7 +3209,7 @@ Final Story 60 validation exposed intermittent failures caused by concurrent har
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 37`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: this commit
 
 #### Overview
@@ -3240,7 +3240,7 @@ The final branch review found bounded Story 60 lifecycle gaps in automatic revie
 4. [x] Run `npm run build:summary:client` from the repository root.
 5. [x] Run `npm run test:summary:all:parallel` from the repository root.
 6. [x] Run `npm run lint` from the repository root.
-7. [x] Run `npm run format:check` from the repository root.
+7. [ ] Run `npm run format:check` from the repository root.
 
 #### Implementation Notes
 
@@ -3258,6 +3258,3 @@ The final branch review found bounded Story 60 lifecycle gaps in automatic revie
 - `npm run lint` and `npm run format:check` both passed.
 - `npm run test:summary:all:parallel` passed: client 904/904, server unit 2637/2637, cucumber 133/133, and e2e 77/77.
 - `npm run test:summary:all:stress` passed: client 904/904 in 346.518s, server unit 2637/2637 in 453.297s, cucumber 133/133 in 188.062s, and e2e 77/77 in 169.131s.
-- Re-ran `npm run format:check` for the remaining closeout proof item; Prettier reported all tracked files matched.
-- Implementation-plus-automated-proof audit found all six subtasks and seven testing items supported by repository evidence; no story-caused preserved-behavior regression or standalone blocker was found, so Task 38 is complete for automated proof and ready for manual validation.
-- Full-story manual proof restarted the previously stopped main stack, passed `http://localhost:5010/health` and `http://localhost:5001`, and cleanly shut it down. After the supported `/data/codeInfo2` ingest, the Flows catalog exposed and selected `implement_next_plan_github_review` with no console errors or failed flow requests. Manual testing skipped live GitHub execution: tried selecting that flow; observed it was available, but fuller proof was not possible without a dedicated non-production sandbox because execution can open or close real PRs for this repository. Playwright staging at `manual-testing/0000060/38/proof-01-flows-catalog.png` returned `ENOENT`, so no screenshot artifact was saved; no follow-up subtasks were needed.

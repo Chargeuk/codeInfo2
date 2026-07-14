@@ -3209,7 +3209,7 @@ Final Story 60 validation exposed intermittent failures caused by concurrent har
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 37`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: this commit
 
 #### Overview
@@ -3238,10 +3238,9 @@ The final branch review found bounded Story 60 lifecycle gaps in automatic revie
 2. [x] Run the focused flow-control Python tests for GitHub handoff and review branching helpers.
 3. [x] Run `npm run build:summary:server` from the repository root.
 4. [x] Run `npm run build:summary:client` from the repository root.
-5. [x] Run `npm run lint` from the repository root.
-6. [x] Run `npm run format:check` from the repository root.
-7. [x] Run `npm run test:summary:all:parallel` from the repository root.
-8. [x] Run `npm run test:summary:all:stress` from the repository root.
+5. [x] Run `npm run test:summary:all:parallel` from the repository root.
+6. [x] Run `npm run lint` from the repository root.
+7. [ ] Run `npm run format:check` from the repository root.
 
 #### Implementation Notes
 

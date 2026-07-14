@@ -424,7 +424,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         document_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
 
         self.assertIn(
-            "after story-scope filtering and immediately before the Minor Review Fix Path",
+            "after story-scope filtering and immediately before the review issue decisions are recorded in the plan",
             promote_text,
         )
         self.assertIn(
@@ -468,6 +468,77 @@ class ReviewPromptContractTests(unittest.TestCase):
         )
         self.assertIn("When a skipped finding is escalated", document_text)
         self.assertIn("cannot promote it into a repeat attempt", document_text)
+
+    def test_review_issue_decisions_are_recorded_before_implementation(self) -> None:
+        record_text = read_text(
+            "codeinfo_markdown/record_review_issue_decisions_in_plan.md"
+        )
+        ensure_text = read_text(
+            "codeinfo_markdown/ensure_review_findings_became_tasks.md"
+        )
+        disposition_text = read_text("codeinfo_markdown/review_disposition.md")
+        external_text = read_text(
+            "codeinfo_markdown/external_review_disposition.md"
+        )
+
+        for identity_field in (
+            "story_id",
+            "plan_path",
+            "review_session_id",
+            "review_pass_id",
+            "parent_execution_id",
+            "head_commit",
+            "comparison_base_commit",
+        ):
+            with self.subTest(identity_field=identity_field):
+                self.assertIn(identity_field, record_text)
+
+        self.assertIn(
+            "after story-scope filtering and actionable-finding promotion",
+            record_text,
+        )
+        self.assertIn(
+            "Use `review-disposition-state.json` as the sole source of accepted-versus-ignored routing",
+            record_text,
+        )
+        self.assertIn("### Accepted", record_text)
+        self.assertIn("### Ignored for This Story", record_text)
+        self.assertIn("- Review pass: `<review_pass_id>`", record_text)
+        self.assertIn("- Review cycle: `<review_cycle_id>`", record_text)
+        self.assertIn("- Comparison context:", record_text)
+        self.assertIn("- Description:", record_text)
+        self.assertIn("- Example:", record_text)
+        self.assertIn("- Why accepted:", record_text)
+        self.assertIn("- Why ignored:", record_text)
+        self.assertIn(
+            "No concrete example was recorded in the validated review evidence",
+            record_text,
+        )
+        self.assertIn(
+            "Never append a second `## Code Review Findings` block for the same `review_pass_id`",
+            record_text,
+        )
+        self.assertIn(
+            "Never delete, rename, merge, or rewrite a block belonging to an earlier review pass",
+            record_text,
+        )
+        self.assertIn(
+            "Do not describe an `incomplete_review_blockers` entry as accepted or ignored",
+            record_text,
+        )
+        self.assertIn(
+            "this task-up step must reuse it rather than create a second findings summary",
+            ensure_text,
+        )
+        self.assertIn(
+            "Do not append another findings section", ensure_text
+        )
+        self.assertIn("retired terse summary format", ensure_text)
+        self.assertIn("record_review_issue_decisions_in_plan.md", disposition_text)
+        self.assertIn("retired terse findings summary", disposition_text)
+        self.assertIn("ignored findings only", disposition_text)
+        self.assertIn("no accepted or ignored current-pass findings", disposition_text)
+        self.assertIn("accepted and ignored external-review decisions", external_text)
 
     def test_active_task_normalization_does_not_require_a_selected_task(self) -> None:
         text = read_text("codeinfo_markdown/normalize_inconsistent_active_task.md")

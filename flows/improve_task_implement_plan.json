@@ -692,6 +692,13 @@
               "markdownFile": "promote_actionable_review_findings_to_minor_path.md"
             },
             {
+              "type": "llm",
+              "label": "Record Review Issue Decisions In Plan",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "record_review_issue_decisions_in_plan.md"
+            },
+            {
               "type": "startLoop",
               "label": "Minor Review Fix Path",
               "steps": [

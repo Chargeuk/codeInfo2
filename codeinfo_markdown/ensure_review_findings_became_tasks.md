@@ -7,6 +7,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before making any decision about review-created tasks.
 - Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`, especially its review task-up ownership and duplicate-prevention rules.
+- Read and follow `$CODEINFO_ROOT/codeinfo_markdown/record_review_issue_decisions_in_plan.md` for the current-pass `## Code Review Findings` structure, identity, and idempotency contract. The earlier pre-fix recorder owns that decision block; this task-up step must reuse it rather than create a second findings summary.
 - Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Use the stored review handoff plus the artifacts it references as the source of review evidence, and use `review-disposition-state.json` as the preferred routing source when it exists and is valid.
 - Do not fail this step because a previous disposition pass underperformed. Repair the plan instead.
@@ -71,7 +72,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 4. Do not create a numbered review-fix task solely because the affected code lives in a queue, concurrency, lifecycle, or shared-caller helper when the reviewed finding is still one bounded same-repository repair with an already-settled intended contract.
 5. Do not task up a finding solely because it restores validation ordering, returned-result parity, producer-consumer alignment, or dead-branch clarity inside one bounded same-repository seam.
 6. A task-required findings-present plan is considered correctly encoded only when all of the following are true:
-   - the plan contains a new `Code Review Findings` section for the current `review_pass_id`;
+   - the plan contains exactly one structured `Code Review Findings` section for the current `review_pass_id`, recorded before implementation began and containing the required review identity, comparison context, accepted findings, and ignored-for-this-story findings;
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
    - each newly added review-created repair task names exactly one repository and follows the existing task structure;
@@ -91,7 +92,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 <repair_rules>
 
-1. When findings are present and the plan is missing review-fix tasks, add them directly to the end of the canonical plan in the repository's existing review-task format.
+1. When findings are present and the plan is missing review-fix tasks, locate the existing structured `Code Review Findings` block for the exact current `review_pass_id` and add the tasks in the repository's existing review-task format. Do not append another findings section.
 2. Add one or more review-fix tasks that respond to the unresolved task-required findings from the chosen source of truth, with explicit repository ownership, compact subtasks, proof homes, and wrapper-first testing.
 3. When a routed finding reason says the external reviewer's suggested remedy is out-of-scope, make the new review-created task explicitly preserve that constraint. Task wording must target the underlying defect and must not silently convert the external reviewer's broader behavior change into current-story scope.
 4. Add a fresh dedicated final re-test or revalidation task after the new review-fix tasks, so the story cannot close without re-running proof. Give it one administrative `Repository Name`, name every worked-on repository and affected component from the whole story plus the current review cycle, add the shared contract's repair-scope note first in both `Subtasks` and `Testing`, generate only each repository's independently discovered supported lint and formatting items in `Subtasks`, and, for each worked-on repository, list its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted from `Testing` and no targeted filters or invented commands.
@@ -113,6 +114,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 20. Keep the repair concrete and executable by a junior developer. If a finding is still too unclear for a direct code-change task, create a bounded diagnostic task with an explicit stopping rule rather than leaving the finding un-tasked.
 21. If the stored review outcome cannot be interpreted safely enough to choose the findings-present or incomplete-review path, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review.
 22. After repairing the plan, rerun `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` and verify that the required postcondition now exists before finishing this step.
+23. If an interrupted or older execution reached task-up without a current-pass findings block, repair the missing prerequisite by applying `record_review_issue_decisions_in_plan.md` first, then re-open the plan and continue task-up. This recovery may create the one structured current-pass block; it must never recreate the retired terse summary format.
+24. When review-fix tasks must form a contiguous end-of-file block, move the existing current-pass findings block as one unchanged unit immediately before those tasks. Do not rewrite its accepted or ignored decisions from post-implementation state, and do not move or alter historical review-pass blocks.
 
 </repair_rules>
 
@@ -135,7 +138,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Prefer deterministic checks based on the stored review handoff, the findings file, and the on-disk plan state.
 - Do not treat artifact capture, support-file wording cleanup, or unrelated plan polish as sufficient when the stored review handoff still says actionable findings are present.
 - Do not broaden scope beyond encoding the stored review outcome honestly into the canonical plan.
-- If a previous disposition pass added only partial review text without executable tasks, keep that text only when it remains accurate and then add the missing tasks after it.
+- If a previous disposition pass added only partial review text without executable tasks, normalize the exact current-pass block to the structured decision contract once, then add the missing tasks after it without creating another findings section.
 
 </behavior_rules>
 
@@ -162,6 +165,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm the stored review handoff and referenced artifacts were interpreted semantically, including local-HEAD-vs-resolved-base comparison context and any remote/fallback uncertainty that affects confidence.
 - Confirm that an unresolved task-required findings-present handoff or disposition state did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
+- Confirm the current `review_pass_id` appears in exactly one structured `## Code Review Findings` block and that task-up did not append the retired terse summary format.
 - Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, also covers any inline-resolved minor fixes from the same review cycle, ensures each worked-on repository has its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted, and was not forced into bogus single-repository proof scope.
 - Confirm that every review-created task kept one `Repository Name` implementation owner while still allowing cross-repository `Testing` when the finding needs compatibility proof.
 - Confirm that newly added substantive review-created tasks do not hide runnable wrapper or test commands in `Subtasks`, except for harness or wrapper tasks, and confirm the dedicated final task retains its explicit per-repository lint and formatting exception.

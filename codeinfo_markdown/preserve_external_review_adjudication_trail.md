@@ -30,7 +30,7 @@ This step is bookkeeping only. It must not create tasks, fix code, or change the
   - comments rejected because they are invalid or unproven;
   - comments whose underlying issue was adopted as an endorsed finding but whose suggested remedy was rejected as out-of-scope for the story.
 - Keep the findings artifact local-only. Do not try to force it into tracked repository history.
-- If the canonical plan already contains a review-created `Code Review Findings` block or a `Post-Implementation Code Review` closeout for the current `review_pass_id`, add or repair one concise sentence stating that the outcome came from ingested external review comments and that the detailed accepted/rejected comment trail remains in the local review artifacts for this pass.
+- If the canonical plan already contains the structured `Code Review Findings` block or a `Post-Implementation Code Review` closeout for the current `review_pass_id`, add or repair one concise sentence stating that the outcome came from ingested external review comments. Keep the plan's accepted and ignored issue summaries intact, and state that the full comment-level adjudication trail remains in the local review artifacts for this pass.
 - Preserve local-fallback review-base context when it materially affects review confidence for the external pass.
 
 </adjudication_rules>

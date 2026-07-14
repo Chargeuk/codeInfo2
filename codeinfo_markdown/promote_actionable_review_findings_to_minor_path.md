@@ -2,7 +2,7 @@
 
 Give every current-story actionable review finding one honest opportunity for inline resolution before task-up.
 
-This step runs after story-scope filtering and immediately before the Minor Review Fix Path. It promotes actionable findings that have not yet received an inline attempt in the active review cycle into the existing minor-fix queue. It does not edit code, create tasks, or change which findings are in scope.
+This step runs after story-scope filtering and immediately before the review issue decisions are recorded in the plan; the Minor Review Fix Path follows that decision-recording step. It promotes actionable findings that have not yet received an inline attempt in the active review cycle into the existing minor-fix queue. It does not edit code, create tasks, or change which findings are in scope.
 
 <critical_rules>
 
@@ -58,6 +58,7 @@ Apply the existing state meanings:
 - `safe_to_exit_review_loop_without_tasking` must be false whenever any unresolved, blocked, rerun, or final-revalidation condition remains.
 
 Preserve every same-cycle field this step does not own, including minor-fix history, commit SHAs, review-cycle identity, rerun state, final-revalidation state, and task-up ownership state.
+Preserve the current-pass `review_decision_recording` object unchanged as `pending`; only the later recorder and verifier may replace that outcome.
 
 </state_coherence_rules>
 

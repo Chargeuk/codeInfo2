@@ -1,4 +1,5 @@
 import type { FlowRunStartResult } from './types.js';
+import type { FlowJsonObject, FlowJsonValue } from './types.js';
 
 export type FlowPendingLoopControl = {
   kind: 'continue';
@@ -18,7 +19,39 @@ export type FlowActiveSubflow = {
   flowName: string;
   conversationId: string;
   runToken: string;
+  instanceId?: string;
+  targetId?: string;
+  workingFolder?: string;
+  input?: FlowJsonObject;
+  inputHash?: string;
   title?: string;
+};
+
+export type FlowSubflowWaveJobStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'stopped'
+  | 'not_applicable';
+
+export type FlowSubflowWaveProgress = {
+  stepPath: number[];
+  label?: string;
+  expected: number;
+  running: number;
+  completed: number;
+  failed: number;
+  stopped: number;
+  notApplicable: number;
+  jobs: Array<{
+    instanceId: string;
+    flowName: string;
+    targetId?: string;
+    title: string;
+    status: FlowSubflowWaveJobStatus;
+  }>;
+  updatedAt: string;
 };
 
 export type FlowResumeState = {
@@ -27,8 +60,13 @@ export type FlowResumeState = {
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
   pendingLoopControl?: FlowPendingLoopControl;
   activeSubflows?: FlowActiveSubflow[];
+  subflowWaveProgress?: FlowSubflowWaveProgress;
+  terminalOutcome?: 'not_applicable';
   codexReviewModelId?: string;
   workingFolder?: string;
+  input?: FlowJsonObject;
+  inputHash?: string;
+  values?: Record<string, FlowJsonValue>;
   agentConversations: Record<string, string>;
   agentWorkingFolders?: Record<string, string>;
   agentThreads: Record<string, string>;

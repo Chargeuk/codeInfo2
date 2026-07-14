@@ -58,7 +58,9 @@ export type CodexReviewPointer = {
   review_cycle_id: string | null;
   canonical_review_pass_id: string;
   codex_review_pass_id: string;
-  repo_alias: 'current_repository';
+  repo_alias: string;
+  target_id?: string;
+  review_wave_id?: string;
   repo_root: string;
   branch: string;
   branched_from: string | null;
@@ -272,6 +274,7 @@ const resolveCodexReviewPointerContext = async (
   params: {
     workingRepositoryPath: string;
     outputKey: string;
+    storyNumber?: string;
     signal?: AbortSignal;
   },
   deps: Pick<CodexReviewDeps, 'readFile' | 'execFile'>,
@@ -282,6 +285,26 @@ const resolveCodexReviewPointerContext = async (
     params.signal,
   );
   const outputKey = ensureSafeOutputKey(params.outputKey);
+  if (params.storyNumber) {
+    const prepared = await readPreparedReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        storyNumber: params.storyNumber,
+        outputKey: REVIEW_BASE_DEFAULT_OUTPUT_KEY,
+      },
+      deps,
+    );
+    if (!prepared) {
+      throw new Error('Bound Codex review target lacks a prepared review base.');
+    }
+    return {
+      repoRoot,
+      outputKey,
+      planPath: prepared.artifact.plan_path,
+      storyNumber: prepared.artifact.story_id,
+      currentPlanBranchedFrom: prepared.artifact.branched_from,
+    };
+  }
   const currentPlanPath = path.join(
     repoRoot,
     'codeInfoStatus',
@@ -320,6 +343,7 @@ export async function clearCodexReviewPointerFile(
   params: {
     workingRepositoryPath: string;
     outputKey: string;
+    storyNumber?: string;
     signal?: AbortSignal;
   },
   deps?: Partial<CodexReviewDeps>,
@@ -395,6 +419,7 @@ const loadOrPrepareReviewBase = async (
   basePolicy: FlowCodexReviewBasePolicy,
   deps: CodexReviewDeps,
   signal?: AbortSignal,
+  requirePreparedBase = false,
 ) => {
   const prepared = await readPreparedReviewBase(
     {
@@ -452,6 +477,10 @@ const loadOrPrepareReviewBase = async (
       writeFile: deps.writeFile,
     });
     return { artifactPath: prepared.artifactPath, artifact: upgraded };
+  }
+
+  if (requirePreparedBase) {
+    throw new Error('Bound Codex review target prepared base is stale or invalid.');
   }
 
   return prepareReviewBase(
@@ -543,6 +572,7 @@ export async function runCodexReviewStep(
     agentType?: string;
     reasoningEffort?: CodexReviewReasoningEffort;
     basePolicy?: FlowCodexReviewBasePolicy;
+    storyNumber?: string;
     signal?: AbortSignal;
   },
   deps?: Partial<CodexReviewDeps>,
@@ -556,6 +586,7 @@ export async function runCodexReviewStep(
     {
       workingRepositoryPath: params.workingRepositoryPath,
       outputKey: params.outputKey,
+      storyNumber: params.storyNumber,
       signal: params.signal,
     },
     resolvedDeps,
@@ -602,6 +633,7 @@ export async function runCodexReviewStep(
     basePolicy,
     resolvedDeps,
     params.signal,
+    Boolean(params.storyNumber),
   );
   if (preparedBase.artifact.branch !== currentBranch) {
     throw new Error(
@@ -786,7 +818,13 @@ const buildPointer = (params: {
   review_cycle_id: params.reviewCycleId,
   canonical_review_pass_id: params.canonicalReviewPassId,
   codex_review_pass_id: params.codexReviewPassId,
-  repo_alias: 'current_repository',
+  repo_alias: params.preparedBase.repo_alias,
+  ...(params.preparedBase.target_id
+    ? { target_id: params.preparedBase.target_id }
+    : {}),
+  ...(params.preparedBase.review_wave_id
+    ? { review_wave_id: params.preparedBase.review_wave_id }
+    : {}),
   repo_root: params.repoRoot,
   branch: params.currentBranch,
   branched_from: params.preparedBase.branched_from,

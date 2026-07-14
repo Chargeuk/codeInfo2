@@ -788,14 +788,73 @@ export function ConversationList({
                                   }}
                                 />
                               )}
+                            {conversation.flags?.flow?.subflowWaveProgress &&
+                              !conversation.flags?.flowChild?.executionId && (
+                                <Chip
+                                  label={`Wave ${conversation.flags.flow.subflowWaveProgress.completed + conversation.flags.flow.subflowWaveProgress.notApplicable}/${conversation.flags.flow.subflowWaveProgress.expected}`}
+                                  title={`Running ${conversation.flags.flow.subflowWaveProgress.running}; failed ${conversation.flags.flow.subflowWaveProgress.failed}; stopped ${conversation.flags.flow.subflowWaveProgress.stopped}; not applicable ${conversation.flags.flow.subflowWaveProgress.notApplicable}`}
+                                  size="small"
+                                  variant="outlined"
+                                  color={
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .failed > 0 ||
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .stopped > 0
+                                      ? 'warning'
+                                      : 'success'
+                                  }
+                                  data-testid="conversation-wave-progress-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
                             {conversation.flags?.flowChild?.executionId &&
-                              !conversation.flags?.flow?.executionId && (
+                              (!conversation.flags?.flow?.executionId ||
+                                conversation.flags.flowChild.instanceId) && (
                                 <Chip
                                   label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
                                   size="small"
                                   variant="outlined"
                                   color="default"
                                   data-testid="conversation-run-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
+                            {conversation.flags?.flowChild?.instanceId &&
+                              conversation.flags.flowChild.targetId && (
+                                <Chip
+                                  label={conversation.flags.flowChild.targetId}
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  data-testid="conversation-wave-target-chip"
                                   sx={{
                                     minWidth: 0,
                                     maxWidth: '100%',

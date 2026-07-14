@@ -3,6 +3,13 @@ import type { cleanupInflight } from '../chat/inflightRegistry.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type { ListReposResult } from '../lmstudio/toolService.js';
 
+export type FlowJsonPrimitive = string | number | boolean | null;
+export type FlowJsonValue =
+  | FlowJsonPrimitive
+  | FlowJsonValue[]
+  | { [key: string]: FlowJsonValue };
+export type FlowJsonObject = { [key: string]: FlowJsonValue };
+
 export type FlowRunErrorCode =
   | 'FLOW_NOT_FOUND'
   | 'FLOW_INVALID'
@@ -38,8 +45,15 @@ export type FlowRunStartParams = {
   retryOwnershipId?: string;
   codexReviewModelId?: string;
   working_folder?: string;
+  input?: FlowJsonObject;
   resumeStepPath?: number[];
   customTitle?: string;
+  parentWave?: {
+    executionId: string;
+    instanceId: string;
+    targetId?: string;
+    displayName: string;
+  };
   source: 'REST' | 'MCP';
   inflightId?: string;
   chatFactory?: FlowChatFactory;

@@ -2,23 +2,28 @@
   "description": "Generate the main review artifacts for the current story without running disposition, fixing, task-up, or closeout steps.",
   "steps": [
     {
+      "type": "validateReviewTarget",
+      "label": "Validate Bound Review Target",
+      "targetFrom": "target"
+    },
+    {
       "type": "reingest",
-      "label": "Re-embed plan-scope repositories before review disposition",
-      "target": "plan_scope"
+      "label": "Re-embed the bound review target",
+      "target": "working"
     },
     {
       "type": "command",
       "label": "Run Review Evidence Gate",
       "agentType": "review_agent",
       "identifier": "reviewer_evidence",
-      "commandName": "review_evidence_gate"
+      "commandName": "target_review_evidence_gate"
     },
     {
       "type": "command",
       "label": "Run Code Review Findings",
       "agentType": "review_agent",
       "identifier": "reviewer_findings",
-      "commandName": "code_review_findings"
+      "commandName": "target_code_review_findings"
     },
     {
       "type": "llm",
@@ -32,14 +37,14 @@
       "label": "Run Findings Saturation",
       "agentType": "review_agent_lite",
       "identifier": "reviewer_saturation",
-      "commandName": "review_findings_saturation"
+      "commandName": "target_review_findings_saturation"
     },
     {
       "type": "command",
       "label": "Run Blind-Spot Challenge",
       "agentType": "review_agent_lite",
       "identifier": "reviewer_blindspot",
-      "commandName": "review_blind_spot_challenge"
+      "commandName": "target_review_blind_spot_challenge"
     }
   ]
 }

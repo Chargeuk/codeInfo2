@@ -75,6 +75,42 @@ export type FlowPrepareReviewBaseStep = {
   initializeReviewPointers?: boolean;
 };
 
+export type FlowPrepareReviewTargetsStep = {
+  type: 'prepareReviewTargets';
+  label?: string;
+  outputKey: string;
+};
+
+export type FlowValidateReviewTargetStep = {
+  type: 'validateReviewTarget';
+  label?: string;
+  targetFrom: string;
+};
+
+export type FlowCrossRepositoryReviewGateStep = {
+  type: 'crossRepositoryReviewGate';
+  label?: string;
+  targetSnapshotFrom: string;
+  reviewSetFrom: string;
+  outputKey: string;
+};
+
+export type FlowPrepareReviewSetStep = {
+  type: 'prepareReviewSet';
+  label?: string;
+  snapshotFrom: string;
+  outputKey: string;
+  reviewFlowNames: string[];
+  crossRepositoryFlowName: string;
+};
+
+export type FlowValidateReviewWaveStep = {
+  type: 'validateReviewWave';
+  label?: string;
+  snapshotFrom: string;
+  reviewSetFrom: string;
+};
+
 export type FlowCodexReviewStep = {
   type: 'codexReview';
   label?: string;
@@ -98,6 +134,36 @@ export type FlowSubflowStep = {
   flowNames: string[];
 };
 
+export type FlowSubflowWaveBindings = {
+  workingFolderFrom?: string;
+  input?: Record<string, string>;
+};
+
+export type FlowSubflowWaveMatrixGroup = {
+  kind: 'matrix';
+  id: string;
+  itemsFrom: string;
+  itemName: string;
+  flowNames: string[];
+  bindings?: FlowSubflowWaveBindings;
+};
+
+export type FlowSubflowWaveSingletonGroup = {
+  kind: 'singleton';
+  id: string;
+  flowName: string;
+  bindings?: FlowSubflowWaveBindings;
+};
+
+export type FlowSubflowWaveStep = {
+  type: 'subflowWave';
+  label?: string;
+  groups: Array<
+    FlowSubflowWaveMatrixGroup | FlowSubflowWaveSingletonGroup
+  >;
+  failureMode?: 'best_effort';
+};
+
 export type FlowReingestStep = {
   type: 'reingest';
   label?: string;
@@ -110,10 +176,16 @@ export type FlowStep =
   | FlowContinueStep
   | FlowCommandStep
   | FlowResetStep
+  | FlowPrepareReviewTargetsStep
+  | FlowValidateReviewTargetStep
+  | FlowCrossRepositoryReviewGateStep
+  | FlowPrepareReviewSetStep
+  | FlowValidateReviewWaveStep
   | FlowPrepareReviewBaseStep
   | FlowCodexReviewStep
   | FlowValidateReviewArtifactsStep
   | FlowSubflowStep
+  | FlowSubflowWaveStep
   | FlowReingestStep;
 
 export type FlowFile = {
@@ -201,6 +273,61 @@ const FlowPrepareReviewBaseStepSchema = z
   })
   .strict();
 
+const FlowPrepareReviewTargetsStepSchema = z
+  .object({
+    type: z.literal('prepareReviewTargets'),
+    label: trimmedNonEmptyString.optional(),
+    outputKey: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowValidateReviewTargetStepSchema = z
+  .object({
+    type: z.literal('validateReviewTarget'),
+    label: trimmedNonEmptyString.optional(),
+    targetFrom: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowCrossRepositoryReviewGateStepSchema = z
+  .object({
+    type: z.literal('crossRepositoryReviewGate'),
+    label: trimmedNonEmptyString.optional(),
+    targetSnapshotFrom: trimmedNonEmptyString,
+    reviewSetFrom: trimmedNonEmptyString,
+    outputKey: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowPrepareReviewSetStepSchema = z
+  .object({
+    type: z.literal('prepareReviewSet'),
+    label: trimmedNonEmptyString.optional(),
+    snapshotFrom: trimmedNonEmptyString,
+    outputKey: trimmedNonEmptyString,
+    reviewFlowNames: z.array(trimmedNonEmptyString).min(1),
+    crossRepositoryFlowName: trimmedNonEmptyString,
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (new Set(value.reviewFlowNames).size !== value.reviewFlowNames.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reviewFlowNames'],
+        message: 'prepareReviewSet reviewFlowNames must be distinct.',
+      });
+    }
+  });
+
+const FlowValidateReviewWaveStepSchema = z
+  .object({
+    type: z.literal('validateReviewWave'),
+    label: trimmedNonEmptyString.optional(),
+    snapshotFrom: trimmedNonEmptyString,
+    reviewSetFrom: trimmedNonEmptyString,
+  })
+  .strict();
+
 const FlowCodexReviewStepSchema = z
   .object({
     type: z.literal('codexReview'),
@@ -285,6 +412,84 @@ const FlowSubflowStepSchema = z
     });
   });
 
+const flowWaveIdentifier = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z_][A-Za-z0-9_-]*$/u);
+const flowWaveBindingPath = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/u);
+
+const FlowSubflowWaveBindingsSchema = z
+  .object({
+    workingFolderFrom: flowWaveBindingPath.optional(),
+    input: z.record(flowWaveIdentifier, flowWaveBindingPath).optional(),
+  })
+  .strict();
+
+const FlowSubflowWaveMatrixGroupSchema = z
+  .object({
+    kind: z.literal('matrix'),
+    id: flowWaveIdentifier,
+    itemsFrom: flowWaveBindingPath,
+    itemName: flowWaveIdentifier,
+    flowNames: z.array(trimmedNonEmptyString).min(1),
+    bindings: FlowSubflowWaveBindingsSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.flowNames.forEach((flowName, index) => {
+      if (seen.has(flowName)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['flowNames', index],
+          message: `Duplicate wave subflow name "${flowName}" is not allowed.`,
+        });
+      }
+      seen.add(flowName);
+    });
+  });
+
+const FlowSubflowWaveSingletonGroupSchema = z
+  .object({
+    kind: z.literal('singleton'),
+    id: flowWaveIdentifier,
+    flowName: trimmedNonEmptyString,
+    bindings: FlowSubflowWaveBindingsSchema.optional(),
+  })
+  .strict();
+
+const FlowSubflowWaveStepSchema = z
+  .object({
+    type: z.literal('subflowWave'),
+    label: trimmedNonEmptyString.optional(),
+    groups: z
+      .array(
+        z.union([
+          FlowSubflowWaveMatrixGroupSchema,
+          FlowSubflowWaveSingletonGroupSchema,
+        ]),
+      )
+      .min(1),
+    failureMode: z.literal('best_effort').optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.groups.forEach((group, index) => {
+      if (seen.has(group.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['groups', index, 'id'],
+          message: `Duplicate wave group id "${group.id}" is not allowed.`,
+        });
+      }
+      seen.add(group.id);
+    });
+  });
+
 const FlowReingestSourceIdStepSchema = z
   .object({
     type: z.literal('reingest'),
@@ -317,10 +522,16 @@ function flowStepUnionSchema() {
     FlowContinueStepSchema,
     FlowCommandStepSchema,
     FlowResetStepSchema,
+    FlowPrepareReviewTargetsStepSchema,
+    FlowValidateReviewTargetStepSchema,
+    FlowCrossRepositoryReviewGateStepSchema,
+    FlowPrepareReviewSetStepSchema,
+    FlowValidateReviewWaveStepSchema,
     FlowPrepareReviewBaseStepSchema,
     FlowCodexReviewStepSchema,
     FlowValidateReviewArtifactsStepSchema,
     FlowSubflowStepSchema,
+    FlowSubflowWaveStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,
     FlowReingestPlanScopeTargetStepSchema,

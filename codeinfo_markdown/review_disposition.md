@@ -4,6 +4,8 @@ Finish the current story review using ONLY the stored review handoff and the art
 
 <critical_rules>
 
+- When `codeInfoTmp/reviews/<story-number>-current-review-set.json` exists, read it and the matching `current-review-wave-validation.json` before disposition. Require exact wave identity and use only `job_results` marked completed or partial plus `aggregated_findings`; keep every target owner and severity conflict visible.
+- Never close a review as clean when the review set has `closeout_allowed: false`. For a multi-target story, missing, stale, failed, or invalid cross-repository coverage is mandatory incomplete-review coverage even when all target-local reviewers reported no findings.
 - Require the server-owned current-review validation artifact to match the exact story/session/pass/HEAD/base identity used by the disposition state. Accept `passed` or `partial` and use findings only from reviewer entries marked usable. When at least one trustworthy reviewer and the canonical findings basis remain usable, retain failed sibling-review coverage as a visible non-blocking coverage note rather than creating plan work. Use an incomplete-review follow-up only when no reviewer is usable or the surviving artifacts cannot provide a trustworthy review basis. Never mix findings from stale or unvalidated reviewer entries.
 
 - Do NOT rediscover review artifacts by timestamp.

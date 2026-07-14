@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and record wave coverage, target ownership, and severity conflicts explicitly.
+
 Record the current review pass's accepted and ignored issue decisions in the canonical story plan before any minor review fix or task-up implementation begins.
 
 This step runs after story-scope filtering and actionable-finding promotion, immediately before the Minor Review Fix Path. It turns the final current-pass routing state into a concise human-readable `## Code Review Findings` block without changing any routing decision or creating implementation tasks.

@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and verify every usable target-local and cross-repository finding was represented.
+
 Verify that the current review pass's accepted and ignored issue decisions were durably recorded in the canonical story plan before any minor review fix or task-up implementation begins, and repair one missing block idempotently when safe.
 
 This is a bounded pre-fix recovery step. It runs immediately after `Record Review Issue Decisions In Plan` and immediately before the Minor Review Fix Path.

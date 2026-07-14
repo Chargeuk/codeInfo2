@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first. For a review wave, iterate every usable Open Code job recorded in the review-set manifest instead of reading only the plan-host pointer.
+
 Merge validated Open Code Review candidates into the already current canonical findings artifact without changing the existing main or Codex review pipelines.
 
 This step may update only:

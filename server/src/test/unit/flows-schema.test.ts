@@ -123,6 +123,94 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('valid mixed subflow wave parses as ok: true', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'subflowWave',
+            label: 'Run review wave',
+            failureMode: 'best_effort',
+            groups: [
+              {
+                kind: 'matrix',
+                id: 'target_reviews',
+                itemsFrom: 'review_targets',
+                itemName: 'target',
+                flowNames: ['main_review', 'codex_review'],
+                bindings: {
+                  workingFolderFrom: 'target.repo_root',
+                  input: { review_target: 'target' },
+                },
+              },
+              {
+                kind: 'singleton',
+                id: 'cross_repository',
+                flowName: 'cross_repository_review',
+                bindings: {
+                  workingFolderFrom: 'review_wave.plan_host_root',
+                  input: { review_wave: 'review_wave' },
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
+  test('subflow wave rejects duplicate group ids and invalid binding paths', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'subflowWave',
+            groups: [
+              {
+                kind: 'singleton',
+                id: 'duplicate',
+                flowName: 'one',
+              },
+              {
+                kind: 'singleton',
+                id: 'duplicate',
+                flowName: 'two',
+                bindings: { workingFolderFrom: 'bad path' },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
+  test('subflow wave rejects duplicate matrix flow names', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'subflowWave',
+            groups: [
+              {
+                kind: 'matrix',
+                id: 'matrix',
+                itemsFrom: 'items',
+                itemName: 'item',
+                flowNames: ['same', 'same'],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
   test('valid codexReview step parses as ok: true', () => {
     const json = JSON.stringify({
       description: 'Codex review flow',
@@ -192,6 +280,37 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('valid prepareReviewTargets step parses as ok: true', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'prepareReviewTargets',
+            label: 'Snapshot review targets',
+            outputKey: 'review_wave',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
+  test('valid validateReviewTarget step parses as ok: true', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'validateReviewTarget',
+            targetFrom: 'target',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
   test('subflow step requires non-empty flowNames entries', () => {
     const json = JSON.stringify({
       description: 'Subflow parent',
@@ -232,6 +351,7 @@ describe('flow schema (v1)', () => {
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/codex_review.json',
+      'flows/cross_repository_review.json',
       'flows/review_artifacts_main.json',
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
@@ -427,7 +547,7 @@ describe('flow schema (v1)', () => {
     );
     assertOrdered(
       labels,
-      'Run Parallel Review Artifact Flows',
+      'Run Parallel Review Wave',
       'Reset planner for current review disposition pass',
     );
     assertOrdered(
@@ -501,9 +621,9 @@ describe('flow schema (v1)', () => {
       },
       {
         relativePath: 'flows/review_artifacts_main.json',
-        findingsCommand: 'code_review_findings',
-        saturationCommand: 'review_findings_saturation',
-        challengeCommand: 'review_blind_spot_challenge',
+        findingsCommand: 'target_code_review_findings',
+        saturationCommand: 'target_review_findings_saturation',
+        challengeCommand: 'target_review_blind_spot_challenge',
       },
       {
         relativePath: 'flows/implement_next_plan.json',
@@ -556,25 +676,40 @@ describe('flow schema (v1)', () => {
           'flows/improve_task_implement_plan.json',
         ].includes(flowFile.relativePath)
       ) {
-        const subflowMarkers = flattenSteps(parsed.steps ?? [])
-          .map((step) =>
-            step.type === 'subflow' &&
-            Array.isArray((step as { flowNames?: string[] }).flowNames)
-              ? (step as { flowNames: string[] }).flowNames.join(',')
-              : undefined,
-          )
-          .filter((marker): marker is string => typeof marker === 'string');
+        const reviewWave = flattenSteps(parsed.steps ?? []).find(
+          (step) => step.type === 'subflowWave',
+        ) as
+          | {
+              groups?: Array<{
+                kind?: string;
+                flowNames?: string[];
+                flowName?: string;
+              }>;
+            }
+          | undefined;
         const expectedReviewFanout =
           'review_artifacts_main,codex_review,open_code_review';
         assert.ok(
-          subflowMarkers.includes(expectedReviewFanout),
-          `${flowFile.relativePath} should launch its expected parallel review child flows`,
+          reviewWave?.groups?.some(
+            (group) =>
+              group.kind === 'matrix' &&
+              group.flowNames?.join(',') === expectedReviewFanout,
+          ),
+          `${flowFile.relativePath} should launch its target review matrix`,
+        );
+        assert.ok(
+          reviewWave?.groups?.some(
+            (group) =>
+              group.kind === 'singleton' &&
+              group.flowName === 'cross_repository_review',
+          ),
+          `${flowFile.relativePath} should launch its cross-repository singleton`,
         );
         assert.ok(
           flattenSteps(parsed.steps ?? []).some(
-            (step) => step.type === 'validateReviewArtifacts',
+            (step) => step.type === 'validateReviewWave',
           ),
-          `${flowFile.relativePath} should validate joined review artifacts`,
+          `${flowFile.relativePath} should validate the joined review wave`,
         );
         continue;
       }
@@ -601,6 +736,28 @@ describe('flow schema (v1)', () => {
       assert.ok(
         findingsIndex < saturationIndex && saturationIndex < challengeIndex,
         `${flowFile.relativePath} should run findings, then saturation, then challenge`,
+      );
+    }
+  });
+
+  test('target-local review commands start with the single-target contract and omit cross-repository prompt modules', async () => {
+    const commandFiles = [
+      'codeinfo_agents/review_agent/commands/target_review_evidence_gate.json',
+      'codeinfo_agents/review_agent/commands/target_code_review_findings.json',
+      'codeinfo_agents/review_agent_lite/commands/target_review_findings_saturation.json',
+      'codeinfo_agents/review_agent_lite/commands/target_review_blind_spot_challenge.json',
+    ];
+    for (const commandFile of commandFiles) {
+      const command = JSON.parse(
+        await fs.readFile(path.join(repoRoot, commandFile), 'utf8'),
+      ) as { items?: Array<{ markdownFile?: string }> };
+      const markdownFiles = (command.items ?? []).map(
+        (item) => item.markdownFile,
+      );
+      assert.equal(markdownFiles[0], 'single_target_review_contract.md');
+      assert.equal(
+        markdownFiles.some((file) => file?.includes('cross-repo')),
+        false,
       );
     }
   });
@@ -841,11 +998,9 @@ describe('flow schema (v1)', () => {
       return step.type;
     });
 
-    const prepareIndex = markers.indexOf('prepareReviewBase');
-    const parallelReviewSubflowIndex = markers.indexOf(
-      'review_artifacts_main,codex_review,open_code_review',
-    );
-    const validationIndex = markers.indexOf('validateReviewArtifacts');
+    const prepareIndex = markers.indexOf('prepareReviewTargets');
+    const parallelReviewSubflowIndex = markers.indexOf('subflowWave');
+    const validationIndex = markers.indexOf('validateReviewWave');
     const mergeIndex = markers.indexOf(
       'merge_codex_review_findings_into_canonical_review.md',
     );
@@ -870,17 +1025,17 @@ describe('flow schema (v1)', () => {
     assert.notEqual(
       prepareIndex,
       -1,
-      'flows/implement_next_plan.json should prepare a shared review base',
+      'flows/implement_next_plan.json should snapshot review targets',
     );
     assert.notEqual(
       parallelReviewSubflowIndex,
       -1,
-      'flows/implement_next_plan.json should include the main review artifact child flow',
+      'flows/implement_next_plan.json should include the mixed review wave',
     );
     assert.notEqual(
       validationIndex,
       -1,
-      'flows/implement_next_plan.json should validate joined review identities',
+      'flows/implement_next_plan.json should validate the joined review wave',
     );
     assert.notEqual(
       mergeIndex,

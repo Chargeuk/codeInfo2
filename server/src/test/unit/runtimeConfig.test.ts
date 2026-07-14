@@ -1552,7 +1552,12 @@ describe('runtimeConfig Context7 overlay', () => {
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
         command: 'npx',
-        args: ['-y', 'mcp-remote', 'http://localhost:6511/mcp'],
+        args: [
+          '-y',
+          'mcp-remote',
+          'http://localhost:6511/mcp',
+          '--allow-http',
+        ],
         startup_timeout_sec: 60,
         tool_timeout_sec: 1800,
       },
@@ -1602,7 +1607,12 @@ describe('runtimeConfig Context7 overlay', () => {
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
         command: 'npx',
-        args: ['-y', 'mcp-remote', 'http://localhost:5011/mcp'],
+        args: [
+          '-y',
+          'mcp-remote',
+          'http://localhost:5011/mcp',
+          '--allow-http',
+        ],
         startup_timeout_sec: 60,
         tool_timeout_sec: 1800,
       },

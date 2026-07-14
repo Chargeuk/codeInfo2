@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first. For a review wave, iterate every usable Codex job recorded in the review-set manifest instead of reading only the plan-host pointer.
+
 Merge the latest native Codex review output into the canonical current-review findings artifact without replacing the existing review pipeline.
 
 This step is an adjudication and artifact-reconciliation step. It may update only:

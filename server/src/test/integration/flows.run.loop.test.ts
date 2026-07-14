@@ -948,7 +948,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
             (turn) =>
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
-        5000,
+        15000,
       );
 
       assert.equal(

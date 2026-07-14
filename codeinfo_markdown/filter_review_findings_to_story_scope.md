@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and filter the aggregated wave findings without losing target ownership.
+
 Filter the classified review findings so only current-story in-scope findings remain actionable.
 
 This step is an explicit scope gate only. It must not fix findings, task up findings, mutate the canonical plan, or widen story scope.

@@ -573,6 +573,477 @@ test('subflow step launches multiple child flows in parallel and waits for all o
   }
 });
 
+test('subflow wave launches every matrix cell and singleton concurrently with immutable identities', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-parallel-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    for (const flowName of ['main-review', 'codex-review', 'cross-review']) {
+      await writeFlowFile({
+        tmpDir,
+        flowName,
+        steps: [llmStep(`slow child ${flowName}`)],
+      });
+    }
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave',
+      steps: [
+        {
+          type: 'subflowWave',
+          label: 'Run Review Wave',
+          groups: [
+            {
+              kind: 'matrix',
+              id: 'reviews',
+              itemsFrom: 'targets',
+              itemName: 'target',
+              flowNames: ['main-review', 'codex-review'],
+              bindings: { input: { review_target: 'target' } },
+            },
+            {
+              kind: 'singleton',
+              id: 'cross',
+              flowName: 'cross-review',
+              bindings: { input: { review_targets: 'targets' } },
+            },
+          ],
+        },
+      ],
+    });
+
+    const input = {
+      targets: [
+        { target_id: 'client', repo_root: '/repos/client' },
+        { target_id: 'server', repo_root: '/repos/server' },
+      ],
+    };
+    const result = await startFlowRun({
+      flowName: 'parent-wave',
+      customTitle: 'Story Review',
+      source: 'REST',
+      input,
+      chatFactory: () => new SubflowChat(250),
+    });
+    input.targets[0]!.repo_root = '/mutated';
+
+    const activeSubflows = await waitForActiveSubflowCount(
+      result.conversationId,
+      5,
+    );
+    assert.deepEqual(
+      activeSubflows.map((entry) => entry.instanceId).sort(),
+      [
+        'cross:cross-review',
+        'reviews:0:codex-review',
+        'reviews:0:main-review',
+        'reviews:1:codex-review',
+        'reviews:1:main-review',
+      ],
+    );
+    assert.equal(new Set(activeSubflows.map((entry) => entry.conversationId)).size, 5);
+    assert.deepEqual(
+      activeSubflows.find(
+        (entry) => entry.instanceId === 'reviews:0:main-review',
+      )?.input,
+      {
+        review_target: {
+          repo_root: '/repos/client',
+          target_id: 'client',
+        },
+      },
+    );
+    assert.deepEqual(
+      (
+        memoryConversations.get(result.conversationId)?.flags as {
+          flow?: { input?: unknown };
+        }
+      ).flow?.input,
+      {
+        targets: [
+          { repo_root: '/repos/client', target_id: 'client' },
+          { repo_root: '/repos/server', target_id: 'server' },
+        ],
+      },
+    );
+    const liveProgress = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: {
+          subflowWaveProgress?: {
+            expected?: number;
+            running?: number;
+            completed?: number;
+          };
+        };
+      }
+    ).flow?.subflowWaveProgress;
+    assert.equal(liveProgress?.expected, 5);
+    assert.equal(
+      (liveProgress?.running ?? 0) + (liveProgress?.completed ?? 0),
+      5,
+    );
+
+    const clientChild = memoryConversations.get(
+      String(
+        activeSubflows.find(
+          (entry) => entry.instanceId === 'reviews:0:main-review',
+        )?.conversationId,
+      ),
+    );
+    assert.match(clientChild?.title ?? '', /main-review \[client\]/u);
+    assert.deepEqual(
+      (
+        clientChild?.flags as {
+          flowChild?: Record<string, unknown>;
+        }
+      ).flowChild,
+      {
+        executionId: (
+          memoryConversations.get(result.conversationId)?.flags as {
+            flow?: { executionId?: string };
+          }
+        ).flow?.executionId,
+        instanceId: 'reviews:0:main-review',
+        targetId: 'client',
+        displayName: 'main-review [client]',
+      },
+    );
+
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'ok',
+    );
+    assert.match(
+      finalAssistant?.content ?? '',
+      /Completed subflow wave: expected 5, running 0, completed 5, failed 0, stopped 0, not applicable 0/u,
+    );
+    const finalProgress = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: { subflowWaveProgress?: { completed?: number } };
+      }
+    ).flow?.subflowWaveProgress;
+    assert.equal(finalProgress?.completed, 5);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('subflow wave reports a generic child not-applicable terminal outcome', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-not-applicable-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    const target = {
+      target_id: 'current_repository',
+      repo_alias: 'current_repository',
+      repo_root: tmpDir,
+      repository_id: 'repo-0',
+      branch: 'feature/0000064-review',
+      head_commit: 'a'.repeat(40),
+      story_id: '0000064',
+      is_primary: true,
+    };
+    const snapshot = {
+      schema_version: 'codeinfo-review-targets/v1',
+      story_id: '0000064',
+      plan_path: 'planning/0000064-review.md',
+      branched_from: 'main',
+      plan_host_root: tmpDir,
+      review_wave_id: '0000064-rw-not-applicable',
+      parent_execution_id: 'execution-64',
+      targets_sha256: 'b'.repeat(64),
+      targets: [target],
+      created_at: '2026-07-14T12:00:00.000Z',
+    };
+    const reviewSet = {
+      schema_version: 'codeinfo-review-set/v1',
+      story_id: snapshot.story_id,
+      review_wave_id: snapshot.review_wave_id,
+      parent_execution_id: snapshot.parent_execution_id,
+      targets_sha256: snapshot.targets_sha256,
+      plan_host_root: tmpDir,
+      target_count: 1,
+      expected_job_count: 4,
+      expected_jobs: [],
+      targets: [
+        {
+          target_id: target.target_id,
+          repo_alias: target.repo_alias,
+          repo_root: target.repo_root,
+          branch: target.branch,
+          head_commit: target.head_commit,
+          status: 'prepared',
+          base_pointer: 'base.json',
+          review_pointers: {},
+          error: null,
+        },
+      ],
+      coverage: {
+        prepared_targets: 1,
+        invalid_targets: 0,
+        completed_jobs: 0,
+        failed_jobs: 0,
+        missing_jobs: 4,
+      },
+      status: 'prepared',
+      created_at: '2026-07-14T12:00:00.000Z',
+    };
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'cross-not-applicable',
+      steps: [
+        {
+          type: 'crossRepositoryReviewGate',
+          targetSnapshotFrom: 'snapshot',
+          reviewSetFrom: 'review_set',
+          outputKey: 'current-cross-repository-review',
+        },
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-not-applicable-wave',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'cross',
+              flowName: 'cross-not-applicable',
+              bindings: {
+                input: {
+                  snapshot: 'snapshot',
+                  review_set: 'review_set',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-not-applicable-wave',
+      source: 'REST',
+      input: { snapshot, review_set: reviewSet },
+      chatFactory: () => new SubflowChat(0),
+    });
+    const finalAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'ok',
+    );
+    assert.match(
+      finalAssistant?.content ?? '',
+      /completed 0, failed 0, stopped 0, not applicable 1/u,
+    );
+    const progress = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: {
+          subflowWaveProgress?: {
+            expected?: number;
+            notApplicable?: number;
+          };
+        };
+      }
+    ).flow?.subflowWaveProgress;
+    assert.equal(progress?.expected, 1);
+    assert.equal(progress?.notApplicable, 1);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('stopping a subflow wave stops every repeated matrix and singleton child', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-stop-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    for (const flowName of ['wave-local', 'wave-cross']) {
+      await writeFlowFile({
+        tmpDir,
+        flowName,
+        steps: [llmStep(`slow child ${flowName}`)],
+      });
+    }
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-stop',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'matrix',
+              id: 'locals',
+              itemsFrom: 'targets',
+              itemName: 'target',
+              flowNames: ['wave-local'],
+              bindings: { input: { target: 'target' } },
+            },
+            {
+              kind: 'singleton',
+              id: 'cross',
+              flowName: 'wave-cross',
+            },
+          ],
+        },
+      ],
+    });
+
+    let parentRunToken: string | undefined;
+    const result = await startFlowRun({
+      flowName: 'parent-wave-stop',
+      source: 'REST',
+      input: { targets: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] },
+      chatFactory: () => new SubflowChat(500),
+      onOwnershipReady: ({ runToken }) => {
+        parentRunToken = runToken;
+      },
+    });
+    const activeSubflows = await waitForActiveSubflowCount(
+      result.conversationId,
+      4,
+    );
+    assert.ok(parentRunToken);
+
+    registerPendingConversationCancel({
+      conversationId: result.conversationId,
+      runToken: parentRunToken as string,
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'stopped');
+    await Promise.all(
+      activeSubflows.map((entry) =>
+        waitForConversationAssistantStatus(
+          String(entry.conversationId),
+          'stopped',
+        ),
+      ),
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resuming a subflow wave reattaches by instance id without duplicate launches', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-resume-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    for (const flowName of ['wave-resume-local', 'wave-resume-cross']) {
+      await writeFlowFile({
+        tmpDir,
+        flowName,
+        steps: [llmStep(`slow child ${flowName}`)],
+      });
+    }
+    const waveStep = {
+      type: 'subflowWave' as const,
+      groups: [
+        {
+          kind: 'matrix' as const,
+          id: 'locals',
+          itemsFrom: 'targets',
+          itemName: 'target',
+          flowNames: ['wave-resume-local'],
+          bindings: { input: { target: 'target' } },
+        },
+        {
+          kind: 'singleton' as const,
+          id: 'cross',
+          flowName: 'wave-resume-cross',
+        },
+      ],
+    };
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-resume',
+      steps: [waveStep],
+    });
+    const input = { targets: [{ id: 'a' }, { id: 'b' }] };
+    const jobs = [
+      { instanceId: 'locals:0:wave-resume-local', flowName: 'wave-resume-local' },
+      { instanceId: 'locals:1:wave-resume-local', flowName: 'wave-resume-local' },
+      { instanceId: 'cross:wave-resume-cross', flowName: 'wave-resume-cross' },
+    ];
+    const activeSubflows: Record<string, unknown>[] = [];
+    for (const job of jobs) {
+      let childRunToken: string | undefined;
+      const child = await startFlowRun({
+        flowName: job.flowName,
+        source: 'REST',
+        input: { target: job.instanceId },
+        chatFactory: () => new SubflowChat(300),
+        onOwnershipReady: ({ runToken }) => {
+          childRunToken = runToken;
+        },
+      });
+      assert.ok(childRunToken);
+      activeSubflows.push({
+        stepPath: [0],
+        flowName: job.flowName,
+        instanceId: job.instanceId,
+        conversationId: child.conversationId,
+        runToken: childRunToken,
+      });
+    }
+
+    const parentConversationId = 'wave-resume-parent';
+    const now = new Date();
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Wave Resume Parent',
+      flowName: 'parent-wave-resume',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'wave-resume-execution',
+          stepPath: [],
+          loopStack: [],
+          input,
+          activeSubflows,
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-wave-resume',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(300),
+    });
+    assert.equal(resumed.conversationId, parentConversationId);
+    await waitForAssistantStatus(parentConversationId, 'ok');
+
+    const childConversations = Array.from(memoryConversations.values()).filter(
+      (conversation) =>
+        conversation.flowName === 'wave-resume-local' ||
+        conversation.flowName === 'wave-resume-cross',
+    );
+    assert.equal(childConversations.length, 3);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('subflow forwards codexReviewModelId into child flows so codex_review can run with a parent-supplied model override', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-codex-model-'),

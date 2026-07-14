@@ -2,6 +2,11 @@
   "description": "Run a native Codex review for the current story branch and write deterministic review artifacts.",
   "steps": [
     {
+      "type": "validateReviewTarget",
+      "label": "Validate Bound Review Target",
+      "targetFrom": "target"
+    },
+    {
       "type": "codexReview",
       "label": "Run Codex Review",
       "outputKey": "current-codex-review",

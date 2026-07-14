@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and preserve the owning target for every promoted finding.
+
 Give every current-story actionable review finding one honest opportunity for inline resolution before task-up.
 
 This step runs after story-scope filtering and immediately before the review issue decisions are recorded in the plan; the Minor Review Fix Path follows that decision-recording step. It promotes actionable findings that have not yet received an inline attempt in the active review cycle into the existing minor-fix queue. It does not edit code, create tasks, or change which findings are in scope.

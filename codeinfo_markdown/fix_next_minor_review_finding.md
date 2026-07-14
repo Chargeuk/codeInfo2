@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and make changes only in the finding's owning target repository.
+
 Fix exactly one unresolved review finding that the current review disposition state routed or promoted into the inline-fix queue.
 
 This step performs the code/config/docs/test edit for one routed inline-fix finding only. It does not task up findings, generate final revalidation tasks, or document the fix in the plan.

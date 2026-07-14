@@ -42,6 +42,11 @@ test('production Open Code Review flow reuses the parent-prepared session', () =
 
   assert.deepEqual(parsed.flow.steps, [
     {
+      type: 'validateReviewTarget',
+      label: 'Validate Bound Review Target',
+      targetFrom: 'target',
+    },
+    {
       type: 'llm',
       label: 'Run Session-Bound Open Code Review',
       agentType: 'review_agent_heavy',

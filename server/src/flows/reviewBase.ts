@@ -23,7 +23,10 @@ export type FlowReviewBasePolicy = 'branched_from_or_default_if_merged';
 export type PreparedReviewBase = ReviewIdentity & {
   schema_version: 2;
   branched_from: string | null;
-  repo_alias: 'current_repository';
+  repo_alias: string;
+  target_id?: string;
+  review_wave_id?: string;
+  plan_host_root?: string;
   repo_root: string;
   branch: string;
   head_commit: string;
@@ -59,6 +62,22 @@ export type PreparedReviewBase = ReviewIdentity & {
 export type PrepareReviewBaseResult = {
   artifactPath: string;
   artifact: PreparedReviewBase;
+};
+
+export type ExplicitReviewBaseScope = {
+  planHostRoot: string;
+  planPath: string;
+  storyNumber: string;
+  branchedFrom: string | null;
+  reviewWaveId: string;
+  target: {
+    targetId: string;
+    repoAlias: string;
+    repoRoot: string;
+    branch: string;
+    headCommit: string;
+  };
+  reviewContext: PrepareReviewContextResult;
 };
 
 type CurrentPlanPayload = {
@@ -548,6 +567,7 @@ export async function prepareReviewBase(
     basePolicy?: FlowReviewBasePolicy;
     parentExecutionId?: string;
     initializeReviewPointers?: boolean;
+    explicitScope?: ExplicitReviewBaseScope;
     signal?: AbortSignal;
   },
   deps?: Partial<ReviewBaseDeps>,
@@ -558,6 +578,12 @@ export async function prepareReviewBase(
     resolvedDeps,
     params.signal,
   );
+  if (
+    params.explicitScope &&
+    path.resolve(params.explicitScope.target.repoRoot) !== path.resolve(repoRoot)
+  ) {
+    throw new Error('Explicit review target does not match the resolved repository.');
+  }
   const outputKey = ensureSafeOutputKey(params.outputKey);
   const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
   if (basePolicy !== 'branched_from_or_default_if_merged') {
@@ -570,20 +596,34 @@ export async function prepareReviewBase(
   const startedAtIso = startedAt.toISOString();
   params.signal?.throwIfAborted();
 
-  const currentPlanPath = path.join(
-    repoRoot,
-    'codeInfoStatus',
-    'flow-state',
-    'current-plan.json',
-  );
-  const currentPlanRaw = await resolvedDeps.readFile(currentPlanPath, 'utf8');
-  const currentPlan = JSON.parse(currentPlanRaw) as CurrentPlanPayload;
-  const planPath = normalizeOptionalString(currentPlan.plan_path);
-  if (!planPath) {
-    throw new Error('current-plan.json lacked a usable plan_path.');
+  let planPath: string;
+  let storyNumber: string;
+  let currentPlanBranchedFrom: string | null;
+  if (params.explicitScope) {
+    planPath = params.explicitScope.planPath;
+    storyNumber = params.explicitScope.storyNumber;
+    if (deriveCanonicalStoryId(planPath) !== storyNumber) {
+      throw new Error('Explicit review scope story does not match its plan path.');
+    }
+    currentPlanBranchedFrom = params.explicitScope.branchedFrom;
+  } else {
+    const currentPlanPath = path.join(
+      repoRoot,
+      'codeInfoStatus',
+      'flow-state',
+      'current-plan.json',
+    );
+    const currentPlanRaw = await resolvedDeps.readFile(currentPlanPath, 'utf8');
+    const currentPlan = JSON.parse(currentPlanRaw) as CurrentPlanPayload;
+    const resolvedPlanPath = normalizeOptionalString(currentPlan.plan_path);
+    if (!resolvedPlanPath) {
+      throw new Error('current-plan.json lacked a usable plan_path.');
+    }
+    planPath = resolvedPlanPath;
+    storyNumber = deriveCanonicalStoryId(planPath);
+    currentPlanBranchedFrom =
+      normalizeOptionalString(currentPlan.branched_from) ?? null;
   }
-
-  const storyNumber = deriveCanonicalStoryId(planPath);
   const currentBranch = await gitStdoutOrThrow(
     repoRoot,
     ['branch', '--show-current'],
@@ -597,6 +637,14 @@ export async function prepareReviewBase(
       `Current branch "${currentBranch}" does not match plan story ${storyNumber}.`,
     );
   }
+  if (
+    params.explicitScope &&
+    currentBranch !== params.explicitScope.target.branch
+  ) {
+    throw new Error(
+      `Review target branch drifted from "${params.explicitScope.target.branch}" to "${currentBranch}".`,
+    );
+  }
 
   const headCommit = await gitStdoutOrThrow(
     repoRoot,
@@ -605,8 +653,14 @@ export async function prepareReviewBase(
     'Unable to resolve HEAD for prepareReviewBase.',
     params.signal,
   );
-  const currentPlanBranchedFrom =
-    normalizeOptionalString(currentPlan.branched_from) ?? null;
+  if (
+    params.explicitScope &&
+    headCommit !== params.explicitScope.target.headCommit
+  ) {
+    throw new Error(
+      `Review target HEAD drifted from ${params.explicitScope.target.headCommit} to ${headCommit}.`,
+    );
+  }
 
   const baseResolution = await resolveBaseComparison({
     repoRoot,
@@ -615,13 +669,15 @@ export async function prepareReviewBase(
     deps: resolvedDeps,
     signal: params.signal,
   });
-  const reviewContext = await resolvedDeps.prepareReviewContext({
-    repoRoot,
-    storyNumber,
-    planPath,
-    branch: currentBranch,
-    signal: params.signal,
-  });
+  const reviewContext =
+    params.explicitScope?.reviewContext ??
+    (await resolvedDeps.prepareReviewContext({
+      repoRoot,
+      storyNumber,
+      planPath,
+      branch: currentBranch,
+      signal: params.signal,
+    }));
 
   const reviewDir = path.join(repoRoot, 'codeInfoTmp', 'reviews');
   await resolvedDeps.mkdir(reviewDir, { recursive: true });
@@ -646,7 +702,14 @@ export async function prepareReviewBase(
     schema_version: 2,
     ...identity,
     branched_from: currentPlanBranchedFrom,
-    repo_alias: 'current_repository',
+    repo_alias: params.explicitScope?.target.repoAlias ?? 'current_repository',
+    ...(params.explicitScope
+      ? {
+          target_id: params.explicitScope.target.targetId,
+          review_wave_id: params.explicitScope.reviewWaveId,
+          plan_host_root: params.explicitScope.planHostRoot,
+        }
+      : {}),
     repo_root: repoRoot,
     branch: currentBranch,
     head_commit: headCommit,
@@ -694,6 +757,13 @@ export async function prepareReviewBase(
     review_context_source_plan_sha256:
       artifact.review_context_source_plan_sha256,
     review_excluded_paths: artifact.review_excluded_paths,
+    ...(artifact.plan_host_root
+      ? { plan_host_root: artifact.plan_host_root }
+      : {}),
+    ...(artifact.target_id ? { target_id: artifact.target_id } : {}),
+    ...(artifact.review_wave_id
+      ? { review_wave_id: artifact.review_wave_id }
+      : {}),
   };
   if (params.initializeReviewPointers) {
     await Promise.all([

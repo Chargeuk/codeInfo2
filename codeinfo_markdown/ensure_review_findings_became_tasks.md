@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and require target-owned tasks plus cross-target proof where the finding spans repositories.
+
 Repair the canonical plan so the stored review outcome is definitely encoded into executable plan state before downstream review-task enhancement continues.
 
 <critical_rules>

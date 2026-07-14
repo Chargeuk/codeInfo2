@@ -1,3 +1,7 @@
+# Target-local authority
+
+Read `$CODEINFO_ROOT/codeinfo_markdown/single_target_review_contract.md` first and follow it as the authoritative scope contract for this invocation.
+
 # Goal
 
 Run a bounded visual-conformance review using retained manual-testing screenshots and named design assets, then add any visual findings to the current findings artifact.
@@ -35,10 +39,10 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - Require the current-review handoff to match the prepared review base exactly on canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, `comparison_base_commit`, and every prepared-scope field: `repo_alias`, `repo_root`, `branch`, `branched_from`, `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, `comparison_rule`, `review_context_file`, `review_context_sha256`, `review_context_source_plan_sha256`, and `review_excluded_paths`. Re-check the session before atomically updating the pointer; never overwrite a newer session.
 
 - Use fresh disk reads and current git state, not conversational memory.
-- Re-read `codeInfoStatus/flow-state/current-plan.json` first and use only its `plan_path` and `additional_repositories` as the active review scope.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before judging whether `Design Contract Present` is true. Request only a named task design packet when the review state identifies an owning task.
+- Use the prepared base's `plan_host_root` plus `plan_path` as the only plan source; do not read target-local `current-plan.json` or `additional_repositories`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --plan <absolute-plan-path> --profile review-scope` before judging whether `Design Contract Present` is true. Request only a named task design packet when the review state identifies an owning task.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and infer the current findings artifact from it.
-- If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
+- If the prepared target or plan-host checks fail, stop without changing review artifacts and report the target mismatch.
 - If the review handoff cannot identify a usable findings artifact, stop with a concise no-op result and do not mutate review artifacts.
 - This step must not edit the canonical plan directly.
 - This step must not invent screenshot paths, design assets, or comparison evidence.
@@ -123,7 +127,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 
 <verification_loop>
 
-- Confirm the current-plan handoff still matches the canonical plan and story branch.
+- Confirm the prepared target still matches the working repository, branch, HEAD, and canonical plan-host context.
 - Confirm the review handoff still identifies a usable findings artifact before any mutation.
 - Confirm `Design Contract Present` was decided from the active plan on disk, not from memory.
 - Confirm retained screenshots actually existed on disk before attempting visual comparison.

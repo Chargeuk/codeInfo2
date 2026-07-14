@@ -457,29 +457,65 @@
           "label": "Review Findings Disposition Loop",
           "steps": [
             {
-              "type": "prepareReviewBase",
-              "label": "Prepare Shared Review Base",
-              "outputKey": "current-review-base",
-              "basePolicy": "branched_from_or_default_if_merged",
-              "initializeReviewPointers": true
+              "type": "prepareReviewTargets",
+              "label": "Snapshot Plan-Scope Review Targets",
+              "outputKey": "review_wave"
             },
             {
-              "type": "subflow",
-              "label": "Run Parallel Review Artifact Flows",
-              "flowNames": [
+              "type": "prepareReviewSet",
+              "label": "Prepare Target Review Bases And Job Set",
+              "snapshotFrom": "review_wave",
+              "outputKey": "review_set",
+              "reviewFlowNames": [
                 "review_artifacts_main",
                 "codex_review",
                 "open_code_review"
+              ],
+              "crossRepositoryFlowName": "cross_repository_review"
+            },
+            {
+              "type": "subflowWave",
+              "label": "Run Parallel Review Wave",
+              "failureMode": "best_effort",
+              "groups": [
+                {
+                  "kind": "matrix",
+                  "id": "target_reviews",
+                  "itemsFrom": "review_wave.targets",
+                  "itemName": "target",
+                  "flowNames": [
+                    "review_artifacts_main",
+                    "codex_review",
+                    "open_code_review"
+                  ],
+                  "bindings": {
+                    "workingFolderFrom": "target.repo_root",
+                    "input": {
+                      "target": "target",
+                      "review_wave": "review_wave",
+                      "review_set": "review_set"
+                    }
+                  }
+                },
+                {
+                  "kind": "singleton",
+                  "id": "cross_repository_review",
+                  "flowName": "cross_repository_review",
+                  "bindings": {
+                    "workingFolderFrom": "review_wave.plan_host_root",
+                    "input": {
+                      "review_wave": "review_wave",
+                      "review_set": "review_set"
+                    }
+                  }
+                }
               ]
             },
             {
-              "type": "validateReviewArtifacts",
-              "label": "Validate Joined Review Artifacts",
-              "pointerKeys": [
-                "current-review",
-                "current-codex-review",
-                "current-open-code-review"
-              ]
+              "type": "validateReviewWave",
+              "label": "Validate And Aggregate Complete Review Wave",
+              "snapshotFrom": "review_wave",
+              "reviewSetFrom": "review_set"
             },
             {
               "type": "reset",

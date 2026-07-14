@@ -1192,6 +1192,8 @@ This final review-created task owns the whole active review cycle's post-repair 
 
 ## Code Review Findings
 
+- Review pass `0000060-20260714T173408Z-e4166e0b08-5e1d1695`; finding `open-code-review-ai-if-agent-schema`; repository `current_repository`; summary: an AI-backed if step without agent fields is now rejected during schema validation instead of failing only at runtime; changed files: `server/src/flows/flowSchema.ts`, `server/src/test/unit/flows-schema.test.ts`; fix commit `136b3e740bc00fec2937944d93689d74e25a5c99`; targeted proof: `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts` passed with 79 focused flow-schema tests. Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.
+
 ### Review Pass `0000060-20260626T222120Z-3a823780` follow-up for review cycle `0000060-rc-20260627T093723Z-91e32429`
 
 - Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active task-up routing. `codeInfoTmp/reviews/0000060-current-review.json` and the referenced findings, challenge, and evidence artifacts remain the scratch review basis for this same review pass.

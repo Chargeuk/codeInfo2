@@ -411,7 +411,17 @@ Then('the GitHub review flow variant checks for reviewer feedback before the ext
     const thenBranch = Array.isArray(ifStep.then)
         ? (ifStep.then as Array<Record<string, unknown>>)
         : [];
-    assert.ok(flattenFlowSteps(thenBranch).some((step) => step.commandName === 'external_review_findings'));
+    const dispositionSteps = flattenFlowSteps(thenBranch);
+    assert.ok(dispositionSteps.some((step) =>
+        step.markdownFile === 'classify_pr_review_disposition.md'));
+    for (const commandName of [
+        'external_review_evidence_gate',
+        'external_review_findings',
+        'external_review_findings_saturation',
+        'external_review_blind_spot_challenge',
+    ]) {
+        assert.equal(dispositionSteps.some((step) => step.commandName === commandName), false);
+    }
 });
 Then('the GitHub review flow variant closes the PR only when review work restarts the internal flow', () => {
     assert.ok(checkedInGitHubReviewFlow?.steps);

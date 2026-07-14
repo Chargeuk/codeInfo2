@@ -820,41 +820,6 @@
                       "target": "plan_scope"
                     },
                     {
-                      "type": "command",
-                      "label": "Run External Review Evidence Gate",
-                      "agentType": "review_agent",
-                      "identifier": "reviewer",
-                      "commandName": "external_review_evidence_gate"
-                    },
-                    {
-                      "type": "command",
-                      "label": "Run External Review Findings",
-                      "agentType": "review_agent",
-                      "identifier": "reviewer",
-                      "commandName": "external_review_findings"
-                    },
-                    {
-                      "type": "llm",
-                      "label": "Review Visual Design Conformance",
-                      "agentType": "review_agent",
-                      "identifier": "reviewer",
-                      "markdownFile": "review_visual_design_conformance.md"
-                    },
-                    {
-                      "type": "command",
-                      "label": "Run External Findings Saturation",
-                      "agentType": "review_agent",
-                      "identifier": "reviewer",
-                      "commandName": "external_review_findings_saturation"
-                    },
-                    {
-                      "type": "command",
-                      "label": "Run External Blind-Spot Challenge",
-                      "agentType": "review_agent",
-                      "identifier": "reviewer",
-                      "commandName": "external_review_blind_spot_challenge"
-                    },
-                    {
                       "type": "llm",
                       "label": "Classify PR Review Disposition",
                       "agentType": "planning_agent",

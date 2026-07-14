@@ -1337,13 +1337,22 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
     'Close GitHub Review Pull Request Before Internal Review Restart',
   ]);
   assert.ok(
-    flattened.some((step) => step.commandName === 'external_review_findings'),
-  );
-  assert.ok(
     flattened.some(
       (step) => step.markdownFile === 'classify_pr_review_disposition.md',
     ),
   );
+  for (const commandName of [
+    'external_review_evidence_gate',
+    'external_review_findings',
+    'external_review_findings_saturation',
+    'external_review_blind_spot_challenge',
+  ]) {
+    assert.equal(
+      flattened.some((step) => step.commandName === commandName),
+      false,
+      `GitHub feedback disposition must not rerun ${commandName}`,
+    );
+  }
 
   for (const defaultFlowName of [
     'implement_next_plan.json',

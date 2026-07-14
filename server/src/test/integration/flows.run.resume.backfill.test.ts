@@ -1176,6 +1176,278 @@ test('exhausted GitHub review recovery records a terminal warning and continues 
   }
 });
 
+test('ordinary failures after GitHub review do not acquire review retry ownership', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-github-recovery-boundary-'),
+  );
+  const conversationId = 'flow-github-recovery-boundary';
+  await fs.writeFile(
+    path.join(tmpDir, 'github-recovery-boundary.json'),
+    JSON.stringify(
+      {
+        description: 'Keep ordinary failures outside GitHub recovery',
+        steps: [
+          { type: 'wait', label: 'Completed review wait', seconds: 60 },
+          {
+            type: 'llm',
+            label: 'Ordinary post-review step',
+            agentType: 'coding_agent',
+            identifier: 'resume-test',
+            messages: [{ role: 'user', content: ['Ordinary step fails'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: github-recovery-boundary',
+    flowName: 'github-recovery-boundary',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'github-recovery-boundary-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {},
+        agentThreads: {},
+        workingFolder: tmpDir,
+        githubReviewContext: {
+          executionId: 'github-recovery-boundary-execution',
+          prNumber: 206,
+          storyNumber: '0000060',
+          phase: 'fetched',
+          retryAttempt: 0,
+        },
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  class FailingChat extends ChatInterface {
+    async execute(
+      _message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _model;
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('error', { type: 'error', message: 'ordinary failure' });
+    }
+  }
+
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'github-recovery-boundary',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        working_folder: tmpDir,
+        chatFactory: () => new FailingChat(),
+        listIngestedRepositories: async () =>
+          await listSingleRepository(tmpDir),
+      });
+      await waitFor(
+        () => getLatestAssistantTurn(conversationId)?.status === 'failed',
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            wait?: { kind?: string };
+            githubReviewContext?: { phase?: string; retryAttempt?: number };
+          }
+        | undefined;
+      assert.equal(flow?.wait, undefined);
+      assert.equal(flow?.githubReviewContext?.phase, 'fetched');
+      assert.equal(flow?.githubReviewContext?.retryAttempt, 0);
+    });
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('exhausted nested GitHub review recovery skips the marked review branch', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-github-recovery-scope-'),
+  );
+  const conversationId = 'flow-github-recovery-scope';
+  const captured: string[] = [];
+  await fs.mkdir(path.join(tmpDir, 'scripts'), { recursive: true });
+  await fs.writeFile(
+    path.join(tmpDir, 'scripts', 'yes.py'),
+    'import json\nprint(json.dumps({"answer": "yes"}))\n',
+  );
+  await fs.writeFile(
+    path.join(tmpDir, 'github-recovery-scope.json'),
+    JSON.stringify(
+      {
+        description: 'Skip exhausted nested GitHub review work',
+        steps: [
+          { type: 'wait', label: 'Completed review wait', seconds: 60 },
+          {
+            type: 'if',
+            label: 'Recoverable review scope',
+            githubReviewRecovery: true,
+            condition: 'scripts/yes.py',
+            then: [
+              {
+                type: 'startLoop',
+                steps: [
+                  {
+                    type: 'llm',
+                    agentType: 'coding_agent',
+                    identifier: 'resume-test',
+                    messages: [
+                      { role: 'user', content: ['Review step fails'] },
+                    ],
+                  },
+                  {
+                    type: 'llm',
+                    agentType: 'coding_agent',
+                    identifier: 'resume-test',
+                    messages: [
+                      { role: 'user', content: ['Review sibling must not run'] },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'llm',
+                agentType: 'coding_agent',
+                identifier: 'resume-test',
+                messages: [
+                  { role: 'user', content: ['Review tail must not run'] },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'llm',
+            label: 'Continue after review scope',
+            agentType: 'coding_agent',
+            identifier: 'resume-test',
+            messages: [{ role: 'user', content: ['After review scope'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: github-recovery-scope',
+    flowName: 'github-recovery-scope',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'github-recovery-scope-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {},
+        agentThreads: {},
+        workingFolder: tmpDir,
+        githubReviewContext: {
+          executionId: 'github-recovery-scope-execution',
+          prNumber: 206,
+          storyNumber: '0000060',
+          phase: 'fetched',
+          retryAttempt: 3,
+          retryStepPath: [1, 0, 0, 0],
+        },
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  class ScopedRecoveryChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      if (message.includes('Review step fails')) {
+        this.emit('error', { type: 'error', message: 'review failure' });
+        return;
+      }
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'github-recovery-scope',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        working_folder: tmpDir,
+        chatFactory: () => new ScopedRecoveryChat(),
+        listIngestedRepositories: async () =>
+          await listSingleRepository(tmpDir),
+      });
+      await waitFor(
+        () => captured.some((message) => message.startsWith('After review scope')),
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      assert.equal(
+        captured.some((message) => message.startsWith('Review sibling must not run')),
+        false,
+      );
+      assert.equal(
+        captured.some((message) => message.startsWith('Review tail must not run')),
+        false,
+      );
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | { githubReviewContext?: { phase?: string; retryAttempt?: number } }
+        | undefined;
+      assert.equal(flow?.githubReviewContext?.phase, 'skipped');
+      assert.equal(flow?.githubReviewContext?.retryAttempt, 4);
+    });
+  } finally {
+    const flow = memoryConversations.get(conversationId)?.flags?.flow as
+      | { agentConversations?: Record<string, string> }
+      | undefined;
+    for (const childConversationId of Object.values(
+      flow?.agentConversations ?? {},
+    )) {
+      memoryConversations.delete(childConversationId);
+      memoryTurns.delete(childConversationId);
+    }
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('a different failed GitHub review step starts with a fresh recovery budget', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-github-recovery-new-step-'),

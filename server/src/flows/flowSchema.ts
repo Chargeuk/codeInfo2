@@ -108,6 +108,7 @@ export type FlowIfStep = {
   label?: string;
   agentType?: string;
   identifier?: string;
+  githubReviewRecovery?: boolean;
   condition: string;
   then: FlowStep[];
   else?: FlowStep[];
@@ -355,6 +356,7 @@ const FlowIfStepSchema = z
     label: trimmedNonEmptyString.optional(),
     agentType: trimmedNonEmptyString.optional(),
     identifier: trimmedNonEmptyString.optional(),
+    githubReviewRecovery: z.boolean().optional(),
     condition: trimmedNonEmptyString,
     then: z.array(z.lazy(() => FlowStepSchema)).min(1),
     else: z.array(z.lazy(() => FlowStepSchema)).min(1).optional(),

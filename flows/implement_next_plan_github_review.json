@@ -399,6 +399,7 @@
         {
           "type": "if",
           "label": "Only Wait When The GitHub Review Cycle Is Active",
+          "githubReviewRecovery": true,
           "condition": "scripts/flow_control/check_github_review_cycle_active.py",
           "then": [
             {
@@ -415,6 +416,7 @@
         {
           "type": "if",
           "label": "Only Enter External Review Disposition When Reviewer Feedback Exists",
+          "githubReviewRecovery": true,
           "condition": "scripts/flow_control/check_github_review_has_reviewer_feedback.py",
           "then": [
             {
@@ -633,6 +635,7 @@
         {
           "type": "if",
           "label": "Only Write No-Findings Closeout After A Clean GitHub Review",
+          "githubReviewRecovery": true,
           "condition": "scripts/flow_control/check_github_review_should_write_no_findings_closeout.py",
           "then": [
             {

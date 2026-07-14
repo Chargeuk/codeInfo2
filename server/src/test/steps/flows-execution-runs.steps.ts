@@ -413,15 +413,12 @@ Then('the GitHub review flow variant checks for reviewer feedback before the ext
         : [];
     assert.ok(flattenFlowSteps(thenBranch).some((step) => step.commandName === 'external_review_findings'));
 });
-Then('the GitHub review flow variant closes PRs only inside the findings repair paths', () => {
+Then('the GitHub review flow variant closes the PR only when review work restarts the internal flow', () => {
     assert.ok(checkedInGitHubReviewFlow?.steps);
     const flattened = flattenFlowSteps(checkedInGitHubReviewFlow.steps ?? []);
     const closeSteps = flattened.filter((step) => step.type === 'github_close_pr');
-    assert.equal(closeSteps.length, 2);
-    assert.ok(closeSteps.every((step) => typeof step.label === 'string'
-        ? step.label.includes('Before Minor Fix Loopback') ||
-            step.label.includes('Before Task-Up Loopback')
-        : false));
+    assert.equal(closeSteps.length, 1);
+    assert.equal(closeSteps[0]?.label, 'Close GitHub Review Pull Request Before Internal Review Restart');
 });
 Given('the GitHub review clean-cycle runtime fixture is available', async () => {
     assert(tempDir, 'expected temporary flows directory');

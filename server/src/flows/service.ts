@@ -3841,7 +3841,12 @@ const emitCompletedFlowStep = async (
   params: Omit<FlowTerminalStepParams, 'status'>,
 ) => await emitTerminalFlowStep({ ...params, status: 'ok' });
 
-type FlowStepOutcome = TurnStatus | 'break' | 'continue' | 'paused';
+type FlowStepOutcome =
+  | TurnStatus
+  | 'break'
+  | 'continue'
+  | 'paused'
+  | 'github_review_skipped';
 
 type LoopFrame = {
   loopStepPath: number[];
@@ -6044,6 +6049,7 @@ async function runFlowUnlocked(params: {
   const recoverGitHubReviewFailure = async (
     status: TurnStatus,
     failedStepPath: number[],
+    skipScopeOnExhaustion: boolean,
   ): Promise<FlowStepOutcome> => {
     if (
       status === 'stopped' ||
@@ -6090,7 +6096,7 @@ async function runFlowUnlocked(params: {
           prNumber: activeGitHubReviewContext.prNumber ?? null,
         },
       });
-      return 'ok';
+      return skipScopeOnExhaustion ? 'github_review_skipped' : 'ok';
     }
     const retryDelayMs = Math.min(
       30_000 * 2 ** Math.min(retryAttempt - 1, 5),
@@ -6170,8 +6176,17 @@ async function runFlowUnlocked(params: {
   const recoverGitHubReviewStepFailure = async (
     status: TurnStatus,
     nextPath: number[],
+    options: {
+      eligible: boolean;
+      skipScopeOnExhaustion?: boolean;
+    },
   ): Promise<FlowStepOutcome | null> => {
-    const recoveryOutcome = await recoverGitHubReviewFailure(status, nextPath);
+    if (!options.eligible) return status;
+    const recoveryOutcome = await recoverGitHubReviewFailure(
+      status,
+      nextPath,
+      options.skipScopeOnExhaustion === true,
+    );
     if (recoveryOutcome !== 'ok') return recoveryOutcome;
     lastCompletedStepPath = nextPath;
     clearContinueBoundaryForActiveLoop();
@@ -7331,6 +7346,7 @@ async function runFlowUnlocked(params: {
     command: TurnCommandMetadata,
     nextPath: number[],
     resumeBranchPath?: number[] | null,
+    githubReviewRecoveryScope = false,
   ): Promise<FlowStepOutcome> => {
     if (resumeBranchPath && resumeBranchPath.length > 0) {
       const nestedResume = getNestedResumeSteps(step, resumeBranchPath);
@@ -7352,11 +7368,15 @@ async function runFlowUnlocked(params: {
         repositoryContext: params.repositoryContext,
         resumeStepPath: nestedResume.resumeStepPath,
       });
-      return runSteps(
+      const outcome = await runSteps(
         nestedResume.steps,
         [...nextPath, branchIndex],
         nestedResume.resumeStepPath,
+        githubReviewRecoveryScope || step.githubReviewRecovery === true,
       );
+      return outcome === 'github_review_skipped' && step.githubReviewRecovery
+        ? 'ok'
+        : outcome;
     }
 
     const result = await runSharedDecisionStep({
@@ -7432,7 +7452,15 @@ async function runFlowUnlocked(params: {
       result.answer === 'yes'
         ? FLOW_IF_THEN_RESUME_INDEX
         : FLOW_IF_ELSE_RESUME_INDEX;
-    return runSteps(branch, [...nextPath, branchIndex], null);
+    const outcome = await runSteps(
+      branch,
+      [...nextPath, branchIndex],
+      null,
+      githubReviewRecoveryScope || step.githubReviewRecovery === true,
+    );
+    return outcome === 'github_review_skipped' && step.githubReviewRecovery
+      ? 'ok'
+      : outcome;
   };
 
   const runWaitStep = async (
@@ -10241,6 +10269,7 @@ async function runFlowUnlocked(params: {
     step: FlowStartLoopStep,
     nextPath: number[],
     resumePath: number[] | null,
+    githubReviewRecoveryScope = false,
   ): Promise<FlowStepOutcome> => {
     appendFlowRuntimeDiagnostic('flows.test.loop_step_enter', {
       conversationId: params.conversationId,
@@ -10302,7 +10331,12 @@ async function runFlowUnlocked(params: {
         iteration: loopFrame.iteration,
         resumeForLoop,
       });
-      const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
+      const outcome = await runSteps(
+        step.steps,
+        nextPath,
+        resumeForLoop,
+        githubReviewRecoveryScope,
+      );
       if (resumeForLoop) resumeForLoop = null;
       appendLoopContinueRuntimeDiagnostic('loop_iteration_outcome', {
         loopStepPath: [...nextPath],
@@ -10354,6 +10388,7 @@ async function runFlowUnlocked(params: {
     steps: FlowStep[],
     stepPath: number[],
     resumePath?: number[] | null,
+    githubReviewRecoveryScope = false,
   ): Promise<FlowStepOutcome> => {
     const appendNextStepDispatchExpected = (
       currentPath: number[],
@@ -10379,6 +10414,14 @@ async function runFlowUnlocked(params: {
     let resumePathRemaining =
       resumePath && resumePath.length > 0 ? [...resumePath] : null;
     let resumeIndex = resumePathRemaining?.[0];
+    const scopedGitHubRecovery = {
+      eligible: githubReviewRecoveryScope,
+      skipScopeOnExhaustion: githubReviewRecoveryScope,
+    };
+    const nativeGitHubRecovery = {
+      eligible: true,
+      skipScopeOnExhaustion: githubReviewRecoveryScope,
+    };
 
     for (const [index, step] of steps.entries()) {
       const indexForExpectedNextStep = index + 1;
@@ -10409,7 +10452,12 @@ async function runFlowUnlocked(params: {
         const nestedResumePath = resumePathRemaining.slice(1);
         const outcome =
           step.type === 'startLoop'
-            ? await runStartLoopStep(step, nextPath, nestedResumePath)
+            ? await runStartLoopStep(
+                step,
+                nextPath,
+                nestedResumePath,
+                githubReviewRecoveryScope,
+              )
             : step.type === 'if'
               ? await runIfStep(
                   step,
@@ -10421,6 +10469,7 @@ async function runFlowUnlocked(params: {
                   }),
                   nextPath,
                   nestedResumePath,
+                  githubReviewRecoveryScope,
                 )
               : (() => {
                   throw toFlowRunError(
@@ -10476,6 +10525,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10569,6 +10619,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10609,6 +10660,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10672,7 +10724,13 @@ async function runFlowUnlocked(params: {
             agentType: command.agentType,
           },
         });
-        const outcome = await runIfStep(step, command, nextPath);
+        const outcome = await runIfStep(
+          step,
+          command,
+          nextPath,
+          null,
+          githubReviewRecoveryScope,
+        );
         if (outcome !== 'ok') {
           await persistRuntimeResumeState(lastCompletedStepPath);
           if (
@@ -10685,7 +10743,24 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             outcome,
             nextPath,
+            {
+              eligible:
+                githubReviewRecoveryScope ||
+                step.githubReviewRecovery === true,
+              skipScopeOnExhaustion:
+                githubReviewRecoveryScope ||
+                step.githubReviewRecovery === true,
+            },
           );
+          if (
+            recovery === 'github_review_skipped' &&
+            step.githubReviewRecovery === true
+          ) {
+            lastCompletedStepPath = nextPath;
+            clearContinueBoundaryForActiveLoop();
+            await persistRuntimeResumeState(lastCompletedStepPath);
+            continue;
+          }
           if (recovery) return recovery;
           continue;
         }
@@ -10718,6 +10793,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            nativeGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10735,6 +10811,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            nativeGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10752,6 +10829,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            nativeGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10763,7 +10841,12 @@ async function runFlowUnlocked(params: {
       }
 
       if (step.type === 'startLoop') {
-        const outcome = await runStartLoopStep(step, nextPath, null);
+        const outcome = await runStartLoopStep(
+          step,
+          nextPath,
+          null,
+          githubReviewRecoveryScope,
+        );
         if (outcome !== 'ok') return outcome;
         continue;
       }
@@ -10804,6 +10887,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10942,6 +11026,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -10981,6 +11066,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -11062,6 +11148,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;
@@ -11160,6 +11247,7 @@ async function runFlowUnlocked(params: {
           const recovery = await recoverGitHubReviewStepFailure(
             status,
             nextPath,
+            scopedGitHubRecovery,
           );
           if (recovery) return recovery;
           continue;

@@ -1,6 +1,12 @@
 @mongo
 Feature: Flow execution lifecycle and GitHub review-cycle composition
 
+  Scenario: Checked-in GitHub review flow keeps the current conditional close topology
+    Given the checked-in GitHub review flow variant exists
+    Then the GitHub review flow variant waits before fetching reviews
+    And the GitHub review flow variant checks for reviewer feedback before the external review loop
+    And the GitHub review flow variant closes the PR only when review work restarts the internal flow
+
   Scenario: Pre-launch persistence failure clears retry ownership before accepted replay reuse
     Given a flow execution test server
     And the flow execution fixture "llm-basic" is available

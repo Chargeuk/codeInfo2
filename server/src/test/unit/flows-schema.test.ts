@@ -1691,6 +1691,47 @@ describe('flow schema (v1)', () => {
     assert.equal(parsedNested.ok, true);
   });
 
+  test('if-step schema accepts an explicit GitHub review recovery boundary', () => {
+    resetStore();
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            githubReviewRecovery: true,
+            condition: 'scripts/check-review.py',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const step = parsed.flow.steps[0];
+    assert.equal(step.type, 'if');
+    if (step.type !== 'if') return;
+    assert.equal(step.githubReviewRecovery, true);
+  });
+
+  test('if-step schema rejects a non-boolean GitHub review recovery boundary', () => {
+    resetStore();
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            githubReviewRecovery: 'yes',
+            condition: 'scripts/check-review.py',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
   test('if-step schema rejects missing then array', () => {
     resetStore();
     const json = JSON.stringify({

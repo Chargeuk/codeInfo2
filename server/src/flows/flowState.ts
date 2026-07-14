@@ -50,6 +50,7 @@ export type FlowWaitState = {
   workingFolder?: string;
   sourceId?: string;
   resumeAt: number;
+  continuedAfterFailure?: boolean;
   githubReviewContext?: FlowGitHubReviewContext;
 };
 

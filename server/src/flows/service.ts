@@ -1333,6 +1333,9 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
       ? { sourceId: normalizeOptionalString(value.sourceId) }
       : {}),
     resumeAt,
+    ...(value.continuedAfterFailure === true
+      ? { continuedAfterFailure: true }
+      : {}),
     ...(githubReviewContext && Object.keys(githubReviewContext).length > 0
       ? { githubReviewContext }
       : {}),
@@ -1775,6 +1778,7 @@ const cloneFlowWaitState = (wait: FlowWaitState): FlowWaitState => ({
   ...(wait.workingFolder ? { workingFolder: wait.workingFolder } : {}),
   ...(wait.sourceId ? { sourceId: wait.sourceId } : {}),
   resumeAt: wait.resumeAt,
+  ...(wait.continuedAfterFailure ? { continuedAfterFailure: true } : {}),
   ...(wait.githubReviewContext
     ? {
         githubReviewContext: {
@@ -3954,6 +3958,9 @@ const buildFlowResumeState = (params: {
               : {}),
             ...(params.wait.sourceId ? { sourceId: params.wait.sourceId } : {}),
             resumeAt: params.wait.resumeAt,
+            ...(params.wait.continuedAfterFailure
+              ? { continuedAfterFailure: true }
+              : {}),
             ...(params.wait.githubReviewContext
               ? {
                   githubReviewContext: {
@@ -4692,7 +4699,8 @@ const schedulePersistedWaitResume = (params: {
         if (
           params.wait.kind !== 'review_retry' &&
           latestAssistantStatus &&
-          isTerminalFlowStatus(latestAssistantStatus)
+          isTerminalFlowStatus(latestAssistantStatus) &&
+          !persistedWait.continuedAfterFailure
         ) {
           appendWaitWakeDiagnostic('wake_terminal_guard_skip', {
             latestAssistantStatus,
@@ -5881,6 +5889,9 @@ async function runFlowUnlocked(params: {
           ? { sourceId: params.resumeState.wait.sourceId }
           : {}),
         resumeAt: params.resumeState.wait.resumeAt,
+        ...(params.resumeState.wait.continuedAfterFailure
+          ? { continuedAfterFailure: true }
+          : {}),
         ...(params.resumeState.wait.githubReviewContext
           ? {
               githubReviewContext: {
@@ -5890,6 +5901,7 @@ async function runFlowUnlocked(params: {
           : {}),
       }
     : undefined;
+  let hasContinuedAfterFailure = activeWait?.continuedAfterFailure === true;
   let activeGitHubReviewContext =
     params.resumeState?.githubReviewContext ??
     params.resumeState?.wait?.githubReviewContext
@@ -7488,6 +7500,7 @@ async function runFlowUnlocked(params: {
         ? { sourceId: params.repositoryContext.flowSourceId }
         : {}),
       resumeAt,
+      ...(hasContinuedAfterFailure ? { continuedAfterFailure: true } : {}),
       ...(activeGitHubReviewContext
         ? {
             githubReviewContext: {
@@ -10540,6 +10553,7 @@ async function runFlowUnlocked(params: {
             'flows.run.llm_failure_continued',
           );
           lastCompletedStepPath = nextPath;
+          hasContinuedAfterFailure = true;
           clearContinueBoundaryForActiveLoop();
           await persistRuntimeResumeState(lastCompletedStepPath);
           stepInflightId = crypto.randomUUID();
@@ -10561,6 +10575,7 @@ async function runFlowUnlocked(params: {
           continue;
         }
         lastCompletedStepPath = nextPath;
+        hasContinuedAfterFailure = false;
         appendFlowRuntimeDiagnostic('flows.test.llm_step_state_advanced', {
           conversationId: params.conversationId,
           executionId: params.executionId,

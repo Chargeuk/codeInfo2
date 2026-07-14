@@ -1058,6 +1058,64 @@ test('continueOnFailure lets a later llm step run after a terminal llm failure',
   });
 });
 
+test('continueOnFailure does not strand a following persisted authored wait', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    const conversationId = 'flow-continued-failure-wait';
+    const flowName = 'continued-failure-wait';
+    const wakes: Array<() => void> = [];
+
+    __setFlowWaitResumeDepsForTests({
+      scheduleWake: ({ onWake }) => {
+        wakes.push(onWake);
+        return { cancel: () => {} };
+      },
+    });
+
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        makeLlmStep(),
+        {
+          type: 'llm',
+          agentType: 'missing_agent',
+          identifier: 'missing',
+          continueOnFailure: true,
+          messages: [{ role: 'user', content: ['tolerated failure'] }],
+        },
+        { type: 'wait', seconds: 60 },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          messages: [{ role: 'user', content: ['after persisted wait'] }],
+        },
+      ],
+    });
+
+    await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+
+    await waitFor(() => wakes.length === 1);
+    const persistedWait = (
+      memoryConversations.get(conversationId)?.flags?.flow as
+        | { wait?: { continuedAfterFailure?: boolean } }
+        | undefined
+    )?.wait;
+    assert.equal(persistedWait?.continuedAfterFailure, true);
+
+    wakes[0]!();
+    await waitFor(() =>
+      (memoryTurns.get(conversationId) ?? []).some(
+        (turn) =>
+          turn.role === 'user' && turn.content.includes('after persisted wait'),
+      ),
+    );
+  });
+});
+
 test('dedicated flow reingest terminal error remains non-fatal to later steps', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({

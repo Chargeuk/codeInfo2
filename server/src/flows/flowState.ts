@@ -37,6 +37,7 @@ export type FlowGitHubReviewContext = {
   handoffPath?: string;
   phase?: 'opened' | 'fetched' | 'skipped';
   retryAttempt?: number;
+  retryStepPath?: number[];
   warningMessage?: string;
 };
 

@@ -14,6 +14,7 @@ import {
   __getFlowResumeTestDepsForTests,
   __resetFlowResumeTestDepsForTests,
   __resetFlowWaitResumeDepsForTests,
+  __resumePendingFlowWaitsForTests,
   __setFlowResumeTestDepsForTests,
   __setFlowWaitResumeDepsForTests,
   FLOW_WAIT_STARTUP_RECOVERY_DEGRADED_EVENT,
@@ -1092,6 +1093,7 @@ test('exhausted GitHub review recovery records a terminal warning and continues 
           storyNumber: '0000060',
           phase: 'opened',
           retryAttempt: 3,
+          retryStepPath: [1],
         },
       },
     },
@@ -1157,6 +1159,239 @@ test('exhausted GitHub review recovery records a terminal warning and continues 
       assert.equal(flow?.wait, undefined);
       assert.equal(flow?.githubReviewContext?.phase, 'skipped');
       assert.equal(flow?.githubReviewContext?.retryAttempt, 4);
+    });
+  } finally {
+    const flow = memoryConversations.get(conversationId)?.flags?.flow as
+      | { agentConversations?: Record<string, string> }
+      | undefined;
+    for (const childConversationId of Object.values(
+      flow?.agentConversations ?? {},
+    )) {
+      memoryConversations.delete(childConversationId);
+      memoryTurns.delete(childConversationId);
+    }
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('a different failed GitHub review step starts with a fresh recovery budget', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-github-recovery-new-step-'),
+  );
+  const conversationId = 'flow-github-recovery-new-step';
+  await fs.writeFile(
+    path.join(tmpDir, 'github-recovery-new-step.json'),
+    JSON.stringify(
+      {
+        description: 'Reset recovery for a different step',
+        steps: [
+          { type: 'wait', label: 'Completed review wait', seconds: 60 },
+          { type: 'github_fetch_reviews', label: 'Fetch review' },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: github-recovery-new-step',
+    flowName: 'github-recovery-new-step',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'github-recovery-new-step-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {},
+        agentThreads: {},
+        workingFolder: tmpDir,
+        githubReviewContext: {
+          executionId: 'github-recovery-new-step-execution',
+          prNumber: 206,
+          storyNumber: '0000060',
+          phase: 'opened',
+          retryAttempt: 3,
+          retryStepPath: [99],
+          warningMessage: 'A previous step failed temporarily.',
+        },
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  const wakes: Array<() => void> = [];
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => {} };
+    },
+  });
+
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'github-recovery-new-step',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        working_folder: tmpDir,
+        listIngestedRepositories: async () =>
+          await listSingleRepository(tmpDir),
+      });
+      await waitFor(
+        () => Boolean(getPersistedWaitState(conversationId)),
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            githubReviewContext?: {
+              retryAttempt?: number;
+              retryStepPath?: number[];
+              phase?: string;
+            };
+            wait?: { kind?: string };
+          }
+        | undefined;
+      assert.equal(flow?.wait?.kind, 'review_retry');
+      assert.equal(flow?.githubReviewContext?.retryAttempt, 1);
+      assert.deepEqual(flow?.githubReviewContext?.retryStepPath, [1]);
+      assert.equal(flow?.githubReviewContext?.phase, 'opened');
+      assert.equal(wakes.length, 1);
+    });
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('a recovered GitHub review step clears its retry count and stale warning', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-github-recovery-cleared-'),
+  );
+  const conversationId = 'flow-github-recovery-cleared';
+  await fs.writeFile(
+    path.join(tmpDir, 'github-recovery-cleared.json'),
+    JSON.stringify(
+      {
+        description: 'Clear recovered review bookkeeping',
+        steps: [
+          { type: 'wait', label: 'Completed review wait', seconds: 60 },
+          {
+            type: 'llm',
+            label: 'Recovered review step',
+            agentType: 'coding_agent',
+            identifier: 'resume-test',
+            messages: [{ role: 'user', content: ['Recovered review work'] }],
+          },
+          { type: 'wait', label: 'Inspect recovered state', seconds: 60 },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: github-recovery-cleared',
+    flowName: 'github-recovery-cleared',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'github-recovery-cleared-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {},
+        agentThreads: {},
+        workingFolder: tmpDir,
+        githubReviewContext: {
+          executionId: 'github-recovery-cleared-execution',
+          prNumber: 206,
+          storyNumber: '0000060',
+          phase: 'opened',
+          retryAttempt: 2,
+          retryStepPath: [1],
+          warningMessage: 'Recovered scratch ownership warning.',
+        },
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      _message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _model;
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: () => ({ cancel: () => {} }),
+  });
+
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'github-recovery-cleared',
+        conversationId,
+        resumeStepPath: [0],
+        source: 'REST',
+        working_folder: tmpDir,
+        chatFactory: () => new TrackingChat(),
+        listIngestedRepositories: async () =>
+          await listSingleRepository(tmpDir),
+      });
+      await waitFor(
+        () => getPersistedWaitState(conversationId)?.stepPath?.[0] === 2,
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            githubReviewContext?: Record<string, unknown>;
+            wait?: { githubReviewContext?: Record<string, unknown> };
+          }
+        | undefined;
+      assert.equal(
+        Object.hasOwn(flow?.githubReviewContext ?? {}, 'retryAttempt'),
+        false,
+      );
+      assert.equal(
+        Object.hasOwn(flow?.githubReviewContext ?? {}, 'retryStepPath'),
+        false,
+      );
+      assert.equal(
+        Object.hasOwn(flow?.githubReviewContext ?? {}, 'warningMessage'),
+        false,
+      );
+      assert.deepEqual(
+        flow?.wait?.githubReviewContext,
+        flow?.githubReviewContext,
+      );
     });
   } finally {
     const flow = memoryConversations.get(conversationId)?.flags?.flow as
@@ -1272,6 +1507,111 @@ test('wake-time run ownership collision does not restore wait state after the ac
         | { stepPath?: number[] }
         | undefined;
       assert.deepEqual(flowState?.stepPath, [2]);
+    });
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('an older contested wake cannot cancel a newer persisted wait scheduler', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-newer-scheduler-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+  const conversationId = 'flow-wait-resume-newer-scheduler';
+  const scheduled: Array<{ onWake: () => void; cancelled: boolean }> = [];
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    nowIso: () => '2026-06-27T20:00:00.000Z',
+    scheduleWake: ({ onWake }) => {
+      const entry = { onWake, cancelled: false };
+      scheduled.push(entry);
+      return {
+        cancel: () => {
+          entry.cancelled = true;
+        },
+      };
+    },
+  });
+
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      await startFlowRun({
+        flowName: 'wait-resume',
+        conversationId,
+        source: 'REST',
+        chatFactory: () =>
+          new (class extends ChatInterface {
+            async execute(
+              _message: string,
+              _flags: Record<string, unknown>,
+              childConversationId: string,
+              _model: string,
+            ) {
+              void _model;
+              this.emit('thread', {
+                type: 'thread',
+                threadId: childConversationId,
+              });
+              this.emit('final', { type: 'final', content: 'ok' });
+              this.emit('complete', {
+                type: 'complete',
+                threadId: childConversationId,
+              });
+            }
+          })(),
+      });
+      await waitFor(
+        () => scheduled.length === 1,
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      const initialWait = getPersistedWaitState(conversationId);
+      assert.ok(initialWait);
+
+      __setFlowWaitResumeDepsForTests({
+        resumeFlowRun: async () => {
+          const conversation = memoryConversations.get(conversationId);
+          assert.ok(conversation);
+          const flow = {
+            ...((conversation.flags?.flow ?? {}) as Record<string, unknown>),
+            stepPath: [2],
+            wait: {
+              executionId: initialWait.executionId,
+              stepPath: [2],
+              loopStack: [],
+              resumeAt: 1_700_000_120_000,
+            },
+          };
+          memoryConversations.set(conversationId, {
+            ...conversation,
+            flags: { ...(conversation.flags ?? {}), flow },
+            updatedAt: new Date(),
+          });
+          await __resumePendingFlowWaitsForTests([conversationId]);
+          throw Object.assign(new Error('simulated active run ownership'), {
+            code: 'RUN_IN_PROGRESS',
+          });
+        },
+      });
+
+      scheduled[0]?.onWake();
+      await waitFor(
+        () => scheduled.length === 2,
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+
+      assert.equal(scheduled.length, 2);
+      assert.equal(scheduled[0]?.cancelled, true);
+      assert.equal(scheduled[1]?.cancelled, false);
+      assert.deepEqual(getPersistedWaitState(conversationId)?.stepPath, [2]);
     });
   } finally {
     memoryConversations.delete(conversationId);
@@ -1468,6 +1808,67 @@ test('startup recovery does not re-register malformed persisted wait state with 
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startup recovery re-registers a first-step GitHub review retry with an empty resume cursor', async () => {
+  const conversationId = 'flow-review-retry-from-start';
+  const wakes: Array<() => void> = [];
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => {} };
+    },
+  });
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: review-retry-from-start',
+    flowName: 'review-retry-from-start',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'review-retry-from-start-execution',
+        stepPath: [],
+        loopStack: [],
+        wait: {
+          kind: 'review_retry',
+          executionId: 'review-retry-from-start-execution',
+          stepPath: [],
+          loopStack: [],
+          resumeAt: 1_700_000_060_000,
+          githubReviewContext: {
+            executionId: 'review-retry-from-start-execution',
+            prNumber: 42,
+            phase: 'opened',
+            retryAttempt: 1,
+            retryStepPath: [0],
+          },
+        },
+        githubReviewContext: {
+          executionId: 'review-retry-from-start-execution',
+          prNumber: 42,
+          phase: 'opened',
+          retryAttempt: 1,
+          retryStepPath: [0],
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    assert.equal(await __resumePendingFlowWaitsForTests([conversationId]), 1);
+    assert.equal(wakes.length, 1);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
   }
 });
 

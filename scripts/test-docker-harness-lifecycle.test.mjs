@@ -244,3 +244,56 @@ test('two stale-lock waiters acquire serially without deleting the new owner', a
     await fs.rm(parent, { recursive: true, force: true });
   }
 });
+
+test('lock ownership is fully published before another contender can observe it', async () => {
+  const parent = await fs.mkdtemp(path.join(tmpdir(), 'codeinfo-lock-test-'));
+  const lockPath = path.join(parent, 'lock');
+  let releaseFirstPublish;
+  let firstCandidateReady;
+  const firstCandidateReadyPromise = new Promise((resolve) => {
+    firstCandidateReady = resolve;
+  });
+  const releaseFirstPublishPromise = new Promise((resolve) => {
+    releaseFirstPublish = resolve;
+  });
+  let paused = false;
+
+  try {
+    const firstLockPromise = acquireTestDockerLock({
+      lockPath,
+      intervalMs: 1,
+      timeoutMs: 2_000,
+      beforePublish: async () => {
+        if (paused) return;
+        paused = true;
+        firstCandidateReady();
+        await releaseFirstPublishPromise;
+      },
+      sleep: async () => await new Promise((resolve) => setImmediate(resolve)),
+    });
+    await firstCandidateReadyPromise;
+    await assert.rejects(fs.access(lockPath), { code: 'ENOENT' });
+
+    const secondLock = await acquireTestDockerLock({
+      lockPath,
+      intervalMs: 1,
+      timeoutMs: 2_000,
+    });
+    const secondOwner = JSON.parse(
+      await fs.readFile(path.join(lockPath, 'owner.json'), 'utf8'),
+    );
+    assert.equal(secondOwner.token, secondLock.token);
+    await secondLock.release();
+
+    releaseFirstPublish();
+    const firstLock = await firstLockPromise;
+    const firstOwner = JSON.parse(
+      await fs.readFile(path.join(lockPath, 'owner.json'), 'utf8'),
+    );
+    assert.equal(firstOwner.token, firstLock.token);
+    await firstLock.release();
+  } finally {
+    releaseFirstPublish?.();
+    await fs.rm(parent, { recursive: true, force: true });
+  }
+});

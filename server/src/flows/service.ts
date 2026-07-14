@@ -1261,6 +1261,9 @@ const parseFlowGitHubReviewContext = (
     value.retryAttempt >= 0
       ? { retryAttempt: value.retryAttempt }
       : {}),
+    ...(Array.isArray(value.retryStepPath)
+      ? { retryStepPath: normalizeNumberArray(value.retryStepPath) }
+      : {}),
     ...(normalizeOptionalString(value.warningMessage)
       ? { warningMessage: normalizeOptionalString(value.warningMessage) }
       : {}),
@@ -1273,7 +1276,17 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
   const executionId = normalizeOptionalString(value.executionId);
   const resumeAt = normalizeOptionalFiniteNumber(value.resumeAt);
   const stepPath = normalizeNumberArray(value.stepPath);
-  if (!executionId || resumeAt === undefined || stepPath.length === 0) {
+  const waitKind =
+    value.kind === 'review_retry' ? 'review_retry' : 'authored_wait';
+  const isFirstStepReviewRetry =
+    waitKind === 'review_retry' &&
+    Array.isArray(value.stepPath) &&
+    value.stepPath.length === 0;
+  if (
+    !executionId ||
+    resumeAt === undefined ||
+    (stepPath.length === 0 && !isFirstStepReviewRetry)
+  ) {
     return null;
   }
 
@@ -1281,8 +1294,6 @@ const parseFlowWaitState = (value: unknown): FlowWaitState | null => {
     activeSubflows: value.activeSubflows,
     legacyActiveSubflow: value.activeSubflow,
   });
-  const waitKind =
-    value.kind === 'review_retry' ? 'review_retry' : 'authored_wait';
 
   const githubReviewContext = parseFlowGitHubReviewContext(
     value.githubReviewContext,
@@ -1496,6 +1507,11 @@ const clearScheduledFlowWaitIfMatches = (
   scheduledFlowWaits.delete(conversationId);
   return true;
 };
+
+type ScheduledFlowWaitIdentity = Pick<
+  FlowWaitState,
+  'executionId' | 'resumeAt' | 'stepPath'
+>;
 
 const rearmPersistedWaitRecoveryOwnership = async (params: {
   conversation: Conversation;
@@ -4496,7 +4512,8 @@ const schedulePersistedWaitResume = (params: {
   flowName: string;
   source: 'REST' | 'MCP';
   wait: FlowWaitState;
-}) => {
+  replaceOnlyIfMatches?: ScheduledFlowWaitIdentity;
+}): boolean => {
   const appendWaitWakeDiagnostic = (
     event: string,
     context: Record<string, unknown> = {},
@@ -4511,7 +4528,19 @@ const schedulePersistedWaitResume = (params: {
       ...context,
     });
   };
-  clearScheduledFlowWait(params.conversationId);
+  if (params.replaceOnlyIfMatches) {
+    if (
+      !clearScheduledFlowWaitIfMatches(
+        params.conversationId,
+        params.replaceOnlyIfMatches,
+      )
+    ) {
+      appendWaitWakeDiagnostic('wake_rearm_skipped_scheduler_replaced');
+      return false;
+    }
+  } else {
+    clearScheduledFlowWait(params.conversationId);
+  }
   const handle = flowWaitResumeDeps.scheduleWake({
     resumeAt: params.wait.resumeAt,
     onWake: () => {
@@ -4608,6 +4637,7 @@ const schedulePersistedWaitResume = (params: {
               conversationId: params.conversationId,
               flowName: params.flowName,
               source: params.source,
+              replaceOnlyIfMatches: params.wait,
               wait: {
                 ...cloneFlowWaitState(persistedWait),
                 resumeAt: flowWaitResumeDeps.now() + 1_000,
@@ -4692,6 +4722,7 @@ const schedulePersistedWaitResume = (params: {
         );
         schedulePersistedWaitResume({
           ...params,
+          replaceOnlyIfMatches: params.wait,
           wait: {
             ...cloneFlowWaitState(params.wait),
             resumeAt: flowWaitResumeDeps.now() + 1_000,
@@ -4706,6 +4737,7 @@ const schedulePersistedWaitResume = (params: {
     stepPath: [...params.wait.stepPath],
     handle,
   });
+  return true;
 };
 
 export async function __resumePendingFlowWaitsForTests(
@@ -5888,8 +5920,25 @@ async function runFlowUnlocked(params: {
     if (!activeGitHubReviewContext?.handoffPath) return instruction;
     return `${instruction}\n\n<github_review_execution_authority>\nThis flow is processing execution-scoped GitHub review state. Read the exact handoff path from \`CODEINFO_GITHUB_REVIEW_HANDOFF_PATH\`. It overrides any instruction that derives a story-global \`<story-number>-current-review.json\` path. Read the fetched feedback from that handoff's \`external_review_input_file\`, preserve the existing GitHub identity fields, and write any review artifact references back to that same execution-scoped handoff. Do not read or overwrite another execution's generic or latest review handoff.\n</github_review_execution_authority>`;
   };
-  const persistRuntimeResumeState = async (stepPath: number[]) =>
-    persistFlowResumeState({
+  const persistRuntimeResumeState = async (stepPath: number[]) => {
+    if (
+      activeGitHubReviewContext?.phase !== 'skipped' &&
+      activeGitHubReviewContext?.retryStepPath &&
+      getStepPathKey(activeGitHubReviewContext.retryStepPath) ===
+        getStepPathKey(stepPath)
+    ) {
+      const {
+        retryAttempt: _retryAttempt,
+        retryStepPath: _retryStepPath,
+        warningMessage: _warningMessage,
+        ...recoveredContext
+      } = activeGitHubReviewContext;
+      void _retryAttempt;
+      void _retryStepPath;
+      void _warningMessage;
+      activeGitHubReviewContext = recoveredContext;
+    }
+    return persistFlowResumeState({
       conversationId: params.conversationId,
       executionId: params.executionId,
       runtimeState,
@@ -5902,8 +5951,10 @@ async function runFlowUnlocked(params: {
       codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
+  };
   const recoverGitHubReviewFailure = async (
     status: TurnStatus,
+    failedStepPath: number[],
   ): Promise<FlowStepOutcome> => {
     if (
       status === 'stopped' ||
@@ -5913,15 +5964,20 @@ async function runFlowUnlocked(params: {
       return status;
     }
 
-    const retryAttempt = (activeGitHubReviewContext.retryAttempt ?? 0) + 1;
+    const isSameFailedStep =
+      activeGitHubReviewContext.retryStepPath !== undefined &&
+      getStepPathKey(activeGitHubReviewContext.retryStepPath) ===
+        getStepPathKey(failedStepPath);
+    const retryAttempt = isSameFailedStep
+      ? (activeGitHubReviewContext.retryAttempt ?? 0) + 1
+      : 1;
     if (retryAttempt > GITHUB_REVIEW_RECOVERY_MAX_ATTEMPTS) {
-      const warningMessage =
-        activeGitHubReviewContext.warningMessage ??
-        `GitHub review recovery exhausted ${String(GITHUB_REVIEW_RECOVERY_MAX_ATTEMPTS)} attempts at step ${lastCompletedStepPath.join('.') || 'start'} with status ${status}${typeof activeGitHubReviewContext.prNumber === 'number' ? ` for pull request #${String(activeGitHubReviewContext.prNumber)}` : ''}. The flow will continue without further external review processing.`;
+      const warningMessage = `GitHub review recovery exhausted ${String(GITHUB_REVIEW_RECOVERY_MAX_ATTEMPTS)} attempts at step ${failedStepPath.join('.') || 'start'} with status ${status}${typeof activeGitHubReviewContext.prNumber === 'number' ? ` for pull request #${String(activeGitHubReviewContext.prNumber)}` : ''}. The flow will continue without further external review processing.`;
       activeGitHubReviewContext = {
         ...activeGitHubReviewContext,
         phase: 'skipped',
         retryAttempt,
+        retryStepPath: [...failedStepPath],
         warningMessage,
       };
       activeWait = undefined;
@@ -5955,6 +6011,7 @@ async function runFlowUnlocked(params: {
     activeGitHubReviewContext = {
       ...activeGitHubReviewContext,
       retryAttempt,
+      retryStepPath: [...failedStepPath],
     };
     activeWait = {
       kind: 'review_retry',
@@ -6025,7 +6082,7 @@ async function runFlowUnlocked(params: {
     status: TurnStatus,
     nextPath: number[],
   ): Promise<FlowStepOutcome | null> => {
-    const recoveryOutcome = await recoverGitHubReviewFailure(status);
+    const recoveryOutcome = await recoverGitHubReviewFailure(status, nextPath);
     if (recoveryOutcome !== 'ok') return recoveryOutcome;
     lastCompletedStepPath = nextPath;
     clearContinueBoundaryForActiveLoop();

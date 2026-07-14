@@ -206,20 +206,25 @@ export const acquireTestDockerLock = async ({
   pidAlive = isProcessAlive,
   onWait,
   recoveryStaleMs = 30_000,
+  beforePublish,
 } = {}) => {
   const token = randomUUID();
   const ownerPath = path.join(lockPath, 'owner.json');
+  const candidatePath = `${lockPath}.candidate-${token}`;
+  const candidateOwnerPath = path.join(candidatePath, 'owner.json');
   const recoveryPath = `${lockPath}.recovery`;
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
     try {
-      await fs.mkdir(lockPath);
+      await fs.mkdir(candidatePath);
       await fs.writeFile(
-        ownerPath,
+        candidateOwnerPath,
         `${JSON.stringify({ pid: process.pid, token, startedAt: new Date().toISOString() })}\n`,
         'utf8',
       );
+      await beforePublish?.();
+      await fs.rename(candidatePath, lockPath);
 
       let released = false;
       return {
@@ -235,14 +240,19 @@ export const acquireTestDockerLock = async ({
                 'Test Docker lock ownership changed before release',
               );
             }
-            await fs.rm(lockPath, { recursive: true, force: true });
+            const releasedLockPath = `${lockPath}.released-${token}`;
+            await fs.rename(lockPath, releasedLockPath);
+            await fs.rm(releasedLockPath, { recursive: true, force: true });
           } catch (error) {
             if (error?.code !== 'ENOENT') throw error;
           }
         },
       };
     } catch (error) {
-      if (error?.code !== 'EEXIST') throw error;
+      await fs.rm(candidatePath, { recursive: true, force: true });
+      if (error?.code !== 'EEXIST' && error?.code !== 'ENOTEMPTY') {
+        throw error;
+      }
     }
 
     let owner = null;
@@ -297,7 +307,13 @@ export const acquireTestDockerLock = async ({
           }
         }
         if (!currentOwner || !pidAlive(currentOwner.pid)) {
-          await fs.rm(lockPath, { recursive: true, force: true });
+          const staleLockPath = `${lockPath}.stale-${recoveryToken}`;
+          try {
+            await fs.rename(lockPath, staleLockPath);
+          } catch (error) {
+            if (error?.code !== 'ENOENT') throw error;
+          }
+          await fs.rm(staleLockPath, { recursive: true, force: true });
         }
       } finally {
         let recoveryOwner = null;

@@ -15,5 +15,5 @@
 
 - Task 38 completed the final self-recovery and truthfulness fixes found by the branch review.
 - Focused wait, GitHub adapter, scratch, runtime, PR-content, and Python flow-control proof all passed as recorded in the completed plan task.
-- The full parallel harness passed with client 904/904, server unit 2637/2637, cucumber 133/133, and e2e 77/77.
-- The full stress harness also passed with client 904/904, server unit 2637/2637, cucumber 133/133, and e2e 77/77.
+- The full parallel harness passed with client 904/904, server unit 2644/2644, cucumber 133/133, and e2e 77/77.
+- The full stress harness also passed with client 904/904, server unit 2644/2644, cucumber 133/133, and e2e 77/77.

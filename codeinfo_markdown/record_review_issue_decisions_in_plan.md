@@ -18,6 +18,7 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 - Do not describe an `incomplete_review_blockers` entry as accepted or ignored. It is incomplete review state, not a decided issue.
 - Do not invent findings, titles, descriptions, examples, evidence, comparison metadata, or decision reasons.
 - Treat the canonical plan as the only tracked file this step may edit. Treat review handoffs, findings artifacts, and disposition state as transient workflow inputs that must not be committed. Update disposition state only for the narrow retry bookkeeping described below; never use that recovery note to reclassify or task up a finding.
+- This step owns `review_decision_recording` in disposition state. Always replace the classifier's current-pass `pending` value with one of the exact outcomes defined below before returning normally.
 
 </critical_rules>
 
@@ -34,6 +35,27 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 - If accepted or ignored findings exist but the exact current-pass identity cannot be validated, make no plan edit. Append one deduplicated `classification_notes` entry describing the mismatch, set `needs_review_rerun_before_close` to true and `safe_to_exit_review_loop_without_tasking` to false, and preserve every finding queue and `needs_task_up_path` unchanged. Do not add an `incomplete_review_blockers` entry, because that would bypass the required one-shot attempt. Report a retry-required result normally so the autonomous flow can continue to its deterministic pre-fix gate.
 
 </current_pass_rules>
+
+<recording_state_contract>
+
+Write this bounded current-pass result into `review-disposition-state.json` without changing any finding queue or routing field:
+
+```json
+"review_decision_recording": {
+  "review_pass_id": "<exact current review pass id>",
+  "outcome": "<recorded|no_decisions|retry_required>",
+  "accepted_count": 0,
+  "ignored_count": 0,
+  "plan_commit_sha": null
+}
+```
+
+- Use `recorded` only after the exact current-pass block is complete, unique, and committed. Set both counts to the numbers actually written and set `plan_commit_sha` to the exact full commit returned by `git log -1 --format=%H -- <plan_path>` after the commit.
+- Use `no_decisions` only when the validated current pass genuinely has no accepted, ignored, rejected, or non-adopted candidate. Keep both counts at zero and the commit SHA null.
+- Use `retry_required` for an identity conflict, incomplete or uncommitted block, failed commit, or any other condition that prevents either of the two honest outcomes above. Record the best validated counts without inventing entries and keep the commit SHA null.
+- Never preserve `pending` when this step completed far enough to write disposition state. A terminal infrastructure failure may leave it pending; the deterministic readiness control will then restart the autonomous review loop.
+
+</recording_state_contract>
 
 <section_contract>
 
@@ -70,7 +92,7 @@ Write one block with this shape:
 - For multi-repository reviews, include one concise comparison-context bullet per repository when their comparison metadata differs. Name the repository in each such bullet.
 - Use full commit SHAs when the validated handoff provides them. Do not shorten an exact stored SHA.
 - Preserve material validated comparison details such as `comparison_rule`, `resolved_base_source`, `remote_fetch_status`, and a sanitized local fallback reason when one exists.
-- Add a concise confidence or provenance note only when a validated artifact records a material caveat, partial reviewer coverage, external-review origin, or safe descriptive inference. Never use a note to excuse an identity mismatch.
+- Add a concise confidence or provenance note only when a validated artifact records a material caveat, partial reviewer coverage, external-review origin, or safe descriptive inference. Keep that note with the metadata before `### Accepted` so it cannot be mistaken for part of an issue. Never use a note to excuse an identity mismatch.
 - Number issue titles continuously across both categories. Preserve stable finding IDs or existing review references separately because the display number is presentation, not workflow identity. Never manufacture a workflow finding ID for an artifact-only ignored candidate.
 - Order accepted findings by their order in the validated findings artifact, then order ignored findings by their order in the validated artifacts. Use stable finding ID or existing source-reference order only as a deterministic fallback.
 - If one category has no current-pass entries, write `- None.` below that category instead of omitting the category.
@@ -100,6 +122,7 @@ Write one block with this shape:
 - Do not include `codeInfoStatus/**`, `codeInfoTmp/**`, review artifacts, or unrelated working-tree changes in the commit.
 - If no plan change was needed, do not create an empty commit.
 - If committing fails, leave the validated plan edit in place for the verifier to retry, append one deduplicated retry note to disposition-state `classification_notes`, set `needs_review_rerun_before_close` to true and `safe_to_exit_review_loop_without_tasking` to false, and report the non-durable result normally. Do not claim a commit exists, do not task up the findings, and do not deliberately return a failed turn solely because this commit attempt failed.
+- After a successful commit, re-open the plan, obtain its exact latest full commit SHA, and write the matching `recorded` outcome before returning. For an already-valid committed block, obtain the existing plan commit in the same way rather than creating an empty commit.
 - Do not push.
 
 </commit_rules>
@@ -108,6 +131,7 @@ Write one block with this shape:
 
 - Finish with exactly one of three honest outcomes: one durable structured current-pass `## Code Review Findings` block committed before implementation begins; a clean no-edit result because no current-pass accepted or ignored findings exist; or an explicit retry-required result whose disposition state prevents clean exit and whose missing/incomplete block will keep the deterministic minor-fix gate closed.
 - Report the plan path, review pass ID, accepted count, ignored count, whether the block was created, replaced, updated, or unchanged, and the plan commit SHA when a commit was created.
+- Report the final `review_decision_recording.outcome` and confirm it belongs to the exact current pass.
 
 </output_contract>
 
@@ -123,5 +147,6 @@ Write one block with this shape:
 - Confirm the current review pass appears in exactly one `## Code Review Findings` block.
 - Confirm historical review-pass blocks and existing tasks remain unchanged.
 - Confirm only the canonical plan was committed and nothing was pushed.
+- Confirm disposition state contains the exact current-pass recording outcome, matching counts, and the committed plan SHA only when the outcome is `recorded`.
 
 </verification_loop>

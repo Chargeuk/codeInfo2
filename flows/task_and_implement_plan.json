@@ -602,6 +602,14 @@
               "markdownFile": "verify_review_issue_decisions_recorded.md"
             },
             {
+              "type": "continue",
+              "label": "Restart Review Pass Unless Issue Decisions Are Ready",
+              "agentType": "loop_control_agent",
+              "identifier": "loop_controller",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_decisions_need_retry.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+              "continueOn": "yes"
+            },
+            {
               "type": "startLoop",
               "label": "Minor Review Fix Path",
               "steps": [

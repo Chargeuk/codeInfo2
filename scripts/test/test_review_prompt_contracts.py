@@ -420,6 +420,9 @@ class ReviewPromptContractTests(unittest.TestCase):
         promote_text = read_text(
             "codeinfo_markdown/promote_actionable_review_findings_to_minor_path.md"
         )
+        filter_text = read_text(
+            "codeinfo_markdown/filter_review_findings_to_story_scope.md"
+        )
         fix_text = read_text("codeinfo_markdown/fix_next_minor_review_finding.md")
         document_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
 
@@ -466,6 +469,8 @@ class ReviewPromptContractTests(unittest.TestCase):
             "cannot promote the same durable follow-up into a repeat attempt",
             document_text,
         )
+        self.assertIn("`review_decision_recording` object unchanged", filter_text)
+        self.assertIn("`review_decision_recording` object unchanged", promote_text)
         self.assertIn("When a skipped finding is escalated", document_text)
         self.assertIn("cannot promote it into a repeat attempt", document_text)
 
@@ -585,6 +590,12 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not add an `incomplete_review_blockers` entry", record_text)
         self.assertIn("do not deliberately return a failed turn", record_text)
         self.assertNotIn("If committing fails, stop", record_text)
+        self.assertIn('"review_decision_recording"', record_text)
+        self.assertIn('"outcome": "<recorded|no_decisions|retry_required>"', record_text)
+        self.assertIn("Never preserve `pending`", record_text)
+        self.assertIn("exact latest full commit SHA", record_text)
+        self.assertIn("Never leave `pending`", verify_text)
+        self.assertIn("deterministic readiness control", verify_text)
         self.assertIn(
             "If that block exists, it is the durable outcome for this pass, including ignored-only decisions: do not append or repair a `Post-Implementation Code Review` section for the same pass",
             closeout_text,
@@ -603,6 +614,8 @@ class ReviewPromptContractTests(unittest.TestCase):
             "before generic classification, plan recording, or implementation begins",
             external_trail_text,
         )
+        self.assertIn("report normally", external_trail_text)
+        self.assertIn("Do not deliberately fail the turn", external_trail_text)
         self.assertIn("record_review_issue_decisions_in_plan.md", disposition_text)
         self.assertIn("retired terse findings summary", disposition_text)
         self.assertIn("ignored findings only", disposition_text)

@@ -19,6 +19,7 @@ describe('flow schema (v1)', () => {
     agentType?: string;
     identifier?: string;
     continueOnFailure?: boolean;
+    continueOn?: string;
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
@@ -457,6 +458,11 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Verify Review Issue Decisions Were Recorded',
+      'Restart Review Pass Unless Issue Decisions Are Ready',
+    );
+    assertOrdered(
+      labels,
+      'Restart Review Pass Unless Issue Decisions Are Ready',
       'Exit Minor-Fix Path Unless Minor Findings Remain',
     );
     assertOrdered(
@@ -958,6 +964,11 @@ describe('flow schema (v1)', () => {
       const verifyDecisionsIndex = markers.indexOf(
         'verify_review_issue_decisions_recorded.md',
       );
+      const readinessIndex = flattened.findIndex(
+        (step) =>
+          step.type === 'continue' &&
+          step.label === 'Restart Review Pass Unless Issue Decisions Are Ready',
+      );
       const fixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 
       assert.notEqual(
@@ -981,6 +992,11 @@ describe('flow schema (v1)', () => {
         -1,
         `${flowFile} should verify review issue decisions`,
       );
+      assert.notEqual(
+        readinessIndex,
+        -1,
+        `${flowFile} should deterministically gate downstream review work`,
+      );
       assert.notEqual(fixIndex, -1, `${flowFile} should attempt inline fixes`);
       const recordStep = flattened.find(
         (step) =>
@@ -1002,12 +1018,15 @@ describe('flow schema (v1)', () => {
         true,
         `${flowFile} should tolerate an exhausted verifier failure`,
       );
+      const readinessStep = flattened[readinessIndex];
+      assert.equal(readinessStep?.continueOn, 'yes');
       assert.ok(
         classifyIndex < filterIndex &&
           filterIndex < promoteIndex &&
           promoteIndex < recordDecisionsIndex &&
           recordDecisionsIndex < verifyDecisionsIndex &&
-          verifyDecisionsIndex < fixIndex,
+          verifyDecisionsIndex < readinessIndex &&
+          readinessIndex < fixIndex,
         `${flowFile} should classify, filter, promote, record and verify decisions, and then attempt findings`,
       );
     }
@@ -1019,9 +1038,8 @@ describe('flow schema (v1)', () => {
       'utf8',
     );
     const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    const markers = flattenSteps(parsed.steps ?? []).map(
-      (step) => step.markdownFile,
-    );
+    const flattened = flattenSteps(parsed.steps ?? []);
+    const markers = flattened.map((step) => step.markdownFile);
     const preserveIndexes = markers
       .map((marker, index) =>
         marker === 'preserve_external_review_adjudication_trail.md'
@@ -1038,6 +1056,12 @@ describe('flow schema (v1)', () => {
     assert.ok(
       preserveIndexes[0]! < classifyIndex && classifyIndex < recordIndex,
       'external adjudication should be complete before classification and recording',
+    );
+    const preserveStep = flattened[preserveIndexes[0]!];
+    assert.equal(
+      preserveStep?.continueOnFailure,
+      true,
+      'external adjudication bookkeeping failures should not stop classification',
     );
   });
 

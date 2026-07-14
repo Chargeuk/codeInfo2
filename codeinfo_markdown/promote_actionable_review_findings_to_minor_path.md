@@ -58,6 +58,7 @@ Apply the existing state meanings:
 - `safe_to_exit_review_loop_without_tasking` must be false whenever any unresolved, blocked, rerun, or final-revalidation condition remains.
 
 Preserve every same-cycle field this step does not own, including minor-fix history, commit SHAs, review-cycle identity, rerun state, final-revalidation state, and task-up ownership state.
+Preserve the current-pass `review_decision_recording` object unchanged as `pending`; only the later recorder and verifier may replace that outcome.
 
 </state_coherence_rules>
 

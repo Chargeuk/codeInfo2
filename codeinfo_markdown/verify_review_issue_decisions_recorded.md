@@ -25,6 +25,7 @@ This is a bounded pre-fix recovery step. It runs immediately after `Record Revie
 6. Never append a duplicate current-pass block, recreate the retired terse summary, or alter an earlier review pass's block.
 7. This pre-fix verifier must finish before the Minor Review Fix Path can consume any unresolved finding. Late task-up recovery remains only a final interrupted-execution safety net.
 8. If the repair commit fails, leave the validated plan edit in place, apply the recorder contract's retry bookkeeping, report the non-durable result normally, and let the deterministic pre-fix gate keep implementation closed when the required block is still absent or incomplete.
+9. Before returning, independently write the recorder contract's exact current-pass `review_decision_recording` outcome. Use `recorded` only for one complete committed block, `no_decisions` only for a validated genuine no-candidate pass, and `retry_required` for every other outcome. Never leave `pending` after a completed verification turn.
 
 </verification_and_recovery_rules>
 
@@ -32,5 +33,6 @@ This is a bounded pre-fix recovery step. It runs immediately after `Record Revie
 
 - Report the plan path, review pass ID, whether decisions required a block, whether the block was already valid or repaired, and the plan commit SHA when repair created a commit.
 - Finish without a plan edit only for a genuine no-decisions result, an already-valid current-pass block, or a retry-required identity conflict recorded in disposition state. Never turn a recorder/verifier failure into task-up work before a one-shot attempt.
+- Report and re-open the final `review_decision_recording` object so the following deterministic readiness control can safely choose whether to continue or restart the review pass.
 
 </output_contract>

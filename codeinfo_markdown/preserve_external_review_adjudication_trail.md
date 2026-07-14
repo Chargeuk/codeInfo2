@@ -18,6 +18,7 @@ This step is pre-routing bookkeeping only. It must not create tasks, fix code, o
 - Do not perform manual testing in this step.
 - If tracked files are changed, commit them before finishing this step.
 - Do not push.
+- Treat every bookkeeping limitation as recoverable flow input: make the safest bounded update available, report normally, and let generic classification continue from the existing validated artifacts. Do not deliberately fail the turn solely because this optional preservation step could not improve the trail.
 
 </critical_rules>
 
@@ -37,10 +38,10 @@ This step is pre-routing bookkeeping only. It must not create tasks, fix code, o
 
 <failure_modes>
 
-- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
+- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, make no changes and report normally that the current-plan handoff must be regenerated.
 - If the review handoff is missing, unreadable, or does not describe an external review ingestion pass clearly enough, make no changes and report that the external adjudication step was skipped.
 - If the findings artifact is missing or unreadable, make no artifact edits and report the limitation honestly.
-- If tracked plan edits succeed but commit fails, stop and report the failed commit command without pretending the bookkeeping change was committed.
+- If tracked plan edits succeed but commit fails, leave the honest edit in place and report the failed commit normally without pretending the bookkeeping change was committed.
 
 </failure_modes>
 

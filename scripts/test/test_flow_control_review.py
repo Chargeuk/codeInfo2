@@ -20,6 +20,7 @@ from flow_control import review
 
 class FlowControlReviewTests(unittest.TestCase):
     REVIEW_PASS_ID = "0000001-20260714T000000Z-decision"
+    REVIEW_CYCLE_ID = "0000001-rc-20260714T000000Z-decision"
 
     def make_repo(
         self,
@@ -73,7 +74,7 @@ class FlowControlReviewTests(unittest.TestCase):
             ["git", "commit", "-qm", "fixture"], cwd=repo, check=True
         )
         if not commit:
-            resolved_plan.write_text(plan_text + "\nUncommitted change.\n")
+            resolved_plan.write_text("Uncommitted change.\n\n" + plan_text)
         return resolved_plan
 
     def structured_review_block(self) -> str:
@@ -82,17 +83,69 @@ class FlowControlReviewTests(unittest.TestCase):
 ## Code Review Findings
 
 - Review pass: `{self.REVIEW_PASS_ID}`
-- Review cycle: `0000001-rc-20260714T000000Z-decision`
+- Review cycle: `{self.REVIEW_CYCLE_ID}`
 - Comparison context: local `HEAD` `abc` versus resolved base `origin/main@def`.
 
 ### Accepted
 
 #### 1. Example
 
+- Finding ID: `finding-1`
+- Description: A simple problem.
+- Example: The example demonstrates the problem.
+- Why accepted: The issue belongs to this story.
+
 ### Ignored for This Story
 
 - None.
 """
+
+    def ignored_only_review_block(self) -> str:
+        return f"""# Story
+
+## Code Review Findings
+
+- Review pass: `{self.REVIEW_PASS_ID}`
+- Review cycle: `{self.REVIEW_CYCLE_ID}`
+- Comparison context: local `HEAD` `abc` versus resolved base `origin/main@def`.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. Out-of-scope suggestion
+
+- Finding ID or Review reference: `ignored-1`
+- Description: The suggestion changes unrelated behavior.
+- Example: It asks for a separate user interface change.
+- Why ignored: That behavior is outside this story.
+"""
+
+    def update_review_state(self, repo: Path, **updates: object) -> None:
+        state_path = (
+            repo / "codeInfoStatus" / "flow-state" / "review-disposition-state.json"
+        )
+        payload = json.loads(state_path.read_text())
+        payload.update(updates)
+        state_path.write_text(json.dumps(payload, indent=2))
+
+    def plan_commit_sha(self, repo: Path) -> str:
+        return subprocess.run(
+            [
+                "git",
+                "log",
+                "-1",
+                "--format=%H",
+                "--",
+                "planning/0000001-review-decisions.md",
+            ],
+            cwd=repo,
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True,
+        ).stdout.strip()
 
     def run_in_repo(self, repo: Path, fn):
         original_cwd = Path.cwd()
@@ -115,6 +168,7 @@ class FlowControlReviewTests(unittest.TestCase):
                 "needs_task_up_path": False,
                 "needs_review_rerun_before_close": False,
                 "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
             }
         )
         self.write_plan_handoff(repo, plan_text=self.structured_review_block())
@@ -131,6 +185,7 @@ class FlowControlReviewTests(unittest.TestCase):
                 "needs_task_up_path": False,
                 "needs_review_rerun_before_close": True,
                 "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
             }
         )
         self.write_plan_handoff(repo, plan_text="# Story\n")
@@ -152,6 +207,7 @@ class FlowControlReviewTests(unittest.TestCase):
                 "needs_task_up_path": False,
                 "needs_review_rerun_before_close": True,
                 "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
             }
         )
         self.write_plan_handoff(
@@ -161,6 +217,8 @@ class FlowControlReviewTests(unittest.TestCase):
 ## Code Review Findings
 
 - Review pass: `{self.REVIEW_PASS_ID}`
+- Review cycle: `{self.REVIEW_CYCLE_ID}`
+- Comparison context: local `HEAD` `abc` versus resolved base `origin/main@def`.
 """,
         )
 
@@ -178,6 +236,7 @@ class FlowControlReviewTests(unittest.TestCase):
                 "needs_task_up_path": False,
                 "needs_review_rerun_before_close": True,
                 "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
             }
         )
         self.write_plan_handoff(
@@ -185,6 +244,317 @@ class FlowControlReviewTests(unittest.TestCase):
         )
 
         outcome = self.run_in_repo(repo, review.check_review_minor_fix_path_clear)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.details["block_reason"],
+            "structured_review_block_not_committed",
+        )
+
+    def test_review_decisions_retry_when_recording_outcome_is_missing(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(outcome.reason_code, "review_decision_recording_missing")
+
+    def test_review_decisions_continue_for_confirmed_no_decisions(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+                "review_decision_recording": {
+                    "review_pass_id": self.REVIEW_PASS_ID,
+                    "outcome": "no_decisions",
+                    "accepted_count": 0,
+                    "ignored_count": 0,
+                    "plan_commit_sha": None,
+                },
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "review_no_decisions_confirmed")
+
+    def test_review_decisions_retry_when_no_decisions_conflicts_with_ignored_state(
+        self,
+    ) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [{"id": "ignored-1"}],
+                "review_decision_recording": {
+                    "review_pass_id": self.REVIEW_PASS_ID,
+                    "outcome": "no_decisions",
+                    "accepted_count": 0,
+                    "ignored_count": 0,
+                    "plan_commit_sha": None,
+                },
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "review_no_decisions_conflicts_with_state"
+        )
+
+    def test_review_decisions_continue_for_committed_ignored_only_block(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [{"id": "ignored-1"}],
+            }
+        )
+        self.write_plan_handoff(repo, plan_text=self.ignored_only_review_block())
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 0,
+                "ignored_count": 1,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "review_decisions_ready")
+
+    def test_review_decisions_retry_for_incomplete_issue_details(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        plan_text = self.structured_review_block().replace(
+            "- Example: The example demonstrates the problem.\n", ""
+        )
+        self.write_plan_handoff(repo, plan_text=plan_text)
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 1,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.details["block_reason"], "accepted_issue_detail_missing"
+        )
+
+    def test_review_decisions_retry_for_unnumbered_issue_title(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        plan_text = self.structured_review_block().replace(
+            "#### 1. Example", "#### Example"
+        )
+        self.write_plan_handoff(repo, plan_text=plan_text)
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 1,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.details["block_reason"], "accepted_numbered_issue_title_missing"
+        )
+
+    def test_review_decisions_retry_for_duplicate_current_pass_blocks(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        block = self.structured_review_block()
+        self.write_plan_handoff(repo, plan_text=f"{block}\n{block}")
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 1,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.details["block_reason"], "duplicate_current_pass_review_blocks"
+        )
+
+    def test_review_decisions_retry_for_recording_count_mismatch(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        self.write_plan_handoff(repo, plan_text=self.structured_review_block())
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 2,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "review_decision_recording_count_mismatch"
+        )
+
+    def test_review_decisions_retry_for_wrong_cycle_metadata(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        plan_text = self.structured_review_block().replace(
+            self.REVIEW_CYCLE_ID, "0000001-rc-20260714T000000Z-wrong"
+        )
+        self.write_plan_handoff(repo, plan_text=plan_text)
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 1,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.details["block_reason"], "review_cycle_metadata_mismatch"
+        )
+
+    def test_review_decisions_retry_when_state_finding_id_is_missing_from_plan(
+        self,
+    ) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "different-id"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        self.write_plan_handoff(repo, plan_text=self.structured_review_block())
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 1,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "accepted_review_findings_missing_from_plan"
+        )
+
+    def test_review_decisions_retry_for_uncommitted_block(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        self.write_plan_handoff(
+            repo, plan_text=self.structured_review_block(), commit=False
+        )
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 1,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
 
         self.assertEqual(outcome.answer, "yes")
         self.assertEqual(

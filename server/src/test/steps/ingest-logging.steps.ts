@@ -10,7 +10,7 @@ import cors from 'cors';
 import express from 'express';
 import '../support/chromaContainer.js';
 import '../support/mockLmStudioSdk.js';
-import { setIngestDeps } from '../../ingest/ingestJob.js';
+import { isBusy, setIngestDeps } from '../../ingest/ingestJob.js';
 import { resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -137,8 +137,17 @@ Then('ingest logging status for the last run becomes {string}', async (state: st
     for (let i = 0; i < 60; i += 1) {
         const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
         const body = await res.json();
-        if (body.state === state)
+        if (body.state === state) {
+            if (state === 'completed' || state === 'error') {
+                for (let j = 0; j < 60; j += 1) {
+                    if (!isBusy())
+                        return;
+                    await new Promise((r) => setTimeout(r, 100));
+                }
+                assert.fail(`ingest reached ${state} but busy cleanup did not settle`);
+            }
             return;
+        }
         if (body.state === 'error' && state !== 'error') {
             throw new Error(`Run ended in error: ${body.lastError}`);
         }

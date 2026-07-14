@@ -3,7 +3,7 @@ The base `review_evidence_gate` command sequence has already been applied for th
 Apply these external-review-specific additions after that shared base sequence:
 
 1. When `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH` is present, read that exact execution-scoped handoff first. It overrides every generic `<story-number>-current-review.json` or `<story-number>-external-review-input.md` path in the shared base sequence. Read its `external_review_input_file`, preserve its GitHub identity fields, and write review artifact references back to that same handoff. Never discover or replace it with another execution's generic or latest file.
-2. Before relying on any file under `codeInfoTmp/reviews/`, verify that the repository ignores `codeInfoTmp/`. If it does not, add or update `.gitignore` before this command continues.
+2. Before relying on any file under `codeInfoTmp/reviews/`, verify that the repository ignores `codeInfoTmp/`. If it does not, stop and report that the repository must ignore `codeInfoTmp/`; do not edit `.gitignore` or any other tracked file.
 3. When no execution-scoped GitHub handoff is present, derive and read the sole external review input file at `codeInfoTmp/reviews/<story-number>-external-review-input.md` using the canonical plan story number from `codeInfoStatus/flow-state/current-plan.json`.
 4. If that file is missing, stop and say the external review input file is missing and must be created only after `codeInfoTmp/` is ignored.
 5. Treat that markdown file as the sole source of raw external review comments for artifact generation. Do not discover external review comments anywhere else and do not use timestamp or latest-file discovery.

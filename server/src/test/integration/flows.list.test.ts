@@ -1342,6 +1342,7 @@ describe('GET /flows', () => {
 
     for (const agentName of [
       'planning_agent',
+      'planning_agent_lite',
       'coding_agent',
       'coding_agent_lite',
       'manual_testing_agent',
@@ -1432,9 +1433,20 @@ describe('GET /flows', () => {
         'implement_next_plan_github_review.json',
       ),
     );
+    for (const dependencyName of [
+      'review_artifacts_main',
+      'codex_review',
+      'open_code_review',
+    ]) {
+      await fs.copyFile(
+        path.join(checkedInRepoRoot, 'flows', `${dependencyName}.json`),
+        path.join(ingestedRoot, 'flows', `${dependencyName}.json`),
+      );
+    }
 
     for (const agentName of [
       'planning_agent',
+      'planning_agent_lite',
       'coding_agent',
       'coding_agent_lite',
       'manual_testing_agent',

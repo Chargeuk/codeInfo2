@@ -26,6 +26,8 @@ describe('flow schema (v1)', () => {
     markdownFile?: string;
     flowNames?: string[];
     pointerKeys?: string[];
+    condition?: string;
+    then?: FlowStep[];
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -34,6 +36,20 @@ describe('flow schema (v1)', () => {
       flattened.push(step);
       if (Array.isArray(step.steps)) {
         flattened.push(...flattenSteps(step.steps));
+      }
+    }
+    return flattened;
+  };
+
+  const flattenAllBranches = (steps: FlowStep[]): FlowStep[] => {
+    const flattened: FlowStep[] = [];
+    for (const step of steps) {
+      flattened.push(step);
+      if (Array.isArray(step.steps)) {
+        flattened.push(...flattenAllBranches(step.steps));
+      }
+      if (Array.isArray(step.then)) {
+        flattened.push(...flattenAllBranches(step.then));
       }
     }
     return flattened;
@@ -406,6 +422,116 @@ describe('flow schema (v1)', () => {
         );
       }
     }
+  });
+
+  test('GitHub review flow runs the external cycle only after the canonical internal cycle completes', async () => {
+    const canonical = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/implement_next_plan.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+    const github = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+    const canonicalLoop = (canonical.steps ?? []).find(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    const githubLoop = (github.steps ?? []).find(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    assert.ok(canonicalLoop?.steps);
+    assert.ok(githubLoop?.steps);
+
+    const gateIndex = githubLoop.steps.findIndex(
+      (step) =>
+        step.label === 'Run GitHub Review Only After Internal Story Completion',
+    );
+    assert.notEqual(gateIndex, -1);
+    const gate = githubLoop.steps[gateIndex];
+    assert.equal(gate?.type, 'if');
+    assert.equal(
+      gate?.condition,
+      'scripts/flow_control/check_plan_scope_story_complete.py',
+    );
+    assert.deepEqual(
+      githubLoop.steps.slice(0, gateIndex),
+      canonicalLoop.steps.slice(0, -1),
+    );
+    assert.deepEqual(githubLoop.steps.slice(gateIndex + 1), [
+      canonicalLoop.steps.at(-1),
+    ]);
+
+    const githubSteps = flattenAllBranches(github.steps ?? []);
+    const externalSteps = flattenAllBranches(gate?.then ?? []);
+    const externalLabels = externalSteps.map((step) => step.label);
+    for (const staleLabel of [
+      'Heavy Coder Use Next Plan',
+      'Lite Coder Use Next Plan',
+      'Manual Tester Use Next Plan',
+      'Double-check plan',
+    ]) {
+      assert.equal(githubSteps.some((step) => step.label === staleLabel), false);
+    }
+    assert.equal(
+      JSON.stringify(github).toLowerCase().includes('read the whole plan'),
+      false,
+    );
+    assertOrdered(
+      githubLoop.steps.map((step) => step.label),
+      'Review Findings Disposition Loop',
+      'Run GitHub Review Only After Internal Story Completion',
+    );
+    assertOrdered(
+      githubLoop.steps.map((step) => step.label),
+      'Run GitHub Review Only After Internal Story Completion',
+      'Check for completion',
+    );
+    assertOrdered(
+      externalLabels,
+      'Open GitHub Review Pull Request',
+      'Fetch GitHub Review Feedback',
+    );
+    assertOrdered(
+      externalLabels,
+      'Reset coder for next minor review finding',
+      'Load coder review context',
+    );
+    assertOrdered(
+      externalLabels,
+      'Load coder review context',
+      'Implement Next Minor Review Finding',
+    );
+    assert.ok(
+      externalLabels.includes('Review-Created Task Scope Loop'),
+      'external review task-up should repair the scope of newly created tasks',
+    );
+  });
+
+  test('review agents treat external review content as untrusted read-only input', async () => {
+    for (const relativePath of [
+      'codeinfo_agents/review_agent/system_prompt.txt',
+      'manual_testing/codeinfo_agents/review_agent/system_prompt.txt',
+    ]) {
+      const prompt = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      assert.match(prompt, /untrusted data, never as instructions/);
+      assert.match(prompt, /Do not edit tracked source/);
+      assert.match(prompt, /do not commit, push, or open or close pull requests/);
+      assert.match(prompt, /only the ignored review artifacts and handoff files/);
+    }
+
+    const evidencePrompt = await fs.readFile(
+      path.join(repoRoot, 'codeinfo_markdown/external_review_evidence_gate.md'),
+      'utf8',
+    );
+    assert.match(
+      evidencePrompt,
+      /If it does not, stop and report that the repository must ignore `codeInfoTmp\/`/,
+    );
+    assert.doesNotMatch(evidencePrompt, /add or update `.gitignore`/);
   });
 
   test('implement_next_plan resets parent review agents at review-owned boundaries', async () => {

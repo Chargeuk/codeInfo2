@@ -11,7 +11,7 @@ import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
 import { clearLockedModel, clearRootsCollection, clearVectorsCollection, getRootsCollection, setLockedModel, } from '../../ingest/chromaClient.js';
-import { __resetIngestJobsForTest, __setJobInputForTest, __setStatusForTest, __setQueueRuntimeOpsForTest, __setRunProcessorForTest, __validateQueueReplayStartForTest, getStatus, pumpIngestQueue, recoverIngestQueueOnStartup, setIngestDeps, } from '../../ingest/ingestJob.js';
+import { __resetIngestJobsForTest, __setJobInputForTest, __setStatusForTest, __setQueueRuntimeOpsForTest, __setRunProcessorForTest, __validateQueueReplayStartForTest, getStatus, isBusy, pumpIngestQueue, recoverIngestQueueOnStartup, setIngestDeps, } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
@@ -318,8 +318,17 @@ Then('ingest manage status for the last run becomes {string}', async (state: str
         const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
         const body = await res.json();
         console.log(`[ingest-manage] poll ${i} runId=${lastRunId} state=${body.state} message=${body.message ?? ''}`);
-        if (body.state === state)
+        if (body.state === state) {
+            if (state === 'completed' || state === 'error') {
+                for (let j = 0; j < 60; j += 1) {
+                    if (!isBusy())
+                        return;
+                    await new Promise((r) => setTimeout(r, 100));
+                }
+                assert.fail(`ingest reached ${state} but busy cleanup did not settle`);
+            }
             return;
+        }
         await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);

@@ -620,6 +620,17 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("retired terse findings summary", disposition_text)
         self.assertIn("ignored findings only", disposition_text)
         self.assertIn("no accepted or ignored current-pass findings", disposition_text)
+        self.assertIn(
+            "routed `must_fix` or `should_fix` findings exist", disposition_text
+        )
+        self.assertIn(
+            "In orchestrated review loops, leave task creation to task-up",
+            disposition_text,
+        )
+        self.assertIn(
+            "For an ignored-only pass, preserve the structured findings block without creating tasks",
+            disposition_text,
+        )
         self.assertIn("accepted and ignored external-review decisions", external_text)
 
     def test_active_task_normalization_does_not_require_a_selected_task(self) -> None:

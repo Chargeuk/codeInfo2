@@ -39,6 +39,7 @@ import type {
 } from '../../ingest/reingestService.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
+import { baseLogger } from '../../logger.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -857,7 +858,18 @@ test('later markdown-backed llm failures preserve AGENT_NOT_FOUND after flow sta
   });
 });
 
-test('continueOnFailure lets a later llm step run after a terminal llm failure', async () => {
+test('continueOnFailure lets a later llm step run after a terminal llm failure', async (t) => {
+  const serverWarnings: Array<{
+    context: Record<string, unknown>;
+    message: string;
+  }> = [];
+  t.mock.method(baseLogger, 'warn', (context: unknown, message: unknown) => {
+    serverWarnings.push({
+      context: (context ?? {}) as Record<string, unknown>,
+      message: String(message),
+    });
+  });
+
   await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
     const conversationId = 'flow-llm-failure-continues';
     const flowName = 'llm-failure-continues';
@@ -917,6 +929,15 @@ test('continueOnFailure lets a later llm step run after a terminal llm failure',
     assert.equal(
       query({ text: 'flows.run.llm_failure_continued' }).some(
         (entry) => entry.context?.flowName === flowName,
+      ),
+      true,
+    );
+    assert.equal(
+      serverWarnings.some(
+        (entry) =>
+          entry.message === 'flows.run.llm_failure_continued' &&
+          entry.context.flowName === flowName &&
+          entry.context.identifier === 'missing',
       ),
       true,
     );

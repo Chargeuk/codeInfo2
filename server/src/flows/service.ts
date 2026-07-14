@@ -6329,6 +6329,16 @@ async function runFlowUnlocked(params: {
               identifier: step.identifier,
             },
           });
+          baseLogger.warn(
+            {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              label: step.label ?? null,
+              agentType: step.agentType,
+              identifier: step.identifier,
+            },
+            'flows.run.llm_failure_continued',
+          );
           lastCompletedStepPath = nextPath;
           clearContinueBoundaryForActiveLoop();
           await persistRuntimeResumeState(lastCompletedStepPath);

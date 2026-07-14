@@ -527,7 +527,92 @@ class FlowControlReviewTests(unittest.TestCase):
 
         self.assertEqual(outcome.answer, "yes")
         self.assertEqual(
-            outcome.reason_code, "accepted_review_findings_missing_from_plan"
+            outcome.reason_code, "accepted_review_findings_mismatch_with_plan"
+        )
+
+    def test_review_decisions_retry_when_plan_has_extra_accepted_finding(
+        self,
+    ) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        extra_issue = """#### 2. Extra accepted finding
+
+- Finding ID: `finding-extra`
+- Description: This finding is absent from disposition state.
+- Example: The plan lists work that the flow cannot route.
+- Why accepted: The recorder incorrectly added it.
+
+"""
+        plan_text = self.structured_review_block().replace(
+            "### Ignored for This Story", extra_issue + "### Ignored for This Story"
+        )
+        self.write_plan_handoff(repo, plan_text=plan_text)
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 2,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "accepted_review_findings_mismatch_with_plan"
+        )
+
+    def test_review_decisions_retry_when_accepted_finding_id_is_duplicated(
+        self,
+    ) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                "unresolved_task_required_findings": [],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        duplicate_issue = """#### 2. Duplicate accepted finding
+
+- Finding ID: `finding-1`
+- Description: This finding repeats an earlier accepted entry.
+- Example: One routed issue appears twice in the plan.
+- Why accepted: The recorder incorrectly duplicated it.
+
+"""
+        plan_text = self.structured_review_block().replace(
+            "### Ignored for This Story",
+            duplicate_issue + "### Ignored for This Story",
+        )
+        self.write_plan_handoff(repo, plan_text=plan_text)
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 2,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "accepted_review_finding_ids_not_unique"
         )
 
     def test_review_decisions_retry_for_uncommitted_block(self) -> None:

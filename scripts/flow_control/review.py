@@ -348,9 +348,15 @@ def check_review_decisions_need_retry() -> DecisionOutcome:
         return yes(
             "review_decision_recording_count_mismatch", **_review_context(payload)
         )
-    if not set(accepted_ids).issubset(set(block_details["accepted_ids"])):
+    if len(accepted_ids) != len(set(accepted_ids)) or len(
+        block_details["accepted_ids"]
+    ) != len(set(block_details["accepted_ids"])):
         return yes(
-            "accepted_review_findings_missing_from_plan", **_review_context(payload)
+            "accepted_review_finding_ids_not_unique", **_review_context(payload)
+        )
+    if sorted(accepted_ids) != sorted(block_details["accepted_ids"]):
+        return yes(
+            "accepted_review_findings_mismatch_with_plan", **_review_context(payload)
         )
     if not set(ignored_ids).issubset(set(block_details["ignored_ids"])):
         return yes(

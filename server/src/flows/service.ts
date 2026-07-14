@@ -1,10 +1,13 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as scheduleTimeout } from 'node:timers';
+import { promisify } from 'node:util';
 
 import type { CodexOptions } from '@openai/codex-sdk';
+
+const execFileAsync = promisify(execFile);
 
 import { executeCommandItem } from '../agents/commandItemExecutor.js';
 import type { ExecuteCommandItemReingestResult } from '../agents/commandItemExecutor.js';
@@ -4510,6 +4513,26 @@ const _evaluateScriptDecision = async (params: {
 
   if (!fileContent.trim().length) {
     return { ok: false, reason: `Script file is empty: ${fullPath}` };
+  }
+
+  try {
+    await execFileAsync(
+      'git',
+      [
+        '-C',
+        realWorkingRepositoryRoot,
+        'ls-files',
+        '--error-unmatch',
+        '--',
+        normalizedScriptPath,
+      ],
+      { windowsHide: true },
+    );
+  } catch {
+    return {
+      ok: false,
+      reason: `Script file must be Git-tracked: ${params.scriptPath}`,
+    };
   }
 
   try {

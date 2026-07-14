@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import express from 'express';
 import supertest from 'supertest';
@@ -64,6 +66,8 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+
+const execFileAsync = promisify(execFile);
 
 beforeEach(() => {
   memoryConversations.clear();
@@ -475,6 +479,8 @@ async function withFlowHarness(
   await withDeterministicCodexAvailabilityBootstrap(async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-reingest-'));
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
+    await execFileAsync('git', ['init'], { cwd: tmpDir });
+    await execFileAsync('git', ['add', '.'], { cwd: tmpDir });
 
     try {
       await withIsolatedProviderHomeTestEnv(
@@ -2925,6 +2931,50 @@ test('shared decision seam fails hard for missing script file', async () => {
   );
 });
 
+test('shared decision seam fails hard for an untracked script entrypoint', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'flow-control', 'decision-untracked.py'),
+        'print(\'{"answer":"yes"}\')\n',
+        'utf8',
+      );
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'untracked-script-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-untracked.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const result = await supertest(baseUrl)
+        .post('/flows/untracked-script-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /must be Git-tracked/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
 test('shared decision seam rejects script symlinks that escape the worked repository root', async (t) => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
@@ -3142,6 +3192,14 @@ test('github review feedback helper rejects the generic current-review handoff f
           tmpDir,
           'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
         ),
+      );
+      await execFileAsync(
+        'git',
+        [
+          'add',
+          'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+        ],
+        { cwd: tmpDir },
       );
       await fs.writeFile(
         path.join(tmpDir, 'codeInfoStatus/flow-state/current-plan.json'),

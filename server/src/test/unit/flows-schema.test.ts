@@ -38,6 +38,44 @@ describe('flow schema (v1)', () => {
     return flattened;
   };
 
+  const loadExpandedFlowSteps = async (
+    relativePath: string,
+    ancestors: string[] = [],
+  ): Promise<FlowStep[]> => {
+    assert.equal(
+      ancestors.includes(relativePath),
+      false,
+      `flow subflow cycle: ${[...ancestors, relativePath].join(' -> ')}`,
+    );
+    const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    assert.ok(
+      Array.isArray(parsed.steps),
+      `${relativePath} should define steps`,
+    );
+
+    const expandSteps = async (steps: FlowStep[]): Promise<FlowStep[]> => {
+      const expanded: FlowStep[] = [];
+      for (const step of steps) {
+        expanded.push(step);
+        if (Array.isArray(step.steps)) {
+          expanded.push(...(await expandSteps(step.steps)));
+        }
+        for (const flowName of step.flowNames ?? []) {
+          expanded.push(
+            ...(await loadExpandedFlowSteps(`flows/${flowName}.json`, [
+              ...ancestors,
+              relativePath,
+            ])),
+          );
+        }
+      }
+      return expanded;
+    };
+
+    return expandSteps(parsed.steps ?? []);
+  };
+
   const assertOrdered = (
     labels: Array<string | undefined>,
     before: string,
@@ -232,8 +270,12 @@ describe('flow schema (v1)', () => {
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/codex_review.json',
+      'flows/minor_review_fix_path.json',
       'flows/review_artifacts_main.json',
+      'flows/review_disposition_current_artifacts.json',
       'flows/review_plan.json',
+      'flows/review_task_up_path.json',
+      'flows/two_phase_review_cycle.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -406,13 +448,22 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('implement_next_plan resets parent review agents at review-owned boundaries', async () => {
-    const raw = await fs.readFile(
-      path.join(repoRoot, 'flows/implement_next_plan.json'),
-      'utf8',
+  test('two-phase review helpers reset review agents at review-owned boundaries', async () => {
+    const helperFiles = [
+      'flows/review_disposition_current_artifacts.json',
+      'flows/minor_review_fix_path.json',
+    ];
+    const helperSteps = await Promise.all(
+      helperFiles.map(async (relativePath) => {
+        const raw = await fs.readFile(
+          path.join(repoRoot, relativePath),
+          'utf8',
+        );
+        const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+        return flattenSteps(parsed.steps ?? []);
+      }),
     );
-    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    const steps = flattenSteps(parsed.steps ?? []);
+    const steps = helperSteps.flat();
     const labels = steps.map((step) => step.label);
     const reviewResetSteps = steps.filter(
       (step) =>
@@ -427,18 +478,8 @@ describe('flow schema (v1)', () => {
     );
     assertOrdered(
       labels,
-      'Run Parallel Review Artifact Flows',
-      'Reset planner for current review disposition pass',
-    );
-    assertOrdered(
-      labels,
       'Reset lite planner for current review disposition pass',
       'Load planner review context',
-    );
-    assertOrdered(
-      labels,
-      'Load lite planner review context',
-      'Merge Codex Review Findings Into Canonical Review',
     );
     assertOrdered(
       labels,
@@ -458,12 +499,7 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Verify Review Issue Decisions Were Recorded',
-      'Restart Review Pass Unless Issue Decisions Are Ready',
-    );
-    assertOrdered(
-      labels,
-      'Restart Review Pass Unless Issue Decisions Are Ready',
-      'Exit Minor-Fix Path Unless Minor Findings Remain',
+      'Retry Review Decisions Against Current Artifacts Unless Ready',
     );
     assertOrdered(
       labels,
@@ -564,17 +600,10 @@ describe('flow schema (v1)', () => {
               : undefined,
           )
           .filter((marker): marker is string => typeof marker === 'string');
-        const expectedReviewFanout =
-          'review_artifacts_main,codex_review,open_code_review';
+        const expectedReviewFanout = 'two_phase_review_cycle';
         assert.ok(
           subflowMarkers.includes(expectedReviewFanout),
           `${flowFile.relativePath} should launch its expected parallel review child flows`,
-        );
-        assert.ok(
-          flattenSteps(parsed.steps ?? []).some(
-            (step) => step.type === 'validateReviewArtifacts',
-          ),
-          `${flowFile.relativePath} should validate joined review artifacts`,
         );
         continue;
       }
@@ -615,11 +644,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
         if (step.type === 'llm') {
           return step.markdownFile;
         }
@@ -673,11 +698,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? [])
+      const markers = (await loadExpandedFlowSteps(flowFile))
         .map((step) => step.markdownFile)
         .filter((marker): marker is string => typeof marker === 'string');
 
@@ -700,11 +721,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
         if (step.type === 'llm') {
           return step.markdownFile;
         }
@@ -773,11 +790,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
         if (step.type === 'llm') {
           return step.markdownFile;
         }
@@ -817,132 +830,74 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('implement_next_plan promotes scope-approved actionable findings before the minor path', async () => {
+  test('two-phase review runs bounded fast convergence before one slow pass and shared settlement', async () => {
     const raw = await fs.readFile(
-      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
       'utf8',
     );
     const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    assert.ok(
-      Array.isArray(parsed.steps),
-      'flows/implement_next_plan.json should define steps',
-    );
+    const flattened = flattenSteps(parsed.steps ?? []);
+    const labels = flattened.map((step) => step.label);
+    const subflows = flattened
+      .filter((step) => step.type === 'subflow')
+      .map((step) => (step.flowNames ?? []).join(','));
 
-    const markers = flattenSteps(parsed.steps ?? []).map((step) => {
-      if (step.type === 'llm') {
-        return step.markdownFile;
-      }
-      if (step.type === 'command') {
-        return step.commandName;
-      }
-      if (step.type === 'subflow') {
-        return (step as { flowNames?: string[] }).flowNames?.join(',');
-      }
-      return step.type;
-    });
-
-    const prepareIndex = markers.indexOf('prepareReviewBase');
-    const parallelReviewSubflowIndex = markers.indexOf(
-      'review_artifacts_main,codex_review,open_code_review',
+    assert.ok(subflows.includes('codex_review,open_code_review'));
+    assert.ok(subflows.includes('review_artifacts_main'));
+    assert.equal(
+      subflows.filter((entry) => entry === 'review_artifacts_main').length,
+      1,
     );
-    const validationIndex = markers.indexOf('validateReviewArtifacts');
-    const mergeIndex = markers.indexOf(
-      'merge_codex_review_findings_into_canonical_review.md',
+    assertOrdered(
+      labels,
+      'Prepare Fast Review Base',
+      'Run Fast Review Artifact Flows',
     );
-    const ocrMergeIndex = markers.indexOf(
-      'merge_open_code_review_findings_into_canonical_review.md',
+    assertOrdered(
+      labels,
+      'Validate Fast Review Artifacts',
+      'Record Fast Review Pass Outcome',
     );
-    const classifyIndex = markers.indexOf('classify_review_disposition.md');
-    const filterIndex = markers.indexOf(
-      'filter_review_findings_to_story_scope.md',
+    assertOrdered(
+      labels,
+      'Record Fast Review Pass Outcome',
+      'Resolve Fast Review Minor Findings',
     );
-    const promoteIndex = markers.indexOf(
-      'promote_actionable_review_findings_to_minor_path.md',
+    assertOrdered(
+      labels,
+      'Resolve Fast Review Minor Findings',
+      'Exit Fast Review Phase When Converged Or Fifth Pass Was Drained',
     );
-    const recordDecisionsIndex = markers.indexOf(
-      'record_review_issue_decisions_in_plan.md',
+    assertOrdered(
+      labels,
+      'Advance Review Cycle To Slow Phase',
+      'Prepare Slow Review Base',
     );
-    const verifyDecisionsIndex = markers.indexOf(
-      'verify_review_issue_decisions_recorded.md',
+    assertOrdered(
+      labels,
+      'Prepare Slow Review Base',
+      'Run Slow Review Artifact Flow',
     );
-    const minorFixIndex = markers.indexOf('fix_next_minor_review_finding.md');
-
-    assert.notEqual(
-      prepareIndex,
-      -1,
-      'flows/implement_next_plan.json should prepare a shared review base',
+    assertOrdered(
+      labels,
+      'Run Slow Review Artifact Flow',
+      'Resolve Slow Review Minor Findings',
     );
-    assert.notEqual(
-      parallelReviewSubflowIndex,
-      -1,
-      'flows/implement_next_plan.json should include the main review artifact child flow',
+    assertOrdered(
+      labels,
+      'Resolve Slow Review Minor Findings',
+      'Finalize Two-Phase Review Disposition',
     );
-    assert.notEqual(
-      validationIndex,
-      -1,
-      'flows/implement_next_plan.json should validate joined review identities',
-    );
-    assert.notEqual(
-      mergeIndex,
-      -1,
-      'flows/implement_next_plan.json should merge Codex review findings',
-    );
-    assert.notEqual(
-      ocrMergeIndex,
-      -1,
-      'flows/implement_next_plan.json should merge Open Code Review findings',
-    );
-    assert.notEqual(
-      classifyIndex,
-      -1,
-      'flows/implement_next_plan.json should include classifier disposition',
-    );
-    assert.notEqual(
-      filterIndex,
-      -1,
-      'flows/implement_next_plan.json should include findings scope filter',
-    );
-    assert.notEqual(
-      promoteIndex,
-      -1,
-      'flows/implement_next_plan.json should promote actionable findings into the minor path',
-    );
-    assert.notEqual(
-      recordDecisionsIndex,
-      -1,
-      'flows/implement_next_plan.json should record review issue decisions before implementation',
-    );
-    assert.notEqual(
-      verifyDecisionsIndex,
-      -1,
-      'flows/implement_next_plan.json should verify review issue decisions before implementation',
-    );
-    assert.notEqual(
-      minorFixIndex,
-      -1,
-      'flows/implement_next_plan.json should include the minor finding fix step',
-    );
-    assert.ok(
-      prepareIndex < parallelReviewSubflowIndex &&
-        parallelReviewSubflowIndex < validationIndex &&
-        validationIndex < mergeIndex &&
-        mergeIndex < ocrMergeIndex &&
-        ocrMergeIndex < classifyIndex &&
-        classifyIndex < filterIndex &&
-        filterIndex < promoteIndex &&
-        promoteIndex < recordDecisionsIndex &&
-        recordDecisionsIndex < verifyDecisionsIndex &&
-        verifyDecisionsIndex < minorFixIndex,
-      'flows/implement_next_plan.json should prepare one session, run three reviews, validate, merge both supplemental reviews, classify, scope-filter, promote actionable findings, record and verify their decisions, and then attempt a minor fix',
+    assertOrdered(
+      labels,
+      'Finalize Two-Phase Review Disposition',
+      'Task Up Combined Review Findings',
     );
   });
 
   test('all review disposition flows filter and promote actionable findings before inline fixing', async () => {
     const flowFiles = [
       'flows/review_plan.json',
-      'flows/implement_next_plan.json',
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
       'flows/ingest_external_review_plan.json',
     ] as const;
 

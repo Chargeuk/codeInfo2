@@ -116,13 +116,13 @@ Write one block with this shape:
 
 <commit_rules>
 
-- Re-open the plan after editing and confirm the current-pass block exists exactly once and follows the required structure.
+- Reload the bounded `review-tasking` packet after editing and confirm the current-pass block exists exactly once and follows the required structure.
 - Run `git diff --check -- <plan_path>` before committing.
 - If the plan changed, commit only the canonical plan using the repository's required story commit convention and body requirements.
 - Do not include `codeInfoStatus/**`, `codeInfoTmp/**`, review artifacts, or unrelated working-tree changes in the commit.
 - If no plan change was needed, do not create an empty commit.
 - If committing fails, leave the validated plan edit in place for the verifier to retry, append one deduplicated retry note to disposition-state `classification_notes`, set `needs_review_rerun_before_close` to true and `safe_to_exit_review_loop_without_tasking` to false, and report the non-durable result normally. Do not claim a commit exists, do not task up the findings, and do not deliberately return a failed turn solely because this commit attempt failed.
-- After a successful commit, re-open the plan, obtain its exact latest full commit SHA, and write the matching `recorded` outcome before returning. For an already-valid committed block, obtain the existing plan commit in the same way rather than creating an empty commit.
+- After a successful commit, reload the bounded `review-tasking` packet, obtain the plan's exact latest full commit SHA, and write the matching `recorded` outcome before returning. For an already-valid committed block, obtain the existing plan commit in the same way rather than creating an empty commit.
 - Do not push.
 
 </commit_rules>

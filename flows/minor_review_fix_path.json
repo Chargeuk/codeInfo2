@@ -1,0 +1,59 @@
+{
+  "description": "Drain the current review pass's accepted minor findings one at a time without creating numbered tasks.",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Minor Review Fix Path",
+      "steps": [
+        {
+          "type": "reingest",
+          "label": "Re-embed plan-scope repositories before minor review fixes",
+          "target": "plan_scope"
+        },
+        {
+          "type": "break",
+          "label": "Exit Minor-Fix Path Unless Minor Findings Remain",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+          "breakOn": "yes"
+        },
+        {
+          "type": "reset",
+          "label": "Reset coder for next minor review finding",
+          "agentType": "coding_agent",
+          "identifier": "coder"
+        },
+        {
+          "type": "llm",
+          "label": "Load coder review context",
+          "agentType": "coding_agent",
+          "identifier": "coder",
+          "markdownFile": "load_coder_review_context.md"
+        },
+        {
+          "type": "llm",
+          "label": "Implement Next Minor Review Finding",
+          "agentType": "coding_agent",
+          "identifier": "coder",
+          "markdownFile": "fix_next_minor_review_finding.md"
+        },
+        {
+          "type": "llm",
+          "label": "Sync Minor Review Fix Outcome",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "document_minor_review_fix.md"
+        },
+        {
+          "type": "break",
+          "label": "Exit Minor-Fix Path After Sync Unless Another Minor Finding Remains",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear_after_sync.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+          "breakOn": "yes"
+        }
+      ]
+    }
+  ]
+}

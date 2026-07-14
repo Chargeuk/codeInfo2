@@ -161,6 +161,92 @@ class FlowControlReviewTests(unittest.TestCase):
         self.assertEqual(outcome.answer, "yes")
         self.assertEqual(outcome.reason_code, "review_state_unreadable")
 
+    def test_fast_review_exits_early_when_current_pass_had_no_minor_findings(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 2,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_without_minor_findings"
+        )
+
+    def test_fast_review_repeats_before_fifth_pass_after_draining_findings(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 4,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2", "pass-3", "pass-4"],
+                "fast_current_pass_minor_count_before_fix": 3,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_requires_another_pass")
+
+    def test_fast_review_exits_after_draining_fifth_pass(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 5,
+                "fast_reviewed_pass_ids": [
+                    "pass-1",
+                    "pass-2",
+                    "pass-3",
+                    "pass-4",
+                    "pass-5",
+                ],
+                "fast_current_pass_minor_count_before_fix": 2,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(outcome.reason_code, "fast_review_fifth_pass_drained")
+
+    def test_fast_review_does_not_exit_while_minor_queue_remains(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 5,
+                "fast_reviewed_pass_ids": [
+                    "pass-1",
+                    "pass-2",
+                    "pass-3",
+                    "pass-4",
+                    "pass-5",
+                ],
+                "fast_current_pass_minor_count_before_fix": 1,
+                "needs_minor_fix_path": True,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_minor_findings_not_drained")
+
     def test_minor_fix_path_continues_when_unresolved_findings_remain(self) -> None:
         repo = self.make_repo(
             review_state={

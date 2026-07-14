@@ -1,0 +1,103 @@
+{
+  "description": "Task up and refine unresolved task-required findings once after all review phases complete.",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Task-Up Unresolved Review Findings Path",
+      "steps": [
+        {
+          "type": "reingest",
+          "label": "Re-embed plan-scope repositories before review task-up",
+          "target": "plan_scope"
+        },
+        {
+          "type": "break",
+          "label": "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_task_up_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+          "breakOn": "yes"
+        },
+        {
+          "type": "llm",
+          "label": "Ensure Unresolved Review Findings Became Tasks",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "ensure_review_findings_became_tasks.md"
+        },
+        {
+          "type": "command",
+          "label": "Task Up Review Findings",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "commandName": "task_up_review_tasks"
+        },
+        {
+          "type": "llm",
+          "label": "Check Review Tasking Quality",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "review_task_enhancement/04-check-quality.md"
+        },
+        {
+          "type": "llm",
+          "label": "Refresh Current Plan Handoff After Review Task-Up",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
+          "markdownFile": "refresh_current_plan_handoff.md"
+        },
+        {
+          "type": "llm",
+          "label": "Ensure Review-Created Testing Steps Are Correct",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "ensure_task_testing_matches_current_contract.md"
+        },
+        {
+          "type": "startLoop",
+          "label": "Review-Created Task Scope Loop",
+          "steps": [
+            {
+              "type": "break",
+              "label": "Exit Review-Created Task Scope Loop If Context Is Not Safely Usable",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only its stored scope. Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`, and run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --profile review-tasking`. Read `codeInfoStatus/flow-state/review-disposition-state.json` and `codeInfoTmp/reviews/<story-number>-current-review.json` only when needed to identify the current review cycle. Do not open or read the complete plan Markdown and do not rely on conversational memory. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` if scope is invalid, neither review-state source safely identifies the active review cycle, multiple plausible current-cycle review-created blocks remain, or the bounded review-tasking packet cannot identify the active block safely. Answer `no` only when the bounded context is safe enough to continue into repair.",
+              "breakOn": "yes"
+            },
+            {
+              "type": "llm",
+              "label": "Repair Review-Created Task Scope",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "repair_review_created_task_scope.md"
+            },
+            {
+              "type": "break",
+              "label": "Exit Review-Created Task Scope Loop When Clean",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/current-plan.json` and `codeInfoStatus/flow-state/review-disposition-state.json` first. Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --profile review-tasking` immediately before answering. Do not open or read the complete plan Markdown and do not rely on conversational memory. Inspect only the current cycle's newly added or updated review-created tasks returned by the bounded packet and identified by review state. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer `yes` only if every such task is fully within current-story scope across heading/title, `Repository Name`, `Task Dependencies`, `Notes`, `Overview`, `Task Exit Criteria`, `Addresses Findings`, `Risk Ownership`, `Owner Map`, `Requirement-To-Proof Mapping` or `Proof Mapping`, `Affected Repositories`, `Documentation Locations`, `Subtasks`, `Testing`, `Manual Testing Guidance`, and `Implementation Notes`. Answer `no` if another repair pass is still needed.",
+              "breakOn": "yes"
+            }
+          ]
+        },
+        {
+          "type": "llm",
+          "label": "Create Or Update Simple Story After Review Task-Up",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "task_up/15-create-or-update-simple-story.md"
+        },
+        {
+          "type": "break",
+          "label": "Exit Task-Up Path After Encoding Review Findings",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Reply with the following exact JSON only: {\"answer\":\"yes\"}",
+          "breakOn": "yes"
+        }
+      ]
+    }
+  ]
+}

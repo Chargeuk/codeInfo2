@@ -334,6 +334,16 @@ def check_review_decisions_need_retry() -> DecisionOutcome:
             "review_decision_recording_retry_required", **_review_context(payload)
         )
 
+    resolved_ids: list[str] = []
+    if "resolved_minor_findings" in payload:
+        resolved_ids, resolved_valid = _state_finding_ids(
+            payload, "resolved_minor_findings"
+        )
+        if not resolved_valid:
+            return yes(
+                "review_decision_state_findings_invalid", **_review_context(payload)
+            )
+
     block_ready, block_reason, block_details = _structured_review_block_status(payload)
     if not block_ready:
         return yes(
@@ -348,13 +358,21 @@ def check_review_decisions_need_retry() -> DecisionOutcome:
         return yes(
             "review_decision_recording_count_mismatch", **_review_context(payload)
         )
-    if len(accepted_ids) != len(set(accepted_ids)) or len(
-        block_details["accepted_ids"]
-    ) != len(set(block_details["accepted_ids"])):
+    if (
+        len(accepted_ids) != len(set(accepted_ids))
+        or len(block_details["accepted_ids"])
+        != len(set(block_details["accepted_ids"]))
+        or len(resolved_ids) != len(set(resolved_ids))
+    ):
         return yes(
             "accepted_review_finding_ids_not_unique", **_review_context(payload)
         )
-    if sorted(accepted_ids) != sorted(block_details["accepted_ids"]):
+    accepted_id_set = set(accepted_ids)
+    block_accepted_id_set = set(block_details["accepted_ids"])
+    allowed_accepted_id_set = accepted_id_set | set(resolved_ids)
+    if not accepted_id_set.issubset(
+        block_accepted_id_set
+    ) or not block_accepted_id_set.issubset(allowed_accepted_id_set):
         return yes(
             "accepted_review_findings_mismatch_with_plan", **_review_context(payload)
         )

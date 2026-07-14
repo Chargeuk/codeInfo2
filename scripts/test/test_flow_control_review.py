@@ -274,6 +274,7 @@ class FlowControlReviewTests(unittest.TestCase):
                 "review_cycle_id": self.REVIEW_CYCLE_ID,
                 "unresolved_minor_batchable_findings": [],
                 "unresolved_task_required_findings": [],
+                "resolved_minor_findings": [{"id": "resolved-earlier-pass"}],
                 "rejected_or_non_actionable_findings": [],
                 "review_decision_recording": {
                     "review_pass_id": self.REVIEW_PASS_ID,
@@ -581,6 +582,7 @@ class FlowControlReviewTests(unittest.TestCase):
                 "review_cycle_id": self.REVIEW_CYCLE_ID,
                 "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
                 "unresolved_task_required_findings": [],
+                "resolved_minor_findings": [{"id": "finding-resolved"}],
                 "rejected_or_non_actionable_findings": [],
             }
         )
@@ -613,6 +615,36 @@ class FlowControlReviewTests(unittest.TestCase):
         self.assertEqual(
             outcome.reason_code, "accepted_review_findings_mismatch_with_plan"
         )
+
+    def test_review_decisions_allow_resolved_minor_finding_in_recovered_block(
+        self,
+    ) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "unresolved_minor_batchable_findings": [],
+                "unresolved_task_required_findings": [],
+                "resolved_minor_findings": [{"id": "finding-1"}],
+                "rejected_or_non_actionable_findings": [],
+            }
+        )
+        self.write_plan_handoff(repo, plan_text=self.structured_review_block())
+        self.update_review_state(
+            repo,
+            review_decision_recording={
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "outcome": "recorded",
+                "accepted_count": 1,
+                "ignored_count": 0,
+                "plan_commit_sha": self.plan_commit_sha(repo),
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "review_decisions_ready")
 
     def test_review_decisions_retry_when_accepted_finding_id_is_duplicated(
         self,

@@ -6,9 +6,8 @@
       "label": "Run Codex Review",
       "outputKey": "current-codex-review",
       "basePolicy": "branched_from_or_default_if_merged",
-      "modelSource": "flow_request_or_step",
-      "model": "gpt-5.4",
-      "reasoningEffort": "high"
+      "modelSource": "flow_request_or_step_or_agent",
+      "agentType": "review_agent_heavy"
     }
   ]
 }

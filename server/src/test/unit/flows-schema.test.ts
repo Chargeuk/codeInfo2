@@ -25,6 +25,7 @@ describe('flow schema (v1)', () => {
     commandName?: string;
     markdownFile?: string;
     flowNames?: string[];
+    pointerKeys?: string[];
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -132,14 +133,47 @@ describe('flow schema (v1)', () => {
           label: 'Run Codex Review',
           outputKey: 'current-codex-review',
           basePolicy: 'branched_from_or_default_if_merged',
-          modelSource: 'flow_request_or_step',
-          reasoningEffort: 'high',
+          modelSource: 'flow_request_or_step_or_agent',
+          agentType: 'review_agent_heavy',
         },
       ],
     });
 
     const parsed = parseFlowFile(json);
     assert.equal(parsed.ok, true);
+  });
+
+  test('agent-backed codexReview requires an agentType', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'codexReview',
+            outputKey: 'current-codex-review',
+            modelSource: 'flow_request_or_step_or_agent',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
+  test('codexReview agentType requires agent-backed modelSource', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'codexReview',
+            outputKey: 'current-codex-review',
+            modelSource: 'flow_request_or_step',
+            agentType: 'review_agent_heavy',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
   });
 
   test('valid prepareReviewBase step parses as ok: true', () => {
@@ -517,9 +551,17 @@ describe('flow schema (v1)', () => {
               : undefined,
           )
           .filter((marker): marker is string => typeof marker === 'string');
+        const expectedReviewFanout =
+          'review_artifacts_main,codex_review,open_code_review';
         assert.ok(
-          subflowMarkers.includes('review_artifacts_main,codex_review'),
-          `${flowFile.relativePath} should launch the main review and Codex review child flows`,
+          subflowMarkers.includes(expectedReviewFanout),
+          `${flowFile.relativePath} should launch its expected parallel review child flows`,
+        );
+        assert.ok(
+          flattenSteps(parsed.steps ?? []).some(
+            (step) => step.type === 'validateReviewArtifacts',
+          ),
+          `${flowFile.relativePath} should validate joined review artifacts`,
         );
         continue;
       }
@@ -788,10 +830,14 @@ describe('flow schema (v1)', () => {
 
     const prepareIndex = markers.indexOf('prepareReviewBase');
     const parallelReviewSubflowIndex = markers.indexOf(
-      'review_artifacts_main,codex_review',
+      'review_artifacts_main,codex_review,open_code_review',
     );
+    const validationIndex = markers.indexOf('validateReviewArtifacts');
     const mergeIndex = markers.indexOf(
       'merge_codex_review_findings_into_canonical_review.md',
+    );
+    const ocrMergeIndex = markers.indexOf(
+      'merge_open_code_review_findings_into_canonical_review.md',
     );
     const classifyIndex = markers.indexOf('classify_review_disposition.md');
     const filterIndex = markers.indexOf(
@@ -813,9 +859,19 @@ describe('flow schema (v1)', () => {
       'flows/implement_next_plan.json should include the main review artifact child flow',
     );
     assert.notEqual(
+      validationIndex,
+      -1,
+      'flows/implement_next_plan.json should validate joined review identities',
+    );
+    assert.notEqual(
       mergeIndex,
       -1,
       'flows/implement_next_plan.json should merge Codex review findings',
+    );
+    assert.notEqual(
+      ocrMergeIndex,
+      -1,
+      'flows/implement_next_plan.json should merge Open Code Review findings',
     );
     assert.notEqual(
       classifyIndex,
@@ -839,12 +895,14 @@ describe('flow schema (v1)', () => {
     );
     assert.ok(
       prepareIndex < parallelReviewSubflowIndex &&
-        parallelReviewSubflowIndex < mergeIndex &&
-        mergeIndex < classifyIndex &&
+        parallelReviewSubflowIndex < validationIndex &&
+        validationIndex < mergeIndex &&
+        mergeIndex < ocrMergeIndex &&
+        ocrMergeIndex < classifyIndex &&
         classifyIndex < filterIndex &&
         filterIndex < promoteIndex &&
         promoteIndex < minorFixIndex,
-      'flows/implement_next_plan.json should prepare the shared review base, run reviews, merge, classify, scope-filter, promote actionable findings, and then attempt a minor fix',
+      'flows/implement_next_plan.json should prepare one session, run three reviews, validate, merge both supplemental reviews, classify, scope-filter, promote actionable findings, and then attempt a minor fix',
     );
   });
 
@@ -872,7 +930,11 @@ describe('flow schema (v1)', () => {
       );
       const fixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 
-      assert.notEqual(classifyIndex, -1, `${flowFile} should classify findings`);
+      assert.notEqual(
+        classifyIndex,
+        -1,
+        `${flowFile} should classify findings`,
+      );
       assert.notEqual(filterIndex, -1, `${flowFile} should filter findings`);
       assert.notEqual(
         promoteIndex,

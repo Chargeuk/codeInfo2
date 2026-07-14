@@ -1,0 +1,15 @@
+{
+  "Description": "Run the external findings-saturation pass for the active story using the shared sibling-scan sequence plus external-review-specific additions.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_findings_saturation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "external_review_findings_saturation.md"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import crypto from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,6 +19,7 @@ import {
   __resetProviderBootstrapStatusForTests,
   __setProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
+import { validateReviewArtifacts } from '../../flows/reviewArtifacts.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query } from '../../logStore.js';
@@ -516,6 +518,21 @@ const subflowStep = (label: string, ...flowNames: string[]) => ({
   flowNames,
 });
 
+const REVIEW_PLAN_MARKDOWN = `# Story 27
+
+## Description
+
+Review the intended behavior.
+
+## Acceptance Criteria
+
+- The review completes.
+
+## Out Of Scope
+
+- Planning file review.
+`;
+
 const writeExecutable = async (filePath: string, content: string) => {
   await fs.writeFile(filePath, content, 'utf8');
   await fs.chmod(filePath, 0o755);
@@ -546,7 +563,7 @@ const initializeCodexReviewRepo = async (repoDir: string) => {
   );
   await fs.writeFile(
     path.join(repoDir, 'planning', '0000027-codex-review.md'),
-    '# Story 27\n',
+    REVIEW_PLAN_MARKDOWN,
     'utf8',
   );
   await fs.writeFile(
@@ -911,7 +928,7 @@ test('subflow forwards codexReviewModelId into child flows so codex_review can r
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -927,7 +944,6 @@ test('subflow forwards codexReviewModelId into child flows so codex_review can r
     await execFile('git', ['checkout', '-b', 'feature/0000027-codex-review'], {
       cwd: repoDir,
     });
-
     await writeExecutable(
       path.join(binDir, 'codex'),
       `#!/usr/bin/env bash
@@ -995,8 +1011,131 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
     assert.equal(pointer.model, 'gpt-5.4');
     assert.equal(pointer.reasoning_effort, 'medium');
     assert.equal(pointer.merged_into_canonical_findings, false);
+    const validation = await validateReviewArtifacts({
+      workingRepositoryPath: repoDir,
+      pointerKeys: ['current-codex-review'],
+    });
+    assert.equal(validation.status, 'passed');
+    assert.deepEqual(validation.errors, []);
   } finally {
     setScopedTestEnvValue('PATH', previousPath);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('codexReview resolves model and reasoning effort from its configured agent', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-codex-review-agent-profile-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  const binDir = path.join(tmpDir, 'bin');
+  const agentsHome = path.join(tmpDir, 'codeinfo_agents');
+  const agentHome = path.join(agentsHome, 'review_agent_heavy');
+  const previousPath = process.env.PATH;
+  const previousPreferredAgentHome = process.env.CODEINFO_AGENT_HOME;
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
+
+  resetDeterministicCodexAvailabilityBootstrap();
+  installDeterministicCodexAvailabilityBootstrap({
+    models: [
+      {
+        model: 'gpt-5.6-sol',
+        supportedReasoningEfforts: ['high', 'xhigh'],
+        defaultReasoningEffort: 'high',
+      },
+    ],
+  });
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.mkdir(binDir, { recursive: true });
+    await fs.mkdir(agentHome, { recursive: true });
+    setScopedTestEnvValue(
+      'PATH',
+      `${binDir}${path.delimiter}${previousPath ?? ''}`,
+    );
+    setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      [
+        'codeinfo_provider = "codex"',
+        'model = "gpt-5.6-sol"',
+        'model_reasoning_effort = "xhigh"',
+        'approval_policy = "never"',
+        'sandbox_mode = "danger-full-access"',
+      ].join('\n'),
+      'utf8',
+    );
+    await writeExecutable(
+      path.join(binDir, 'codex'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$(dirname "$out")"
+printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
+`,
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'agent-backed-codex-review',
+      steps: [
+        {
+          type: 'codexReview',
+          label: 'Run Agent-Backed Codex Review',
+          outputKey: 'current-codex-review',
+          basePolicy: 'branched_from_or_default_if_merged',
+          modelSource: 'flow_request_or_step_or_agent',
+          agentType: 'review_agent_heavy',
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'agent-backed-codex-review',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(result.modelId, 'gpt-5.6-sol');
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const pointer = JSON.parse(
+      await fs.readFile(codexReviewPointerPath(repoDir), 'utf8'),
+    ) as {
+      model?: string;
+      reasoning_effort?: string | null;
+      agent_type?: string | null;
+    };
+    assert.equal(pointer.model, 'gpt-5.6-sol');
+    assert.equal(pointer.reasoning_effort, 'xhigh');
+    assert.equal(pointer.agent_type, 'review_agent_heavy');
+  } finally {
+    if (previousPath === undefined) {
+      clearScopedTestEnvValue('PATH');
+    } else {
+      setScopedTestEnvValue('PATH', previousPath);
+    }
+    if (previousPreferredAgentHome === undefined) {
+      clearScopedTestEnvValue('CODEINFO_AGENT_HOME');
+    } else {
+      setScopedTestEnvValue(
+        'CODEINFO_AGENT_HOME',
+        previousPreferredAgentHome,
+      );
+    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1102,7 +1241,7 @@ test('codexReview ignores a stale pending cancel that belongs to a different run
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1212,7 +1351,7 @@ test('prepareReviewBase consumes a pending cancel before starting review-base gi
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1276,6 +1415,65 @@ test('prepareReviewBase consumes a pending cancel before starting review-base gi
   }
 });
 
+test('validateReviewArtifacts consumes a pending cancel without publishing or running later steps', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-validation-pending-cancel-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-validation-stop',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-codex-review', 'current-open-code-review'],
+        },
+        llmStep('must not run after stopped review validation'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'review-validation-stop',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+      onOwnershipReady: ({ conversationId, runToken }) => {
+        registerPendingConversationCancel({ conversationId, runToken });
+      },
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'stopped');
+    assert.equal(
+      executions.includes('must not run after stopped review validation'),
+      false,
+    );
+    assert.equal(
+      existsSync(
+        path.join(
+          repoDir,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-review-validation.json',
+        ),
+      ),
+      false,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('sourceId-only launches support prepareReviewBase and codexReview without working_folder', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-sourceid-review-steps-'),
@@ -1314,7 +1512,7 @@ test('sourceId-only launches support prepareReviewBase and codexReview without w
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1459,7 +1657,7 @@ test('local review-git flows fail instead of silently targeting the harness repo
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1831,7 +2029,7 @@ test('resumed flows reuse persisted codexReviewModelId for pending codexReview s
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -1929,7 +2127,18 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       '0000027-current-codex-review.json',
     );
     await waitFor(
-      () => existsSync(pointerPath),
+      () => {
+        if (!existsSync(pointerPath)) return false;
+        try {
+          return (
+            (JSON.parse(readFileSync(pointerPath, 'utf8')) as {
+              status?: string;
+            }).status === 'completed'
+          );
+        } catch {
+          return false;
+        }
+      },
       20_000,
       () =>
         JSON.stringify({
@@ -2107,7 +2316,7 @@ test('prepareReviewBase can precede a parallel review subflow batch on the share
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -2140,6 +2349,25 @@ done
 mkdir -p "$(dirname "$out")"
 printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
 `,
+    );
+
+    await fs.mkdir(path.join(repoDir, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(
+        repoDir,
+        'codeInfoTmp',
+        'reviews',
+        '0000027-current-review.json',
+      ),
+      JSON.stringify({
+        story_id: '0000027',
+        review_pass_id: '0000027-20260703T175948Z-f2f7904eb-stale',
+        head_commit: 'f'.repeat(40),
+        status: 'completed',
+      }),
+      'utf8',
     );
 
     await writeFlowFile({
@@ -2207,7 +2435,18 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
       '0000027-current-codex-review.json',
     );
     await waitFor(
-      () => existsSync(pointerPath),
+      () => {
+        if (!existsSync(pointerPath)) return false;
+        try {
+          return (
+            (JSON.parse(readFileSync(pointerPath, 'utf8')) as {
+              status?: string;
+            }).status === 'completed'
+          );
+        } catch {
+          return false;
+        }
+      },
       20_000,
       () =>
         JSON.stringify({
@@ -2220,17 +2459,33 @@ printf '# Codex Review\\n\\nNo issues.\\n' > "$out"
     await waitForAssistantStatus(result.conversationId, 'ok');
     const preparedBase = JSON.parse(await fs.readFile(basePath, 'utf8')) as {
       comparison_base_ref?: string;
+      review_session_id?: string;
+      review_pass_id?: string;
     };
     const pointer = JSON.parse(await fs.readFile(pointerPath, 'utf8')) as {
       comparison_base_ref?: string;
       model?: string;
       reasoning_effort?: string | null;
+      review_session_id?: string;
+      canonical_review_pass_id?: string;
     };
 
     assert.equal(preparedBase.comparison_base_ref, 'main');
     assert.equal(pointer.comparison_base_ref, 'main');
     assert.equal(pointer.model, 'gpt-5.4');
     assert.equal(pointer.reasoning_effort, 'medium');
+    assert.equal(pointer.review_session_id, preparedBase.review_session_id);
+    assert.equal(pointer.canonical_review_pass_id, preparedBase.review_pass_id);
+    assert.notEqual(
+      pointer.canonical_review_pass_id,
+      '0000027-20260703T175948Z-f2f7904eb-stale',
+    );
+    assert.equal(
+      (await fs.readdir(path.dirname(pointerPath))).some((name) =>
+        name.startsWith('13-'),
+      ),
+      false,
+    );
   } finally {
     setScopedTestEnvValue('PATH', previousPath);
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -2272,7 +2527,7 @@ test('parent step after a successful codexReview gets a fresh inflight id', asyn
     );
     await fs.writeFile(
       path.join(repoDir, 'planning', '0000027-codex-review.md'),
-      '# Story 27\n',
+      REVIEW_PLAN_MARKDOWN,
       'utf8',
     );
     await fs.writeFile(
@@ -2483,7 +2738,7 @@ test('codexReview steps skip cleanly when no review model can be resolved and la
           turn.status === 'ok' &&
           String(turn.content).includes('Codex review skipped.') &&
           String(turn.content).includes(
-            'codexReview requires codexReviewModelId or a model on the flow step.',
+            'codexReview requires codexReviewModelId, a model on the flow step, or a model from its configured agent.',
           ),
       ),
       true,
@@ -2568,6 +2823,333 @@ exit 1
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
     setScopedTestEnvValue('PATH', previousPath);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts records stale child evidence and continues the parent', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-artifacts-validation-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    const headCommit = (
+      await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoDir })
+    ).stdout.trim();
+    const reviewDir = path.join(repoDir, 'codeInfoTmp', 'reviews');
+    await fs.mkdir(reviewDir, { recursive: true });
+    const identity = {
+      story_id: '0000027',
+      plan_path: 'planning/0000027-codex-review.md',
+      review_session_id: '0000027-rs-20260713T102726Z-d30c1246-session',
+      review_pass_id: '0000027-20260713T102726Z-d30c1246-session',
+      parent_execution_id: 'parent-execution-27',
+      head_commit: headCommit,
+      comparison_base_commit: headCommit,
+    };
+    const contextMarkdown = [
+      '## Description\n\nReview the intended behavior.',
+      '## Acceptance Criteria\n\n- The review completes.',
+      '## Out Of Scope\n\n- Planning file review.',
+    ].join('\n\n');
+    const scope = {
+      repo_alias: 'current_repository',
+      repo_root: repoDir,
+      branch: 'feature/0000027-codex-review',
+      branched_from: 'main',
+      logical_base_branch: 'main',
+      resolved_base_branch: 'main',
+      resolved_base_source: 'local_fallback',
+      remote_name: 'origin',
+      remote_fetch_status: 'missing_remote',
+      local_fallback_reason: 'missing_remote',
+      comparison_base_ref: 'main',
+      comparison_head_ref: 'HEAD',
+      comparison_rule: 'local_head_vs_resolved_base',
+      review_context_file:
+        'codeInfoTmp/reviews/0000027-current-review-context.json',
+      review_context_sha256: crypto
+        .createHash('sha256')
+        .update(contextMarkdown)
+        .digest('hex'),
+      review_context_source_plan_sha256: crypto
+        .createHash('sha256')
+        .update(REVIEW_PLAN_MARKDOWN)
+        .digest('hex'),
+      review_excluded_paths: ['planning/**'],
+    };
+    const currentRepository = {
+      repo_alias: scope.repo_alias,
+      repo_root: scope.repo_root,
+      branch: scope.branch,
+      logical_base_branch: scope.logical_base_branch,
+      resolved_base_branch: scope.resolved_base_branch,
+      resolved_base_source: scope.resolved_base_source,
+      remote_name: scope.remote_name,
+      remote_fetch_status: scope.remote_fetch_status,
+      local_fallback_reason: scope.local_fallback_reason,
+      comparison_base_ref: scope.comparison_base_ref,
+      comparison_base_commit: identity.comparison_base_commit,
+      comparison_head_ref: scope.comparison_head_ref,
+      comparison_rule: scope.comparison_rule,
+      head_commit: identity.head_commit,
+    };
+    await Promise.all([
+      fs.writeFile(path.join(reviewDir, 'evidence.md'), '# Evidence\n'),
+      fs.writeFile(path.join(reviewDir, 'findings.md'), '# Findings\n'),
+      fs.writeFile(path.join(reviewDir, 'codex.md'), '# Codex\n'),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-review-context.json'),
+        JSON.stringify({
+          schema_version: 'codeinfo-review-context/v1',
+          story_id: identity.story_id,
+          plan_path: identity.plan_path,
+          branch: scope.branch,
+          source_plan_sha256: scope.review_context_source_plan_sha256,
+          context_sha256: scope.review_context_sha256,
+          sections: {
+            overview: {
+              source_heading: 'Description',
+              markdown: '## Description\n\nReview the intended behavior.',
+            },
+            acceptance_criteria: {
+              source_heading: 'Acceptance Criteria',
+              markdown: '## Acceptance Criteria\n\n- The review completes.',
+            },
+            out_of_scope: {
+              source_heading: 'Out Of Scope',
+              markdown: '## Out Of Scope\n\n- Planning file review.',
+            },
+          },
+          excluded_paths: ['planning/**'],
+          warnings: [],
+          status: 'completed',
+        }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-review-base.json'),
+        JSON.stringify({ ...identity, ...scope, status: 'completed' }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          evidence_file: 'codeInfoTmp/reviews/evidence.md',
+          findings_file: 'codeInfoTmp/reviews/findings.md',
+          repos: [currentRepository],
+          status: 'completed',
+        }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-codex-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          review_session_id: '0000027-rs-20260703T175948Z-f2f7904eb-stale',
+          canonical_review_pass_id: identity.review_pass_id,
+          review_output_file: 'codeInfoTmp/reviews/codex.md',
+          status: 'completed',
+        }),
+      ),
+    ]);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'validate-stale-review-session',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-review', 'current-codex-review'],
+        },
+        llmStep('runs after stale review validation'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'validate-stale-review-session',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() =>
+      executions.includes('runs after stale review validation'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    assert.equal(
+      executions.includes('runs after stale review validation'),
+      true,
+    );
+    const blocker = JSON.parse(
+      await fs.readFile(
+        path.join(reviewDir, '0000027-current-review-validation.json'),
+        'utf8',
+      ),
+    ) as { status?: string; errors?: string[] };
+    assert.equal(blocker.status, 'partial');
+    assert.match(blocker.errors?.join('\n') ?? '', /review_session_id/u);
+
+    await Promise.all([
+      fs.writeFile(
+        path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+        JSON.stringify({
+          plan_path: identity.plan_path,
+          additional_repositories: { path: '/missing/repository' },
+        }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-codex-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          canonical_review_pass_id: identity.review_pass_id,
+          codex_review_pass_id: `${identity.review_pass_id}-codex`,
+          review_output_file: 'codeInfoTmp/reviews/codex.md',
+          status: 'completed',
+        }),
+      ),
+    ]);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'validate-malformed-additional-scope',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-review', 'current-codex-review'],
+        },
+        llmStep('runs after malformed additional scope'),
+      ],
+    });
+    const malformedResult = await startFlowRun({
+      flowName: 'validate-malformed-additional-scope',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() =>
+      executions.includes('runs after malformed additional scope'),
+    );
+    await waitForAssistantStatus(malformedResult.conversationId, 'ok');
+    const malformedValidation = JSON.parse(
+      await fs.readFile(
+        path.join(reviewDir, '0000027-current-review-validation.json'),
+        'utf8',
+      ),
+    ) as {
+      status?: string;
+      errors?: string[];
+      fallback_findings_file?: string;
+    };
+    assert.equal(malformedValidation.status, 'partial');
+    assert.match(
+      malformedValidation.errors?.join('\n') ?? '',
+      /must be an array/u,
+    );
+    assert.ok(malformedValidation.fallback_findings_file);
+
+    const staleSession =
+      '0000027-rs-20260703T175948Z-f2f7904eb-all-reviewers-stale';
+    await Promise.all([
+      fs.writeFile(
+        path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+        JSON.stringify({ plan_path: identity.plan_path }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          review_session_id: staleSession,
+          evidence_file: 'codeInfoTmp/reviews/evidence.md',
+          findings_file: 'codeInfoTmp/reviews/findings.md',
+          repos: [currentRepository],
+          status: 'completed',
+        }),
+      ),
+      fs.writeFile(
+        path.join(reviewDir, '0000027-current-codex-review.json'),
+        JSON.stringify({
+          ...identity,
+          ...scope,
+          review_session_id: staleSession,
+          canonical_review_pass_id: identity.review_pass_id,
+          codex_review_pass_id: `${identity.review_pass_id}-codex`,
+          review_output_file: 'codeInfoTmp/reviews/codex.md',
+          status: 'completed',
+        }),
+      ),
+    ]);
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'validate-blocked-review-session',
+      steps: [
+        {
+          type: 'validateReviewArtifacts',
+          label: 'Validate Joined Review Artifacts',
+          pointerKeys: ['current-review', 'current-codex-review'],
+        },
+        llmStep('runs after blocked review validation'),
+      ],
+    });
+    const blockedResult = await startFlowRun({
+      flowName: 'validate-blocked-review-session',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() =>
+      executions.includes('runs after blocked review validation'),
+    );
+    await waitForAssistantStatus(blockedResult.conversationId, 'ok');
+    const blockedValidation = JSON.parse(
+      await fs.readFile(
+        path.join(reviewDir, '0000027-current-review-validation.json'),
+        'utf8',
+      ),
+    ) as { status?: string };
+    assert.equal(blockedValidation.status, 'blocked');
+    const blockedTurns = memoryTurns.get(blockedResult.conversationId) ?? [];
+    assert.equal(
+      blockedTurns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          String(turn.content).includes(
+            'continuing without usable review evidence',
+          ),
+      ),
+      true,
+    );
+    assert.equal(
+      blockedTurns.some((turn) =>
+        String(turn.content).includes(
+          'continuing with usable review evidence',
+        ),
+      ),
+      false,
+    );
+  } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

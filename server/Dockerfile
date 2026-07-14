@@ -1,4 +1,27 @@
 # syntax=docker/dockerfile:1.7
+ARG OPEN_CODE_REVIEW_REPOSITORY=https://github.com/Chargeuk/open-code-review.git
+ARG OPEN_CODE_REVIEW_REF=codex/fix-codex-owned-review
+ARG OPEN_CODE_REVIEW_COMMIT=a93c4868a4b8b3adfb20895a1e0c3a95333b3ae9
+
+FROM golang:1.25.12-bookworm AS open-code-review-build
+ARG OPEN_CODE_REVIEW_REPOSITORY
+ARG OPEN_CODE_REVIEW_REF
+ARG OPEN_CODE_REVIEW_COMMIT
+WORKDIR /src
+RUN set -eu; \
+    git init; \
+    git remote add origin "${OPEN_CODE_REVIEW_REPOSITORY}"; \
+    git fetch --depth=1 origin "refs/heads/${OPEN_CODE_REVIEW_REF}"; \
+    git checkout --detach FETCH_HEAD; \
+    test "$(git rev-parse HEAD)" = "${OPEN_CODE_REVIEW_COMMIT}"
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    set -eu; \
+    mkdir -p /out; \
+    CGO_ENABLED=0 go build -trimpath \
+      -ldflags "-s -w -X main.Version=codex-${OPEN_CODE_REVIEW_COMMIT} -X main.GitCommit=${OPEN_CODE_REVIEW_COMMIT}" \
+      -o /out/ocr ./cmd/opencodereview
+
 # `node:22-slim` floated to 22.22.1 and started breaking the pinned
 # `tree-sitter@0.21.1` native rebuild during `npm ci`. Pin the image to the
 # repo's validated 22.21.1 patch level until the tree-sitter stack is upgraded.
@@ -181,6 +204,13 @@ RUN --mount=type=cache,target=/root/.npm \
       xargs -r npm install -g --force < /tmp/npm-global.txt; \
     fi
 
+COPY --from=open-code-review-build /out/ocr /usr/local/bin/ocr
+RUN ocr --version && \
+    ocr agent prepare --help >/dev/null && \
+    ocr agent context read --help >/dev/null && \
+    ocr agent validate-comments --help >/dev/null && \
+    ocr agent report --help >/dev/null
+
 RUN set -eu; \
     npm_override=off; \
     pip_index_override=off; \
@@ -210,6 +240,7 @@ COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
 COPY AGENTS.md /app/AGENTS.md
 COPY planning /app/planning
+COPY scripts /app/scripts
 COPY codex_agents /app/codex_agents
 RUN cp -R /app/codex_agents /app/codeinfo_agents
 COPY flows /app/flows

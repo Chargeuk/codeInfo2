@@ -609,12 +609,26 @@
               "type": "prepareReviewBase",
               "label": "Prepare Shared Review Base",
               "outputKey": "current-review-base",
-              "basePolicy": "branched_from_or_default_if_merged"
+              "basePolicy": "branched_from_or_default_if_merged",
+              "initializeReviewPointers": true
             },
             {
               "type": "subflow",
               "label": "Run Parallel Review Artifact Flows",
-              "flowNames": ["review_artifacts_main", "codex_review"]
+              "flowNames": [
+                "review_artifacts_main",
+                "codex_review",
+                "open_code_review"
+              ]
+            },
+            {
+              "type": "validateReviewArtifacts",
+              "label": "Validate Joined Review Artifacts",
+              "pointerKeys": [
+                "current-review",
+                "current-codex-review",
+                "current-open-code-review"
+              ]
             },
             {
               "type": "reset",
@@ -648,6 +662,13 @@
               "agentType": "planning_agent",
               "identifier": "planner",
               "markdownFile": "merge_codex_review_findings_into_canonical_review.md"
+            },
+            {
+              "type": "llm",
+              "label": "Merge Open Code Review Findings Into Canonical Review",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "merge_open_code_review_findings_into_canonical_review.md"
             },
             {
               "type": "llm",

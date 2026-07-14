@@ -1489,7 +1489,14 @@ describe('GET /flows', () => {
             .query({ sourceId: ingestedRoot });
           assert.equal(detailsResponse.status, 200);
           assert.equal(detailsResponse.body.flow.disabled, false);
-          assert.deepEqual(detailsResponse.body.flow.warnings, []);
+          assert.deepEqual(detailsResponse.body.flow.warnings, [
+            {
+              code: 'discovery_warning',
+              message:
+                'Unknown key agent.features.view_image; preserved for forward compatibility',
+              visibility: 'details',
+            },
+          ]);
           assert.equal(detailsResponse.body.flow.disabledReason, undefined);
         });
       },

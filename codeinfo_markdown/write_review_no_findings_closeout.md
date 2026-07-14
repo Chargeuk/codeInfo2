@@ -23,6 +23,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 
 <clean_closeout_rules>
 
+- Before applying the ordinary clean-closeout checks, inspect the bounded plan packet for a structured `## Code Review Findings` block whose `Review pass` metadata value matches the active `review_pass_id`. If that block exists, do not append or repair a `Post-Implementation Code Review` section for the same pass. The structured block is the durable closeout for accepted, ignored, or ignored-only decisions, even when no implementation work remains.
 - If any of these remain true, make no plan change and report that the review is not ready for clean closeout:
   - `unresolved_task_required_findings` is non-empty;
   - `unresolved_minor_batchable_findings` is non-empty;
@@ -76,6 +77,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
 - Confirm a fresh bounded review-scope packet was loaded before editing.
+- Confirm no structured current-pass `## Code Review Findings` block already owned the durable outcome before writing a `Post-Implementation Code Review` closeout.
 - Confirm no unresolved task-required findings, unresolved minor-batchable findings, incomplete-review blockers, rerun requirements, or final minor-fix revalidation requirements remained before writing the closeout.
 - Confirm no fresh review-created work remained from the current review cycle.
 - Confirm no unfinished task-up-owned final revalidation task remained for the current review cycle.

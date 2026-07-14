@@ -476,6 +476,12 @@ class ReviewPromptContractTests(unittest.TestCase):
         ensure_text = read_text(
             "codeinfo_markdown/ensure_review_findings_became_tasks.md"
         )
+        verify_text = read_text(
+            "codeinfo_markdown/verify_review_issue_decisions_recorded.md"
+        )
+        closeout_text = read_text(
+            "codeinfo_markdown/write_review_no_findings_closeout.md"
+        )
         disposition_text = read_text("codeinfo_markdown/review_disposition.md")
         external_text = read_text(
             "codeinfo_markdown/external_review_disposition.md"
@@ -498,9 +504,27 @@ class ReviewPromptContractTests(unittest.TestCase):
             record_text,
         )
         self.assertIn(
-            "Use `review-disposition-state.json` as the sole source of accepted-versus-ignored routing",
+            "Use `review-disposition-state.json` as the sole source of actionable accepted-versus-rejected routing",
             record_text,
         )
+        self.assertIn(
+            "Treat `current-plan.json` only as the owner of `plan_path`, optional `branched_from`, and `additional_repositories`",
+            record_text,
+        )
+        self.assertIn(
+            "Do not require `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`",
+            record_text,
+        )
+        self.assertIn(
+            "Treat missing optional comparison-description metadata as recoverable",
+            record_text,
+        )
+        self.assertIn("`resolved_minor_findings` as Accepted", record_text)
+        self.assertIn("exact validated current-pass findings artifact", record_text)
+        self.assertIn("`Rejected Risk Notes`", record_text)
+        self.assertIn("`External Review Adjudication Trail`", record_text)
+        self.assertIn("Deduplicate ignored entries", record_text)
+        self.assertIn("Never manufacture a workflow finding ID", record_text)
         self.assertIn("### Accepted", record_text)
         self.assertIn("### Ignored for This Story", record_text)
         self.assertIn("- Review pass: `<review_pass_id>`", record_text)
@@ -523,6 +547,14 @@ class ReviewPromptContractTests(unittest.TestCase):
             record_text,
         )
         self.assertIn(
+            "exact `Review pass` metadata value matching the active `review_pass_id` inside a `## Code Review Findings` section",
+            record_text,
+        )
+        self.assertNotIn(
+            "`Review pass: \\`<review_pass_id>\\``metadata inside a`## Code Review Findings` section",
+            record_text,
+        )
+        self.assertIn(
             "Do not describe an `incomplete_review_blockers` entry as accepted or ignored",
             record_text,
         )
@@ -534,6 +566,21 @@ class ReviewPromptContractTests(unittest.TestCase):
             "Do not append another findings section", ensure_text
         )
         self.assertIn("retired terse summary format", ensure_text)
+        self.assertIn("`resolved_minor_findings` entry as Accepted", ensure_text)
+        self.assertIn(
+            "immediately after `Record Review Issue Decisions In Plan` and immediately before the Minor Review Fix Path",
+            verify_text,
+        )
+        self.assertIn(
+            "apply `record_review_issue_decisions_in_plan.md` once",
+            verify_text,
+        )
+        self.assertIn("Never append a duplicate current-pass block", verify_text)
+        self.assertIn(
+            "If that block exists, do not append or repair a `Post-Implementation Code Review` section for the same pass",
+            closeout_text,
+        )
+        self.assertIn("ignored-only decisions", closeout_text)
         self.assertIn("record_review_issue_decisions_in_plan.md", disposition_text)
         self.assertIn("retired terse findings summary", disposition_text)
         self.assertIn("ignored findings only", disposition_text)

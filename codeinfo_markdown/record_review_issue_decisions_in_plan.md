@@ -10,8 +10,10 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before editing the plan.
 - Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
-- Require the current plan, review handoff, and review disposition state to match the exact canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit` for the validated current review. Never infer, normalize, repair, or substitute those machine identity fields.
-- Use `review-disposition-state.json` as the sole source of accepted-versus-ignored routing. Use the validated findings artifact and other referenced review artifacts only to explain the already-made decision and supply a concrete example.
+- Treat `current-plan.json` only as the owner of `plan_path`, optional `branched_from`, and `additional_repositories`. Derive the story number from its `plan_path` and validate its repository scope. Do not require `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`.
+- Require the review handoff and review disposition state to agree on every machine identity field they both own for the validated current review, including the exact canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit` when those fields are present in both sources. Never infer, normalize, repair, or substitute a conflicting machine identity field.
+- Treat missing optional comparison-description metadata as recoverable when the required handoff/state identity agrees. Use the validated handoff value when available and add a concise confidence note when the omission materially limits the description. A genuine identity conflict still requires a safe no-edit result, but must not be reported as a clean no-findings outcome.
+- Use `review-disposition-state.json` as the sole source of actionable accepted-versus-rejected routing. Also preserve explicitly rejected or non-adopted current-pass review candidates from the validated findings, challenge, saturation, and external-review artifacts under `Ignored for This Story`; those artifact entries are decision-recording inputs only and must never be promoted into actionable routing by this step.
 - Do not reclassify findings, edit review artifacts, change flow-state routing, create tasks, implement fixes, run proof, or push.
 - Do not describe an `incomplete_review_blockers` entry as accepted or ignored. It is incomplete review state, not a decided issue.
 - Do not invent findings, titles, descriptions, examples, evidence, comparison metadata, or decision reasons.
@@ -23,10 +25,12 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 
 - Record only findings that belong to the exact active `review_pass_id` and validated findings basis.
 - Accepted findings are the current-pass entries in `unresolved_minor_batchable_findings` and `unresolved_task_required_findings` after promotion finishes.
-- Ignored findings are the current-pass entries in `rejected_or_non_actionable_findings`.
+- During a late recovery only, when the required current-pass block was not recorded before implementation, also include entries from `resolved_minor_findings` as Accepted when their stable IDs exist in the exact validated current-pass findings artifact. Never pull a resolved entry from an earlier pass or merely from durable carry-forward state.
+- Ignored findings are the current-pass entries in `rejected_or_non_actionable_findings` plus review candidates explicitly recorded as rejected or non-adopted in current-pass `Rejected Risk Notes`, `External Review Adjudication Trail`, challenge, or saturation artifact sections.
+- Deduplicate ignored entries by stable finding ID or source reference when available, otherwise by the same normalized summary and evidence. Prefer the disposition-state entry when the same candidate appears in state and an artifact.
 - Do not pull preserved resolved, rejected, blocked, or historical findings from an earlier review pass into the current block merely because they remain in durable story state.
-- Match state entries to the current findings artifact by stable finding ID. When an entry cannot be tied safely to the current pass, omit it from the decision lists and record a concise non-fabricated confidence note only when the remaining validated identity still permits an honest plan update.
-- If no accepted or ignored current-pass findings exist, make no plan edit. Leave the genuine no-findings closeout to its existing workflow path.
+- Match state entries to the current findings artifact by stable finding ID. For an artifact-only ignored candidate, preserve its existing source reference when one exists; otherwise identify it by its numbered presentation title and provenance rather than inventing a workflow finding ID. When an entry cannot be tied safely to the current pass, omit it from the decision lists and record a concise non-fabricated confidence note only when the remaining validated identity still permits an honest plan update.
+- If no accepted or ignored current-pass findings or explicitly rejected current-pass artifact candidates exist, make no plan edit. Leave the genuine no-findings closeout to its existing workflow path.
 - If accepted or ignored findings exist but the exact current-pass identity cannot be validated, make no plan edit and report the identity mismatch.
 
 </current_pass_rules>
@@ -55,7 +59,7 @@ Write one block with this shape:
 
 #### 2. <plain-language title>
 
-- Finding ID: `<stable finding id>`
+- Finding ID or Review reference: `<stable finding id or existing artifact source reference>`
 - Description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why ignored: <why the issue is invalid, unproven, already covered, or outside current-story scope>
@@ -67,8 +71,8 @@ Write one block with this shape:
 - Use full commit SHAs when the validated handoff provides them. Do not shorten an exact stored SHA.
 - Preserve material validated comparison details such as `comparison_rule`, `resolved_base_source`, `remote_fetch_status`, and a sanitized local fallback reason when one exists.
 - Add a concise confidence or provenance note only when a validated artifact records a material caveat, partial reviewer coverage, external-review origin, or safe descriptive inference. Never use a note to excuse an identity mismatch.
-- Number issue titles continuously across both categories. Preserve stable finding IDs separately because the display number is presentation, not workflow identity.
-- Order accepted findings by their order in the validated findings artifact, then order ignored findings by their order there. Use stable finding ID order only as a deterministic fallback.
+- Number issue titles continuously across both categories. Preserve stable finding IDs or existing review references separately because the display number is presentation, not workflow identity. Never manufacture a workflow finding ID for an artifact-only ignored candidate.
+- Order accepted findings by their order in the validated findings artifact, then order ignored findings by their order in the validated artifacts. Use stable finding ID or existing source-reference order only as a deterministic fallback.
 - If one category has no current-pass entries, write `- None.` below that category instead of omitting the category.
 - Keep descriptions easy to understand and limited to the issue itself.
 - Ground every example in the validated finding's repository evidence. If the artifacts contain no honest concrete example, write `Example: No concrete example was recorded in the validated review evidence.` rather than inventing one.
@@ -78,7 +82,7 @@ Write one block with this shape:
 
 <idempotency_rules>
 
-- Identify the current-pass block by the exact `Review pass: \`<review_pass_id>\``metadata inside a`## Code Review Findings` section.
+- Identify the current-pass block by the exact `Review pass` metadata value matching the active `review_pass_id` inside a `## Code Review Findings` section.
 - If no block exists for the current pass, append the new block to the physical end of the plan.
 - If an older terse block exists for the same current pass, replace that block in place with the structured block.
 - If the structured block already exists for the same current pass, update it in place only when needed to match the final post-promotion state.
@@ -110,10 +114,10 @@ Write one block with this shape:
 <verification_loop>
 
 - Confirm `current-plan.json` was read before review state and review artifacts.
-- Confirm the plan, handoff, and state identities match exactly.
+- Confirm `current-plan.json` supplied only plan selection and repository scope, and that the handoff/state machine identities did not conflict.
 - Confirm classification and promotion were not changed.
 - Confirm every listed issue belongs to the current review pass and exactly one category.
-- Confirm every issue has a numbered title, stable finding ID, simple description, evidence-backed example or the explicit no-example fallback, and decision rationale.
+- Confirm every issue has a numbered title, a stable finding ID or existing review reference, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
 - Confirm accepted and ignored categories both exist, including `- None.` when applicable.
 - Confirm the current review pass appears in exactly one `## Code Review Findings` block.
 - Confirm historical review-pass blocks and existing tasks remain unchanged.

@@ -593,6 +593,13 @@
               "markdownFile": "record_review_issue_decisions_in_plan.md"
             },
             {
+              "type": "llm",
+              "label": "Verify Review Issue Decisions Were Recorded",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "verify_review_issue_decisions_recorded.md"
+            },
+            {
               "type": "startLoop",
               "label": "Minor Review Fix Path",
               "steps": [

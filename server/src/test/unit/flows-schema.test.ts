@@ -451,6 +451,11 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Record Review Issue Decisions In Plan',
+      'Verify Review Issue Decisions Were Recorded',
+    );
+    assertOrdered(
+      labels,
+      'Verify Review Issue Decisions Were Recorded',
       'Exit Minor-Fix Path Unless Minor Findings Remain',
     );
     assertOrdered(
@@ -850,6 +855,9 @@ describe('flow schema (v1)', () => {
     const recordDecisionsIndex = markers.indexOf(
       'record_review_issue_decisions_in_plan.md',
     );
+    const verifyDecisionsIndex = markers.indexOf(
+      'verify_review_issue_decisions_recorded.md',
+    );
     const minorFixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 
     assert.notEqual(
@@ -898,6 +906,11 @@ describe('flow schema (v1)', () => {
       'flows/implement_next_plan.json should record review issue decisions before implementation',
     );
     assert.notEqual(
+      verifyDecisionsIndex,
+      -1,
+      'flows/implement_next_plan.json should verify review issue decisions before implementation',
+    );
+    assert.notEqual(
       minorFixIndex,
       -1,
       'flows/implement_next_plan.json should include the minor finding fix step',
@@ -911,8 +924,9 @@ describe('flow schema (v1)', () => {
         classifyIndex < filterIndex &&
         filterIndex < promoteIndex &&
         promoteIndex < recordDecisionsIndex &&
-        recordDecisionsIndex < minorFixIndex,
-      'flows/implement_next_plan.json should prepare one session, run three reviews, validate, merge both supplemental reviews, classify, scope-filter, promote actionable findings, record their decisions, and then attempt a minor fix',
+        recordDecisionsIndex < verifyDecisionsIndex &&
+        verifyDecisionsIndex < minorFixIndex,
+      'flows/implement_next_plan.json should prepare one session, run three reviews, validate, merge both supplemental reviews, classify, scope-filter, promote actionable findings, record and verify their decisions, and then attempt a minor fix',
     );
   });
 
@@ -941,6 +955,9 @@ describe('flow schema (v1)', () => {
       const recordDecisionsIndex = markers.indexOf(
         'record_review_issue_decisions_in_plan.md',
       );
+      const verifyDecisionsIndex = markers.indexOf(
+        'verify_review_issue_decisions_recorded.md',
+      );
       const fixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 
       assert.notEqual(
@@ -959,13 +976,19 @@ describe('flow schema (v1)', () => {
         -1,
         `${flowFile} should record review issue decisions`,
       );
+      assert.notEqual(
+        verifyDecisionsIndex,
+        -1,
+        `${flowFile} should verify review issue decisions`,
+      );
       assert.notEqual(fixIndex, -1, `${flowFile} should attempt inline fixes`);
       assert.ok(
         classifyIndex < filterIndex &&
           filterIndex < promoteIndex &&
           promoteIndex < recordDecisionsIndex &&
-          recordDecisionsIndex < fixIndex,
-        `${flowFile} should classify, filter, promote, record decisions, and then attempt findings`,
+          recordDecisionsIndex < verifyDecisionsIndex &&
+          verifyDecisionsIndex < fixIndex,
+        `${flowFile} should classify, filter, promote, record and verify decisions, and then attempt findings`,
       );
     }
   });

@@ -3261,3 +3261,65 @@ The final branch review found bounded Story 60 lifecycle gaps in automatic revie
 - `npm run format:check` passed with all matched files using Prettier code style.
 - Implementation-plus-automated-proof audit found all six subtasks and seven testing items supported by repository evidence; no story-caused preserved-behavior regression or live blocker was found, so Task 38 is complete and ready for manual testing.
 - Manual testing assessed at full-story scope and skipped for live GitHub review-cycle execution. Tried: rebuilt and started the documented main Compose stack, loaded `http://localhost:5001/flows` with `codex_review`, and verified `/health` plus `/flows` returned successfully with no browser errors. Observed: the UI and Flow API were healthy, but the stored scope supplies no dedicated sandbox repository or external-reviewer context; triggering a real PR review cycle would not be safe. Why fuller proof was not possible: Story 60 requires non-production sandbox GitHub proof and repository policy permits fixture-backed automated proof for the GitHub API/CLI seams. Playwright screenshot staging at `manual-testing/0000060/38/proof-01-flows-loaded.png` was attempted but rejected before writing, so no scratch artifact was retained.
+
+## Code Review Findings
+
+- Review pass: `0000060-20260714T173408Z-e4166e0b08-5e1d1695`
+- Review cycle: `0000060-rc-20260714T185512Z-c5161ecb`
+- Comparison context: local `HEAD` `e4166e0b083daa73a9c0f91c91e0ac514d279e24` versus resolved base `origin/main@038a0264ff35e020f5394d33b79c413e891d155f` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Confidence note: the main reviewer was unavailable and the canonical validation was partial, but the Codex reviewer was usable and Open Code Review was partial and usable; all seven accepted entries come from that validated current-pass findings basis. No current-pass ignored candidates were recorded.
+
+### Accepted
+
+#### 1. Authored waits can become stranded after a continued failure
+
+- Finding ID: `codex-review-authored-wait-stranded`
+- Description: A persisted authored wait can be cleared at wake time after an assistant failure even when `continueOnFailure` should let the flow continue.
+- Example: The wake handler sees the latest assistant status as failed, clears the scheduler, and does not resume the valid `llm(continueOnFailure) -> wait` flow.
+- Why accepted: This is a current Story 60 persisted-wait recovery issue, and its routed reason identifies one server wake/continue seam with focused regression proof.
+
+#### 2. External-comment disposition reruns unrelated generic review work
+
+- Finding ID: `codex-review-external-disposition-generic-pipeline`
+- Description: The external-comment disposition path also runs generic findings and adversarial review prompts instead of limiting the outcome to fetched GitHub comments.
+- Example: Even when every fetched comment is rejected, a new unrelated generic finding can prevent the required clean review outcome and trigger closure or reimplementation.
+- Why accepted: Story 60 explicitly requires the GitHub review cycle to classify outside comments without rerunning the existing generic review pipeline; the routed reason identifies a bounded command/saturation boundary.
+
+#### 3. Repository-owned agent discovery can disagree with runtime execution
+
+- Finding ID: `codex-review-repository-agent-discovery-mismatch`
+- Description: Flow discovery can find an agent configuration in the owner repository while runtime execution checks only global agent homes.
+- Example: The flow is shown as available from an owner-repository `config.toml`, then execution cannot resolve that agent and raises `AGENT_NOT_FOUND`.
+- Why accepted: The current story changed the flow discovery/runtime seam while adding the opt-in review flow, so this is a story-owned availability/execution regression. Its promoted reason preserves the original coordination constraint for the inline attempt.
+
+#### 4. The first generated PR can lack the required story rationale
+
+- Finding ID: `codex-review-pr-rationale`
+- Description: PR creation can fall back to generic implementation-pass text instead of explaining the story requirements and implementation choices.
+- Example: The flow opens the PR before its later Create PR Summary step, so the fallback body says only that the branch contains the current implementation pass.
+- Why accepted: Story 60 explicitly requires reviewer-facing PR content containing the required work and rationale; the promoted reason preserves the original flow/content design constraint for the inline attempt.
+
+#### 5. Agent-less AI-backed if steps can pass schema validation
+
+- Finding ID: `open-code-review-ai-if-agent-schema`
+- Description: An AI-backed `if` step with neither `agentType` nor `identifier` can pass parsing and fail only when the runtime executes it.
+- Example: A prose condition with both agent fields absent is accepted by schema validation, then runtime execution fails because AI-backed decisions require both fields.
+- Why accepted: The story explicitly adds the `if` and AI decision paths, and the routed reason identifies one schema refinement plus focused validation proof.
+
+#### 6. Authorless PR fallback can admit PR-author feedback
+
+- Finding ID: `open-code-review-authorless-pr-identity`
+- Description: When canonical PR lookup fails, the create-output fallback lacks `authorLogin`, so the feedback filter can treat the PR author as an external reviewer.
+- Example: A review comment from the PR author is ingested as reviewer feedback and can trigger unnecessary repair or PR closure.
+- Why accepted: Story 60 requires review feedback from other users and excludes PR-author feedback; the routed reason identifies one bounded PR reconciliation and author-filter fix.
+
+#### 7. Python decision scripts are not verified as checked-in files
+
+- Finding ID: `open-code-review-checked-in-decision-script`
+- Description: The direct Python decision path checks existence, content, and containment but not whether the entrypoint is Git-tracked.
+- Example: An untracked script inside the repository can control `break`, `continue`, or `if` decisions despite the story's checked-in-entrypoint contract.
+- Why accepted: The story explicitly requires a checked-in repository-relative Python entrypoint, and the routed reason identifies one validation seam plus focused proof.
+
+### Ignored for This Story
+
+- None.

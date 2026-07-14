@@ -6304,6 +6304,9 @@ async function runFlowUnlocked(params: {
         workingRepositoryPath: reviewRepositoryPath,
         parentExecutionId: params.executionId,
         signal: inflightSignal,
+      }, {
+        listIngestedRepositories:
+          params.repositoryContext.listIngestedRepositories,
       });
       if (inflightSignal.aborted) {
         await emitStoppedFlowStep({

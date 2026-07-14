@@ -4,6 +4,11 @@ import path from 'node:path';
 
 import { normalizeFlowInput } from './flowInput.js';
 import {
+  validateReviewArtifacts,
+  type ReviewArtifactsValidationResult,
+  type ReviewPointerValidationResult,
+} from './reviewArtifacts.js';
+import {
   atomicWriteJson,
   buildReviewArtifactPath,
   resolveContainedReviewArtifactPath,
@@ -17,7 +22,7 @@ import type { ReviewTargetSnapshot } from './reviewTargets.js';
 import type { FlowJsonObject, FlowJsonValue } from './types.js';
 
 export const REVIEW_WAVE_VALIDATION_SCHEMA_VERSION =
-  'codeinfo-review-wave-validation/v1';
+  'codeinfo-review-wave-validation/v2';
 
 type ValidationDeps = {
   readFile: typeof fs.readFile;
@@ -25,6 +30,7 @@ type ValidationDeps = {
   rename: typeof fs.rename;
   writeFile: typeof fs.writeFile;
   now: () => Date;
+  validateReviewArtifacts: typeof validateReviewArtifacts;
 };
 
 const defaultDeps: ValidationDeps = {
@@ -33,6 +39,7 @@ const defaultDeps: ValidationDeps = {
   rename: fs.rename,
   writeFile: fs.writeFile,
   now: () => new Date(),
+  validateReviewArtifacts,
 };
 
 const isObject = (value: unknown): value is FlowJsonObject =>
@@ -45,39 +52,19 @@ const pointerKeyForFlow = (flowName: string) => {
   return null;
 };
 
-const pointerIdentityError = (params: {
-  pointer: FlowJsonObject;
-  snapshot: ReviewTargetSnapshot;
-  target: ReviewTargetSnapshot['targets'][number];
-}) => {
-  const expected: Record<string, string> = {
-    story_id: params.snapshot.story_id,
-    parent_execution_id: params.snapshot.parent_execution_id,
-    review_wave_id: params.snapshot.review_wave_id,
-    target_id: params.target.target_id,
-    head_commit: params.target.head_commit,
-  };
-  for (const [field, value] of Object.entries(expected)) {
-    if (params.pointer[field] !== value) {
-      return `${field} does not match the review wave.`;
-    }
+const jobStatusFromValidation = (
+  validation: ReviewPointerValidationResult,
+): ReviewWaveJobResult['status'] => {
+  if (validation.usable) {
+    return validation.status === 'partial' ? 'partial' : 'completed';
   }
-  return null;
+  return validation.status === 'passed' ? 'failed' : validation.status;
 };
 
-const jobStatusFromPointer = (
-  pointer: FlowJsonObject,
-): ReviewWaveJobResult['status'] => {
-  const status = pointer.status;
-  if (status === 'failed' || status === 'invalid') return 'failed';
-  if (
-    pointer.partial === true ||
-    status === 'partial' ||
-    status === 'completed_partial'
-  ) {
-    return 'partial';
-  }
-  return status === 'completed' ? 'completed' : 'invalid';
+type TargetValidation = {
+  result: ReviewArtifactsValidationResult | null;
+  validationFile: string;
+  error: string | null;
 };
 
 const readPointer = async (
@@ -217,6 +204,66 @@ export async function validateReviewWave(
     instanceId: string;
     targetIds: string[];
   }> = [];
+  const targetValidations = new Map<string, TargetValidation>();
+  for (const target of params.snapshot.targets) {
+    params.signal?.throwIfAborted();
+    const reviewTarget = params.reviewSet.targets.find(
+      (candidate) => candidate.target_id === target.target_id,
+    );
+    const validationFile = buildReviewArtifactPath({
+      repoRoot: target.repo_root,
+      storyId: params.snapshot.story_id,
+      outputKey: 'current-review-validation',
+    });
+    if (!reviewTarget || reviewTarget.status === 'invalid') {
+      targetValidations.set(target.target_id, {
+        result: null,
+        validationFile,
+        error: reviewTarget?.error ?? 'Target review base is unavailable.',
+      });
+      continue;
+    }
+    const pointerKeys = params.reviewSet.expected_jobs
+      .filter(
+        (job) =>
+          job.kind === 'target_review' && job.target_id === target.target_id,
+      )
+      .map((job) => pointerKeyForFlow(job.flow_name))
+      .filter(
+        (
+          key,
+        ): key is Exclude<ReturnType<typeof pointerKeyForFlow>, null> =>
+          key !== null,
+      )
+      .map((key) =>
+        key === 'artifact'
+          ? 'current-review'
+          : key === 'codex'
+            ? 'current-codex-review'
+            : 'current-open-code-review',
+      );
+    try {
+      const result = await resolvedDeps.validateReviewArtifacts({
+        workingRepositoryPath: target.repo_root,
+        pointerKeys,
+        validationMode: 'wave_target',
+        storyId: params.snapshot.story_id,
+        signal: params.signal,
+      });
+      targetValidations.set(target.target_id, {
+        result,
+        validationFile,
+        error: null,
+      });
+    } catch (error) {
+      params.signal?.throwIfAborted();
+      targetValidations.set(target.target_id, {
+        result: null,
+        validationFile,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   const results: ReviewWaveJobResult[] = [];
   for (const job of params.reviewSet.expected_jobs) {
     params.signal?.throwIfAborted();
@@ -232,6 +279,8 @@ export async function validateReviewWave(
           ...job,
           status: 'missing',
           pointer_path: null,
+          validation_file: null,
+          validation: null,
           error: 'Cross-repository pointer is missing.',
         });
         continue;
@@ -239,6 +288,7 @@ export async function validateReviewWave(
       const identityMatches =
         pointer.story_id === params.snapshot.story_id &&
         pointer.review_wave_id === params.snapshot.review_wave_id &&
+        pointer.parent_execution_id === params.snapshot.parent_execution_id &&
         pointer.targets_sha256 === params.snapshot.targets_sha256;
       const status = !identityMatches
         ? 'stale'
@@ -254,22 +304,26 @@ export async function validateReviewWave(
         ...job,
         status,
         pointer_path: pointerPath,
+        validation_file: null,
+        validation: null,
         error: identityMatches
           ? null
           : 'Cross-repository pointer identity is stale.',
       });
-      for (const finding of await findingValues({
-        pointer,
-        repoRoot: params.snapshot.plan_host_root,
-        deps: resolvedDeps,
-      })) {
-        const source = isObject(finding) ? finding : {};
-        const targetIds = Array.isArray(source.target_ids)
-          ? source.target_ids.filter(
-              (value): value is string => typeof value === 'string',
-            )
-          : params.snapshot.targets.map((target) => target.target_id);
-        findings.push({ finding, instanceId: job.instance_id, targetIds });
+      if (status === 'completed' || status === 'partial') {
+        for (const finding of await findingValues({
+          pointer,
+          repoRoot: params.snapshot.plan_host_root,
+          deps: resolvedDeps,
+        })) {
+          const source = isObject(finding) ? finding : {};
+          const targetIds = Array.isArray(source.target_ids)
+            ? source.target_ids.filter(
+                (value): value is string => typeof value === 'string',
+              )
+            : params.snapshot.targets.map((target) => target.target_id);
+          findings.push({ finding, instanceId: job.instance_id, targetIds });
+        }
       }
       continue;
     }
@@ -285,6 +339,8 @@ export async function validateReviewWave(
         ...job,
         status: 'invalid',
         pointer_path: null,
+        validation_file: null,
+        validation: null,
         error: 'Expected target review job is malformed.',
       });
       continue;
@@ -294,6 +350,9 @@ export async function validateReviewWave(
         ...job,
         status: 'invalid',
         pointer_path: null,
+        validation_file:
+          targetValidations.get(target.target_id)?.validationFile ?? null,
+        validation: null,
         error: reviewTarget.error ?? 'Target base is invalid.',
       });
       continue;
@@ -302,31 +361,92 @@ export async function validateReviewWave(
     const pointerPath = relativePointer
       ? path.resolve(target.repo_root, relativePointer)
       : null;
-    const pointer = pointerPath
-      ? await readPointer(pointerPath, resolvedDeps)
-      : null;
-    if (!pointer || !pointerPath) {
+    const targetValidation = targetValidations.get(target.target_id);
+    const pointerKey =
+      key === 'artifact'
+        ? 'current-review'
+        : key === 'codex'
+          ? 'current-codex-review'
+          : 'current-open-code-review';
+    const pointerValidation = targetValidation?.result?.pointer_results.find(
+      (candidate) => candidate.pointer_key === pointerKey,
+    );
+    if (!pointerValidation) {
       results.push({
         ...job,
-        status: 'missing',
+        status: targetValidation?.error ? 'failed' : 'missing',
         pointer_path: pointerPath,
-        error: 'Target review pointer is missing.',
+        validation_file: targetValidation?.validationFile ?? null,
+        validation: null,
+        error:
+          targetValidation?.error ?? 'Target review validation is missing.',
       });
       continue;
     }
-    const identityError = pointerIdentityError({
-      pointer,
-      snapshot: params.snapshot,
-      target,
-    });
-    const status = identityError ? 'stale' : jobStatusFromPointer(pointer);
+    if (!targetValidation?.result) {
+      results.push({
+        ...job,
+        status: 'failed',
+        pointer_path: pointerPath,
+        validation_file: targetValidation?.validationFile ?? null,
+        validation: null,
+        error: 'Target review validation result is unavailable.',
+      });
+      continue;
+    }
+    const targetResult = targetValidation.result;
+    const targetIdentityMatches =
+      targetResult.validation_mode === 'wave_target' &&
+      targetResult.story_id === params.snapshot.story_id &&
+      targetResult.plan_path === params.snapshot.plan_path &&
+      targetResult.parent_execution_id === params.snapshot.parent_execution_id &&
+      targetResult.target_id === target.target_id &&
+      targetResult.repo_alias === target.repo_alias &&
+      targetResult.review_wave_id === params.snapshot.review_wave_id &&
+      targetResult.plan_host_root === params.snapshot.plan_host_root &&
+      targetResult.head_commit === target.head_commit;
+    if (!targetIdentityMatches) {
+      results.push({
+        ...job,
+        status: 'stale',
+        pointer_path: pointerPath,
+        validation_file: targetValidation.validationFile,
+        validation: null,
+        error: 'Target review validation identity is stale.',
+      });
+      continue;
+    }
+    const status = jobStatusFromValidation(pointerValidation);
     results.push({
       ...job,
       status,
       pointer_path: pointerPath,
-      error: identityError,
+      validation_file: targetValidation?.validationFile ?? null,
+      validation: {
+        ...pointerValidation,
+        validation_mode: 'wave_target',
+        story_id: targetResult.story_id,
+        plan_path: targetResult.plan_path,
+        review_session_id: targetResult.review_session_id,
+        review_pass_id: targetResult.review_pass_id,
+        head_commit: targetResult.head_commit,
+        comparison_base_commit: targetResult.comparison_base_commit,
+        parent_execution_id: targetResult.parent_execution_id,
+        target_id: target.target_id,
+        repo_alias: target.repo_alias,
+        review_wave_id: params.snapshot.review_wave_id,
+        plan_host_root: params.snapshot.plan_host_root,
+      },
+      error:
+        pointerValidation.errors.length > 0
+          ? pointerValidation.errors.join(' ')
+          : null,
     });
     if (status === 'completed' || status === 'partial') {
+      const pointer = pointerPath
+        ? await readPointer(pointerPath, resolvedDeps)
+        : null;
+      if (!pointer) continue;
       for (const finding of await findingValues({
         pointer,
         repoRoot: target.repo_root,
@@ -379,7 +499,9 @@ export async function validateReviewWave(
   const validation = normalizeFlowInput({
     schema_version: REVIEW_WAVE_VALIDATION_SCHEMA_VERSION,
     story_id: params.snapshot.story_id,
+    plan_path: params.snapshot.plan_path,
     review_wave_id: params.snapshot.review_wave_id,
+    parent_execution_id: params.snapshot.parent_execution_id,
     targets_sha256: params.snapshot.targets_sha256,
     expected_job_count: params.reviewSet.expected_job_count,
     completed_jobs: completedJobs,
@@ -388,6 +510,7 @@ export async function validateReviewWave(
     missing_jobs: missingJobs,
     closeout_allowed: closeoutAllowed,
     status: finalized.status,
+    job_results: results,
     completed_at: resolvedDeps.now().toISOString(),
   });
   const reviewRoot = path.join(

@@ -61,6 +61,7 @@ export type CodexReviewPointer = {
   repo_alias: string;
   target_id?: string;
   review_wave_id?: string;
+  plan_host_root?: string;
   repo_root: string;
   branch: string;
   branched_from: string | null;
@@ -824,6 +825,9 @@ const buildPointer = (params: {
     : {}),
   ...(params.preparedBase.review_wave_id
     ? { review_wave_id: params.preparedBase.review_wave_id }
+    : {}),
+  ...(params.preparedBase.plan_host_root
+    ? { plan_host_root: params.preparedBase.plan_host_root }
     : {}),
   repo_root: params.repoRoot,
   branch: params.currentBranch,

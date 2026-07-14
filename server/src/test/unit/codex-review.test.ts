@@ -878,6 +878,9 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
         plan_path: 'planning/0000027-codex-review.md',
         branched_from: 'main',
         repo_alias: 'current_repository',
+        target_id: 'current_repository',
+        review_wave_id: '0000027-rw-20260705T162000Z-01020304',
+        plan_host_root: repoRoot,
         repo_root: repoRoot,
         branch: 'feature/0000027-codex-review',
         head_commit: HEAD_SHA,
@@ -1011,6 +1014,12 @@ test('runCodexReviewStep consumes the prepared current-review-base artifact when
     assert.equal(result.pointer.comparison_base_ref, 'origin/main');
     assert.equal(result.pointer.resolved_base_source, 'remote');
     assert.equal(result.pointer.branched_from, 'main');
+    assert.equal(result.pointer.target_id, 'current_repository');
+    assert.equal(
+      result.pointer.review_wave_id,
+      '0000027-rw-20260705T162000Z-01020304',
+    );
+    assert.equal(result.pointer.plan_host_root, repoRoot);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

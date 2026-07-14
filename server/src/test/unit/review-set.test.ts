@@ -123,6 +123,18 @@ test('prepareReviewSet isolates target pointers and enumerates the complete wave
       new Set(calls.map((call) => call.workingRepositoryPath)).size,
       3,
     );
+    assert.equal(
+      calls.every(
+        (call) =>
+          call.explicitScope?.reviewWaveId ===
+            prepared.snapshot.review_wave_id &&
+          call.explicitScope.planHostRoot ===
+            prepared.snapshot.plan_host_root &&
+          call.explicitScope.target.targetId ===
+            call.explicitScope.target.repoAlias,
+      ),
+      true,
+    );
     assert.deepEqual(
       JSON.parse(await fs.readFile(result.stablePath, 'utf8')),
       result.manifest,

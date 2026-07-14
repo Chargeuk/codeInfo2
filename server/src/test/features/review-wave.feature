@@ -32,3 +32,10 @@ Feature: Story review wave orchestration
 
   Scenario: Review-created work retains repository ownership
     Then the review-wave consumer contract requires target-owned tasks
+
+  Scenario: Validated multi-target findings retain ownership through downstream tasking
+    Given a finalized review wave with 2 validated target owners
+    When I route aggregated review findings to downstream tasking
+    Then every routed finding retains its validated target owner
+    And cross-repository coverage remains visible downstream
+    And downstream tasking uses embedded target validation instead of a plan-host-only pointer

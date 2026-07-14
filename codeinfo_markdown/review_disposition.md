@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first whenever a review-set manifest exists.
+
 Finish the current story review using ONLY the stored review handoff and the artifacts it references, then decide how the canonical plan must respond to the findings.
 
 <critical_rules>

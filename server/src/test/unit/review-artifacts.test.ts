@@ -38,6 +38,7 @@ type FixtureOptions = {
   ocrTargetFrom?: string;
   commentsReviewedFiles?: number;
   pointerTotalFiles?: number;
+  waveScope?: boolean;
 };
 
 const argumentValue = (args: string[], flag: string): string => {
@@ -209,6 +210,13 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     head_commit: head,
     comparison_base_commit: base,
     parent_execution_id: 'execution-13',
+    ...(options.waveScope
+      ? {
+          target_id: 'current_repository',
+          review_wave_id: '0000013-rw-wave-target',
+          plan_host_root: repoRoot,
+        }
+      : {}),
   };
   const scope = {
     repo_alias: 'current_repository',
@@ -490,12 +498,88 @@ test('validateReviewArtifacts accepts one coherent server-owned review session',
     });
     assert.equal(result.status, 'passed');
     assert.equal(result.schema_version, 2);
+    assert.equal(result.validation_mode, 'legacy');
     assert.equal(result.story_id, '0000013');
     assert.equal(
       result.pointer_results.every((entry) => entry.usable),
       true,
     );
     assert.equal(result.validated_artifact_files.length, 8);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts validates a wave target without an ambient current-plan handoff', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-wave-target-'),
+  );
+  try {
+    await writeFixture(repoRoot, { waveScope: true });
+    await fs.rm(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+    );
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      storyId: '0000013',
+      validationMode: 'wave_target',
+      pointerKeys: [
+        'current-review',
+        'current-codex-review',
+        'current-open-code-review',
+      ],
+    });
+
+    assert.equal(result.status, 'passed');
+    assert.equal(result.validation_mode, 'wave_target');
+    assert.equal(result.target_id, 'current_repository');
+    assert.equal(result.review_wave_id, '0000013-rw-wave-target');
+    assert.equal(result.plan_host_root, repoRoot);
+    assert.equal(
+      result.pointer_results.every((entry) => entry.usable),
+      true,
+    );
+    assert.deepEqual(
+      result.pointer_results.find(
+        (entry) => entry.pointer_key === 'current-open-code-review',
+      )?.usable_bundle_ids,
+      [`sha256:${'1'.padStart(64, '0')}`],
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects a pointer from a different review wave', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-stale-wave-target-'),
+  );
+  try {
+    await writeFixture(repoRoot, { waveScope: true });
+    const pointerPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      '0000013-current-review.json',
+    );
+    const pointer = JSON.parse(
+      await fs.readFile(pointerPath, 'utf8'),
+    ) as Record<string, unknown>;
+    pointer.review_wave_id = '0000013-rw-older-wave';
+    await fs.writeFile(pointerPath, JSON.stringify(pointer));
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      storyId: '0000013',
+      validationMode: 'wave_target',
+      pointerKeys: ['current-review'],
+    });
+
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.pointer_results[0]?.status, 'stale');
+    assert.equal(result.pointer_results[0]?.usable, false);
+    assert.match(result.errors.join('\n'), /review_wave_id/u);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import type { ReviewPointerValidationResult } from './reviewArtifacts.js';
 import {
   prepareReviewBase,
   type PrepareReviewBaseResult,
@@ -70,7 +71,24 @@ export type ReviewWaveJobResult = {
   target_id: string | null;
   status: 'completed' | 'partial' | 'failed' | 'missing' | 'stale' | 'invalid';
   pointer_path: string | null;
+  validation_file: string | null;
+  validation: ReviewWaveJobValidation | null;
   error: string | null;
+};
+
+export type ReviewWaveJobValidation = ReviewPointerValidationResult & {
+  validation_mode: 'wave_target';
+  story_id: string;
+  plan_path: string;
+  review_session_id: string;
+  review_pass_id: string;
+  head_commit: string;
+  comparison_base_commit: string;
+  parent_execution_id: string;
+  target_id: string;
+  repo_alias: string;
+  review_wave_id: string;
+  plan_host_root: string;
 };
 
 export type AggregatedReviewFinding = {

@@ -17,6 +17,7 @@ import {
   atomicWriteJson,
   buildReviewArtifactPath,
   deriveCanonicalStoryId,
+  ensureCanonicalStoryId,
   readReviewIdentity,
   resolveContainedReviewArtifactPath,
   type ReviewIdentity,
@@ -65,6 +66,7 @@ export type ReviewPointerValidationResult = {
 
 export type ReviewArtifactsValidationResult = {
   schema_version: 2;
+  validation_mode: 'legacy' | 'wave_target';
   story_id: string;
   plan_path: string;
   review_session_id: string;
@@ -72,6 +74,10 @@ export type ReviewArtifactsValidationResult = {
   head_commit: string;
   comparison_base_commit: string;
   parent_execution_id: string;
+  target_id?: string;
+  repo_alias?: string;
+  review_wave_id?: string;
+  plan_host_root?: string;
   pointer_files: string[];
   pointer_results: ReviewPointerValidationResult[];
   validated_artifact_files: string[];
@@ -233,6 +239,23 @@ const assertReviewScopeMatches = (
     if (!valuesEqual(expected[field], pointer[field])) {
       throw new Error(
         `${pointerKey}.${field} does not match the prepared review scope.`,
+      );
+    }
+  }
+};
+
+const assertWaveTargetScopeMatches = (
+  expected: PreparedReviewBase,
+  pointer: ReviewPointer,
+  pointerKey: string,
+): void => {
+  if (!expected.review_wave_id || !expected.target_id || !expected.plan_host_root) {
+    throw new Error('Prepared wave-target review scope is incomplete.');
+  }
+  for (const field of ['review_wave_id', 'target_id', 'plan_host_root'] as const) {
+    if (pointer[field] !== expected[field]) {
+      throw new Error(
+        `${pointerKey}.${field} does not match the prepared wave-target scope.`,
       );
     }
   }
@@ -1155,6 +1178,8 @@ export async function validateReviewArtifacts(
   params: {
     workingRepositoryPath: string;
     pointerKeys: string[];
+    validationMode?: 'legacy' | 'wave_target';
+    storyId?: string;
     signal?: AbortSignal;
   },
   deps: Partial<ReviewArtifactsDeps> = {},
@@ -1166,20 +1191,35 @@ export async function validateReviewArtifacts(
     undefined,
     params.signal,
   );
-  const currentPlanPath = path.join(
-    repoRoot,
-    'codeInfoStatus',
-    'flow-state',
-    'current-plan.json',
-  );
-  const currentPlan = await readJsonObject(currentPlanPath);
-  const declaredRepositoryScope = await resolveDeclaredRepositoryScope(
-    repoRoot,
-    currentPlan,
-  );
-  const planPath =
-    typeof currentPlan.plan_path === 'string' ? currentPlan.plan_path : '';
-  const storyId = deriveCanonicalStoryId(planPath);
+  const validationMode = params.validationMode ?? 'legacy';
+  let storyId: string;
+  let declaredRepositoryScope: DeclaredRepositoryScope;
+  if (validationMode === 'wave_target') {
+    if (!params.storyId) {
+      throw new Error('Wave-target validation requires a canonical storyId.');
+    }
+    storyId = ensureCanonicalStoryId(params.storyId);
+    declaredRepositoryScope = {
+      resolvedPaths: [await fs.realpath(repoRoot)],
+      unresolvedPaths: [],
+      errors: [],
+    };
+  } else {
+    const currentPlanPath = path.join(
+      repoRoot,
+      'codeInfoStatus',
+      'flow-state',
+      'current-plan.json',
+    );
+    const currentPlan = await readJsonObject(currentPlanPath);
+    declaredRepositoryScope = await resolveDeclaredRepositoryScope(
+      repoRoot,
+      currentPlan,
+    );
+    const planPath =
+      typeof currentPlan.plan_path === 'string' ? currentPlan.plan_path : '';
+    storyId = deriveCanonicalStoryId(planPath);
+  }
   const prepared = await readPreparedReviewBase({
     workingRepositoryPath: repoRoot,
     storyNumber: storyId,
@@ -1233,6 +1273,9 @@ export async function validateReviewArtifacts(
         pointerKey,
       );
       assertReviewScopeMatches(prepared.artifact, pointer, pointerKey);
+      if (validationMode === 'wave_target') {
+        assertWaveTargetScopeMatches(prepared.artifact, pointer, pointerKey);
+      }
       if (pointer.status !== 'completed') {
         throw new Error(
           `${pointerKey} has non-complete status ${String(pointer.status)}.`,
@@ -1321,7 +1364,16 @@ export async function validateReviewArtifacts(
 
   const result: ReviewArtifactsValidationResult = {
     schema_version: 2,
+    validation_mode: validationMode,
     ...expected,
+    ...(validationMode === 'wave_target'
+      ? {
+          target_id: prepared.artifact.target_id,
+          repo_alias: prepared.artifact.repo_alias,
+          review_wave_id: prepared.artifact.review_wave_id,
+          plan_host_root: prepared.artifact.plan_host_root,
+        }
+      : {}),
     pointer_files: pointerResults.map((entry) => entry.pointer_file),
     pointer_results: pointerResults,
     validated_artifact_files: [

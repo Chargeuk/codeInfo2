@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and apply its wave-mode artifact, validation, ownership, and legacy-fallback rules.
+
 Classify the current review outcome into a machine-readable flow-state file for the review loop.
 
 This step is a traffic controller only. It must not fix findings, task up findings, or mutate the canonical plan.
@@ -8,7 +10,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 - When `codeInfoTmp/reviews/<story-number>-current-review-set.json` exists, read it with the matching `current-review-wave-validation.json`, require exact wave identity, and classify only completed or partial job results and their aggregated findings.
 - A review set with `closeout_allowed: false` cannot produce a clean/no-findings classification. Missing or unusable cross-repository coverage is an `incomplete_review_blockers` entry for every multi-target wave.
-- Read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json` before classification. Accept overall `passed` or `partial` validation for the exact canonical seven-digit story, plan, review session, review pass, parent execution, HEAD, and comparison base recorded by the canonical handoff. Classify findings only from reviewer entries marked usable.
+- In wave mode, classify only completed or partial review-set jobs whose embedded server-owned validation is usable and exactly matches the target, wave, canonical seven-digit story, plan, review session, review pass, parent execution, HEAD, and comparison base; do not require the legacy plan-host `current-review-validation.json`. When no review set exists, read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`, accept overall `passed` or `partial` legacy validation for the exact canonical handoff identity, and classify findings only from reviewer entries marked usable.
 - Never infer, normalize, repair, or substitute machine identity fields. When at least one reviewer remains usable, record failed, missing, partial, or stale sibling-reviewer coverage as a non-blocking entry in `classification_notes`, continue classifying trustworthy findings, and do not create an `incomplete_review_blockers` entry solely for that lost coverage. Use `incomplete_review_blockers` only when no reviewer is usable or the surviving artifacts do not provide a trustworthy canonical review basis. When no reviewer is usable, do not claim there were no findings.
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.

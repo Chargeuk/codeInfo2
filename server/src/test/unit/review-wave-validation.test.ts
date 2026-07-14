@@ -4,6 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import type {
+  ReviewArtifactsValidationResult,
+  ReviewPointerValidationResult,
+} from '../../flows/reviewArtifacts.js';
 import type { ReviewSetManifest } from '../../flows/reviewSet.js';
 import type { ReviewTargetSnapshot } from '../../flows/reviewTargets.js';
 import { validateReviewWave } from '../../flows/reviewWaveValidation.js';
@@ -144,26 +148,129 @@ const createFixture = async () => {
     JSON.stringify({
       story_id: snapshot.story_id,
       review_wave_id: snapshot.review_wave_id,
+      parent_execution_id: snapshot.parent_execution_id,
       targets_sha256: snapshot.targets_sha256,
       status: 'completed',
       findings: [],
     }),
   );
-  return { root, roots, snapshot, reviewSet, pointerPath, crossPointer };
+  const validateTargetArtifacts = async (params: {
+    workingRepositoryPath: string;
+    pointerKeys: string[];
+  }): Promise<ReviewArtifactsValidationResult> => {
+    const target = targets.find(
+      (candidate) => candidate.repo_root === params.workingRepositoryPath,
+    );
+    assert(target);
+    const pointerResults: ReviewPointerValidationResult[] = [];
+    for (const pointerKey of params.pointerKeys) {
+      const filePath = pointerPath(target.repo_root, pointerKey);
+      try {
+        const pointer = JSON.parse(await fs.readFile(filePath, 'utf8')) as Record<
+          string,
+          unknown
+        >;
+        const identityMatches =
+          pointer.story_id === snapshot.story_id &&
+          pointer.parent_execution_id === snapshot.parent_execution_id &&
+          pointer.review_wave_id === snapshot.review_wave_id &&
+          pointer.target_id === target.target_id &&
+          pointer.head_commit === target.head_commit;
+        pointerResults.push({
+          pointer_key: pointerKey,
+          pointer_file: path.relative(target.repo_root, filePath),
+          status: identityMatches ? 'passed' : 'stale',
+          usable: identityMatches,
+          errors: identityMatches
+            ? []
+            : [`${pointerKey} identity does not match the review wave.`],
+          warnings: [],
+          validated_artifact_files: [],
+          usable_bundle_ids:
+            pointerKey === 'current-open-code-review' && identityMatches
+              ? ['bundle-1']
+              : [],
+        });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        pointerResults.push({
+          pointer_key: pointerKey,
+          pointer_file: path.relative(target.repo_root, filePath),
+          status: 'missing',
+          usable: false,
+          errors: [`${pointerKey} is missing.`],
+          warnings: [],
+          validated_artifact_files: [],
+          usable_bundle_ids: [],
+        });
+      }
+    }
+    const usable = pointerResults.filter((result) => result.usable);
+    return {
+      schema_version: 2,
+      validation_mode: 'wave_target',
+      story_id: snapshot.story_id,
+      plan_path: snapshot.plan_path,
+      review_session_id: `${target.target_id}-session`,
+      review_pass_id: `${target.target_id}-pass`,
+      head_commit: target.head_commit,
+      comparison_base_commit: 'b'.repeat(40),
+      parent_execution_id: snapshot.parent_execution_id,
+      target_id: target.target_id,
+      repo_alias: target.repo_alias,
+      review_wave_id: snapshot.review_wave_id,
+      plan_host_root: snapshot.plan_host_root,
+      pointer_files: pointerResults.map((result) => result.pointer_file),
+      pointer_results: pointerResults,
+      validated_artifact_files: [],
+      status:
+        usable.length === pointerResults.length
+          ? 'passed'
+          : usable.length > 0
+            ? 'partial'
+            : 'blocked',
+      errors: pointerResults.flatMap((result) => result.errors),
+      warnings: [],
+      completed_at: '2026-07-14T12:01:00.000Z',
+    };
+  };
+  return {
+    root,
+    roots,
+    snapshot,
+    reviewSet,
+    pointerPath,
+    crossPointer,
+    validateTargetArtifacts,
+  };
 };
 
 test('complete review wave finalizes exact coverage and retains severity conflicts', async () => {
   const fixture = await createFixture();
   try {
-    const result = await validateReviewWave({
-      snapshot: fixture.snapshot,
-      reviewSet: fixture.reviewSet,
-    });
+    const result = await validateReviewWave(
+      {
+        snapshot: fixture.snapshot,
+        reviewSet: fixture.reviewSet,
+      },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
 
     assert.equal(result.finalized.status, 'completed');
     assert.equal(result.finalized.closeout_allowed, true);
     assert.equal(result.finalized.coverage.completed_jobs, 7);
     assert.equal(result.finalized.job_results?.length, 7);
+    assert.equal(
+      result.finalized.job_results
+        ?.filter((job) => job.target_id !== null)
+        .every(
+          (job) =>
+            job.validation?.usable &&
+            job.validation.target_id === job.target_id &&
+            job.validation.review_wave_id === fixture.snapshot.review_wave_id,
+        ),
+      true,
+    );
     assert.equal(result.finalized.aggregated_findings?.length, 2);
     assert.equal(
       result.finalized.aggregated_findings?.every(
@@ -200,10 +307,13 @@ test('partial and stale target results preserve usable sibling findings but bloc
     stale.review_wave_id = 'older-wave';
     await fs.writeFile(stalePath, JSON.stringify(stale));
 
-    const result = await validateReviewWave({
-      snapshot: fixture.snapshot,
-      reviewSet: fixture.reviewSet,
-    });
+    const result = await validateReviewWave(
+      {
+        snapshot: fixture.snapshot,
+        reviewSet: fixture.reviewSet,
+      },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
 
     assert.equal(result.finalized.status, 'completed_partial');
     assert.equal(result.finalized.closeout_allowed, false);
@@ -223,10 +333,13 @@ test('multi-target review cannot close cleanly without usable cross-repository c
   const fixture = await createFixture();
   try {
     await fs.rm(fixture.crossPointer);
-    const result = await validateReviewWave({
-      snapshot: fixture.snapshot,
-      reviewSet: fixture.reviewSet,
-    });
+    const result = await validateReviewWave(
+      {
+        snapshot: fixture.snapshot,
+        reviewSet: fixture.reviewSet,
+      },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
 
     assert.equal(result.finalized.cross_repository_status, 'missing');
     assert.equal(result.finalized.closeout_allowed, false);

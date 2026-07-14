@@ -23,6 +23,9 @@ let gateAction: string | undefined;
 let jobStatuses: string[] = [];
 let missingVisible = false;
 let closeoutAllowed = false;
+let downstreamOwners: string[] = [];
+let embeddedTargetValidation = false;
+let downstreamCrossCoverage = false;
 
 const findWaveStep = (
   steps: FlowStep[],
@@ -237,6 +240,133 @@ Then(
   },
 );
 
+Given(
+  'a finalized review wave with {int} validated target owners',
+  async (targetCount: number) => {
+    await createPass(targetCount);
+    assert(snapshot && reviewSet);
+    const activeSnapshot = snapshot;
+    const targetJobs = reviewSet.expected_jobs
+      .filter((job) => job.target_id !== null)
+      .map((job) => {
+        const target = activeSnapshot.targets.find(
+          (candidate) => candidate.target_id === job.target_id,
+        );
+        assert(target);
+        return {
+          ...job,
+          status: 'completed' as const,
+          pointer_path: path.join(
+            target.repo_root,
+            'codeInfoTmp/reviews/current-pointer.json',
+          ),
+          validation_file: path.join(
+            target.repo_root,
+            'codeInfoTmp/reviews/current-validation.json',
+          ),
+          validation: {
+            pointer_key: `current-${job.flow_name}`,
+            pointer_file: 'codeInfoTmp/reviews/current-pointer.json',
+            status: 'passed' as const,
+            usable: true,
+            errors: [],
+            warnings: [],
+            validated_artifact_files: [],
+            usable_bundle_ids:
+              job.flow_name === 'open_code_review' ? ['bundle-1'] : [],
+            validation_mode: 'wave_target' as const,
+            story_id: activeSnapshot.story_id,
+            plan_path: activeSnapshot.plan_path,
+            review_session_id: `${target.target_id}-session`,
+            review_pass_id: `${target.target_id}-pass`,
+            head_commit: target.head_commit,
+            comparison_base_commit: 'b'.repeat(40),
+            parent_execution_id: activeSnapshot.parent_execution_id,
+            target_id: target.target_id,
+            repo_alias: target.repo_alias,
+            review_wave_id: activeSnapshot.review_wave_id,
+            plan_host_root: activeSnapshot.plan_host_root,
+          },
+          error: null,
+        };
+      });
+    reviewSet.job_results = [
+      ...targetJobs,
+      {
+        ...reviewSet.expected_jobs.find((job) => job.target_id === null)!,
+        status: 'completed',
+        pointer_path: path.join(
+          snapshot.plan_host_root,
+          'codeInfoTmp/reviews/current-cross-repository-review.json',
+        ),
+        validation_file: null,
+        validation: null,
+        error: null,
+      },
+    ];
+    reviewSet.cross_repository_status = 'completed';
+    reviewSet.aggregated_findings = snapshot.targets.map((target, index) => ({
+      fingerprint: String(index).repeat(64),
+      target_ids: [target.target_id],
+      title: `Finding owned by ${target.repo_alias}`,
+      path: 'src/contract.ts',
+      line: index + 1,
+      severities: ['should_fix'],
+      severity_conflict: false,
+      sources: [
+        {
+          instance_id: `${target.target_id}--review_artifacts_main`,
+          severity: 'should_fix',
+        },
+      ],
+      detail: { repository: target.repo_alias },
+    }));
+  },
+);
+
+When('I route aggregated review findings to downstream tasking', () => {
+  assert(snapshot && reviewSet?.job_results);
+  downstreamOwners = (reviewSet.aggregated_findings ?? []).flatMap(
+    (finding) => finding.target_ids,
+  );
+  embeddedTargetValidation = reviewSet.job_results
+    .filter((job) => job.target_id !== null)
+    .every(
+      (job) =>
+        job.validation?.usable === true &&
+        job.validation.target_id === job.target_id &&
+        job.validation_file?.startsWith(
+          snapshot?.targets.find(
+            (target) => target.target_id === job.target_id,
+          )?.repo_root ?? '',
+        ),
+    );
+  downstreamCrossCoverage =
+    reviewSet.cross_repository_status === 'completed' &&
+    reviewSet.job_results.some(
+      (job) => job.target_id === null && job.status === 'completed',
+    );
+});
+
+Then('every routed finding retains its validated target owner', () => {
+  assert(snapshot);
+  assert.deepEqual(
+    [...downstreamOwners].sort(),
+    snapshot.targets.map((target) => target.target_id).sort(),
+  );
+});
+
+Then('cross-repository coverage remains visible downstream', () => {
+  assert.equal(downstreamCrossCoverage, true);
+});
+
+Then(
+  'downstream tasking uses embedded target validation instead of a plan-host-only pointer',
+  () => {
+    assert.equal(embeddedTargetValidation, true);
+  },
+);
+
 After(async () => {
   if (tempRoot) await fs.rm(tempRoot, { recursive: true, force: true });
   tempRoot = undefined;
@@ -248,4 +378,7 @@ After(async () => {
   jobStatuses = [];
   missingVisible = false;
   closeoutAllowed = false;
+  downstreamOwners = [];
+  embeddedTargetValidation = false;
+  downstreamCrossCoverage = false;
 });

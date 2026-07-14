@@ -181,6 +181,59 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       result.artifact.review_pass_id,
     );
     assert.equal(pendingCodex.status, 'pending');
+
+    const waveResult = await prepareReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-review-base',
+        parentExecutionId: 'execution-27',
+        initializeReviewPointers: true,
+        explicitScope: {
+          planHostRoot: repoRoot,
+          planPath: 'planning/0000027-codex-review.md',
+          storyNumber: '0000027',
+          branchedFrom: 'main',
+          reviewWaveId: '0000027-rw-wave-test',
+          reviewContext: await prepareReviewContext({
+            repoRoot,
+            storyNumber: '0000027',
+            planPath: 'planning/0000027-codex-review.md',
+            branch: 'feature/0000027-codex-review',
+          }),
+          target: {
+            targetId: 'additional-repository-1',
+            repoAlias: 'additional-repository-1',
+            repoRoot,
+            branch: 'feature/0000027-codex-review',
+            headCommit: HEAD_SHA,
+          },
+        },
+      },
+      {
+        execFile,
+        prepareReviewContext,
+        now: () => new Date('2026-07-05T16:30:00.000Z'),
+        randomHex: () => 'c0ffee12',
+      },
+    );
+    assert.equal(waveResult.artifact.target_id, 'additional-repository-1');
+    assert.equal(waveResult.artifact.review_wave_id, '0000027-rw-wave-test');
+    assert.equal(waveResult.artifact.plan_host_root, repoRoot);
+    for (const pointerName of [
+      '0000027-current-review.json',
+      '0000027-current-codex-review.json',
+      '0000027-current-open-code-review.json',
+    ]) {
+      const pointer = JSON.parse(
+        await fs.readFile(
+          path.join(repoRoot, 'codeInfoTmp', 'reviews', pointerName),
+          'utf8',
+        ),
+      ) as Record<string, unknown>;
+      assert.equal(pointer.target_id, 'additional-repository-1');
+      assert.equal(pointer.review_wave_id, '0000027-rw-wave-test');
+      assert.equal(pointer.plan_host_root, repoRoot);
+    }
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

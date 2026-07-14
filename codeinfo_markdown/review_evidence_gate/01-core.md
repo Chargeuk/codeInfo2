@@ -150,6 +150,7 @@ The handoff file MUST contain at least:
 - `review_session_id`
 - `review_pass_id`
 - `parent_execution_id`
+- `target_id`, `review_wave_id`, and `plan_host_root` copied exactly from the prepared review base when that base is wave-bound
 - top-level `head_commit` and `comparison_base_commit` copied exactly from the prepared review base
 - top-level `repo_alias`, `repo_root`, `branch`, `branched_from`, `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule` copied exactly from the prepared review base
 - top-level `review_context_file`, `review_context_sha256`, `review_context_source_plan_sha256`, and `review_excluded_paths` copied exactly from the prepared review base
@@ -173,7 +174,7 @@ The handoff file MUST contain at least:
   - `comparison_rule`
   - `head_commit`
 
-Set `status` to `completed`. Preserve the exact server-owned identity tuple, use the seven-digit `story_id` in the stable pointer path, and write the JSON atomically.
+Set `status` to `completed`. Preserve the exact server-owned identity tuple and every prepared wave-target field, use the seven-digit `story_id` in the stable pointer path, and write the JSON atomically. Before replacing a server-initialized pointer, merge only review-owned evidence fields into its current server-owned identity fields; never reconstruct or omit `target_id`, `review_wave_id`, or `plan_host_root`.
 
 Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the bounded review-evidence packet already defines a clearer repository name.
 

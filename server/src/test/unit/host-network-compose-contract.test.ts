@@ -124,7 +124,11 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(mainServer, /codex-data:\/app\/codex/u);
   assert.doesNotMatch(mainServer, /codex-data:\/host\/codex:ro/u);
-  assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
+  assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:rw/u);
+  assert.doesNotMatch(
+    mainServer,
+    /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u,
+  );
   assert.match(
     entrypoint,
     /export HOME="\$runtime_home"\nexport CODEX_HOME="\$\{CODEX_HOME:-\$\{CODEINFO_CODEX_HOME:-\$runtime_home\}\}"/u,

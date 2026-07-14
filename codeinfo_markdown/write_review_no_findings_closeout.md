@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first whenever a review-set manifest exists, and do not treat unusable wave coverage as a no-findings result.
+
 Append or repair the durable `Post-Implementation Code Review` closeout when the current review loop has finished cleanly with no remaining findings or follow-up review work.
 
 This step is the clean-closeout writer only. It must not create review-fix tasks, final revalidation tasks, or code changes.

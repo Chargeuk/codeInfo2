@@ -10515,6 +10515,36 @@ async function runFlowUnlocked(params: {
           stepIndex: command.stepIndex,
           status,
         });
+        if (status === 'failed' && step.continueOnFailure === true) {
+          append({
+            level: 'warn',
+            message: 'flows.run.llm_failure_continued',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              label: step.label ?? null,
+              agentType: step.agentType,
+              identifier: step.identifier,
+            },
+          });
+          baseLogger.warn(
+            {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              label: step.label ?? null,
+              agentType: step.agentType,
+              identifier: step.identifier,
+            },
+            'flows.run.llm_failure_continued',
+          );
+          lastCompletedStepPath = nextPath;
+          clearContinueBoundaryForActiveLoop();
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          stepInflightId = crypto.randomUUID();
+          continue;
+        }
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.llm',

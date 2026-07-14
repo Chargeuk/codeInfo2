@@ -21,6 +21,8 @@ describe('flow schema (v1)', () => {
     label?: string;
     agentType?: string;
     identifier?: string;
+    continueOnFailure?: boolean;
+    continueOn?: string;
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
@@ -576,6 +578,21 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Promote Actionable Review Findings To Minor Path',
+      'Record Review Issue Decisions In Plan',
+    );
+    assertOrdered(
+      labels,
+      'Record Review Issue Decisions In Plan',
+      'Verify Review Issue Decisions Were Recorded',
+    );
+    assertOrdered(
+      labels,
+      'Verify Review Issue Decisions Were Recorded',
+      'Restart Review Pass Unless Issue Decisions Are Ready',
+    );
+    assertOrdered(
+      labels,
+      'Restart Review Pass Unless Issue Decisions Are Ready',
       'Exit Minor-Fix Path Unless Minor Findings Remain',
     );
     assertOrdered(
@@ -972,6 +989,12 @@ describe('flow schema (v1)', () => {
     const promoteIndex = markers.indexOf(
       'promote_actionable_review_findings_to_minor_path.md',
     );
+    const recordDecisionsIndex = markers.indexOf(
+      'record_review_issue_decisions_in_plan.md',
+    );
+    const verifyDecisionsIndex = markers.indexOf(
+      'verify_review_issue_decisions_recorded.md',
+    );
     const minorFixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 
     assert.notEqual(
@@ -1015,6 +1038,16 @@ describe('flow schema (v1)', () => {
       'flows/implement_next_plan.json should promote actionable findings into the minor path',
     );
     assert.notEqual(
+      recordDecisionsIndex,
+      -1,
+      'flows/implement_next_plan.json should record review issue decisions before implementation',
+    );
+    assert.notEqual(
+      verifyDecisionsIndex,
+      -1,
+      'flows/implement_next_plan.json should verify review issue decisions before implementation',
+    );
+    assert.notEqual(
       minorFixIndex,
       -1,
       'flows/implement_next_plan.json should include the minor finding fix step',
@@ -1027,8 +1060,10 @@ describe('flow schema (v1)', () => {
         ocrMergeIndex < classifyIndex &&
         classifyIndex < filterIndex &&
         filterIndex < promoteIndex &&
-        promoteIndex < minorFixIndex,
-      'flows/implement_next_plan.json should prepare one session, run three reviews, validate, merge both supplemental reviews, classify, scope-filter, promote actionable findings, and then attempt a minor fix',
+        promoteIndex < recordDecisionsIndex &&
+        recordDecisionsIndex < verifyDecisionsIndex &&
+        verifyDecisionsIndex < minorFixIndex,
+      'flows/implement_next_plan.json should prepare one session, run three reviews, validate, merge both supplemental reviews, classify, scope-filter, promote actionable findings, record and verify their decisions, and then attempt a minor fix',
     );
   });
 
@@ -1044,15 +1079,25 @@ describe('flow schema (v1)', () => {
     for (const flowFile of flowFiles) {
       const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      const markers = flattenSteps(parsed.steps ?? []).map(
-        (step) => step.markdownFile,
-      );
+      const flattened = flattenSteps(parsed.steps ?? []);
+      const markers = flattened.map((step) => step.markdownFile);
       const classifyIndex = markers.indexOf('classify_review_disposition.md');
       const filterIndex = markers.indexOf(
         'filter_review_findings_to_story_scope.md',
       );
       const promoteIndex = markers.indexOf(
         'promote_actionable_review_findings_to_minor_path.md',
+      );
+      const recordDecisionsIndex = markers.indexOf(
+        'record_review_issue_decisions_in_plan.md',
+      );
+      const verifyDecisionsIndex = markers.indexOf(
+        'verify_review_issue_decisions_recorded.md',
+      );
+      const readinessIndex = flattened.findIndex(
+        (step) =>
+          step.type === 'continue' &&
+          step.label === 'Restart Review Pass Unless Issue Decisions Are Ready',
       );
       const fixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 
@@ -1067,14 +1112,87 @@ describe('flow schema (v1)', () => {
         -1,
         `${flowFile} should promote actionable findings`,
       );
+      assert.notEqual(
+        recordDecisionsIndex,
+        -1,
+        `${flowFile} should record review issue decisions`,
+      );
+      assert.notEqual(
+        verifyDecisionsIndex,
+        -1,
+        `${flowFile} should verify review issue decisions`,
+      );
+      assert.notEqual(
+        readinessIndex,
+        -1,
+        `${flowFile} should deterministically gate downstream review work`,
+      );
       assert.notEqual(fixIndex, -1, `${flowFile} should attempt inline fixes`);
+      const recordStep = flattened.find(
+        (step) =>
+          step.type === 'llm' &&
+          step.markdownFile === 'record_review_issue_decisions_in_plan.md',
+      );
+      const verifyStep = flattened.find(
+        (step) =>
+          step.type === 'llm' &&
+          step.markdownFile === 'verify_review_issue_decisions_recorded.md',
+      );
+      assert.equal(
+        recordStep?.type === 'llm' ? recordStep.continueOnFailure : undefined,
+        true,
+        `${flowFile} should tolerate an exhausted recorder failure`,
+      );
+      assert.equal(
+        verifyStep?.type === 'llm' ? verifyStep.continueOnFailure : undefined,
+        true,
+        `${flowFile} should tolerate an exhausted verifier failure`,
+      );
+      const readinessStep = flattened[readinessIndex];
+      assert.equal(readinessStep?.continueOn, 'yes');
       assert.ok(
         classifyIndex < filterIndex &&
           filterIndex < promoteIndex &&
-          promoteIndex < fixIndex,
-        `${flowFile} should classify, filter, promote, and then attempt findings`,
+          promoteIndex < recordDecisionsIndex &&
+          recordDecisionsIndex < verifyDecisionsIndex &&
+          verifyDecisionsIndex < readinessIndex &&
+          readinessIndex < fixIndex,
+        `${flowFile} should classify, filter, promote, record and verify decisions, and then attempt findings`,
       );
     }
+  });
+
+  test('external adjudication is preserved before classification and plan recording', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/ingest_external_review_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const flattened = flattenSteps(parsed.steps ?? []);
+    const markers = flattened.map((step) => step.markdownFile);
+    const preserveIndexes = markers
+      .map((marker, index) =>
+        marker === 'preserve_external_review_adjudication_trail.md'
+          ? index
+          : -1,
+      )
+      .filter((index) => index >= 0);
+    const classifyIndex = markers.indexOf('classify_review_disposition.md');
+    const recordIndex = markers.indexOf(
+      'record_review_issue_decisions_in_plan.md',
+    );
+
+    assert.deepEqual(preserveIndexes.length, 1);
+    assert.ok(
+      preserveIndexes[0]! < classifyIndex && classifyIndex < recordIndex,
+      'external adjudication should be complete before classification and recording',
+    );
+    const preserveStep = flattened[preserveIndexes[0]!];
+    assert.equal(
+      preserveStep?.continueOnFailure,
+      true,
+      'external adjudication bookkeeping failures should not stop classification',
+    );
   });
 
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {
@@ -1117,44 +1235,6 @@ describe('flow schema (v1)', () => {
         `${flowFile} should generate final minor revalidation before clean closeout`,
       );
     }
-  });
-
-  test('external review flow preserves adjudication trail after clean closeout', async () => {
-    const raw = await fs.readFile(
-      path.join(repoRoot, 'flows/ingest_external_review_plan.json'),
-      'utf8',
-    );
-    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    assert.ok(
-      Array.isArray(parsed.steps),
-      'flows/ingest_external_review_plan.json should define steps',
-    );
-
-    const markers = flattenSteps(parsed.steps ?? []).map((step) =>
-      step.type === 'llm' ? step.markdownFile : undefined,
-    );
-
-    const closeoutIndex = markers.indexOf(
-      'write_review_no_findings_closeout.md',
-    );
-    const adjudicationIndex = markers.indexOf(
-      'preserve_external_review_adjudication_trail.md',
-    );
-
-    assert.notEqual(
-      closeoutIndex,
-      -1,
-      'flows/ingest_external_review_plan.json should include clean review closeout',
-    );
-    assert.notEqual(
-      adjudicationIndex,
-      -1,
-      'flows/ingest_external_review_plan.json should preserve the external adjudication trail',
-    );
-    assert.ok(
-      closeoutIndex < adjudicationIndex,
-      'flows/ingest_external_review_plan.json should preserve the external adjudication trail after clean closeout',
-    );
   });
 
   test('unknown keys are rejected (strict), including reingest extras', () => {
@@ -1421,6 +1501,46 @@ describe('flow schema (v1)', () => {
       identifier: 'main',
       markdownFile: 'architecture/review.md',
     });
+  });
+
+  test('llm steps accept an optional boolean continueOnFailure flag', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          continueOnFailure: true,
+          markdownFile: 'architecture/review.md',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(
+      parsed.flow.steps[0]?.type === 'llm'
+        ? parsed.flow.steps[0].continueOnFailure
+        : undefined,
+      true,
+    );
+  });
+
+  test('llm steps reject a non-boolean continueOnFailure flag', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          continueOnFailure: 'yes',
+          markdownFile: 'architecture/review.md',
+        },
+      ],
+    });
+
+    assert.equal(parseFlowFile(json).ok, false);
   });
 
   test('reingest steps parse with sourceId', () => {

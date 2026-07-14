@@ -280,6 +280,43 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         self.assertTrue(status["should_exit_review_loop_to_main_loop"])
         self.assertFalse(status["should_finish_review_loop_cleanly"])
 
+    def test_review_loop_clean_exit_requires_safe_to_exit_flag(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """,
+            add_review_state=True,
+            review_state={
+                "review_created_tasks_added_or_updated": False,
+                "needs_review_rerun_before_close": False,
+                "needs_final_minor_fix_revalidation_task": False,
+                "safe_to_exit_review_loop_without_tasking": False,
+            },
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["should_finish_review_loop_cleanly"])
+
+        review_state_path = (
+            repo / "codeInfoStatus" / "flow-state" / "review-disposition-state.json"
+        )
+        payload = json.loads(review_state_path.read_text())
+        payload["safe_to_exit_review_loop_without_tasking"] = True
+        review_state_path.write_text(json.dumps(payload, indent=2))
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["should_finish_review_loop_cleanly"])
+
     def test_review_state_story_mismatch_requires_rebuild(self) -> None:
         repo, handoff = self.make_repo(
             plan_content="""

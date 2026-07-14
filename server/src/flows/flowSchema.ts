@@ -31,6 +31,7 @@ export type FlowLlmStep = {
   label?: string;
   agentType: string;
   identifier: string;
+  continueOnFailure?: boolean;
 } & ({ messages: FlowMessage[] } | { markdownFile: string });
 
 export type FlowBreakStep = {
@@ -185,6 +186,7 @@ const FlowLlmStepSchema = z
     label: trimmedNonEmptyString.optional(),
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
+    continueOnFailure: z.boolean().optional(),
     messages: z.array(FlowMessageSchema).min(1).optional(),
     markdownFile: trimmedNonEmptyString.optional(),
   })

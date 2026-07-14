@@ -41,6 +41,7 @@ import type {
 } from '../../ingest/reingestService.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
+import { baseLogger } from '../../logger.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -965,6 +966,92 @@ test('later markdown-backed llm failures preserve AGENT_NOT_FOUND after flow sta
         (turn) =>
           turn.status === 'failed' &&
           turn.content.includes('Agent missing_agent not found'),
+      ),
+      true,
+    );
+  });
+});
+
+test('continueOnFailure lets a later llm step run after a terminal llm failure', async (t) => {
+  const serverWarnings: Array<{
+    context: Record<string, unknown>;
+    message: string;
+  }> = [];
+  t.mock.method(baseLogger, 'warn', (context: unknown, message: unknown) => {
+    serverWarnings.push({
+      context: (context ?? {}) as Record<string, unknown>,
+      message: String(message),
+    });
+  });
+
+  await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
+    const conversationId = 'flow-llm-failure-continues';
+    const flowName = 'llm-failure-continues';
+
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        makeLlmStep(),
+        {
+          type: 'llm',
+          agentType: 'missing_agent',
+          identifier: 'missing',
+          continueOnFailure: true,
+          messages: [{ role: 'user', content: ['tolerated failure'] }],
+        },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          messages: [{ role: 'user', content: ['after tolerated failure'] }],
+        },
+      ],
+    });
+
+    subscribeConversation(ws, conversationId);
+    await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('after tolerated failure'),
+        ) &&
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            turn.content.includes('Agent missing_agent not found'),
+        ),
+    );
+
+    assert.equal(
+      turns.some(
+        (turn) =>
+          turn.role === 'user' &&
+          turn.content.includes('after tolerated failure'),
+      ),
+      true,
+    );
+    assert.equal(
+      query({ text: 'flows.run.llm_failure_continued' }).some(
+        (entry) => entry.context?.flowName === flowName,
+      ),
+      true,
+    );
+    assert.equal(
+      serverWarnings.some(
+        (entry) =>
+          entry.message === 'flows.run.llm_failure_continued' &&
+          entry.context.flowName === flowName &&
+          entry.context.identifier === 'missing',
       ),
       true,
     );

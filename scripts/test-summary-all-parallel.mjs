@@ -43,14 +43,12 @@ const serverUnitConcurrency =
   Number.isFinite(requestedServerUnitConcurrency) &&
   requestedServerUnitConcurrency > 0
     ? requestedServerUnitConcurrency
-    : Math.min(sharedParallelBudget.workerCounts['server:unit'], 1);
+    : sharedParallelBudget.workerCounts['server:unit'];
 const serverUnitConcurrencySource =
   Number.isFinite(requestedServerUnitConcurrency) &&
   requestedServerUnitConcurrency > 0
     ? 'env-override'
-    : serverUnitConcurrency === sharedParallelBudget.workerCounts['server:unit']
-      ? sharedParallelBudget.source
-      : 'max-one-cap';
+    : sharedParallelBudget.source;
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -76,9 +74,8 @@ Shared worker budget:
   - server:unit weight 12
   - client weight 3
   - e2e weight 3
-  - server:unit defaults to one worker during the normal parallel run and uses
-    CODEINFO_TEST_TIMEOUT_MS=60000 so it remains isolated beside client,
-    cucumber, and e2e
+  - server:unit uses its weighted worker allocation during the normal parallel
+    run and uses CODEINFO_TEST_TIMEOUT_MS=60000 beside client, cucumber, and e2e
   - set CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY to override the
     server:unit concurrency for stress or diagnosis runs
 `);

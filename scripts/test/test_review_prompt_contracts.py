@@ -602,6 +602,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("- Comparison context:", record_text)
         self.assertIn("- Description:", record_text)
         self.assertIn("- Example:", record_text)
+        self.assertIn("- Found by:", record_text)
         self.assertIn("- Why accepted:", record_text)
         self.assertIn("- Why ignored:", record_text)
         self.assertIn(
@@ -713,6 +714,26 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertGreaterEqual(text.count(command), 2)
         self.assertNotIn("--task-number 12 --section", text)
+
+    def test_minor_fix_audit_task_contract_is_durable_and_non_owning(self) -> None:
+        generate_text = read_text(
+            "codeinfo_markdown/generate_or_update_minor_fix_audit_task.md"
+        )
+        refresh_text = read_text(
+            "codeinfo_markdown/refresh_minor_fix_audit_task_coverage.md"
+        )
+        task_up_text = read_text(
+            "codeinfo_markdown/ensure_review_findings_became_tasks.md"
+        )
+
+        self.assertIn("minor_fix_loop_audit", generate_text)
+        self.assertIn("Task Status: __done__", generate_text)
+        self.assertIn("deduplicated by repository plus command", generate_text)
+        self.assertIn("--all-passes", refresh_text)
+        self.assertIn("grouped task-up work", refresh_text)
+        self.assertIn("minor_fix_loop_audit", task_up_text)
+        self.assertIn("immutable historical evidence", task_up_text)
+        self.assertIn("Addresses Findings", task_up_text)
 
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())

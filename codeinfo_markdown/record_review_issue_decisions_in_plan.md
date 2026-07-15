@@ -75,6 +75,7 @@ Write one block with this shape:
 #### 1. <plain-language title>
 
 - Finding ID: `<stable finding id>`
+- Found by: <every distinct validated review name, qualified by target alias when needed>
 - Description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why accepted: <why the issue is valid and belongs to the current story>
@@ -84,6 +85,7 @@ Write one block with this shape:
 #### 2. <plain-language title>
 
 - Finding ID or Review reference: `<stable finding id or existing artifact source reference>`
+- Found by: <every distinct validated review name, or the exact existing source reference when no validated review name exists>
 - Description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why ignored: <why the issue is invalid, unproven, already covered, or outside current-story scope>
@@ -96,6 +98,8 @@ Write one block with this shape:
 - Preserve material validated comparison details such as `comparison_rule`, `resolved_base_source`, `remote_fetch_status`, and a sanitized local fallback reason when one exists.
 - Add a concise confidence or provenance note only when a validated artifact records a material caveat, partial reviewer coverage, external-review origin, or safe descriptive inference. Keep that note with the metadata before `### Accepted` so it cannot be mistaken for part of an issue. Never use a note to excuse an identity mismatch.
 - Number issue titles continuously across both categories. Preserve stable finding IDs or existing review references separately because the display number is presentation, not workflow identity. Never manufacture a workflow finding ID for an artifact-only ignored candidate.
+- Derive `Found by` from the finding's canonical `review_sources`. Deduplicate exact review names, sort them deterministically by `review_name`, `repo_alias`, and `instance_id`, and qualify repeated names with `repo_alias` when present, then `instance_id` only when the alias still does not make them unique.
+- For a legacy or artifact-only ignored candidate with no canonical `review_sources`, write its exact existing source reference in `Found by`. If neither a validated review name nor an existing source reference is available, do not invent one; omit that unsafe candidate and record the existing confidence-note fallback when the remaining current-pass identity is still valid.
 - Order accepted findings by their order in the validated findings artifact, then order ignored findings by their order in the validated artifacts. Use stable finding ID or existing source-reference order only as a deterministic fallback.
 - If one category has no current-pass entries, write `- None.` below that category instead of omitting the category.
 - Keep descriptions easy to understand and limited to the issue itself.
@@ -144,7 +148,7 @@ Write one block with this shape:
 - Confirm classification and promotion were not changed.
 - Confirm any identity or commit recovery updated only retry bookkeeping, preserved every finding queue and `needs_task_up_path`, and did not create an incomplete-review blocker or bypass the one-shot path.
 - Confirm every listed issue belongs to the current review pass and exactly one category.
-- Confirm every issue has a numbered title, a stable finding ID or existing review reference, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
+- Confirm every issue has a numbered title, a stable finding ID or existing review reference, one non-empty `Found by` bullet, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
 - Confirm accepted and ignored categories both exist, including `- None.` when applicable.
 - Confirm the current review pass appears in exactly one `## Code Review Findings` block.
 - Confirm historical review-pass blocks and existing tasks remain unchanged.

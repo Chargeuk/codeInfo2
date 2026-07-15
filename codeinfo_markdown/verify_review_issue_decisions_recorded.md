@@ -21,7 +21,7 @@ This is a bounded pre-fix recovery step. It runs immediately after `Record Revie
 
 1. Determine from the validated current-pass disposition state and artifacts whether the recorder contract requires a structured `## Code Review Findings` block.
 2. If no accepted, ignored, rejected, or non-adopted current-pass item exists, make no edit and report a genuine no-decisions result.
-3. If the exact current-pass structured block already exists once and satisfies the recorder contract, make no edit.
+3. If the exact current-pass structured block already exists once, gives every accepted and ignored item a valid `Found by` provenance bullet, and otherwise satisfies the recorder contract, make no edit.
 4. If a required current-pass block is missing or incomplete and identity is safe, apply `record_review_issue_decisions_in_plan.md` once in this step and commit only the canonical plan when it changes.
 5. Re-open the bounded review-tasking packet after any repair and confirm the required block exists exactly once before returning.
 6. Never append a duplicate current-pass block, recreate the retired terse summary, or alter an earlier review pass's block.
@@ -33,7 +33,7 @@ This is a bounded pre-fix recovery step. It runs immediately after `Record Revie
 
 <output_contract>
 
-- Report the plan path, review pass ID, whether decisions required a block, whether the block was already valid or repaired, and the plan commit SHA when repair created a commit.
+- Report the plan path, review pass ID, whether decisions required a block, whether the block was already valid or repaired, whether every item retained review provenance, and the plan commit SHA when repair created a commit.
 - Finish without a plan edit only for a genuine no-decisions result, an already-valid current-pass block, or a retry-required identity conflict recorded in disposition state. Never turn a recorder/verifier failure into task-up work before a one-shot attempt.
 - Report and re-open the final `review_decision_recording` object so the following deterministic readiness control can safely choose whether to continue or restart the review pass.
 

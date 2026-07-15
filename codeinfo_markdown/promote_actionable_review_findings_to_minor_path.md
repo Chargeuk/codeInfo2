@@ -23,7 +23,7 @@ This step runs after story-scope filtering and immediately before the review iss
 1. Preserve every existing entry in `unresolved_minor_batchable_findings`.
 2. Inspect every entry in `unresolved_task_required_findings`.
 3. Move each current-story actionable entry that has not already received an inline attempt in this active review cycle into `unresolved_minor_batchable_findings`.
-4. Preserve the finding ID, severity, repository, and summary exactly.
+4. Preserve the finding ID, severity, repository, summary, and canonical `review_sources` exactly.
 5. Preserve the original routing reason and add concise wording that:
    - its initial classifier disposition was task-required;
    - it was promoted so the coding agent must make one honest inline resolution attempt before task-up;
@@ -33,7 +33,7 @@ This step runs after story-scope filtering and immediately before the review iss
    - outside an active two-phase cycle, the issue remained unresolved after the one allowed same-cycle review rerun;
    - or the entry otherwise already represents the result of an inline attempt in this active review cycle.
 7. Remove every successfully promoted entry from `unresolved_task_required_findings` so each finding remains in exactly one actionable queue.
-8. Deduplicate by stable finding ID. If the same ID already exists in the minor queue, keep one minor entry containing the strongest preserved routing constraints and remove the duplicate task-required entry.
+8. Deduplicate by stable finding ID. If the same ID already exists in the minor queue, keep one minor entry containing the strongest preserved routing constraints plus the union of exact canonical `review_sources`, and remove the duplicate task-required entry.
 9. Preserve task-required entries that are not eligible for promotion under rule 6.
 
 </promotion_rules>

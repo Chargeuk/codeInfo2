@@ -18,7 +18,7 @@ Advance one active two-phase review cycle from its bounded fast-review phase to 
 2. Require internally consistent manifest-driven job coverage. Advance with incomplete coverage only when `fast_review_pass_count` is 5 and `fast_review_coverage_exhausted` is true. Accept the legacy two-reviewer coverage fields only for a resumable state that has no generic job-coverage fields.
 3. Set `review_phase` to `slow` and `fast_phase_complete` to true.
 4. Set `slow_review_completed` to false.
-5. Preserve cumulative `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, and `resolved_minor_findings`.
+5. Preserve cumulative `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_audit_schema_version`, and every fast-pass `minor_fix_pass_audits` entry.
 6. Preserve unresolved task-required findings and incomplete-review blockers accumulated from usable fast-review passes so the shared post-phase task-up path can process them once.
 7. Preserve every fast job-coverage count, trust/completeness flag, and exhaustion flag through the slow phase.
 8. Preserve operationally blocked minor findings visibly. The combined finalizer must not allow clean completion while any remain.
@@ -37,7 +37,7 @@ Advance one active two-phase review cycle from its bounded fast-review phase to 
 
 <output_contract>
 
-- Report the preserved review cycle, number of completed fast passes, final fast job coverage and any exhaustion, cumulative fixed-finding count, cumulative task-required count, and that the slow phase is now pending.
+- Report the preserved review cycle, number of completed fast passes, final fast job coverage and any exhaustion, cumulative fixed-finding count, per-pass audit count, cumulative task-required count, and that the slow phase is now pending.
 - Confirm no file other than review disposition state changed.
 
 </output_contract>

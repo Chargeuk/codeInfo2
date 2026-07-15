@@ -175,7 +175,18 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "severity": "<must_fix|should_fix|optional_simplification|incomplete_review>",
       "repository": "<repository owner>",
       "summary": "<short summary>",
-      "reason": "<why this needs task-up>"
+      "reason": "<why this needs task-up>",
+      "review_sources": [
+        {
+          "instance_id": "<validated wave job instance>",
+          "flow_name": "<validated flow name>",
+          "review_phase": "<fast|slow|standalone>",
+          "target_id": "<target id or null>",
+          "repo_alias": "<repository alias or null>",
+          "review_name": "<server-owned human-readable review name>",
+          "severity": "<source severity>"
+        }
+      ]
     }
   ],
   "unresolved_minor_batchable_findings": [
@@ -184,7 +195,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "severity": "<must_fix|should_fix|optional_simplification>",
       "repository": "<repository owner>",
       "summary": "<short summary>",
-      "reason": "<why this is safe for inline minor fixing>"
+      "reason": "<why this is safe for inline minor fixing>",
+      "review_sources": ["<same canonical source-object shape as above>"]
     }
   ],
   "operationally_blocked_minor_findings": [
@@ -203,14 +215,17 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "repository": "<repository owner>",
       "summary": "<short summary>",
       "resolution_commit": "<exact full 40-character git commit SHA or null>",
-      "proof": "<proof summary or null>"
+      "proof": "<proof summary or null>",
+      "review_sources": ["<same canonical source-object shape as above>"]
     }
   ],
   "rejected_or_non_actionable_findings": [
     {
       "id": "<finding id or note id>",
       "summary": "<short summary>",
-      "reason": "<why no task or minor fix is needed>"
+      "reason": "<why no task or minor fix is needed>",
+      "review_sources": ["<canonical source objects when validated wave provenance exists>"],
+      "source_references": ["<existing artifact source references when no canonical source object exists>"]
     }
   ],
   "incomplete_review_blockers": [
@@ -235,6 +250,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "needs_task_up_path": false,
   "minor_fixes_made_in_review_loop": false,
   "minor_fix_commit_shas": [],
+  "minor_fix_audit_schema_version": 1,
+  "minor_fix_pass_audits": [],
   "minor_fix_revalidation_cycle_closed": false,
   "final_revalidation_owned_by_task_up_path": false,
   "task_up_owned_final_revalidation_task_title": null,
@@ -259,10 +276,11 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `reset_review_cycle_state.md` runs before every fresh `Review Findings Disposition Loop`, so any previous state that still exists here should be treated as same-active-loop carry-forward only.
 - `review_cycle_id` must use the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 - `review_cycle_id` must stay stable for one active review loop. Preserve it only when the previous state clearly belongs to the same still-active review loop for the same story and same canonical `plan_path`. Otherwise mint a fresh cycle id when writing new classifier state.
-- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize them as empty, null, or false.
+- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_audit_schema_version`, `minor_fix_pass_audits`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize the audit schema at version `1` with an empty pass list and initialize the remaining fields as empty, null, or false.
 - For the same active two-phase cycle, preserve `review_phase`, `fast_review_pass_count`, `fast_reviewed_pass_ids`, `fast_current_pass_minor_count_before_fix`, all `fast_current_pass_*job_count`, `fast_current_pass_coverage_*`, and legacy `fast_current_pass_*reviewer*` fields, `fast_review_coverage_exhausted`, `fast_phase_complete`, and `slow_review_completed`. The dedicated fast-pass recorder and phase-transition prompts own those fields.
 - Treat those two-phase fields as optional extensions to the JSON shape above. Do not initialize them in this classifier when `review_phase` is absent; the first fast-pass recorder owns creating them, and standalone review flows must remain phase-free.
 - Preserve and deduplicate same-cycle `unresolved_task_required_findings` and `incomplete_review_blockers` across fast passes and into the slow pass because task-up deliberately runs once after both phases. Do not discard a serious fast-review finding merely because the current canonical artifact belongs to a later pass.
+- Copy every validated aggregated finding `sources` object into its routed entry as `review_sources`. Preserve that array unchanged when moving the finding between actionable, resolved, blocked, or rejected buckets, and deduplicate only exact repeats of the full canonical source identity.
 - Treat unresolved minor findings as current-pass work. Preserve cumulative resolved-minor history, but build the current minor queue from the current validated findings plus any still-visible operationally blocked minor state.
 - Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
 - `operationally_blocked_minor_findings` is not part of the initial endorsed-finding classification from the findings artifact. It is a later review-loop state bucket populated only after an inline minor-fix attempt ends with `status: "blocked"`.

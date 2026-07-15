@@ -55,13 +55,14 @@ When `minor-review-fix-result.json` has `status: "fixed"`:
 When the result has `status: "reclassify_task_required"`:
 
 1. Move the matching finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings`.
-2. Record the reclassification reason, including the source or proof evidence showing that the coding agent completed its one-shot resolution plan, attempted every safe bounded action it identified, and could not complete the finding within the inline path's existing contract.
-3. If the original minor-batchable entry already carried a routed fix constraint in its `reason`, preserve that constraint when writing the escalated task-required entry instead of replacing it with a generic escalation note. The later task-up step must still be able to tell that the underlying issue is actionable while the reviewer-proposed remedy is not.
-4. Mark the routed reason as the outcome of an inline attempt in the current review cycle so `promote_actionable_review_findings_to_minor_path.md` cannot promote the same durable follow-up into a repeat attempt during that cycle.
-5. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true when other unresolved minor findings still remain.
-6. Keep `review_created_tasks_added_or_updated` false in this step.
-7. Set `safe_to_exit_review_loop_without_tasking` false.
-8. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+2. Preserve the matching finding's canonical `review_sources` unchanged on the task-required entry.
+3. Record the reclassification reason, including the source or proof evidence showing that the coding agent completed its one-shot resolution plan, attempted every safe bounded action it identified, and could not complete the finding within the inline path's existing contract.
+4. If the original minor-batchable entry already carried a routed fix constraint in its `reason`, preserve that constraint when writing the escalated task-required entry instead of replacing it with a generic escalation note. The later task-up step must still be able to tell that the underlying issue is actionable while the reviewer-proposed remedy is not.
+5. Mark the routed reason as the outcome of an inline attempt in the current review cycle so `promote_actionable_review_findings_to_minor_path.md` cannot promote the same durable follow-up into a repeat attempt during that cycle.
+6. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true when other unresolved minor findings still remain.
+7. Keep `review_created_tasks_added_or_updated` false in this step.
+8. Set `safe_to_exit_review_loop_without_tasking` false.
+9. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
 
 When the result has `status: "out_of_scope_current_story"`:
 
@@ -107,6 +108,16 @@ When the result has `status: "skipped"`:
 7. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 </state_update_rules>
+
+<per_pass_audit_rules>
+
+- After applying the terminal outcome's routing state above, run `python3 "$CODEINFO_ROOT/scripts/flow_control/sync_minor_fix_audit.py" --working-folder .` from the selected target repository root.
+- The helper is the sole writer for `minor_fix_audit_schema_version` and `minor_fix_pass_audits`. Do not hand-edit those fields, reconstruct them from `## Minor Review Fixes`, or reduce structured `changed_files` and `targeted_proof` to prose before synchronization.
+- Require the helper to report `status: synchronized`, the exact active `review_cycle_id` and `review_pass_id`, and `validation: minor_fix_pass_audits_valid`. If it reports an identity, schema, or evidence error, preserve the routed finding state, add one deduplicated incomplete-review blocker describing the audit failure, and do not claim the pass audit is ready.
+- The helper records every terminal `fixed`, `reclassify_task_required`, `skipped`, `blocked`, or `out_of_scope_current_story` attempt idempotently. It derives fixed and escalated IDs from the post-routing state and preserves all structured proof, including honest `not_run` results, for later task generation.
+- Re-open `review-disposition-state.json` after synchronization and use that on-disk version for all remaining plan documentation and output checks in this step.
+
+</per_pass_audit_rules>
 
 <plan_documentation_rules>
 
@@ -154,6 +165,7 @@ When the result has `status: "skipped"`:
 <output_contract>
 
 - Update `review-disposition-state.json` so downstream loop gates can decide whether to keep fixing minor findings, task up reclassified work, or rerun review.
+- Synchronize the terminal result into the active per-pass audit and report its deterministic validation outcome.
 - Update the canonical plan with a durable minor-fix audit note when a finding was fixed.
 - Update the findings artifact with a resolved-minor note when safely possible.
 - Commit tracked plan changes when they were made.

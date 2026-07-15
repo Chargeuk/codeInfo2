@@ -358,6 +358,11 @@ Given(
       sources: [
         {
           instance_id: `${target.target_id}--review_artifacts_main`,
+          flow_name: 'review_artifacts_main',
+          review_phase: 'slow',
+          target_id: target.target_id,
+          repo_alias: target.repo_alias,
+          review_name: 'Main Review',
           severity: 'should_fix',
         },
       ],

@@ -529,6 +529,57 @@ describe('flow schema (v1)', () => {
     ]);
   });
 
+  test('minor-fix audit tasks publish after each loop and refresh after combined task-up', async () => {
+    const minorRaw = await fs.readFile(
+      path.join(repoRoot, 'flows/minor_review_fix_path.json'),
+      'utf8',
+    );
+    const minorFlow = JSON.parse(minorRaw) as { steps?: FlowStep[] };
+    const minorSteps = minorFlow.steps ?? [];
+    assert.equal(minorSteps[0]?.label, 'Minor Review Fix Path');
+    assert.equal(
+      minorSteps[1]?.markdownFile,
+      'generate_or_update_minor_fix_audit_task.md',
+    );
+
+    const twoPhaseRaw = await fs.readFile(
+      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+      'utf8',
+    );
+    const twoPhase = JSON.parse(twoPhaseRaw) as { steps?: FlowStep[] };
+    const labels = (twoPhase.steps ?? []).map((step) => step.label);
+    assertOrdered(
+      labels,
+      'Resolve Slow Review Minor Findings',
+      'Finalize Two-Phase Review Disposition',
+    );
+    assertOrdered(
+      labels,
+      'Task Up Combined Review Findings',
+      'Refresh Minor-Fix Audit Task Coverage',
+    );
+
+    for (const relativePath of [
+      'flows/review_plan.json',
+      'flows/ingest_external_review_plan.json',
+    ]) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const flattened = flattenSteps(parsed.steps ?? []);
+      const markers = flattened.map((step) => step.markdownFile);
+      assert.ok(
+        markers.indexOf('document_minor_review_fix.md') <
+          markers.indexOf('generate_or_update_minor_fix_audit_task.md'),
+        `${relativePath} should generate the audit after terminal outcomes`,
+      );
+      assert.ok(
+        markers.indexOf('ensure_review_findings_became_tasks.md') <
+          markers.indexOf('refresh_minor_fix_audit_task_coverage.md'),
+        `${relativePath} should refresh audit coverage after task-up`,
+      );
+    }
+  });
+
   test('implement_next_plan resets implementation agents only at safe boundaries and reloads compact context', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/implement_next_plan.json'),

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from flow_control.decision import DecisionOutcome, no, yes
+from flow_control.minor_fix_audit import validate_minor_fix_audits
 from flow_state_utils import ScopeResolutionError, load_json_file, resolve_path
 
 
@@ -24,6 +25,9 @@ def _load_review_state(
         payload = load_json_file(review_state_path)
     except ScopeResolutionError as exc:
         return None, review_state_path, str(exc)
+    audit_valid, audit_reason = validate_minor_fix_audits(payload)
+    if not audit_valid:
+        return None, review_state_path, audit_reason
     return payload, review_state_path, None
 
 
@@ -198,6 +202,7 @@ def _structured_review_block_status(
         reason_prefix = "- Why accepted:" if accepted else "- Why ignored:"
         required_prefixes = [
             id_prefix,
+            "- Found by:",
             "- Description:",
             "- Example:",
             reason_prefix,

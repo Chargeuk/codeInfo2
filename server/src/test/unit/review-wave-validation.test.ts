@@ -286,10 +286,104 @@ test('complete review wave finalizes exact coverage and retains severity conflic
       ),
       true,
     );
+    for (const finding of result.finalized.aggregated_findings ?? []) {
+      assert.equal(finding.sources.length, 2);
+      assert.deepEqual(
+        finding.sources.map((source) => source.review_name),
+        ['Codex Review', 'Open Code Review'],
+      );
+      assert.equal(
+        finding.sources.every(
+          (source) =>
+            source.review_phase === 'fast' &&
+            source.target_id === finding.target_ids[0] &&
+            source.repo_alias === finding.target_ids[0],
+        ),
+        true,
+      );
+    }
     assert.deepEqual(
       JSON.parse(await fs.readFile(result.reviewSetPath, 'utf8')),
       result.finalized,
     );
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('review wave deduplicates exact source repeats without losing sibling reviewers', async () => {
+  const fixture = await createFixture();
+  try {
+    const codexPath = fixture.pointerPath(
+      fixture.roots[0] as string,
+      'current-codex-review',
+    );
+    const codex = JSON.parse(await fs.readFile(codexPath, 'utf8')) as {
+      findings: Array<Record<string, unknown>>;
+    };
+    codex.findings.push({ ...codex.findings[0] });
+    await fs.writeFile(codexPath, JSON.stringify(codex));
+
+    const result = await validateReviewWave(
+      { snapshot: fixture.snapshot, reviewSet: fixture.reviewSet },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
+
+    const finding = result.finalized.aggregated_findings?.find(
+      (candidate) => candidate.target_ids[0] === 'current_repository',
+    );
+    assert(finding);
+    assert.equal(finding.sources.length, 2);
+    assert.deepEqual(
+      finding.sources.map((source) => source.instance_id),
+      [
+        'current_repository--codex_review',
+        'current_repository--open_code_review',
+      ],
+    );
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('cross-repository findings retain story-scoped review provenance', async () => {
+  const fixture = await createFixture();
+  try {
+    const cross = JSON.parse(await fs.readFile(fixture.crossPointer, 'utf8')) as {
+      findings: Array<Record<string, unknown>>;
+    };
+    cross.findings = [
+      {
+        title: 'Cross-repository contract mismatch',
+        path: 'src/integration.ts',
+        line: 8,
+        severity: 'high',
+        target_ids: ['current_repository', 'repo-b'],
+      },
+    ];
+    await fs.writeFile(fixture.crossPointer, JSON.stringify(cross));
+
+    const result = await validateReviewWave(
+      { snapshot: fixture.snapshot, reviewSet: fixture.reviewSet },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
+
+    const finding = result.finalized.aggregated_findings?.find(
+      (candidate) => candidate.title === 'Cross-repository contract mismatch',
+    );
+    assert(finding);
+    assert.deepEqual(finding.target_ids, ['current_repository', 'repo-b']);
+    assert.deepEqual(finding.sources, [
+      {
+        instance_id: 'story--cross_repository_review',
+        flow_name: 'cross_repository_review',
+        review_phase: 'fast',
+        target_id: null,
+        repo_alias: null,
+        review_name: 'Cross-Repository Review',
+        severity: 'high',
+      },
+    ]);
   } finally {
     await fs.rm(fixture.root, { recursive: true, force: true });
   }

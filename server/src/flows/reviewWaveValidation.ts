@@ -16,6 +16,7 @@ import {
 import type {
   AggregatedReviewFinding,
   ReviewPhase,
+  ReviewSourceIdentity,
   ReviewSetManifest,
   ReviewWaveJobResult,
 } from './reviewSet.js';
@@ -128,10 +129,40 @@ const findingDescriptor = (finding: FlowJsonValue) => {
   return { source, title, path: findingPath, line, severity };
 };
 
+const REVIEW_NAMES: Record<string, string> = {
+  codex_review: 'Codex Review',
+  cross_repository_review: 'Cross-Repository Review',
+  open_code_review: 'Open Code Review',
+  review_artifacts_main: 'Main Review',
+};
+
+const humanReadableReviewName = (flowName: string) =>
+  REVIEW_NAMES[flowName] ??
+  flowName
+    .split(/[_-]+/u)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(' ');
+
+const sourceIdentityForJob = (params: {
+  instanceId: string;
+  flowName: string;
+  reviewPhase: ReviewPhase;
+  targetId: string | null;
+  repoAlias: string | null;
+}): Omit<ReviewSourceIdentity, 'severity'> => ({
+  instance_id: params.instanceId,
+  flow_name: params.flowName,
+  review_phase: params.reviewPhase,
+  target_id: params.targetId,
+  repo_alias: params.repoAlias,
+  review_name: humanReadableReviewName(params.flowName),
+});
+
 const aggregateFindings = (
   entries: Array<{
     finding: FlowJsonValue;
-    instanceId: string;
+    source: Omit<ReviewSourceIdentity, 'severity'>;
     targetIds: string[];
   }>,
 ): AggregatedReviewFinding[] => {
@@ -159,10 +190,23 @@ const aggregateFindings = (
         ...new Set([...existing.severities, descriptor.severity]),
       ].sort();
       existing.severity_conflict = existing.severities.length > 1;
-      existing.sources.push({
-        instance_id: entry.instanceId,
-        severity: descriptor.severity,
-      });
+      if (
+        !existing.sources.some(
+          (source) =>
+            source.instance_id === entry.source.instance_id &&
+            source.severity === descriptor.severity,
+        )
+      ) {
+        existing.sources.push({
+          ...entry.source,
+          severity: descriptor.severity,
+        });
+        existing.sources.sort(
+          (left, right) =>
+            left.instance_id.localeCompare(right.instance_id) ||
+            left.severity.localeCompare(right.severity),
+        );
+      }
       continue;
     }
     aggregated.set(fingerprint, {
@@ -173,9 +217,7 @@ const aggregateFindings = (
       line: descriptor.line,
       severities: [descriptor.severity],
       severity_conflict: false,
-      sources: [
-        { instance_id: entry.instanceId, severity: descriptor.severity },
-      ],
+      sources: [{ ...entry.source, severity: descriptor.severity }],
       detail: normalizeFlowInput(descriptor.source),
     });
   }
@@ -207,7 +249,7 @@ export async function validateReviewWave(
   }
   const findings: Array<{
     finding: FlowJsonValue;
-    instanceId: string;
+    source: Omit<ReviewSourceIdentity, 'severity'>;
     targetIds: string[];
   }> = [];
   const targetValidations = new Map<string, TargetValidation>();
@@ -327,7 +369,17 @@ export async function validateReviewWave(
                 (value): value is string => typeof value === 'string',
               )
             : params.snapshot.targets.map((target) => target.target_id);
-          findings.push({ finding, instanceId: job.instance_id, targetIds });
+          findings.push({
+            finding,
+            source: sourceIdentityForJob({
+              instanceId: job.instance_id,
+              flowName: job.flow_name,
+              reviewPhase: params.reviewSet.review_phase ?? 'standalone',
+              targetId: null,
+              repoAlias: null,
+            }),
+            targetIds,
+          });
         }
       }
       continue;
@@ -460,7 +512,13 @@ export async function validateReviewWave(
       })) {
         findings.push({
           finding,
-          instanceId: job.instance_id,
+          source: sourceIdentityForJob({
+            instanceId: job.instance_id,
+            flowName: job.flow_name,
+            reviewPhase: params.reviewSet.review_phase ?? 'standalone',
+            targetId: target.target_id,
+            repoAlias: target.repo_alias,
+          }),
           targetIds: [target.target_id],
         });
       }

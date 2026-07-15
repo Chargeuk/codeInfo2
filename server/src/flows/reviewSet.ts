@@ -95,6 +95,16 @@ export type ReviewWaveJobValidation = ReviewPointerValidationResult & {
   plan_host_root: string;
 };
 
+export type ReviewSourceIdentity = {
+  instance_id: string;
+  flow_name: string;
+  review_phase: ReviewPhase;
+  target_id: string | null;
+  repo_alias: string | null;
+  review_name: string;
+  severity: string;
+};
+
 export type AggregatedReviewFinding = {
   fingerprint: string;
   target_ids: string[];
@@ -103,7 +113,7 @@ export type AggregatedReviewFinding = {
   line: number | null;
   severities: string[];
   severity_conflict: boolean;
-  sources: Array<{ instance_id: string; severity: string }>;
+  sources: ReviewSourceIdentity[];
   detail: FlowJsonValue;
 };
 

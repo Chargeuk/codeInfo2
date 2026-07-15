@@ -91,6 +91,7 @@ class FlowControlReviewTests(unittest.TestCase):
 #### 1. Example
 
 - Finding ID: `finding-1`
+- Found by: Codex Review (current_repository), Open Code Review (current_repository)
 - Description: A simple problem.
 - Example: The example demonstrates the problem.
 - Why accepted: The issue belongs to this story.
@@ -118,6 +119,7 @@ class FlowControlReviewTests(unittest.TestCase):
 #### 1. Out-of-scope suggestion
 
 - Finding ID or Review reference: `ignored-1`
+- Found by: `external-review-note-1`
 - Description: The suggestion changes unrelated behavior.
 - Example: It asks for a separate user interface change.
 - Why ignored: That behavior is outside this story.
@@ -540,6 +542,29 @@ class FlowControlReviewTests(unittest.TestCase):
             outcome.details["block_reason"], "structured_categories_missing"
         )
 
+    def test_minor_fix_path_exits_when_finding_provenance_is_missing(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "needs_minor_fix_path": True,
+                "needs_task_up_path": False,
+                "needs_review_rerun_before_close": True,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+        plan_text = self.structured_review_block().replace(
+            "- Found by: Codex Review (current_repository), Open Code Review (current_repository)\n",
+            "",
+        )
+        self.write_plan_handoff(repo, plan_text=plan_text)
+
+        outcome = self.run_in_repo(repo, review.check_review_minor_fix_path_clear)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.details["block_reason"], "accepted_issue_detail_missing"
+        )
+
     def test_minor_fix_path_exits_when_current_pass_block_is_uncommitted(self) -> None:
         repo = self.make_repo(
             review_state={
@@ -673,6 +698,7 @@ class FlowControlReviewTests(unittest.TestCase):
 #### 2. Duplicate out-of-scope suggestion
 
 - Finding ID or Review reference: `ignored-1`
+- Found by: `external-review-note-1`
 - Description: This repeats an earlier ignored entry.
 - Example: One rejected suggestion appears twice in the plan.
 - Why ignored: The recorder incorrectly duplicated it.
@@ -900,6 +926,7 @@ class FlowControlReviewTests(unittest.TestCase):
         extra_issue = """#### 2. Extra accepted finding
 
 - Finding ID: `finding-extra`
+- Found by: Codex Review (current_repository)
 - Description: This finding is absent from disposition state.
 - Example: The plan lists work that the flow cannot route.
 - Why accepted: The recorder incorrectly added it.
@@ -972,6 +999,7 @@ class FlowControlReviewTests(unittest.TestCase):
         duplicate_issue = """#### 2. Duplicate accepted finding
 
 - Finding ID: `finding-1`
+- Found by: Codex Review (current_repository)
 - Description: This finding repeats an earlier accepted entry.
 - Example: One routed issue appears twice in the plan.
 - Why accepted: The recorder incorrectly duplicated it.

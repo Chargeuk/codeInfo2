@@ -143,6 +143,13 @@
           ]
         },
         {
+          "type": "llm",
+          "label": "Generate Or Update Minor-Fix Pass Audit Task",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "generate_or_update_minor_fix_audit_task.md"
+        },
+        {
           "type": "startLoop",
           "label": "Task-Up Unresolved Review Findings Path",
           "steps": [
@@ -205,6 +212,13 @@
               "breakOn": "yes"
             }
           ]
+        },
+        {
+          "type": "llm",
+          "label": "Refresh Minor-Fix Audit Task Coverage",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "refresh_minor_fix_audit_task_coverage.md"
         },
         {
           "type": "break",

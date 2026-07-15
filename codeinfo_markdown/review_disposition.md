@@ -33,6 +33,7 @@ Finish the current story review using ONLY the stored review handoff and the art
 - Do not reopen the story or create review-fix tasks solely from a finding whose exact `Scope Impact` is `cleanup_preference`, unless the review artifacts show a reproduced current-head failure, the active story explicitly asked for the cleanup, or the user explicitly approved that scope expansion.
 - If `Scope Impact` is missing, malformed, or unrecognized, treat it as `unknown_scope_impact`, continue disposition normally, and do not suppress the finding on that basis alone.
 - In orchestrated review loops, `record_review_issue_decisions_in_plan.md` owns the pre-implementation `## Code Review Findings` decision block, and task-up owns any numbered review-created tasks that follow it. When this legacy standalone disposition prompt is invoked directly, it must apply that same recorder contract rather than create the retired terse findings summary.
+- On the legacy standalone path, preserve an existing artifact source reference in each ignored item's `Found by` bullet when no canonical wave `review_sources` exist. Never infer a server-owned review name from an artifact filename, presentation title, or conversational context.
 - This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
 
 </critical_rules>

@@ -173,6 +173,7 @@ Never leave the state in a shape where:
 - Preserve `operationally_blocked_minor_findings` and `incomplete_review_blockers` only when each preserved entry still matches a surviving actionable finding or other surviving current-cycle blocker basis after filtering.
 - Narrow or remove any `operationally_blocked_minor_findings` or `incomplete_review_blockers` entry whose prior contract depended on a finding that this step rejected or narrowed out of its previous actionable form.
 - Preserve existing `rejected_or_non_actionable_findings` entries and append newly rejected findings there.
+- Preserve each finding's canonical `review_sources` unchanged when retaining, narrowing, or moving it between buckets. Preserve existing legacy `source_references` when rejecting artifact-only candidates, and never synthesize a canonical source object from prose.
 - For every finding rejected by this step, record:
   - the original finding id;
   - a short summary;

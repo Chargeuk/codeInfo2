@@ -31,7 +31,7 @@ Record one successfully classified fast-review pass and snapshot the accepted mi
 13. Set `needs_review_rerun_before_close` to true when either the captured minor count is greater than zero or coverage is incomplete, provided `fast_review_pass_count` is less than 5. Otherwise set it to false.
 14. Keep `needs_final_minor_fix_revalidation_task` false until both fast and slow phases are complete.
 15. Keep `safe_to_exit_review_loop_without_tasking` false while the two-phase review cycle is active.
-16. Preserve all finding arrays, counts, review identity, cumulative minor-fix history, task-up state, final-revalidation ownership fields, and any legacy reviewer-coverage fields from a resumable pre-wave state.
+16. Preserve all finding arrays, counts, review identity, cumulative minor-fix history, `minor_fix_audit_schema_version`, every existing `minor_fix_pass_audits` entry, task-up state, final-revalidation ownership fields, and any legacy reviewer-coverage fields from a resumable pre-wave state.
 
 </state_update_rules>
 

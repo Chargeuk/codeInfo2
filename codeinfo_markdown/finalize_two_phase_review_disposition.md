@@ -9,6 +9,7 @@ Finalize the combined fast-plus-slow review disposition so task-up and final rev
 - Do not edit the plan, review artifacts, code, tests, or configuration.
 - Do not commit or push.
 - Preserve `review_cycle_id`, cumulative fixed-finding history, and exact full commit SHAs.
+- Preserve `minor_fix_audit_schema_version` and every fast or slow `minor_fix_pass_audits` entry exactly; finalization routes accumulated work but does not rewrite historical attempts.
 
 </critical_rules>
 

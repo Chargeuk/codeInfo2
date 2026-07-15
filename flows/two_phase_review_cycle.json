@@ -187,6 +187,13 @@
     },
     {
       "type": "llm",
+      "label": "Refresh Minor-Fix Audit Task Coverage",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_minor_fix_audit_task_coverage.md"
+    },
+    {
+      "type": "llm",
       "label": "Repair Workflow State If Needed",
       "agentType": "planning_agent_lite",
       "identifier": "planner_lite",

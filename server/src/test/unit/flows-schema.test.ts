@@ -25,6 +25,7 @@ describe('flow schema (v1)', () => {
     markdownFile?: string;
     flowNames?: string[];
     pointerKeys?: string[];
+    ensureCanonicalFallback?: boolean;
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -228,6 +229,38 @@ describe('flow schema (v1)', () => {
 
     const parsed = parseFlowFile(json);
     assert.equal(parsed.ok, true);
+  });
+
+  test('validateReviewArtifacts accepts one pointer with canonical fallback', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'validateReviewArtifacts',
+            pointerKeys: ['current-review'],
+            ensureCanonicalFallback: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
+  test('validateReviewArtifacts still requires at least one pointer', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'validateReviewArtifacts',
+            pointerKeys: [],
+            ensureCanonicalFallback: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
   });
 
   test('subflow step requires non-empty flowNames entries', () => {
@@ -841,12 +874,36 @@ describe('flow schema (v1)', () => {
     const subflows = flattened
       .filter((step) => step.type === 'subflow')
       .map((step) => (step.flowNames ?? []).join(','));
+    const fastValidation = flattened.find(
+      (step) => step.label === 'Validate Fast Review Artifacts',
+    );
+    const slowValidation = flattened.find(
+      (step) => step.label === 'Validate Slow Review Artifact',
+    );
 
     assert.ok(subflows.includes('codex_review,open_code_review'));
     assert.ok(subflows.includes('review_artifacts_main'));
     assert.equal(
       subflows.filter((entry) => entry === 'review_artifacts_main').length,
       1,
+    );
+    assert.deepEqual(fastValidation?.pointerKeys, [
+      'current-codex-review',
+      'current-open-code-review',
+    ]);
+    assert.equal(fastValidation?.ensureCanonicalFallback, true);
+    assert.deepEqual(slowValidation?.pointerKeys, ['current-review']);
+    assert.equal(slowValidation?.ensureCanonicalFallback, true);
+    assert.equal(
+      labels.includes(
+        'Load planner context before merging fast review findings',
+      ),
+      false,
+    );
+    assertOrdered(
+      labels,
+      'Reset planner before merging fast review findings',
+      'Merge Codex Review Findings Into Canonical Review',
     );
     assertOrdered(
       labels,

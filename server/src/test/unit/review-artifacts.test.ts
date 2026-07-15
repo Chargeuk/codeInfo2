@@ -493,9 +493,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
         : bundleShape === 'malformed'
           ? {
               bundle_artifacts: legacyBundles.map((bundle, index) =>
-                index === 0
-                  ? { ...bundle, comments_file: undefined }
-                  : bundle,
+                index === 0 ? { ...bundle, comments_file: undefined } : bundle,
               ),
             }
           : { bundles };
@@ -1315,6 +1313,146 @@ test('validateReviewArtifacts creates a fallback merge target when main review f
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
     await fs.rm(additionalRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts validates fast reviewers and creates their canonical merge target', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-codex-review', 'current-open-code-review'],
+      ensureCanonicalFallback: true,
+    });
+
+    assert.equal(result.status, 'passed');
+    assert.equal(result.pointer_results.length, 2);
+    assert.equal(
+      result.pointer_results.every((entry) => entry.usable),
+      true,
+    );
+    assert.ok(result.fallback_findings_file);
+    const fallbackPointer = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000013-current-review.json',
+        ),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
+    assert.equal(fallbackPointer.status, 'partial');
+    assert.equal(fallbackPointer.repo_alias, 'current_repository');
+    assert.equal(fallbackPointer.repo_root, await fs.realpath(repoRoot));
+    assert.equal(fallbackPointer.review_pass_id, PASS);
+    assert.equal(fallbackPointer.comparison_head_ref, 'HEAD');
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts creates a canonical fallback when no fast reviewer is usable', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-'),
+  );
+  try {
+    await writeFixture(repoRoot, {
+      codexSession: 'stale-session',
+      ocrBranch: 'feature/0000013-other-scope',
+    });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-codex-review', 'current-open-code-review'],
+      ensureCanonicalFallback: true,
+    });
+
+    assert.equal(result.status, 'blocked');
+    assert.equal(
+      result.pointer_results.every((entry) => !entry.usable),
+      true,
+    );
+    assert.ok(result.fallback_findings_file);
+    const fallbackText = await fs.readFile(
+      path.join(repoRoot, result.fallback_findings_file as string),
+      'utf8',
+    );
+    assert.match(fallbackText, /Main review was not requested/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts accepts a valid slow review without replacing it', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+      ensureCanonicalFallback: true,
+    });
+
+    assert.equal(result.status, 'passed');
+    assert.equal(result.fallback_findings_file, undefined);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts creates a canonical fallback for an unusable slow review', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-'),
+  );
+  try {
+    await writeFixture(repoRoot, { mainStatus: 'failed' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+      ensureCanonicalFallback: true,
+    });
+
+    assert.equal(result.status, 'blocked');
+    assert.ok(result.fallback_findings_file);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts does not overwrite canonical state from a stale prepared session', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const canonicalPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      '0000013-current-review.json',
+    );
+    const before = await fs.readFile(canonicalPath, 'utf8');
+    await fs.writeFile(path.join(repoRoot, 'changed.txt'), 'changed\n');
+    await execFile('git', ['add', 'changed.txt'], { cwd: repoRoot });
+    await execFile('git', ['commit', '-qm', 'advance head'], { cwd: repoRoot });
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-codex-review'],
+      ensureCanonicalFallback: true,
+    });
+
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.fallback_findings_file, undefined);
+    assert.equal(await fs.readFile(canonicalPath, 'utf8'), before);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 

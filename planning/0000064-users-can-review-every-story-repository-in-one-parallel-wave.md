@@ -811,8 +811,8 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run the supported lint command and fix issues.
-2. [ ] In `codeInfo2`, run the supported formatting command and fix issues.
+1. [x] In `codeInfo2`, run the supported lint command and fix issues.
+2. [x] In `codeInfo2`, run the supported formatting command and fix issues.
 
 #### Testing
 
@@ -832,3 +832,5 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Expanded the dedicated final task to cover the actual story-owned root repository surface and its supported build, runtime, full-suite, shutdown, lint, and formatting lifecycle; the prior lint-only scope was incomplete.
 - **RESOLVED ISSUE** The generic incomplete-automated-proof blocker was retired after `npm run build:summary:server` passed on 2026-07-15. The remaining listed proof steps are normal in-progress work, not a live blocker.
 - Server summary build passed cleanly through `npm run build:summary:server`; its remaining lifecycle checks are still pending.
+- `npm run lint` passed with zero warnings or errors; the formatting subtask remains pending.
+- `npm run format:check` passed; all matched tracked files use Prettier code style.

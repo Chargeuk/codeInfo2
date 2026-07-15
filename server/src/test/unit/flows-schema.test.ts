@@ -24,7 +24,15 @@ describe('flow schema (v1)', () => {
     commandName?: string;
     markdownFile?: string;
     flowNames?: string[];
+    reviewFlowNames?: string[];
     pointerKeys?: string[];
+    reviewPhase?: string;
+    crossRepositoryFlowName?: string;
+    groups?: Array<{
+      kind?: string;
+      flowNames?: string[];
+      flowName?: string;
+    }>;
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -36,6 +44,44 @@ describe('flow schema (v1)', () => {
       }
     }
     return flattened;
+  };
+
+  const loadExpandedFlowSteps = async (
+    relativePath: string,
+    ancestors: string[] = [],
+  ): Promise<FlowStep[]> => {
+    assert.equal(
+      ancestors.includes(relativePath),
+      false,
+      `flow subflow cycle: ${[...ancestors, relativePath].join(' -> ')}`,
+    );
+    const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    assert.ok(
+      Array.isArray(parsed.steps),
+      `${relativePath} should define steps`,
+    );
+
+    const expandSteps = async (steps: FlowStep[]): Promise<FlowStep[]> => {
+      const expanded: FlowStep[] = [];
+      for (const step of steps) {
+        expanded.push(step);
+        if (Array.isArray(step.steps)) {
+          expanded.push(...(await expandSteps(step.steps)));
+        }
+        for (const flowName of step.flowNames ?? []) {
+          expanded.push(
+            ...(await loadExpandedFlowSteps(`flows/${flowName}.json`, [
+              ...ancestors,
+              relativePath,
+            ])),
+          );
+        }
+      }
+      return expanded;
+    };
+
+    return expandSteps(parsed.steps ?? []);
   };
 
   const assertOrdered = (
@@ -352,8 +398,12 @@ describe('flow schema (v1)', () => {
     const flowFiles = [
       'flows/codex_review.json',
       'flows/cross_repository_review.json',
+      'flows/minor_review_fix_path.json',
       'flows/review_artifacts_main.json',
+      'flows/review_disposition_current_artifacts.json',
       'flows/review_plan.json',
+      'flows/review_task_up_path.json',
+      'flows/two_phase_review_cycle.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -369,6 +419,69 @@ describe('flow schema (v1)', () => {
       });
       assert.equal(parsed.ok, true, relativePath);
     }
+  });
+
+  test('two-phase review uses repeated 2N+1 fast waves before one N-only slow wave', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const topLevel = parsed.steps ?? [];
+    const fastLoop = topLevel.find(
+      (step) => step.label === 'Fast Review Convergence Loop',
+    );
+    const fastSteps = fastLoop?.steps ?? [];
+    const fastSet = fastSteps.find((step) => step.type === 'prepareReviewSet');
+    const fastWave = fastSteps.find((step) => step.type === 'subflowWave');
+    const slowSet = topLevel.find(
+      (step) => step.label === 'Prepare Slow Review Set',
+    );
+    const slowWaves = topLevel.filter(
+      (step) => step.label === 'Run Slow Review Wave',
+    );
+
+    assert.equal(fastSet?.reviewPhase, 'fast');
+    assert.deepEqual(fastSet?.reviewFlowNames, [
+      'codex_review',
+      'open_code_review',
+    ]);
+    assert.equal(fastSet?.crossRepositoryFlowName, 'cross_repository_review');
+    assert.ok(
+      fastWave?.groups?.some(
+        (group) =>
+          group.kind === 'matrix' &&
+          group.flowNames?.join(',') === 'codex_review,open_code_review',
+      ),
+    );
+    assert.ok(
+      fastWave?.groups?.some(
+        (group) =>
+          group.kind === 'singleton' &&
+          group.flowName === 'cross_repository_review',
+      ),
+    );
+    assert.equal(slowSet?.reviewPhase, 'slow');
+    assert.deepEqual(slowSet?.reviewFlowNames, ['review_artifacts_main']);
+    assert.equal(slowSet?.crossRepositoryFlowName, undefined);
+    assert.equal(slowWaves.length, 1);
+    assert.deepEqual(slowWaves[0]?.groups, [
+      {
+        kind: 'matrix',
+        id: 'slow_target_reviews',
+        itemsFrom: 'slow_review_wave.targets',
+        itemName: 'target',
+        flowNames: ['review_artifacts_main'],
+        bindings: {
+          workingFolderFrom: 'target.repo_root',
+          input: {
+            target: 'target',
+            review_wave: 'slow_review_wave',
+            review_set: 'slow_review_set',
+          },
+        },
+      },
+    ]);
   });
 
   test('implement_next_plan resets implementation agents only at safe boundaries and reloads compact context', async () => {
@@ -526,13 +639,22 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('implement_next_plan resets parent review agents at review-owned boundaries', async () => {
-    const raw = await fs.readFile(
-      path.join(repoRoot, 'flows/implement_next_plan.json'),
-      'utf8',
+  test('two-phase review helpers reset review agents at review-owned boundaries', async () => {
+    const helperFiles = [
+      'flows/review_disposition_current_artifacts.json',
+      'flows/minor_review_fix_path.json',
+    ];
+    const helperSteps = await Promise.all(
+      helperFiles.map(async (relativePath) => {
+        const raw = await fs.readFile(
+          path.join(repoRoot, relativePath),
+          'utf8',
+        );
+        const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+        return flattenSteps(parsed.steps ?? []);
+      }),
     );
-    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    const steps = flattenSteps(parsed.steps ?? []);
+    const steps = helperSteps.flat();
     const labels = steps.map((step) => step.label);
     const reviewResetSteps = steps.filter(
       (step) =>
@@ -547,18 +669,8 @@ describe('flow schema (v1)', () => {
     );
     assertOrdered(
       labels,
-      'Run Parallel Review Wave',
-      'Reset planner for current review disposition pass',
-    );
-    assertOrdered(
-      labels,
       'Reset lite planner for current review disposition pass',
       'Load planner review context',
-    );
-    assertOrdered(
-      labels,
-      'Load lite planner review context',
-      'Merge Codex Review Findings Into Canonical Review',
     );
     assertOrdered(
       labels,
@@ -578,12 +690,7 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Verify Review Issue Decisions Were Recorded',
-      'Restart Review Pass Unless Issue Decisions Are Ready',
-    );
-    assertOrdered(
-      labels,
-      'Restart Review Pass Unless Issue Decisions Are Ready',
-      'Exit Minor-Fix Path Unless Minor Findings Remain',
+      'Retry Review Decisions Against Current Artifacts Unless Ready',
     );
     assertOrdered(
       labels,
@@ -676,40 +783,12 @@ describe('flow schema (v1)', () => {
           'flows/improve_task_implement_plan.json',
         ].includes(flowFile.relativePath)
       ) {
-        const reviewWave = flattenSteps(parsed.steps ?? []).find(
-          (step) => step.type === 'subflowWave',
-        ) as
-          | {
-              groups?: Array<{
-                kind?: string;
-                flowNames?: string[];
-                flowName?: string;
-              }>;
-            }
-          | undefined;
-        const expectedReviewFanout =
-          'review_artifacts_main,codex_review,open_code_review';
+        const subflowMarkers = flattenSteps(parsed.steps ?? [])
+          .filter((step) => step.type === 'subflow')
+          .map((step) => (step.flowNames ?? []).join(','));
         assert.ok(
-          reviewWave?.groups?.some(
-            (group) =>
-              group.kind === 'matrix' &&
-              group.flowNames?.join(',') === expectedReviewFanout,
-          ),
-          `${flowFile.relativePath} should launch its target review matrix`,
-        );
-        assert.ok(
-          reviewWave?.groups?.some(
-            (group) =>
-              group.kind === 'singleton' &&
-              group.flowName === 'cross_repository_review',
-          ),
-          `${flowFile.relativePath} should launch its cross-repository singleton`,
-        );
-        assert.ok(
-          flattenSteps(parsed.steps ?? []).some(
-            (step) => step.type === 'validateReviewWave',
-          ),
-          `${flowFile.relativePath} should validate the joined review wave`,
+          subflowMarkers.includes('two_phase_review_cycle'),
+          `${flowFile.relativePath} should launch the shared two-phase review cycle`,
         );
         continue;
       }
@@ -772,11 +851,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
         if (step.type === 'llm') {
           return step.markdownFile;
         }
@@ -830,11 +905,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? [])
+      const markers = (await loadExpandedFlowSteps(flowFile))
         .map((step) => step.markdownFile)
         .filter((marker): marker is string => typeof marker === 'string');
 
@@ -857,11 +928,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
         if (step.type === 'llm') {
           return step.markdownFile;
         }
@@ -930,11 +997,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
-
-      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+      const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
         if (step.type === 'llm') {
           return step.markdownFile;
         }
@@ -975,17 +1038,9 @@ describe('flow schema (v1)', () => {
   });
 
   test('implement_next_plan promotes scope-approved actionable findings before the minor path', async () => {
-    const raw = await fs.readFile(
-      path.join(repoRoot, 'flows/implement_next_plan.json'),
-      'utf8',
-    );
-    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    assert.ok(
-      Array.isArray(parsed.steps),
-      'flows/implement_next_plan.json should define steps',
-    );
-
-    const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+    const markers = (
+      await loadExpandedFlowSteps('flows/implement_next_plan.json')
+    ).map((step) => {
       if (step.type === 'llm') {
         return step.markdownFile;
       }
@@ -1102,9 +1157,7 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      const flattened = flattenSteps(parsed.steps ?? []);
+      const flattened = await loadExpandedFlowSteps(flowFile);
       const markers = flattened.map((step) => step.markdownFile);
       const classifyIndex = markers.indexOf('classify_review_disposition.md');
       const filterIndex = markers.indexOf(
@@ -1122,7 +1175,10 @@ describe('flow schema (v1)', () => {
       const readinessIndex = flattened.findIndex(
         (step) =>
           step.type === 'continue' &&
-          step.label === 'Restart Review Pass Unless Issue Decisions Are Ready',
+          [
+            'Restart Review Pass Unless Issue Decisions Are Ready',
+            'Retry Review Decisions Against Current Artifacts Unless Ready',
+          ].includes(step.label ?? ''),
       );
       const fixIndex = markers.indexOf('fix_next_minor_review_finding.md');
 

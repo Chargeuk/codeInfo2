@@ -101,7 +101,8 @@ export type FlowPrepareReviewSetStep = {
   snapshotFrom: string;
   outputKey: string;
   reviewFlowNames: string[];
-  crossRepositoryFlowName: string;
+  reviewPhase?: 'fast' | 'slow' | 'standalone';
+  crossRepositoryFlowName?: string;
 };
 
 export type FlowValidateReviewWaveStep = {
@@ -158,9 +159,7 @@ export type FlowSubflowWaveSingletonGroup = {
 export type FlowSubflowWaveStep = {
   type: 'subflowWave';
   label?: string;
-  groups: Array<
-    FlowSubflowWaveMatrixGroup | FlowSubflowWaveSingletonGroup
-  >;
+  groups: Array<FlowSubflowWaveMatrixGroup | FlowSubflowWaveSingletonGroup>;
   failureMode?: 'best_effort';
 };
 
@@ -306,7 +305,8 @@ const FlowPrepareReviewSetStepSchema = z
     snapshotFrom: trimmedNonEmptyString,
     outputKey: trimmedNonEmptyString,
     reviewFlowNames: z.array(trimmedNonEmptyString).min(1),
-    crossRepositoryFlowName: trimmedNonEmptyString,
+    reviewPhase: z.enum(['fast', 'slow', 'standalone']).optional(),
+    crossRepositoryFlowName: trimmedNonEmptyString.optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -315,6 +315,21 @@ const FlowPrepareReviewSetStepSchema = z
         code: z.ZodIssueCode.custom,
         path: ['reviewFlowNames'],
         message: 'prepareReviewSet reviewFlowNames must be distinct.',
+      });
+    }
+    if (value.reviewPhase === 'fast' && !value.crossRepositoryFlowName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['crossRepositoryFlowName'],
+        message: 'fast prepareReviewSet steps require crossRepositoryFlowName.',
+      });
+    }
+    if (value.reviewPhase === 'slow' && value.crossRepositoryFlowName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['crossRepositoryFlowName'],
+        message:
+          'slow prepareReviewSet steps cannot include crossRepositoryFlowName.',
       });
     }
   });

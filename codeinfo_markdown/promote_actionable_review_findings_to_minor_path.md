@@ -30,7 +30,7 @@ This step runs after story-scope filtering and immediately before the review iss
    - the original task-required reason remains a constraint, not permission to broaden scope.
 6. Do not promote a durable follow-up entry whose reason or same-cycle state clearly records that:
    - an inline attempt already occurred and ended in `reclassify_task_required` or `skipped` escalation;
-   - the issue remained unresolved after the one allowed same-cycle review rerun;
+   - outside an active two-phase cycle, the issue remained unresolved after the one allowed same-cycle review rerun;
    - or the entry otherwise already represents the result of an inline attempt in this active review cycle.
 7. Remove every successfully promoted entry from `unresolved_task_required_findings` so each finding remains in exactly one actionable queue.
 8. Deduplicate by stable finding ID. If the same ID already exists in the minor queue, keep one minor entry containing the strongest preserved routing constraints and remove the duplicate task-required entry.
@@ -59,7 +59,7 @@ Apply the existing state meanings:
 - `needs_task_up_path` is true whenever `unresolved_task_required_findings` or `incomplete_review_blockers` is non-empty.
 - `safe_to_exit_review_loop_without_tasking` must be false whenever any unresolved, blocked, rerun, or final-revalidation condition remains.
 
-Preserve every same-cycle field this step does not own, including minor-fix history, commit SHAs, review-cycle identity, rerun state, final-revalidation state, and task-up ownership state.
+Preserve every same-cycle field this step does not own, including two-phase review identity and counters, minor-fix history, commit SHAs, review-cycle identity, rerun state, final-revalidation state, and task-up ownership state.
 Preserve the current-pass `review_decision_recording` object unchanged as `pending`; only the later recorder and verifier may replace that outcome.
 
 </state_coherence_rules>

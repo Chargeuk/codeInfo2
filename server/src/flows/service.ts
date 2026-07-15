@@ -872,7 +872,13 @@ const normalizeSubflowWaveProgress = (
     const flowName = normalizeOptionalString(job.flowName);
     const title = normalizeOptionalString(job.title);
     const status = normalizeOptionalString(job.status);
-    if (!instanceId || !flowName || !title || !status || !statuses.has(status)) {
+    if (
+      !instanceId ||
+      !flowName ||
+      !title ||
+      !status ||
+      !statuses.has(status)
+    ) {
       return [];
     }
     return [
@@ -903,7 +909,8 @@ const normalizeSubflowWaveProgress = (
     stopped: count('stopped'),
     notApplicable: count('notApplicable'),
     jobs,
-    updatedAt: normalizeOptionalString(value.updatedAt) ?? new Date(0).toISOString(),
+    updatedAt:
+      normalizeOptionalString(value.updatedAt) ?? new Date(0).toISOString(),
   };
 };
 
@@ -4975,7 +4982,10 @@ async function runFlowUnlocked(params: {
             (job) => job.instanceId === activeInstanceId(activeSubflow),
           ),
         )
-        .map((activeSubflow) => [activeInstanceId(activeSubflow), activeSubflow]),
+        .map((activeSubflow) => [
+          activeInstanceId(activeSubflow),
+          activeSubflow,
+        ]),
     );
     const childRuns = jobs
       .map((job) => rememberedSubflowsByInstance.get(job.instanceId))
@@ -4995,7 +5005,7 @@ async function runFlowUnlocked(params: {
       });
     const buildSubflowSummaryText = (prefix: string) =>
       launchesMultipleChildren
-          ? `${prefix} ${jobs
+        ? `${prefix} ${jobs
             .map((job) => buildTrackedSubflowTitle(job))
             .join(', ')}`
         : `${prefix} ${buildTrackedSubflowTitle(jobs[0]!)}`;
@@ -5014,9 +5024,7 @@ async function runFlowUnlocked(params: {
     }) => {
       const job = jobByInstanceId.get(params.instanceId);
       childOutcomes.set(params.instanceId, {
-        title: job
-          ? buildTrackedSubflowTitle(job)
-          : params.instanceId,
+        title: job ? buildTrackedSubflowTitle(job) : params.instanceId,
         status: params.status,
         ...(params.reason ? { reason: params.reason } : {}),
       });
@@ -5043,8 +5051,9 @@ async function runFlowUnlocked(params: {
           status,
         };
       });
-      const count = (status: FlowSubflowWaveProgress['jobs'][number]['status']) =>
-        progressJobs.filter((job) => job.status === status).length;
+      const count = (
+        status: FlowSubflowWaveProgress['jobs'][number]['status'],
+      ) => progressJobs.filter((job) => job.status === status).length;
       subflowWaveProgress = {
         stepPath: [...nextPath],
         ...(stepLabel ? { label: stepLabel } : {}),
@@ -5299,9 +5308,7 @@ async function runFlowUnlocked(params: {
             runToken: childRunToken,
             instanceId: job.instanceId,
             ...(job.targetId ? { targetId: job.targetId } : {}),
-            ...(job.workingFolder
-              ? { workingFolder: job.workingFolder }
-              : {}),
+            ...(job.workingFolder ? { workingFolder: job.workingFolder } : {}),
             ...(job.input ? { input: job.input } : {}),
             ...(job.inputHash ? { inputHash: job.inputHash } : {}),
             title: buildTrackedSubflowTitle(job),
@@ -5317,9 +5324,9 @@ async function runFlowUnlocked(params: {
             status: 'failed',
             reason: isFlowRunError(error)
               ? (error.reason ?? error.code)
-                : error instanceof Error
-                  ? error.message
-                  : `Subflow ${job.displayName} failed to start.`,
+              : error instanceof Error
+                ? error.message
+                : `Subflow ${job.displayName} failed to start.`,
           });
           publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
@@ -5953,7 +5960,11 @@ async function runFlowUnlocked(params: {
       step.snapshotFrom,
     );
     const instruction = `Prepare review set: ${step.outputKey}`;
-    if (!snapshotValue || typeof snapshotValue !== 'object' || Array.isArray(snapshotValue)) {
+    if (
+      !snapshotValue ||
+      typeof snapshotValue !== 'object' ||
+      Array.isArray(snapshotValue)
+    ) {
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5979,6 +5990,7 @@ async function runFlowUnlocked(params: {
       const result = await prepareReviewSet({
         snapshot: snapshotValue as ReviewTargetSnapshot,
         reviewFlowNames: step.reviewFlowNames,
+        reviewPhase: step.reviewPhase,
         crossRepositoryFlowName: step.crossRepositoryFlowName,
         signal: inflightState.abortController.signal,
       });
@@ -6300,14 +6312,17 @@ async function runFlowUnlocked(params: {
     });
     const inflightSignal = inflightState.abortController.signal;
     try {
-      const result = await prepareReviewTargets({
-        workingRepositoryPath: reviewRepositoryPath,
-        parentExecutionId: params.executionId,
-        signal: inflightSignal,
-      }, {
-        listIngestedRepositories:
-          params.repositoryContext.listIngestedRepositories,
-      });
+      const result = await prepareReviewTargets(
+        {
+          workingRepositoryPath: reviewRepositoryPath,
+          parentExecutionId: params.executionId,
+          signal: inflightSignal,
+        },
+        {
+          listIngestedRepositories:
+            params.repositoryContext.listIngestedRepositories,
+        },
+      );
       if (inflightSignal.aborted) {
         await emitStoppedFlowStep({
           flowConversationId: params.conversationId,
@@ -6538,7 +6553,9 @@ async function runFlowUnlocked(params: {
       'target',
     );
     const boundStoryNumber =
-      boundTarget && typeof boundTarget === 'object' && !Array.isArray(boundTarget)
+      boundTarget &&
+      typeof boundTarget === 'object' &&
+      !Array.isArray(boundTarget)
         ? typeof boundTarget.story_id === 'string'
           ? boundTarget.story_id
           : undefined
@@ -8102,9 +8119,7 @@ export async function startFlowRun(
         ...(activeSubflow.instanceId
           ? { instanceId: activeSubflow.instanceId }
           : {}),
-        ...(activeSubflow.targetId
-          ? { targetId: activeSubflow.targetId }
-          : {}),
+        ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
         ...(activeSubflow.workingFolder
           ? { workingFolder: activeSubflow.workingFolder }
           : {}),

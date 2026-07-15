@@ -70,6 +70,8 @@ const createFixture = async () => {
     parent_execution_id: snapshot.parent_execution_id,
     targets_sha256: snapshot.targets_sha256,
     plan_host_root: snapshot.plan_host_root,
+    review_phase: 'fast',
+    cross_repository_required: true,
     target_count: 2,
     expected_job_count: expectedJobs.length,
     expected_jobs: expectedJobs,
@@ -166,10 +168,9 @@ const createFixture = async () => {
     for (const pointerKey of params.pointerKeys) {
       const filePath = pointerPath(target.repo_root, pointerKey);
       try {
-        const pointer = JSON.parse(await fs.readFile(filePath, 'utf8')) as Record<
-          string,
-          unknown
-        >;
+        const pointer = JSON.parse(
+          await fs.readFile(filePath, 'utf8'),
+        ) as Record<string, unknown>;
         const identityMatches =
           pointer.story_id === snapshot.story_id &&
           pointer.parent_execution_id === snapshot.parent_execution_id &&
@@ -344,6 +345,43 @@ test('multi-target review cannot close cleanly without usable cross-repository c
     assert.equal(result.finalized.cross_repository_status, 'missing');
     assert.equal(result.finalized.closeout_allowed, false);
     assert.equal(result.finalized.status, 'completed_partial');
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('slow review wave closes with complete target coverage and no cross-repository job', async () => {
+  const fixture = await createFixture();
+  try {
+    const expectedJobs = fixture.reviewSet.expected_jobs.filter(
+      (job) => job.flow_name === 'review_artifacts_main',
+    );
+    const slowReviewSet: ReviewSetManifest = {
+      ...fixture.reviewSet,
+      review_phase: 'slow',
+      cross_repository_required: false,
+      expected_job_count: expectedJobs.length,
+      expected_jobs: expectedJobs,
+      coverage: {
+        ...fixture.reviewSet.coverage,
+        missing_jobs: expectedJobs.length,
+      },
+    };
+
+    const result = await validateReviewWave(
+      {
+        snapshot: fixture.snapshot,
+        reviewSet: slowReviewSet,
+      },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
+
+    assert.equal(result.finalized.review_phase, 'slow');
+    assert.equal(result.finalized.cross_repository_status, 'not_expected');
+    assert.equal(result.finalized.coverage.completed_jobs, 2);
+    assert.equal(result.finalized.closeout_allowed, true);
+    assert.equal(result.validation.review_phase, 'slow');
+    assert.equal(result.validation.cross_repository_required, false);
   } finally {
     await fs.rm(fixture.root, { recursive: true, force: true });
   }

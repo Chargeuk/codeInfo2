@@ -230,9 +230,7 @@ export async function validateReviewWave(
       )
       .map((job) => pointerKeyForFlow(job.flow_name))
       .filter(
-        (
-          key,
-        ): key is Exclude<ReturnType<typeof pointerKeyForFlow>, null> =>
+        (key): key is Exclude<ReturnType<typeof pointerKeyForFlow>, null> =>
           key !== null,
       )
       .map((key) =>
@@ -399,7 +397,8 @@ export async function validateReviewWave(
       targetResult.validation_mode === 'wave_target' &&
       targetResult.story_id === params.snapshot.story_id &&
       targetResult.plan_path === params.snapshot.plan_path &&
-      targetResult.parent_execution_id === params.snapshot.parent_execution_id &&
+      targetResult.parent_execution_id ===
+        params.snapshot.parent_execution_id &&
       targetResult.target_id === target.target_id &&
       targetResult.repo_alias === target.repo_alias &&
       targetResult.review_wave_id === params.snapshot.review_wave_id &&
@@ -473,10 +472,15 @@ export async function validateReviewWave(
     (result) => result.status === 'partial',
   ).length;
   const crossResult = results.find((result) => result.target_id === null);
+  const crossRepositoryRequired =
+    params.reviewSet.cross_repository_required ??
+    params.reviewSet.expected_jobs.some(
+      (job) => job.kind === 'cross_repository_review',
+    );
   const closeoutAllowed =
     results.length === params.reviewSet.expected_job_count &&
     results.every((result) => result.status === 'completed') &&
-    Boolean(crossResult);
+    (!crossRepositoryRequired || Boolean(crossResult));
   const finalized: ReviewSetManifest = {
     ...params.reviewSet,
     coverage: {
@@ -486,7 +490,7 @@ export async function validateReviewWave(
       missing_jobs: missingJobs,
     },
     job_results: results,
-    cross_repository_status: crossResult?.status ?? 'missing',
+    cross_repository_status: crossResult?.status ?? 'not_expected',
     aggregated_findings: aggregateFindings(findings),
     closeout_allowed: closeoutAllowed,
     status:
@@ -503,6 +507,8 @@ export async function validateReviewWave(
     review_wave_id: params.snapshot.review_wave_id,
     parent_execution_id: params.snapshot.parent_execution_id,
     targets_sha256: params.snapshot.targets_sha256,
+    review_phase: params.reviewSet.review_phase ?? 'standalone',
+    cross_repository_required: crossRepositoryRequired,
     expected_job_count: params.reviewSet.expected_job_count,
     completed_jobs: completedJobs,
     partial_jobs: partialJobs,

@@ -148,6 +148,90 @@ test('prepareReviewSet isolates target pointers and enumerates the complete wave
   }
 });
 
+test('phase-aware review sets expand fast 2N+1 and slow N job shapes', async () => {
+  const prepared = await fixture();
+  const prepareBase = async (
+    params: Parameters<typeof prepareReviewBase>[0],
+  ) => ({
+    artifactPath: path.join(
+      params.workingRepositoryPath,
+      'codeInfoTmp/reviews/0000064-current-review-base.json',
+    ),
+    artifact: {} as PreparedReviewBase,
+  });
+  try {
+    const fast = await prepareReviewSet(
+      {
+        snapshot: prepared.snapshot,
+        reviewPhase: 'fast',
+        reviewFlowNames: ['codex', 'open-code'],
+        crossRepositoryFlowName: 'cross-repository',
+      },
+      {
+        prepareReviewContext: fakeContextPreparation,
+        prepareReviewBase: prepareBase,
+      },
+    );
+    const slow = await prepareReviewSet(
+      {
+        snapshot: prepared.snapshot,
+        reviewPhase: 'slow',
+        reviewFlowNames: ['artifact'],
+      },
+      {
+        prepareReviewContext: fakeContextPreparation,
+        prepareReviewBase: prepareBase,
+      },
+    );
+
+    assert.equal(fast.manifest.review_phase, 'fast');
+    assert.equal(fast.manifest.cross_repository_required, true);
+    assert.equal(fast.manifest.expected_job_count, 7);
+    assert.equal(
+      fast.manifest.expected_jobs.filter(
+        (job) => job.kind === 'cross_repository_review',
+      ).length,
+      1,
+    );
+    assert.equal(slow.manifest.review_phase, 'slow');
+    assert.equal(slow.manifest.cross_repository_required, false);
+    assert.equal(slow.manifest.expected_job_count, 3);
+    assert.equal(
+      slow.manifest.expected_jobs.every(
+        (job) => job.kind === 'target_review' && job.flow_name === 'artifact',
+      ),
+      true,
+    );
+  } finally {
+    await fs.rm(prepared.root, { recursive: true, force: true });
+  }
+});
+
+test('phase-aware review sets reject missing fast cross review and slow cross review', async () => {
+  const prepared = await fixture(1);
+  try {
+    await assert.rejects(
+      prepareReviewSet({
+        snapshot: prepared.snapshot,
+        reviewPhase: 'fast',
+        reviewFlowNames: ['codex', 'open-code'],
+      }),
+      /require a cross-repository flow/u,
+    );
+    await assert.rejects(
+      prepareReviewSet({
+        snapshot: prepared.snapshot,
+        reviewPhase: 'slow',
+        reviewFlowNames: ['artifact'],
+        crossRepositoryFlowName: 'cross-repository',
+      }),
+      /cannot include a cross-repository flow/u,
+    );
+  } finally {
+    await fs.rm(prepared.root, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewSet invalidates only a drifting target', async () => {
   const prepared = await fixture();
   try {

@@ -6,9 +6,9 @@ Implement this story additively so the existing static `subflow` review path rem
 
 ## Description
 
-The `Run Parallel Review Artifact Flows` step in `flows/task_and_implement_plan.json` currently starts exactly three review flows against one ambient working repository. The main review flow also expands its own scope across `additional_repositories`, while Codex Review and Open Code Review remain bound to one repository. This makes review behavior inconsistent and prevents every participating repository branch from receiving the same independent set of reviews.
+The `Run Parallel Review Artifact Flows` step in `flows/task_and_implement_plan.json` originally started exactly three review flows against one ambient working repository. The main review flow also expanded its own scope across `additional_repositories`, while Codex Review and Open Code Review remained bound to one repository. This made review behavior inconsistent and prevented every participating repository branch from receiving the same independent set of reviews.
 
-Add a generic subflow-wave orchestration contract that can expand matrix groups and singleton groups into one concurrent child-flow wave. The story review loop will use that contract to run the main, Codex, and Open Code Review flows once for every immutable repository target, while one dedicated cross-repository reviewer runs concurrently across the complete pinned target set. A single-repository story still starts the singleton flow, but that flow exits cheaply with a deterministic `not_applicable` artifact.
+Add a generic subflow-wave orchestration contract that can expand matrix groups and singleton groups into concurrent child-flow waves. The production review loop uses it in a bounded two-phase cycle: each fast pass runs Codex and Open Code Review for every immutable repository target plus one cross-repository reviewer, repeats after eligible minor fixes until convergence or five drained passes, and then runs the heavyweight main reviewer once per target in one final slow wave. A single-repository fast pass still starts the singleton flow, but that flow exits cheaply with a deterministic `not_applicable` artifact.
 
 Every review target must be represented by a distinct checked-out working-tree path. The implementation must not switch branches in a shared checkout. Target-local review artifacts must remain isolated, while a canonical story-level review-set manifest validates, joins, and aggregates every usable local and cross-repository result before disposition.
 
@@ -20,7 +20,10 @@ Every review target must be represented by a distinct checked-out working-tree p
 - A persisted review-target snapshot contains the canonical plan host plus every plan-scope repository with stable alias, real root, checked-out branch, full HEAD commit, and pinned comparison base.
 - The runtime never switches a shared checkout between branches; distinct branches require distinct worktree paths.
 - The main, Codex, and Open Code Review flows each review exactly one explicit target.
-- For `N` targets, the wave launches `3N + 1` child flows: three target-local reviews per target plus one story-scoped cross-repository flow.
+- For `N` targets, every fast pass launches `2N + 1` child flows: Codex and Open Code Review for each target plus one story-scoped cross-repository flow.
+- Fast review repeats after eligible minor fixes until a pass records zero pre-fix minor findings or a fifth drained pass completes.
+- After fast convergence, one slow wave launches exactly `N` heavyweight main-review child flows in parallel and never reruns them.
+- Serious findings and fix history accumulate across every fast pass and the slow wave, while final task-up and revalidation occur only after both phases finish.
 - All viable jobs execute concurrently, subject only to provider scheduling, and the parent waits for every terminal outcome.
 - The cross-repository flow publishes `not_applicable` without expensive review work for one target and performs one integration review for multiple targets.
 - Target-local artifacts cannot overwrite or validate against another target's identity.
@@ -40,7 +43,7 @@ Every review target must be represented by a distinct checked-out working-tree p
 - Running arbitrary non-subflow control-flow steps in parallel.
 - Switching branches inside one shared Git working tree.
 - Replacing the existing `subflow` step or changing its JSON contract.
-- Adding a second post-wave LLM review of the same cross-repository diffs.
+- Adding a second cross-repository integration review after the bounded fast phase.
 - Opening a pull request as part of this story unless separately requested.
 
 ## Additional Repositories
@@ -57,7 +60,9 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 - Keep the executor restricted to child flows rather than adding a general arbitrary-step `parallel` construct.
 - Use explicit immutable child inputs and working-folder bindings; reviewers do not rediscover their target from ambient state.
 - Preserve target-local scratch artifacts and add canonical story-level stable/versioned review-set manifests.
-- Run the cross-repository reviewer concurrently with target-local reviewers and remove the need for a later full integration review.
+- Run the cross-repository reviewer concurrently with every fast target-local wave and exclude it from the final slow target-only wave.
+- Refresh immutable target and review-set identities for every pass because applied fixes may advance repository HEADs.
+- Preserve bounded fast-phase convergence and run the heavyweight main review exactly once after the fast phase.
 - Treat a multi-target missing or invalid cross-repository result as incomplete mandatory coverage, while preserving usable target-local findings.
 - Retain existing best-effort child execution semantics; validation and disposition determine whether coverage is sufficient to close cleanly.
 - Keep wave-mode validation authoritative and server-owned: enrich the review-set/wave artifacts with per-job usability rather than weakening merge, classification, or decision-recording identity gates, and use the legacy joined-validation artifact only when no review-set manifest exists.
@@ -399,3 +404,111 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 - Final supported-stack proof completed review wave `0000064-rw-20260714T221016Z-100a7998` with four terminal jobs, zero failed or missing jobs, all three target pointers usable, validation `passed`, and `closeout_allowed: true`.
 - The production recorder committed one unique plan decision block at `159b4730cf25eec041ead5205cf0abe89efb2e0b` with outcome `recorded`, one accepted decision, three ignored decisions, and no remaining task-up or minor-fix queue; `npm run compose:down` then stopped the main stack.
 - After the live-proof fixes, formatting, lint, and formatting checks passed again, and the final server parallel wrapper passed the server build, 2,601 unit/integration tests, and 136 Cucumber scenarios.
+
+### Task 13. Merge the bounded two-phase review foundations from main
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+1. [x] Fetch `origin/main` and begin a non-committing merge from the clean Story 64 feature branch.
+2. [x] Resolve the three production-flow conflicts toward the reusable two-phase subflow boundary while preserving all Story 64 wave runtime files.
+3. [x] Reconcile the flow-schema conflict so recursive subflow dependency checks and Story 64 wave contracts are both retained.
+4. [x] Verify the merged prompts and review-state helpers preserve both wave identity gates and bounded phase state.
+5. [ ] Commit the resolved merge with the required Story 64 commit format.
+
+#### Testing
+
+1. [x] Parse and schema-validate every production review and implementation flow after conflict resolution.
+2. [x] Run the targeted flow-schema and review flow-control tests.
+3. [x] Run the server build summary wrapper for the resolved merge baseline.
+
+#### Implementation Notes
+
+- Fetched `origin/main` at `536a7ca9638a`, began a non-committing merge, and confirmed the four predicted content conflicts.
+- Resolved the three implementation-flow conflicts to call `two_phase_review_cycle`; the existing Story 64 `subflowWave`, review-target, review-set, validation, cross-repository, cancellation, and resume implementation remains present for integration inside that cycle.
+- Combined recursive subflow expansion and cycle detection with the Story 64 flow contracts, then changed the merged two-phase cycle to use fresh fast and slow repository waves.
+- The server build passed, flow schema passed 66/66, phase-aware review-set tests passed 6/6, wave-validation tests passed 4/4, and the shell flow-control suite passed 20/20.
+
+### Task 14. Add phase-aware review-set preparation and validation
+
+- Task Status: `__todo__`
+
+#### Subtasks
+
+1. [ ] Extend the review-set schema and manifest with explicit fast/slow phase metadata and optional fast-pass identity.
+2. [ ] Make the cross-repository expected job optional so fast manifests expand to `2N + 1` jobs and slow manifests expand to `N` jobs.
+3. [ ] Preserve phase, pass, target, HEAD, parent execution, and wave identity through child inputs, artifacts, stable pointers, and versioned manifests.
+4. [ ] Update wave closeout rules so fast coverage requires the cross-repository result while slow coverage requires only every expected main-review result.
+5. [ ] Keep legacy and standalone non-wave review contracts backward-compatible.
+
+#### Testing
+
+1. [ ] Add schema and review-set unit cases for one-target and three-target fast and slow manifests.
+2. [ ] Add validation cases for missing fast cross coverage, valid slow coverage without cross review, stale phase/pass identity, partial targets, and false-clean prevention.
+3. [ ] Run the targeted review-set, review-wave-validation, flow-schema, and server build wrappers.
+
+#### Implementation Notes
+
+### Task 15. Compose repeated fast repository waves and one slow repository wave
+
+- Task Status: `__todo__`
+
+#### Subtasks
+
+1. [ ] Rewrite `two_phase_review_cycle` so each fast pass prepares fresh targets and a fast review set, runs the `2N + 1` wave, validates it, dispositions it, records the pre-fix minor count, applies minor fixes, and checks convergence.
+2. [ ] Add the slow phase using a fresh target snapshot, a main-review-only set, one `N`-child wave, one validation and disposition pass, and no slow rerun.
+3. [ ] Finalize cumulative findings and run task-up only after both phases complete.
+4. [ ] Wire all three production implementation flows exclusively through the combined two-phase cycle.
+5. [ ] Preserve cancellation, resume reattachment, immutable input, distinct child title, and best-effort terminal-outcome behavior in both phases.
+
+#### Testing
+
+1. [ ] Extend recursive production-flow contract tests to prove fast `2N + 1` and slow `N` wave shapes and exactly one slow-review occurrence.
+2. [ ] Add production integration coverage for multiple fast passes with fixes, zero-minor convergence, the fifth-pass bound, and one slow launch.
+3. [ ] Add cancellation and resume coverage proving repeated waves do not duplicate active children.
+4. [ ] Run targeted flow-schema, subflow-wave, production-loop, and Cucumber wrappers.
+
+#### Implementation Notes
+
+### Task 16. Reconcile wave-aware disposition, cumulative state, prompts, and documentation
+
+- Task Status: `__todo__`
+
+#### Subtasks
+
+1. [ ] Make the finalized wave manifest the authoritative validation source for every fast and slow disposition pass without requiring the legacy plan-host validation artifact.
+2. [ ] Preserve cumulative serious findings and fix history across phases while keeping minor queues and pre-fix counts current-pass scoped.
+3. [ ] Prevent task-up, clean closeout, and final revalidation before the slow phase finalizer selects the combined outcome.
+4. [ ] Update prompts and prompt contracts for phase-aware wave identities, fast-only cross review, and the single slow review.
+5. [ ] Update repository documentation and progress labels for fast pass counts, cross-review coverage, and final slow-wave progress.
+
+#### Testing
+
+1. [ ] Run the targeted Python flow-control and prompt-contract tests.
+2. [ ] Run server disposition, artifact validation, and production contract tests.
+3. [ ] Run relevant client and e2e progress/resume tests.
+
+#### Implementation Notes
+
+### Task 17. Prove and close out the combined two-phase multi-repository review cycle
+
+- Task Status: `__todo__`
+
+#### Subtasks
+
+1. [ ] Reconcile all touched code, flows, prompts, tests, documentation, and plan notes after targeted proof.
+2. [ ] Prove one-target fast and slow job counts and a multi-target `2N + 1` then `N` execution.
+3. [ ] Prove a minor-fix fast rerun, cumulative serious findings, fast cross-coverage failure, and one-only slow review behavior.
+4. [ ] Prove cancellation/resume and per-pass artifact isolation without duplicate launches.
+5. [ ] Commit the completed integration in ordered Story 64 commits and push the feature branch.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`.
+2. [ ] Run `npm run test:summary:all:parallel`.
+3. [ ] Run `npm run lint`, the repository formatter, and `npm run format:check`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run supported main-stack one-target and multi-target manual proof, then stop it with `npm run compose:down`.
+
+#### Implementation Notes

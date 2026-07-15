@@ -17,6 +17,8 @@ import type { FlowJsonValue } from './types.js';
 
 export const REVIEW_SET_SCHEMA_VERSION = 'codeinfo-review-set/v1';
 
+export type ReviewPhase = 'fast' | 'slow' | 'standalone';
+
 export type ReviewSetTarget = {
   target_id: string;
   repo_alias: string;
@@ -36,6 +38,8 @@ export type ReviewSetManifest = {
   parent_execution_id: string;
   targets_sha256: string;
   plan_host_root: string;
+  review_phase?: ReviewPhase;
+  cross_repository_required?: boolean;
   target_count: number;
   expected_job_count: number;
   expected_jobs: Array<{
@@ -255,7 +259,8 @@ export async function prepareReviewSet(
   params: {
     snapshot: ReviewTargetSnapshot;
     reviewFlowNames: string[];
-    crossRepositoryFlowName: string;
+    reviewPhase?: ReviewPhase;
+    crossRepositoryFlowName?: string;
     signal?: AbortSignal;
   },
   deps: Partial<ReviewSetDeps> = {},
@@ -271,6 +276,13 @@ export async function prepareReviewSet(
     throw new Error('Review target snapshot lacks a primary target.');
   if (new Set(params.reviewFlowNames).size !== params.reviewFlowNames.length) {
     throw new Error('Review flow names must be distinct.');
+  }
+  const reviewPhase = params.reviewPhase ?? 'standalone';
+  if (reviewPhase === 'fast' && !params.crossRepositoryFlowName) {
+    throw new Error('Fast review sets require a cross-repository flow.');
+  }
+  if (reviewPhase === 'slow' && params.crossRepositoryFlowName) {
+    throw new Error('Slow review sets cannot include a cross-repository flow.');
   }
   const canonicalContext = await resolvedDeps.prepareReviewContext({
     repoRoot: params.snapshot.plan_host_root,
@@ -290,7 +302,7 @@ export async function prepareReviewSet(
       }),
     ),
   );
-  const expectedJobs = [
+  const expectedJobs: ReviewSetManifest['expected_jobs'] = [
     ...params.snapshot.targets.flatMap((target) =>
       params.reviewFlowNames.map((flowName) => ({
         instance_id: `${target.target_id}--${flowName}`,
@@ -299,13 +311,15 @@ export async function prepareReviewSet(
         kind: 'target_review' as const,
       })),
     ),
-    {
+  ];
+  if (params.crossRepositoryFlowName) {
+    expectedJobs.push({
       instance_id: `story--${params.crossRepositoryFlowName}`,
       flow_name: params.crossRepositoryFlowName,
       target_id: null,
-      kind: 'cross_repository_review' as const,
-    },
-  ];
+      kind: 'cross_repository_review',
+    });
+  }
   const invalidTargets = targets.filter(
     (target) => target.status === 'invalid',
   ).length;
@@ -316,6 +330,8 @@ export async function prepareReviewSet(
     parent_execution_id: params.snapshot.parent_execution_id,
     targets_sha256: params.snapshot.targets_sha256,
     plan_host_root: params.snapshot.plan_host_root,
+    review_phase: reviewPhase,
+    cross_repository_required: Boolean(params.crossRepositoryFlowName),
     target_count: targets.length,
     expected_job_count: expectedJobs.length,
     expected_jobs: expectedJobs,

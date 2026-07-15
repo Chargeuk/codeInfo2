@@ -1,0 +1,194 @@
+{
+  "description": "Run bounded fast review waves across every story repository, then one heavyweight slow review wave before combined settlement.",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Fast Review Convergence Loop",
+      "steps": [
+        {
+          "type": "prepareReviewTargets",
+          "label": "Snapshot Fast Review Targets",
+          "outputKey": "fast_review_wave"
+        },
+        {
+          "type": "prepareReviewSet",
+          "label": "Prepare Fast Review Set",
+          "snapshotFrom": "fast_review_wave",
+          "outputKey": "fast_review_set",
+          "reviewPhase": "fast",
+          "reviewFlowNames": ["codex_review", "open_code_review"],
+          "crossRepositoryFlowName": "cross_repository_review"
+        },
+        {
+          "type": "subflowWave",
+          "label": "Run Fast Review Wave",
+          "failureMode": "best_effort",
+          "groups": [
+            {
+              "kind": "matrix",
+              "id": "fast_target_reviews",
+              "itemsFrom": "fast_review_wave.targets",
+              "itemName": "target",
+              "flowNames": ["codex_review", "open_code_review"],
+              "bindings": {
+                "workingFolderFrom": "target.repo_root",
+                "input": {
+                  "target": "target",
+                  "review_wave": "fast_review_wave",
+                  "review_set": "fast_review_set"
+                }
+              }
+            },
+            {
+              "kind": "singleton",
+              "id": "fast_cross_repository_review",
+              "flowName": "cross_repository_review",
+              "bindings": {
+                "workingFolderFrom": "fast_review_wave.plan_host_root",
+                "input": {
+                  "review_wave": "fast_review_wave",
+                  "review_set": "fast_review_set"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "validateReviewWave",
+          "label": "Validate Fast Review Wave",
+          "snapshotFrom": "fast_review_wave",
+          "reviewSetFrom": "fast_review_set"
+        },
+        {
+          "type": "reset",
+          "label": "Reset planner before merging fast review findings",
+          "agentType": "planning_agent",
+          "identifier": "planner"
+        },
+        {
+          "type": "llm",
+          "label": "Load planner context before merging fast review findings",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "load_planner_review_context.md"
+        },
+        {
+          "type": "llm",
+          "label": "Merge Codex Review Findings Into Canonical Review",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "merge_codex_review_findings_into_canonical_review.md"
+        },
+        {
+          "type": "llm",
+          "label": "Merge Open Code Review Findings Into Canonical Review",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "merge_open_code_review_findings_into_canonical_review.md"
+        },
+        {
+          "type": "subflow",
+          "label": "Disposition Fast Review Wave",
+          "flowNames": ["review_disposition_current_artifacts"]
+        },
+        {
+          "type": "llm",
+          "label": "Record Fast Review Pass Outcome",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
+          "markdownFile": "record_fast_review_pass_outcome.md"
+        },
+        {
+          "type": "subflow",
+          "label": "Resolve Fast Review Minor Findings",
+          "flowNames": ["minor_review_fix_path"]
+        },
+        {
+          "type": "break",
+          "label": "Exit Fast Review Phase When Converged Or Fifth Pass Was Drained",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_fast_review_phase_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+          "breakOn": "yes"
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Advance Review Cycle To Slow Phase",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "markdownFile": "advance_review_cycle_to_slow_phase.md"
+    },
+    {
+      "type": "prepareReviewTargets",
+      "label": "Snapshot Slow Review Targets",
+      "outputKey": "slow_review_wave"
+    },
+    {
+      "type": "prepareReviewSet",
+      "label": "Prepare Slow Review Set",
+      "snapshotFrom": "slow_review_wave",
+      "outputKey": "slow_review_set",
+      "reviewPhase": "slow",
+      "reviewFlowNames": ["review_artifacts_main"]
+    },
+    {
+      "type": "subflowWave",
+      "label": "Run Slow Review Wave",
+      "failureMode": "best_effort",
+      "groups": [
+        {
+          "kind": "matrix",
+          "id": "slow_target_reviews",
+          "itemsFrom": "slow_review_wave.targets",
+          "itemName": "target",
+          "flowNames": ["review_artifacts_main"],
+          "bindings": {
+            "workingFolderFrom": "target.repo_root",
+            "input": {
+              "target": "target",
+              "review_wave": "slow_review_wave",
+              "review_set": "slow_review_set"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "validateReviewWave",
+      "label": "Validate Slow Review Wave",
+      "snapshotFrom": "slow_review_wave",
+      "reviewSetFrom": "slow_review_set"
+    },
+    {
+      "type": "subflow",
+      "label": "Disposition Slow Review Wave",
+      "flowNames": ["review_disposition_current_artifacts"]
+    },
+    {
+      "type": "subflow",
+      "label": "Resolve Slow Review Minor Findings",
+      "flowNames": ["minor_review_fix_path"]
+    },
+    {
+      "type": "llm",
+      "label": "Finalize Two-Phase Review Disposition",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "markdownFile": "finalize_two_phase_review_disposition.md"
+    },
+    {
+      "type": "subflow",
+      "label": "Task Up Combined Review Findings",
+      "flowNames": ["review_task_up_path"]
+    },
+    {
+      "type": "llm",
+      "label": "Repair Workflow State If Needed",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "markdownFile": "repair_review_workflow_state.md"
+    }
+  ]
+}

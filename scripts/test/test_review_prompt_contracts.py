@@ -317,24 +317,27 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("exact `Scope Impact` is `cleanup_preference`", disposition_text)
         self.assertIn("If `Scope Impact` is missing, malformed, or unrecognized", disposition_text)
 
-    def test_review_classifier_caps_reruns_before_forcing_durable_follow_up(self) -> None:
+    def test_review_classifier_preserves_bounded_two_phase_review_control(self) -> None:
         classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
         document_minor_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
-        task_up_text = read_text("codeinfo_markdown/ensure_review_findings_became_tasks.md")
+        fast_record_text = read_text(
+            "codeinfo_markdown/record_fast_review_pass_outcome.md"
+        )
+        finalizer_text = read_text(
+            "codeinfo_markdown/finalize_two_phase_review_disposition.md"
+        )
 
-        self.assertIn("at most one fresh rerun", classify_text)
-        self.assertIn("previous same-cycle state already had `needs_review_rerun_before_close: true`", classify_text)
-        self.assertIn("the current pass is the one allowed rerun", classify_text)
-        self.assertIn("do not leave any still-unresolved condition on the minor-fix rerun path", classify_text)
-        self.assertIn("do not leave the remaining issue only in `unresolved_minor_batchable_findings` or `operationally_blocked_minor_findings`", classify_text)
-        self.assertIn("needs_task_up_path", classify_text)
-        self.assertIn("unresolved_task_required_findings", classify_text)
-        self.assertIn("incomplete_review_blockers", classify_text)
-        self.assertIn("review did not converge after one allowed rerun", classify_text)
-        self.assertNotIn("review_rerun_count", classify_text)
-        self.assertNotIn("review_rerun_count", document_minor_text)
-        self.assertNotIn("review_rerun_count", task_up_text)
-        self.assertNotIn("exhausted-rerun", task_up_text)
+        self.assertIn('`review_phase: "fast"` or `review_phase: "slow"`', classify_text)
+        self.assertIn("up to five successfully recorded reviewer passes", classify_text)
+        self.assertIn("must remain false during classification", classify_text)
+        self.assertIn("fast_reviewed_pass_ids", fast_record_text)
+        self.assertIn("between 1 and 5 inclusive", fast_record_text)
+        self.assertIn("immediately before the Minor Review Fix Path", fast_record_text)
+        self.assertIn("The slow reviewer runs once in this cycle", finalizer_text)
+        self.assertIn("generate_final_revalidation", finalizer_text)
+        self.assertIn("preserve the phase-local", document_minor_text)
+        self.assertIn("Outside a two-phase cycle", document_minor_text)
+        self.assertIn("Outside an active two-phase cycle", classify_text)
 
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(

@@ -459,7 +459,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 ### Task 15. Compose repeated fast repository waves and one slow repository wave
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -467,44 +467,53 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 2. [x] Add the slow phase using a fresh target snapshot, a main-review-only set, one `N`-child wave, one validation and disposition pass, and no slow rerun.
 3. [x] Finalize cumulative findings and run task-up only after both phases complete.
 4. [x] Wire all three production implementation flows exclusively through the combined two-phase cycle.
-5. [ ] Preserve cancellation, resume reattachment, immutable input, distinct child title, and best-effort terminal-outcome behavior in both phases.
+5. [x] Preserve cancellation, resume reattachment, immutable input, distinct child title, and best-effort terminal-outcome behavior in both phases.
 
 #### Testing
 
 1. [x] Extend recursive production-flow contract tests to prove fast `2N + 1` and slow `N` wave shapes and exactly one slow-review occurrence.
-2. [ ] Add production integration coverage for multiple fast passes with fixes, zero-minor convergence, the fifth-pass bound, and one slow launch.
-3. [ ] Add cancellation and resume coverage proving repeated waves do not duplicate active children.
-4. [ ] Run targeted flow-schema, subflow-wave, production-loop, and Cucumber wrappers.
+2. [x] Add production integration coverage for multiple fast passes with fixes, zero-minor convergence, the fifth-pass bound, and one slow launch.
+3. [x] Add cancellation and resume coverage proving repeated waves do not duplicate active children.
+4. [x] Run targeted flow-schema, subflow-wave, production-loop, and Cucumber wrappers.
 
 #### Implementation Notes
 
 - Replaced the legacy shared-base/static-subflow steps inside `two_phase_review_cycle` with fresh fast and slow target snapshots, phase-specific review sets, and `subflowWave` jobs bound to explicit repository roots.
 - Fast waves contain Codex and Open Code Review for every target plus the cross-repository singleton; the only slow wave contains one main reviewer per target.
 - Kept disposition and minor fixing reusable in both phases, while combined finalization, task-up, and workflow repair remain after the one slow pass.
+- Reused the deterministic fast controller coverage for zero-minor convergence, another pre-fifth pass, fifth-pass exit, and refusal to advance with an undrained minor queue.
+- Updated the review-wave Cucumber feature to execute the production shared cycle, proving one/three-target fast counts of three/seven and slow counts of one/three; all 9 scenarios passed.
+- The complete subflow integration file passed 47/47, including immutable concurrent launch, best-effort outcomes, cancellation fan-out, and resume reattachment without duplicate child launches.
 
 ### Task 16. Reconcile wave-aware disposition, cumulative state, prompts, and documentation
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 
 #### Subtasks
 
-1. [ ] Make the finalized wave manifest the authoritative validation source for every fast and slow disposition pass without requiring the legacy plan-host validation artifact.
-2. [ ] Preserve cumulative serious findings and fix history across phases while keeping minor queues and pre-fix counts current-pass scoped.
-3. [ ] Prevent task-up, clean closeout, and final revalidation before the slow phase finalizer selects the combined outcome.
-4. [ ] Update prompts and prompt contracts for phase-aware wave identities, fast-only cross review, and the single slow review.
-5. [ ] Update repository documentation and progress labels for fast pass counts, cross-review coverage, and final slow-wave progress.
+1. [x] Make the finalized wave manifest the authoritative validation source for every fast and slow disposition pass without requiring the legacy plan-host validation artifact.
+2. [x] Preserve cumulative serious findings and fix history across phases while keeping minor queues and pre-fix counts current-pass scoped.
+3. [x] Prevent task-up, clean closeout, and final revalidation before the slow phase finalizer selects the combined outcome.
+4. [x] Update prompts and prompt contracts for phase-aware wave identities, fast-only cross review, and the single slow review.
+5. [x] Update repository documentation and progress labels for fast pass counts, cross-review coverage, and final slow-wave progress.
 
 #### Testing
 
-1. [ ] Run the targeted Python flow-control and prompt-contract tests.
-2. [ ] Run server disposition, artifact validation, and production contract tests.
-3. [ ] Run relevant client and e2e progress/resume tests.
+1. [x] Run the targeted Python flow-control and prompt-contract tests.
+2. [x] Run server disposition, artifact validation, and production contract tests.
+3. [x] Run relevant client and e2e progress/resume tests.
 
 #### Implementation Notes
 
+- Reconciled the wave consumer contract so fast manifests require usable cross-repository coverage while slow manifests intentionally omit it and require every expected main-review job.
+- Retained main's cumulative two-phase state rules: serious findings and fixed history survive pass transitions, minor queues remain current-pass scoped, and only the post-slow finalizer may select task-up, final revalidation, or clean completion.
+- Restored exact JSON identity field names in the wave-aware Codex merge prompt after its focused contract test caught an overly prose-oriented merge resolution.
+- Added a prompt/flow contract test that parses the real two-phase flow and asserts the fast reviewer pair, cross singleton, main-only slow set, and phase-specific consumer flags; all 29 prompt tests passed.
+- The focused client sidebar and flow-run suites passed 20/20 and 36/36, and the browser wave-progress scenario passed with repeated child identity and progress metadata intact.
+
 ### Task 17. Prove and close out the combined two-phase multi-repository review cycle
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 
 #### Subtasks
 

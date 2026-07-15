@@ -339,6 +339,49 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Outside a two-phase cycle", document_minor_text)
         self.assertIn("Outside an active two-phase cycle", classify_text)
 
+    def test_two_phase_cycle_uses_fast_cross_wave_then_one_target_only_slow_wave(self) -> None:
+        cycle = json.loads(read_text("flows/two_phase_review_cycle.json"))
+        fast_loop = next(
+            step
+            for step in cycle["steps"]
+            if step.get("label") == "Fast Review Convergence Loop"
+        )
+        fast_set = next(
+            step for step in fast_loop["steps"] if step["type"] == "prepareReviewSet"
+        )
+        fast_wave = next(
+            step for step in fast_loop["steps"] if step["type"] == "subflowWave"
+        )
+        slow_set = next(
+            step
+            for step in cycle["steps"]
+            if step.get("label") == "Prepare Slow Review Set"
+        )
+        slow_waves = [
+            step
+            for step in cycle["steps"]
+            if step.get("label") == "Run Slow Review Wave"
+        ]
+        consumer_text = read_text(
+            "codeinfo_markdown/shared/review-wave-consumer-contract.md"
+        )
+
+        self.assertEqual(fast_set["reviewPhase"], "fast")
+        self.assertEqual(
+            fast_set["reviewFlowNames"], ["codex_review", "open_code_review"]
+        )
+        self.assertEqual(
+            fast_set["crossRepositoryFlowName"], "cross_repository_review"
+        )
+        self.assertEqual(len(fast_wave["groups"]), 2)
+        self.assertEqual(slow_set["reviewPhase"], "slow")
+        self.assertEqual(slow_set["reviewFlowNames"], ["review_artifacts_main"])
+        self.assertNotIn("crossRepositoryFlowName", slow_set)
+        self.assertEqual(len(slow_waves), 1)
+        self.assertEqual(len(slow_waves[0]["groups"]), 1)
+        self.assertIn("`cross_repository_required: true`", consumer_text)
+        self.assertIn("`cross_repository_required: false`", consumer_text)
+
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(
             "codeinfo_markdown/ensure_task_testing_matches_current_contract.md"

@@ -68,14 +68,12 @@ const createPass = async (targetCount: number, pass = 1) => {
   };
   const expectedJobs = [
     ...targets.flatMap((target) =>
-      ['review_artifacts_main', 'codex_review', 'open_code_review'].map(
-        (flowName) => ({
-          instance_id: `${target.target_id}--${flowName}`,
-          flow_name: flowName,
-          target_id: target.target_id,
-          kind: 'target_review' as const,
-        }),
-      ),
+      ['codex_review', 'open_code_review'].map((flowName) => ({
+        instance_id: `${target.target_id}--${flowName}`,
+        flow_name: flowName,
+        target_id: target.target_id,
+        kind: 'target_review' as const,
+      })),
     ),
     {
       instance_id: 'story--cross_repository_review',
@@ -91,6 +89,8 @@ const createPass = async (targetCount: number, pass = 1) => {
     parent_execution_id: snapshot.parent_execution_id,
     targets_sha256: snapshot.targets_sha256,
     plan_host_root: snapshot.plan_host_root,
+    review_phase: 'fast',
+    cross_repository_required: true,
     target_count: targetCount,
     expected_job_count: expectedJobs.length,
     expected_jobs: expectedJobs,
@@ -129,7 +129,7 @@ When('I expand the production mixed review wave', async () => {
   const repoRoot = path.resolve(process.cwd(), '..');
   const parsed = parseFlowFile(
     await fs.readFile(
-      path.join(repoRoot, 'flows/task_and_implement_plan.json'),
+      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
       'utf8',
     ),
   );
@@ -139,7 +139,7 @@ When('I expand the production mixed review wave', async () => {
   assert(waveStep);
   jobs = expandSubflowWaveJobs({
     step: waveStep,
-    input: { review_wave: snapshot, review_set: reviewSet },
+    input: { fast_review_wave: snapshot, fast_review_set: reviewSet },
   });
   firstPassHashes = jobs.map((job) => job.inputHash ?? '');
 });
@@ -148,12 +148,12 @@ Then('the review wave contains {int} concurrent jobs', (count: number) => {
   assert.equal(jobs.length, count);
 });
 
-Then('every target has exactly three local review jobs', () => {
+Then('every target has exactly two fast local review jobs', () => {
   assert(snapshot);
   for (const target of snapshot.targets) {
     assert.equal(
       jobs.filter((job) => job.targetId === target.target_id).length,
-      3,
+      2,
     );
   }
 });
@@ -186,7 +186,7 @@ When('I advance every target and expand a second review pass', async () => {
   const repoRoot = path.resolve(process.cwd(), '..');
   const parsed = parseFlowFile(
     await fs.readFile(
-      path.join(repoRoot, 'flows/task_and_implement_plan.json'),
+      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
       'utf8',
     ),
   );
@@ -196,8 +196,50 @@ When('I advance every target and expand a second review pass', async () => {
   assert(waveStep);
   jobs = expandSubflowWaveJobs({
     step: waveStep,
-    input: { review_wave: snapshot, review_set: reviewSet },
+    input: { fast_review_wave: snapshot, fast_review_set: reviewSet },
   });
+});
+
+When('I expand the production slow review wave', async () => {
+  assert(snapshot && reviewSet);
+  const repoRoot = path.resolve(process.cwd(), '..');
+  const parsed = parseFlowFile(
+    await fs.readFile(
+      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+      'utf8',
+    ),
+  );
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  const waveStep = parsed.flow.steps.find(
+    (step) =>
+      step.type === 'subflowWave' && step.label === 'Run Slow Review Wave',
+  );
+  assert(waveStep?.type === 'subflowWave');
+  jobs = expandSubflowWaveJobs({
+    step: waveStep,
+    input: {
+      slow_review_wave: snapshot,
+      slow_review_set: {
+        ...reviewSet,
+        review_phase: 'slow',
+        cross_repository_required: false,
+      },
+    },
+  });
+});
+
+Then('every target has exactly one slow main review job', () => {
+  assert(snapshot);
+  for (const target of snapshot.targets) {
+    const targetJobs = jobs.filter((job) => job.targetId === target.target_id);
+    assert.equal(targetJobs.length, 1);
+    assert.equal(targetJobs[0]?.flowName, 'review_artifacts_main');
+  }
+  assert.equal(
+    jobs.some((job) => job.flowName === 'cross_repository_review'),
+    false,
+  );
 });
 
 Then('no second-pass child reuses its first-pass input identity', () => {
@@ -336,9 +378,8 @@ When('I route aggregated review findings to downstream tasking', () => {
         job.validation?.usable === true &&
         job.validation.target_id === job.target_id &&
         job.validation_file?.startsWith(
-          snapshot?.targets.find(
-            (target) => target.target_id === job.target_id,
-          )?.repo_root ?? '',
+          snapshot?.targets.find((target) => target.target_id === job.target_id)
+            ?.repo_root ?? '',
         ),
     );
   downstreamCrossCoverage =

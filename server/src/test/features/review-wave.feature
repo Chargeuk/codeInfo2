@@ -1,17 +1,28 @@
 @review-wave
 Feature: Story review wave orchestration
 
-  Scenario Outline: Every target receives three reviews while one story reviewer overlaps the matrix
+  Scenario Outline: Every target receives two fast reviews while one story reviewer overlaps the matrix
     Given a review wave pass with <targets> pinned target(s)
     When I expand the production mixed review wave
     Then the review wave contains <jobs> concurrent jobs
-    And every target has exactly three local review jobs
+    And every target has exactly two fast local review jobs
     And the review wave contains exactly one cross-repository singleton
 
     Examples:
       | targets | jobs |
-      | 1       | 4    |
-      | 3       | 10   |
+      | 1       | 3    |
+      | 3       | 7    |
+
+  Scenario Outline: Every target receives one final slow review without a cross-repository rerun
+    Given a review wave pass with <targets> pinned target(s)
+    When I expand the production slow review wave
+    Then the review wave contains <targets> concurrent jobs
+    And every target has exactly one slow main review job
+
+    Examples:
+      | targets |
+      | 1       |
+      | 3       |
 
   Scenario: One target exits the cross-repository review before expensive work
     Given a review wave pass with 1 pinned target(s)

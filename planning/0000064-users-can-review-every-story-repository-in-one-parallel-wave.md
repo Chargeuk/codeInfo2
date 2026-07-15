@@ -801,3 +801,18 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The supported main stack was stopped through its wrapper after proof; every `codeinfo2-*-local` service and `mongo_db_CodeInfo-local` remained running and healthy where health checks are defined.
 - Final repository lint passed with zero warnings or errors after manual proof and plan maintenance.
 - Final tracked-file formatting verification passed with every matched file conforming to Prettier, completing Task 24 closeout.
+
+
+### Task 25. Re-Validate Story Linting
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+1. [x] Run `npm run lint`.
+
+#### Testing
+
+1. [ ] Run `npm run lint`.
+
+#### Implementation Notes

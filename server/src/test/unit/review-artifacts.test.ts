@@ -39,6 +39,7 @@ type FixtureOptions = {
   commentsReviewedFiles?: number;
   pointerTotalFiles?: number;
   ocrCoverageShape?: 'nested' | 'top-level' | 'missing' | 'conflicting';
+  ocrBundleShape?: 'canonical' | 'legacy' | 'conflicting' | 'malformed';
 };
 
 const argumentValue = (args: string[], flag: string): string => {
@@ -469,6 +470,35 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
               total_files: pointerCoverage.total_files + 1,
             }
           : { coverage: pointerCoverage };
+  const legacyBundles = bundles.map((bundle) => ({
+    bundle_id: bundle.bundle_id,
+    comments_file: bundle.comments_path,
+    validation_file: bundle.validation_path,
+    report_file: bundle.report_path,
+    validation_status: 'valid',
+  }));
+  const bundleShape = options.ocrBundleShape ?? 'canonical';
+  const pointerBundleFields =
+    bundleShape === 'legacy'
+      ? { bundle_artifacts: legacyBundles }
+      : bundleShape === 'conflicting'
+        ? {
+            bundles,
+            bundle_artifacts: legacyBundles.map((bundle, index) =>
+              index === 0
+                ? { ...bundle, report_file: 'codeInfoTmp/reviews/other.md' }
+                : bundle,
+            ),
+          }
+        : bundleShape === 'malformed'
+          ? {
+              bundle_artifacts: legacyBundles.map((bundle, index) =>
+                index === 0
+                  ? { ...bundle, comments_file: undefined }
+                  : bundle,
+              ),
+            }
+          : { bundles };
   await fs.writeFile(
     path.join(reviewDir, '0000013-current-open-code-review.json'),
     JSON.stringify({
@@ -479,7 +509,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       canonical_review_pass_id: PASS,
       open_code_review_pass_id: `${PASS}-ocr`,
       manifest_path: 'codeInfoTmp/reviews/ocr-manifest.json',
-      bundles,
+      ...pointerBundleFields,
       ...pointerCoverageFields,
       review_output_file: 'codeInfoTmp/reviews/ocr.md',
       overall_validation_status: invalidIndexes.size > 0 ? 'partial' : 'valid',
@@ -512,6 +542,59 @@ test('validateReviewArtifacts accepts one coherent server-owned review session',
       true,
     );
     assert.equal(result.validated_artifact_files.length, 8);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts accepts transitional OCR bundle aliases with a warning', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-legacy-bundles-'),
+  );
+  try {
+    await writeFixture(repoRoot, { ocrBundleShape: 'legacy' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'passed');
+    assert.equal(result.pointer_results[0]?.usable, true);
+    assert.match(result.warnings.join('\n'), /transitional bundle_artifacts/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects conflicting OCR bundle representations', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-conflicting-bundles-'),
+  );
+  try {
+    await writeFixture(repoRoot, { ocrBundleShape: 'conflicting' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /bundle representations conflict/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects malformed transitional OCR bundle aliases', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-malformed-bundles-'),
+  );
+  try {
+    await writeFixture(repoRoot, { ocrBundleShape: 'malformed' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /no usable validated bundles/u);
+    assert.match(result.warnings.join('\n'), /comments_path is missing/u);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

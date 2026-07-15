@@ -824,8 +824,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 4. [ ] Start the supported main stack with `npm run compose:up`.
 5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering client, server unit, server cucumber, and e2e suites.
 6. [ ] Stop the supported main stack with `npm run compose:down`.
-7. [ ] Run `npm run lint`.
-8. [ ] Run `npm run format:check`.
+7. [x] Run `npm run lint`.
+8. [x] Run `npm run format:check`.
 
 #### Implementation Notes
 
@@ -834,3 +834,4 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Server summary build passed cleanly through `npm run build:summary:server`; its remaining lifecycle checks are still pending.
 - `npm run lint` passed with zero warnings or errors; the formatting subtask remains pending.
 - `npm run format:check` passed; all matched tracked files use Prettier code style.
+- The directly corresponding final-task testing items for lint and formatting were completed by the successful subtask checks; all broader proof remains pending.

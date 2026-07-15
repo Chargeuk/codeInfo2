@@ -620,3 +620,29 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - A live Codex-backed plan-host run published merge HEAD `b65e9329` through deterministic preflight with canonical `bundles`, nested-only coverage, no transitional aliases, and the expected absence of wave fields for standalone mode; the supported main stack was then stopped cleanly.
 - The read-only live review reported three provisional architecture findings and one OCR manifest coverage discrepancy outside this publisher integration; manual-proof policy leaves them to normal server-validated disposition rather than creating task work here.
 - Pushed through `81daa47c`, fetched the remote feature ref, and verified exact local/remote equality, `origin/main` ancestry at `5aaf61ac`, zero divergence, and a clean worktree before final plan closeout.
+
+### Task 20. Integrate fail-forward validation with repository review waves
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+1. [ ] Merge current `origin/main` while preserving the completed `2N + 1` fast-wave and `N` slow-wave topology.
+2. [ ] Seed initialized review pointers from the complete prepared review base without losing target and wave identity.
+3. [ ] Compose canonical fallback publication with legacy and wave-target validation, including stale-state protection.
+4. [ ] Record fast-pass coverage from the exact finalized review-set manifest instead of a fixed reviewer count.
+5. [ ] Make deterministic fast-loop control retry incomplete waves and report bounded fifth-pass coverage exhaustion.
+6. [ ] Preserve legacy resume compatibility and downstream degraded-coverage state while adding focused regressions.
+
+#### Testing
+
+1. [ ] Run targeted Python flow-control and prompt-contract tests.
+2. [ ] Run targeted review-base, review-artifact, review-set, review-wave, schema, and flow integration tests.
+3. [ ] Run the server build wrapper and complete server unit wrapper.
+4. [ ] Run `npm run test:summary:all:parallel`.
+5. [ ] Run `npm run lint` and `npm run format:check`.
+6. [ ] Run supported main-stack multi-repository fail-forward proof when provider authentication permits, then verify ancestry, pushed equality, and a clean worktree.
+
+#### Implementation Notes
+
+- Added this post-closeout task so main's fail-forward validation fix can be generalized to Story 64's manifest-driven repository waves without weakening their parallel topology or target-local artifact contracts.

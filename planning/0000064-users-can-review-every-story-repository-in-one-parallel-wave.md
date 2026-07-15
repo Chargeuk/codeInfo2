@@ -623,7 +623,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 ### Task 20. Integrate fail-forward validation with repository review waves
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -642,7 +642,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 3. [x] Run the server build wrapper and complete server unit wrapper.
 4. [x] Run `npm run test:summary:all:parallel`.
 5. [x] Run `npm run lint` and `npm run format:check`.
-6. [ ] Run supported main-stack multi-repository fail-forward proof when provider authentication permits, then verify ancestry, pushed equality, and a clean worktree.
+6. [x] Run supported main-stack multi-repository fail-forward proof when provider authentication permits, then verify ancestry, pushed equality, and a clean worktree.
 
 #### Implementation Notes
 
@@ -664,3 +664,4 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The one-target run reached the deterministic retry controls, but the configured loop-control provider repeatedly returned non-JSON output to the strict yes/no prompt; the authoritative checker returned `{"answer":"no"}` and persisted retry state remained correct, so this provider-formatting limitation was recorded without weakening the product assertion.
 - The supported three-repository fixture prepared one primary and two additional targets, launched the exact seven-job `2N + 1` fast wave, completed all 7 jobs with no failures or skips, and produced server validation with `closeout_allowed=true`; the supported main stack was stopped afterward while all local development-stack containers remained running.
 - After the supported-catalog addition, lint and formatting passed again and the canonical parallel wrapper passed 899 client tests, 2,624 server unit/integration tests, 138 Cucumber scenarios, and 77 e2e tests with all reusable builds successful.
+- Pushed implementation/proof commit `a0a188f1f64f`, fetched both current remote refs, and confirmed exact local/remote feature equality, current `origin/main` ancestry, and a clean worktree before closing the task.

@@ -91,6 +91,11 @@ test('standalone Open Code Review prompt locks the host-agent safety contract', 
   assert.match(prompt, /Do not commit, push, create branches/u);
   assert.match(prompt, /Do not request or use `OCR_LLM_URL`/u);
   assert.match(prompt, /write .*current-open-code-review\.json.*atomically/isu);
+  assert.match(prompt, /"coverage":\s*\{\s*"total_files"/u);
+  assert.match(
+    prompt,
+    /Do not publish these six coverage fields at the top level\./u,
+  );
 });
 
 test('server image builds the exact Codex-enabled OCR fork and gates its commands', () => {

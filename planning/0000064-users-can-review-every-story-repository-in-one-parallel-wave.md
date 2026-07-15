@@ -542,3 +542,32 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The catalog regression passed 7/7 and a restarted main stack discovered all reachable agents, reported all three production flows plus `two_phase_review_cycle` enabled, and reported Codex, Copilot, and LM Studio available.
 - Live container inspection proved one target expands to three fast and one slow job, three targets expand to seven fast and three slow jobs, every fast wave has one cross-repository job, and the slow wave has none; `npm run compose:down` then stopped the supported stack.
 - Final lint, tracked and newly added catalog formatting checks, prompt contracts, diff hygiene, and focused catalog/producer contracts passed before the closeout commit and push.
+
+### Task 18. Integrate OpenCode coverage compatibility into repository review waves
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+1. [ ] Merge current `origin/main` and preserve the completed `2N + 1` fast-wave and `N` slow-wave architecture.
+2. [x] Reconcile OpenCode coverage parsing with legacy and wave-target validation while keeping manifest and bundle verification authoritative.
+3. [x] Preserve the target-local OpenCode prompt contract and require newly published pointers to use canonical nested coverage.
+4. [x] Resolve the review-artifact fixture conflict while retaining both Story 64 wave identity coverage and main's coverage-shape regressions.
+5. [x] Add a Story 64 regression proving transitional top-level coverage remains usable and publishes `current-review-validation.json` in wave-target mode.
+
+#### Testing
+
+1. [x] Run diff hygiene and the targeted review-artifact, OpenCode-flow, and review-wave validation tests.
+2. [ ] Run `npm run build:summary:server` and the complete server unit wrapper.
+3. [ ] Run `npm run test:summary:all:parallel`.
+4. [ ] Run supported main-stack OpenCode wave-target proof when provider authentication permits, then stop it with `npm run compose:down`.
+5. [ ] Verify `origin/main` is an ancestor, the pushed feature branch matches local HEAD, and the worktree is clean.
+
+#### Implementation Notes
+
+- Added this post-closeout task so the new mainline compatibility fix is integrated without rewriting the completed Task 17 proof record.
+- Composed main's coverage resolver with Story 64's shared validator, so both legacy and wave-target modes accept a complete transitional top-level shape while retaining manifest, bundle, and integer validation.
+- Preserved the target-local authority preamble and replaced the ambiguous producer wording with the canonical nested `coverage` example and an explicit top-level prohibition.
+- Resolved the sole merge conflict by retaining both `waveScope` and `ocrCoverageShape` fixture controls; the remaining production, prompt, and flow-contract changes composed automatically and were audited together.
+- Added a wave-target regression without an ambient current-plan handoff that requires usable OpenCode bundles, the compatibility warning, retained wave identity, and a published stable validation artifact.
+- Diff hygiene passed, followed by 33/33 review-artifact tests, 7/7 OpenCode flow-contract tests, and 5/5 review-wave validation tests.

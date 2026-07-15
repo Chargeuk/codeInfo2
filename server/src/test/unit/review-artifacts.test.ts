@@ -39,6 +39,7 @@ type FixtureOptions = {
   commentsReviewedFiles?: number;
   pointerTotalFiles?: number;
   waveScope?: boolean;
+  ocrCoverageShape?: 'nested' | 'top-level' | 'missing' | 'conflicting';
 };
 
 const argumentValue = (args: string[], flag: string): string => {
@@ -277,7 +278,9 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       resolved_base_source: additionalResolvedBaseSource,
       remote_name: 'origin',
       remote_fetch_status:
-        additionalResolvedBaseSource === 'remote' ? 'success' : 'missing_remote',
+        additionalResolvedBaseSource === 'remote'
+          ? 'success'
+          : 'missing_remote',
       local_fallback_reason:
         additionalResolvedBaseSource === 'remote' ? null : 'missing_remote',
       comparison_base_ref: options.additionalComparisonBaseRef ?? 'main',
@@ -454,6 +457,26 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       JSON.stringify(manifest),
     ),
   ]);
+  const pointerCoverage = {
+    total_files: options.pointerTotalFiles ?? bundleCount,
+    reviewable_files: bundleCount,
+    reviewed_files: bundleCount - invalidIndexes.size,
+    excluded_files: 0,
+    skipped_files: 0,
+    failed_files: invalidIndexes.size,
+  };
+  const coverageShape = options.ocrCoverageShape ?? 'nested';
+  const pointerCoverageFields =
+    coverageShape === 'top-level'
+      ? pointerCoverage
+      : coverageShape === 'missing'
+        ? {}
+        : coverageShape === 'conflicting'
+          ? {
+              coverage: pointerCoverage,
+              total_files: pointerCoverage.total_files + 1,
+            }
+          : { coverage: pointerCoverage };
   await fs.writeFile(
     path.join(reviewDir, '0000013-current-open-code-review.json'),
     JSON.stringify({
@@ -465,14 +488,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       open_code_review_pass_id: `${PASS}-ocr`,
       manifest_path: 'codeInfoTmp/reviews/ocr-manifest.json',
       bundles,
-      coverage: {
-        total_files: options.pointerTotalFiles ?? bundleCount,
-        reviewable_files: bundleCount,
-        reviewed_files: bundleCount - invalidIndexes.size,
-        excluded_files: 0,
-        skipped_files: 0,
-        failed_files: invalidIndexes.size,
-      },
+      ...pointerCoverageFields,
       review_output_file: 'codeInfoTmp/reviews/ocr.md',
       overall_validation_status: invalidIndexes.size > 0 ? 'partial' : 'valid',
       partial: invalidIndexes.size > 0,
@@ -546,6 +562,61 @@ test('validateReviewArtifacts validates a wave target without an ambient current
       )?.usable_bundle_ids,
       [`sha256:${'1'.padStart(64, '0')}`],
     );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts publishes usable wave-target validation for transitional top-level OCR coverage', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-wave-target-top-level-coverage-'),
+  );
+  try {
+    await writeFixture(repoRoot, {
+      waveScope: true,
+      ocrCoverageShape: 'top-level',
+    });
+    await fs.rm(
+      path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+    );
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      storyId: '0000013',
+      validationMode: 'wave_target',
+      pointerKeys: ['current-open-code-review'],
+    });
+
+    assert.equal(result.status, 'passed');
+    assert.equal(result.validation_mode, 'wave_target');
+    assert.equal(result.target_id, 'current_repository');
+    assert.equal(result.review_wave_id, '0000013-rw-wave-target');
+    assert.equal(result.plan_host_root, repoRoot);
+    assert.equal(result.pointer_results[0]?.usable, true);
+    assert.deepEqual(result.pointer_results[0]?.usable_bundle_ids, [
+      `sha256:${'1'.padStart(64, '0')}`,
+    ]);
+    assert.match(
+      result.warnings.join('\n'),
+      /transitional top-level coverage/u,
+    );
+
+    const published = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000013-current-review-validation.json',
+        ),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
+    assert.equal(published.status, 'passed');
+    assert.equal(published.validation_mode, 'wave_target');
+    assert.equal(published.target_id, 'current_repository');
+    assert.equal(published.review_wave_id, '0000013-rw-wave-target');
+    assert.equal(published.plan_host_root, repoRoot);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -834,6 +905,62 @@ test('validateReviewArtifacts rejects OCR coverage that disagrees with the manif
   }
 });
 
+test('validateReviewArtifacts accepts transitional top-level OCR coverage with a warning', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-top-level-coverage-'),
+  );
+  try {
+    await writeFixture(repoRoot, { ocrCoverageShape: 'top-level' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'passed');
+    assert.equal(result.pointer_results[0]?.usable, true);
+    assert.equal(result.pointer_results[0]?.usable_bundle_ids.length, 1);
+    assert.match(
+      result.warnings.join('\n'),
+      /transitional top-level coverage/u,
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects missing OCR coverage in both supported shapes', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-missing-coverage-'),
+  );
+  try {
+    await writeFixture(repoRoot, { ocrCoverageShape: 'missing' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /coverage is missing/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects conflicting nested and top-level OCR coverage', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-conflicting-coverage-'),
+  );
+  try {
+    await writeFixture(repoRoot, { ocrCoverageShape: 'conflicting' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-open-code-review'],
+    });
+    assert.equal(result.status, 'blocked');
+    assert.match(result.errors.join('\n'), /coverage is ambiguous/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('validateReviewArtifacts rejects a bundle that did not review every reviewable file', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-artifacts-files-reviewed-'),
@@ -882,11 +1009,9 @@ test('validateReviewArtifacts accepts a remote base for an additional repository
   );
   try {
     const { base } = await initializeAdditionalRepository(additionalRoot);
-    await execFile(
-      'git',
-      ['update-ref', 'refs/remotes/origin/main', base],
-      { cwd: additionalRoot },
-    );
+    await execFile('git', ['update-ref', 'refs/remotes/origin/main', base], {
+      cwd: additionalRoot,
+    });
     await writeFixture(repoRoot, {
       additionalRepositoryPath: additionalRoot,
       additionalComparisonBaseRef: 'origin/main',

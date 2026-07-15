@@ -79,6 +79,24 @@ Create `<pass-dir>/open-code-review.md` containing:
 
 Copy the completed aggregate Markdown unchanged to `codeInfoTmp/reviews/<open_code_review_pass_id>-open-code-review.md`. Re-read the prepared base and require its complete identity tuple to remain unchanged. If the active session changed, stop without publishing a stable pointer.
 
-Finally write both `/app/logs/open-code-review/current-open-code-review.json` and `codeInfoTmp/reviews/<story_id>-current-open-code-review.json` atomically after all attempted bundle artifacts are complete, even when one or more bundles failed. Both must use `schema_version: codeinfo-open-code-review/v1` and include `story_id`, `plan_path`, `review_session_id`, `canonical_review_pass_id`, `parent_execution_id`, `open_code_review_pass_id`, base commit, head commit, selected source headings, OCR version, manifest path, every attempted bundle's comments/validation/report paths, `review_output_file` pointing to the repository-relative aggregate copy, and coverage counts named `total_files`, `reviewable_files`, `reviewed_files`, `excluded_files`, `skipped_files`, and `failed_files`. Copy `total_files`, `reviewable_files`, and `excluded_files` exactly from the manifest summary; set `skipped_files` from the manifest skipped-file list; derive `reviewed_files` only from reviewable files in bundles whose comments and validation artifacts succeeded; and count every remaining uncovered reviewable file as failed. Set top-level `partial` to `true` when any reviewable file or bundle was skipped or failed, set `status: completed`, and set `overall_validation_status` to `valid`, `partial`, or `invalid` according to the usable validated coverage. Include null/false merge fields. Copy the complete prepared scope under the exact field names `repo_alias`, `repo_root`, `branch`, `branched_from`, `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, `comparison_rule`, `review_context_file`, `review_context_sha256`, `review_context_source_plan_sha256`, and `review_excluded_paths`; do not rename, infer, or recompute those fields. Publishing a partial pointer is required so the parent flow can keep valid bundle findings and report missing coverage honestly.
+Finally write both `/app/logs/open-code-review/current-open-code-review.json` and `codeInfoTmp/reviews/<story_id>-current-open-code-review.json` atomically after all attempted bundle artifacts are complete, even when one or more bundles failed. Both must use `schema_version: codeinfo-open-code-review/v1` and include `story_id`, `plan_path`, `review_session_id`, `canonical_review_pass_id`, `parent_execution_id`, `open_code_review_pass_id`, base commit, head commit, selected source headings, OCR version, manifest path, every attempted bundle's comments/validation/report paths, and `review_output_file` pointing to the repository-relative aggregate copy.
+
+Publish coverage in exactly this nested shape, using actual derived integers:
+
+```json
+{
+  "coverage": {
+    "total_files": 0,
+    "reviewable_files": 0,
+    "reviewed_files": 0,
+    "excluded_files": 0,
+    "skipped_files": 0,
+    "failed_files": 0
+  },
+  "partial": false
+}
+```
+
+Do not publish these six coverage fields at the top level. Copy `coverage.total_files`, `coverage.reviewable_files`, and `coverage.excluded_files` exactly from the manifest summary; set `coverage.skipped_files` from the manifest skipped-file list; derive `coverage.reviewed_files` only from reviewable files in bundles whose comments and validation artifacts succeeded; and count every remaining uncovered reviewable file in `coverage.failed_files`. Set top-level `partial` to `true` when any reviewable file or bundle was skipped or failed, set `status: completed`, and set `overall_validation_status` to `valid`, `partial`, or `invalid` according to the usable validated coverage. Include null/false merge fields. Copy the complete prepared scope under the exact field names `repo_alias`, `repo_root`, `branch`, `branched_from`, `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, `comparison_rule`, `review_context_file`, `review_context_sha256`, `review_context_source_plan_sha256`, and `review_excluded_paths`; do not rename, infer, or recompute those fields. Publishing a partial pointer is required so the parent flow can keep valid bundle findings and report missing coverage honestly.
 
 Your final response must state the validated findings first, then coverage and residual risk, then the exact pointer and aggregate report paths. Do not merge findings into canonical review state.

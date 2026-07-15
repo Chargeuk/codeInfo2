@@ -819,11 +819,11 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
 1. [x] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run compose:build:summary`.
-4. [ ] Start the supported main stack with `npm run compose:up`.
-5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering client, server unit, server cucumber, and e2e suites.
-6. [ ] Stop the supported main stack with `npm run compose:down`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run compose:build:summary`.
+4. [x] Start the supported main stack with `npm run compose:up`.
+5. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering client, server unit, server cucumber, and e2e suites.
+6. [x] Stop the supported main stack with `npm run compose:down`.
 7. [x] Run `npm run lint`.
 8. [x] Run `npm run format:check`.
 
@@ -832,6 +832,11 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Expanded the dedicated final task to cover the actual story-owned root repository surface and its supported build, runtime, full-suite, shutdown, lint, and formatting lifecycle; the prior lint-only scope was incomplete.
 - **RESOLVED ISSUE** The generic incomplete-automated-proof blocker was retired after `npm run build:summary:server` passed on 2026-07-15. The remaining listed proof steps are normal in-progress work, not a live blocker.
 - Server summary build passed cleanly through `npm run build:summary:server`; its remaining lifecycle checks are still pending.
-- `npm run lint` passed with zero warnings or errors; the formatting subtask remains pending.
+- `npm run lint` passed with zero warnings or errors; the formatting subtask also passed.
 - `npm run format:check` passed; all matched tracked files use Prettier code style.
-- The directly corresponding final-task testing items for lint and formatting were completed by the successful subtask checks; all broader proof remains pending.
+- The directly corresponding final-task testing items for lint and formatting were completed by the successful subtask checks; all broader proof is now complete.
+- Client summary build passed through typecheck and Vite build; Vite reported the existing large-chunk warning, but the build completed successfully.
+- Compose summary build passed with both image build items successful and no failed items.
+- Supported main stack started successfully; MongoDB and the server reached healthy status and the client container started.
+- Full parallel automated suite passed: client 899, server unit 2627, server cucumber 138, and e2e 77 tests passed with zero failures.
+- Supported main stack stopped cleanly; all started containers and the internal network were removed.

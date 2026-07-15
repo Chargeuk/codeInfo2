@@ -56,6 +56,22 @@ function collectProductionFlowAgentTypes(
           }
         }
       }
+      if (step.type === 'subflowWave' && Array.isArray(step.groups)) {
+        for (const group of step.groups as Array<Record<string, unknown>>) {
+          const childFlowNames = [
+            ...(typeof group.flowName === 'string' ? [group.flowName] : []),
+            ...(Array.isArray(group.flowNames)
+              ? group.flowNames.filter(
+                  (flowName): flowName is string =>
+                    typeof flowName === 'string',
+                )
+              : []),
+          ];
+          for (const childFlowName of childFlowNames) {
+            collectProductionFlowAgentTypes(childFlowName, seen, agentTypes);
+          }
+        }
+      }
     }
   };
   visit(parsed.steps ?? []);

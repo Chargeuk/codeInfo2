@@ -633,13 +633,14 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 4. [x] Record fast-pass coverage from the exact finalized review-set manifest instead of a fixed reviewer count.
 5. [x] Make deterministic fast-loop control retry incomplete waves and report bounded fifth-pass coverage exhaustion.
 6. [x] Preserve legacy resume compatibility and downstream degraded-coverage state while adding focused regressions.
+7. [x] Restore supported main-stack catalog parity for the slow review agent required by the merged two-phase flow.
 
 #### Testing
 
 1. [x] Run targeted Python flow-control and prompt-contract tests.
 2. [x] Run targeted review-base, review-artifact, review-set, review-wave, schema, and flow integration tests.
 3. [x] Run the server build wrapper and complete server unit wrapper.
-4. [ ] Run `npm run test:summary:all:parallel`.
+4. [x] Run `npm run test:summary:all:parallel`.
 5. [x] Run `npm run lint` and `npm run format:check`.
 6. [ ] Run supported main-stack multi-repository fail-forward proof when provider authentication permits, then verify ancestry, pushed equality, and a clean worktree.
 
@@ -656,3 +657,10 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The server build passed after correcting one missing OpenCode placeholder read in the merged review-base test, and the complete server unit/integration wrapper then passed all 2,624 tests.
 - Resolved all five merge conflicts by retaining the wave flow and test topology, taking complete prepared-base seeding, and composing both validator interfaces; the planner-context load remains in the fast wave and no legacy validation step was inserted into either wave.
 - Repository lint and tracked-file formatting checks passed without warnings or rewrites.
+- The canonical parallel wrapper passed 899 client tests, 2,624 server unit/integration tests, 138 Cucumber scenarios, and 77 e2e tests plus the reusable server, client, main Compose, and e2e Compose builds; the client retained only the pre-existing 1,700 kB chunk advisory.
+- Supported-stack discovery found `review_artifacts_main` disabled because the editable manual catalog lacked the flow's required `review_agent_lite`; this is an actionable proof-catalog gap rather than an allowed authentication skip, so a seventh implementation subtask was added before continuing manual proof.
+- Added the production-equivalent lightweight review profile and its target saturation and blind-spot commands to the supported manual catalog, expanded catalog-parity discovery through `subflowWave` groups, and passed all 7 host-network/Compose contract tests; both the slow review subflow and full two-phase flow now resolve as enabled in the running main stack.
+- The supported one-target run validated a three-job fast wave as partial after an intentional prepared-plan drift: one job remained usable, two were rejected as stale, canonical fallback publication did not overwrite stale state, and pass bookkeeping recorded incomplete/untrusted coverage with `needs_review_rerun_before_close: true`.
+- The one-target run reached the deterministic retry controls, but the configured loop-control provider repeatedly returned non-JSON output to the strict yes/no prompt; the authoritative checker returned `{"answer":"no"}` and persisted retry state remained correct, so this provider-formatting limitation was recorded without weakening the product assertion.
+- The supported three-repository fixture prepared one primary and two additional targets, launched the exact seven-job `2N + 1` fast wave, completed all 7 jobs with no failures or skips, and produced server validation with `closeout_allowed=true`; the supported main stack was stopped afterward while all local development-stack containers remained running.
+- After the supported-catalog addition, lint and formatting passed again and the canonical parallel wrapper passed 899 client tests, 2,624 server unit/integration tests, 138 Cucumber scenarios, and 77 e2e tests with all reusable builds successful.

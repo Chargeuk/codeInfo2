@@ -415,10 +415,7 @@ const assertAdditionalRepositoryScope = async (params: {
           `${remoteName}/${resolvedBaseBranch}`,
           `refs/remotes/${remoteName}/${resolvedBaseBranch}`,
         ])
-      : new Set([
-          resolvedBaseBranch,
-          `refs/heads/${resolvedBaseBranch}`,
-        ]);
+      : new Set([resolvedBaseBranch, `refs/heads/${resolvedBaseBranch}`]);
   if (!resolvedBaseRefs.has(comparisonBaseRef)) {
     throw new Error(
       `current-review repository ${params.repositoryPath} comparison_base_ref does not match resolved_base_branch.`,
@@ -542,6 +539,55 @@ const nonEmptyString = (value: unknown, fieldName: string): string => {
     throw new Error(`${fieldName} is missing.`);
   }
   return value.trim();
+};
+
+const OCR_COVERAGE_FIELDS = [
+  'total_files',
+  'reviewable_files',
+  'reviewed_files',
+  'excluded_files',
+  'skipped_files',
+  'failed_files',
+] as const;
+
+const resolveOcrCoverage = (params: {
+  pointer: ReviewPointer;
+  warnings: string[];
+}): ReviewPointer => {
+  const coverage = params.pointer.coverage;
+  const topLevelFields = OCR_COVERAGE_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(params.pointer, field),
+  );
+  if (coverage !== undefined) {
+    if (!coverage || typeof coverage !== 'object' || Array.isArray(coverage)) {
+      throw new Error('current-open-code-review.coverage is missing.');
+    }
+    const coverageRecord = coverage as ReviewPointer;
+    const conflictingFields = topLevelFields.filter(
+      (field) =>
+        !isDeepStrictEqual(params.pointer[field], coverageRecord[field]),
+    );
+    if (conflictingFields.length > 0) {
+      throw new Error(
+        `current-open-code-review coverage is ambiguous because nested and top-level values conflict for ${conflictingFields.join(', ')}.`,
+      );
+    }
+    if (topLevelFields.length > 0) {
+      params.warnings.push(
+        'current-open-code-review duplicates coverage fields at the top level; nested coverage is authoritative.',
+      );
+    }
+    return coverageRecord;
+  }
+  if (topLevelFields.length !== OCR_COVERAGE_FIELDS.length) {
+    throw new Error('current-open-code-review.coverage is missing.');
+  }
+  params.warnings.push(
+    'current-open-code-review uses transitional top-level coverage fields; publish them under coverage.',
+  );
+  return Object.fromEntries(
+    OCR_COVERAGE_FIELDS.map((field) => [field, params.pointer[field]]),
+  );
 };
 
 const validateOcrArtifacts = async (params: {
@@ -936,11 +982,10 @@ const validateOcrArtifacts = async (params: {
       throw new Error('OCR pointer bundles do not match the manifest.');
     }
 
-    const coverage = params.pointer.coverage;
-    if (!coverage || typeof coverage !== 'object' || Array.isArray(coverage)) {
-      throw new Error('current-open-code-review.coverage is missing.');
-    }
-    const coverageRecord = coverage as ReviewPointer;
+    const coverageRecord = resolveOcrCoverage({
+      pointer: params.pointer,
+      warnings: params.warnings,
+    });
     const totalFiles = integerField(
       coverageRecord.total_files,
       'current-open-code-review.coverage.total_files',

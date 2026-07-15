@@ -168,6 +168,9 @@ class FlowControlReviewTests(unittest.TestCase):
                 "fast_review_pass_count": 2,
                 "fast_reviewed_pass_ids": ["pass-1", "pass-2"],
                 "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
                 "needs_minor_fix_path": False,
                 "review_pass_id": self.REVIEW_PASS_ID,
                 "review_cycle_id": self.REVIEW_CYCLE_ID,
@@ -188,6 +191,9 @@ class FlowControlReviewTests(unittest.TestCase):
                 "fast_review_pass_count": 4,
                 "fast_reviewed_pass_ids": ["pass-1", "pass-2", "pass-3", "pass-4"],
                 "fast_current_pass_minor_count_before_fix": 3,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
                 "needs_minor_fix_path": False,
                 "review_pass_id": self.REVIEW_PASS_ID,
                 "review_cycle_id": self.REVIEW_CYCLE_ID,
@@ -212,6 +218,9 @@ class FlowControlReviewTests(unittest.TestCase):
                     "pass-5",
                 ],
                 "fast_current_pass_minor_count_before_fix": 2,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
                 "needs_minor_fix_path": False,
                 "review_pass_id": self.REVIEW_PASS_ID,
                 "review_cycle_id": self.REVIEW_CYCLE_ID,
@@ -236,6 +245,9 @@ class FlowControlReviewTests(unittest.TestCase):
                     "pass-5",
                 ],
                 "fast_current_pass_minor_count_before_fix": 1,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
                 "needs_minor_fix_path": True,
                 "review_pass_id": self.REVIEW_PASS_ID,
                 "review_cycle_id": self.REVIEW_CYCLE_ID,
@@ -246,6 +258,79 @@ class FlowControlReviewTests(unittest.TestCase):
 
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "fast_review_minor_findings_not_drained")
+
+    def test_fast_review_retries_incomplete_reviewer_coverage(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 4,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2", "pass-3", "pass-4"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 1,
+                "fast_current_pass_reviewers_complete": False,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_requires_complete_reviewer_coverage"
+        )
+
+    def test_fast_review_stops_retrying_incomplete_coverage_after_fifth_pass(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 5,
+                "fast_reviewed_pass_ids": [
+                    "pass-1",
+                    "pass-2",
+                    "pass-3",
+                    "pass-4",
+                    "pass-5",
+                ],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 0,
+                "fast_current_pass_reviewers_complete": False,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_fifth_pass_coverage_exhausted"
+        )
+
+    def test_fast_review_rejects_inconsistent_reviewer_coverage_state(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": ["pass-1"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 1,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_counter_state_invalid")
 
     def test_minor_fix_path_continues_when_unresolved_findings_remain(self) -> None:
         repo = self.make_repo(

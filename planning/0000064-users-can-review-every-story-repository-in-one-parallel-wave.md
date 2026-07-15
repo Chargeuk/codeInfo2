@@ -818,7 +818,7 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] Run `npm run build:summary:server`.
+1. [x] Run `npm run build:summary:server`.
 2. [ ] Run `npm run build:summary:client`.
 3. [ ] Run `npm run compose:build:summary`.
 4. [ ] Start the supported main stack with `npm run compose:up`.
@@ -830,4 +830,5 @@ Final-task repair scope: the whole approved story is in scope for failures found
 #### Implementation Notes
 
 - Expanded the dedicated final task to cover the actual story-owned root repository surface and its supported build, runtime, full-suite, shutdown, lint, and formatting lifecycle; the prior lint-only scope was incomplete.
-- **BLOCKER** The implementation-plus-automated-proof pass remains incomplete: unchecked subtasks are `In codeInfo2, run the supported lint command and fix issues` and `In codeInfo2, run the supported formatting command and fix issues`; unchecked testing items are the server summary build, client summary build, Compose summary build, supported main-stack startup, full parallel automated suite, supported main-stack shutdown, lint, and format check. These items remained open after audit normalization. Evidence checked: the fresh bounded Task 25 packet, `plan_status.py --task-number 25`, the clean current branch at `e7e44961` whose task-expansion commit states proof had not begun, and validation logs dated before that expansion. Implementation cannot continue honestly without repair, narrower ownership, or planner intervention.
+- **RESOLVED ISSUE** The generic incomplete-automated-proof blocker was retired after `npm run build:summary:server` passed on 2026-07-15. The remaining listed proof steps are normal in-progress work, not a live blocker.
+- Server summary build passed cleanly through `npm run build:summary:server`; its remaining lifecycle checks are still pending.

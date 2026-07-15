@@ -545,7 +545,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 ### Task 18. Integrate OpenCode coverage compatibility into repository review waves
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -561,7 +561,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 2. [x] Run `npm run build:summary:server` and the complete server unit wrapper.
 3. [x] Run `npm run test:summary:all:parallel`.
 4. [x] Run supported main-stack OpenCode wave-target proof when provider authentication permits, then stop it with `npm run compose:down`.
-5. [ ] Verify `origin/main` is an ancestor, the pushed feature branch matches local HEAD, and the worktree is clean.
+5. [x] Verify `origin/main` is an ancestor, the pushed feature branch matches local HEAD, and the worktree is clean.
 
 #### Implementation Notes
 
@@ -576,3 +576,4 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The canonical parallel suite passed 899 client tests, 2,613 server tests, 138 Cucumber scenarios, and 77 e2e tests; reusable server/client and both Compose builds also passed, with only the existing client large-chunk advisory.
 - The supported main stack exposed enabled OpenCode and two-phase flows and completed a Codex-backed OpenCode run against merge HEAD `460d8432`; its pointer published all six counts only under nested `coverage`, reported 44/44 reviewable files covered with zero failures, and the stack was then stopped cleanly.
 - The live reviewer also emitted five provisional architecture findings outside this compatibility task; repository manual-proof policy leaves those for the normal server-validated review/disposition workflow rather than creating implementation work from manual proof alone.
+- Pushed through `2ce0495e`, fetched the feature ref, and verified exact local/remote equality with `origin/main` as an ancestor and no uncommitted files before final plan closeout.

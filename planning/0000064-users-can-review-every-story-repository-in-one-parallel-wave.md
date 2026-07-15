@@ -562,7 +562,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 3. [x] Run `npm run test:summary:all:parallel`.
 4. [x] Run supported main-stack OpenCode wave-target proof when provider authentication permits, then stop it with `npm run compose:down`.
 5. [x] Verify `origin/main` is an ancestor, the pushed feature branch matches local HEAD, and the worktree is clean.
-6. [ ] Run `npm run lint` and fix any errors.
+6. [x] Run `npm run lint` and fix any errors.
 
 #### Implementation Notes
 
@@ -579,3 +579,4 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The live reviewer also emitted five provisional architecture findings outside this compatibility task; repository manual-proof policy leaves those for the normal server-validated review/disposition workflow rather than creating implementation work from manual proof alone.
 - Pushed through `2ce0495e`, fetched the feature ref, and verified exact local/remote equality with `origin/main` as an ancestor and no uncommitted files before final plan closeout.
 - Implementation audit: fresh source, test, prompt, flow, and git evidence supports all five subtasks; no story-caused preserved-behavior regression or unrelated user-facing drift was found. The task remains `__in_progress__` because the lint proof item is still open for the separate automated-proof pass, and no blocker is needed while all implementation subtasks are complete.
+- Automated proof completed `npm run lint` successfully with no errors or warnings; no repair was required.

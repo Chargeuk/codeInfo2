@@ -584,7 +584,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 ### Task 19. Integrate deterministic OpenCode publication with target-scoped review waves
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -602,7 +602,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 3. [x] Run `npm run test:summary:all:parallel`.
 4. [x] Run `npm run lint` and `npm run format:check`.
 5. [x] Run supported-stack plan-host and additional-repository publication proof when provider authentication permits, then stop it with `npm run compose:down`.
-6. [ ] Verify `origin/main` ancestry, pushed local/remote equality, and a clean worktree.
+6. [x] Verify `origin/main` ancestry, pushed local/remote equality, and a clean worktree.
 
 #### Implementation Notes
 
@@ -619,3 +619,4 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The rebuilt supported server image passed all 12 packaged publisher tests, including the additional-repository wave fixture with no current-plan handoff, complete wave identity, mismatch rejection, and containment checks.
 - A live Codex-backed plan-host run published merge HEAD `b65e9329` through deterministic preflight with canonical `bundles`, nested-only coverage, no transitional aliases, and the expected absence of wave fields for standalone mode; the supported main stack was then stopped cleanly.
 - The read-only live review reported three provisional architecture findings and one OCR manifest coverage discrepancy outside this publisher integration; manual-proof policy leaves them to normal server-validated disposition rather than creating task work here.
+- Pushed through `81daa47c`, fetched the remote feature ref, and verified exact local/remote equality, `origin/main` ancestry at `5aaf61ac`, zero divergence, and a clean worktree before final plan closeout.

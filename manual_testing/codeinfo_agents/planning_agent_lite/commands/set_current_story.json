@@ -1,0 +1,17 @@
+{
+  "Description": "Set the active implementation story explicitly from a user-provided plan path and write the canonical current-plan handoff.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "If the file `codeinfo_markdown/repository_information.md` exists, then read it as it will contain useful information you should keep referencing while setting the active story in this repository. If the file does not exist, then don't worry about it. Tell me if you found the file or not."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "set_current_story_handoff.md"
+    }
+  ]
+}

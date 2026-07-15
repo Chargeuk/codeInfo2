@@ -513,22 +513,32 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 ### Task 17. Prove and close out the combined two-phase multi-repository review cycle
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
-1. [ ] Reconcile all touched code, flows, prompts, tests, documentation, and plan notes after targeted proof.
-2. [ ] Prove one-target fast and slow job counts and a multi-target `2N + 1` then `N` execution.
-3. [ ] Prove a minor-fix fast rerun, cumulative serious findings, fast cross-coverage failure, and one-only slow review behavior.
-4. [ ] Prove cancellation/resume and per-pass artifact isolation without duplicate launches.
-5. [ ] Commit the completed integration in ordered Story 64 commits and push the feature branch.
+1. [x] Reconcile all touched code, flows, prompts, tests, documentation, and plan notes after targeted proof.
+2. [x] Prove one-target fast and slow job counts and a multi-target `2N + 1` then `N` execution.
+3. [x] Prove a minor-fix fast rerun, cumulative serious findings, fast cross-coverage failure, and one-only slow review behavior.
+4. [x] Prove cancellation/resume and per-pass artifact isolation without duplicate launches.
+5. [x] Commit the completed integration in ordered Story 64 commits and push the feature branch.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`.
-2. [ ] Run `npm run test:summary:all:parallel`.
-3. [ ] Run `npm run lint`, the repository formatter, and `npm run format:check`.
-4. [ ] Run `npm run compose:build:summary`.
-5. [ ] Run supported main-stack one-target and multi-target manual proof, then stop it with `npm run compose:down`.
+1. [x] Run `npm run build:summary:server` and `npm run build:summary:client`.
+2. [x] Run `npm run test:summary:all:parallel`.
+3. [x] Run `npm run lint`, the repository formatter, and `npm run format:check`.
+4. [x] Run `npm run compose:build:summary`.
+5. [x] Run supported main-stack one-target and multi-target manual proof, then stop it with `npm run compose:down`.
 
 #### Implementation Notes
+
+- Server and client build wrappers passed; the client wrapper reported only the existing Rollup large-chunk advisory and no typecheck or build failure.
+- The first full parallel run exposed one stale static contract that still searched parent flows for inline wave producers; changed it to expand reusable subflows recursively and assert both phase-specific producer chains, then its targeted tests passed 3/3.
+- The required full rerun passed 899 client tests, 2,608 server unit/integration tests, 138 Cucumber scenarios, and 77 e2e tests, with all shared server/client and Compose builds green.
+- The repository formatter completed without additional source changes, lint passed with zero warnings, and the format check passed.
+- The Compose build summary ran inside the canonical parallel wrapper and passed both image builds with the expected runtime assets baked into the server image.
+- Supported-stack startup initially exposed that `planning_agent_lite`, `research_agent`, and `tasking_agent` were absent from the editable main-stack catalog, leaving every production implementation flow disabled; copied the checked-in canonical profiles without ignored auth files and added a recursive catalog coverage regression.
+- The catalog regression passed 7/7 and a restarted main stack discovered all reachable agents, reported all three production flows plus `two_phase_review_cycle` enabled, and reported Codex, Copilot, and LM Studio available.
+- Live container inspection proved one target expands to three fast and one slow job, three targets expand to seven fast and three slow jobs, every fast wave has one cross-repository job, and the slow wave has none; `npm run compose:down` then stopped the supported stack.
+- Final lint, tracked and newly added catalog formatting checks, prompt contracts, diff hygiene, and focused catalog/producer contracts passed before the closeout commit and push.

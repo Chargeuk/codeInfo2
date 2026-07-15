@@ -24,45 +24,60 @@ const productionFlows = [
   'improve_task_implement_plan.json',
 ];
 
+const loadExpandedFlowObjects = async (
+  flowName: string,
+  ancestors: string[] = [],
+): Promise<JsonObject[]> => {
+  const relativeFlowName = flowName.endsWith('.json')
+    ? flowName
+    : `${flowName}.json`;
+  assert.equal(
+    ancestors.includes(relativeFlowName),
+    false,
+    `flow subflow cycle: ${[...ancestors, relativeFlowName].join(' -> ')}`,
+  );
+  const parsed = JSON.parse(
+    await fs.readFile(path.join(repoRoot, 'flows', relativeFlowName), 'utf8'),
+  ) as { steps?: JsonObject[] };
+  const expanded: JsonObject[] = [];
+  const visit = async (steps: JsonObject[]) => {
+    for (const step of steps) {
+      expanded.push(step);
+      if (Array.isArray(step.steps)) {
+        await visit(step.steps as JsonObject[]);
+      }
+      if (step.type === 'subflow' && Array.isArray(step.flowNames)) {
+        for (const childFlowName of step.flowNames) {
+          assert.equal(typeof childFlowName, 'string');
+          expanded.push(
+            ...(await loadExpandedFlowObjects(childFlowName, [
+              ...ancestors,
+              relativeFlowName,
+            ])),
+          );
+        }
+      }
+    }
+  };
+  await visit(parsed.steps ?? []);
+  return expanded;
+};
+
 test('every production review loop produces the complete wave validation contract before consumers run', async () => {
-  const requiredSequence = [
-    'prepareReviewTargets',
-    'prepareReviewSet',
-    'subflowWave',
-    'validateReviewWave',
-  ];
   for (const flowName of productionFlows) {
-    const parsed = JSON.parse(
-      await fs.readFile(path.join(repoRoot, 'flows', flowName), 'utf8'),
-    ) as JsonObject;
-    const objects = collectObjects(parsed);
-    const positions = requiredSequence.map((type) =>
-      objects.findIndex((entry) => entry.type === type),
+    const objects = await loadExpandedFlowObjects(flowName);
+    const validationPosition = objects.findIndex(
+      (entry) =>
+        entry.type === 'validateReviewWave' && entry.reviewPhase === 'fast',
     );
     assert.equal(
-      positions.every((position) => position >= 0),
+      validationPosition >= 0,
       true,
-      `${flowName} must contain every wave producer`,
+      `${flowName} must reach fast wave validation through its shared cycle`,
     );
-    assert.deepEqual(
-      [...positions].sort((left, right) => left - right),
-      positions,
-      `${flowName} must publish validation after the mixed wave`,
-    );
-
-    const wave = objects[positions[2] ?? -1] as JsonObject;
-    const groups = wave.groups as JsonObject[];
-    const matrix = groups.find((group) => group.kind === 'matrix');
-    const singleton = groups.find((group) => group.kind === 'singleton');
-    assert.deepEqual(matrix?.flowNames, [
-      'review_artifacts_main',
-      'codex_review',
-      'open_code_review',
-    ]);
-    assert.equal(singleton?.flowName, 'cross_repository_review');
 
     const downstreamPrompts = objects
-      .slice(positions[3] + 1)
+      .slice(validationPosition + 1)
       .map((entry) => entry.markdownFile)
       .filter((entry): entry is string => typeof entry === 'string');
     for (const requiredConsumer of [
@@ -77,6 +92,46 @@ test('every production review loop produces the complete wave validation contrac
       );
     }
   }
+
+  const cycle = JSON.parse(
+    await fs.readFile(
+      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+      'utf8',
+    ),
+  ) as JsonObject;
+  const cycleObjects = collectObjects(cycle);
+  const fastSet = cycleObjects.find(
+    (entry) =>
+      entry.type === 'prepareReviewSet' && entry.reviewPhase === 'fast',
+  );
+  const slowSet = cycleObjects.find(
+    (entry) =>
+      entry.type === 'prepareReviewSet' && entry.reviewPhase === 'slow',
+  );
+  const fastWave = cycleObjects.find(
+    (entry) =>
+      entry.type === 'subflowWave' && entry.label === 'Run Fast Review Wave',
+  );
+  const slowWaves = cycleObjects.filter(
+    (entry) =>
+      entry.type === 'subflowWave' && entry.label === 'Run Slow Review Wave',
+  );
+  const fastGroups = fastWave?.groups as JsonObject[];
+  const fastMatrix = fastGroups.find((group) => group.kind === 'matrix');
+  const fastSingleton = fastGroups.find((group) => group.kind === 'singleton');
+  const slowGroups = slowWaves[0]?.groups as JsonObject[];
+
+  assert.deepEqual(fastSet?.reviewFlowNames, [
+    'codex_review',
+    'open_code_review',
+  ]);
+  assert.equal(fastSet?.crossRepositoryFlowName, 'cross_repository_review');
+  assert.deepEqual(fastMatrix?.flowNames, ['codex_review', 'open_code_review']);
+  assert.equal(fastSingleton?.flowName, 'cross_repository_review');
+  assert.deepEqual(slowSet?.reviewFlowNames, ['review_artifacts_main']);
+  assert.equal(slowSet?.crossRepositoryFlowName, undefined);
+  assert.equal(slowWaves.length, 1);
+  assert.deepEqual(slowGroups[0]?.flowNames, ['review_artifacts_main']);
 
   const producer = await fs.readFile(
     path.join(repoRoot, 'server/src/flows/reviewWaveValidation.ts'),

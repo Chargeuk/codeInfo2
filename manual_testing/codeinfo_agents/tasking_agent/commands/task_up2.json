@@ -1,0 +1,85 @@
+{
+  "Description": "Task up the active story plan using a scoped, evidence-backed workflow with generic wrapper-first proof rules.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/01-shared-contract.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "shared/final-task-creation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/02-preflight.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/03-research-and-patterns.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/04-generate.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/05-subtask-granularity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/06-proof-matrix.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/07-test-case-expansion.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/08-stateful-ui-proof.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/09-proof-and-testing.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/10-test-semantics-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/11-review-preemption-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/12-subtasks-and-testing-separation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/13-junior-executor-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/14-finalize.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/15-create-or-update-simple-story.md"
+    }
+  ]
+}

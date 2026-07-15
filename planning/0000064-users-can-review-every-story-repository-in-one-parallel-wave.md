@@ -588,7 +588,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 #### Subtasks
 
-1. [ ] Merge current `origin/main` while preserving the completed Story 64 fast/slow topology and local Task 18 audit commits.
+1. [x] Merge current `origin/main` while preserving the completed Story 64 fast/slow topology and local Task 18 audit commits.
 2. [x] Replace the deterministic publisher's ambient current-plan dependency with an explicit contained prepared-base input.
 3. [x] Publish complete wave identity for target-scoped reviews while preserving standalone compatibility and strict structural validation.
 4. [x] Compose the target-local reviewer contract with fixed artifact names, bounded preflight, and deterministic atomic publication.
@@ -598,10 +598,10 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 #### Testing
 
 1. [x] Run publisher and prompt-contract Python tests plus targeted review-artifact, OpenCode-flow, and review-wave server tests.
-2. [ ] Run `npm run build:summary:server` and the complete server unit wrapper.
-3. [ ] Run `npm run test:summary:all:parallel`.
-4. [ ] Run `npm run lint` and `npm run format:check`.
-5. [ ] Run supported-stack plan-host and additional-repository publication proof when provider authentication permits, then stop it with `npm run compose:down`.
+2. [x] Run `npm run build:summary:server` and the complete server unit wrapper.
+3. [x] Run `npm run test:summary:all:parallel`.
+4. [x] Run `npm run lint` and `npm run format:check`.
+5. [x] Run supported-stack plan-host and additional-repository publication proof when provider authentication permits, then stop it with `npm run compose:down`.
 6. [ ] Verify `origin/main` ancestry, pushed local/remote equality, and a clean worktree.
 
 #### Implementation Notes
@@ -612,3 +612,10 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - Composed the target-local prompt with fixed four-digit artifacts, at-most-three preflight attempts, explicit prepared-base commands, canonical nested coverage, and deterministic atomic publication.
 - Retained main's transitional coverage and bundle aliases in the shared validator, including rejection of conflicting or malformed dual representations.
 - Expanded publisher tests for no-current-plan additional repositories, wave identity, incomplete scope, mismatched story/repository, and contained paths; the combined 41 Python tests and targeted 36 review-artifact, 7 OpenCode-flow, and 5 review-wave tests passed after one prompt wording repair.
+- Merge commit `b65e9329` contains `origin/main` at `5aaf61ac` on top of the three local Task 18 audit commits; the two-phase flow topology remained untouched.
+- The server build wrapper passed without warnings and the complete server unit/integration wrapper passed all 2,616 tests.
+- The canonical parallel wrapper passed 899 client tests, 2,616 server tests, 138 Cucumber scenarios, and 77 e2e tests plus all reusable builds; the client build retained only the existing large-chunk advisory.
+- Repository lint and tracked-file formatting checks passed without errors or source rewrites.
+- The rebuilt supported server image passed all 12 packaged publisher tests, including the additional-repository wave fixture with no current-plan handoff, complete wave identity, mismatch rejection, and containment checks.
+- A live Codex-backed plan-host run published merge HEAD `b65e9329` through deterministic preflight with canonical `bundles`, nested-only coverage, no transitional aliases, and the expected absence of wave fields for standalone mode; the supported main stack was then stopped cleanly.
+- The read-only live review reported three provisional architecture findings and one OCR manifest coverage discrepancy outside this publisher integration; manual-proof policy leaves them to normal server-validated disposition rather than creating task work here.

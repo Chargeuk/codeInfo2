@@ -805,7 +805,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 ### Task 25. Re-Validate Story Linting
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 

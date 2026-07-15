@@ -50,7 +50,7 @@ When `minor-review-fix-result.json` has `status: "fixed"`:
 11. Set `safe_to_exit_review_loop_without_tasking` false.
 12. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
 13. Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
-14. Preserve `review_phase`, fast-review counters and pass IDs, `fast_phase_complete`, and `slow_review_completed` exactly. This documentation step does not own phase transitions.
+14. Preserve `review_phase`, fast-review counters and pass IDs, manifest-driven job coverage and exhaustion fields, any legacy reviewer-coverage fields, `fast_phase_complete`, and `slow_review_completed` exactly. This documentation step does not own phase transitions.
 
 When the result has `status: "reclassify_task_required"`:
 

@@ -627,22 +627,32 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 #### Subtasks
 
-1. [ ] Merge current `origin/main` while preserving the completed `2N + 1` fast-wave and `N` slow-wave topology.
-2. [ ] Seed initialized review pointers from the complete prepared review base without losing target and wave identity.
-3. [ ] Compose canonical fallback publication with legacy and wave-target validation, including stale-state protection.
-4. [ ] Record fast-pass coverage from the exact finalized review-set manifest instead of a fixed reviewer count.
-5. [ ] Make deterministic fast-loop control retry incomplete waves and report bounded fifth-pass coverage exhaustion.
-6. [ ] Preserve legacy resume compatibility and downstream degraded-coverage state while adding focused regressions.
+1. [x] Merge current `origin/main` while preserving the completed `2N + 1` fast-wave and `N` slow-wave topology.
+2. [x] Seed initialized review pointers from the complete prepared review base without losing target and wave identity.
+3. [x] Compose canonical fallback publication with legacy and wave-target validation, including stale-state protection.
+4. [x] Record fast-pass coverage from the exact finalized review-set manifest instead of a fixed reviewer count.
+5. [x] Make deterministic fast-loop control retry incomplete waves and report bounded fifth-pass coverage exhaustion.
+6. [x] Preserve legacy resume compatibility and downstream degraded-coverage state while adding focused regressions.
 
 #### Testing
 
-1. [ ] Run targeted Python flow-control and prompt-contract tests.
-2. [ ] Run targeted review-base, review-artifact, review-set, review-wave, schema, and flow integration tests.
-3. [ ] Run the server build wrapper and complete server unit wrapper.
+1. [x] Run targeted Python flow-control and prompt-contract tests.
+2. [x] Run targeted review-base, review-artifact, review-set, review-wave, schema, and flow integration tests.
+3. [x] Run the server build wrapper and complete server unit wrapper.
 4. [ ] Run `npm run test:summary:all:parallel`.
-5. [ ] Run `npm run lint` and `npm run format:check`.
+5. [x] Run `npm run lint` and `npm run format:check`.
 6. [ ] Run supported main-stack multi-repository fail-forward proof when provider authentication permits, then verify ancestry, pushed equality, and a clean worktree.
 
 #### Implementation Notes
 
 - Added this post-closeout task so main's fail-forward validation fix can be generalized to Story 64's manifest-driven repository waves without weakening their parallel topology or target-local artifact contracts.
+- Replaced selective pointer seeding with the complete prepared base, so standalone and wave pointers retain repository, comparison, context, target, and wave identity before reviewer publication.
+- Composed main's canonical fallback flag with wave-target validation and made every target validation request it; stale prepared state remains an absolute no-overwrite gate.
+- Generalized fast coverage to manifest-sized completed, partial, failed, and missing job counts with a trusted/completed distinction, while retaining the upstream two-reviewer fields as a legacy resume fallback.
+- Added bounded job-coverage control and durable fifth-pass exhaustion routing so incomplete coverage retries before the cap and becomes an explicit final blocker at the cap.
+- Targeted flow-control and prompt-contract proof passed all 63 tests, including `2N + 1` completion, incomplete and untrusted retry, fifth-pass exhaustion, inconsistent-count rejection, and legacy resume behavior.
+- Preserved legacy two-reviewer controller state as a fallback only when generic job coverage is absent, carried generic coverage through classification and slow-phase transition, and routed fifth-pass exhaustion into one deduplicated final blocker.
+- Targeted server proof passed 13 review-base, 42 review-artifact, 7 review-set, 5 review-wave-validation, 68 flow-schema, and 47 flow integration tests plus all 9 review-wave Cucumber scenarios; one fixture-only severity setup was corrected after the first review-wave run exposed that its expected fast set still included the slow reviewer.
+- The server build passed after correcting one missing OpenCode placeholder read in the merged review-base test, and the complete server unit/integration wrapper then passed all 2,624 tests.
+- Resolved all five merge conflicts by retaining the wave flow and test topology, taking complete prepared-base seeding, and composing both validator interfaces; the planner-context load remains in the fast wave and no legacy validation step was inserted into either wave.
+- Repository lint and tracked-file formatting checks passed without warnings or rewrites.

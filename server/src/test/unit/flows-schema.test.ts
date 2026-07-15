@@ -26,6 +26,7 @@ describe('flow schema (v1)', () => {
     flowNames?: string[];
     reviewFlowNames?: string[];
     pointerKeys?: string[];
+    ensureCanonicalFallback?: boolean;
     reviewPhase?: string;
     crossRepositoryFlowName?: string;
     groups?: Array<{
@@ -342,6 +343,38 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('validateReviewArtifacts accepts one pointer with canonical fallback', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'validateReviewArtifacts',
+            pointerKeys: ['current-review'],
+            ensureCanonicalFallback: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
+  test('validateReviewArtifacts still requires at least one pointer', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'validateReviewArtifacts',
+            pointerKeys: [],
+            ensureCanonicalFallback: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
   test('valid validateReviewTarget step parses as ok: true', () => {
     const parsed = parseFlowFile(
       JSON.stringify({
@@ -447,6 +480,18 @@ describe('flow schema (v1)', () => {
       'open_code_review',
     ]);
     assert.equal(fastSet?.crossRepositoryFlowName, 'cross_repository_review');
+    assert.equal(
+      fastSteps.some(
+        (step) =>
+          step.label ===
+          'Load planner context before merging fast review findings',
+      ),
+      true,
+    );
+    assert.equal(
+      fastSteps.some((step) => step.type === 'validateReviewArtifacts'),
+      false,
+    );
     assert.ok(
       fastWave?.groups?.some(
         (group) =>

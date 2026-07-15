@@ -52,6 +52,39 @@ def _review_context(payload: dict[str, Any] | None) -> dict[str, Any]:
         "fast_current_pass_minor_count_before_fix": payload.get(
             "fast_current_pass_minor_count_before_fix"
         ),
+        "fast_current_pass_expected_job_count": payload.get(
+            "fast_current_pass_expected_job_count"
+        ),
+        "fast_current_pass_completed_job_count": payload.get(
+            "fast_current_pass_completed_job_count"
+        ),
+        "fast_current_pass_partial_job_count": payload.get(
+            "fast_current_pass_partial_job_count"
+        ),
+        "fast_current_pass_failed_job_count": payload.get(
+            "fast_current_pass_failed_job_count"
+        ),
+        "fast_current_pass_missing_job_count": payload.get(
+            "fast_current_pass_missing_job_count"
+        ),
+        "fast_current_pass_coverage_complete": payload.get(
+            "fast_current_pass_coverage_complete"
+        ),
+        "fast_current_pass_coverage_trusted": payload.get(
+            "fast_current_pass_coverage_trusted"
+        ),
+        "fast_review_coverage_exhausted": payload.get(
+            "fast_review_coverage_exhausted"
+        ),
+        "fast_current_pass_expected_reviewer_count": payload.get(
+            "fast_current_pass_expected_reviewer_count"
+        ),
+        "fast_current_pass_passed_reviewer_count": payload.get(
+            "fast_current_pass_passed_reviewer_count"
+        ),
+        "fast_current_pass_reviewers_complete": payload.get(
+            "fast_current_pass_reviewers_complete"
+        ),
         "review_pass_id": payload.get("review_pass_id"),
     }
 
@@ -458,6 +491,86 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
     pass_count = payload.get("fast_review_pass_count")
     entry_minor_count = payload.get("fast_current_pass_minor_count_before_fix")
     reviewed_pass_ids = payload.get("fast_reviewed_pass_ids")
+    generic_coverage_fields = (
+        "fast_current_pass_expected_job_count",
+        "fast_current_pass_completed_job_count",
+        "fast_current_pass_partial_job_count",
+        "fast_current_pass_failed_job_count",
+        "fast_current_pass_missing_job_count",
+        "fast_current_pass_coverage_complete",
+        "fast_current_pass_coverage_trusted",
+    )
+    has_generic_coverage = any(field in payload for field in generic_coverage_fields)
+    coverage_complete = False
+    coverage_valid = True
+    if has_generic_coverage:
+        expected_job_count = payload.get("fast_current_pass_expected_job_count")
+        completed_job_count = payload.get("fast_current_pass_completed_job_count")
+        partial_job_count = payload.get("fast_current_pass_partial_job_count")
+        failed_job_count = payload.get("fast_current_pass_failed_job_count")
+        missing_job_count = payload.get("fast_current_pass_missing_job_count")
+        coverage_complete = payload.get("fast_current_pass_coverage_complete")
+        coverage_trusted = payload.get("fast_current_pass_coverage_trusted")
+        coverage_exhausted = payload.get("fast_review_coverage_exhausted", False)
+        count_values = (
+            expected_job_count,
+            completed_job_count,
+            partial_job_count,
+            failed_job_count,
+            missing_job_count,
+        )
+        coverage_valid = (
+            all(
+                isinstance(value, int)
+                and not isinstance(value, bool)
+                and value >= 0
+                for value in count_values
+            )
+            and isinstance(coverage_complete, bool)
+            and isinstance(coverage_trusted, bool)
+            and isinstance(coverage_exhausted, bool)
+        )
+        if coverage_valid and coverage_trusted:
+            coverage_valid = (
+                expected_job_count >= 1
+                and completed_job_count
+                + partial_job_count
+                + failed_job_count
+                + missing_job_count
+                == expected_job_count
+                and coverage_complete
+                == (
+                    completed_job_count == expected_job_count
+                    and partial_job_count == 0
+                    and failed_job_count == 0
+                    and missing_job_count == 0
+                )
+            )
+        elif coverage_valid:
+            coverage_valid = coverage_complete is False
+        if coverage_valid:
+            coverage_valid = coverage_exhausted == (
+                not coverage_complete and pass_count == 5
+            )
+    else:
+        expected_reviewer_count = payload.get(
+            "fast_current_pass_expected_reviewer_count"
+        )
+        passed_reviewer_count = payload.get(
+            "fast_current_pass_passed_reviewer_count"
+        )
+        reviewers_complete = payload.get("fast_current_pass_reviewers_complete")
+        coverage_valid = (
+            expected_reviewer_count == 2
+            and isinstance(passed_reviewer_count, int)
+            and not isinstance(passed_reviewer_count, bool)
+            and passed_reviewer_count >= 0
+            and passed_reviewer_count <= expected_reviewer_count
+            and isinstance(reviewers_complete, bool)
+            and reviewers_complete
+            == (passed_reviewer_count == expected_reviewer_count)
+        )
+        coverage_complete = reviewers_complete is True
     if (
         not isinstance(pass_count, int)
         or isinstance(pass_count, bool)
@@ -473,14 +586,29 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
             for review_pass_id in reviewed_pass_ids
         )
         or len(set(reviewed_pass_ids)) != len(reviewed_pass_ids)
+        or not coverage_valid
     ):
         return no("fast_review_counter_state_invalid", **_review_context(payload))
 
     if payload.get("needs_minor_fix_path") is True:
         return no("fast_review_minor_findings_not_drained", **_review_context(payload))
 
+    if not coverage_complete:
+        if pass_count >= 5:
+            return yes(
+                "fast_review_fifth_pass_coverage_exhausted",
+                **_review_context(payload),
+            )
+        return no(
+            "fast_review_requires_complete_job_coverage",
+            **_review_context(payload),
+        )
+
     if entry_minor_count == 0:
-        return yes("fast_review_converged_without_minor_findings", **_review_context(payload))
+        return yes(
+            "fast_review_converged_without_minor_findings",
+            **_review_context(payload),
+        )
 
     if pass_count >= 5:
         return yes("fast_review_fifth_pass_drained", **_review_context(payload))

@@ -628,9 +628,7 @@ const normalizeOcrBundles = (
     const candidate = bundle as ReviewPointer;
     return {
       bundle_id: candidate.bundle_id,
-      comments_path: legacy
-        ? candidate.comments_file
-        : candidate.comments_path,
+      comments_path: legacy ? candidate.comments_file : candidate.comments_path,
       validation_path: legacy
         ? candidate.validation_file
         : candidate.validation_path,
@@ -1286,6 +1284,7 @@ export async function validateReviewArtifacts(
     pointerKeys: string[];
     validationMode?: 'legacy' | 'wave_target';
     storyId?: string;
+    ensureCanonicalFallback?: boolean;
     signal?: AbortSignal;
   },
   deps: Partial<ReviewArtifactsDeps> = {},
@@ -1450,13 +1449,36 @@ export async function validateReviewArtifacts(
     result.warnings.map((warning) => `${result.pointer_key}: ${warning}`),
   );
   let fallbackFindingsFile: string | undefined;
-  const mainResult = pointerResults.find(
+  const requestedMainResult = pointerResults.find(
     (result) => result.pointer_key === 'current-review',
   );
+  const mainResult =
+    requestedMainResult ??
+    ({
+      pointer_key: 'current-review',
+      pointer_file: toPosixRelative(
+        repoRoot,
+        buildReviewArtifactPath({
+          repoRoot,
+          storyId,
+          outputKey: 'current-review',
+        }),
+      ),
+      status: 'failed',
+      usable: false,
+      errors: ['Main review was not requested in this validation phase.'],
+      warnings: [],
+      validated_artifact_files: [],
+      usable_bundle_ids: [],
+    } satisfies ReviewPointerValidationResult);
   if (
-    mainResult &&
+    !preparedStateError &&
     !mainResult.usable &&
-    usableResults.some((result) => result.pointer_key !== 'current-review')
+    (params.ensureCanonicalFallback === true ||
+      (requestedMainResult !== undefined &&
+        usableResults.some(
+          (result) => result.pointer_key !== 'current-review',
+        )))
   ) {
     params.signal?.throwIfAborted();
     fallbackFindingsFile = await createFallbackCanonicalFindings({

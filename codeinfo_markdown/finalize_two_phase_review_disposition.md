@@ -18,20 +18,21 @@ Finalize the combined fast-plus-slow review disposition so task-up and final rev
 2. Set `slow_review_completed` to true and `needs_review_rerun_before_close` to false. The slow reviewer runs once in this cycle.
 3. If `unresolved_minor_batchable_findings` is non-empty, do not finalize. Report that the slow minor-fix queue was not drained.
 4. Convert any remaining `operationally_blocked_minor_findings` into explicit `incomplete_review_blockers` that preserve the finding ID, repository, summary, and blocker reason. Clear the operational bucket only after that durable blocker is recorded.
-5. Recompute every count and routing boolean from the final arrays.
-6. If unresolved task-required findings or incomplete-review blockers exist:
+5. When `fast_review_coverage_exhausted` is true, add one deduplicated `incomplete_review_blockers` entry describing the expected, completed, partial, failed, and missing fast jobs. Preserve the coverage fields so task-up and final reporting cannot describe the cycle as fully covered.
+6. Recompute every count and routing boolean from the final arrays.
+7. If unresolved task-required findings or incomplete-review blockers exist:
    - set `needs_task_up_path` to true;
    - set `needs_final_minor_fix_revalidation_task` to false because the task-up path owns one shared final revalidation task;
    - set `safe_to_exit_review_loop_without_tasking` to false.
-7. Otherwise, when `minor_fixes_made_in_review_loop` is true and `minor_fix_commit_shas` is non-empty:
+8. Otherwise, when `minor_fixes_made_in_review_loop` is true and `minor_fix_commit_shas` is non-empty:
    - set `needs_task_up_path` to false;
    - set `needs_final_minor_fix_revalidation_task` to true unless `final_revalidation_owned_by_task_up_path` is already true;
    - set `safe_to_exit_review_loop_without_tasking` to false.
-8. Otherwise no actionable review work changed the story:
+9. Otherwise no actionable review work changed the story:
    - set `needs_task_up_path` and `needs_final_minor_fix_revalidation_task` to false;
    - set `safe_to_exit_review_loop_without_tasking` to true.
-9. Rejected, duplicate, out-of-scope, or non-actionable findings alone must not create a final revalidation task.
-10. Keep `review_created_tasks_added_or_updated` false in this step. The existing task-up and final-task generators own changing it.
+10. Rejected, duplicate, out-of-scope, or non-actionable findings alone must not create a final revalidation task.
+11. Keep `review_created_tasks_added_or_updated` false in this step. The existing task-up and final-task generators own changing it.
 
 </finalization_rules>
 
@@ -45,7 +46,7 @@ Finalize the combined fast-plus-slow review disposition so task-up and final rev
 <output_contract>
 
 - Report exactly one next action: `task_up`, `generate_final_revalidation`, or `finish_cleanly`.
-- Report cumulative fixed, task-required, rejected, and blocker counts across the active review cycle.
+- Report cumulative fixed, task-required, rejected, blocker, and fast-coverage counts across the active review cycle, including whether coverage was exhausted.
 - Confirm state is valid JSON and no other file changed.
 
 </output_contract>

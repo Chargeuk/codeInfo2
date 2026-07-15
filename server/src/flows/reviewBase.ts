@@ -746,25 +746,7 @@ export async function prepareReviewBase(
   };
   await atomicWriteJson(artifactPath, artifact, atomicDeps);
 
-  const sharedPointerIdentity = {
-    schema_version: 2,
-    ...identity,
-    branch: currentBranch,
-    comparison_head_ref: 'HEAD' as const,
-    comparison_rule: 'local_head_vs_resolved_base' as const,
-    review_context_file: artifact.review_context_file,
-    review_context_sha256: artifact.review_context_sha256,
-    review_context_source_plan_sha256:
-      artifact.review_context_source_plan_sha256,
-    review_excluded_paths: artifact.review_excluded_paths,
-    ...(artifact.plan_host_root
-      ? { plan_host_root: artifact.plan_host_root }
-      : {}),
-    ...(artifact.target_id ? { target_id: artifact.target_id } : {}),
-    ...(artifact.review_wave_id
-      ? { review_wave_id: artifact.review_wave_id }
-      : {}),
-  };
+  const sharedPointerIdentity = { ...artifact };
   if (params.initializeReviewPointers) {
     await Promise.all([
       atomicWriteJson(

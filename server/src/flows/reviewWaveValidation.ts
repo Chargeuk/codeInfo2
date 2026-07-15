@@ -252,6 +252,7 @@ export async function validateReviewWave(
         pointerKeys,
         validationMode: 'wave_target',
         storyId: params.snapshot.story_id,
+        ensureCanonicalFallback: true,
         signal: params.signal,
       });
       targetValidations.set(target.target_id, {

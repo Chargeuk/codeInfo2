@@ -159,7 +159,7 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         ),
         'utf8',
       ),
-    ) as { review_session_id: string; status: string };
+    ) as Record<string, unknown>;
     const pendingCodex = JSON.parse(
       await fs.readFile(
         path.join(
@@ -170,7 +170,18 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         ),
         'utf8',
       ),
-    ) as { canonical_review_pass_id: string; status: string };
+    ) as Record<string, unknown>;
+    const pendingOcr = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-open-code-review.json',
+        ),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
     assert.equal(
       pendingMain.review_session_id,
       result.artifact.review_session_id,
@@ -181,6 +192,20 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       result.artifact.review_pass_id,
     );
     assert.equal(pendingCodex.status, 'pending');
+
+    for (const pointer of [pendingMain, pendingCodex, pendingOcr]) {
+      assert.equal(pointer.repo_alias, result.artifact.repo_alias);
+      assert.equal(pointer.repo_root, result.artifact.repo_root);
+      assert.equal(pointer.branch, result.artifact.branch);
+      assert.equal(
+        pointer.comparison_base_commit,
+        result.artifact.comparison_base_commit,
+      );
+      assert.equal(
+        pointer.comparison_base_ref,
+        result.artifact.comparison_base_ref,
+      );
+    }
 
     const waveResult = await prepareReviewBase(
       {
@@ -233,6 +258,12 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       assert.equal(pointer.target_id, 'additional-repository-1');
       assert.equal(pointer.review_wave_id, '0000027-rw-wave-test');
       assert.equal(pointer.plan_host_root, repoRoot);
+      assert.equal(pointer.repo_alias, waveResult.artifact.repo_alias);
+      assert.equal(pointer.repo_root, waveResult.artifact.repo_root);
+      assert.equal(
+        pointer.comparison_base_commit,
+        waveResult.artifact.comparison_base_commit,
+      );
     }
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });

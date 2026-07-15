@@ -3192,7 +3192,8 @@ test('validateReviewArtifacts records stale child evidence and continues the par
         {
           type: 'validateReviewArtifacts',
           label: 'Validate Joined Review Artifacts',
-          pointerKeys: ['current-review', 'current-codex-review'],
+          pointerKeys: ['current-review'],
+          ensureCanonicalFallback: true,
         },
         llmStep('runs after blocked review validation'),
       ],
@@ -3217,8 +3218,9 @@ test('validateReviewArtifacts records stale child evidence and continues the par
         path.join(reviewDir, '0000027-current-review-validation.json'),
         'utf8',
       ),
-    ) as { status?: string };
+    ) as { status?: string; fallback_findings_file?: string };
     assert.equal(blockedValidation.status, 'blocked');
+    assert.ok(blockedValidation.fallback_findings_file);
     const blockedTurns = memoryTurns.get(blockedResult.conversationId) ?? [];
     assert.equal(
       blockedTurns.some(
@@ -3233,9 +3235,7 @@ test('validateReviewArtifacts records stale child evidence and continues the par
     );
     assert.equal(
       blockedTurns.some((turn) =>
-        String(turn.content).includes(
-          'continuing with usable review evidence',
-        ),
+        String(turn.content).includes('continuing with usable review evidence'),
       ),
       false,
     );

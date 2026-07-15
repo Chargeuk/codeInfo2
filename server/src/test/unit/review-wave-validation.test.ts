@@ -46,7 +46,7 @@ const createFixture = async () => {
     targets,
     created_at: '2026-07-14T12:00:00.000Z',
   };
-  const flows = ['review_artifacts_main', 'codex_review', 'open_code_review'];
+  const flows = ['codex_review', 'open_code_review'];
   const expectedJobs = [
     ...targets.flatMap((target) =>
       flows.map((flowName) => ({
@@ -118,14 +118,14 @@ const createFixture = async () => {
           head_commit: target.head_commit,
           status: 'completed',
           findings:
-            keyIndex < 2
+            keyIndex > 0
               ? [
                   {
                     title: 'Shared contract mismatch',
                     path: 'src/contract.ts',
                     line: 12,
                     severity:
-                      keyIndex === 0
+                      keyIndex === 1
                         ? targetIndex === 0
                           ? 'high'
                           : 'medium'
@@ -159,7 +159,13 @@ const createFixture = async () => {
   const validateTargetArtifacts = async (params: {
     workingRepositoryPath: string;
     pointerKeys: string[];
+    validationMode?: 'legacy' | 'wave_target';
+    storyId?: string;
+    ensureCanonicalFallback?: boolean;
   }): Promise<ReviewArtifactsValidationResult> => {
+    assert.equal(params.validationMode, 'wave_target');
+    assert.equal(params.storyId, snapshot.story_id);
+    assert.equal(params.ensureCanonicalFallback, true);
     const target = targets.find(
       (candidate) => candidate.repo_root === params.workingRepositoryPath,
     );
@@ -259,8 +265,8 @@ test('complete review wave finalizes exact coverage and retains severity conflic
 
     assert.equal(result.finalized.status, 'completed');
     assert.equal(result.finalized.closeout_allowed, true);
-    assert.equal(result.finalized.coverage.completed_jobs, 7);
-    assert.equal(result.finalized.job_results?.length, 7);
+    assert.equal(result.finalized.coverage.completed_jobs, 5);
+    assert.equal(result.finalized.job_results?.length, 5);
     assert.equal(
       result.finalized.job_results
         ?.filter((job) => job.target_id !== null)
@@ -353,9 +359,12 @@ test('multi-target review cannot close cleanly without usable cross-repository c
 test('slow review wave closes with complete target coverage and no cross-repository job', async () => {
   const fixture = await createFixture();
   try {
-    const expectedJobs = fixture.reviewSet.expected_jobs.filter(
-      (job) => job.flow_name === 'review_artifacts_main',
-    );
+    const expectedJobs = fixture.snapshot.targets.map((target) => ({
+      instance_id: `${target.target_id}--review_artifacts_main`,
+      flow_name: 'review_artifacts_main',
+      target_id: target.target_id,
+      kind: 'target_review' as const,
+    }));
     const slowReviewSet: ReviewSetManifest = {
       ...fixture.reviewSet,
       review_phase: 'slow',

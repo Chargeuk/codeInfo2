@@ -232,6 +232,49 @@ test('phase-aware review sets reject missing fast cross review and slow cross re
   }
 });
 
+test('one-target phase-aware review sets expand to three fast jobs and one slow job', async () => {
+  const prepared = await fixture(1);
+  const prepareBase = async (
+    params: Parameters<typeof prepareReviewBase>[0],
+  ) => ({
+    artifactPath: path.join(
+      params.workingRepositoryPath,
+      'codeInfoTmp/reviews/0000064-current-review-base.json',
+    ),
+    artifact: {} as PreparedReviewBase,
+  });
+  try {
+    const fast = await prepareReviewSet(
+      {
+        snapshot: prepared.snapshot,
+        reviewPhase: 'fast',
+        reviewFlowNames: ['codex', 'open-code'],
+        crossRepositoryFlowName: 'cross-repository',
+      },
+      {
+        prepareReviewContext: fakeContextPreparation,
+        prepareReviewBase: prepareBase,
+      },
+    );
+    const slow = await prepareReviewSet(
+      {
+        snapshot: prepared.snapshot,
+        reviewPhase: 'slow',
+        reviewFlowNames: ['artifact'],
+      },
+      {
+        prepareReviewContext: fakeContextPreparation,
+        prepareReviewBase: prepareBase,
+      },
+    );
+
+    assert.equal(fast.manifest.expected_job_count, 3);
+    assert.equal(slow.manifest.expected_job_count, 1);
+  } finally {
+    await fs.rm(prepared.root, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewSet invalidates only a drifting target', async () => {
   const prepared = await fixture();
   try {

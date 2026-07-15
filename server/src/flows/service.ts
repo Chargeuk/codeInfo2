@@ -6075,6 +6075,7 @@ async function runFlowUnlocked(params: {
       const result = await validateReviewWave({
         snapshot: snapshotValue as ReviewTargetSnapshot,
         reviewSet: reviewSetValue as ReviewSetManifest,
+        expectedReviewPhase: step.reviewPhase,
         signal: inflightState.abortController.signal,
       });
       if (!step.reviewSetFrom.includes('.')) {

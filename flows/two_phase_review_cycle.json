@@ -57,7 +57,8 @@
           "type": "validateReviewWave",
           "label": "Validate Fast Review Wave",
           "snapshotFrom": "fast_review_wave",
-          "reviewSetFrom": "fast_review_set"
+          "reviewSetFrom": "fast_review_set",
+          "reviewPhase": "fast"
         },
         {
           "type": "reset",
@@ -159,7 +160,8 @@
       "type": "validateReviewWave",
       "label": "Validate Slow Review Wave",
       "snapshotFrom": "slow_review_wave",
-      "reviewSetFrom": "slow_review_set"
+      "reviewSetFrom": "slow_review_set",
+      "reviewPhase": "slow"
     },
     {
       "type": "subflow",

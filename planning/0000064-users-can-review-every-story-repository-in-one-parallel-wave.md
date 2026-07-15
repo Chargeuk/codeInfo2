@@ -52,7 +52,7 @@ Every review target must be represented by a distinct checked-out working-tree p
 
 ## Questions
 
-None. The agreed design uses one generic mixed subflow wave, three single-target reviewers per repository target, one concurrent story-scoped cross-repository reviewer, and post-wave validation/aggregation only.
+None. The agreed design uses repeated mixed fast waves with two single-target reviewers per repository plus one concurrent story-scoped cross-repository reviewer, followed by one target-only heavyweight slow wave and combined settlement.
 
 ## Decisions
 
@@ -63,7 +63,7 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 - Run the cross-repository reviewer concurrently with every fast target-local wave and exclude it from the final slow target-only wave.
 - Refresh immutable target and review-set identities for every pass because applied fixes may advance repository HEADs.
 - Preserve bounded fast-phase convergence and run the heavyweight main review exactly once after the fast phase.
-- Treat a multi-target missing or invalid cross-repository result as incomplete mandatory coverage, while preserving usable target-local findings.
+- Treat a fast multi-target pass with a missing or invalid cross-repository result as incomplete mandatory coverage, while preserving usable target-local findings; do not require that job in the slow phase.
 - Retain existing best-effort child execution semantics; validation and disposition determine whether coverage is sufficient to close cleanly.
 - Keep wave-mode validation authoritative and server-owned: enrich the review-set/wave artifacts with per-job usability rather than weakening merge, classification, or decision-recording identity gates, and use the legacy joined-validation artifact only when no review-set manifest exists.
 
@@ -407,7 +407,7 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 
 ### Task 13. Merge the bounded two-phase review foundations from main
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -415,7 +415,7 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 2. [x] Resolve the three production-flow conflicts toward the reusable two-phase subflow boundary while preserving all Story 64 wave runtime files.
 3. [x] Reconcile the flow-schema conflict so recursive subflow dependency checks and Story 64 wave contracts are both retained.
 4. [x] Verify the merged prompts and review-state helpers preserve both wave identity gates and bounded phase state.
-5. [ ] Commit the resolved merge with the required Story 64 commit format.
+5. [x] Commit the resolved merge with the required Story 64 commit format.
 
 #### Testing
 
@@ -429,47 +429,58 @@ None. The agreed design uses one generic mixed subflow wave, three single-target
 - Resolved the three implementation-flow conflicts to call `two_phase_review_cycle`; the existing Story 64 `subflowWave`, review-target, review-set, validation, cross-repository, cancellation, and resume implementation remains present for integration inside that cycle.
 - Combined recursive subflow expansion and cycle detection with the Story 64 flow contracts, then changed the merged two-phase cycle to use fresh fast and slow repository waves.
 - The server build passed, flow schema passed 66/66, phase-aware review-set tests passed 6/6, wave-validation tests passed 4/4, and the shell flow-control suite passed 20/20.
+- Committed the conflict-free merge and combined runtime foundations as `01087142` with both branch histories preserved.
 
 ### Task 14. Add phase-aware review-set preparation and validation
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 
 #### Subtasks
 
-1. [ ] Extend the review-set schema and manifest with explicit fast/slow phase metadata and optional fast-pass identity.
-2. [ ] Make the cross-repository expected job optional so fast manifests expand to `2N + 1` jobs and slow manifests expand to `N` jobs.
-3. [ ] Preserve phase, pass, target, HEAD, parent execution, and wave identity through child inputs, artifacts, stable pointers, and versioned manifests.
-4. [ ] Update wave closeout rules so fast coverage requires the cross-repository result while slow coverage requires only every expected main-review result.
-5. [ ] Keep legacy and standalone non-wave review contracts backward-compatible.
+1. [x] Extend the review-set schema and manifest with explicit fast/slow phase metadata and optional fast-pass identity.
+2. [x] Make the cross-repository expected job optional so fast manifests expand to `2N + 1` jobs and slow manifests expand to `N` jobs.
+3. [x] Preserve phase, pass, target, HEAD, parent execution, and wave identity through child inputs, artifacts, stable pointers, and versioned manifests.
+4. [x] Update wave closeout rules so fast coverage requires the cross-repository result while slow coverage requires only every expected main-review result.
+5. [x] Keep legacy and standalone non-wave review contracts backward-compatible.
 
 #### Testing
 
-1. [ ] Add schema and review-set unit cases for one-target and three-target fast and slow manifests.
-2. [ ] Add validation cases for missing fast cross coverage, valid slow coverage without cross review, stale phase/pass identity, partial targets, and false-clean prevention.
-3. [ ] Run the targeted review-set, review-wave-validation, flow-schema, and server build wrappers.
+1. [x] Add schema and review-set unit cases for one-target and three-target fast and slow manifests.
+2. [x] Add validation cases for missing fast cross coverage, valid slow coverage without cross review, stale phase/pass identity, partial targets, and false-clean prevention.
+3. [x] Run the targeted review-set, review-wave-validation, flow-schema, and server build wrappers.
 
 #### Implementation Notes
 
+- Added additive phase metadata to review-set manifests, retained `standalone` as the compatibility default, and made cross-repository expected jobs conditional.
+- Fast set preparation now rejects a missing cross reviewer, slow preparation rejects an unexpected cross reviewer, and validation derives phase-specific closeout from the declared expected jobs.
+- Added explicit expected-phase validation to the flow step so fast and slow manifests cannot be interchanged even when their target snapshot identity is otherwise valid.
+- Added actual production-wave expansion coverage for one and three targets, proving three/seven fast jobs and one/three slow jobs respectively.
+- The server build passed; subflow-wave tests passed 3/3, review-set tests passed 7/7, wave validation passed 5/5, and the production-loop regression passed.
+
 ### Task 15. Compose repeated fast repository waves and one slow repository wave
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 
 #### Subtasks
 
-1. [ ] Rewrite `two_phase_review_cycle` so each fast pass prepares fresh targets and a fast review set, runs the `2N + 1` wave, validates it, dispositions it, records the pre-fix minor count, applies minor fixes, and checks convergence.
-2. [ ] Add the slow phase using a fresh target snapshot, a main-review-only set, one `N`-child wave, one validation and disposition pass, and no slow rerun.
-3. [ ] Finalize cumulative findings and run task-up only after both phases complete.
-4. [ ] Wire all three production implementation flows exclusively through the combined two-phase cycle.
+1. [x] Rewrite `two_phase_review_cycle` so each fast pass prepares fresh targets and a fast review set, runs the `2N + 1` wave, validates it, dispositions it, records the pre-fix minor count, applies minor fixes, and checks convergence.
+2. [x] Add the slow phase using a fresh target snapshot, a main-review-only set, one `N`-child wave, one validation and disposition pass, and no slow rerun.
+3. [x] Finalize cumulative findings and run task-up only after both phases complete.
+4. [x] Wire all three production implementation flows exclusively through the combined two-phase cycle.
 5. [ ] Preserve cancellation, resume reattachment, immutable input, distinct child title, and best-effort terminal-outcome behavior in both phases.
 
 #### Testing
 
-1. [ ] Extend recursive production-flow contract tests to prove fast `2N + 1` and slow `N` wave shapes and exactly one slow-review occurrence.
+1. [x] Extend recursive production-flow contract tests to prove fast `2N + 1` and slow `N` wave shapes and exactly one slow-review occurrence.
 2. [ ] Add production integration coverage for multiple fast passes with fixes, zero-minor convergence, the fifth-pass bound, and one slow launch.
 3. [ ] Add cancellation and resume coverage proving repeated waves do not duplicate active children.
 4. [ ] Run targeted flow-schema, subflow-wave, production-loop, and Cucumber wrappers.
 
 #### Implementation Notes
+
+- Replaced the legacy shared-base/static-subflow steps inside `two_phase_review_cycle` with fresh fast and slow target snapshots, phase-specific review sets, and `subflowWave` jobs bound to explicit repository roots.
+- Fast waves contain Codex and Open Code Review for every target plus the cross-repository singleton; the only slow wave contains one main reviewer per target.
+- Kept disposition and minor fixing reusable in both phases, while combined finalization, task-up, and workflow repair remain after the one slow pass.
 
 ### Task 16. Reconcile wave-aware disposition, cumulative state, prompts, and documentation
 

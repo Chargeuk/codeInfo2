@@ -15,6 +15,7 @@ import {
 } from './reviewIdentity.js';
 import type {
   AggregatedReviewFinding,
+  ReviewPhase,
   ReviewSetManifest,
   ReviewWaveJobResult,
 } from './reviewSet.js';
@@ -185,6 +186,7 @@ export async function validateReviewWave(
   params: {
     snapshot: ReviewTargetSnapshot;
     reviewSet: ReviewSetManifest;
+    expectedReviewPhase?: ReviewPhase;
     signal?: AbortSignal;
   },
   deps: Partial<ValidationDeps> = {},
@@ -195,9 +197,13 @@ export async function validateReviewWave(
     params.reviewSet.review_wave_id !== params.snapshot.review_wave_id ||
     params.reviewSet.targets_sha256 !== params.snapshot.targets_sha256 ||
     params.reviewSet.expected_job_count !==
-      params.reviewSet.expected_jobs.length
+      params.reviewSet.expected_jobs.length ||
+    (params.expectedReviewPhase !== undefined &&
+      params.reviewSet.review_phase !== params.expectedReviewPhase)
   ) {
-    throw new Error('Review-set identity or expected job count is invalid.');
+    throw new Error(
+      'Review-set identity, phase, or expected job count is invalid.',
+    );
   }
   const findings: Array<{
     finding: FlowJsonValue;

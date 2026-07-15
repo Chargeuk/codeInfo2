@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import type { FlowSubflowWaveStep } from '../../flows/flowSchema.js';
 import { expandSubflowWaveJobs } from '../../flows/subflowWave.js';
@@ -66,4 +69,73 @@ test('expandSubflowWaveJobs rejects missing arrays and unresolved bindings', () 
       input: { targets: [{ target_id: 'client' }] },
     }),
   );
+});
+
+test('production two-phase cycle expands fast 2N+1 and slow N jobs', async () => {
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const raw = await fs.readFile(
+    path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+    'utf8',
+  );
+  const parsed = JSON.parse(raw) as {
+    steps: Array<{
+      label?: string;
+      steps?: FlowSubflowWaveStep[];
+      type?: string;
+      groups?: FlowSubflowWaveStep['groups'];
+    }>;
+  };
+  const fastLoop = parsed.steps.find(
+    (candidate) => candidate.label === 'Fast Review Convergence Loop',
+  );
+  const fastWave = fastLoop?.steps?.find(
+    (candidate) => candidate.type === 'subflowWave',
+  );
+  const slowWave = parsed.steps.find(
+    (candidate) => candidate.label === 'Run Slow Review Wave',
+  );
+  assert(fastWave);
+  assert(slowWave?.groups);
+
+  for (const targetCount of [1, 3]) {
+    const targets = Array.from({ length: targetCount }, (_, index) => ({
+      target_id: `repo-${index}`,
+      repo_root: `/repos/repo-${index}`,
+    }));
+    const fastJobs = expandSubflowWaveJobs({
+      step: fastWave,
+      input: {
+        fast_review_wave: {
+          targets,
+          plan_host_root: '/repos/repo-0',
+        },
+        fast_review_set: { review_phase: 'fast' },
+      },
+    });
+    const slowJobs = expandSubflowWaveJobs({
+      step: slowWave as FlowSubflowWaveStep,
+      input: {
+        slow_review_wave: {
+          targets,
+          plan_host_root: '/repos/repo-0',
+        },
+        slow_review_set: { review_phase: 'slow' },
+      },
+    });
+
+    assert.equal(fastJobs.length, targetCount * 2 + 1);
+    assert.equal(slowJobs.length, targetCount);
+    assert.equal(
+      fastJobs.filter((job) => job.flowName === 'cross_repository_review')
+        .length,
+      1,
+    );
+    assert.equal(
+      slowJobs.every((job) => job.flowName === 'review_artifacts_main'),
+      true,
+    );
+  }
 });

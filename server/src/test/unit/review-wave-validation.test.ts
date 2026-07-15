@@ -386,3 +386,19 @@ test('slow review wave closes with complete target coverage and no cross-reposit
     await fs.rm(fixture.root, { recursive: true, force: true });
   }
 });
+
+test('wave validation rejects a manifest bound to the wrong review phase', async () => {
+  const fixture = await createFixture();
+  try {
+    await assert.rejects(
+      validateReviewWave({
+        snapshot: fixture.snapshot,
+        reviewSet: fixture.reviewSet,
+        expectedReviewPhase: 'slow',
+      }),
+      /identity, phase, or expected job count/u,
+    );
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});

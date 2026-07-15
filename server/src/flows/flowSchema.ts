@@ -110,6 +110,7 @@ export type FlowValidateReviewWaveStep = {
   label?: string;
   snapshotFrom: string;
   reviewSetFrom: string;
+  reviewPhase?: 'fast' | 'slow' | 'standalone';
 };
 
 export type FlowCodexReviewStep = {
@@ -340,6 +341,7 @@ const FlowValidateReviewWaveStepSchema = z
     label: trimmedNonEmptyString.optional(),
     snapshotFrom: trimmedNonEmptyString,
     reviewSetFrom: trimmedNonEmptyString,
+    reviewPhase: z.enum(['fast', 'slow', 'standalone']).optional(),
   })
   .strict();
 

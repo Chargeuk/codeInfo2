@@ -545,7 +545,7 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 ### Task 18. Integrate OpenCode coverage compatibility into repository review waves
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -580,3 +580,4 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - Pushed through `2ce0495e`, fetched the feature ref, and verified exact local/remote equality with `origin/main` as an ancestor and no uncommitted files before final plan closeout.
 - Implementation audit: fresh source, test, prompt, flow, and git evidence supports all five subtasks; no story-caused preserved-behavior regression or unrelated user-facing drift was found. The task remains `__in_progress__` because the lint proof item is still open for the separate automated-proof pass, and no blocker is needed while all implementation subtasks are complete.
 - Automated proof completed `npm run lint` successfully with no errors or warnings; no repair was required.
+- Automated-proof audit: all five subtasks and six testing items are supported by the recorded implementation, full-suite, stack, lint, ancestry, and hygiene evidence. No story-caused preserved-behavior regression, unrelated user-facing drift, live blocker, or remaining task-owned gate was found, so Task 18 is now honestly `__done__`; subsequent manual testing is outside this task's completed automated-proof record.

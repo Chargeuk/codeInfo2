@@ -590,6 +590,72 @@ const resolveOcrCoverage = (params: {
   );
 };
 
+const normalizeOcrBundles = (
+  value: unknown,
+  fieldName: string,
+  legacy: boolean,
+): ReviewPointer[] => {
+  if (!Array.isArray(value)) {
+    throw new Error(`${fieldName} is missing.`);
+  }
+  return value.map((bundle, index) => {
+    if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) {
+      throw new Error(`${fieldName}[${index}] is malformed.`);
+    }
+    const candidate = bundle as ReviewPointer;
+    return {
+      bundle_id: candidate.bundle_id,
+      comments_path: legacy
+        ? candidate.comments_file
+        : candidate.comments_path,
+      validation_path: legacy
+        ? candidate.validation_file
+        : candidate.validation_path,
+      report_path: legacy ? candidate.report_file : candidate.report_path,
+    };
+  });
+};
+
+const resolveOcrBundles = (params: {
+  pointer: ReviewPointer;
+  warnings: string[];
+}): ReviewPointer[] => {
+  const hasCanonical = params.pointer.bundles !== undefined;
+  const hasLegacy = params.pointer.bundle_artifacts !== undefined;
+  if (!hasCanonical && !hasLegacy) {
+    throw new Error('current-open-code-review.bundles is missing.');
+  }
+  const canonical = hasCanonical
+    ? normalizeOcrBundles(
+        params.pointer.bundles,
+        'current-open-code-review.bundles',
+        false,
+      )
+    : undefined;
+  const legacy = hasLegacy
+    ? normalizeOcrBundles(
+        params.pointer.bundle_artifacts,
+        'current-open-code-review.bundle_artifacts',
+        true,
+      )
+    : undefined;
+  if (
+    canonical !== undefined &&
+    legacy !== undefined &&
+    !isDeepStrictEqual(canonical, legacy)
+  ) {
+    throw new Error(
+      'current-open-code-review bundle representations conflict.',
+    );
+  }
+  if (legacy !== undefined) {
+    params.warnings.push(
+      'current-open-code-review uses transitional bundle_artifacts fields; publish canonical bundles with *_path fields.',
+    );
+  }
+  return canonical ?? legacy ?? [];
+};
+
 const validateOcrArtifacts = async (params: {
   repoRoot: string;
   pointer: ReviewPointer;
@@ -828,18 +894,13 @@ const validateOcrArtifacts = async (params: {
       );
     }
 
-    if (!Array.isArray(params.pointer.bundles)) {
-      throw new Error('current-open-code-review.bundles is missing.');
-    }
+    const pointerBundles = resolveOcrBundles({
+      pointer: params.pointer,
+      warnings: params.warnings,
+    });
     const pointerBundleIds: string[] = [];
     const usableBundleIds: string[] = [];
-    for (const [index, bundle] of params.pointer.bundles.entries()) {
-      if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) {
-        throw new Error(
-          `current-open-code-review.bundles[${index}] is malformed.`,
-        );
-      }
-      const candidate = bundle as ReviewPointer;
+    for (const [index, candidate] of pointerBundles.entries()) {
       const bundleId = nonEmptyString(
         candidate.bundle_id,
         `current-open-code-review.bundles[${index}].bundle_id`,

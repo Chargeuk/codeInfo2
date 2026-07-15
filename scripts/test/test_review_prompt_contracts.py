@@ -116,6 +116,12 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Origin: open_code_review", merge_text)
         self.assertIn("independently regenerate the exact manifest", review_text)
         self.assertIn("later joined-review validation artifact", review_text)
+        self.assertIn("publish_open_code_review.py", review_text)
+        self.assertIn("--validate-only", review_text)
+        self.assertIn("at most three preflight attempts", review_text)
+        self.assertIn("Do not write either OpenCode pointer JSON yourself", review_text)
+        self.assertIn("comments-<four-digit-index>.json", review_text)
+        self.assertIn("canonical `bundles` entries", review_text)
         self.assertIn("only OCR candidate-finding source", merge_text)
         self.assertIn("coverage and navigation context only", merge_text)
 

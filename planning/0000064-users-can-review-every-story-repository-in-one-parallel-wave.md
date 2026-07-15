@@ -17,6 +17,7 @@ Every review target must be represented by a distinct checked-out working-tree p
 - A generic `subflowWave` flow step supports matrix and singleton child-flow groups without hard-coding review semantics.
 - The wave runtime accepts bounded immutable JSON child inputs, binds working folders explicitly, and gives every expanded job a stable unique instance identity.
 - Existing `subflow` flow files and runtime behavior remain backward-compatible.
+- Changes merged or rebased from `main` are reviewed and, where they overlap this story, adapted and validated so the branch preserves its parallel-wave implementation, compatibility guarantees, and Story 64 targets.
 - A persisted review-target snapshot contains the canonical plan host plus every plan-scope repository with stable alias, real root, checked-out branch, full HEAD commit, and pinned comparison base.
 - The runtime never switches a shared checkout between branches; distinct branches require distinct worktree paths.
 - The main, Codex, and Open Code Review flows each review exactly one explicit target.
@@ -24,6 +25,9 @@ Every review target must be represented by a distinct checked-out working-tree p
 - Fast review repeats after eligible minor fixes until a pass records zero pre-fix minor findings or a fifth drained pass completes.
 - After fast convergence, one slow wave launches exactly `N` heavyweight main-review child flows in parallel and never reruns them.
 - Serious findings and fix history accumulate across every fast pass and the slow wave, while final task-up and revalidation occur only after both phases finish.
+- Every accepted or ignored current-pass review item lists every validated review name that found it, deduplicated deterministically and qualified by target alias when needed to distinguish repeated review flows.
+- After every non-empty minor-fix loop, the plan contains exactly one completed audit task for that review cycle and pass; its `#### Overview` lists findings escalated to combined task-up, its checked subtasks list every fixed finding and changed file, and its checked testing items list every actually executed test without duplicates.
+- Per-loop audit tasks and cumulative disposition state survive cancellation and resume without duplication, and findings escalated in any fast pass remain visible through later fast passes and the slow wave before the existing grouped task-up path creates or updates their review-fix task coverage.
 - All viable jobs execute concurrently, subject only to provider scheduling, and the parent waits for every terminal outcome.
 - The cross-repository flow publishes `not_applicable` without expensive review work for one target and performs one integration review for multiple targets.
 - Target-local artifacts cannot overwrite or validate against another target's identity.
@@ -665,3 +669,101 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - The supported three-repository fixture prepared one primary and two additional targets, launched the exact seven-job `2N + 1` fast wave, completed all 7 jobs with no failures or skips, and produced server validation with `closeout_allowed=true`; the supported main stack was stopped afterward while all local development-stack containers remained running.
 - After the supported-catalog addition, lint and formatting passed again and the canonical parallel wrapper passed 899 client tests, 2,624 server unit/integration tests, 138 Cucumber scenarios, and 77 e2e tests with all reusable builds successful.
 - Pushed implementation/proof commit `a0a188f1f64f`, fetched both current remote refs, and confirmed exact local/remote feature equality, current `origin/main` ancestry, and a clean worktree before closing the task.
+
+### Task 21. Preserve review-source attribution through disposition and plan recording
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+1. [ ] Define one canonical review-source identity that retains instance ID, flow name, review phase, target ID, repository alias, and a stable human-readable review name.
+2. [ ] Preserve every validated source through target-local and cross-repository aggregation without weakening existing finding fingerprint or severity-conflict behavior.
+3. [ ] Carry deduplicated review-source identities through classification, minor-path promotion, task-required routing, and rejected or non-actionable disposition state.
+4. [ ] Render one `Found by` bullet on every item under both `### Accepted` and `### Ignored for This Story`, qualifying repeated review names with their target alias.
+5. [ ] Preserve honest provenance for legacy and artifact-only ignored candidates without inventing a review name when only an existing source reference is available.
+6. [ ] Add focused aggregation, disposition-contract, and plan-recording regressions for single-source, duplicate-source, multi-review, multi-target, and cross-repository findings.
+
+#### Testing
+
+1. [ ] Run targeted server review-set and review-wave validation tests.
+2. [ ] Run targeted review-disposition and plan-recording prompt-contract tests.
+3. [ ] Run the targeted production review-loop integration tests that prove accepted and ignored item rendering.
+
+#### Implementation Notes
+
+- Added after Story 64 closeout to make every durable accepted or ignored decision traceable to all validated reviews that independently reported it.
+
+### Task 22. Persist per-pass minor-fix audit evidence and cumulative escalation state
+
+- Task Status: `__to_do__`
+
+#### Subtasks
+
+1. [ ] Define a versioned per-pass audit structure keyed by `review_cycle_id` and `review_pass_id` for fixed findings, escalated findings, repositories, changed files, targeted proof, and review-source attribution.
+2. [ ] Persist structured `changed_files` and `targeted_proof` from every terminal minor-fix result instead of reducing them to a proof summary that cannot safely regenerate a task.
+3. [ ] Accumulate and deduplicate fixed and task-required findings across later fast passes and the slow phase while preserving their originating pass identity.
+4. [ ] Normalize proof commands without collapsing identical commands executed in different repositories, and retain final outcomes for commands that were retried.
+5. [ ] Validate malformed, stale, cross-cycle, and incomplete audit evidence without parsing the human-readable `## Minor Review Fixes` section as machine state.
+6. [ ] Preserve backward-compatible resume behavior for active review cycles whose existing disposition state predates the per-pass audit fields.
+7. [ ] Add focused state-transition tests for fixed, reclassified, blocked, skipped, out-of-scope, resumed, and cross-phase findings.
+
+#### Testing
+
+1. [ ] Run targeted Python review flow-control and state-contract tests.
+2. [ ] Run targeted minor-fix prompt-contract and disposition-wave tests.
+3. [ ] Run targeted server flow-schema and review production-loop integration tests.
+
+#### Implementation Notes
+
+- This task creates the durable machine-readable source for loop audit tasks; plan prose remains an output and is not reparsed to reconstruct changed files or executed proof.
+
+### Task 23. Generate idempotent completed audit tasks for minor-fix loops
+
+- Task Status: `__to_do__`
+
+#### Subtasks
+
+1. [ ] Add a plan-writing contract and deterministic helper that finds or creates exactly one minor-fix audit task for each `review_cycle_id` and `review_pass_id` that attempted at least one finding.
+2. [ ] Generate the audit task with `Task Status: __done__`, stable role and pass markers, and a `#### Overview` that lists every finding escalated to the combined task-up path.
+3. [ ] Add one checked subtask per fixed finding with its finding identity, repository, summary, and complete deduplicated changed-file list.
+4. [ ] Add checked testing items for every actually executed proof command, deduplicated by repository and normalized command; omit `not_run` entries and record an eventual pass after a failed retry honestly.
+5. [ ] Invoke audit-task generation after every non-empty fast or slow minor-fix loop without changing the existing rule that combined task-up runs once after both phases finish.
+6. [ ] Update audit-task escalation coverage after combined task-up so each Overview identifies the resulting review-created task or grouped task without forcing one task per finding.
+7. [ ] Make generation, cancellation, resume, and task-up refresh idempotent so retries update the same audit task and never duplicate checked evidence.
+8. [ ] Add an integrated regression where the first fast loop finds five items, fixes four, escalates one, completes three further fast passes and the slow review, then proves the original escalation is covered by combined task-up exactly once.
+9. [ ] Update review workflow documentation and task-format validation for the new completed audit-task role.
+
+#### Testing
+
+1. [ ] Run targeted audit-task helper and plan-parser tests.
+2. [ ] Run targeted Python fast-phase, slow-phase, task-up, cancellation, and resume flow-control tests.
+3. [ ] Run targeted server flow-schema and review-flow integration tests.
+4. [ ] Run the exact multi-pass production review-loop regression from first-pass escalation through slow-phase task-up.
+
+#### Implementation Notes
+
+- The audit task is historical evidence for completed inline work and remains separate from the unfinished final revalidation task that owns whole-story confidence after review settlement.
+- Existing grouped task-up behavior remains intentional: an escalated finding must receive durable task coverage but may share a coherent review-created task with related findings.
+
+### Task 24. Run full closeout proof for review provenance and minor-loop audit tasks
+
+- Task Status: `__to_do__`
+
+#### Subtasks
+
+1. [ ] Run the repository's supported lint command and fix issues in story-owned changes.
+2. [ ] Run the repository's supported formatting command and fix issues in story-owned changes.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`.
+2. [ ] Run `npm run compose:build` followed by `npm run compose:up` for the supported main stack.
+3. [ ] Run `npm run test:summary:all:parallel` without targeted filters.
+4. [ ] Complete main-stack manual proof for multi-review `Found by` rendering, a non-empty fast-loop audit task, a slow-loop audit task, escalation into grouped task-up, cancellation, resume, and duplicate suppression unless repository-owned authentication guidance permits a documented skip.
+5. [ ] Run `npm run compose:down` after supported-stack proof while leaving every local development-stack container untouched.
+6. [ ] Run `npm run lint`.
+7. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- This fresh closeout task reopens whole-story validation after Tasks 21-23 extend the previously completed review disposition, task-up, and plan-writing contracts.

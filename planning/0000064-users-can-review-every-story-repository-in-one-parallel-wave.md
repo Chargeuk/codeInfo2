@@ -581,3 +581,34 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 - Implementation audit: fresh source, test, prompt, flow, and git evidence supports all five subtasks; no story-caused preserved-behavior regression or unrelated user-facing drift was found. The task remains `__in_progress__` because the lint proof item is still open for the separate automated-proof pass, and no blocker is needed while all implementation subtasks are complete.
 - Automated proof completed `npm run lint` successfully with no errors or warnings; no repair was required.
 - Automated-proof audit: all five subtasks and six testing items are supported by the recorded implementation, full-suite, stack, lint, ancestry, and hygiene evidence. No story-caused preserved-behavior regression, unrelated user-facing drift, live blocker, or remaining task-owned gate was found, so Task 18 is now honestly `__done__`; subsequent manual testing is outside this task's completed automated-proof record.
+
+### Task 19. Integrate deterministic OpenCode publication with target-scoped review waves
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+1. [ ] Merge current `origin/main` while preserving the completed Story 64 fast/slow topology and local Task 18 audit commits.
+2. [x] Replace the deterministic publisher's ambient current-plan dependency with an explicit contained prepared-base input.
+3. [x] Publish complete wave identity for target-scoped reviews while preserving standalone compatibility and strict structural validation.
+4. [x] Compose the target-local reviewer contract with fixed artifact names, bounded preflight, and deterministic atomic publication.
+5. [x] Preserve transitional coverage and bundle aliases while keeping canonical representations and independent server validation authoritative.
+6. [x] Add standalone, additional-repository, wave-target, conflict, and path-containment regression coverage.
+
+#### Testing
+
+1. [x] Run publisher and prompt-contract Python tests plus targeted review-artifact, OpenCode-flow, and review-wave server tests.
+2. [ ] Run `npm run build:summary:server` and the complete server unit wrapper.
+3. [ ] Run `npm run test:summary:all:parallel`.
+4. [ ] Run `npm run lint` and `npm run format:check`.
+5. [ ] Run supported-stack plan-host and additional-repository publication proof when provider authentication permits, then stop it with `npm run compose:down`.
+6. [ ] Verify `origin/main` ancestry, pushed local/remote equality, and a clean worktree.
+
+#### Implementation Notes
+
+- Added this post-closeout task because main's deterministic publisher addresses the same pointer-reliability failure class but must be made target-local before it can safely serve Story 64 repository waves.
+- Replaced current-plan discovery with a required `--prepared-base` path that is contained beneath the target repository review root and cross-checked against filename, story, plan, repository, and pass identity.
+- Added all-or-none wave identity publication for `target_id`, `review_wave_id`, and `plan_host_root`, while leaving standalone prepared bases valid without those fields.
+- Composed the target-local prompt with fixed four-digit artifacts, at-most-three preflight attempts, explicit prepared-base commands, canonical nested coverage, and deterministic atomic publication.
+- Retained main's transitional coverage and bundle aliases in the shared validator, including rejection of conflicting or malformed dual representations.
+- Expanded publisher tests for no-current-plan additional repositories, wave identity, incomplete scope, mismatched story/repository, and contained paths; the combined 41 Python tests and targeted 36 review-artifact, 7 OpenCode-flow, and 5 review-wave tests passed after one prompt wording repair.

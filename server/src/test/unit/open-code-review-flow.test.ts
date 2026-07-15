@@ -90,7 +90,17 @@ test('standalone Open Code Review prompt locks the host-agent safety contract', 
   assert.match(prompt, /Do not edit source files/u);
   assert.match(prompt, /Do not commit, push, create branches/u);
   assert.match(prompt, /Do not request or use `OCR_LLM_URL`/u);
-  assert.match(prompt, /write .*current-open-code-review\.json.*atomically/isu);
+  assert.match(prompt, /helper atomically writes both .*current-open-code-review\.json/isu);
+  assert.match(prompt, /comments-<four-digit-index>\.json/u);
+  assert.match(prompt, /validation-<four-digit-index>\.json/u);
+  assert.match(prompt, /report-<four-digit-index>\.md/u);
+  assert.match(prompt, /publish_open_code_review\.py/u);
+  assert.match(prompt, /--validate-only/u);
+  assert.match(prompt, /--prepared-base <prepared-base-path>/u);
+  assert.match(prompt, /at most three preflight attempts/u);
+  assert.match(prompt, /Do not write either OpenCode pointer JSON yourself\./u);
+  assert.match(prompt, /canonical `bundles` entries/u);
+  assert.match(prompt, /does not read a target-local `current-plan\.json`/u);
   assert.match(prompt, /"coverage":\s*\{\s*"total_files"/u);
   assert.match(
     prompt,

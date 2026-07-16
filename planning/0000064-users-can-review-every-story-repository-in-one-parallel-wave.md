@@ -994,7 +994,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 26. Reconcile the incomplete slow-wave findings handoff before review task-up
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `review_finding_repair`
 - Review Pass ID: `0000064-20260715T235743Z-8f7623b0a4-0551069e`

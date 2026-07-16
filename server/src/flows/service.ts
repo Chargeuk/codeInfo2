@@ -3771,6 +3771,18 @@ const validateResumeStepPath = (
   }
 };
 
+const resumesFromEarlierStep = (
+  resumeStepPath: number[],
+  savedStepPath: number[],
+): boolean => {
+  const sharedLength = Math.min(resumeStepPath.length, savedStepPath.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    if (resumeStepPath[index] === savedStepPath[index]) continue;
+    return (resumeStepPath[index] ?? 0) < (savedStepPath[index] ?? 0);
+  }
+  return resumeStepPath.length < savedStepPath.length;
+};
+
 const validateResumeAgentConversations = async (
   resumeState: FlowResumeState | null,
 ): Promise<string[]> => {
@@ -7907,6 +7919,18 @@ export async function startFlowRun(
       validateResumeStepPath(flow.steps, resumeStepPath);
       childExecutionBackfills =
         await validateResumeAgentConversations(resumeState);
+
+      // An explicit rewind must launch a new wave instead of accepting
+      // terminal children that belonged to the later saved step. Retaining
+      // those entries makes validation appear to pass while its artifacts
+      // still describe the earlier run.
+      if (resumesFromEarlierStep(resumeStepPath, resumeState.stepPath)) {
+        resumeState = {
+          ...resumeState,
+          activeSubflows: undefined,
+          subflowWaveProgress: undefined,
+        };
+      }
     }
     if (
       resumeState?.inputHash &&

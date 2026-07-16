@@ -1044,6 +1044,90 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
   }
 });
 
+test('rewinding before a completed subflow launches a fresh child instead of reusing stale tracking', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-rewind-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'rewind-child',
+      steps: [llmStep('rewind child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'rewind-parent',
+      steps: [
+        llmStep('rewind setup'),
+        subflowStep('Run Rewind Child', 'rewind-child'),
+      ],
+    });
+
+    let childRunToken: string | undefined;
+    const completedChild = await startFlowRun({
+      flowName: 'rewind-child',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(0),
+      onOwnershipReady: ({ runToken }) => {
+        childRunToken = runToken;
+      },
+    });
+    assert.ok(childRunToken);
+    await waitForAssistantStatus(completedChild.conversationId, 'ok');
+
+    const parentConversationId = 'rewind-parent-conversation';
+    const now = new Date();
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Rewind Parent',
+      flowName: 'rewind-parent',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'rewind-parent-execution',
+          stepPath: [1],
+          loopStack: [],
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [1],
+              flowName: 'rewind-child',
+              conversationId: completedChild.conversationId,
+              runToken: childRunToken,
+              title: 'Rewind Parent-Run Rewind Child',
+            }),
+          ],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    await startFlowRun({
+      flowName: 'rewind-parent',
+      conversationId: parentConversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(0),
+    });
+    await waitForAssistantStatus(parentConversationId, 'ok');
+
+    const childConversations = Array.from(memoryConversations.values()).filter(
+      (conversation) => conversation.flowName === 'rewind-child',
+    );
+    assert.equal(childConversations.length, 2);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('subflow forwards codexReviewModelId into child flows so codex_review can run with a parent-supplied model override', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-codex-model-'),

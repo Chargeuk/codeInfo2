@@ -1151,12 +1151,12 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] Start the supported main stack with `npm run compose:up`.
-5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
-6. [ ] Stop the supported main stack with `npm run compose:down`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [x] Start the supported main stack with `npm run compose:up`.
+5. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+6. [x] Stop the supported main stack with `npm run compose:down`.
 7. [x] In `codeInfo2`, run `npm run lint`.
 8. [x] In `codeInfo2`, run `npm run format:check`.
 
@@ -1173,3 +1173,9 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Preflight visual refinement pass inspected the Flow review catalog, target/run identity chips, transcript status, and responsive composer seams; no code was changed.
 - Ran `npm run lint` successfully with exit code 0; no lint issues required repair.
 - Ran `npm run format:check` successfully with exit code 0; no formatting issues required repair.
+- Ran `npm run build:summary:server` successfully with exit code 0; the wrapper reported a clean success with no warnings.
+- Ran `npm run build:summary:client` successfully with exit code 0; the wrapper reported one existing large-chunk warning and no build failure.
+- Ran `npm run compose:build:summary` successfully with exit code 0; both compose image builds passed.
+- Started the supported main stack with `npm run compose:up`; all services started and the server reported healthy.
+- Ran `npm run test:summary:all:parallel` successfully; client (899), server unit (2628), server cucumber (138), and e2e (77) tests all passed.
+- Stopped the supported main stack with `npm run compose:down`; all started containers and the compose network were removed successfully.

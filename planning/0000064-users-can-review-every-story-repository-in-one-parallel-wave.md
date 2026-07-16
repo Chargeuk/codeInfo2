@@ -811,8 +811,8 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [x] In `codeInfo2`, run the supported lint command and fix issues.
-2. [x] In `codeInfo2`, run the supported formatting command and fix issues.
+1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
+2. [x] In `codeInfo2`, run `npm run format:check` and fix issues.
 
 #### Testing
 
@@ -991,3 +991,174 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Description: Audit-state validation, synchronization, and minor-fix task ordering were checked without confirming a new duplication or acceptance defect.
 - Example: The challenge records validation before task-flow decisions and idempotent audit-task structure.
 - Why ignored: The review treated these changes as proof hardening and did not adopt an additional finding.
+
+### Task 26. Reconcile the incomplete slow-wave findings handoff before review task-up
+
+- Task Status: `__to_do__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `review_finding_repair`
+- Review Pass ID: `0000064-20260715T235743Z-8f7623b0a4-0551069e`
+- Review Cycle ID: `0000064-rc-20260715T234622Z-3ff7dd09`
+
+#### Overview
+
+The authoritative slow-wave review set and matching wave-validation artifact are identity-valid and usable for coverage, but their `aggregated_findings` array is empty while the validated findings artifact and handoff summary report 15 actionable candidates. The disposition state therefore records `aggregated-findings-mismatch` as an incomplete-review blocker and sets task-up routing required, while its finding queues contain no server-owned routed findings. Repair or deterministically reconcile this target-owned review-output handoff before any raw artifact-only candidate is treated as an implementation finding. Do not widen Story 64 behavior, create tasks for the 15 un-routed candidates, or claim a clean review until the authoritative artifacts agree.
+
+#### Non-Goals
+
+- Do not implement the 15 artifact-only candidates as product fixes; they remain unrouted until a valid server-owned aggregate and disposition state classify them.
+- Do not change approved Story 64 user-facing behavior, the ordinary `subflow` contract, or the cross-repository review topology.
+- Do not add another repository owner or cross-target implementation task; the stored scope contains `codeInfo2` only.
+
+#### Addresses Findings
+
+- `aggregated-findings-mismatch` from `review-disposition-state.json`: reconcile the empty authoritative slow-wave aggregate with the 15-candidate validated findings artifact, or preserve an explicit unusable/incomplete result if the evidence cannot be reconciled.
+- Current review pass `0000064-20260715T235743Z-8f7623b0a4-0551069e`: preserve the exact story, session, pass, wave, parent execution, target, HEAD, and comparison-base identity while repairing the handoff.
+
+#### Task Exit Criteria
+
+- A matching server-owned review-set and wave-validation pair for the current pass either includes every usable current-pass finding in `aggregated_findings` with preserved source identity, or explicitly records the affected coverage as invalid/incomplete so clean closeout remains impossible.
+- The 15 candidates that exist only in the findings artifact are not promoted into numbered implementation work unless a later valid disposition state routes them with server-owned provenance.
+- The current plan retains exactly one structured `## Code Review Findings` block for this review pass, and the incomplete-review blocker remains visible until the authoritative artifacts reconcile.
+- Focused regression proof covers successful `review_output_file`/findings ingestion and malformed, missing, or mismatched artifact handling without changing approved user-facing behavior.
+
+#### Risk Ownership
+
+- Implementation owner: `codeInfo2` owns the review-wave validation, artifact-ingestion, and disposition-boundary repair.
+- Scope boundary: this task repairs review evidence integrity only; it must not reinterpret the raw findings artifact or widen Story 64 behavior.
+
+#### Owner Map
+
+- `codeInfo2`: `server/src/flows/reviewWaveValidation.ts`, its target-review pointer producers/consumers, matching validation tests, and the current review-state handoff.
+
+#### Proof Mapping
+
+- `aggregated-findings-mismatch` -> matching review-set/wave-validation identity, reconciled `aggregated_findings` or explicit incomplete coverage, and focused server regression tests.
+- Review pass `0000064-20260715T235743Z-8f7623b0a4-0551069e` -> exact current-pass plan block, disposition-state identity, and final whole-story revalidation in Task 27.
+
+#### Requirement-To-Proof Mapping
+
+- Findings aggregation -> `server/src/flows/reviewWaveValidation.ts` must preserve validated findings and server-owned source identity in `aggregated_findings`, retain usable sibling findings, and combine those observations with `closeout_allowed: false` when coverage is incomplete; prove the combined outcome in `server/src/test/unit/review-wave-validation.test.ts`.
+- Review-set preparation -> `server/src/flows/reviewSet.ts` must isolate target working paths, enumerate the expected fast/slow jobs, and write versioned evidence without replacing a newer stable manifest; prove those preparation and stale-versus-live invariants in `server/src/test/unit/review-set.test.ts`.
+- Target identity -> `server/src/flows/reviewTargetContract.ts` must reject repository, branch, HEAD, story, target, and prepared-base mismatches before disposition; prove those exact contract rejections in `server/src/test/unit/review-target-contract.test.ts`.
+- Findings ingestion and task-up routing -> `server/src/flows/reviewArtifacts.ts`, `server/src/flows/codexReview.ts`, and `scripts/publish_open_code_review.py` must keep published pointer `review_output_file`/findings-file paths and validation status aligned for coherent, stale, missing, malformed, or unreadable inputs; the existing review disposition workflow then keeps the current pass in one plan findings block, routes only a reconciled server-owned aggregate, and leaves all 15 artifact-only candidates unrouted when reconciliation fails. Prove artifact reader-writer behavior in `server/src/test/unit/review-artifacts.test.ts` and the plan/state outcome in this task's Testing section.
+
+#### Documentation Locations
+
+- Canonical review decisions: the existing `## Code Review Findings` block in this plan.
+- Review-state contract: `review-disposition-state.json` and the current-pass review artifacts referenced by it; these remain workflow state, not new tracked documentation.
+
+#### Affected Repositories
+
+- `codeInfo2` only. `current-plan.json` declares no additional repositories, so this blocker does not require cross-target repository proof.
+
+#### Subtasks
+
+1. [ ] Update the single review-output seam in `server/src/flows/codexReview.ts`, `scripts/publish_open_code_review.py`, `server/src/flows/reviewArtifacts.ts`, and `server/src/flows/reviewWaveValidation.ts` in this order: keep both publishers writing repository-relative `review_output_file`/findings-file pointers; make `reviewArtifacts.ts` read each pointer once and publish its server-owned validation result; make `reviewWaveValidation.ts` reject story/session/pass/wave/target/base mismatches before aggregation and copy validated findings with their sources into `aggregated_findings`; preserve atomic stable/versioned writes, leave partial or aborted validation invalid without replacing or deleting the current stable artifact, and keep temporary fixture cleanup test-owned.
+2. [ ] In `server/src/test/unit/review-wave-validation.test.ts`, add one fixture call to `validateReviewWave({ snapshot, reviewSet })` without injected validator dependencies, then extend the combined stale/missing-job case to assert that validated findings retain every server-owned source, stale or missing jobs are classified before aggregate/closeout finalization, usable sibling findings remain available, and the same deterministic boundary sets `closeout_allowed: false` instead of allowing clean closeout.
+3. [ ] Extend `server/src/test/unit/review-set.test.ts` to prove preparation semantics that feed the validator: each target receives an isolated working path, fast and slow phases enumerate the correct job shapes, a stale wave writes versioned evidence without replacing the newer stable manifest, and an aborted preparation leaves no partial stable or versioned manifest while fixture teardown removes temporary roots.
+4. [ ] Extend `server/src/test/unit/review-target-contract.test.ts` with separate rejection cases for repository-root, branch, HEAD, story, target, and prepared-base mismatches, proving these exact identity gates fail before disposition or task-up routing; leave closeout assertions to the wave-validation proof.
+5. [ ] Extend `server/src/test/unit/review-artifacts.test.ts` to prove the published pointer's `review_output_file`/findings-file reader-writer contract and deterministic `passed`, `partial`, `stale`, or `blocked` outcomes for coherent, missing, malformed, unreadable, and mismatched artifacts, including preservation of valid sibling bundles; retain the cancellation proof that aborts OCR before validation artifacts are published, use unique per-test artifact roots with no elapsed-time assertions for worker-safe execution, and leave temporary cleanup to the fixture.
+6. [ ] Update `review-disposition-state.json` and the existing current-pass `## Code Review Findings` block only after the validated artifacts are available: if `aggregated_findings` reconciles, retain that server-owned aggregate and route only those findings; if it does not reconcile, record the matching invalid/incomplete pair with `closeout_allowed: false`, leave all 15 artifact-only candidates unrouted, preserve one findings block for the pass, and do not create duplicate review-fix or final-revalidation tasks.
+
+#### Testing
+
+Normal-system startup and shutdown are not repeated in this task: Task 26 changes server review-artifact validation internals without changing startup, environment, Compose ownership, or runtime routing; Task 27 owns the supported main-stack lifecycle and full regression proof.
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server`; if a failure is outside the review-artifact surfaces owned by Task 26, record it as a shared baseline or harness result rather than widening this repair task.
+2. [ ] In `codeInfo2`, run the targeted server-unit wrapper with `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/unit/review-set.test.ts --file server/src/test/unit/review-target-contract.test.ts --file server/src/test/unit/review-artifacts.test.ts`; use these four proof files to validate successful ingestion, stale or mismatched identity rejection, source-preserving aggregation, missing or malformed artifact handling, and `closeout_allowed: false` for incomplete coverage.
+3. [ ] Run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` and verify the current-pass findings block appears exactly once, Task 26 retains `aggregated-findings-mismatch` coverage, and Task 27 remains the only final revalidation owner.
+
+#### Implementation Notes
+
+- Created as the bounded incomplete-review follow-up required by the valid disposition state's `aggregated-findings-mismatch` blocker. The state reported `needs_task_up_path: true` and `has_unresolved_task_required_findings: true` while its routed arrays and counts were zero; this mismatch is preserved for repair rather than treated as a clean no-findings outcome.
+
+### Task 27. Re-Validate Story 64 After Review Outcome Reconciliation
+
+- Task Status: `__to_do__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `final_revalidation`
+- Review Pass ID: `0000064-20260715T235743Z-8f7623b0a4-0551069e`
+- Review Cycle ID: `0000064-rc-20260715T234622Z-3ff7dd09`
+
+#### Overview
+
+This is the sole final revalidation task for the current review cycle. After Task 26 and any later routed review repair are complete, revalidate the whole Story 64 implementation, the exact current-pass `Code Review Findings` block, and the `aggregated-findings-mismatch` disposition outcome. There are no `resolved_minor_findings` in the active disposition state, so no separate minor-fix final task may be created. Do not close the story while the authoritative review artifacts remain unreconciled or while any current-pass task-required finding lacks proof.
+
+#### Non-Goals
+
+- Do not create a second final task for review cycle `0000064-rc-20260715T234622Z-3ff7dd09`.
+- Do not turn unresolved review evidence into clean closeout, change approved Story 64 behavior, or add repositories outside the stored scope.
+
+#### Addresses Findings
+
+- `aggregated-findings-mismatch` and every current-pass finding that becomes server-routed after reconciliation -> whole-story review revalidation and matching disposition state.
+- Review cycle `0000064-rc-20260715T234622Z-3ff7dd09` -> this task is the single final revalidation owner for the cycle.
+
+#### Task Exit Criteria
+
+- Task 26 and every newly routed current-pass repair are complete and their proof is included in the final validation.
+- The whole Story 64 acceptance contract, the current-pass `Code Review Findings` block, and any resolved minor fixes from this same cycle are revalidated; the active state currently lists no resolved minor fixes.
+- Every worked-on repository has its discovered supported build, applicable startup, full automated suites including e2e when supported, matching shutdown, lint, and formatting checks recorded in the required order.
+- The disposition state names this exact task title as the owner of final revalidation, preserves the exact review cycle ID, and does not permit a second final task for the cycle.
+
+#### Risk Ownership
+
+- Administrative and proof owner: `codeInfo2`.
+- Whole-story proof scope: server flows and review artifacts, flow-control scripts, client flow/sidebar surfaces, documentation/configuration, and all Story 64 automated and main-stack manual proof surfaces.
+
+#### Owner Map
+
+- `codeInfo2`: all story-owned implementation, review-repair, and proof surfaces in the canonical repository.
+
+#### Affected Repositories
+
+- `codeInfo2` only. No additional repository is in the stored plan scope; retain the story's existing multi-target fixture proof without inventing a second repository owner.
+- Proof-scope inventory within `codeInfo2`: server workspace and review-flow artifacts, client workspace and flow/sidebar surfaces, flow-control scripts, the server Cucumber suite, the client suite, the Playwright e2e suite, and the supported main Compose stack.
+
+#### Requirement-To-Proof Mapping
+
+- Whole-story acceptance -> the full build, supported main-stack lifecycle, unfiltered client/server/Cucumber/e2e suite coverage, lint, and formatting checks below.
+- Current review outcome -> Task 26's reconciled or explicitly incomplete authoritative artifacts, the single current-pass findings block, and the matching disposition-state final-task ownership.
+- Existing review behavior -> main-stack guidance below covers target isolation, cancellation/resume, and cross-repository behavior without changing the locked product contract.
+
+#### Proof Mapping
+
+- Task 26 repair -> the authoritative review-set/wave-validation result and focused server tests are included before this task starts.
+- Story 64 acceptance -> the full build, main-stack lifecycle, complete automated suites, and repository lint/format checks below.
+- Current review cycle -> the exact pass and cycle IDs, one findings block, and disposition ownership are checked before closeout.
+
+#### Documentation Locations
+
+- Final review outcome and repair coverage: the existing current-pass `## Code Review Findings` block and Tasks 26–27 in this plan.
+- Durable generated review evidence remains in the repository's ignored review-artifact locations; do not add generated screenshots or transient review JSON to tracked source files.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `codeInfo2`, run `npm run lint` and fix issues.
+2. [ ] In `codeInfo2`, run `npm run format:check` and fix issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
+2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
+3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [ ] Start the supported main stack with `npm run compose:up`.
+5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+6. [ ] Stop the supported main stack with `npm run compose:down`.
+7. [ ] In `codeInfo2`, run `npm run lint`.
+8. [ ] In `codeInfo2`, run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+- Use the supported main stack only through the repository wrappers: `npm run compose:up` after the supported build and `npm run compose:down` afterward. The wrapper-managed main compose contract uses `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`, exposes the client at `http://localhost:5001` and server health at `http://localhost:5010/health`, mounts `manual_testing/codeinfo_agents` at `/app/codeinfo_agents` and `manual_testing/codex_agents` at `/app/codex_agents`, seeds Copilot from `/seed/copilot`, and exposes the host working-folder namespace at `/data`; wait for the server and client health checks before interaction. Confirm the review catalog loads, one-target and three-target waves preserve target and wave identity, cancellation/resume does not duplicate child work, target artifacts remain isolated, cross-repository finding behavior remains covered, and the plan does not claim clean closeout while the blocker is unresolved.
+- If browser screenshots are needed, capture each screenshot first to a relative path such as `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime; on the host this normally appears as `$CODEINFO_ROOT/playwright-output-local/<relative-path>`. Treat that host-visible location as staging, keep the screenshot-producing runtime distinct from the app-under-test runtime when they differ, then transfer the file to `codeInfoTmp/manual-testing/0000064/27/` for non-committed task proof. Inspect runtime handoff JSON by meaning for artifact source, fallback runtime, and destination rather than relying on exact property names. The latest final-task screenshots are the primary durable proof for visual surfaces this task re-covers; retain earlier screenshots only when uniquely necessary, and record any transfer limitation honestly instead of halting the proof loop.
+- Confirm the completed repair path does not duplicate final tasks or alter the approved Story 64 interaction contract. If provider authentication requires human-controlled two-factor authentication, follow repository guidance and document the allowed skip without attempting re-authentication.
+
+#### Implementation Notes
+
+- Created as the one final revalidation owner for review cycle `0000064-rc-20260715T234622Z-3ff7dd09`; it must remain after the new review-repair task and cover the whole story plus the current review block.

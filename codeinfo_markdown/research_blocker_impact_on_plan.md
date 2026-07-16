@@ -10,6 +10,7 @@ Load fresh bounded blocker and story-scope packets before deciding whether the b
 Read the selected task's latest `**BLOCKING ANSWER**` from the bounded blocker-repair packet and extract any blocker-family and ownership conclusion before deciding whether to repair the plan.
 If there is no blocker, or there was a blocker but no plan repair is needed, state that explicitly.
 If the blocker proves the plan is wrong or incomplete, repair the story before work continues.
+If the blocker is an external reviewer, provider, runtime, or terminal-artifact dependency and the same condition still exists, preserve the parser-visible `**BLOCKER**` line. Documenting ownership or a retry path does not resolve that blocker. Do not convert it to `**RESOLVED ISSUE**` unless fresh repository evidence shows the external condition changed or the required terminal artifact now exists.
 
 </task>
 

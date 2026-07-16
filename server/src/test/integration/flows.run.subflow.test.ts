@@ -3114,6 +3114,7 @@ test('validateReviewArtifacts records stale child evidence and continues the par
           ...scope,
           evidence_file: 'codeInfoTmp/reviews/evidence.md',
           findings_file: 'codeInfoTmp/reviews/findings.md',
+          findings: [],
           repos: [currentRepository],
           status: 'completed',
         }),

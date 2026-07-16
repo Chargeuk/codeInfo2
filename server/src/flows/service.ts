@@ -123,6 +123,7 @@ import {
 } from './codexReview.js';
 import { gateCrossRepositoryReview } from './crossRepositoryReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
+import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
   hashFlowInput,
   normalizeFlowInput,
@@ -4753,6 +4754,94 @@ async function runFlowUnlocked(params: {
       `Question: ${step.question}`,
     ].join('\n');
 
+    if (step.decisionScript) {
+      const codeInfoRoot = codeInfo2RootForRun();
+      const workingFolder = params.repositoryContext.workingRepositoryPath;
+      if (!codeInfoRoot || !workingFolder) {
+        const message =
+          'Flow decision script requires CODEINFO_ROOT and a repository working folder.';
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          message,
+          errorCode: 'FLOW_DECISION_SCRIPT_CONTEXT_MISSING',
+          command,
+        });
+        return { status: 'failed', shouldBreak: false };
+      }
+
+      try {
+        const content = await runFlowDecisionScript({
+          codeInfoRoot,
+          workingFolder,
+          decisionScript: step.decisionScript,
+        });
+        const parsed = parseBreakAnswer(content);
+        if (!parsed.ok) {
+          await emitFailedFlowStep({
+            flowConversationId: params.conversationId,
+            inflightId: stepInflightId,
+            instruction,
+            modelId: params.modelId,
+            providerId: params.providerId,
+            source: params.source,
+            message: parsed.message,
+            errorCode: 'INVALID_BREAK_RESPONSE',
+            command,
+          });
+          return { status: 'failed', shouldBreak: false };
+        }
+        breakAnswer = parsed.answer;
+        await emitCompletedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          response: parsed.normalizedContent,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          message,
+          errorCode: 'FLOW_DECISION_SCRIPT_FAILED',
+          command,
+        });
+        return { status: 'failed', shouldBreak: false };
+      }
+
+      append({
+        level: 'info',
+        message: 'flows.run.break_decision_script',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          decisionScript: step.decisionScript,
+          answer: breakAnswer,
+          breakOn: step.breakOn,
+          loopDepth: loopStack.length,
+        },
+      });
+      return {
+        status: 'ok',
+        shouldBreak: breakAnswer === step.breakOn,
+      };
+    }
+
     const result = await runInstruction({
       agentType: step.agentType,
       identifier: step.identifier,
@@ -7264,6 +7353,7 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
+        if (shouldBreak && step.haltFlow) return 'stopped';
         if (shouldBreak) return 'break';
         continue;
       }
@@ -8350,4 +8440,77 @@ export async function startFlowRun(
     modelId,
     ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
   };
+}
+
+export type FlowRunObservedStatus = {
+  conversationId: string;
+  status: 'running' | 'ok' | 'stopped' | 'failed' | 'orphaned';
+  terminal: boolean;
+  executionId: string | null;
+  activeSince: string | null;
+  latestAssistantAt: string | null;
+  subflowWaveProgress: FlowSubflowWaveProgress | null;
+};
+
+export async function getFlowRunStatus(
+  conversationId: string,
+): Promise<FlowRunObservedStatus | null> {
+  const normalizedConversationId = conversationId.trim();
+  if (!normalizedConversationId) return null;
+  const conversation = await getConversation(normalizedConversationId);
+  if (!conversation) return null;
+
+  const ownership = getActiveRunOwnership(normalizedConversationId);
+  const resumeState = parseFlowResumeState(
+    isRecord(conversation.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  const latestAssistant = shouldUseMemoryPersistence()
+    ? (() => {
+        const turns = memoryTurns.get(normalizedConversationId) ?? [];
+        for (let index = turns.length - 1; index >= 0; index -= 1) {
+          const turn = turns[index];
+          if (turn?.role === 'assistant') return turn;
+        }
+        return null;
+      })()
+    : ((
+        await listTurns({
+          conversationId: normalizedConversationId,
+          limit: 10,
+        })
+      ).items.find((turn) => turn.role === 'assistant') ?? null);
+
+  const persistedChildrenStillRunning = Boolean(
+    resumeState?.activeSubflows?.length ||
+      (resumeState?.subflowWaveProgress?.running ?? 0) > 0,
+  );
+  const status = ownership
+    ? ('running' as const)
+    : persistedChildrenStillRunning
+      ? ('orphaned' as const)
+      : (latestAssistant?.status ?? 'orphaned');
+
+  return {
+    conversationId: normalizedConversationId,
+    status,
+    terminal: status !== 'running',
+    executionId: resumeState?.executionId ?? null,
+    activeSince: ownership?.startedAt ?? null,
+    latestAssistantAt: latestAssistant?.createdAt?.toISOString?.() ?? null,
+    subflowWaveProgress: resumeState?.subflowWaveProgress ?? null,
+  };
+}
+
+export function stopFlowRun(conversationId: string): boolean {
+  const normalizedConversationId = conversationId.trim();
+  const ownership = getActiveRunOwnership(normalizedConversationId);
+  if (!ownership) return false;
+  registerPendingConversationCancel({
+    conversationId: normalizedConversationId,
+    runToken: ownership.runToken,
+  });
+  abortInflightByConversation(normalizedConversationId);
+  return true;
 }

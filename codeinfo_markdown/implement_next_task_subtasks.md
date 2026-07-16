@@ -12,6 +12,8 @@ If completing the current subtask honestly requires running a test, wrapper, or 
 Do not treat this as permission to work through the task's broader `Testing` section during implementation.
 Do not finish this step until every unchecked subtask is complete or the task is honestly blocked.
 
+When an unchecked subtask requires launching `two_phase_review_cycle` through the supported main stack, use `npm run review:cycle:summary -- --working-folder <repository-path>` as the owning command. Do not issue a detached HTTP 202 request followed by bounded polling. While the wrapper reports `agent_action: wait`, keep waiting and do not run Compose shutdown; the wrapper must observe terminal server-owned flow state before this step may finish.
+
 </task>
 
 <scope_rules>

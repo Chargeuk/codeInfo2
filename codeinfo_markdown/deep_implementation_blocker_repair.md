@@ -4,6 +4,8 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 
 <critical_rules>
 
+- When repair requires a fresh `two_phase_review_cycle`, use `npm run review:cycle:summary -- --working-folder <repository-path>` and wait for its terminal result. Do not replace it with direct HTTP 202 polling, do not impose an arbitrary poll limit, and do not stop Compose while the wrapper reports an active run.
+
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.

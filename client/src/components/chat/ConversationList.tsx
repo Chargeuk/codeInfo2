@@ -82,9 +82,8 @@ type ConversationFlowWithTargetInput = NonNullable<
 };
 
 const getConversationRootTargetId = (flags?: ConversationFlags) => {
-  const targetId = (
-    flags?.flow as ConversationFlowWithTargetInput | undefined
-  )?.input?.target?.target_id;
+  const targetId = (flags?.flow as ConversationFlowWithTargetInput | undefined)
+    ?.input?.target?.target_id;
   return typeof targetId === 'string' && targetId.length > 0
     ? targetId
     : undefined;

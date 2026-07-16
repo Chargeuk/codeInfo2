@@ -110,7 +110,8 @@
           "agentType": "loop_control_agent",
           "identifier": "loop_controller",
           "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_fast_review_phase_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
-          "breakOn": "yes"
+          "breakOn": "yes",
+          "decisionScript": "scripts/flow_control/check_fast_review_phase_complete.py"
         }
       ]
     },

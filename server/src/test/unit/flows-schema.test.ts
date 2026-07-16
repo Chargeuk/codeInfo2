@@ -1457,6 +1457,34 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
+  test('break accepts haltFlow for terminal blocker gates', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'break',
+            agentType: 'loop_control_agent',
+            identifier: 'loop',
+            question: 'Halt?',
+            breakOn: 'yes',
+            haltFlow: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (parsed.ok) {
+      assert.equal(parsed.flow.steps[0]?.type, 'break');
+      assert.equal(
+        parsed.flow.steps[0]?.type === 'break'
+          ? parsed.flow.steps[0].haltFlow
+          : undefined,
+        true,
+      );
+    }
+  });
+
   test('continueOn only accepts yes or no', () => {
     const json = JSON.stringify({
       steps: [

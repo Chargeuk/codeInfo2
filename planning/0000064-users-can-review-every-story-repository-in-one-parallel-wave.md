@@ -1203,13 +1203,13 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
 1. [x] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
 4. [x] Start the supported main stack with `npm run compose:up`.
-5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+5. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
 6. [x] Stop the supported main stack with `npm run compose:down`.
-7. [ ] In `codeInfo2`, run `npm run lint`.
-8. [ ] In `codeInfo2`, run `npm run format:check`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -1220,7 +1220,19 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 #### Implementation Notes
 
-- **BLOCKER** Subtask 5 remained the only unchecked implementation subtask after audit normalization. Current repository evidence still shows wave `0000064-rw-20260716T194026Z-73fc624a` `preparing` with no findings/evidence file and the matching prepared review set at `completed_jobs: 0`, `failed_jobs: 0`, `missing_jobs: 3`; no product or review-flow source changed in this pass and no Testing item has fresh proof. Implementation cannot continue honestly until supported external reviewer execution publishes terminal identity-matching structured artifacts; changing ownership or task shape requires planner intervention. Keep Task 28 `__in_progress__`; the existing bounded Subtask 5 owner remains the next real work.
+- Testing item 8 is complete: the first `npm run format:check` identified the earlier Story 64 `ConversationList.tsx` target-chip work, Prettier applied a mechanical rewrite to that file, and the repository-wide rerun passed.
+
+- Testing item 7 is complete: `npm run lint` passed with zero warnings.
+
+- Testing item 5 is complete: after correcting two fixture expectations exposed by the stricter review contract, `npm run test:summary:all:parallel` passed client 900/900, server unit 2637/2637, server Cucumber 138/138, and e2e 77/77. The same run rebuilt the server, client, main Compose images, and e2e Compose images successfully; the client retained only the existing chunk-size warning.
+
+- The supported live `review:cycle:summary` proof remained attached for 31 minutes, observed both fast reviewer jobs complete, and returned only when server state became terminal `failed`; it did not permit early workflow continuation. The terminal failure exposed an independent LLM-formatted fast-loop break response, so `two_phase_review_cycle` now executes its authoritative Python phase checker directly through a path-confined `scripts/flow_control/*.py` decision hook; focused server coverage passes 150/150 and runner coverage passes 3/3. Subtask 5 remains open because that live run did not reach the slow wave or publish final reconciled structured artifacts.
+
+- Fresh `npm run compose:build:summary` completed successfully for both images with the repaired review runtime and terminal runner baked into the supported main stack, so Testing item 3 is complete. The build wrapper reported clean success and required no log inspection.
+
+- Implemented the coordinated terminal-review repair: main-review validation now rejects Markdown-only completion without an explicit structured findings declaration; flow runs expose terminal status and stop endpoints; `review:cycle:summary` waits without an arbitrary timeout and only cancels on an explicit stall threshold; implementation flows halt on a still-live durable blocker instead of retrying it; and focused runner/server coverage passes. Fresh `npm run build:summary:server` passed, the focused server files passed 148/148, the runner tests passed 2/2, and `npm run build:summary:client` passed with only the existing Vite chunk-size warning, so Testing item 2 is complete. The authoritative Story 64 artifact regeneration remains open until the rebuilt main stack runs the new terminal wrapper.
+
+- **BLOCKER** Subtask 5 remains the only unchecked implementation subtask. Fresh supported run `e82a4f1d-86de-49f0-8822-6bb4a19057d9` completed all three fast-wave jobs for wave `0000064-rw-20260716T214243Z-e0d4c1e4`, but the parent reached a genuine terminal failure at the LLM-formatted fast-loop break gate before the slow wave could publish final structured artifacts. The new path-confined deterministic decision-script repair is covered by focused and full automated tests but has not yet completed a fresh provider-backed two-phase cycle, so the final 15-finding reconciliation cannot be claimed. Keep Task 28 `__in_progress__`; rerun the terminal wrapper against the repaired image and require terminal, identity-matching slow-review artifacts before checking Subtask 5.
 
 - Preflight visual refinement pass ran against the supported main stack: the desktop `Flows` drawer kept separate run/target chips and the mobile transcript/composer remained readable, but the `390x844` long target chips ellipsized the shared prefix and hid the only distinguishing `additional-1`/`additional-2` suffix. Task 28 now explicitly owns that `ConversationList.tsx` repair seam and its mobile proof; no code was changed in this step.
 

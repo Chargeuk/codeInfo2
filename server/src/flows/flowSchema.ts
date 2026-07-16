@@ -41,6 +41,8 @@ export type FlowBreakStep = {
   identifier: string;
   question: string;
   breakOn: 'yes' | 'no';
+  haltFlow?: boolean;
+  decisionScript?: string;
 };
 
 export type FlowContinueStep = {
@@ -231,6 +233,8 @@ const FlowBreakStepSchema = z
     identifier: trimmedNonEmptyString,
     question: trimmedNonEmptyString,
     breakOn: z.union([z.literal('yes'), z.literal('no')]),
+    haltFlow: z.boolean().optional(),
+    decisionScript: trimmedNonEmptyString.optional(),
   })
   .strict();
 

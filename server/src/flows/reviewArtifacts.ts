@@ -64,6 +64,7 @@ export type ReviewPointerValidationResult = {
   validated_artifact_files: string[];
   usable_bundle_ids: string[];
   validated_findings?: FlowJsonValue[];
+  structured_findings_declared?: boolean;
 };
 
 export type ReviewArtifactsValidationResult = {
@@ -102,22 +103,33 @@ const readValidatedFindings = async (params: {
   pointer: ReviewPointer;
   repoRoot: string;
   pointerKey: string;
-}): Promise<FlowJsonValue[]> => {
+}): Promise<{ findings: FlowJsonValue[]; declared: boolean }> => {
   if (Array.isArray(params.pointer.findings)) {
-    return params.pointer.findings as FlowJsonValue[];
+    return {
+      findings: params.pointer.findings as FlowJsonValue[],
+      declared: true,
+    };
   }
-  if (typeof params.pointer.findings_file !== 'string') return [];
+  if (typeof params.pointer.findings_file !== 'string') {
+    return { findings: [], declared: false };
+  }
   const findingsPath = await resolveReviewArtifact({
     repoRoot: params.repoRoot,
     artifactPath: params.pointer.findings_file,
     fieldName: `${params.pointerKey}.findings_file`,
   });
-  if (!findingsPath.endsWith('.json')) return [];
+  if (!findingsPath.endsWith('.json')) {
+    return { findings: [], declared: false };
+  }
   const parsed: unknown = JSON.parse(await fs.readFile(findingsPath, 'utf8'));
-  if (Array.isArray(parsed)) return parsed as FlowJsonValue[];
+  if (Array.isArray(parsed)) {
+    return { findings: parsed as FlowJsonValue[], declared: true };
+  }
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     const findings = (parsed as ReviewPointer).findings;
-    if (Array.isArray(findings)) return findings as FlowJsonValue[];
+    if (Array.isArray(findings)) {
+      return { findings: findings as FlowJsonValue[], declared: true };
+    }
   }
   throw new Error(`${params.pointerKey}.findings_file must contain findings.`);
 };
@@ -1401,6 +1413,7 @@ export async function validateReviewArtifacts(
       validated_artifact_files: [],
       usable_bundle_ids: [],
       validated_findings: [],
+      structured_findings_declared: false,
     };
     try {
       if (preparedStateError) {
@@ -1440,11 +1453,18 @@ export async function validateReviewArtifacts(
           displayArtifactPath(repoRoot, artifactPath),
         );
       }
-      result.validated_findings = await readValidatedFindings({
+      const structuredFindings = await readValidatedFindings({
         pointer,
         repoRoot,
         pointerKey,
       });
+      result.validated_findings = structuredFindings.findings;
+      result.structured_findings_declared = structuredFindings.declared;
+      if (pointerKey === 'current-review' && !structuredFindings.declared) {
+        throw new Error(
+          'current-review must declare structured findings inline or through a JSON findings_file.',
+        );
+      }
       if (pointerKey === 'current-open-code-review') {
         const ocr = await validateOcrArtifacts({
           repoRoot,

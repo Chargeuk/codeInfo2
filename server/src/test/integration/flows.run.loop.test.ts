@@ -478,6 +478,47 @@ test('flow loops until break answer matches breakOn', async () => {
   );
 });
 
+test('haltFlow break stops the complete flow instead of advancing outer steps', async () => {
+  await withFlowServer(
+    (message) =>
+      message.includes('Halt complete flow?')
+        ? JSON.stringify({ answer: 'yes' })
+        : 'unexpected',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-halt-break';
+      await supertest(baseUrl)
+        .post('/flows/halt-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'assistant' && turn.content.includes('"yes"'),
+          ),
+        15000,
+      );
+      await waitForRuntimeCleanup(conversationId);
+
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes('This step must not execute'),
+        ),
+        false,
+      );
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes('This top-level step must not execute'),
+        ),
+        false,
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
 test('continue step skips remaining iteration steps and starts the next iteration', async () => {
   let continueCount = 0;
   await withFlowServer(

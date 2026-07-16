@@ -11,6 +11,7 @@ Load a fresh bounded blocker-repair packet before checking for blockers.
 If the current implementation does not contain a blocker, state that and stop.
 If the current implementation contains a blocker, you MUST research and prove the solution before work continues.
 Write the proven blocker answer into the implementation notes marked as `**BLOCKING ANSWER**`.
+Keep the task's existing parser-visible `**BLOCKER**` line intact while the required external state, terminal artifact, or prerequisite remains unavailable. A proven retry recipe is context, not blocker resolution. Do not rename the live blocker to `**RESOLVED ISSUE**`, remove it, or claim it is retired unless fresh evidence proves the blocking condition itself changed.
 
 </task>
 

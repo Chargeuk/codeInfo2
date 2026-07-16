@@ -1,12 +1,18 @@
 import { Router, json } from 'express';
 
-import { startFlowRun } from '../flows/service.js';
+import {
+  getFlowRunStatus,
+  startFlowRun,
+  stopFlowRun,
+} from '../flows/service.js';
 import type { FlowRunError } from '../flows/types.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { getWorkingFolderClientMessage } from '../workingFolders/state.js';
 
 type Deps = {
   startFlowRun: typeof startFlowRun;
+  getFlowRunStatus: typeof getFlowRunStatus;
+  stopFlowRun: typeof stopFlowRun;
 };
 
 type FlowRunBody = {
@@ -139,14 +145,52 @@ const validateBody = (
   };
 };
 
-export function createFlowsRunRouter(
-  deps: Deps = {
+export function createFlowsRunRouter(overrides: Partial<Deps> = {}) {
+  const deps: Deps = {
     startFlowRun,
-  },
-) {
+    getFlowRunStatus,
+    stopFlowRun,
+    ...overrides,
+  };
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
+
+  router.get('/flows/runs/:conversationId', async (req, res) => {
+    const conversationId = String(req.params.conversationId ?? '').trim();
+    if (!conversationId) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+    try {
+      const result = await deps.getFlowRunStatus(conversationId);
+      if (!result) return res.status(404).json({ error: 'not_found' });
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({
+        error: 'server_error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  router.post('/flows/runs/:conversationId/stop', async (req, res) => {
+    const conversationId = String(req.params.conversationId ?? '').trim();
+    if (!conversationId) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+    const accepted = deps.stopFlowRun(conversationId);
+    if (!accepted) {
+      return res.status(409).json({
+        error: 'conflict',
+        code: 'FLOW_NOT_RUNNING',
+        message: 'The flow conversation has no active run.',
+      });
+    }
+    return res.status(202).json({
+      status: 'stopping',
+      conversationId,
+    });
+  });
 
   router.post('/flows/:flowName/run', async (req, res) => {
     const requestId =

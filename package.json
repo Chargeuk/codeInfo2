@@ -19,6 +19,7 @@
     "build:summary:server": "node ./scripts/build-summary-server.mjs",
     "build:summary:client": "node ./scripts/build-summary-client.mjs",
     "compose:build:summary": "node ./scripts/compose-build-summary.mjs",
+    "review:cycle:summary": "node ./scripts/review-cycle-summary.mjs",
     "compose:e2e:build:summary": "node ./scripts/compose-e2e-build-summary.mjs",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",

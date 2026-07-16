@@ -333,6 +333,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       ...scope,
       evidence_file: 'codeInfoTmp/reviews/evidence.md',
       findings_file: 'codeInfoTmp/reviews/findings.md',
+      findings: [],
       ...(options.omitMainRepos ? {} : { repos: mainRepos }),
       status: options.mainStatus ?? 'completed',
     }),
@@ -629,9 +630,48 @@ test('validateReviewArtifacts consumes inline main-review findings while retaini
 
     assert.equal(result.status, 'passed');
     assert.deepEqual(result.pointer_results[0]?.validated_findings, findings);
+    assert.equal(result.pointer_results[0]?.structured_findings_declared, true);
     assert.equal(
       JSON.parse(await fs.readFile(pointerPath, 'utf8')).findings_file,
       'codeInfoTmp/reviews/findings.md',
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts rejects a completed main-review pointer with only Markdown findings', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-markdown-only-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const pointerPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      '0000013-current-review.json',
+    );
+    const pointer = JSON.parse(
+      await fs.readFile(pointerPath, 'utf8'),
+    ) as Record<string, unknown>;
+    delete pointer.findings;
+    await fs.writeFile(pointerPath, JSON.stringify(pointer));
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.pointer_results[0]?.usable, false);
+    assert.equal(
+      result.pointer_results[0]?.structured_findings_declared,
+      false,
+    );
+    assert.match(
+      result.pointer_results[0]?.errors[0] ?? '',
+      /must declare structured findings/u,
     );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });

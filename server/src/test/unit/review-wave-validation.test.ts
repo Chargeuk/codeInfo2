@@ -197,6 +197,9 @@ const createFixture = async () => {
             pointerKey === 'current-open-code-review' && identityMatches
               ? ['bundle-1']
               : [],
+          validated_findings: Array.isArray(pointer.findings)
+            ? pointer.findings
+            : [],
         });
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -209,6 +212,7 @@ const createFixture = async () => {
           warnings: [],
           validated_artifact_files: [],
           usable_bundle_ids: [],
+          validated_findings: [],
         });
       }
     }
@@ -349,7 +353,9 @@ test('review wave deduplicates exact source repeats without losing sibling revie
 test('cross-repository findings retain story-scoped review provenance', async () => {
   const fixture = await createFixture();
   try {
-    const cross = JSON.parse(await fs.readFile(fixture.crossPointer, 'utf8')) as {
+    const cross = JSON.parse(
+      await fs.readFile(fixture.crossPointer, 'utf8'),
+    ) as {
       findings: Array<Record<string, unknown>>;
     };
     cross.findings = [
@@ -392,6 +398,26 @@ test('cross-repository findings retain story-scoped review provenance', async ()
 test('partial and stale target results preserve usable sibling findings but block closeout', async () => {
   const fixture = await createFixture();
   try {
+    const stableReviewSetPath = path.join(
+      fixture.snapshot.plan_host_root,
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-review-set.json',
+    );
+    const stableValidationPath = path.join(
+      fixture.snapshot.plan_host_root,
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-review-wave-validation.json',
+    );
+    await fs.writeFile(
+      stableReviewSetPath,
+      JSON.stringify({ stable: 'newer' }),
+    );
+    await fs.writeFile(
+      stableValidationPath,
+      JSON.stringify({ stable: 'newer' }),
+    );
     await fs.rm(
       fixture.pointerPath(
         fixture.roots[1] as string,
@@ -424,6 +450,28 @@ test('partial and stale target results preserve usable sibling findings but bloc
     assert.equal(
       result.finalized.job_results?.some((job) => job.status === 'stale'),
       true,
+    );
+    assert.deepEqual(
+      result.finalized.aggregated_findings?.[0]?.sources.map(
+        (source) => source.instance_id,
+      ),
+      [
+        'current_repository--codex_review',
+        'current_repository--open_code_review',
+      ],
+    );
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(stableReviewSetPath, 'utf8')),
+      { stable: 'newer' },
+    );
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(stableValidationPath, 'utf8')),
+      { stable: 'newer' },
+    );
+    assert.equal(
+      JSON.parse(await fs.readFile(result.versionedReviewSetPath, 'utf8'))
+        .closeout_allowed,
+      false,
     );
   } finally {
     await fs.rm(fixture.root, { recursive: true, force: true });

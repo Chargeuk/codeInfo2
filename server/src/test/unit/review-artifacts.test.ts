@@ -554,6 +554,48 @@ test('validateReviewArtifacts accepts one coherent server-owned review session',
   }
 });
 
+test('validateReviewArtifacts publishes server-owned findings from a JSON findings pointer', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-findings-pointer-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const findings = [
+      {
+        title: 'Validated finding',
+        path: 'src/example.ts',
+        line: 7,
+        severity: 'high',
+      },
+    ];
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp', 'reviews', 'findings.json'),
+      JSON.stringify(findings),
+    );
+    const pointerPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      '0000013-current-codex-review.json',
+    );
+    const pointer = JSON.parse(
+      await fs.readFile(pointerPath, 'utf8'),
+    ) as Record<string, unknown>;
+    pointer.findings_file = 'codeInfoTmp/reviews/findings.json';
+    await fs.writeFile(pointerPath, JSON.stringify(pointer));
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-codex-review'],
+    });
+
+    assert.equal(result.status, 'passed');
+    assert.deepEqual(result.pointer_results[0]?.validated_findings, findings);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('validateReviewArtifacts validates a wave target without an ambient current-plan handoff', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-artifacts-wave-target-'),
@@ -676,10 +718,7 @@ test('validateReviewArtifacts publishes usable wave-target validation for transi
       result.warnings.join('\n'),
       /transitional top-level coverage/u,
     );
-    assert.match(
-      result.warnings.join('\n'),
-      /transitional bundle_artifacts/u,
-    );
+    assert.match(result.warnings.join('\n'), /transitional bundle_artifacts/u);
 
     const published = JSON.parse(
       await fs.readFile(

@@ -393,6 +393,16 @@ test('prepareReviewSet propagates abort before writing a manifest', async () => 
         ),
       ),
     );
+    await assert.rejects(
+      fs.access(
+        path.join(
+          prepared.roots[0] as string,
+          'codeInfoTmp',
+          'reviews',
+          '0000064-current-review-set.json',
+        ),
+      ),
+    );
   } finally {
     await fs.rm(prepared.root, { recursive: true, force: true });
   }

@@ -8,11 +8,7 @@ import {
   type ReviewArtifactsValidationResult,
   type ReviewPointerValidationResult,
 } from './reviewArtifacts.js';
-import {
-  atomicWriteJson,
-  buildReviewArtifactPath,
-  resolveContainedReviewArtifactPath,
-} from './reviewIdentity.js';
+import { atomicWriteJson, buildReviewArtifactPath } from './reviewIdentity.js';
 import type {
   AggregatedReviewFinding,
   ReviewPhase,
@@ -84,29 +80,11 @@ const readPointer = async (
   }
 };
 
-const findingValues = async (params: {
-  pointer: FlowJsonObject;
-  repoRoot: string;
-  deps: ValidationDeps;
-}): Promise<FlowJsonValue[]> => {
-  if (Array.isArray(params.pointer.findings)) return params.pointer.findings;
-  if (typeof params.pointer.findings_file !== 'string') return [];
-  try {
-    const findingsPath = resolveContainedReviewArtifactPath({
-      repoRoot: params.repoRoot,
-      relativePath: params.pointer.findings_file,
-    });
-    const parsed = JSON.parse(
-      await params.deps.readFile(findingsPath, 'utf8'),
-    ) as unknown;
-    if (Array.isArray(parsed)) return parsed as FlowJsonValue[];
-    if (isObject(parsed) && Array.isArray(parsed.findings)) {
-      return parsed.findings;
-    }
-  } catch {
-    return [];
-  }
-  return [];
+const findingValues = (pointer: FlowJsonObject): FlowJsonValue[] => {
+  if (Array.isArray(pointer.findings)) return pointer.findings;
+  return isObject(pointer.findings) && Array.isArray(pointer.findings.findings)
+    ? pointer.findings.findings
+    : [];
 };
 
 const findingDescriptor = (finding: FlowJsonValue) => {
@@ -358,11 +336,7 @@ export async function validateReviewWave(
           : 'Cross-repository pointer identity is stale.',
       });
       if (status === 'completed' || status === 'partial') {
-        for (const finding of await findingValues({
-          pointer,
-          repoRoot: params.snapshot.plan_host_root,
-          deps: resolvedDeps,
-        })) {
+        for (const finding of findingValues(pointer)) {
           const source = isObject(finding) ? finding : {};
           const targetIds = Array.isArray(source.target_ids)
             ? source.target_ids.filter(
@@ -501,15 +475,7 @@ export async function validateReviewWave(
           : null,
     });
     if (status === 'completed' || status === 'partial') {
-      const pointer = pointerPath
-        ? await readPointer(pointerPath, resolvedDeps)
-        : null;
-      if (!pointer) continue;
-      for (const finding of await findingValues({
-        pointer,
-        repoRoot: target.repo_root,
-        deps: resolvedDeps,
-      })) {
+      for (const finding of pointerValidation.validated_findings ?? []) {
         findings.push({
           finding,
           source: sourceIdentityForJob({
@@ -613,10 +579,14 @@ export async function validateReviewWave(
     writeFile: resolvedDeps.writeFile,
   };
   await Promise.all([
-    atomicWriteJson(validationPath, validation, atomicDeps),
     atomicWriteJson(versionedValidationPath, validation, atomicDeps),
-    atomicWriteJson(reviewSetPath, finalized, atomicDeps),
     atomicWriteJson(versionedReviewSetPath, finalized, atomicDeps),
+    ...(closeoutAllowed
+      ? [
+          atomicWriteJson(validationPath, validation, atomicDeps),
+          atomicWriteJson(reviewSetPath, finalized, atomicDeps),
+        ]
+      : []),
   ]);
   return {
     finalized,

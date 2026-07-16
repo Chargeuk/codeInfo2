@@ -94,6 +94,7 @@ export type CodexReviewPointer = {
   review_context_source_plan_sha256: string;
   review_excluded_paths: string[];
   review_output_file: string;
+  findings_file: string | null;
   merge_output_file: string | null;
   merged_into_canonical_findings: boolean;
   merged_findings_file: string | null;
@@ -296,7 +297,9 @@ const resolveCodexReviewPointerContext = async (
       deps,
     );
     if (!prepared) {
-      throw new Error('Bound Codex review target lacks a prepared review base.');
+      throw new Error(
+        'Bound Codex review target lacks a prepared review base.',
+      );
     }
     return {
       repoRoot,
@@ -481,7 +484,9 @@ const loadOrPrepareReviewBase = async (
   }
 
   if (requirePreparedBase) {
-    throw new Error('Bound Codex review target prepared base is stale or invalid.');
+    throw new Error(
+      'Bound Codex review target prepared base is stale or invalid.',
+    );
   }
 
   return prepareReviewBase(
@@ -858,6 +863,7 @@ const buildPointer = (params: {
     params.preparedBase.review_context_source_plan_sha256,
   review_excluded_paths: params.preparedBase.review_excluded_paths,
   review_output_file: toPosixRelative(params.repoRoot, params.reviewOutputPath),
+  findings_file: null,
   merge_output_file: null,
   merged_into_canonical_findings: false,
   merged_findings_file: null,

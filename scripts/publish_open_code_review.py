@@ -414,6 +414,7 @@ def build_open_code_review_pointer(
         "overall_validation_status": overall_status,
         "partial": partial,
         "review_output_file": aggregate_target.relative_to(root).as_posix(),
+        "findings_file": None,
         "merged_into_canonical_findings": False,
         "merged_findings_file": None,
         "merge_output_file": None,

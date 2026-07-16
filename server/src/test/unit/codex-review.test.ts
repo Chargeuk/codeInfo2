@@ -336,6 +336,7 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
     const pointer = JSON.parse(pointerRaw) as {
       codex_review_pass_id: string;
       review_output_file: string;
+      findings_file: string | null;
       reasoning_effort: string | null;
       agent_type: string | null;
       branched_from: string | null;
@@ -378,6 +379,7 @@ test('runCodexReviewStep writes a stable pointer file using the server-owned pre
     assert.equal(pointer.review_context_sha256, CONTEXT_SHA);
     assert.deepEqual(pointer.review_excluded_paths, ['planning/**']);
     assert.ok(pointer.review_output_file.endsWith('-codex-review.md'));
+    assert.equal(pointer.findings_file, null);
   } finally {
     if (previousCodeInfoCodexHome === undefined) {
       delete process.env.CODEINFO_CODEX_HOME;

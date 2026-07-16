@@ -68,6 +68,43 @@ test('validateReviewTargetContract accepts only its exact repository, branch, HE
       }),
       /does not match bound target/u,
     );
+
+    const mismatchCases: Array<[string, typeof target]> = [
+      ['repository root', { ...target, repo_root: path.join(root, 'other') }],
+      ['branch', { ...target, branch: 'feature/0000064-other' }],
+      ['HEAD', { ...target, head_commit: '0'.repeat(40) }],
+      ['story', { ...target, story_id: '0000065' }],
+      ['target', { ...target, target_id: 'target-c' }],
+    ];
+    for (const [label, mismatchedTarget] of mismatchCases) {
+      await assert.rejects(
+        validateReviewTargetContract({
+          workingRepositoryPath: root,
+          target: mismatchedTarget,
+        }),
+        { message: /.+/u },
+        `${label} mismatch must be rejected`,
+      );
+    }
+
+    await fs.writeFile(
+      path.join(reviewDir, '0000064-current-review-base.json'),
+      JSON.stringify({
+        repo_root: path.join(root, 'other'),
+        target_id: target.target_id,
+        story_id: target.story_id,
+        branch: target.branch,
+        head_commit: target.head_commit,
+      }),
+    );
+    await assert.rejects(
+      validateReviewTargetContract({
+        workingRepositoryPath: root,
+        target,
+      }),
+      { message: /Prepared review base/u },
+      'prepared-base mismatch must be rejected',
+    );
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

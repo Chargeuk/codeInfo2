@@ -22,6 +22,7 @@ import {
   resolveContainedReviewArtifactPath,
   type ReviewIdentity,
 } from './reviewIdentity.js';
+import type { FlowJsonValue } from './types.js';
 
 const execFile = promisify(execFileCb);
 type ReviewPointer = Record<string, unknown>;
@@ -62,6 +63,7 @@ export type ReviewPointerValidationResult = {
   warnings: string[];
   validated_artifact_files: string[];
   usable_bundle_ids: string[];
+  validated_findings?: FlowJsonValue[];
 };
 
 export type ReviewArtifactsValidationResult = {
@@ -94,6 +96,30 @@ const readJsonObject = async (filePath: string): Promise<ReviewPointer> => {
     throw new Error(`${filePath} did not contain a JSON object.`);
   }
   return parsed as ReviewPointer;
+};
+
+const readValidatedFindings = async (params: {
+  pointer: ReviewPointer;
+  repoRoot: string;
+  pointerKey: string;
+}): Promise<FlowJsonValue[]> => {
+  if (Array.isArray(params.pointer.findings)) {
+    return params.pointer.findings as FlowJsonValue[];
+  }
+  if (typeof params.pointer.findings_file !== 'string') return [];
+  const findingsPath = await resolveReviewArtifact({
+    repoRoot: params.repoRoot,
+    artifactPath: params.pointer.findings_file,
+    fieldName: `${params.pointerKey}.findings_file`,
+  });
+  if (!findingsPath.endsWith('.json')) return [];
+  const parsed: unknown = JSON.parse(await fs.readFile(findingsPath, 'utf8'));
+  if (Array.isArray(parsed)) return parsed as FlowJsonValue[];
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const findings = (parsed as ReviewPointer).findings;
+    if (Array.isArray(findings)) return findings as FlowJsonValue[];
+  }
+  throw new Error(`${params.pointerKey}.findings_file must contain findings.`);
 };
 
 const toPosixRelative = (repoRoot: string, absolutePath: string): string =>
@@ -249,10 +275,18 @@ const assertWaveTargetScopeMatches = (
   pointer: ReviewPointer,
   pointerKey: string,
 ): void => {
-  if (!expected.review_wave_id || !expected.target_id || !expected.plan_host_root) {
+  if (
+    !expected.review_wave_id ||
+    !expected.target_id ||
+    !expected.plan_host_root
+  ) {
     throw new Error('Prepared wave-target review scope is incomplete.');
   }
-  for (const field of ['review_wave_id', 'target_id', 'plan_host_root'] as const) {
+  for (const field of [
+    'review_wave_id',
+    'target_id',
+    'plan_host_root',
+  ] as const) {
     if (pointer[field] !== expected[field]) {
       throw new Error(
         `${pointerKey}.${field} does not match the prepared wave-target scope.`,
@@ -1366,6 +1400,7 @@ export async function validateReviewArtifacts(
       warnings: [],
       validated_artifact_files: [],
       usable_bundle_ids: [],
+      validated_findings: [],
     };
     try {
       if (preparedStateError) {
@@ -1405,6 +1440,11 @@ export async function validateReviewArtifacts(
           displayArtifactPath(repoRoot, artifactPath),
         );
       }
+      result.validated_findings = await readValidatedFindings({
+        pointer,
+        repoRoot,
+        pointerKey,
+      });
       if (pointerKey === 'current-open-code-review') {
         const ocr = await validateOcrArtifacts({
           repoRoot,

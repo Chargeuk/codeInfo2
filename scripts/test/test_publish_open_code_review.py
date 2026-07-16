@@ -194,6 +194,10 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         self.assertEqual(pointer["coverage"]["reviewed_files"], 2)
         self.assertEqual(pointer["overall_validation_status"], "valid")
         self.assertFalse(pointer["partial"])
+        self.assertIsNone(pointer["findings_file"])
+        self.assertTrue(
+            Path(pointer["review_output_file"]).is_relative_to("codeInfoTmp/reviews")
+        )
         aggregate_path = repo / pointer["review_output_file"]
         self.assertEqual(
             aggregate_path.read_bytes(), (pass_dir / "open-code-review.md").read_bytes()

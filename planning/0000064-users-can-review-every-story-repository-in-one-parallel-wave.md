@@ -1144,8 +1144,8 @@ This is the sole final revalidation task for the current review cycle. After Tas
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run `npm run lint` and fix issues.
-2. [ ] In `codeInfo2`, run `npm run format:check` and fix issues.
+1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
+2. [x] In `codeInfo2`, run `npm run format:check` and fix issues.
 
 #### Testing
 
@@ -1157,15 +1157,19 @@ Final-task repair scope: the whole approved story is in scope for failures found
 4. [ ] Start the supported main stack with `npm run compose:up`.
 5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
 6. [ ] Stop the supported main stack with `npm run compose:down`.
-7. [ ] In `codeInfo2`, run `npm run lint`.
-8. [ ] In `codeInfo2`, run `npm run format:check`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
 - Use the supported main stack only through the repository wrappers: `npm run compose:up` after the supported build and `npm run compose:down` afterward. The wrapper-managed main compose contract uses `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`, exposes the client at `http://localhost:5001` and server health at `http://localhost:5010/health`, mounts `manual_testing/codeinfo_agents` at `/app/codeinfo_agents` and `manual_testing/codex_agents` at `/app/codex_agents`, seeds Copilot from `/seed/copilot`, and exposes the host working-folder namespace at `/data`; wait for the server and client health checks before interaction. Confirm the review catalog loads, one-target and three-target waves preserve target and wave identity, cancellation/resume does not duplicate child work, target artifacts remain isolated, cross-repository finding behavior remains covered, and the plan does not claim clean closeout while the blocker is unresolved.
+- Visual revalidation seam: on `Flows`, inspect the persisted one-target and three-target Story 64 review entries at desktop (`1440x960`) and mobile (`390x844`). At desktop, confirm the conversation rail keeps each child entry's review title together with its `Run <execution-id>` and target chip; in `client/src/components/chat/ConversationList.tsx`, those are the `conversation-run-chip` and `conversation-wave-target-chip` seams. At mobile, open the collapsed conversations drawer before making the same comparison, then confirm the selected transcript's target-validation and review-step status remain readable above the fixed composer in `client/src/pages/FlowsPage.tsx`. Treat missing, swapped, duplicated, or clipped target/run identity, or an off-screen/overlapping composer control, as a Story 64 repair signal; do not start a new flow, edit a persisted title, or absorb unrelated Chat or Agents layout work.
 - If browser screenshots are needed, capture each screenshot first to a relative path such as `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime; on the host this normally appears as `$CODEINFO_ROOT/playwright-output-local/<relative-path>`. Treat that host-visible location as staging, keep the screenshot-producing runtime distinct from the app-under-test runtime when they differ, then transfer the file to `codeInfoTmp/manual-testing/0000064/27/` for non-committed task proof. Inspect runtime handoff JSON by meaning for artifact source, fallback runtime, and destination rather than relying on exact property names. The latest final-task screenshots are the primary durable proof for visual surfaces this task re-covers; retain earlier screenshots only when uniquely necessary, and record any transfer limitation honestly instead of halting the proof loop.
 - Confirm the completed repair path does not duplicate final tasks or alter the approved Story 64 interaction contract. If provider authentication requires human-controlled two-factor authentication, follow repository guidance and document the allowed skip without attempting re-authentication.
 
 #### Implementation Notes
 
 - Created as the one final revalidation owner for review cycle `0000064-rc-20260715T234622Z-3ff7dd09`; it must remain after the new review-repair task and cover the whole story plus the current review block.
+- Preflight visual refinement pass inspected the Flow review catalog, target/run identity chips, transcript status, and responsive composer seams; no code was changed.
+- Ran `npm run lint` successfully with exit code 0; no lint issues required repair.
+- Ran `npm run format:check` successfully with exit code 0; no formatting issues required repair.

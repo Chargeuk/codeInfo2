@@ -1078,6 +1078,7 @@ Normal-system startup and shutdown are not repeated in this task: Task 26 change
 - Focused proof passed: the four Task 26 server-unit files passed 58 tests, Codex pointer publication passed 18 tests, and the OpenCode publisher passed 12 Python tests.
 - Automated proof passed: `npm run build:summary:server` completed cleanly with zero warnings.
 - Implementation-plus-automated-proof audit passed: all six subtasks and three testing checks are evidenced, no live task blocker remains, and the review-artifact-only changes introduced no story-caused user-facing behavior drift. The authoritative review state still preserves incomplete coverage and `closeout_allowed: false` for the later final revalidation task.
+- Manual testing assessed as not applicable (task-scoped): Task 26's exit criteria cover server-owned review artifacts and focused automated proof only, and its Testing section explicitly assigns main-stack lifecycle proof to Task 27. No runtime was started and no manual-proof artifacts were required.
 
 ### Task 27. Re-Validate Story 64 After Review Outcome Reconciliation
 

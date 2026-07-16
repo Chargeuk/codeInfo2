@@ -1126,7 +1126,7 @@ This bounded implementation task owns the independent client target-chip seam th
 
 ### Task 28. Re-Validate Story 64 After Review Outcome Reconciliation
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Prerequisite: Task 27 is complete; the final revalidation and its automated proof must not start before the target-chip implementation is delivered.

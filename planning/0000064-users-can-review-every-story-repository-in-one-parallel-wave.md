@@ -994,7 +994,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 26. Reconcile the incomplete slow-wave findings handoff before review task-up
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `review_finding_repair`
 - Review Pass ID: `0000064-20260715T235743Z-8f7623b0a4-0551069e`
@@ -1075,8 +1075,9 @@ Normal-system startup and shutdown are not repeated in this task: Task 26 change
 - Added server-owned validated-findings transport from pointer ingestion into wave aggregation, with versioned-only writes for incomplete validation so newer stable artifacts remain untouched.
 - Extended wave, review-set, target-contract, and review-artifact fixtures for source preservation, incomplete-closeout boundaries, isolated preparation, abort cleanup, identity gates, and JSON findings-pointer ingestion.
 - Rechecked the active disposition and review-tasking state: the authoritative slow-wave aggregate remains unreconciled, `closeout_allowed: false` is preserved for incomplete coverage, the single findings block remains authoritative, and Task 27 remains the sole final revalidation owner.
-- Focused proof passed: the four Task 26 server-unit files passed 58 tests, Codex pointer publication passed 18 tests, and the OpenCode publisher passed 12 Python tests; the required full server build remains for the later automated-proof step.
+- Focused proof passed: the four Task 26 server-unit files passed 58 tests, Codex pointer publication passed 18 tests, and the OpenCode publisher passed 12 Python tests.
 - Automated proof passed: `npm run build:summary:server` completed cleanly with zero warnings.
+- Implementation-plus-automated-proof audit passed: all six subtasks and three testing checks are evidenced, no live task blocker remains, and the review-artifact-only changes introduced no story-caused user-facing behavior drift. The authoritative review state still preserves incomplete coverage and `closeout_allowed: false` for the later final revalidation task.
 
 ### Task 27. Re-Validate Story 64 After Review Outcome Reconciliation
 

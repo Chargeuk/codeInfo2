@@ -253,6 +253,55 @@ describe('ConversationList control gating', () => {
     expect(onSelect).toHaveBeenCalledWith('wave-child-repo-one');
   });
 
+  it('keeps long target chips visibly distinct by retaining their final segment', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          conversations: [
+            {
+              conversationId: 'long-root',
+              title: 'Long root review',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-03T00:00:00Z',
+              archived: false,
+              flags: {
+                flow: {
+                  executionId: 'long-root-run',
+                  input: {
+                    target: {
+                      target_id:
+                        'data-codeinfo2-codeInfoTmp-story64-main-proof-three-additional-1',
+                    },
+                  },
+                },
+              },
+            },
+            {
+              conversationId: 'long-child',
+              title: 'Long child review',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-02T00:00:00Z',
+              archived: false,
+              flags: {
+                flowChild: {
+                  executionId: 'long-child-run',
+                  instanceId: 'target-reviews:1:review',
+                  targetId:
+                    'data-codeinfo2-codeInfoTmp-story64-main-proof-three-additional-2',
+                },
+              },
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('…additional-1')).toBeInTheDocument();
+    expect(screen.getByText('…additional-2')).toBeInTheDocument();
+  });
+
   it('renders filters and refresh for agents when handlers are provided', () => {
     render(
       <ConversationList

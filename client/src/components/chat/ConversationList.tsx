@@ -90,6 +90,13 @@ const getConversationRootTargetId = (flags?: ConversationFlags) => {
     : undefined;
 };
 
+const getVisibleTargetLabel = (targetId: string) => {
+  if (targetId.length <= 32) return targetId;
+
+  const suffix = targetId.split('-').slice(-2).join('-');
+  return `…${suffix}`;
+};
+
 const normalizeVisibleFilterState = (state: ConversationFilterState) =>
   state.active || state.archived ? state : fallbackFilterState;
 
@@ -846,7 +853,7 @@ export function ConversationList({
                             {rootTargetId &&
                               !conversation.flags?.flowChild?.instanceId && (
                                 <Chip
-                                  label={rootTargetId}
+                                  label={getVisibleTargetLabel(rootTargetId)}
                                   size="small"
                                   variant="outlined"
                                   color="info"
@@ -854,7 +861,7 @@ export function ConversationList({
                                   sx={{
                                     minWidth: 0,
                                     maxWidth: '100%',
-                                    flexShrink: 1,
+                                    flexShrink: 0,
                                     '& .MuiChip-label': {
                                       px: { xs: 0.75, sm: 1 },
                                       fontSize: {
@@ -897,7 +904,9 @@ export function ConversationList({
                             {conversation.flags?.flowChild?.instanceId &&
                               conversation.flags.flowChild.targetId && (
                                 <Chip
-                                  label={conversation.flags.flowChild.targetId}
+                                  label={getVisibleTargetLabel(
+                                    conversation.flags.flowChild.targetId,
+                                  )}
                                   size="small"
                                   variant="outlined"
                                   color="info"
@@ -905,7 +914,7 @@ export function ConversationList({
                                   sx={{
                                     minWidth: 0,
                                     maxWidth: '100%',
-                                    flexShrink: 1,
+                                    flexShrink: 0,
                                     '& .MuiChip-label': {
                                       px: { xs: 0.75, sm: 1 },
                                       fontSize: {

@@ -596,6 +596,48 @@ test('validateReviewArtifacts publishes server-owned findings from a JSON findin
   }
 });
 
+test('validateReviewArtifacts consumes inline main-review findings while retaining the Markdown disposition artifact', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-main-findings-pointer-'),
+  );
+  try {
+    await writeFixture(repoRoot);
+    const findings = [
+      {
+        title: 'Validated main-review finding',
+        path: 'src/main-review.ts',
+        line: 11,
+        severity: 'should_fix',
+      },
+    ];
+    const pointerPath = path.join(
+      repoRoot,
+      'codeInfoTmp',
+      'reviews',
+      '0000013-current-review.json',
+    );
+    const pointer = JSON.parse(
+      await fs.readFile(pointerPath, 'utf8'),
+    ) as Record<string, unknown>;
+    pointer.findings = findings;
+    await fs.writeFile(pointerPath, JSON.stringify(pointer));
+
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+    });
+
+    assert.equal(result.status, 'passed');
+    assert.deepEqual(result.pointer_results[0]?.validated_findings, findings);
+    assert.equal(
+      JSON.parse(await fs.readFile(pointerPath, 'utf8')).findings_file,
+      'codeInfoTmp/reviews/findings.md',
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('validateReviewArtifacts validates a wave target without an ambient current-plan handoff', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-artifacts-wave-target-'),

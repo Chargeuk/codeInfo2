@@ -123,7 +123,7 @@ If a complete review produces no findings:
 - still include the `Rejected Risk Notes` section;
 - also record any residual risks or weak-proof areas.
 
-Update the same handoff file so `findings_file` points to the exact findings artifact, and include any useful counts or disposition hints, including repo-local versus cross-repository grouping when relevant.
+Update the same handoff file so `findings_file` points to the exact human-readable Markdown findings artifact, and include the exact structured finding objects in a top-level `findings` array on the `current-review` pointer. The inline array is the server-owned machine-readable publication consumed by wave validation; do not replace it with Markdown parsing. Include any useful counts or disposition hints, including repo-local versus cross-repository grouping when relevant.
 
 When updating the handoff, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed. In particular, preserve `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, optional fetch-failed-only sanitized `remote_fetch_error`, optional fetch-failed-only `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, and `head_commit`.
 
@@ -147,7 +147,7 @@ This findings file is a high-quality local review artifact for the active flow r
 - Confirm the findings artifact includes `Finding Saturation Seeds`, or `Checked Defect Families` when no actionable findings exist.
 - Confirm any finding raised against allowed support files was either a wording issue or an explicit secret/artifact-hygiene issue.
 - If the active plan explicitly names design-target assets intended as implementation references, confirm the review explicitly checked visual conformance whenever both the named design assets and usable retained screenshots existed, instead of limiting itself to behavioral correctness.
-- Confirm the findings file path and the handoff `findings_file` field match.
+- Confirm the findings file path and the handoff `findings_file` field match, and confirm the pointer's inline `findings` array contains the same actionable findings represented in the Markdown artifact.
 
 </verification_loop>
 

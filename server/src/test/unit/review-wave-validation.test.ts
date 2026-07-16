@@ -501,6 +501,24 @@ test('multi-target review cannot close cleanly without usable cross-repository c
 test('slow review wave closes with complete target coverage and no cross-repository job', async () => {
   const fixture = await createFixture();
   try {
+    for (const target of fixture.snapshot.targets) {
+      const pointerPath = fixture.pointerPath(
+        target.repo_root,
+        'current-review',
+      );
+      const pointer = JSON.parse(
+        await fs.readFile(pointerPath, 'utf8'),
+      ) as Record<string, unknown>;
+      pointer.findings = [
+        {
+          title: 'Main review finding',
+          path: 'src/main-review.ts',
+          line: 11,
+          severity: 'should_fix',
+        },
+      ];
+      await fs.writeFile(pointerPath, JSON.stringify(pointer));
+    }
     const expectedJobs = fixture.snapshot.targets.map((target) => ({
       instance_id: `${target.target_id}--review_artifacts_main`,
       flow_name: 'review_artifacts_main',
@@ -531,6 +549,23 @@ test('slow review wave closes with complete target coverage and no cross-reposit
     assert.equal(result.finalized.cross_repository_status, 'not_expected');
     assert.equal(result.finalized.coverage.completed_jobs, 2);
     assert.equal(result.finalized.closeout_allowed, true);
+    const mainReviewFindings = (
+      result.finalized.aggregated_findings ?? []
+    ).filter((finding) =>
+      finding.sources.some((source) => source.flow_name === 'review_artifacts_main'),
+    );
+    assert.equal(mainReviewFindings.length, 2);
+    assert.equal(
+      mainReviewFindings.every(
+        (finding) =>
+          finding.sources.length === 1 &&
+          finding.sources[0]?.review_name === 'Main Review' &&
+          finding.sources[0]?.review_phase === 'slow' &&
+          finding.sources[0]?.target_id === finding.target_ids[0] &&
+          finding.sources[0]?.repo_alias === finding.target_ids[0],
+      ),
+      true,
+    );
     assert.equal(result.validation.review_phase, 'slow');
     assert.equal(result.validation.cross_repository_required, false);
   } finally {

@@ -20,24 +20,14 @@
         {
           "type": "validateReviewArtifacts",
           "label": "Validate Fast Review Artifacts",
-          "pointerKeys": [
-            "current-review",
-            "current-codex-review",
-            "current-open-code-review"
-          ]
+          "pointerKeys": ["current-codex-review", "current-open-code-review"],
+          "ensureCanonicalFallback": true
         },
         {
           "type": "reset",
           "label": "Reset planner before merging fast review findings",
           "agentType": "planning_agent",
           "identifier": "planner"
-        },
-        {
-          "type": "llm",
-          "label": "Load planner context before merging fast review findings",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "load_planner_review_context.md"
         },
         {
           "type": "llm",
@@ -102,11 +92,8 @@
     {
       "type": "validateReviewArtifacts",
       "label": "Validate Slow Review Artifact",
-      "pointerKeys": [
-        "current-review",
-        "current-codex-review",
-        "current-open-code-review"
-      ]
+      "pointerKeys": ["current-review"],
+      "ensureCanonicalFallback": true
     },
     {
       "type": "subflow",

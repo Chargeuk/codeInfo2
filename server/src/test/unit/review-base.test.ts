@@ -159,7 +159,7 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         ),
         'utf8',
       ),
-    ) as { review_session_id: string; status: string };
+    ) as Record<string, unknown>;
     const pendingCodex = JSON.parse(
       await fs.readFile(
         path.join(
@@ -170,7 +170,18 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         ),
         'utf8',
       ),
-    ) as { canonical_review_pass_id: string; status: string };
+    ) as Record<string, unknown>;
+    const pendingOcr = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000027-current-open-code-review.json',
+        ),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
     assert.equal(
       pendingMain.review_session_id,
       result.artifact.review_session_id,
@@ -181,6 +192,19 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       result.artifact.review_pass_id,
     );
     assert.equal(pendingCodex.status, 'pending');
+    for (const pointer of [pendingMain, pendingCodex, pendingOcr]) {
+      assert.equal(pointer.repo_alias, result.artifact.repo_alias);
+      assert.equal(pointer.repo_root, result.artifact.repo_root);
+      assert.equal(pointer.branch, result.artifact.branch);
+      assert.equal(
+        pointer.comparison_base_commit,
+        result.artifact.comparison_base_commit,
+      );
+      assert.equal(
+        pointer.comparison_base_ref,
+        result.artifact.comparison_base_ref,
+      );
+    }
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

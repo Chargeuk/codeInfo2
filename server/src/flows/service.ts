@@ -5970,6 +5970,7 @@ async function runFlowUnlocked(params: {
       const result = await validateReviewArtifacts({
         workingRepositoryPath: reviewRepositoryPath,
         pointerKeys: step.pointerKeys,
+        ensureCanonicalFallback: step.ensureCanonicalFallback,
         signal: inflightSignal,
       });
       if (inflightSignal.aborted) {

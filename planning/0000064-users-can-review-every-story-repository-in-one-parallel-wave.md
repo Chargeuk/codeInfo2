@@ -1086,7 +1086,7 @@ Normal-system startup and shutdown are not repeated in this task: Task 26 change
 
 ### Task 27. Complete Story 64 Review Target Identity Chips
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `implementation`
 - Prerequisite: Task 26 is complete; Task 28 final revalidation follows this task.
@@ -1121,6 +1121,7 @@ This bounded implementation task owns the independent client target-chip seam th
 - Implemented root target-chip extraction from `flags.flow.input.target.target_id` and added focused coverage while preserving child `flags.flowChild.targetId` chips.
 - `npm run build:summary:client` passed typecheck and production build; Vite reported the repository's existing large-chunk warning.
 - Implementation-only audit confirmed commit `7aaa1812` changes only the approved ConversationList/API typing/test surfaces: root rows use the persisted `flags.flow.input.target.target_id`, child rows retain `flags.flowChild.targetId`, and the target chip remains separate from the clipped title. The parser reports no live blocker and both checklist items are complete from the implementation evidence; no story-caused preserved-behavior regression or unrelated user-facing drift was found. Task 27 remains `__in_progress__` for the normal proof and closeout path; this audit does not claim additional automated-proof completion.
+- Implementation-plus-automated-proof audit confirmed the checked implementation and recorded `npm run build:summary:client` evidence are complete, with no live blocker, unchecked checklist item, or story-caused behavior drift. Task 27 is now honestly `__done__`; manual validation and whole-story final closeout remain owned by the later Task 28 path.
 
 ### Task 28. Re-Validate Story 64 After Review Outcome Reconciliation
 

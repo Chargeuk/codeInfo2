@@ -1156,9 +1156,9 @@ Final-task repair scope: the whole approved story is in scope for failures found
 1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
 2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
 3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] Start the supported main stack with `npm run compose:up`.
+4. [x] Start the supported main stack with `npm run compose:up`.
 5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
-6. [ ] Stop the supported main stack with `npm run compose:down`.
+6. [x] Stop the supported main stack with `npm run compose:down`.
 7. [ ] In `codeInfo2`, run `npm run lint`.
 8. [ ] In `codeInfo2`, run `npm run format:check`.
 
@@ -1193,6 +1193,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Re-ran `npm run build:summary:server` successfully with exit code 0; the wrapper reported a clean success with no warnings.
 - Re-ran `npm run build:summary:client` successfully with exit code 0; the wrapper reported the known large-chunk warning and no build failure.
 - Re-ran `npm run compose:build:summary` successfully with exit code 0; both compose image builds passed.
+- Started the supported main stack with `CODEINFO_HOST_INGEST_DIR=/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2 npm run compose:up` after rebuilding the images, so the repaired producer was mounted at `/data`; the stack became healthy and was stopped with `npm run compose:down` after the bounded regeneration attempt.
+- **BLOCKER** Subtask 4, “Regenerate the authoritative Story 64 `current-review` pointer and slow-wave/review-set artifacts with the repaired main-review producer,” remains open. I tried the supported REST root-flow resume with the persisted Story 64 conversation at `[2]`, which did not advance, then with its loop-aware `[0,2]` path after rebuilding the compose images and mounting the current repository; that attempt advanced only through the saved fast-wave state and remained at fast-wave validation for more than a minute with no new turn or artifact update. The authoritative current-review pointer and slow-wave/review-set pair therefore remain stale/mismatched, so reconciliation cannot be claimed honestly. This requires the review-flow execution/harness to be repaired or the task to be re-owned/reordered for a valid slow-wave regeneration; no plan split is needed unless the selector cannot provide that runtime prerequisite.
 - Re-started the supported main stack with `npm run compose:up`; all services started and the server reported healthy.
 - Re-ran `npm run test:summary:all:parallel` successfully; client (899), server unit (2629), server cucumber (138), and e2e (77) tests all passed.
 - Stopped the supported main stack with `npm run compose:down`; all started containers and the compose network were removed successfully.

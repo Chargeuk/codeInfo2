@@ -1065,7 +1065,7 @@ The authoritative slow-wave review set and matching wave-validation artifact are
 
 Normal-system startup and shutdown are not repeated in this task: Task 26 changes server review-artifact validation internals without changing startup, environment, Compose ownership, or runtime routing; Task 27 owns the supported main-stack lifecycle and full regression proof.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`; if a failure is outside the review-artifact surfaces owned by Task 26, record it as a shared baseline or harness result rather than widening this repair task.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`; if a failure is outside the review-artifact surfaces owned by Task 26, record it as a shared baseline or harness result rather than widening this repair task.
 2. [x] In `codeInfo2`, run the targeted server-unit wrapper with `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/unit/review-set.test.ts --file server/src/test/unit/review-target-contract.test.ts --file server/src/test/unit/review-artifacts.test.ts`; use these four proof files to validate successful ingestion, stale or mismatched identity rejection, source-preserving aggregation, missing or malformed artifact handling, and `closeout_allowed: false` for incomplete coverage.
 3. [x] Run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` and verify the current-pass findings block appears exactly once, Task 26 retains `aggregated-findings-mismatch` coverage, and Task 27 remains the only final revalidation owner.
 
@@ -1076,6 +1076,7 @@ Normal-system startup and shutdown are not repeated in this task: Task 26 change
 - Extended wave, review-set, target-contract, and review-artifact fixtures for source preservation, incomplete-closeout boundaries, isolated preparation, abort cleanup, identity gates, and JSON findings-pointer ingestion.
 - Rechecked the active disposition and review-tasking state: the authoritative slow-wave aggregate remains unreconciled, `closeout_allowed: false` is preserved for incomplete coverage, the single findings block remains authoritative, and Task 27 remains the sole final revalidation owner.
 - Focused proof passed: the four Task 26 server-unit files passed 58 tests, Codex pointer publication passed 18 tests, and the OpenCode publisher passed 12 Python tests; the required full server build remains for the later automated-proof step.
+- Automated proof passed: `npm run build:summary:server` completed cleanly with zero warnings.
 
 ### Task 27. Re-Validate Story 64 After Review Outcome Reconciliation
 

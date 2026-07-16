@@ -1147,19 +1147,20 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
 2. [x] In `codeInfo2`, run `npm run format:check` and fix issues.
 3. [x] In `codeInfo2`, repair the main-review publication seam so each wave target's `current-review` pointer emits findings inline or through a JSON `findings_file` consumed by `readValidatedFindings()`, retain the Markdown findings artifact for disposition, and add focused regression coverage proving `validateReviewWave()` aggregates the findings with server-owned source identity.
+4. [ ] Regenerate the authoritative Story 64 `current-review` pointer and slow-wave/review-set artifacts with the repaired main-review producer, then reconcile `aggregated_findings` and the disposition state so the 15 validated Markdown findings are represented in server-owned structured findings with matching source identity; retain the Markdown artifact and leave the mismatch visibly blocked if the generated pair still disagrees.
 
 #### Testing
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [x] In `codeInfo2`, run `npm run build:summary:server`.
-2. [x] In `codeInfo2`, run `npm run build:summary:client`.
-3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [x] Start the supported main stack with `npm run compose:up`.
-5. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
-6. [x] Stop the supported main stack with `npm run compose:down`.
-7. [x] In `codeInfo2`, run `npm run lint`.
-8. [x] In `codeInfo2`, run `npm run format:check`.
+1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
+2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
+3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [ ] Start the supported main stack with `npm run compose:up`.
+5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+6. [ ] Stop the supported main stack with `npm run compose:down`.
+7. [ ] In `codeInfo2`, run `npm run lint`.
+8. [ ] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -1193,3 +1194,4 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Re-started the supported main stack with `npm run compose:up`; all services started and the server reported healthy.
 - Re-ran `npm run test:summary:all:parallel` successfully; client (899), server unit (2629), server cucumber (138), and e2e (77) tests all passed.
 - Stopped the supported main stack with `npm run compose:down`; all started containers and the compose network were removed successfully.
+- **BLOCKER** The implementation-plus-automated-proof audit found that Task 27 subtask 4 remained unchecked after normalization: the current authoritative `current-review` pointer still publishes the Markdown findings artifact without structured findings, the final slow-wave review set still reports `aggregated_findings: []`, and `review-disposition-state.json` still reports `aggregated-findings-mismatch` with `safe_to_exit_review_loop_without_tasking=false`. The producer contract change, focused regressions, and prior full-suite results were checked, but they do not prove the generated authoritative artifact pair was regenerated at the repaired HEAD. The exact remaining work is to regenerate and reconcile that pair while preserving the Markdown artifact; implementation cannot continue honestly as a completed task until that bounded repair is done or planner intervention repairs ownership. All eight final validation checks were reopened because the unresolved artifact repair can make their earlier results stale.

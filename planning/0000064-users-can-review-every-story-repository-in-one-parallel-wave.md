@@ -841,3 +841,153 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Full parallel automated suite passed: client 899, server unit 2627, server cucumber 138, and e2e 77 tests passed with zero failures.
 - Supported main stack stopped cleanly; all started containers and the internal network were removed.
 - Final-task manual proof ran at full-story scope after rebuilding and starting the main stack from stopped/unknown provenance: `/health` and the client passed, and the Flows UI loaded the review catalog plus persisted one-target, three-target, and cancellation/resume review records without console errors or failed application requests. The stack was then stopped cleanly; Playwright captured `proof-01-flows.png` but the active MCP output could not be transferred from either `$CODEINFO_ROOT/playwright-output-local` or `codeinfo2-playwright-mcp-local`, so the intended scratch destination remains `codeInfoTmp/manual-testing/0000064/25/` and no screenshot is claimed as retained.
+
+## Code Review Findings
+
+- Review pass: `0000064-20260715T235743Z-8f7623b0a4-0551069e`
+- Review cycle: `0000064-rc-20260715T234622Z-3ff7dd09`
+- Comparison context: local `HEAD` `8f7623b0a4da9f0c15124006f5cf5a08c45d43fc` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Wave coverage and ownership: the validated slow wave had one expected target-local main-review job for `current_repository`, completed and usable; cross-repository coverage was not expected for this slow wave. `current_repository` is the recorded target owner. The authoritative aggregate contained no findings or severity-conflict records, so no accepted finding can honestly be attributed from wave sources in this pass.
+- Confidence note: the disposition state contains no accepted or ignored canonical findings and one incomplete aggregation blocker, which is not an accepted or ignored issue. The ignored entries below are explicit non-adopted candidates from the validated findings artifact's `Rejected Risk Notes`; because they have no server-owned review names, `Found by` preserves their exact artifact-section references.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. Generic subflow-wave expansion and ordinary subflow compatibility
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: subflowWave compatibility`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: The generic matrix/singleton expansion and existing `subflow` compatibility were checked without confirming an additional defect.
+- Example: No concrete example was recorded in the validated review evidence.
+- Why ignored: The review explicitly recorded no additional defect for this candidate.
+
+#### 2. Target admission contradictions beyond the recorded base-pinning issue
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: target admission`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Duplicate roots, branch-story mismatches, detached heads, and alias collisions were covered by existing target resolver tests.
+- Example: No concrete example was recorded in the validated review evidence.
+- Why ignored: The review separated these covered checks from the distinct comparison-base finding; no additional issue was adopted.
+
+#### 3. One-target cross-repository `not_applicable` behavior
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: one-target not_applicable`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: A one-target cross-repository wave may publish the deterministic `not_applicable` result.
+- Example: The plan explicitly allows the singleton cross-repository flow to exit with `not_applicable`.
+- Why ignored: This is approved story behavior, not an issue to change.
+
+#### 4. Child-conversation errors as a substitute for parent-wave diagnostics
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: child error versus parent diagnostics`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: The child conversation's own error was considered insufficient evidence that the parent best-effort summary already preserved the child reason.
+- Example: No concrete additional defect beyond the separately recorded parent-summary finding was recorded.
+- Why ignored: The review treated this as context for the existing diagnostic finding, not a second finding.
+
+#### 5. Cross-repository compatibility review for repositories outside the plan scope
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: no additional repositories`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: No additional repository compatibility diff was performed because the plan names no additional repositories.
+- Example: The stored plan scope contains an empty `additional_repositories` list.
+- Why ignored: This is outside the active repository scope and is not an issue for this story pass.
+
+#### 6. Visual-conformance review without retained design evidence
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: visual conformance`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Visual review was not activated because no retained screenshots or named design assets were available.
+- Example: No concrete visual mismatch was recorded in the validated review evidence.
+- Why ignored: The artifact records residual uncertainty, not an actionable current-pass finding.
+
+#### 7. Portability of changed documentation links
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: documentation portability`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Changed documentation links were checked for absolute local paths and no portability problem was found.
+- Example: The reviewed links were repository-relative.
+- Why ignored: No concrete documentation defect was confirmed.
+
+#### 8. Routing-selection and fallback behavior beyond recorded findings
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: routing-selection contradictions`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Base fallback ordering and flow-agent fallback behavior were checked without confirming an additional routing defect.
+- Example: The review evidence records direct remote/local fallback coverage.
+- Why ignored: The review retained only the separately recorded provider-ordering issue; no extra routing finding was adopted.
+
+#### 9. Boundary-input, path, and command-injection concerns beyond existing guards
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: boundary-input audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Artifact containment, allowlisted output keys, repository-root checks, and argv boundaries were reviewed without confirming a new bypass.
+- Example: The review exercised unsafe artifact paths and shell metacharacters without recording a new defect.
+- Why ignored: Existing guards and the validated review evidence did not support an additional finding.
+
+#### 10. Duplicate side effects or replay defects beyond recorded lifecycle findings
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: idempotency/replay audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Stable writes, resume replay, and retry barriers were checked without confirming an additional duplicate side effect.
+- Example: The review identified the existing stale-publication and resume findings but no separate duplicate action.
+- Why ignored: This candidate was already covered by recorded findings and did not justify another issue.
+
+#### 11. Timer or coordination defect beyond the recorded lifecycle proof gap
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: timer/coordination audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Production polling and retry timing were reviewed without confirming a separate correctness defect.
+- Example: The review described the 25 ms sleep as a guard around persisted terminal-state reads.
+- Why ignored: The remaining timing concern was treated as part of the existing lifecycle proof finding, not a new issue.
+
+#### 12. UI affordance or action-parity mismatch
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: UI affordance parity`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Wave and target status chips were reviewed without finding a hidden action, selection, or reset-path mismatch.
+- Example: The evidence says the changes add read-only chips while preserving existing row actions and selectability.
+- Why ignored: No user-facing affordance defect was confirmed.
+
+#### 13. Field-role or identity-field overwrite beyond the recorded resume finding
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: field-role stability audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: The added wave metadata fields were checked for overwriting execution, instance, target, or display identities.
+- Example: The evidence records those fields as separate values and retains the existing fresher-child backfill behavior.
+- Why ignored: The review retained only the existing instance-only resume precedence finding.
+
+#### 14. Redundant bulk side effects in target preparation or validation
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: bulk side-effect cardinality audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Per-target preparation and artifact validation were checked for redundant refresh or reload work.
+- Example: The evidence found distinct repository work per target and retained target failures as invalid or failed coverage.
+- Why ignored: No redundant bulk side effect was confirmed.
+
+#### 15. Changed flow-schema or child-topology contradiction beyond recorded findings
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: flow topology and schema`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: New step shapes, wave identifiers, binding records, and fast/slow topology were checked without confirming an additional contradiction.
+- Example: The challenge records parse-time rejection for malformed shapes and the intended exclusion of the cross-repository reviewer from the slow wave.
+- Why ignored: The candidate was contradicted by validated schema and topology behavior.
+
+#### 16. Review-output publication scope drift beyond recorded aggregation findings
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: review-output publication`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Prepared-base and target-scope publication changes were checked for dangling caller contracts or weak fallback scope.
+- Example: The challenge records that the Open Code publisher receives the prepared-base argument and rejects partial wave scope.
+- Why ignored: No additional publication-scope issue was confirmed beyond the recorded aggregation and target-identity findings.
+
+#### 17. Minor-fix audit state validation or task-order duplication
+
+- Finding ID or Review reference: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes: audit-task flow control`
+- Found by: `codeInfoTmp/reviews/0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md — Rejected Risk Notes`
+- Description: Audit-state validation, synchronization, and minor-fix task ordering were checked without confirming a new duplication or acceptance defect.
+- Example: The challenge records validation before task-flow decisions and idempotent audit-task structure.
+- Why ignored: The review treated these changes as proof hardening and did not adopt an additional finding.

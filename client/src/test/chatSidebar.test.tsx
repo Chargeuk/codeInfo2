@@ -209,6 +209,7 @@ describe('ConversationList control gating', () => {
               flags: {
                 flow: {
                   executionId: 'waveparent-12345678',
+                  input: { target: { target_id: 'root-repo' } },
                   subflowWaveProgress: {
                     expected: 7,
                     running: 0,
@@ -245,6 +246,7 @@ describe('ConversationList control gating', () => {
 
     expect(screen.getByText('Wave 7/7')).toBeInTheDocument();
     expect(screen.getAllByText('Run waveparent')).toHaveLength(2);
+    expect(screen.getByText('root-repo')).toBeInTheDocument();
     expect(screen.getByText('repo-one')).toBeInTheDocument();
 
     fireEvent.click(rowByTitle('Story Review-Artifact Review [repo-one]'));

@@ -1109,15 +1109,17 @@ This bounded implementation task owns the independent client target-chip seam th
 
 #### Subtasks
 
-1. [ ] In `client/src/components/chat/ConversationList.tsx`, render each persisted review target as the existing `conversation-wave-target-chip` beside `conversation-run-chip`: source root rows from `flags.flow.input.target.target_id` and retain `flags.flowChild.targetId` for child rows. Do not rely on clipped `conversation-title`; preserve independent target/run chips at desktop rail width and in the mobile conversations drawer.
+1. [x] In `client/src/components/chat/ConversationList.tsx`, render each persisted review target as the existing `conversation-wave-target-chip` beside `conversation-run-chip`: source root rows from `flags.flow.input.target.target_id` and retain `flags.flowChild.targetId` for child rows. Do not rely on clipped `conversation-title`; preserve independent target/run chips at desktop rail width and in the mobile conversations drawer.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:client` after the target-chip implementation and record the result as the automated compilation proof for this bounded task.
+1. [x] Run `npm run build:summary:client` after the target-chip implementation and record the result as the automated compilation proof for this bounded task.
 
 #### Implementation Notes
 
 - Planner repair split the independent client target-chip implementation out of provider-blocked Task 28 so the next implementation pass has a concrete owner. Task 28 remains `__to_do__` until this task completes and the external review artifacts become closeable.
+- Implemented root target-chip extraction from `flags.flow.input.target.target_id` and added focused coverage while preserving child `flags.flowChild.targetId` chips.
+- `npm run build:summary:client` passed typecheck and production build; Vite reported the repository's existing large-chunk warning.
 
 ### Task 28. Re-Validate Story 64 After Review Outcome Reconciliation
 

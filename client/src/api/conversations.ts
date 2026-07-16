@@ -23,6 +23,11 @@ export type ConversationFlags = Record<string, unknown> & {
   flow?: {
     executionId?: string;
     stepPath?: unknown;
+    input?: {
+      target?: {
+        target_id?: string;
+      };
+    };
     subflowWaveProgress?: {
       expected: number;
       running: number;

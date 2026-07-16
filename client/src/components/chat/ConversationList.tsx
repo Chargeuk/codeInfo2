@@ -71,6 +71,25 @@ const fallbackFilterState: ConversationFilterState = {
   archived: false,
 };
 
+type ConversationFlowWithTargetInput = NonNullable<
+  ConversationFlags['flow']
+> & {
+  input?: {
+    target?: {
+      target_id?: unknown;
+    };
+  };
+};
+
+const getConversationRootTargetId = (flags?: ConversationFlags) => {
+  const targetId = (
+    flags?.flow as ConversationFlowWithTargetInput | undefined
+  )?.input?.target?.target_id;
+  return typeof targetId === 'string' && targetId.length > 0
+    ? targetId
+    : undefined;
+};
+
 const normalizeVisibleFilterState = (state: ConversationFilterState) =>
   state.active || state.archived ? state : fallbackFilterState;
 
@@ -653,6 +672,9 @@ export function ConversationList({
                     conversation.provider,
                     conversation.model,
                   );
+                const rootTargetId = getConversationRootTargetId(
+                  conversation.flags,
+                );
                 const timestamp = formatConversationRowTimestamp(
                   conversation.lastMessageAt,
                   relativeTimeNowMs,
@@ -804,6 +826,31 @@ export function ConversationList({
                                       : 'success'
                                   }
                                   data-testid="conversation-wave-progress-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
+                            {rootTargetId &&
+                              !conversation.flags?.flowChild?.instanceId && (
+                                <Chip
+                                  label={rootTargetId}
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  data-testid="conversation-wave-target-chip"
                                   sx={{
                                     minWidth: 0,
                                     maxWidth: '100%',

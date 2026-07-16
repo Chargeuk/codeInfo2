@@ -1152,14 +1152,14 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] Start the supported main stack with `npm run compose:up`.
-5. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
-6. [ ] Stop the supported main stack with `npm run compose:down`.
-7. [ ] In `codeInfo2`, run `npm run lint`.
-8. [ ] In `codeInfo2`, run `npm run format:check`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [x] Start the supported main stack with `npm run compose:up`.
+5. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+6. [x] Stop the supported main stack with `npm run compose:down`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -1180,8 +1180,16 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Started the supported main stack with `npm run compose:up`; all services started and the server reported healthy.
 - Ran `npm run test:summary:all:parallel` successfully; client (899), server unit (2628), server cucumber (138), and e2e (77) tests all passed.
 - Stopped the supported main stack with `npm run compose:down`; all started containers and the compose network were removed successfully.
+- Re-ran `npm run lint` successfully with exit code 0 and no warnings.
+- Re-ran `npm run format:check` successfully; all tracked files matched Prettier formatting.
 - **RESOLVED ISSUE** The authoritative `codeInfoStatus/flow-state/review-disposition-state.json` reported `incomplete_review_blockers[0].id=aggregated-findings-mismatch` and `safe_to_exit_review_loop_without_tasking=false`: the final review-set had `aggregated_findings: []`, while the validated findings artifact and disposition handoff reported 15 actionable findings. No unchecked subtasks or testing items remained after the prior audit normalization; the disposition state, final review-set, wave-validation artifact, and Markdown findings artifact were checked, and the issue is now converted into the bounded producer repair subtask above rather than being treated as clean closeout.
 - Automated-proof audit confirmed all listed builds, main-stack lifecycle steps, full client/server/Cucumber/e2e suites, lint, and formatting checks were recorded as successful, with no implementation files changed in the proof pass. Task 27 remains `__in_progress__` because the authoritative review outcome is still incomplete, not because of missing automated proof.
 - **BLOCKING ANSWER** The blocker is a proof/validation contract seam caused by an upstream review-artifact shape mismatch, not a product behavior or runtime-environment issue. Repository tracing proved that `server/src/flows/reviewWaveValidation.ts` adds findings to `aggregateFindings()` only from each usable job's server-owned `pointerValidation.validated_findings`, while `server/src/flows/reviewArtifacts.ts::readValidatedFindings()` returns findings only from inline `findings` or a JSON `findings_file`; the current `0000064-current-review.json` points to `0000064-20260715T235743Z-8f7623b0a4-0551069e-findings.md`, so the validator correctly supplies an empty array and the finalized wave records `aggregated_findings: []` even though that Markdown contains 15 actionable findings. The chosen fix is upstream: make the `target_code_review_findings`/main-review publication seam emit the validated findings as inline JSON or a sibling `.json` `findings_file` in the `current-review` pointer, while retaining the Markdown artifact for human-readable disposition; then rerun the focused review-artifact/wave-validation tests and the final proof so `validateReviewWave()` produces the canonical findings and source identities before disposition runs. This fits the local contract because `readValidatedFindings()` already supports both machine-readable forms, `aggregateFindings()` already deduplicates and preserves reviewer provenance, and existing tests in `server/src/test/unit/review-wave-validation.test.ts` cover sibling aggregation, partial-result preservation, slow-wave closeout, and cross-repository gating. The external-library precedent is the official JSON Schema guidance, confirmed through Context7 and `https://json-schema.org/overview/use-cases`, which separates structural document validation from semantic consistency; that supports fixing the producer/consumer contract rather than pretending schema-valid or Markdown text proves cross-artifact agreement. Targeted web research found no external project-specific match for this private workflow; the JSON Schema validation specification at `https://github.com/json-schema-org/json-schema-spec/blob/main/specs/jsonschema-validation.md` likewise supports document-local validation, not maintaining state across separate artifacts. DeepWiki could not provide a repository precedent because `Chargeuk/codeInfo2` is not indexed. The current final task owns the closeout gate and must rerun proof after repair, but the technical repair belongs at the upstream review-artifact producer seam; changing disposition to parse Markdown or trust handoff counts, adding a bespoke Markdown parser downstream, manually editing generated review state, or repeating broad wrappers would preserve the mismatch and violate the server-owned wave-consumer contract, so those alternatives are rejected. No implementation repair was performed in this research step.
 - Planner repair converts the proven producer seam into bounded same-task ownership because Task 27 is the dedicated whole-story final repair and revalidation owner. The new implementation/proof-authoring subtask makes the next stopping point explicit, and all prior automated proof is unchecked because the repair can make those results stale; the task remains `__in_progress__` for the normal implementation and proof loop.
 - Updated the main findings contract so the `current-review` pointer keeps the Markdown `findings_file` for disposition and publishes the same structured findings inline for server-owned wave validation. Added review-artifact and slow-wave regressions for inline finding ingestion and `Main Review` target/source identity; both focused server-unit files passed (44 and 7 tests).
+- Re-ran `npm run build:summary:server` successfully with exit code 0; the wrapper reported a clean success with no warnings.
+- Re-ran `npm run build:summary:client` successfully with exit code 0; the wrapper reported the known large-chunk warning and no build failure.
+- Re-ran `npm run compose:build:summary` successfully with exit code 0; both compose image builds passed.
+- Re-started the supported main stack with `npm run compose:up`; all services started and the server reported healthy.
+- Re-ran `npm run test:summary:all:parallel` successfully; client (899), server unit (2629), server cucumber (138), and e2e (77) tests all passed.
+- Stopped the supported main stack with `npm run compose:down`; all started containers and the compose network were removed successfully.

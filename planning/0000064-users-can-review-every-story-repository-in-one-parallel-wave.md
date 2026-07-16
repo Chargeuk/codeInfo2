@@ -1082,7 +1082,7 @@ Normal-system startup and shutdown are not repeated in this task: Task 26 change
 
 ### Task 27. Re-Validate Story 64 After Review Outcome Reconciliation
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Review Pass ID: `0000064-20260715T235743Z-8f7623b0a4-0551069e`

@@ -25,6 +25,8 @@ describe('flow schema (v1)', () => {
     markdownFile?: string;
     flowNames?: string[];
     pointerKeys?: string[];
+    question?: string;
+    breakOn?: string;
   };
 
   const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
@@ -276,6 +278,7 @@ describe('flow schema (v1)', () => {
       'flows/review_plan.json',
       'flows/review_task_up_path.json',
       'flows/two_phase_review_cycle.json',
+      'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -381,6 +384,92 @@ describe('flow schema (v1)', () => {
         'load_planner_story_context.md',
         'load_planner_story_context.md',
       ].sort(),
+    );
+  });
+
+  test('implement_current_plan keeps the stored handoff and skips completed task execution before review', async () => {
+    const currentPath = 'flows/implement_current_plan.json';
+    const currentRaw = await fs.readFile(
+      path.join(repoRoot, currentPath),
+      'utf8',
+    );
+    const current = JSON.parse(currentRaw) as { steps?: FlowStep[] };
+    assert.ok(
+      Array.isArray(current.steps),
+      `${currentPath} should define steps`,
+    );
+
+    const firstStep = current.steps?.[0];
+    assert.equal(firstStep?.label, 'Planner Load And Validate Current Plan');
+    assert.equal(firstStep?.markdownFile, 'use_current_plan_handoff.md');
+    assert.equal(
+      flattenSteps(current.steps ?? []).some(
+        (step) => step.markdownFile === 'store_current_plan_handoff.md',
+      ),
+      false,
+      'implement_current_plan must not discover or select another plan',
+    );
+
+    const storyLoop = current.steps?.find(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    assert.ok(storyLoop, 'implement_current_plan should define the story loop');
+    const taskLoop = storyLoop.steps?.find(
+      (step) => step.label === 'Task Execution And Blocker Repair Loop',
+    );
+    assert.ok(taskLoop, 'implement_current_plan should define the task loop');
+
+    const reviewFirstGate = taskLoop.steps?.[0];
+    assert.equal(reviewFirstGate?.type, 'break');
+    assert.equal(
+      reviewFirstGate?.label,
+      'Skip task execution when current plan is already complete',
+    );
+    assert.equal(reviewFirstGate?.breakOn, 'yes');
+    assert.match(
+      reviewFirstGate?.question ?? '',
+      /scripts\/flow_control\/check_story_complete\.py/,
+    );
+
+    const labels = flattenSteps(current.steps ?? []).map((step) => step.label);
+    assertOrdered(
+      labels,
+      'Skip task execution when current plan is already complete',
+      'Current Task Rework Loop',
+    );
+    assertOrdered(
+      labels,
+      'Task Execution And Blocker Repair Loop',
+      'Reset Review Cycle State',
+    );
+    const storyLabels = storyLoop.steps?.map((step) => step.label) ?? [];
+    assertOrdered(
+      storyLabels,
+      'Run Two-Phase Review Cycle',
+      'Check for completion',
+    );
+
+    const nextRaw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const next = JSON.parse(nextRaw) as { steps?: FlowStep[] };
+    const nextStoryLoop = next.steps?.find(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    assert.ok(
+      nextStoryLoop,
+      'implement_next_plan should define the story loop',
+    );
+    const currentStoryLoopWithoutGate = structuredClone(storyLoop);
+    const currentTaskLoop = currentStoryLoopWithoutGate.steps?.find(
+      (step) => step.label === 'Task Execution And Blocker Repair Loop',
+    );
+    currentTaskLoop?.steps?.shift();
+    assert.deepEqual(
+      currentStoryLoopWithoutGate,
+      nextStoryLoop,
+      'the current-plan flow should differ from the canonical story loop only by its review-first gate',
     );
   });
 
@@ -548,6 +637,12 @@ describe('flow schema (v1)', () => {
         challengeCommand: 'review_blind_spot_challenge',
       },
       {
+        relativePath: 'flows/implement_current_plan.json',
+        findingsCommand: 'code_review_findings',
+        saturationCommand: 'review_findings_saturation',
+        challengeCommand: 'review_blind_spot_challenge',
+      },
+      {
         relativePath: 'flows/task_and_implement_plan.json',
         findingsCommand: 'code_review_findings',
         saturationCommand: 'review_findings_saturation',
@@ -588,6 +683,7 @@ describe('flow schema (v1)', () => {
       if (
         [
           'flows/implement_next_plan.json',
+          'flows/implement_current_plan.json',
           'flows/task_and_implement_plan.json',
           'flows/improve_task_implement_plan.json',
         ].includes(flowFile.relativePath)
@@ -638,6 +734,7 @@ describe('flow schema (v1)', () => {
     const flowFiles = [
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/ingest_external_review_plan.json',
@@ -693,6 +790,7 @@ describe('flow schema (v1)', () => {
   test('main implementation flows include story and review repair steps', async () => {
     const flowFiles = [
       'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ] as const;
@@ -716,6 +814,7 @@ describe('flow schema (v1)', () => {
   test('main implementation flows scope-audit review-created tasks before simple-story refresh', async () => {
     const flowFiles = [
       'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ] as const;
@@ -785,6 +884,7 @@ describe('flow schema (v1)', () => {
   test('main implementation flows filter review findings immediately after classifier disposition', async () => {
     const flowFiles = [
       'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ] as const;
@@ -1024,6 +1124,7 @@ describe('flow schema (v1)', () => {
     const flowFiles = [
       'flows/review_plan.json',
       'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/ingest_external_review_plan.json',

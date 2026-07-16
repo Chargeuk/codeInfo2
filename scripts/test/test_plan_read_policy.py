@@ -123,33 +123,47 @@ def reachable_assets(flow_name: str) -> tuple[set[Path], list[str]]:
 
 class PlanReadPolicyTests(unittest.TestCase):
     def test_reachable_prompts_forbid_unbounded_plan_reads(self) -> None:
-        markdown, inline_text = reachable_assets("implement_next_plan")
         failures: list[str] = []
-        for path in sorted(markdown):
-            text = path.read_text()
-            for line_no, line in enumerate(text.splitlines(), start=1):
-                if has_unnegated_forbidden_plan_read(line):
-                    failures.append(f"{path.relative_to(REPO_ROOT)}:{line_no}: {line}")
-            if any(pattern.search(text) for pattern in FORBIDDEN_DOCUMENT_PLAN_READS):
-                failures.append(f"{path.relative_to(REPO_ROOT)}: document-level read")
-        for index, text in enumerate(inline_text):
-            for line in text.splitlines():
-                if has_unnegated_forbidden_plan_read(line):
-                    failures.append(f"inline[{index}]: {line}")
+        for flow_name in ("implement_next_plan", "implement_current_plan"):
+            markdown, inline_text = reachable_assets(flow_name)
+            for path in sorted(markdown):
+                text = path.read_text()
+                for line_no, line in enumerate(text.splitlines(), start=1):
+                    if has_unnegated_forbidden_plan_read(line):
+                        failures.append(
+                            f"{flow_name}:{path.relative_to(REPO_ROOT)}:{line_no}: {line}"
+                        )
+                if any(
+                    pattern.search(text) for pattern in FORBIDDEN_DOCUMENT_PLAN_READS
+                ):
+                    failures.append(
+                        f"{flow_name}:{path.relative_to(REPO_ROOT)}: document-level read"
+                    )
+            for index, text in enumerate(inline_text):
+                for line in text.splitlines():
+                    if has_unnegated_forbidden_plan_read(line):
+                        failures.append(f"{flow_name}:inline[{index}]: {line}")
         self.assertEqual(failures, [])
 
     def test_every_reachable_plan_sections_call_imports_bounded_contract(self) -> None:
-        markdown, inline_text = reachable_assets("implement_next_plan")
         failures: list[str] = []
-        for path in sorted(markdown):
-            text = path.read_text()
-            if path == MARKDOWN_ROOT / "shared/bounded-plan-read.md":
-                continue
-            if "plan_sections.py" in text and "shared/bounded-plan-read.md" not in text:
-                failures.append(str(path.relative_to(REPO_ROOT)))
-        for index, text in enumerate(inline_text):
-            if "plan_sections.py" in text and "shared/bounded-plan-read.md" not in text:
-                failures.append(f"inline[{index}]")
+        for flow_name in ("implement_next_plan", "implement_current_plan"):
+            markdown, inline_text = reachable_assets(flow_name)
+            for path in sorted(markdown):
+                text = path.read_text()
+                if path == MARKDOWN_ROOT / "shared/bounded-plan-read.md":
+                    continue
+                if (
+                    "plan_sections.py" in text
+                    and "shared/bounded-plan-read.md" not in text
+                ):
+                    failures.append(f"{flow_name}:{path.relative_to(REPO_ROOT)}")
+            for index, text in enumerate(inline_text):
+                if (
+                    "plan_sections.py" in text
+                    and "shared/bounded-plan-read.md" not in text
+                ):
+                    failures.append(f"{flow_name}:inline[{index}]")
         self.assertEqual(failures, [])
 
     def test_review_artifact_agents_remain_reachable_from_policy_walk(self) -> None:

@@ -189,6 +189,7 @@ const prepareOneTarget = async (params: {
           repoRoot: params.target.repo_root,
           branch: params.target.branch,
           headCommit: params.target.head_commit,
+          comparisonBaseCommit: params.target.comparison_base_commit,
         },
         reviewContext,
       },

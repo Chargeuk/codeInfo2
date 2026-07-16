@@ -40,6 +40,7 @@ const createRepository = async (
   await fs.writeFile(path.join(root, 'README.md'), `${name}\n`);
   await execFile('git', ['add', 'README.md'], { cwd: root });
   await execFile('git', ['commit', '-m', 'initial'], { cwd: root });
+  await execFile('git', ['branch', 'main'], { cwd: root });
   return root;
 };
 
@@ -104,7 +105,8 @@ test('prepareReviewTargets snapshots one and three canonical repository targets'
           result.snapshot.targets.every(
             (target) =>
               target.branch === 'feature/0000064-parallel-review' &&
-              target.head_commit.length === 40,
+              target.head_commit.length === 40 &&
+              target.comparison_base_commit?.length === 40,
           ),
           true,
         );

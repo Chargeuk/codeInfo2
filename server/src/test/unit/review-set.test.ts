@@ -45,6 +45,7 @@ const target = (root: string, index: number): ReviewTarget => ({
   repository_id: `repo-${index}`,
   branch: 'feature/0000064-parallel-review',
   head_commit: sha(String(index + 1)),
+  comparison_base_commit: sha(String(index + 4)),
   story_id: '0000064',
   is_primary: index === 0,
 });
@@ -132,6 +133,16 @@ test('prepareReviewSet isolates target pointers and enumerates the complete wave
             prepared.snapshot.plan_host_root &&
           call.explicitScope.target.targetId ===
             call.explicitScope.target.repoAlias,
+      ),
+      true,
+    );
+    assert.equal(
+      calls.every(
+        (call) =>
+          call.explicitScope?.target.comparisonBaseCommit ===
+          prepared.snapshot.targets.find(
+            (target) => target.target_id === call.explicitScope?.target.targetId,
+          )?.comparison_base_commit,
       ),
       true,
     );

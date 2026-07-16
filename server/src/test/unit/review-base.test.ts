@@ -231,6 +231,7 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
             repoRoot,
             branch: 'feature/0000027-codex-review',
             headCommit: HEAD_SHA,
+            comparisonBaseCommit: BASE_SHA,
           },
         },
       },
@@ -265,6 +266,43 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         waveResult.artifact.comparison_base_commit,
       );
     }
+    await assert.rejects(
+      prepareReviewBase(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-review-base',
+          parentExecutionId: 'execution-27',
+          explicitScope: {
+            planHostRoot: repoRoot,
+            planPath: 'planning/0000027-codex-review.md',
+            storyNumber: '0000027',
+            branchedFrom: 'main',
+            reviewWaveId: '0000027-rw-wave-test',
+            reviewContext: await prepareReviewContext({
+              repoRoot,
+              storyNumber: '0000027',
+              planPath: 'planning/0000027-codex-review.md',
+              branch: 'feature/0000027-codex-review',
+            }),
+            target: {
+              targetId: 'additional-repository-1',
+              repoAlias: 'additional-repository-1',
+              repoRoot,
+              branch: 'feature/0000027-codex-review',
+              headCommit: HEAD_SHA,
+              comparisonBaseCommit: 'f'.repeat(40),
+            },
+          },
+        },
+        {
+          execFile,
+          prepareReviewContext,
+          now: () => new Date('2026-07-05T16:30:00.000Z'),
+          randomHex: () => 'c0ffee12',
+        },
+      ),
+      /comparison base drifted/u,
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

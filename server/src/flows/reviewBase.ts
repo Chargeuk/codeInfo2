@@ -76,6 +76,7 @@ export type ExplicitReviewBaseScope = {
     repoRoot: string;
     branch: string;
     headCommit: string;
+    comparisonBaseCommit?: string;
   };
   reviewContext: PrepareReviewContextResult;
 };
@@ -120,7 +121,7 @@ type GitCommandResult =
   | { ok: true; stdout: string; stderr: string }
   | { ok: false; stdout: string; stderr: string; code?: number };
 
-type BaseResolution = {
+export type BaseResolution = {
   logicalBaseBranch: string;
   resolvedBaseBranch: string;
   resolvedBaseSource: 'remote' | 'local_fallback';
@@ -339,7 +340,7 @@ async function resolveDefaultBranch(
   return preferredFallbackBranch ?? 'main';
 }
 
-async function resolveBaseComparison(params: {
+export async function resolveBaseComparison(params: {
   repoRoot: string;
   currentBranch: string;
   branchedFrom?: string;
@@ -669,6 +670,15 @@ export async function prepareReviewBase(
     deps: resolvedDeps,
     signal: params.signal,
   });
+  if (
+    params.explicitScope?.target.comparisonBaseCommit &&
+    baseResolution.comparisonBaseCommit !==
+      params.explicitScope.target.comparisonBaseCommit
+  ) {
+    throw new Error(
+      `Review target comparison base drifted from ${params.explicitScope.target.comparisonBaseCommit} to ${baseResolution.comparisonBaseCommit}.`,
+    );
+  }
   const reviewContext =
     params.explicitScope?.reviewContext ??
     (await resolvedDeps.prepareReviewContext({

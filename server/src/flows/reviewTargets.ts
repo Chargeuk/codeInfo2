@@ -10,7 +10,10 @@ import {
 } from '../lmstudio/toolService.js';
 import { resolveWorkingFolderWorkingDirectory } from '../workingFolders/executionContext.js';
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
-import { resolveReviewRepositoryRoot } from './reviewBase.js';
+import {
+  resolveBaseComparison,
+  resolveReviewRepositoryRoot,
+} from './reviewBase.js';
 import {
   atomicWriteJson,
   buildReviewArtifactPath,
@@ -30,6 +33,7 @@ export type ReviewTarget = {
   repository_id: string;
   branch: string;
   head_commit: string;
+  comparison_base_commit?: string;
   story_id: string;
   is_primary: boolean;
 };
@@ -232,6 +236,13 @@ export async function prepareReviewTargets(
       resolvedDeps,
       params.signal,
     );
+    const base = await resolveBaseComparison({
+      repoRoot: realRoot,
+      currentBranch: branch,
+      branchedFrom: branchedFrom ?? undefined,
+      deps: { execFile: resolvedDeps.execFile },
+      signal: params.signal,
+    });
     const repoAlias =
       index === 0
         ? 'current_repository'
@@ -247,6 +258,7 @@ export async function prepareReviewTargets(
       repository_id: repository.id,
       branch,
       head_commit: headCommit,
+      comparison_base_commit: base.comparisonBaseCommit,
       story_id: storyId,
       is_primary: index === 0,
     });
